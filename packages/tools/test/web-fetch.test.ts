@@ -142,7 +142,9 @@ const LONG = [
 ].join('\n');
 
 describe('web_fetch', () => {
-  const tool = createWebFetchTool({ allowPrivateHosts: true, timeoutMs: 300 });
+  // A limit far above any local answer: only `/slow`, which never answers, may reach it, and
+  // the test that wants the timeout uses a tool of its own (D-149).
+  const tool = createWebFetchTool({ allowPrivateHosts: true, timeoutMs: 10_000 });
 
   it('returns 8000 characters by default, and says how much is left (D-064)', async () => {
     const out = await tool.execute({ url: `${base}/long` }, ctx());
@@ -188,7 +190,7 @@ describe('web_fetch', () => {
   });
 
   it('suggests `urls` after two single pages, and to stop after 8 pages (D-071)', async () => {
-    const own = createWebFetchTool({ allowPrivateHosts: true, timeoutMs: 300 });
+    const own = createWebFetchTool({ allowPrivateHosts: true, timeoutMs: 10_000 });
     const run: ToolContext = { ...ctx(), runId: 'r-tips' };
     expect((await own.execute({ url: `${base}/plain` }, run)).notice).toBeUndefined();
     expect((await own.execute({ url: `${base}/article` }, run)).notice).toMatch(
@@ -205,7 +207,7 @@ describe('web_fetch', () => {
   });
 
   it('a site that refused is not asked again in the same task (D-071)', async () => {
-    const own = createWebFetchTool({ allowPrivateHosts: true, timeoutMs: 300 });
+    const own = createWebFetchTool({ allowPrivateHosts: true, timeoutMs: 10_000 });
     const run = (id: string): ToolContext => ({ ...ctx(), runId: id });
     forbidden = 0;
     const first = await own
@@ -270,7 +272,9 @@ describe('web_fetch', () => {
     expect(await code(`${base}/pdf`)).toBe('INVALID_INPUT');
     expect(await code('ftp://example.com/x')).toBe('INVALID_INPUT');
     expect(await code('non è un url')).toBe('INVALID_INPUT');
-    expect(await code(`${base}/slow`)).toBe('UNAVAILABLE');
+    const quick = createWebFetchTool({ allowPrivateHosts: true, timeoutMs: 50 });
+    const timedOut = await quick.execute({ url: `${base}/slow` }, ctx()).catch((e: unknown) => e);
+    expect(timedOut).toMatchObject({ code: 'UNAVAILABLE' });
     const ac = new AbortController();
     const pending = code(`${base}/slow`, ctx(ac.signal));
     setTimeout(() => ac.abort(new Error('kill')), 20);
@@ -278,7 +282,7 @@ describe('web_fetch', () => {
   });
 
   it('a 403 is a refusal of the site, never worded as a permission', async () => {
-    const own = createWebFetchTool({ allowPrivateHosts: true, timeoutMs: 300 });
+    const own = createWebFetchTool({ allowPrivateHosts: true, timeoutMs: 10_000 });
     const err = (await own
       .execute({ url: `${base}/forbidden/x` }, { ...ctx(), runId: 'r-403-words' })
       .catch((e: unknown) => e)) as ToolError;
