@@ -4797,8 +4797,18 @@ il limite" controlla l'istante preciso sull'orologio finto invece di `Date.now()
 a non restare appesi (`web_fetch`), il limite è largo (10 s) e il test del timeout ha uno strumento suo con un limite
 corto. I test nel verso opposto ("il limite scatta") possono restare su timer veri: una macchina lenta li rende solo
 più lenti.
+**Dependabot (`.github/dependabot.yml`):** i gruppi non si sovrappongono più. Electron, eslint e vitest erano finiti
+anche nel gruppo `dev-dependencies` insieme ai loro gruppi con nome: due PR con lo stesso pacchetto, e una superava
+l'altra a ogni giro. Ora i gruppi `dependencies` e `dev-dependencies` escludono con `exclude-patterns` tutti i
+pacchetti dei gruppi con nome. `simple-icons` ha un gruppo suo: dopo ogni aggiornamento va lanciato
+`pnpm --filter @monsters/web icons` (il test dei marchi copiati lo pretende, e deve restare così), e da solo non tiene
+ferma la CI degli altri. Si ignorano le major di Electron (si spostano a mano, insieme all'app) e di TypeScript:
+TypeScript 7 non è ancora supportato da `astro check` (`@astrojs/check` 0.9.11 vuole TypeScript 5 o 6) né da
+typescript-eslint (8.72 vuole `<6.1`), quindi la PR che lo portava è stata chiusa e il repo resta su TypeScript 6.
+Si toglie l'esclusione quando i due lo supportano.
 **Motivazione:** correggere la classe (D-148): un test di tempi che dipende dalla velocità del runner prima o poi
-fallisce su un runner, e il fallimento non dice nulla sul prodotto.
+fallisce su un runner, e il fallimento non dice nulla sul prodotto. Una PR di Dependabot deve essere rossa solo per un
+aggiornamento che rompe davvero qualcosa, e una sola PR deve portare ogni pacchetto.
 
 ### D-150 · Il sito su getmonsters.dev; workers.dev resta ma non si indicizza
 **Stato:** fatta · 20/10/2026

@@ -9,6 +9,17 @@ updates:
       day: monday
     open-pull-requests-limit: 5
     versioning-strategy: increase
+    # Majors that the tools around them do not support yet (D-149): Electron majors are
+    # moved by hand with the app; TypeScript 7 is refused by `astro check` and by
+    # typescript-eslint.
+    ignore:
+      - dependency-name: 'electron'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
+    # Groups never overlap (D-149): the named groups own their packages, and the two
+    # catch-all groups exclude them all, so a PR is not superseded by another one that
+    # carries the same package.
     groups:
       electron:
         patterns:
@@ -28,16 +39,48 @@ updates:
           - 'typescript'
           - 'typescript-eslint'
           - '@typescript-eslint/*'
+      # Needs `pnpm --filter @monsters/web icons` on the PR: alone, it never holds back the rest.
+      simple-icons:
+        patterns:
+          - 'simple-icons'
       dependencies:
         dependency-type: production
         update-types:
           - minor
           - patch
+        exclude-patterns:
+          - 'electron'
+          - 'electron-*'
+          - 'vite'
+          - 'vite-*'
+          - 'vitest'
+          - '@vitest/*'
+          - 'eslint'
+          - 'eslint-*'
+          - '@eslint/*'
+          - 'typescript'
+          - 'typescript-eslint'
+          - '@typescript-eslint/*'
+          - 'simple-icons'
       dev-dependencies:
         dependency-type: development
         update-types:
           - minor
           - patch
+        exclude-patterns:
+          - 'electron'
+          - 'electron-*'
+          - 'vite'
+          - 'vite-*'
+          - 'vitest'
+          - '@vitest/*'
+          - 'eslint'
+          - 'eslint-*'
+          - '@eslint/*'
+          - 'typescript'
+          - 'typescript-eslint'
+          - '@typescript-eslint/*'
+          - 'simple-icons'
   - package-ecosystem: github-actions
     directory: '/'
     schedule:
