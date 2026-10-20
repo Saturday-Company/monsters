@@ -43,7 +43,11 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm format:check
+      # A time zone far from UTC (the other runners) and from the maintainers' (Europe/Rome):
+      # a test that reads the local clock without fixing its zone fails here first (D-148).
       - run: pnpm test
+        env:
+          TZ: Pacific/Kiritimati
       - run: pnpm --filter @monsters/web build
 
       # End-to-end tests of the UI: Chromium of Playwright, the mock flows (Vite dev server)

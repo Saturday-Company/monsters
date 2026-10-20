@@ -332,7 +332,7 @@ async function main(): Promise<number> {
   return failed ? 2 : exitCode(runs);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
   main().then(
     (code) => process.exit(code),
     (error: unknown) => {

@@ -330,6 +330,13 @@ function patternReach(abs: string, p: Prepared, dots: boolean): Reach {
   const fixed = fixedPart(abs, p);
   if (p.allowed.some((a) => isInside(a, fixed, p.platform))) return NONE;
   const c = segmentsOf(abs, p);
+  // An allowed folder spelled out at its start, short names included (`C:\Users\RUNNER~1\…`
+  // when the home's 8.3 name is in %TEMP%): the same entries, so the pattern stays there.
+  const spelledOut = (a: string) => {
+    const s = segmentsOf(a, p);
+    return s.length <= c.length && s.every((seg, i) => !GLOB.test(seg) && seg === c[i]);
+  };
+  if (p.allowed.some(spelledOut)) return NONE;
   const rules = { platform: p.platform, dots };
   let best: Reach = NONE;
   for (const d of p.data) best = Math.max(best, reach(c, segmentsOf(d, p), 0, 0, rules)) as Reach;
@@ -403,7 +410,8 @@ export function lockedPath(raw: string, cwd: string, lock: DataDirLock): LockVer
   if (!raw.trim()) return null;
   const p = prepare(lock);
   const expanded = expandPath(raw, p);
-  const abs = p.P.isAbsolute(expanded) ? p.P.resolve(expanded) : p.P.resolve(cwd, expanded);
+  // From the working folder also when absolute: on Windows `\x` is on the working folder's drive.
+  const abs = p.P.resolve(cwd, expanded);
   if (lockedAbs(abs, p)) return denied(abs);
   // A short name the file system did not expand (or a name the tool may glob).
   if (fuzzy(abs, p) && patternReach(abs, p, false) >= EXACT) return denied(abs);
@@ -431,7 +439,7 @@ export function lockedSearch(
   const p = prepare(lock);
   const toAbs = (raw: string, from: string) => {
     const e = expandPath(raw, p);
-    return p.P.isAbsolute(e) ? p.P.resolve(e) : p.P.resolve(from, e);
+    return p.P.resolve(from, e);
   };
   const rootAbs = toAbs(input.path?.trim() ? input.path : '.', cwd);
   if (lockedAbs(rootAbs, p)) return denied(rootAbs);
@@ -473,12 +481,7 @@ function lockedText(text: string, cwd: string, p: Prepared): LockVerdict | null 
   for (const m of text.matchAll(CD)) {
     const target = (m[1] ?? '').replace(/^['"]|['"]$/g, '');
     for (const b of [...bases]) {
-      const abs =
-        !target || target === '~'
-          ? p.home
-          : P.isAbsolute(target)
-            ? P.resolve(target)
-            : P.resolve(b, target);
+      const abs = !target || target === '~' ? p.home : P.resolve(b, target);
       if (lockedAbs(abs, p)) return denied(abs);
       if (fuzzy(target, p) && patternReach(abs, p, true) >= EXACT) return denied(abs);
       if (!bases.includes(abs)) bases.push(abs);
@@ -502,7 +505,8 @@ function lockedText(text: string, cwd: string, p: Prepared): LockVerdict | null 
     const w = raw.replace(OPTION, '');
     if (!looksLikePath(w)) continue;
     if (P.isAbsolute(w)) {
-      const abs = P.resolve(w);
+      // `\x` on Windows: the drive of the folder the command is in, not the core's.
+      const abs = P.resolve(bases[0]!, w);
       if (lockedAbs(abs, p)) return denied(abs);
       if (!holds && holdsData(abs, p)) holds = abs;
       continue;
@@ -519,7 +523,9 @@ function lockedText(text: string, cwd: string, p: Prepared): LockVerdict | null 
     const w = raw.replace(OPTION, '');
     if (!w || !fuzzy(w, p) || !looksLikePath(w.replace(/[*?[{]/g, 'x'))) continue;
     // Relative patterns only from the folders the command is in: `.*` in the cwd is not home's.
-    const candidates = P.isAbsolute(w) ? [P.resolve(w)] : bases.map((b) => P.resolve(b, w));
+    const candidates = P.isAbsolute(w)
+      ? [P.resolve(bases[0]!, w)]
+      : bases.map((b) => P.resolve(b, w));
     for (const abs of candidates) {
       const r = patternReach(abs, p, true);
       if (r >= EXACT) return denied(abs);

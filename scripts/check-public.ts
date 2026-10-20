@@ -419,4 +419,5 @@ function main(): void {
   process.exit(1);
 }
 
-if (import.meta.filename === resolve(process.argv[1] ?? '')) main();
+// `import.meta.main`, not argv[1]: a path through a link (`/var` on macOS) is the same script.
+if (import.meta.main) main();

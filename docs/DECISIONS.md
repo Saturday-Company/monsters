@@ -4753,3 +4753,29 @@ status del commit (`local-ci/linux`, `local-ci/windows`, `local-ci/macos`, `loca
 (`pnpm ci:status`), così GitHub mostra la verifica locale senza rimettere Actions a pagamento. La mappatura dal cancello
 agli stati è pura e testata; si pubblica solo per commit già su origin, senza `target_url` e senza percorsi, host o dati
 personali nelle descrizioni; `--no-status` e `--dry-run` per saltare o vedere i comandi.
+
+### D-148 · Test uguali su ogni sistema: percorsi reali, ora fissa, cartella temporanea dietro un link
+**Stato:** fatta · 20/10/2026
+**Contesto:** con gli Actions sul repo pubblico, test verdi sulla macchina Linux dei manutentori fallivano sui runner
+di GitHub. Tre famiglie: (1) **percorsi con due grafie**: su macOS `/var/folders/…` è `/private/var/folders/…`, sui
+runner Windows `%TEMP%` porta il nome corto 8.3 della home (`C:\Users\RUNNER~1\…` per `runneradmin`); i test
+confrontavano il percorso che avevano costruito con quello che il codice risolve (realpath, cwd di un figlio,
+`require.resolve`) o tagliavano una grafia con la lunghezza dell'altra; (2) **orologio**: il mock della settimana del
+piano Claude metteva il mercoledì successivo, che il martedì sera è a poche ore e si legge "tra 20 h" invece di
+"mer 16:00"; (3) **"sono lo script principale?"** deciso confrontando `process.argv[1]` con `import.meta.url`, che
+dietro un link sono diversi: `check-public` su un Mac non controllava nulla e usciva 0.
+**Bug veri, corretti nel prodotto:** il freno sulla cartella dei dati (D-078, `lockout.ts`) trattava il nome corto
+`RUNNER~1` **sopra** la cartella di lavoro come un possibile `.monsters` e chiudeva la cartella di lavoro stessa (file,
+comandi, hook degli harness, Telegram): ora un pattern che comincia scrivendo per intero una cartella permessa resta lì.
+Su Windows `\` e `/x` senza unità si risolvevano sull'unità del processo del core (D:\ sui runner), non su quella della
+cartella di lavoro: `find / …` passava. `secretsAccount` di una home non ancora creata usava il percorso com'era e, creata
+la home dietro un link, cambiava account (la chiave nel portachiavi non si ritrovava): ora risolve la cartella esistente
+più profonda. `check-public` e gli altri script usano `import.meta.main`.
+**Difese per la famiglia:** `vitest.env.ts` fa passare la cartella temporanea dei test da un link (`/tmp/mt-<uid>` →
+`/tmp/monsters-tests-<uid>`, nomi di lunghezza diversa) dove non lo è già, così la famiglia (1) fallisce anche su Linux
+(`MONSTERS_TEST_TMPDIR=plain` torna alla cartella di sistema); i test confrontano con `realpathSync.native`; il job
+linux della CI esegue i test con `TZ=Pacific/Kiritimati` (UTC+14, lontano dagli altri runner e da Europe/Rome); il mock
+del piano ha un test che lo legge a ogni mezz'ora di una settimana; i casi Windows del freno hanno test simulati
+(regole win32) che girano ovunque.
+**Motivazione:** correggere la classe, non il caso: un test nuovo sbaglia nello stesso modo, e chi lo scrive lo deve
+vedere sulla propria macchina prima che sui runner.

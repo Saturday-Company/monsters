@@ -1,6 +1,6 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   forbiddenEntries,
@@ -97,7 +97,9 @@ describe('paths of the file tools', () => {
   });
 
   it('lists what deny rules must cover: everything but the working folder', () => {
-    const entries = forbiddenEntries(lock).map((p) => p.slice(data.length + 1).replace(/\\/g, '/'));
+    // Real paths (`/private/var/…` on macOS, long names on Windows): relative to the real folder.
+    const real = realpathSync.native(data);
+    const entries = forbiddenEntries(lock).map((p) => relative(real, p).replace(/\\/g, '/'));
     expect(entries.sort()).toEqual(
       ['agents', 'monsters.db', 'secrets', 'settings.json', 'workspaces/rhea'].sort(),
     );
@@ -262,5 +264,68 @@ describe('on Windows (path rules of win32)', () => {
     }
     expect(lockedPath('AGENTS.md', winWs, win)).toBeNull();
     expect(lockedPath('C:\\Users\\u\\DOCUME~1\\a.txt', winWs, win)).toBeNull();
+  });
+
+  it('a root without a drive is the root of the working folder’s drive', () => {
+    // The core may run from another drive (D:\ on GitHub's runners): `\` is still C:\ here.
+    for (const c of ['find / -name monsters.db', 'Get-ChildItem \\ -Recurse', 'grep -r token /*']) {
+      expect(lockedCommand(c, winWs, win)?.message, c).toBe(INTERNAL_FILES_TREE_DENIED);
+    }
+    expect(lockedPath('\\Users\\u\\.monsters\\settings.json', winWs, win)?.message).toBe(
+      INTERNAL_FILES_DENIED,
+    );
+    expect(lockedSearch({ path: '\\Users\\u', recursive: true }, winWs, win)?.message).toBe(
+      INTERNAL_FILES_TREE_DENIED,
+    );
+  });
+
+  // A user name longer than eight letters: %TEMP% and paths built from it carry the
+  // 8.3 short name of the home (`C:\Users\RUNNER~1`, the runners of GitHub).
+  const shortHome = 'C:\\Users\\RUNNER~1';
+  const shortData = `${shortHome}\\.monsters`;
+  const shortWs = `${shortData}\\workspaces\\titan`;
+  const short: DataDirLock = {
+    dataDir: shortData,
+    allowed: [shortWs],
+    home: shortHome,
+    platform: 'win32',
+    env: {},
+  };
+
+  it('a short name in the folders above the working folder is not the data folder', () => {
+    for (const p of [`${shortWs}\\AGENTS.md`, 'AGENTS.md', `${shortWs}\\out\\*.txt`, shortWs]) {
+      expect(lockedPath(p, shortWs, short), p).toBeNull();
+    }
+    for (const c of [
+      `ls ${shortWs}`,
+      `type ${shortWs}\\AGENTS.md`,
+      'cat ./out/*.txt',
+      `Get-Content ${shortWs}\\*.md`,
+      'ls -la && cat AGENTS.md',
+    ]) {
+      expect(lockedCommand(c, shortWs, short), c).toBeNull();
+    }
+    expect(
+      lockedSearch({ path: shortWs, pattern: '**/*.md', recursive: true }, shortWs, short),
+    ).toBeNull();
+    // …while the data folder stays closed, in the short spelling and in others.
+    for (const p of [
+      `${shortData}\\settings.json`,
+      `${shortHome}\\MONSTE~1\\settings.json`,
+      `${shortData}\\workspaces\\rhea\\notes.md`,
+      `${shortData}\\*\\agent.yaml`,
+      '..\\rhea\\notes.md',
+    ]) {
+      expect(lockedPath(p, shortWs, short)?.message, p).toBe(INTERNAL_FILES_DENIED);
+    }
+    for (const c of [
+      `type ${shortData}\\settings.json`,
+      `type ${shortHome}\\MONSTE~1\\settings.json`,
+      'type ~\\.monsters\\settings.json',
+      `Get-Content ${shortData}\\workspaces\\*\\notes.md`,
+      `Get-Content ${shortWs}\\..\\rhea\\notes.md`,
+    ]) {
+      expect(lockedCommand(c, shortWs, short)?.message, c).toBe(INTERNAL_FILES_DENIED);
+    }
   });
 });

@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type * as nodeFs from 'node:fs';
@@ -32,15 +40,23 @@ const touched: string[] = [];
 vi.mock('node:fs', async (importOriginal) => {
   const real = await importOriginal<typeof nodeFs>();
   const wrapped: Record<string, unknown> = {};
+  // `realpathSync.native` and the like are wrapped too: the code calls them.
+  const track = (fn: (...a: unknown[]) => unknown): unknown => {
+    const w = (...args: unknown[]) => {
+      for (const a of args.slice(0, 2)) {
+        if (typeof a === 'string' || a instanceof URL) touched.push(String(a));
+      }
+      return fn(...args);
+    };
+    const native = (fn as { native?: unknown }).native;
+    return typeof native === 'function'
+      ? Object.assign(w, { native: track(native as (...a: unknown[]) => unknown) })
+      : w;
+  };
   for (const [name, value] of Object.entries(real)) {
     wrapped[name] =
       typeof value === 'function' && /^[a-z]/.test(name)
-        ? (...args: unknown[]) => {
-            for (const a of args.slice(0, 2)) {
-              if (typeof a === 'string' || a instanceof URL) touched.push(String(a));
-            }
-            return (value as (...a: unknown[]) => unknown)(...args);
-          }
+        ? track(value as (...a: unknown[]) => unknown)
         : value;
   }
   // isomorphic-git probes this property on the fs it gets.
@@ -390,7 +406,8 @@ describe('Claude Agent', () => {
     expect(argv).toEqual(expect.arrayContaining(['mcp__claude_ai_Figma', 'mcp__claude_ai_Slack']));
     // The checks ran in a folder of Monsters, not in the user's projects.
     for (const r of records(record).filter((x) => x.kind === 'mcp-get')) {
-      expect(r['cwd'] as string).toContain(t.core.paths.home);
+      // The child's own cwd is a real path (`/private/var/…` on macOS).
+      expect(r['cwd'] as string).toContain(realpathSync.native(t.core.paths.home));
     }
     const removed = await t.json<ClaudeConnectionsResponse>(
       'DELETE',

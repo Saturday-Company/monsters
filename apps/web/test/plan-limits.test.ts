@@ -11,6 +11,7 @@ import {
   toneNote,
   windowNote,
 } from '../src/components/usage/plan-limits-format.ts';
+import { nextWednesday } from '../src/lib/mock/plan-limits.ts';
 
 // Local times: the tests build their dates the same way the formatters read them.
 const at = (y: number, mo: number, d: number, h: number, mi: number) =>
@@ -144,5 +145,14 @@ describe('PlanLimitsBlock', () => {
     expect(html).toContain('5 ore');
     expect(html).toContain('Aggiornato 6 h fa');
     expect(html).not.toContain('quasi al limite');
+  });
+});
+
+describe('the mock of ?mock=demo reads the same at any hour of the week', () => {
+  it('the Claude week resets on a Wednesday at 16:00, at least a day away', () => {
+    // Every half hour of a week, Tuesday evening included (the next Wednesday is hours away).
+    for (let t = at(2026, 10, 19, 0, 0); t < at(2026, 10, 26, 0, 0); t += 30 * 60_000) {
+      expect(formatResetsIn(nextWednesday(t), t), new Date(t).toString()).toBe('mer 16:00');
+    }
   });
 });

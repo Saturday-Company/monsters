@@ -59,7 +59,8 @@ afterEach(() => {
 
 /** A folder outside the data folder and the notes: the project's repo. */
 function repo(files: Record<string, string> = {}): string {
-  const dir = mkdtempSync(join(tmpdir(), 'monsters-repo-'));
+  // The real path, as the core keeps it (`/private/var/…` on macOS, long names on Windows).
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'monsters-repo-')));
   dirs.push(dir);
   for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, name), text);
   return dir;
@@ -946,7 +947,7 @@ describe('projects: the terminal in the project’s repo (review 18/10, M4)', ()
   it.skipIf(process.platform === 'win32')(
     'starts in the repo with the CLIs of the monster’s own folder: a bin/ of the repo is not on PATH',
     async () => {
-      const folder = realpathSync(repo());
+      const folder = repo();
       mkdirSync(join(folder, 'bin'));
       writeFileSync(join(folder, 'bin', 'ls'), '#!/bin/sh\necho DIROTTATO\n', { mode: 0o755 });
       const { t } = await withProject(
@@ -1001,7 +1002,7 @@ describe('projects: CLAUDE.md and AGENTS.md through a link (review 18/10, A6)', 
   it.skipIf(process.platform === 'win32')(
     'a folder given through a link is saved as its real path (review 18/10, B3)',
     async () => {
-      const folder = realpathSync(repo({ 'CLAUDE.md': SATURDAY_MD }));
+      const folder = repo({ 'CLAUDE.md': SATURDAY_MD });
       const links = repo();
       symlinkSync(folder, join(links, 'sito'));
       const { t, project } = await withProject({}, { folder: join(links, 'sito') });

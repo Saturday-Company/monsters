@@ -8,7 +8,7 @@ import {
   rmSync,
   statSync,
 } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import type { SecretsStatus } from '@monsters/shared';
 import { DIR_MODE, FILE_MODE, chmodSafe, homePaths, writeSensitiveFile } from '../config.ts';
 import {
@@ -84,13 +84,28 @@ export function secretsAccount(
   home: string,
   realpath: (path: string) => string = realpathSync.native,
 ): string {
-  let path = resolve(home);
-  try {
-    path = realpath(path);
-  } catch {
-    // not created yet: the resolved path
+  return accountOf(realPathOrAncestor(resolve(home), realpath));
+}
+
+/**
+ * Real path of `path`; when it is not created yet, the real path of its deepest existing
+ * folder plus the rest. So a home not created yet has the account it will have once created,
+ * also below a link (`/var` → `/private/var` on macOS, 8.3 short names on Windows).
+ */
+function realPathOrAncestor(path: string, realpath: (path: string) => string): string {
+  const missing: string[] = [];
+  for (let at = path; ;) {
+    try {
+      const real = realpath(at);
+      return missing.length === 0 ? real : join(real, ...missing.reverse());
+    } catch {
+      // not there (yet): try the folder above
+    }
+    const parent = dirname(at);
+    if (parent === at) return path;
+    missing.push(basename(at));
+    at = parent;
   }
-  return accountOf(path);
 }
 
 /** The account of the first versions (M3.2): the case of the path as given. */

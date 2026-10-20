@@ -4,11 +4,13 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
@@ -200,6 +202,23 @@ describe('secret store: keychain backend', () => {
     expect(store.backend).toBe('keychain');
     expect(store.read('brave.key')).toBe(BRAVE);
     expect(keychain.entries.size).toBe(1);
+  });
+
+  it('a home not created yet has the account it will have, also below a link', () => {
+    // Like `/var` → `/private/var` on macOS: the parent of the home is reached through a link.
+    const home = tempHome();
+    const real = dirname(home);
+    const link = `${real}-link`;
+    symlinkSync(real, link, 'junction');
+    try {
+      const viaLink = join(link, 'home');
+      const before = secretsAccount(viaLink);
+      mkdirSync(home);
+      expect(secretsAccount(viaLink)).toBe(before);
+      expect(secretsAccount(home)).toBe(before);
+    } finally {
+      rmSync(link, { force: true });
+    }
   });
 
   it('keeps homes apart: different accounts, a file copied across cannot be opened', async () => {

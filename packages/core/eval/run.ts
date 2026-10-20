@@ -599,7 +599,7 @@ async function main(): Promise<void> {
   out(`Richieste usate in tutto: ${spent()} su ${budget}`);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
   main().catch((err: unknown) => {
     console.error(err);
     process.exitCode = 1;

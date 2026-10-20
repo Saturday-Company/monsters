@@ -20,7 +20,6 @@ import { spawn } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { fileURLToPath } from 'node:url';
 
 const TINY_PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAADklEQVR4nGM4AQYMEAoAQa4JYQOnncMAAAAASUVORK5CYII=';
@@ -314,4 +313,4 @@ function serveStdio(): void {
   process.stdin.on('end', () => process.exit(0));
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) serveStdio();
+if (import.meta.main) serveStdio();

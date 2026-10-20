@@ -6,7 +6,6 @@
  */
 import { McpServer, createMcpHandler } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
-import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 export function sdkServer(): McpServer {
@@ -28,7 +27,7 @@ export function sdkServer(): McpServer {
 
 export const sdkHttpHandler = () => createMcpHandler(() => sdkServer());
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (import.meta.main) {
   const handle = serveStdio(() => sdkServer());
   process.stdin.once('end', () => void handle.close().finally(() => process.exit(0)));
 }

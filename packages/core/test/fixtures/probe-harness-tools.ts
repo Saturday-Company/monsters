@@ -40,7 +40,6 @@ import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { gunzipSync, inflateSync, zstdDecompressSync } from 'node:zlib';
 import {
   ClaudeAgentHarness,
@@ -676,6 +675,6 @@ async function main(): Promise<number> {
   return red ? 1 : 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (import.meta.main) {
   process.exitCode = await main();
 }

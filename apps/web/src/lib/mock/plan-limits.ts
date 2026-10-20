@@ -10,13 +10,17 @@ import { planLimitsView, type PlanLimitId, type PlanLimitsView } from '@monsters
 const MIN = 60_000;
 const DAY = 86_400_000;
 
-/** The next Wednesday 16:00 (local), a few days away. */
-function nextWednesday(now: number): number {
+/**
+ * A Wednesday 16:00 (local) at least a day away, so the week always reads "mer 16:00"
+ * whatever the day and hour of the clock (on a Tuesday evening the next Wednesday is
+ * only hours away, and it would read "tra 20 h").
+ */
+export function nextWednesday(now: number): number {
   const d = new Date(now);
   d.setHours(16, 0, 0, 0);
   do {
     d.setDate(d.getDate() + 1);
-  } while (d.getDay() !== 3);
+  } while (d.getDay() !== 3 || d.getTime() - now < DAY);
   return d.getTime();
 }
 

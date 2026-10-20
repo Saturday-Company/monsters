@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { legacySecretsAccount, SECRETS_SERVICE, secretsAccount } from '@monsters/core';
@@ -439,7 +439,8 @@ describe('only the entries of Monsters, only the keyring binary (review of wave 
   });
 
   it('finds the binary of the platform package next to the core, never index.js', () => {
-    const root = mkdtempSync(join(tmpdir(), 'monsters-keyring-'));
+    // Real: the resolver gives back real paths (`/private/var/…` on macOS, long names on Windows).
+    const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'monsters-keyring-')));
     try {
       const core = join(root, 'core');
       const main = join(core, 'node_modules', '@napi-rs', 'keyring');

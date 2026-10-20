@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fake, type FakeScript } from '@monsters/providers/testing';
 import type { LogEvent, TelegramPairing } from '@monsters/shared';
@@ -218,7 +219,8 @@ describe('the reply check of a chat with other people', () => {
 
 describe('the data folder of the desktop app', () => {
   it('is closed to the monsters on every system', () => {
-    const home = process.env['HOME'] ?? '';
+    // The home the core uses (`os.homedir()`): Windows has no HOME.
+    const home = homedir();
     expect(desktopUserDataDirs({}, 'linux')).toContain(join(home, '.config', 'Monsters'));
     expect(desktopUserDataDirs({ XDG_CONFIG_HOME: '/x' }, 'linux')).toContain(
       join('/x', 'Monsters'),
