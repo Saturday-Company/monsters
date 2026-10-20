@@ -4748,3 +4748,8 @@ prefissi di prova degli e2e non sono release e non lo passano.
 pubblicazione la rende impossibile da dimenticare, e non dipende più da un timer o da una macchina accesa la sera.
 **Conseguenza:** una release richiede il Mac acceso e la VM libera; i vecchi risultati di altri commit non valgono. Il
 timer va tolto dalle macchine dove era installato (`systemctl --user disable --now monsters-ci-nightly.timer`).
+**Aggiunta (stati su GitHub):** in coda, anche se un sistema è rosso, `pnpm release:ci` pubblica il risultato come commit
+status del commit (`local-ci/linux`, `local-ci/windows`, `local-ci/macos`, `local-ci/release-gate`) con `scripts/ci-status.ts`
+(`pnpm ci:status`), così GitHub mostra la verifica locale senza rimettere Actions a pagamento. La mappatura dal cancello
+agli stati è pura e testata; si pubblica solo per commit già su origin, senza `target_url` e senza percorsi, host o dati
+personali nelle descrizioni; `--no-status` e `--dry-run` per saltare o vedere i comandi.

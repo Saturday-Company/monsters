@@ -42,7 +42,9 @@ in `docs/security-model.md`. Most of `docs/` is in Italian.
   Day to day the checks are the GitHub Actions on push and PR. Before a release the full local CI on the three
   systems is a gate (D-147): `pnpm release:ci` runs `ci:local`, `ci:windows` and `ci:mac` for HEAD (plus the harness
   tools probe), `pnpm release:check` shows the gate, and `pnpm desktop:publish` refuses to publish while it is
-  closed (`--skip-ci-gate` overrides it, loudly).
+  closed (`--skip-ci-gate` overrides it, loudly). At the end `release:ci` also posts the result as GitHub commit
+  statuses (`local-ci/linux|windows|macos|release-gate`) with `pnpm ci:status [--commit <rev>] [--dry-run]`, only for
+  a commit that is on origin; `--no-status` skips it. Descriptions never carry paths, hosts or personal data.
 - Packaging and signing (details in `docs/signing.md`): `pnpm desktop:pack` (unpacked folder for this system),
   `pnpm desktop:dist --linux|--win [--arch x64,arm64] [--version v] [--feed url] [--target AppImage]` (output in
   `apps/desktop/release/`), `pnpm desktop:dist:mac` (macOS only). A build with an update feed needs a public key in

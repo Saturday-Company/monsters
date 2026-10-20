@@ -1,9 +1,12 @@
 /*
- * Full CI for a release (D-147): `pnpm release:ci [--commit <rev>] [--no-probe]`.
+ * Full CI for a release (D-147): `pnpm release:ci [--commit <rev>] [--no-probe] [--no-status]`.
  *
  * Runs `ci:local`, `ci:windows` and `ci:mac` in sequence for the commit (default HEAD), stopping at
  * the first failure, then the probe of the harness tools, and prints the release gate
  * (scripts/release-gate.ts). The three runs write `ci-results/<date>-<sha>-<os>.json`.
+ *
+ * At the end (also on failure) the result is published as GitHub commit statuses
+ * (scripts/ci-status.ts) when the commit is on origin; `--no-status` skips it.
  *
  * Mac exit 75 means the Mac is off, unreachable or busy with another run: not a red of the code;
  * switch it on and run `pnpm release:ci` again (or just `pnpm ci:mac`).
@@ -16,7 +19,14 @@
 import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkReleaseGate, formatVerdict, resolveCommit, resultsDir } from './release-gate.ts';
+import { originRepo, publishStatuses, realRunner } from './ci-status.ts';
+import {
+  checkReleaseGate,
+  formatVerdict,
+  type GateVerdict,
+  resolveCommit,
+  resultsDir,
+} from './release-gate.ts';
 
 export interface CiStepPlan {
   id: 'linux' | 'windows' | 'macos' | 'probe';
@@ -60,15 +70,32 @@ export function interpretExit(id: CiStepPlan['id'], code: number | null): StepOu
   return { continue: false, message: `${id}: FAILED (exit ${code ?? 'signal'})` };
 }
 
+/** Publishes the verdict as commit statuses; never changes the exit code of the release CI. */
+function postStatuses(verdict: GateVerdict, root: string): void {
+  try {
+    publishStatuses({
+      verdict,
+      repo: originRepo(root),
+      dryRun: false,
+      runner: realRunner(root),
+      out: (l) => process.stdout.write(`${l}\n`),
+    });
+  } catch (err) {
+    process.stdout.write(`ci:status: skipped (${err instanceof Error ? err.message : 'error'})\n`);
+  }
+}
+
 function main(): number {
   const args = process.argv.slice(2);
   let rev = 'HEAD';
   let probe = true;
+  let status = true;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--commit' && args[i + 1]) rev = args[++i] ?? rev;
     else if (args[i] === '--no-probe') probe = false;
+    else if (args[i] === '--no-status') status = false;
     else {
-      process.stderr.write('usage: pnpm release:ci [--commit <rev>] [--no-probe]\n');
+      process.stderr.write('usage: pnpm release:ci [--commit <rev>] [--no-probe] [--no-status]\n');
       return 2;
     }
   }
@@ -81,12 +108,15 @@ function main(): number {
     const outcome = interpretExit(step.id, r.status);
     process.stdout.write(`${outcome.message}\n`);
     if (!outcome.continue) {
-      process.stdout.write(`\n${formatVerdict(checkReleaseGate(commit, resultsDir()))}\n`);
+      const failed = checkReleaseGate(commit, resultsDir());
+      process.stdout.write(`\n${formatVerdict(failed)}\n`);
+      if (status) postStatuses(failed, root);
       return r.status === 75 ? 75 : 1;
     }
   }
   const verdict = checkReleaseGate(commit, resultsDir());
   process.stdout.write(`\n${formatVerdict(verdict)}\n`);
+  if (status) postStatuses(verdict, root);
   return verdict.ok ? 0 : 1;
 }
 

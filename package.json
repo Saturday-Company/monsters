@@ -44,6 +44,7 @@
     "ci:windows": "bash scripts/ci-windows.sh",
     "ci:cloud-status": "node scripts/ci-cloud-status.ts",
     "release:check": "node scripts/release-gate.ts",
+    "ci:status": "node scripts/ci-status.ts",
     "release:ci": "node scripts/release-ci.ts"
   },
   "devDependencies": {

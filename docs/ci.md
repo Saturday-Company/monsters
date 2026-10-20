@@ -83,6 +83,15 @@ sui tre sistemi gira **prima di ogni release** e la release non parte senza.
   `claude` (e `codex`, se c'è) come lo avvia Monsters e controlla che ogni strumento che vede sia uno che può eseguire;
   nessuna richiesta al modello, pochi secondi; senza `claude` (exit 3) è saltata, non rossa. `--no-probe` la salta; a
   mano: `pnpm exec node packages/core/test/fixtures/probe-harness-tools.ts`.
+- **Stati su GitHub.** In coda (anche se un sistema è rosso) `release:ci` pubblica il risultato come *commit status*
+  sul commit, così GitHub mostra la verifica fatta in locale: `local-ci/linux`, `local-ci/windows`, `local-ci/macos`
+  (success, failure o pending, con una descrizione corta tipo `ci:local full + package, 4m31s`) e `local-ci/release-gate`
+  (success solo se i tre sono verdi). Lo fa `pnpm ci:status [--commit <rev>] [--dry-run]` (`scripts/ci-status.ts`, la
+  mappatura è pura e testata), con `gh api -X POST repos/<owner>/<repo>/statuses/<sha>`; owner e repo vengono da
+  `git remote get-url origin` (predefinito `Saturday-Company/monsters`). Pubblica solo se il commit è su origin
+  (altrimenti spiega di fare prima il push e rilanciare `pnpm ci:status`). Nessun `target_url` e nessun percorso,
+  host o dato personale nelle descrizioni. `--dry-run` stampa i comandi `gh` senza eseguirli; `pnpm release:ci
+  --no-status` salta la pubblicazione.
 - `pnpm release:check [--commit <rev>]` (`scripts/release-gate.ts`) stampa lo stato del cancello per quel commit ed
   esce 0 se è aperto, 1 se è chiuso. Per ogni sistema cerca in `ci-results/` un risultato dell'**hash intero** del
   commit con `mode: full`, `status: passed`, non fatto su un checkout sporco e con il passo `package` passato (quindi

@@ -32,6 +32,7 @@ export interface GateResult {
   failedStep?: string | null;
   startedAt?: string;
   log?: string;
+  durationMs?: number | null;
   steps?: { id: string; status: string; note?: string }[];
 }
 
@@ -42,6 +43,8 @@ export interface PlatformVerdict {
   detail: string;
   /** The log of the result that makes it pass (or the latest one that does not). */
   log?: string;
+  /** The result that decides the verdict (the passing one, or the latest for the commit). */
+  result?: GateResult;
 }
 
 export interface GateVerdict {
@@ -82,11 +85,17 @@ export function evaluateGate(commit: string, results: GateResult[]): GateVerdict
       .sort((a, b) => (b.startedAt ?? '').localeCompare(a.startedAt ?? ''));
     const forCommit = mine.filter((r) => r.commit === commit);
     const good = forCommit.find((r) => whyNotCounted(r) === null);
-    if (good) return { platform, ok: true, detail: 'full run passed', log: good.log };
+    if (good) return { platform, ok: true, detail: 'full run passed', log: good.log, result: good };
     const run = `run \`${COMMAND[platform]} --commit ${commit.slice(0, 7)}\``;
     const latest = forCommit[0];
     if (latest) {
-      return { platform, ok: false, detail: `${whyNotCounted(latest)}: ${run}`, log: latest.log };
+      return {
+        platform,
+        ok: false,
+        detail: `${whyNotCounted(latest)}: ${run}`,
+        log: latest.log,
+        result: latest,
+      };
     }
     const other = mine[0];
     const seen = other?.commit ? ` (the latest result is for ${other.commit.slice(0, 7)})` : '';
