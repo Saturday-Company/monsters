@@ -4799,3 +4799,18 @@ corto. I test nel verso opposto ("il limite scatta") possono restare su timer ve
 più lenti.
 **Motivazione:** correggere la classe (D-148): un test di tempi che dipende dalla velocità del runner prima o poi
 fallisce su un runner, e il fallimento non dice nulla sul prodotto.
+
+### D-150 · Il sito su getmonsters.dev; workers.dev resta ma non si indicizza
+**Stato:** fatta · 20/10/2026
+**Contesto:** il sito era solo su `monsters.saturdaycompany.workers.dev` (D-144). Giulio ha comprato `getmonsters.dev`
+su Cloudflare (registrar e DNS nello stesso account del Worker).
+**Scelta:** il Worker di soli asset `monsters` ha due domini personalizzati, `getmonsters.dev` e `www.getmonsters.dev`
+(`domains` in `worker.config.json`, scritto da `apps/site/scripts/deploy.ts`: Cloudflare crea record DNS e
+certificati). Una regola di reindirizzamento della zona porta `www` sull'apex con un 301. `site` di Astro è
+`https://getmonsters.dev`, quindi canonical, hreflang, `og:url` e la nuova `sitemap.xml` (le due lingue, ognuna con
+l'altra come alternativa) parlano del dominio nuovo; `robots.txt` cita la sitemap. Il vecchio indirizzo workers.dev
+resta acceso, perché ci sono link in giro (README vecchi, app già installate), ma `_headers` gli mette
+`X-Robots-Tag: noindex`: un Worker di soli asset non può reindirizzare per host senza codice, e il canonical più il
+noindex bastano a non avere due copie nei risultati. Il feed degli aggiornamenti (`monsters-updates`, D-050) **non**
+cambia indirizzo: lo leggono le app installate. Proprietà Dominio in Search Console, verificata con un TXT sulla zona.
+**Motivazione:** un dominio corto e nostro per il progetto pubblico, senza rompere gli indirizzi già distribuiti.

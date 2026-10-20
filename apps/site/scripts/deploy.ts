@@ -1,7 +1,8 @@
 /*
- * Deploys the site to Cloudflare as the static-assets Worker `monsters`, on workers.dev
- * (monsters.saturdaycompany.workers.dev). No Worker code: Cloudflare serves dist/ as assets
- * (D-144; the `cf` CLI instead of Wrangler, D-050).
+ * Deploys the site to Cloudflare as the static-assets Worker `monsters`, on its custom domains
+ * getmonsters.dev and www.getmonsters.dev (D-150; www is redirected to the apex by a zone rule)
+ * and still on workers.dev, which `_headers` marks noindex. No Worker code: Cloudflare serves
+ * dist/ as assets (D-144; the `cf` CLI instead of Wrangler, D-050).
  *
  *   pnpm --filter @monsters/site deploy:worker             build and upload
  *   pnpm --filter @monsters/site deploy:worker --dry-run   build and check, no upload
@@ -69,6 +70,8 @@ function main(): number {
     name: WORKER_NAME,
     compatibilityDate: COMPATIBILITY_DATE,
     workersDev: true,
+    // Custom domains: Cloudflare creates the DNS records and certificates (D-150).
+    domains: ['getmonsters.dev', 'www.getmonsters.dev'],
     // /it → /it/ (Astro writes it/index.html); unknown paths get a real 404.
     assets: { htmlHandling: 'auto-trailing-slash', notFoundHandling: '404-page' },
   });

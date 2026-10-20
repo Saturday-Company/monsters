@@ -10,7 +10,7 @@ git che puoi annullare, e tutto quello che fanno finisce nel log delle azioni. U
 subito. È un'app desktop per Linux, Windows e macOS, e i modelli li porti tu: OpenRouter, chiavi API, modelli locali o
 gli abbonamenti che già paghi.
 
-Sito: <https://monsters.saturdaycompany.workers.dev>
+Sito: <https://getmonsters.dev>
 
 ![Un progetto con la sua squadra](docs/schermate/progetto-squadra-light-1440-2026-10-19.png)
 

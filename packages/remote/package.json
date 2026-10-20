@@ -4,7 +4,7 @@
   "description": "Client mode of Monsters: SSH tunnel to a core running on another machine",
   "license": "Apache-2.0",
   "author": "Giulio Banchini and Saturday Company",
-  "homepage": "https://monsters.saturdaycompany.workers.dev",
+  "homepage": "https://getmonsters.dev",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Saturday-Company/monsters.git",

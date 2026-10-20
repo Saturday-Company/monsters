@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://getmonsters.dev/sitemap.xml

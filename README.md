@@ -10,7 +10,7 @@ and everything they do lands in an action log. A kill switch (**Ferma**, "stop")
 desktop app on Linux, Windows and macOS, and you bring your own models: OpenRouter, API keys, local models, or the
 subscriptions you already pay for.
 
-Website: <https://monsters.saturdaycompany.workers.dev>
+Website: <https://getmonsters.dev>
 
 ![A project with its team](docs/schermate/progetto-squadra-light-1440-2026-10-19.png)
 
