@@ -16,7 +16,7 @@ Sito: <https://monsters.saturdaycompany.workers.dev>
 
 | Chat con domanda e opzioni | Terminale di un agente |
 |---|---|
-| ![Chat](docs/schermate/chat-domanda-light-1440.png) | ![Terminale](docs/schermate/terminale-dark-1440.png) |
+| ![Chat](docs/schermate/chat-domanda-light-1440-2026-10-20.png) | ![Terminale](docs/schermate/terminale-dark-1440-2026-10-20.png) |
 
 ![Le novità](docs/schermate/novita-dark-1440-2026-10-19.png)
 

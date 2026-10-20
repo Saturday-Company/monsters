@@ -16,7 +16,7 @@ Website: <https://monsters.saturdaycompany.workers.dev>
 
 | Chat with questions and options | Per-agent terminal |
 |---|---|
-| ![Chat](docs/schermate/chat-domanda-light-1440.png) | ![Terminal](docs/schermate/terminale-dark-1440.png) |
+| ![Chat](docs/schermate/chat-domanda-light-1440-2026-10-20.png) | ![Terminal](docs/schermate/terminale-dark-1440-2026-10-20.png) |
 
 ![What's new](docs/schermate/novita-dark-1440-2026-10-19.png)
 
