@@ -4779,3 +4779,23 @@ del piano ha un test che lo legge a ogni mezz'ora di una settimana; i casi Windo
 (regole win32) che girano ovunque.
 **Motivazione:** correggere la classe, non il caso: un test nuovo sbaglia nello stesso modo, e chi lo scrive lo deve
 vedere sulla propria macchina prima che sui runner.
+
+### D-149 · Le attese dei test non si misurano con l'orologio vero; gli aggiornamenti di Dependabot senza sovrapposizioni
+**Stato:** fatta · 20/10/2026
+**Contesto:** con le PR di Dependabot la CI di GitHub è diventata rossa per motivi che con gli aggiornamenti c'entravano
+poco. "a heartbeat is a sign of life" (sorveglianza degli harness, F-M3) è fallito su un runner macOS: il programma
+finto mandava un segnale ogni 60 ms con un limite di silenzio di 150 ms, tutto con timer veri, e un runner lento basta
+a far passare 150 ms tra due segnali. La stessa forma, "un ritardo vero contro un limite corto, e il limite non deve
+scattare", c'era nei test della sorveglianza (strumenti di Monsters, `Bash` lungo), nel ragionamento che non deve
+perdere il primo token (F-A5, 25 ms contro 60 ms) e in `web_fetch`, dove ogni pagina del server locale doveva
+arrivare entro i 300 ms che servivano solo alla pagina che non risponde mai.
+**Scelta:** un test che dice "questo limite **non** scatta" non usa timer veri vicini al limite. I test della
+sorveglianza degli harness e quello del ragionamento usano un orologio finto (`vi.useFakeTimers` su `setTimeout`,
+`setInterval` e `Date`) che si muove solo quando il programma finto lo dice (`vi.advanceTimersByTimeAsync` dentro lo
+script): la sorveglianza vede esattamente i silenzi descritti dal test, su qualunque macchina; il caso "si ferma dopo
+il limite" controlla l'istante preciso sull'orologio finto invece di `Date.now() - started`. Dove il limite serve solo
+a non restare appesi (`web_fetch`), il limite è largo (10 s) e il test del timeout ha uno strumento suo con un limite
+corto. I test nel verso opposto ("il limite scatta") possono restare su timer veri: una macchina lenta li rende solo
+più lenti.
+**Motivazione:** correggere la classe (D-148): un test di tempi che dipende dalla velocità del runner prima o poi
+fallisce su un runner, e il fallimento non dice nulla sul prodotto.

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { HarnessEvent, HarnessProvider, HarnessTask } from '@monsters/providers';
 import type { LogEvent, MonstersTool } from '@monsters/shared';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { RateBudget } from '@monsters/providers';
 import { parseAgentConfig, type AgentDefinition } from '../src/agents/definition.ts';
@@ -358,9 +358,34 @@ describe('harness runner: tools, address', () => {
 });
 
 describe('harness watchdog (F-M3)', () => {
+  /*
+   * A fake clock that moves only when the scripted harness says so (`elapse`): the watchdog
+   * sees exactly the silences each test describes, however slow the machine (D-149). Real
+   * delays against a short limit made "a heartbeat is a sign of life" fail on a macOS runner.
+   */
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
+  });
+  afterEach(() => vi.useRealTimers());
+  const elapse = (ms: number) => vi.advanceTimersByTimeAsync(ms);
+  const stopped = (signal: AbortSignal) =>
+    new Promise((resolve) => signal.addEventListener('abort', resolve, { once: true }));
+
   it('stops a harness that goes silent and says why', async () => {
-    const h = scripted([{ type: 'text-delta', delta: 'Cerco…' }], true);
-    const r = await run(h, agent(), undefined, { idleTimeoutMs: 80 });
+    const h = scripted([]);
+    let earlyStop = true;
+    h.run = async function* (_task, signal) {
+      yield { type: 'text-delta', delta: 'Cerco…' };
+      await elapse(900);
+      earlyStop = signal.aborted;
+      await elapse(200);
+      if (!signal.aborted) await stopped(signal);
+      yield { type: 'done', reason: 'aborted' };
+    };
+    const r = await run(h, agent(), undefined, { idleTimeoutMs: 1000 });
+    expect(earlyStop).toBe(false);
     expect(r.status).toBe('failed');
     expect(r.events.some((e) => e.type === 'error' && e.data.code === 'harness_stalled')).toBe(
       true,
@@ -371,63 +396,87 @@ describe('harness watchdog (F-M3)', () => {
     const h = scripted([]);
     h.run = async function* () {
       yield { type: 'text-delta', delta: 'x' };
+      await elapse(1500);
       await new Promise(() => {});
     };
-    const r = await run(h, agent(), undefined, { idleTimeoutMs: 80 });
+    const r = await run(h, agent(), undefined, { idleTimeoutMs: 1000 });
     expect(r.status).toBe('failed');
   });
 
   it("does not run the clock while one of Monsters' tools is working", async () => {
-    const h = scripted([], false);
-    h.run = async function* () {
+    const h = scripted([]);
+    let stoppedWhileWorking = true;
+    h.run = async function* (_task, signal) {
       yield { type: 'tool-call', id: 't1', name: 'ask_user', input: {}, monsters: true };
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      await elapse(5000);
+      stoppedWhileWorking = signal.aborted;
       yield { type: 'tool-result', id: 't1', output: 'ok', monsters: true };
       yield { type: 'text', text: 'Fatto' };
       yield { type: 'done', reason: 'stop', text: 'Fatto' };
     };
-    const r = await run(h, agent(), undefined, { idleTimeoutMs: 100 });
+    const r = await run(h, agent(), undefined, { idleTimeoutMs: 1000 });
+    expect(stoppedWhileWorking).toBe(false);
     expect(r.status).toBe('completed');
   });
 
   it("waits for a long command of the harness's own (its Bash), up to the longer limit", async () => {
-    const long = scripted([], false);
+    const long = scripted([]);
     long.run = async function* () {
       yield { type: 'tool-call', id: 'b1', name: 'Bash', input: { command: 'pnpm test' } };
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      await elapse(19_000);
       yield { type: 'tool-result', id: 'b1', output: 'ok' };
       yield { type: 'text', text: 'Test verdi' };
       yield { type: 'done', reason: 'stop', text: 'Test verdi' };
     };
     const ok = await run(long, agent(), undefined, {
-      idleTimeoutMs: 100,
-      actionIdleTimeoutMs: 2000,
+      idleTimeoutMs: 1000,
+      actionIdleTimeoutMs: 20_000,
     });
     expect(ok.status).toBe('completed');
 
     // A command that never ends still stops the harness, at the action limit.
-    const hung = scripted([], false);
-    hung.run = async function* () {
+    const hung = scripted([]);
+    let silentFor = 0;
+    hung.run = async function* (_task, signal) {
+      const started = Date.now();
+      signal.addEventListener('abort', () => (silentFor = Date.now() - started), { once: true });
       yield { type: 'tool-call', id: 'b1', name: 'Bash', input: { command: 'sleep infinity' } };
+      await elapse(30_000);
       await new Promise(() => {});
     };
-    const started = Date.now();
-    const r = await run(hung, agent(), undefined, { idleTimeoutMs: 50, actionIdleTimeoutMs: 300 });
+    const r = await run(hung, agent(), undefined, {
+      idleTimeoutMs: 1000,
+      actionIdleTimeoutMs: 20_000,
+    });
     expect(r.status).toBe('failed');
-    expect(Date.now() - started).toBeGreaterThanOrEqual(300);
+    expect(silentFor).toBeGreaterThanOrEqual(20_000);
+    expect(silentFor).toBeLessThan(21_000);
   });
 
   it('a heartbeat is a sign of life', async () => {
-    const h = scripted([], false);
+    const h = scripted([]);
     h.run = async function* () {
+      // 3.6 s in all, never more than 0.6 s of silence: the limit is 1 s.
       for (let i = 0; i < 6; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 60));
+        await elapse(600);
         yield { type: 'heartbeat' };
       }
       yield { type: 'text', text: 'Fatto' };
       yield { type: 'done', reason: 'stop', text: 'Fatto' };
     };
-    const r = await run(h, agent(), undefined, { idleTimeoutMs: 150 });
+    const r = await run(h, agent(), undefined, { idleTimeoutMs: 1000 });
     expect(r.status).toBe('completed');
+  });
+
+  it('without the heartbeat the same silence stops it', async () => {
+    const h = scripted([]);
+    h.run = async function* (_task, signal) {
+      yield { type: 'text-delta', delta: 'x' };
+      for (let i = 0; i < 6 && !signal.aborted; i++) await elapse(600);
+      if (!signal.aborted) await stopped(signal);
+      yield { type: 'done', reason: 'aborted' };
+    };
+    const r = await run(h, agent(), undefined, { idleTimeoutMs: 1000 });
+    expect(r.status).toBe('failed');
   });
 });

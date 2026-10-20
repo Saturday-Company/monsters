@@ -1,7 +1,7 @@
 import type { LanguageModelV4Prompt } from '@ai-sdk/provider';
 import { APICallError, streamText } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import {
   createKeyedProvider,
   createOpenRouterProvider,
@@ -112,6 +112,10 @@ describe('ModelSession time limits (D-064)', () => {
   });
 
   it('a model that reasons for longer than the first-token time is not given up (F-A5)', async () => {
+    // A fake clock moved only by the stream: the session sees exactly these gaps, however
+    // slow the machine (D-149).
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    onTestFinished(() => void vi.useRealTimers());
     const slow = new FakeProvider({ id: 'slow', models: {} });
     // Reasoning parts every 25 ms for 200 ms, then the answer: first token time is 60 ms.
     slow.model = () =>
@@ -123,7 +127,7 @@ describe('ModelSession time limits (D-064)', () => {
                 controller.enqueue({ type: 'stream-start', warnings: [] });
                 controller.enqueue({ type: 'reasoning-start', id: 'r' });
                 for (let i = 0; i < 8; i++) {
-                  await new Promise((r) => setTimeout(r, 25));
+                  await vi.advanceTimersByTimeAsync(25);
                   controller.enqueue({ type: 'reasoning-delta', id: 'r', delta: '…' });
                 }
                 controller.enqueue({ type: 'reasoning-end', id: 'r' });
