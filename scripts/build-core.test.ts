@@ -192,4 +192,56 @@ console.log(out.join('|'));
       expect(run.stdout.trim(), run.stderr).toBe('ok b_bot');
     },
   );
+
+  it(
+    'web_fetch works from the bundle: pinned dispatcher, redirect, stop (D-151)',
+    { timeout: 60_000 },
+    async () => {
+      const dir = temp();
+      // A page, a redirect to it and a page that never answers, on loopback; the probe,
+      // bundled as the core is, reads through a redirect and is then stopped mid-request.
+      const probe = [
+        "import { createServer } from 'node:http';",
+        "import { createWebFetchTool } from '@monsters/tools';",
+        'const server = createServer((req, res) => {',
+        "  if (req.url === '/go') { res.writeHead(302, { location: '/page' }); res.end(); return; }",
+        "  if (req.url === '/page') { res.setHeader('content-type', 'text/html'); res.end('<h1>Ciao</h1><p>bundle</p>'); return; }",
+        '});',
+        "await new Promise((r) => server.listen(0, '127.0.0.1', r));",
+        'const base = `http://127.0.0.1:${server.address().port}`;',
+        'const tool = createWebFetchTool({ allowPrivateHosts: true });',
+        "const ctx = (signal) => ({ signal, runId: 'probe', agentId: 'probe', emit: () => {} });",
+        'const out = [];',
+        'try {',
+        '  const page = await tool.execute({ url: `${base}/go` }, ctx(new AbortController().signal));',
+        "  out.push(page.content.includes('bundle') ? 'read' : `content ${page.content}`);",
+        '  const ac = new AbortController();',
+        "  setTimeout(() => ac.abort(new Error('kill')), 50);",
+        '  await tool.execute({ url: `${base}/hang` }, ctx(ac.signal)).then(',
+        "    () => out.push('not stopped'),",
+        '    (err) => out.push(err.code),',
+        '  );',
+        '} catch (err) {',
+        '  out.push(`failed ${err?.message}`);',
+        '} finally {',
+        '  server.closeAllConnections();',
+        '  server.close();',
+        '}',
+        "console.log(out.join(' '));",
+      ].join('\n');
+      await build({
+        ...BUNDLE_OPTIONS,
+        stdin: {
+          contents: probe,
+          resolveDir: join(process.cwd(), 'packages', 'core'),
+          sourcefile: 'probe.ts',
+          loader: 'ts',
+        },
+        outfile: join(dir, 'probe.mjs'),
+        logLevel: 'silent',
+      });
+      const run = spawnSync(process.execPath, [join(dir, 'probe.mjs')], { encoding: 'utf8' });
+      expect(run.stdout.trim(), run.stderr).toBe('read ABORTED');
+    },
+  );
 });

@@ -1,6 +1,6 @@
 import { defineTool, ToolError, type MonstersTool, type ToolContext } from '@monsters/shared';
 import { z } from 'zod';
-import type { Agent } from 'undici';
+import { fetch as undiciFetch, type Agent } from 'undici';
 import { pinnedDispatcher, resolvePublic, systemResolver, type Resolver } from './address.ts';
 import { htmlToMarkdown } from './html.ts';
 import {
@@ -190,7 +190,11 @@ const TEXT_TYPES =
 export function createWebFetchTool(
   options: WebFetchOptions = {},
 ): MonstersTool<WebFetchInput, WebFetchOutput> {
-  const doFetch = options.fetch ?? globalThis.fetch;
+  // undici's own `fetch`, not the global one: the pinned dispatcher is an undici `Agent`, and
+  // an `Agent` works only with the `fetch` of its own undici major. Node's built-in `fetch`
+  // carries its own undici (7 in Node 24, 8 in Node 26), and an `Agent` of another major
+  // rejects its handlers ("invalid onRequestStart method"): D-151.
+  const doFetch = options.fetch ?? (undiciFetch as unknown as typeof fetch);
   const maxBytes = options.maxBytes ?? 2_000_000;
   const defaultChars = options.maxChars ?? 8000;
   const timeoutMs = options.timeoutMs ?? 20_000;
@@ -326,7 +330,7 @@ export function createWebFetchTool(
         res = await doFetch(url, {
           redirect: 'manual',
           signal,
-          // Undici option of Node's fetch: connect only to the checked addresses.
+          // Undici option of `fetch`: connect only to the checked addresses.
           ...({ dispatcher } as object),
           headers: {
             'user-agent': userAgent,
