@@ -4805,7 +4805,8 @@ pacchetti dei gruppi con nome. `simple-icons` ha un gruppo suo: dopo ogni aggior
 ferma la CI degli altri. Si ignorano le major di Electron (si spostano a mano, insieme all'app) e di TypeScript:
 TypeScript 7 non è ancora supportato da `astro check` (`@astrojs/check` 0.9.11 vuole TypeScript 5 o 6) né da
 typescript-eslint (8.72 vuole `<6.1`), quindi la PR che lo portava è stata chiusa e il repo resta su TypeScript 6.
-Si toglie l'esclusione quando i due lo supportano.
+Si toglie l'esclusione quando i due lo supportano. Anche le major di `@types/node` si ignorano: i tipi seguono il Node su
+cui gira il progetto (24), non l'ultimo uscito.
 **Motivazione:** correggere la classe (D-148): un test di tempi che dipende dalla velocità del runner prima o poi
 fallisce su un runner, e il fallimento non dice nulla sul prodotto. Una PR di Dependabot deve essere rossa solo per un
 aggiornamento che rompe davvero qualcosa, e una sola PR deve portare ogni pacchetto.

@@ -11,11 +11,13 @@ updates:
     versioning-strategy: increase
     # Majors that the tools around them do not support yet (D-149): Electron majors are
     # moved by hand with the app; TypeScript 7 is refused by `astro check` and by
-    # typescript-eslint.
+    # typescript-eslint; @types/node follows the Node the project runs on (24).
     ignore:
       - dependency-name: 'electron'
         update-types: ['version-update:semver-major']
       - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
     # Groups never overlap (D-149): the named groups own their packages, and the two
     # catch-all groups exclude them all, so a PR is not superseded by another one that
