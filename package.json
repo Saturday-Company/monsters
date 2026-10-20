@@ -1,0 +1,63 @@
+{
+  "name": "monsters",
+  "private": true,
+  "type": "module",
+  "description": "Local, provider-agnostic agentic hub",
+  "license": "Apache-2.0",
+  "author": "Giulio Banchini and Saturday Company",
+  "homepage": "https://monsters.saturdaycompany.workers.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Saturday-Company/monsters.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Saturday-Company/monsters/issues"
+  },
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "node scripts/check-public.ts && eslint . --max-warnings 0",
+    "check:public": "node scripts/check-public.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "build:core": "pnpm --filter @monsters/web build && node scripts/build-core.ts",
+    "smoke:bundle": "node packages/cli/scripts/smoke-bundle.ts",
+    "desktop:dev": "pnpm --filter @monsters/desktop dev",
+    "desktop:pack": "node apps/desktop/scripts/package.ts --dir",
+    "desktop:dist": "node apps/desktop/scripts/package.ts",
+    "desktop:dist:mac": "bash scripts/ci-mac.sh --package",
+    "desktop:update-e2e": "node apps/desktop/scripts/update-e2e.ts",
+    "desktop:install-test": "node apps/desktop/scripts/install-test.ts",
+    "desktop:publish": "node apps/desktop/scripts/publish-update.ts",
+    "desktop:update-key": "node apps/desktop/scripts/update-signing-key.ts",
+    "site:dev": "pnpm --filter @monsters/site dev",
+    "site:build": "pnpm --filter @monsters/site build",
+    "site:deploy": "pnpm --filter @monsters/site deploy:worker",
+    "ci:local": "node scripts/ci-local.ts",
+    "ci:mac": "bash scripts/ci-mac.sh",
+    "ci:windows": "bash scripts/ci-windows.sh",
+    "ci:cloud-status": "node scripts/ci-cloud-status.ts",
+    "release:check": "node scripts/release-gate.ts",
+    "release:ci": "node scripts/release-ci.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@monsters/cli": "workspace:*",
+    "@types/node": "24.19.2",
+    "esbuild": "0.28.2",
+    "eslint": "10.12.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "punycode": "2.3.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vitest": "5.0.4"
+  }
+}

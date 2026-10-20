@@ -1,0 +1,89 @@
+---
+import { type Strings } from '../i18n/strings.ts';
+import type { Contributor } from '../lib/build-data.ts';
+import { REPO_URL } from '../lib/feed.ts';
+import { toBase64 } from '../lib/manifesto.ts';
+import { genomeFor } from '../lib/monsters.ts';
+import { formatStars, formatStarsLong, LED_DIGITS } from '../lib/stars.ts';
+import Mon from './Mon.astro';
+
+interface Props {
+  t: Strings;
+  stars: number | null;
+  contributors: Contributor[];
+}
+const { t, stars, contributors } = Astro.props;
+const encoded = toBase64(t.oss.manifesto);
+---
+
+<section class="section" id="oss" aria-labelledby="oss-title">
+  <span class="rubber" aria-hidden="true">APACHE-2.0</span>
+  <div class="section__head power">
+    <h2 class="display h2" id="oss-title">{t.oss.title}</h2>
+    <p class="lede">{t.oss.body}</p>
+  </div>
+
+  <div class="oss">
+    <div>
+      <span class="oss__led" aria-hidden="true">
+        <span class="led__ghost">{'8'.repeat(LED_DIGITS)}</span>
+        <span class="led__val" data-stars>{formatStars(stars)}</span>
+      </span>
+      <span class="sr-only" data-stars-big data-locale={t.lang}
+        >{stars === null ? '' : formatStarsLong(stars, t.lang)}</span
+      >
+      <span class="label oss__label">★ {t.oss.stars}</span>
+      <p class="field__help" data-stars-soon hidden={stars !== null}>{t.oss.starsSoon}</p>
+      <div class="oss__links">
+        <a class="key key--ink" href={REPO_URL} rel="noopener">{t.oss.repo}</a>
+        <a class="key" href={`${REPO_URL}/blob/main/CONTRIBUTING.md`} rel="noopener"
+          >{t.oss.contributing}</a
+        >
+        <a
+          class="key"
+          href={`${REPO_URL}/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22`}
+          rel="noopener">{t.oss.issues}</a
+        >
+      </div>
+    </div>
+
+    <div>
+      <div class="b64">
+        <header class="label">
+          <span>{t.oss.b64}</span><span>{t.oss.decode}</span>
+        </header>
+        <p
+          class="b64__text"
+          tabindex="0"
+          data-b64={encoded}
+          data-state="encoded"
+          aria-label={t.oss.manifesto}
+        >
+          {encoded}
+        </p>
+      </div>
+
+      <h3 class="label" style="margin: 30px 0 0">{t.oss.contributors}</h3>
+      <ul class="crew" role="list">
+        {
+          contributors.map((c) => (
+            <li>
+              <a href={c.url} rel="noopener">
+                <span class="screen">
+                  <Mon genome={genomeFor(c.login)} size={90} />
+                </span>
+                <span class="label">{c.login}</span>
+              </a>
+            </li>
+          ))
+        }
+        <li>
+          <a class="crew__you" href={`${REPO_URL}/blob/main/CONTRIBUTING.md`} rel="noopener">
+            <span class="screen" aria-hidden="true">?</span>
+            <span class="label">{t.oss.you} {t.oss.youSub}</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,75 @@
+# Cloud CI on GitLab.com: the checks of .github/workflows/ci.yml, run through
+# scripts/ci-cloud.sh (= `pnpm ci:local --no-package` on the checked-out commit).
+#
+# Never on a push (the repo is pushed here as a mirror after every commit, and the Free tier has
+# 400 compute minutes a month): a pipeline exists only for a schedule, the "Run pipeline" button
+# or the API. CLOUD_CI_PLATFORMS says which jobs run ("linux", "windows" or both); each schedule
+# sets its own value. Schedules and budget: docs/ci.md.
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"
+    - when: never
+
+variables:
+  CLOUD_CI_PLATFORMS:
+    value: linux
+    description: 'Systems to check: "linux", "windows" or "linux windows".'
+    options:
+      - linux
+      - windows
+      - linux windows
+  GIT_DEPTH: '20'
+
+default:
+  interruptible: true
+
+.checks:
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+      prefix: $CI_JOB_NAME
+    paths:
+      - .pnpm-store/
+  artifacts:
+    # ci-results/<stamp>-<commit>-<os>.json + .log (CiResult of scripts/ci-local.ts).
+    when: always
+    expire_in: 30 days
+    paths:
+      - ci-results/
+
+# saas-linux-small-amd64: 2 vCPU, 8 GB, cost factor 1.
+checks-linux:
+  extends: .checks
+  image: node:24-bookworm
+  tags:
+    - saas-linux-small-amd64
+  timeout: 40m
+  rules:
+    - if: $CLOUD_CI_PLATFORMS =~ /linux/
+  variables:
+    CLOUD_CI_PNPM_STORE: $CI_PROJECT_DIR/.pnpm-store
+    # Checkout of ci-local on the same volume as the store, so pnpm hardlinks instead of copying.
+    MONSTERS_CI_WORKDIR: $CI_BUILDS_DIR/monsters-ci-work
+  script:
+    - bash scripts/ci-cloud.sh setup
+    - bash scripts/ci-cloud.sh run
+
+# saas-windows-medium-amd64 (beta, also on Free): 2 vCPU, 7.5 GB, cost factor 1. PowerShell runs
+# the script lines; Git Bash runs ci-cloud.sh as on CircleCI.
+checks-windows:
+  extends: .checks
+  tags:
+    - saas-windows-medium-amd64
+  timeout: 60m
+  rules:
+    - if: $CLOUD_CI_PLATFORMS =~ /windows/
+  variables:
+    CLOUD_CI_PNPM_STORE: $CI_PROJECT_DIR/.pnpm-store
+  before_script:
+    - try { Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction Stop } catch { Write-Host $_ }
+    - New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Value 1 -PropertyType DWord -Force | Out-Null
+  script:
+    - '& "C:\Program Files\Git\bin\bash.exe" scripts/ci-cloud.sh setup'
+    - '& "C:\Program Files\Git\bin\bash.exe" scripts/ci-cloud.sh run'

@@ -1,0 +1,66 @@
+---
+import { type Strings } from '../i18n/strings.ts';
+import { RELEASES_URL, REPO_URL } from '../lib/feed.ts';
+import { toBase64 } from '../lib/manifesto.ts';
+import Win from './Win.astro';
+
+interface Props {
+  t: Strings;
+  /** Short sha of the commit the page was built from, and the build time. */
+  build: { sha: string; at: number };
+}
+const { t, build } = Astro.props;
+const notes = [
+  { id: 'log', mark: '*', text: t.notes.log },
+  { id: 'arch', mark: '†', text: t.notes.arch },
+  { id: 'vault', mark: '‡', text: t.notes.commit },
+  { id: 'code', mark: '§', text: t.notes.code },
+];
+const stamp = new Date(build.at).toISOString().replace('T', ' ').slice(0, 16);
+const sig = toBase64(`monsters ${build.sha} ${stamp}Z`);
+---
+
+<footer class="foot">
+  <div class="foot__fn">
+    <h2 class="label">{t.notes.title}</h2>
+    <ol>
+      {
+        notes.map((n) => (
+          <li id={`fn-${n.id}`}>
+            <span class="foot__mark" aria-hidden="true">{n.mark}</span>
+            <span>
+              {n.text}{' '}
+              {n.id !== 'log' && (
+                <a href={`#fnref-${n.id}`} aria-label="Back">
+                  ↩
+                </a>
+              )}
+            </span>
+          </li>
+        ))
+      }
+    </ol>
+    <Win t={t} title={t.dmesg.title} id="dmesg" class="dmesg" label={t.dmesg.label}>
+      <pre class="dmesg__out" data-dmesg>[    0.000] monsters-site: built {build.sha} at {stamp}Z</pre>
+    </Win>
+  </div>
+  <span class="foot__word" aria-hidden="true">monsters</span>
+  <div class="foot__row">
+    <p class="foot__made">{t.footer.made}</p>
+    <div class="foot__links label">
+      <a href={REPO_URL} rel="noopener">GitHub</a>
+      <a href={RELEASES_URL} rel="noopener">Releases</a>
+      <a href={t.nav.otherHref} hreflang={t.lang === 'en' ? 'it' : 'en'}>{t.nav.otherLabel}</a>
+    </div>
+  </div>
+  <div class="foot__row" style="border-top: 0; padding-top: 14px">
+    <p class="foot__legal">{t.footer.copyright} {t.footer.license}</p>
+    <div class="foot__links">
+      <button type="button" class="key key--sm" data-arcade-open>{t.footer.coin}</button>
+      <span class="label foot__hint" style="align-self: center">{t.footer.coinHint}</span>
+    </div>
+  </div>
+  <p class="foot__sig mono" aria-hidden="true">
+    <span>[b.64]</span>{' '}{sig}{' '}<span>build {build.sha}</span>
+  </p>
+</footer>

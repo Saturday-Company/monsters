@@ -1,0 +1,41 @@
+---
+/*
+ * The BIOS power-on self test. Pure CSS (steps of visibility), shown once per session by the
+ * inline script of the layout, never with reduced motion; any key or click skips it.
+ */
+import { fill, type Strings } from '../i18n/strings.ts';
+import { SQUAD } from '../lib/monsters.ts';
+
+interface Props {
+  t: Strings;
+  version: string;
+}
+const { t, version } = Astro.props;
+const dots = (name: string) => `${name.toUpperCase()} ${'.'.repeat(Math.max(2, 16 - name.length))}`;
+const lines: { text: string; ok?: string; cls?: string }[] = [
+  { text: fill(t.boot.title, { version }), cls: 'hi' },
+  { text: t.boot.copy },
+  { text: ' ' },
+  { text: t.boot.cpu },
+  { text: t.boot.memory },
+  { text: t.boot.cloud },
+  { text: ' ' },
+  { text: `${t.boot.detect}...` },
+  ...SQUAD.map((m) => ({ text: `  ${dots(m.name)} `, ok: '[OK]' })),
+  { text: ' ' },
+  { text: `${t.boot.kill} `, ok: '[OK]' },
+];
+---
+
+<div class="boot" id="boot" aria-hidden="true">
+  <p class="boot__word">monsters</p>
+  {
+    lines.map((l, i) => (
+      <p class={`bl ${l.cls ?? ''}`} style={`--i:${i + 1}`}>
+        {l.text}
+        {l.ok && <span class="ok">{l.ok}</span>}
+      </p>
+    ))
+  }
+  <p class="boot__skip">{t.boot.skip}</p>
+</div>

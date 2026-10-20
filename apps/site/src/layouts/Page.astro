@@ -1,0 +1,87 @@
+---
+import '@fontsource/doto/latin-900.css';
+import '@fontsource/martian-mono/latin-400.css';
+import '@fontsource/martian-mono/latin-500.css';
+import '@fontsource-variable/instrument-sans/standard.css';
+import { dotCss } from '@monsters/monster-kit';
+import '../styles/global.css';
+import '../styles/terminal.css';
+import type { Strings } from '../i18n/strings.ts';
+// The fonts of the first screen, preloaded: the condensed headline would otherwise reflow
+// when it swaps in.
+import sansUrl from '@fontsource-variable/instrument-sans/files/instrument-sans-latin-standard-normal.woff2?url';
+import dotoUrl from '@fontsource/doto/files/doto-latin-900-normal.woff2?url';
+import monoUrl from '@fontsource/martian-mono/files/martian-mono-latin-500-normal.woff2?url';
+
+interface Props {
+  t: Strings;
+  /** JSON handed to the browser scripts (sprites, strings). */
+  clientData: unknown;
+}
+const { t, clientData } = Astro.props;
+const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
+const canonical = `${site}${t.lang === 'it' ? '/it/' : '/'}`;
+const json = JSON.stringify(clientData).replace(/</g, '\\u003c');
+---
+
+<!doctype html>
+<html lang={t.lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{t.meta.title}</title>
+    <meta name="description" content={t.meta.description} />
+    <meta name="theme-color" content="#e3e1db" />
+    <link rel="preload" href={sansUrl} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={dotoUrl} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={monoUrl} as="font" type="font/woff2" crossorigin />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="en" href={`${site}/`} />
+    <link rel="alternate" hreflang="it" href={`${site}/it/`} />
+    <link rel="alternate" hreflang="x-default" href={`${site}/`} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Monsters" />
+    <meta property="og:title" content={t.meta.title} />
+    <meta property="og:description" content={t.meta.description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={`${site}/og.png`} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content={t.lang === 'it' ? 'it_IT' : 'en_US'} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script is:inline>
+      // Before the first paint: JS on, and the boot screen once per session (never with reduced motion).
+      (function () {
+        var d = document.documentElement;
+        d.classList.add('js');
+        try {
+          var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+          var skip = /[?&]noboot\b/.test(location.search) || sessionStorage.getItem('monsters.booted');
+          if (!reduce && !skip) {
+            d.classList.add('booting');
+            sessionStorage.setItem('monsters.booted', '1');
+          }
+        } catch (e) {
+          /* storage blocked: no boot screen */
+        }
+      })();
+    </script>
+    <style is:inline set:html={dotCss}></style>
+  </head>
+  <body>
+    <a class="skip" href="#main">{t.skip}</a>
+    <slot name="boot" />
+    <slot name="bar" />
+    <main id="main" class="sheet">
+      <slot />
+    </main>
+    <slot name="after" />
+    <script type="application/json" id="site-data" set:html={json} />
+    <script>
+      import '../client/main.ts';
+    </script>
+  </body>
+</html>

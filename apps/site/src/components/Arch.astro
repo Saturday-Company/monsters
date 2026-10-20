@@ -1,0 +1,78 @@
+---
+/*
+ * The architecture as a box-drawing diagram in a terminal window. Box names are links to the
+ * sections that show them; the arrows carry "packets" (a CSS step animation, still under
+ * reduced motion and with the kill switch pulled).
+ */
+import { type Strings } from '../i18n/strings.ts';
+import Win from './Win.astro';
+
+interface Props {
+  t: Strings;
+}
+const { t } = Astro.props;
+
+const RAW = [
+  '┌ desktop ───────┐┌ web ui ────────┐┌ telegram ──────┐┌ ssh ───────────┐',
+  '│ electron       ││ any browser    ││ bot · /stop    ││ monsters chat  │',
+  '└───────┬────────┘└───────┬────────┘└───────┬────────┘└───────┬────────┘',
+  '        ▼                 ▼                 ▼                 ▼         ',
+  '┌──────────────────────── core · 127.0.0.1:4747 ───────────────────────┐',
+  '│ titan ──> rhea · dione · tethys · enceladus · hyperion · mimas       │',
+  '│ instinct: brakes outbound actions    event log: every action, sqlite │',
+  '│ RunController ──> AbortController tree ──> child processes   [KILL]  │',
+  '└───────┬─────────────────┬─────────────────┬─────────────────▲────────┘',
+  '        ▼                 ▼                 ▼                 │         ',
+  '┌ providers ─────┐┌ vault ─────────┐┌ tools ─────────┐┌ monsters mcp ──┐',
+  '│ cloud apis: 6  ││ markdown       ││ web · shell    ││ stdio server   │',
+  '│ local: 2       ││ git: 1 commit  ││ files · chrome ││ claude desktop │',
+  '│ subscriptions:2││   per action   ││ mcp servers    ││ codex · cursor │',
+  '└────────────────┘└────────────────┘└────────────────┘└────────────────┘',
+];
+
+const LINKS: [string, string][] = [
+  ['desktop', '#download'],
+  ['ssh', '#source'],
+  ['titan', '#squad'],
+  ['[KILL]', '#kill'],
+  ['providers', '#specs'],
+  ['vault', '#vault'],
+  ['monsters mcp', '#mcp'],
+];
+
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Packets: every arrow head, in reading order, gets the next delay.
+let packet = 0;
+const html = RAW.map((raw) =>
+  [...raw]
+    .map((c) => (/[▼▲>]/.test(c) ? `<span class="pk" style="--d:${packet++}">${esc(c)}</span>` : esc(c)))
+    .join(''),
+);
+// Links, once each, in the first line that has the word as a whole box name.
+for (const [word, href] of LINKS) {
+  const i = html.findIndex((l) => l.includes(` ${esc(word)} `) || l.includes(`┌ ${esc(word)} `));
+  if (i < 0) continue;
+  html[i] = html[i]!.replace(esc(word), `<a href="${href}" tabindex="-1">${esc(word)}</a>`);
+}
+---
+
+<section class="section arch" id="arch" aria-labelledby="arch-title">
+  <div class="section__head power">
+    <h2 class="display h2" id="arch-title">
+      {t.arch.title}<sup class="fn"><a href="#fn-arch" id="fnref-arch" aria-label="Note †">†</a></sup>
+    </h2>
+    <p class="lede">{t.arch.body}</p>
+  </div>
+  <Win
+    t={t}
+    title="~/monsters/docs/ARCHITECTURE.md · ascii"
+    id="arch-win"
+    pid={4747}
+    class="arch__win"
+    foot="NORMAL · ascii · 72 cols · 15L"
+  >
+    <p class="sr-only">{t.arch.alt}</p>
+    <pre class="diagram" aria-hidden="true"><Fragment set:html={html.join('\n')} /></pre>
+  </Win>
+</section>

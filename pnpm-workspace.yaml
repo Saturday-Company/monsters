@@ -1,0 +1,22 @@
+packages:
+  - packages/*
+  - apps/*
+
+saveExact: true
+
+# Install scripts: onnxruntime-node ships its CPU binaries in the package (the
+# script only downloads CUDA libraries), protobufjs only prints a notice, esbuild
+# only checks the platform package pnpm already installed: none of them runs.
+# Electron's downloads its binary (cached in ~/.cache/electron): apps/desktop and
+# the bundle smoke test need it. electron-winstaller (Squirrel.Windows, pulled in by
+# electron-builder) is unused: we build NSIS installers.
+allowBuilds:
+  electron: true
+  electron-winstaller: false
+  esbuild: false
+  onnxruntime-node: false
+  protobufjs: false
+
+# tldts (public suffixes, D-074) and its core from the same release, pinned.
+overrides:
+  tldts-core: 7.4.16

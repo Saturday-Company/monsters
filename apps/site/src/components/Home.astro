@@ -1,0 +1,92 @@
+---
+/* The whole one-page site, in one language. */
+import { execFileSync } from 'node:child_process';
+import { STRINGS, type Lang } from '../i18n/strings.ts';
+import Page from '../layouts/Page.astro';
+import { siteData } from '../lib/build-data.ts';
+import { DOT_TIMELINES } from '@monsters/monster-kit';
+import { REPO_URL } from '../lib/feed.ts';
+import { SQUAD, spriteOf, titan } from '../lib/monsters.ts';
+import { versionStamp } from '../lib/stamp.ts';
+import Arcade from './Arcade.astro';
+import Arch from './Arch.astro';
+import Bar from './Bar.astro';
+import Boot from './Boot.astro';
+import Download from './Download.astro';
+import Faq from './Faq.astro';
+import Footer from './Footer.astro';
+import Generator from './Generator.astro';
+import Hero from './Hero.astro';
+import Kill from './Kill.astro';
+import KillBar from './KillBar.astro';
+import OpenSource from './OpenSource.astro';
+import Palette from './Palette.astro';
+import Specs from './Specs.astro';
+import Squad from './Squad.astro';
+import Terminal from './Terminal.astro';
+import Vault from './Vault.astro';
+import desktop from '../../../desktop/package.json' with { type: 'json' };
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const t = STRINGS[lang];
+const data = await siteData();
+// The part number is the app's version (the feed may still carry the previous build).
+const appVersion = desktop.version;
+const stamp = versionStamp(appVersion);
+
+const sha = (() => {
+  try {
+    return execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], { encoding: 'utf8' }).trim();
+  } catch {
+    return 'nogit';
+  }
+})();
+const build = { sha, at: Date.now() };
+
+const clientData = {
+  lang,
+  stars: data.stars,
+  repo: REPO_URL,
+  roster: SQUAD.map((m) => m.name),
+  titan: spriteOf(titan(), 'Titan', ['idle', 'think', 'happy', 'talk', 'sleep', 'confused']),
+  timelines: DOT_TIMELINES,
+  invaders: SQUAD.map((m) => spriteOf(m.genome, m.name, ['idle'])),
+  t: {
+    generator: t.generator,
+    invaders: t.invaders,
+    kill: { pull: t.kill.pull, release: t.kill.release },
+    downloadFor: t.hero.downloadFor,
+    os: { linux: t.download.linux, mac: t.download.mac, windows: t.download.windows },
+    starsLabel: `${t.nav.star}: ${t.nav.stars}`,
+    palette: t.palette,
+    win: { min: t.win.min, max: t.win.max },
+  },
+};
+---
+
+<Page t={t} clientData={clientData}>
+  <Boot slot="boot" t={t} version={appVersion} />
+  <Fragment slot="bar">
+    <Bar t={t} stamp={stamp} stars={data.stars} home={lang === 'it' ? '/it/' : '/'} />
+    <KillBar t={t} />
+  </Fragment>
+  <Hero t={t} version={appVersion} built={build.at} />
+  <Squad t={t} />
+  <Generator t={t} />
+  <Arch t={t} />
+  <Specs t={t} stamp={stamp} version={appVersion} />
+  <Vault t={t} />
+  <Kill t={t} />
+  <Terminal t={t} version={appVersion} />
+  <Download t={t} version={data.version} releaseDate={data.releaseDate} downloads={data.downloads} />
+  <OpenSource t={t} stars={data.stars} contributors={data.contributors} />
+  <Faq t={t} version={appVersion} />
+  <Fragment slot="after">
+    <div class="sheet"><Footer t={t} build={build} /></div>
+    <Arcade t={t} />
+    <Palette t={t} />
+  </Fragment>
+</Page>

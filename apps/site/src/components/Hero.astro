@@ -1,0 +1,128 @@
+---
+/*
+ * The hero is a tmux session with three panes: the prompt where the headline is the answer of
+ * `monsters chat`, Titan on his LED screen, and the action log of one request replayed in the
+ * real event format (src/lib/eventlog.ts). The status line keeps the time and goes red with
+ * the kill switch.
+ */
+import { type Strings } from '../i18n/strings.ts';
+import { EVENTS, clock, summarize } from '../lib/eventlog.ts';
+import { dotsSvg, titan } from '../lib/monsters.ts';
+
+interface Props {
+  t: Strings;
+  version: string;
+  built: number;
+}
+const { t, version, built } = Astro.props;
+// Without JavaScript (or before it runs) the screen shows the prerendered Titan.
+const still = dotsSvg(titan(), 'idle', { size: 480 });
+const log = EVENTS.map((e) => ({
+  time: clock(e.ts, 'Europe/Rome'),
+  agent: e.agent,
+  type: e.type,
+  ts: e.ts,
+  body: summarize(e),
+}));
+const when = new Date(built);
+const hhmm = new Intl.DateTimeFormat('en-GB', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: 'Europe/Rome',
+}).format(when);
+const day = new Intl.DateTimeFormat('en-GB', {
+  day: '2-digit',
+  month: 'short',
+  timeZone: 'Europe/Rome',
+})
+  .format(when)
+  .replace(' ', '-');
+---
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="tmux">
+    <div class="tmux__top" aria-hidden="true">
+      <span>{t.tmux.session}</span>
+      <span class="tmux__dim">monsters {version}</span>
+      <span class="tmux__dim">pid 4747</span>
+    </div>
+    <div class="tmux__panes">
+      <div class="pane pane--prompt">
+        <p class="pane__cmd" aria-hidden="true">
+          <span class="pr">you@localhost</span>:<span class="pr2">~</span>$ monsters chat<span
+            class="tmux__dim"> --to titan</span
+          >
+        </p>
+        <h1 class="display hero__title" id="hero-title">
+          <span class="ty" style="--n:9">{t.hero.l1}</span>
+          <span class="ty" style="--n:13">{t.hero.l2}</span>
+          <span class="ty" style="--n:14"
+            >{t.hero.l3} <span class="hero__tape">{t.hero.l3b}</span></span
+          >
+        </h1>
+        <p class="lede">{t.hero.sub}</p>
+        <div class="hero__ctas">
+          <a
+            class="key key--signal key--big"
+            href="#download"
+            data-dl-hero
+            data-label={t.hero.downloadFor}
+            ><span data-dl-hero-text>{t.hero.download}</span><span
+              class="key__arrow"
+              aria-hidden="true">↓</span
+            ></a
+          >
+          <a class="key key--big" href="#source">{t.hero.source}</a>
+        </div>
+        <p class="pane__hint">
+          <span class="pr" aria-hidden="true">titan ›</span>
+          {t.tmux.hint}<span class="cursor" aria-hidden="true"></span>
+        </p>
+      </div>
+
+      <figure class="pane pane--titan">
+        <div class="screen titan">
+          <div class="titan__hud label" aria-hidden="true">
+            <span>{t.hero.expr} <b data-titan-expr>IDLE</b></span>
+            <span>{t.hero.lit} <b data-titan-lit>--</b></span>
+          </div>
+          <div class="titan__stage" data-titan data-label={t.hero.canvas}>
+            <div class="mon titan__still"><Fragment set:html={still} /></div>
+          </div>
+        </div>
+        <figcaption class="label">
+          <span class="fig">{t.hero.fig}</span>
+          {t.hero.caption}
+        </figcaption>
+      </figure>
+
+      <div class="pane pane--log">
+        <p class="pane__cmd" aria-hidden="true">
+          <span class="pr2">$</span> tail -f events<span class="tmux__dim"> # {t.tmux.log}</span><sup
+            class="fn fn--sm"><a href="#fn-log" tabindex="-1">*</a></sup
+          >
+        </p>
+        <p class="sr-only">{t.tmux.logLabel}</p>
+        <ol class="log" data-log aria-hidden="true">
+          {
+            log.map((l) => (
+              <li class={`ev ev--${l.type}`} data-ts={l.ts}>
+                <time>{l.time}</time> <b class={`ag ag--${l.agent}`}>{l.agent.padEnd(6)}</b>{' '}
+                <i>{l.type.padEnd(14)}</i> <span>{l.body}</span>
+              </li>
+            ))
+          }
+        </ol>
+      </div>
+    </div>
+    <div class="tmux__status" aria-hidden="true">
+      <span class="tmux__sess">[monsters]</span>
+      <span class="tmux__win is-on">0:titan*</span>
+      <span class="tmux__win">1:rhea</span>
+      <span class="tmux__win">2:log</span>
+      <span class="tmux__kill" data-tmux-kill>{t.tmux.killed}</span>
+      <span class="tmux__right">"127.0.0.1:4747" <b data-clock>{hhmm}</b> {day}</span>
+    </div>
+  </div>
+</section>

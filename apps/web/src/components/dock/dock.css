@@ -1,0 +1,318 @@
+/*
+ * The right-hand pane (docs/design.md, "Pannello a destra"; D-075): a black
+ * screen set into the chassis. A column of its own from 1100 px, a sheet over
+ * the content below, the whole screen under the rail on a phone. It moves by
+ * frames like everything else (docs/design.md, "Movimento"): in by
+ * `slide-in` (four frames), out by `slide-out` (three), a tab lights on.
+ */
+@layer components {
+  .dock-frame {
+    display: flex;
+    min-height: 0;
+  }
+
+  /* A column of the window: the gutter on its left holds the grip. */
+  .dock-frame.dock-side {
+    position: relative;
+    flex-shrink: 0;
+    padding: 8px 12px 12px 0;
+  }
+
+  /* A sheet over the content, under the rail: Ferma is never covered. */
+  .dock-frame.dock-sheet {
+    position: fixed;
+    top: 60px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 30;
+  }
+
+  .dock-frame.dock-phone {
+    position: fixed;
+    inset: 52px 0 0;
+    z-index: 30;
+  }
+
+  .dock {
+    border-radius: 14px;
+  }
+
+  .dock-sheet .dock {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 0 0 1px var(--seam),
+      0 6px 0 -2px rgba(0, 0, 0, 0.12),
+      0 18px 40px -12px rgba(0, 0, 0, 0.35);
+  }
+
+  .dock-phone .dock {
+    border-radius: 0;
+  }
+
+  .dock-head {
+    min-height: 52px;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  /* The tabs: keys of light on the screen; the chosen one lit, like the filters of the terminal. */
+  .dock-tab {
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 7px;
+    color: var(--screen-muted);
+  }
+
+  /* On a phone the three tabs and ✕ share 390 px: all in sight, none cut. */
+  .dock-phone .dock-tab {
+    padding: 0 6px;
+  }
+
+  @media (hover: hover) {
+    .dock-tab:hover:not([aria-selected='true']) {
+      color: var(--screen-ink);
+      background-color: var(--screen-hover);
+    }
+  }
+
+  .dock-tab:active:not([aria-selected='true']) {
+    transform: translateY(var(--sink-flat));
+    background-color: var(--screen-press);
+    transition: transform var(--dur-press) var(--steps-press);
+  }
+
+  .dock-tab[aria-selected='true'] {
+    color: var(--screen);
+    background-color: var(--screen-ink);
+  }
+
+  .dock-tab:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 1px;
+  }
+
+  /* The grip: the gutter left of the pane, a short engraved line in the middle. */
+  .dock-grip {
+    position: relative;
+    flex-shrink: 0;
+    width: 12px;
+    cursor: col-resize;
+    touch-action: none;
+    outline: none;
+  }
+
+  .dock-sheet .dock-grip {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -12px;
+    z-index: 1;
+  }
+
+  .dock-grip-mark {
+    position: absolute;
+    top: 50%;
+    left: 4px;
+    width: 4px;
+    height: 36px;
+    margin-top: -18px;
+    border-radius: 2px;
+    background-color: var(--seam);
+    box-shadow: 1px 0 0 var(--seam-light);
+  }
+
+  /* The engraved line lights up where it can be taken, and stays lit while dragged. */
+  @media (hover: hover) {
+    .dock-grip:hover .dock-grip-mark {
+      background-color: var(--ink-muted);
+    }
+  }
+
+  .dock-grip[data-dragging] .dock-grip-mark {
+    background-color: var(--ink);
+  }
+
+  .dock-grip:focus-visible .dock-grip-mark {
+    background-color: var(--signal-ink);
+    outline: 2px solid var(--signal-ink);
+    outline-offset: 2px;
+  }
+
+  /* ---------------------------------------------------- Anteprima */
+
+  /* The strip of open items: small keys of light with their ✕. */
+  .pv-strip {
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .pv-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 220px;
+    height: 32px;
+    border-radius: 7px;
+    color: var(--screen-muted);
+    background-color: rgba(255, 255, 255, 0.04);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+
+  .pv-chip[data-active] {
+    color: var(--screen-ink);
+    background-color: rgba(255, 255, 255, 0.11);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  }
+
+  .pv-chip > button {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+    border-radius: 7px;
+  }
+
+  /* The name and the ✕ are two keys of light in one chip: each lights up on its own. */
+  @media (hover: hover) {
+    .pv-chip > button:hover {
+      color: var(--screen-ink);
+      background-color: var(--screen-hover);
+    }
+  }
+
+  .pv-chip > button:active {
+    transform: translateY(var(--sink-flat));
+    background-color: var(--screen-press);
+    transition: transform var(--dur-press) var(--steps-press);
+  }
+
+  .pv-chip > button:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: -2px;
+  }
+
+  /* Transparency shows as the usual grey checkerboard, static. */
+  .pv-checker {
+    background-color: #2a2a28;
+    background-image:
+      linear-gradient(45deg, #3a3a37 25%, transparent 25%),
+      linear-gradient(-45deg, #3a3a37 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #3a3a37 75%),
+      linear-gradient(-45deg, transparent 75%, #3a3a37 75%);
+    background-size: 16px 16px;
+    background-position:
+      0 0,
+      0 8px,
+      8px -8px,
+      -8px 0;
+  }
+
+  .pv-zoomed {
+    cursor: grab;
+  }
+
+  .pv-zoomed[data-panning] {
+    cursor: grabbing;
+  }
+
+  /* A page set on the screen (PDF pages, notes, HTML pages): paper on a light box. */
+  .pv-paper {
+    background-color: #ffffff;
+    color: #1a1a18;
+    border-radius: 4px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+
+  .pv-note {
+    background-color: var(--raised);
+    color: var(--ink);
+    border-radius: 10px;
+  }
+
+  /* Text and code: line numbers in a dim gutter, light colours for the few kinds of token. */
+  .pv-code {
+    counter-reset: line;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.65;
+    tab-size: 2;
+  }
+
+  .pv-code > span {
+    display: block;
+    padding-left: 4.2em;
+    position: relative;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .pv-code > span::before {
+    counter-increment: line;
+    content: counter(line);
+    position: absolute;
+    left: 0;
+    width: 3.2em;
+    text-align: right;
+    color: var(--screen-muted);
+    opacity: 0.7;
+  }
+
+  .pv-code i {
+    font-style: normal;
+  }
+
+  .pv-code .t-str {
+    color: #a8e0a0;
+  }
+
+  .pv-code .t-num {
+    color: #ffc66d;
+  }
+
+  .pv-code .t-com {
+    color: var(--screen-muted);
+    font-style: italic;
+  }
+
+  .pv-code .t-key {
+    color: #9cc8ff;
+  }
+
+  .pv-table {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    border-collapse: collapse;
+  }
+
+  .pv-table :where(th, td) {
+    padding: 4px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .pv-table th {
+    position: sticky;
+    top: 0;
+    background-color: var(--screen);
+    color: var(--screen-muted);
+    font-weight: 500;
+  }
+
+  /* An HTML page of a monster: on white, in its sandbox. */
+  .pv-frame {
+    background-color: #ffffff;
+    border: 0;
+    border-radius: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='reduced']) .dock-frame {
+    animation: slide-in var(--dur-sheet) var(--steps-sheet) backwards;
+  }
+  /* Out faster than in: three frames, then DockSlot takes it off the page (LEAVE_MS). */
+  :root:not([data-motion='reduced']) .dock-frame.dock-leaving {
+    animation: slide-out var(--dur-ui) var(--steps-ui) both;
+  }
+  /* Another tab: the screen switches to it, lit in three frames. */
+  :root:not([data-motion='reduced']) .dock-panel {
+    animation: light-on var(--dur-ui) var(--steps-ui) backwards;
+  }
+}

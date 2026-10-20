@@ -1,0 +1,27 @@
+{
+  "batchcomplete": true,
+  "continue": { "sroffset": 3, "continue": "-||" },
+  "query": {
+    "searchinfo": { "totalhits": 337 },
+    "search": [
+      {
+        "ns": 0,
+        "title": "Satelliti naturali di Saturno",
+        "pageid": 62925,
+        "snippet": "principale: <span class=\"searchmatch\">Saturno</span> (astronomia). <span class=\"searchmatch\">Saturno</span> Sistema <span class=\"searchmatch\">di</span> <span class=\"searchmatch\">Saturno</span> Parametri orbitali"
+      },
+      {
+        "ns": 0,
+        "title": "Saturno (astronomia)",
+        "pageid": 689742,
+        "snippet": "Insieme agli anelli, orbitano 293 <span class=\"searchmatch\">lune</span> conosciute, e per questo <span class=\"searchmatch\">Saturno</span> detiene il primato"
+      },
+      {
+        "ns": 0,
+        "title": "2001: Odissea nello spazio (romanzo)",
+        "pageid": 648521,
+        "snippet": "verso <span class=\"searchmatch\">Saturno</span>, Bowman rende nuovamente operativa l&#039;astronave &quot;Discovery&quot; &amp; HAL"
+      }
+    ]
+  }
+}

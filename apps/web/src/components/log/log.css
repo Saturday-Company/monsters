@@ -1,0 +1,53 @@
+/*
+ * Attività as a tape (docs/design.md, "Note, Attività, Impostazioni"): rows
+ * split by seams, the time on the left in Martian Mono, a light in the colour
+ * of who acted, the sentence in Instrument Sans.
+ */
+
+.tape > li + li {
+  box-shadow:
+    inset 0 1px 0 var(--seam),
+    inset 0 2px 0 var(--seam-light);
+}
+
+/* The day over its rows: a label on the panel, a seam under it. */
+.tape-day {
+  background-color: var(--panel);
+  box-shadow:
+    inset 0 -1px 0 var(--seam-light),
+    inset 0 -2px 0 var(--seam);
+}
+
+/* A native select sunk like a field, with a caret drawn in the ink (no image). */
+.tape-select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
+    linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 52%,
+    calc(100% - 12px) 52%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* The details of a row: a small screen of instrumentation. */
+.tape-screen dt {
+  color: var(--screen-muted);
+}
+
+/* Values read like the rest of the screen: light in Martian Mono; raw data dimmer. */
+.tape-screen dd {
+  color: var(--screen-ink);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 20px;
+}
+
+.tape-screen dd[data-code] {
+  color: var(--screen-muted);
+}
+
+.tape-screen summary::marker {
+  color: var(--screen-muted);
+}

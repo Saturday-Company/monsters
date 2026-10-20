@@ -1,0 +1,116 @@
+/*
+ * Sign-in and first start (docs/design.md, "Accesso e primo avvio"): the boot
+ * of the instrument. Lines, steps and panels come in with the shared
+ * movements of styles.css (`light-on`, `rise-in`); here only the dots of a
+ * monster switching on and the caret. "Riduci movimento" (system or app)
+ * leaves the end state.
+ */
+
+/* A dot of a monster switching on (DotReveal.tsx): off until its moment, then on in one frame. */
+.boot-dot {
+  opacity: 0;
+  animation: boot-dot-on 1ms steps(1, end) forwards;
+}
+
+@keyframes boot-dot-on {
+  to {
+    opacity: 1;
+  }
+}
+
+/* The caret at the end of the guide's line, as on a display. */
+.boot-caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  margin-left: 0.2em;
+  vertical-align: -0.12em;
+  background: currentColor;
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='reduced']) .boot-caret {
+    animation: caret-blink var(--dur-blink) steps(1, end) infinite;
+  }
+
+  /* The check of DoneCheck draws itself in two frames, once the lamp is on (parts.tsx). */
+  :root:not([data-motion='reduced']) .check-draw {
+    stroke-dasharray: 1;
+    animation: check-draw var(--dur-press) var(--steps-press) var(--dur-ui) backwards;
+  }
+}
+
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-dot {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+:root[data-motion='reduced'] .boot-dot {
+  animation: none;
+  opacity: 1;
+}
+
+/*
+ * The faceplate of the sign-in device and of the first start: a raised
+ * housing with four screws in the corners, set on the chassis.
+ */
+.device {
+  position: relative;
+  border-radius: 22px;
+  background-color: var(--raised);
+  box-shadow:
+    0 0 0 1px var(--seam),
+    inset 0 1px 0 var(--seam-light),
+    0 8px 0 -3px rgba(var(--shadow-rgb), 0.14),
+    0 30px 60px -30px rgba(var(--shadow-rgb), 0.35);
+}
+
+[data-theme='dark'] .device {
+  box-shadow:
+    0 0 0 1px var(--seam),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 8px 0 -3px rgba(0, 0, 0, 0.45),
+    0 30px 60px -30px rgba(0, 0, 0, 0.8);
+}
+
+/* Screws: a small sunk dot with a slot. */
+.device-screw {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, transparent 0 42%, var(--key-edge) 42% 58%, transparent 58%),
+    var(--well);
+  box-shadow:
+    inset 0 1px 0 var(--seam),
+    0 1px 0 var(--seam-light);
+}
+
+/* The module of a step of the first start: a panel set into the chassis, a seam around it. */
+.boot-module {
+  background-color: var(--panel);
+  box-shadow:
+    0 0 0 1px var(--seam),
+    inset 0 1px 0 var(--seam-light),
+    0 6px 0 -2px rgba(var(--shadow-rgb), 0.08);
+}
+
+@media (prefers-contrast: more) {
+  .device,
+  .boot-module {
+    box-shadow: inset 0 0 0 1px var(--ink-faint);
+  }
+}

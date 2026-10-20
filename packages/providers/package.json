@@ -1,0 +1,69 @@
+{
+  "name": "@monsters/providers",
+  "version": "0.0.0",
+  "description": "Model providers for Monsters: registry, OpenRouter, fallback chains and shared rate budgets",
+  "license": "Apache-2.0",
+  "author": "Giulio Banchini and Saturday Company",
+  "homepage": "https://monsters.saturdaycompany.workers.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Saturday-Company/monsters.git",
+    "directory": "packages/providers"
+  },
+  "bugs": {
+    "url": "https://github.com/Saturday-Company/monsters/issues"
+  },
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "monsters-dist": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "default": "./src/index.ts"
+    },
+    "./testing": {
+      "monsters-dist": {
+        "types": "./dist/testing/index.d.ts",
+        "default": "./dist/testing/index.js"
+      },
+      "default": "./src/testing/index.ts"
+    }
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./testing": {
+        "types": "./dist/testing/index.d.ts",
+        "default": "./dist/testing/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "4.0.68",
+    "@ai-sdk/google": "4.0.85",
+    "@ai-sdk/groq": "4.0.52",
+    "@ai-sdk/mistral": "4.0.54",
+    "@ai-sdk/openai": "4.0.81",
+    "@ai-sdk/openai-compatible": "3.0.59",
+    "@ai-sdk/provider": "4.0.26",
+    "@monsters/shared": "workspace:*",
+    "@openrouter/ai-sdk-provider": "3.1.0",
+    "ai": "7.0.137",
+    "zod": "4.6.7"
+  }
+}

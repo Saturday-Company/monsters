@@ -1,0 +1,34 @@
+Monsters
+Copyright 2026 Giulio Banchini and Saturday Company, and the Monsters contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Fonts
+-----
+
+The desktop and web apps bundle the following fonts through the @fontsource
+packages. They are licensed under the SIL Open Font License, Version 1.1
+(see licenses/OFL.txt):
+
+- Doto, via @fontsource/doto.
+  Copyright 2024 The Doto Project Authors (https://github.com/oliverlalan/Doto)
+- Instrument Sans, via @fontsource-variable/instrument-sans.
+  Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans)
+- Martian Mono, via @fontsource/martian-mono.
+  Copyright 2020 The Martian Mono Project Authors (https://github.com/evilmartians/mono)
+
+Third-party material
+--------------------
+
+Brand icons in the gallery of services (apps/web/src/components/settings/brand-icons.ts)
+are SVG paths copied from Simple Icons (https://simpleicons.org), released under
+CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/). The brands
+and logos remain trademarks of their respective owners; Monsters uses them only to
+show which service a connection goes to, without any endorsement.
+
+Trademarks
+----------
+
+"Monsters", the Monsters logo and monster designs, "Saturday Company", "WitDesk"
+and "Anteiku" are trademarks of Giulio Banchini / Saturday Company. They are not
+licensed under the Apache License 2.0. See TRADEMARKS.md.

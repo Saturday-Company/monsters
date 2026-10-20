@@ -1,0 +1,197 @@
+import { CaretDown, X } from '@phosphor-icons/react';
+import { useEffect, useRef, useState } from 'react';
+import { CHANGELOG } from '../../lib/changelog-data.ts';
+import { unwrapMarkdown, type ChangelogVersion } from '../../lib/changelog.ts';
+import { cn } from '../../lib/utils.ts';
+import { setNewsOpen, useApp } from '../../store/app.ts';
+import { hasNews, markNewsSeen, useNews } from '../../store/news.ts';
+import { Markdown } from '../ui/Markdown.tsx';
+
+/*
+ * "Novità" (docs/design.md, "La chat"): what changed from one update to the
+ * next, from CHANGELOG.md bundled into the app. A key beside "Da rivedere"
+ * opens a sheet in the same place; the key shows a light while the version in
+ * use is newer than the last one whose news were opened (per browser).
+ */
+
+/** The key of the rail: opens the sheet; a light says the news of this version were not looked at. */
+export function NewsKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' }) {
+  const open = useApp((s) => s.newsOpen);
+  const version = useApp((s) => s.version);
+  const seen = useNews((s) => s.seen);
+  const fresh = hasNews(version, seen);
+  // A TV news bug ("NEWS" on a solid block) instead of an icon and a name: it says what it is.
+  return (
+    <button
+      type="button"
+      aria-label={fresh ? 'Novità, ci sono novità non viste' : 'Novità'}
+      title="Novità della versione"
+      aria-pressed={open}
+      data-testid="news-toggle"
+      onClick={() => setNewsOpen(!open)}
+      className={cn(
+        'key-ghost relative inline-flex shrink-0 items-center justify-center rounded-[9px] select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink',
+        layout === 'stacked' ? 'h-11 min-w-11 px-1.5' : 'h-9 px-2',
+        open && 'well hover:bg-well',
+      )}
+    >
+      <span
+        aria-hidden
+        className="inline-flex h-[18px] items-center rounded-[3px] bg-signal px-1.5 font-sans text-micro leading-none font-extrabold tracking-[0.08em] text-on-signal italic"
+      >
+        NEWS
+      </span>
+      {fresh && (
+        <span
+          aria-hidden
+          data-testid="news-led"
+          className="led absolute top-1 right-0.5 block size-1.5"
+          data-tone="signal"
+        />
+      )}
+    </button>
+  );
+}
+
+function VersionRow({
+  entry,
+  current,
+  open,
+  onToggle,
+}: {
+  entry: ChangelogVersion;
+  current: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const id = `news-${entry.version.replace(/[^\w-]/g, '-')}`;
+  return (
+    <li data-testid="news-version" data-version={entry.version} data-current={current || undefined}>
+      <h3 className="m-0">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={id}
+          onClick={onToggle}
+          className="key-ghost flex min-h-11 w-full items-center gap-2 rounded-[9px] px-1.5 py-2 text-left hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
+        >
+          <CaretDown
+            size={14}
+            weight="bold"
+            aria-hidden
+            className={cn('shrink-0 text-ink-muted transition-transform', !open && '-rotate-90')}
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block font-mono text-callout font-medium break-words text-ink">
+              {entry.version}
+            </span>
+            {entry.date && <span className="block text-footnote text-ink-muted">{entry.date}</span>}
+          </span>
+          {current && (
+            <span className="label inline-flex shrink-0 items-center gap-1.5 text-ink">
+              <span aria-hidden className="led" data-tone="signal" />
+              In uso
+            </span>
+          )}
+        </button>
+      </h3>
+      {open && (
+        <div id={id} className="px-1.5 pt-1 pb-4">
+          {entry.intro && <Markdown text={unwrapMarkdown(entry.intro)} className="mb-3 text-ink" />}
+          {entry.sections.map((section) => (
+            <section key={section.title} className="mb-3 last:mb-0">
+              <h4 className="label pb-1 text-ink-muted">{section.title}</h4>
+              <Markdown text={unwrapMarkdown(section.markdown)} className="text-ink" />
+            </section>
+          ))}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** Opens "Novità" (the palette). */
+export function showNews(): void {
+  setNewsOpen(true);
+}
+
+/** The sheet: mounted by the shell, shown while `newsOpen`. */
+export function NewsSheet() {
+  const open = useApp((s) => s.newsOpen);
+  const version = useApp((s) => s.version);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  // The version in use opens first; when the changelog does not list it, the newest does.
+  const currentKey = CHANGELOG.some((v) => v.version === version) ? version : CHANGELOG[0]?.version;
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!open) return;
+    markNewsSeen(version);
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const close = closeRef.current;
+    close?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNewsOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      // Back to the key that opened the sheet, unless the user moved on to something else.
+      if (document.activeElement === document.body || document.activeElement === close)
+        opener?.focus();
+    };
+  }, [open, version]);
+
+  if (!open) return null;
+  return (
+    <aside
+      role="dialog"
+      aria-modal="false"
+      aria-label="Novità"
+      data-testid="news-sheet"
+      className={cn(
+        'review-sheet slide-in raised fixed inset-x-0 top-[52px] bottom-0 z-30 flex flex-col overflow-hidden rounded-none',
+        'sm:top-[60px] sm:right-3 sm:bottom-3 sm:left-auto sm:w-[380px] sm:rounded-[14px]',
+      )}
+    >
+      <button
+        ref={closeRef}
+        type="button"
+        onClick={() => setNewsOpen(false)}
+        aria-label="Chiudi “Novità”"
+        title="Chiudi (Esc)"
+        className="key-ghost absolute top-3 right-3 z-[1] inline-flex size-9 items-center justify-center rounded-[9px] text-ink-muted hover:text-ink"
+      >
+        <X size={18} weight="bold" aria-hidden />
+      </button>
+      <div className="scroll-soft min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <h2 className="px-1 pr-12 text-title3 font-semibold text-ink">Novità</h2>
+        {version && (
+          <p className="px-1 pb-4 text-footnote text-ink-muted" data-testid="news-using">
+            Stai usando la {version}
+          </p>
+        )}
+        {CHANGELOG.length === 0 ? (
+          <p className="px-1 text-body text-ink-muted">Non ci sono ancora novità da mostrare.</p>
+        ) : (
+          <ul className="tape">
+            {CHANGELOG.map((entry) => (
+              <VersionRow
+                key={entry.version}
+                entry={entry}
+                current={entry.version === version}
+                open={expanded[entry.version] ?? entry.version === currentKey}
+                onToggle={() =>
+                  setExpanded((m) => ({
+                    ...m,
+                    [entry.version]: !(m[entry.version] ?? entry.version === currentKey),
+                  }))
+                }
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    </aside>
+  );
+}

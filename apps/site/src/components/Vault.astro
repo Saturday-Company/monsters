@@ -1,0 +1,95 @@
+---
+/*
+ * The vault: its git history in the vault's own commit format, the diff of one monster edit
+ * and a `vault_undo` key that performs the revert on the page (src/client/vault.ts). Then the
+ * real Claude Desktop block of `monsters mcp`, from docs/mcp-vault.md.
+ */
+import { type Strings } from '../i18n/strings.ts';
+import { highlight, mcpConfig } from '../lib/code.ts';
+import { crc32 } from '../lib/hexdump.ts';
+import { EDIT_ACTION, HISTORY, NOTE_PATH, UNDO_COMMIT, diffLines } from '../lib/vaultlog.ts';
+import CodeView from './CodeView.astro';
+import Win from './Win.astro';
+
+interface Props {
+  t: Strings;
+}
+const { t } = Astro.props;
+const diff = diffLines(false);
+const mcp = mcpConfig();
+const mcpLines = await highlight(mcp, 'json');
+const undoData = JSON.stringify({
+  commit: UNDO_COMMIT,
+  undone: diffLines(true),
+  done: diffLines(false),
+  said: t.vault.undone.replace('{sha}', UNDO_COMMIT.sha),
+});
+---
+
+<section class="section vault" id="vault" aria-labelledby="vault-title">
+  <span class="rubber rubber--alt" aria-hidden="true">git · 1 commit / action</span>
+  <div class="section__head power">
+    <h2 class="display h2" id="vault-title">
+      {t.vault.title}<sup class="fn"><a href="#fn-vault" id="fnref-vault" aria-label="Note ‡">‡</a></sup>
+    </h2>
+    <p class="lede">{t.vault.body}</p>
+  </div>
+
+  <div class="vault__grid" data-vault data-undo={undoData}>
+    <Win
+      t={t}
+      title="~/.monsters/vault · git log --oneline"
+      id="vault-log"
+      pid={4791}
+      class="vault__log"
+      drag
+    >
+      <pre class="git" tabindex="0" aria-label="git log --oneline"><code data-git-log>{
+        HISTORY.map((c) => (
+          <span class="git__c"><b>{c.sha}</b> {c.subject}</span>
+        ))
+      }</code></pre>
+      <div class="vault__undo">
+        <button type="button" class="key key--sm key--ink" data-undo-key>
+          ↺ vault_undo {`{"action_id":"${EDIT_ACTION.slice(0, 10)}…"}`}
+        </button>
+        <button type="button" class="key key--sm" data-undo-replay hidden>{t.vault.redo}</button>
+        <p class="vault__said label" role="status" aria-live="polite" data-undo-said></p>
+      </div>
+    </Win>
+
+    <Win
+      t={t}
+      title={`git show 9b27e51 -- ${NOTE_PATH}`}
+      id="vault-diff"
+      class="vault__diff"
+      foot={`diff · ${diff.length}L · crc32:${crc32(diff.map((d) => d.text).join('\n'))}`}
+      drag
+    >
+      <pre class="git" tabindex="0" aria-label="git show"><code data-git-diff>{
+        diff.map((d) => <span class={`df df--${d.kind}`}>{d.text}</span>)
+      }</code></pre>
+    </Win>
+  </div>
+
+  <div class="mcp" id="mcp">
+    <div class="mcp__copy">
+      <h3 class="display h3">{t.vault.mcpTitle}</h3>
+      <p class="lede">{t.vault.mcpBody}</p>
+      <p class="mcp__tools mono">
+        vault_search · vault_read · vault_write · vault_edit · vault_move · vault_delete ·
+        vault_history · vault_undo
+      </p>
+    </div>
+    <Win
+      t={t}
+      title="claude_desktop_config.json"
+      id="mcp-config"
+      class="mcp__win"
+      foot={`json · ${mcpLines.length}L · crc32:${crc32(mcp)}`}
+      note={`↑ docs/mcp-vault.md`}
+    >
+      <CodeView lines={mcpLines} label="claude_desktop_config.json" />
+    </Win>
+  </div>
+</section>

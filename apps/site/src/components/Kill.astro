@@ -1,0 +1,76 @@
+---
+import { type Strings } from '../i18n/strings.ts';
+import { excerpt, highlight } from '../lib/code.ts';
+import { tabPanel } from '../lib/win.ts';
+import CodeView from './CodeView.astro';
+import Win from './Win.astro';
+
+interface Props {
+  t: Strings;
+}
+const { t } = Astro.props;
+const kill = excerpt(
+  'packages/core/src/kill/run-controller.ts',
+  /async kill\(params/,
+  /const aborting = oldRoot\.abort/,
+);
+const tree = excerpt('packages/core/src/kill/control-scope.ts', /#abortTree\(reason: unknown/, /^  }$/);
+const killLines = await highlight(kill.code, 'typescript', 'class RunController {');
+const treeLines = await highlight(tree.code, 'typescript', 'class ControlScope {');
+---
+
+<section class="section kill" id="kill" aria-labelledby="kill-title">
+  <h2 class="display h2 power" id="kill-title">
+    {t.kill.title}<sup class="fn"><a href="#fn-code" id="fnref-code" aria-label="Note §">§</a></sup>
+  </h2>
+  <p class="lede">{t.kill.body}</p>
+
+  <div class="kill__rig">
+  <div class="panel">
+    <span class="panel__screws" aria-hidden="true"></span>
+    <button
+      type="button"
+      class="lever"
+      aria-pressed="false"
+      data-kill-lever
+      data-pull={t.kill.pull}
+      data-release={t.kill.release}
+      aria-label={t.kill.pull}
+    >
+      <span class="lever__slot" aria-hidden="true"></span>
+      <span class="lever__arm" aria-hidden="true">STOP</span>
+      <span class="lever__cover" aria-hidden="true"></span>
+    </button>
+    <div class="panel__side">
+      <span class="label">{t.kill.lever}</span>
+      <div class="screen state" role="status" aria-live="polite">
+        <span class="state__lamp" aria-hidden="true"></span>
+        <span class="state__text state__text--armed">{t.kill.armed}</span>
+        <span class="state__text state__text--stopped">{t.kill.stopped}</span>
+      </div>
+      <ul class="where label">
+        {t.kill.where.map((w) => <li>{w}</li>)}
+      </ul>
+    </div>
+  </div>
+  <Win
+    t={t}
+    title="packages/core/src/kill"
+    id="kill-src"
+    class="kill__src"
+    tabs={[
+      { id: 'rc', label: 'run-controller.ts' },
+      { id: 'cs', label: 'control-scope.ts' },
+    ]}
+    foot={`ts · L${kill.start}-${kill.start + killLines.length - 1} · ${t.killx.code}`}
+    drag
+  >
+    <div {...tabPanel('kill-src', 'rc', true)}>
+      <CodeView lines={killLines} start={kill.start} label="run-controller.ts" />
+    </div>
+    <div {...tabPanel('kill-src', 'cs')}>
+      <CodeView lines={treeLines} start={tree.start} label="control-scope.ts" />
+    </div>
+  </Win>
+  </div>
+</section>

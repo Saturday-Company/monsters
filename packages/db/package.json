@@ -1,0 +1,45 @@
+{
+  "name": "@monsters/db",
+  "version": "0.0.0",
+  "description": "SQLite adapter and namespaced migrations for Monsters",
+  "license": "Apache-2.0",
+  "author": "Giulio Banchini and Saturday Company",
+  "homepage": "https://monsters.saturdaycompany.workers.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Saturday-Company/monsters.git",
+    "directory": "packages/db"
+  },
+  "bugs": {
+    "url": "https://github.com/Saturday-Company/monsters/issues"
+  },
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "monsters-dist": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "default": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

@@ -1,0 +1,33 @@
+---
+import '@fontsource/doto/latin-900.css';
+import '@fontsource/martian-mono/latin-500.css';
+import '@fontsource-variable/instrument-sans/standard.css';
+import { dotCss, monsterFor } from '@monsters/monster-kit';
+import '../styles/global.css';
+import { dotsSvg } from '../lib/monsters.ts';
+
+const mimas = dotsSvg(monsterFor('mimas'), 'confused', { size: 260, title: 'Mimas, confused' });
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>404. Monsters</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <style is:inline set:html={dotCss}></style>
+  </head>
+  <body>
+    <main class="sheet section" style="min-height: 100dvh; border-top: 0">
+      <p class="label"><a class="word" href="/">monsters</a></p>
+      <h1 class="display h2" style="margin-top: 40px">404. Nobody here.</h1>
+      <p class="lede">Mimas looked everywhere. This page does not exist, or it ran away.</p>
+      <div class="screen" style="max-width: 300px; padding: 20px; margin: 40px 0">
+        <div class="mon"><Fragment set:html={mimas} /></div>
+      </div>
+      <a class="key key--signal" href="/">Back to the squad</a>
+    </main>
+  </body>
+</html>

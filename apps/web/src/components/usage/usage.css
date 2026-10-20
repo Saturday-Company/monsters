@@ -1,0 +1,122 @@
+/*
+ * Consumi (docs/design.md, "Consumi"): the context as a row of lineette like
+ * the meter's, lit by part in the monster's own light at five intensities
+ * (older and steadier parts dimmer, the present brighter), the harness's base
+ * in the screen's grey and the message of now in the screen's white; free
+ * space is unlit. Colour is never alone: the parts keep the prompt's order,
+ * a wider gap marks where one ends, the legend says names and numbers.
+ * Motion: a segment that lights up does it by frames (120 ms), never with
+ * "Riduci movimento".
+ */
+
+@layer components {
+  .ctx-bar {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .ctx-bar > i {
+    display: block;
+    flex: none;
+    width: 3px;
+    height: 10px;
+    border-radius: 1px;
+    background-color: var(--screen-off);
+  }
+
+  /* The big bar spans its screen: the segments share the width. */
+  .ctx-bar[data-size='lg'] {
+    display: flex;
+    width: 100%;
+  }
+
+  .ctx-bar[data-size='lg'] > i {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 3px;
+    max-width: 12px;
+    height: 22px;
+    border-radius: 1.5px;
+  }
+
+  /* The first segment of a new part: a wider gap, the boundary without colour. */
+  .ctx-bar > i[data-edge] {
+    margin-left: 2px;
+  }
+
+  .ctx-bar[data-size='lg'] > i[data-edge] {
+    margin-left: 4px;
+  }
+
+  .ctx-bar > i[data-part='base'],
+  .ctx-swatch[data-part='base'] {
+    background-color: var(--screen-muted);
+  }
+  .ctx-bar > i[data-part='instructions'],
+  .ctx-swatch[data-part='instructions'] {
+    background-color: color-mix(in oklab, var(--lit) 46%, var(--screen));
+  }
+  .ctx-bar > i[data-part='memory'],
+  .ctx-swatch[data-part='memory'] {
+    background-color: color-mix(in oklab, var(--lit) 60%, var(--screen));
+  }
+  .ctx-bar > i[data-part='tools'],
+  .ctx-swatch[data-part='tools'] {
+    background-color: color-mix(in oklab, var(--lit) 74%, var(--screen));
+  }
+  /* The summary of the older turns (D-082): the conversation's light, broken in dots. */
+  .ctx-bar > i[data-part='summary'],
+  .ctx-swatch[data-part='summary'] {
+    background: repeating-linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--lit) 87%, var(--screen)) 0 2px,
+      transparent 2px 3px
+    );
+  }
+  .ctx-bar > i[data-part='conversation'],
+  .ctx-swatch[data-part='conversation'] {
+    background-color: color-mix(in oklab, var(--lit) 87%, var(--screen));
+  }
+  .ctx-bar > i[data-part='tool_results'],
+  .ctx-swatch[data-part='tool_results'] {
+    background-color: var(--lit);
+  }
+  .ctx-bar > i[data-part='current'],
+  .ctx-swatch[data-part='current'] {
+    background-color: var(--screen-ink);
+  }
+
+  /* Where compaction starts (75% of the window): a thin mark of light, taller than the bar. */
+  .ctx-bar > .ctx-tick {
+    flex: none;
+    width: 1px;
+    height: 14px;
+    margin-bottom: -2px;
+    background-color: var(--screen-muted);
+  }
+
+  .ctx-bar[data-size='lg'] > .ctx-tick {
+    height: 32px;
+    margin-bottom: -5px;
+  }
+
+  .ctx-swatch {
+    display: inline-block;
+    flex: none;
+    width: 6px;
+    height: 16px;
+    border-radius: 1.5px;
+  }
+
+  .ctx-sheet-rule {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  /* A segment that lights (or changes part) switches on in three frames: styles.css `light-on`. */
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion='reduced']) .ctx-bar > i[data-part] {
+      animation: light-on var(--dur-ui) var(--steps-ui);
+    }
+  }
+}

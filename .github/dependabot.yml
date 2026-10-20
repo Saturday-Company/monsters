@@ -1,0 +1,49 @@
+# Exact versions are pinned on purpose (no ^ or ~), so Dependabot must bump
+# them explicitly: versioning-strategy "increase" keeps them exact.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      electron:
+        patterns:
+          - 'electron'
+          - 'electron-*'
+      vite-vitest:
+        patterns:
+          - 'vite'
+          - 'vite-*'
+          - 'vitest'
+          - '@vitest/*'
+      eslint-typescript:
+        patterns:
+          - 'eslint'
+          - 'eslint-*'
+          - '@eslint/*'
+          - 'typescript'
+          - 'typescript-eslint'
+          - '@typescript-eslint/*'
+      dependencies:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns:
+          - '*'

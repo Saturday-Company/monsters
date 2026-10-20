@@ -1,0 +1,59 @@
+{
+  "name": "@monsters/shared",
+  "version": "0.0.0",
+  "description": "Shared schemas and types for Monsters (events, API, ids)",
+  "license": "Apache-2.0",
+  "author": "Giulio Banchini and Saturday Company",
+  "homepage": "https://monsters.saturdaycompany.workers.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Saturday-Company/monsters.git",
+    "directory": "packages/shared"
+  },
+  "bugs": {
+    "url": "https://github.com/Saturday-Company/monsters/issues"
+  },
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "monsters-dist": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "default": "./src/index.ts"
+    },
+    "./node": {
+      "monsters-dist": {
+        "types": "./dist/node/index.d.ts",
+        "default": "./dist/node/index.js"
+      },
+      "default": "./src/node/index.ts"
+    }
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./node": {
+        "types": "./dist/node/index.d.ts",
+        "default": "./dist/node/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  }
+}

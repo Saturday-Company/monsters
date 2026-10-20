@@ -1,0 +1,16 @@
+---
+import { type Strings } from '../i18n/strings.ts';
+
+interface Props {
+  t: Strings;
+}
+const { t } = Astro.props;
+---
+
+<div class="killbar" role="region" aria-label={t.kill.banner}>
+  <div class="killbar__in">
+    <span class="killbar__title">{t.kill.banner}</span>
+    <span class="label">{t.kill.bannerSub}</span>
+    <button type="button" class="key key--sm" data-kill-resume>{t.kill.resume}</button>
+  </div>
+</div>

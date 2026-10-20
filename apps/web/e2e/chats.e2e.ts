@@ -1,0 +1,304 @@
+import type { Page } from '@playwright/test';
+import type * as AppStore from '../src/store/app.ts';
+import { expect, test } from './fixtures.ts';
+
+/*
+ * The chats (home): one chat per monster on the left, the open one on the
+ * right. The monsters stay in place in their rows, alive but never walking;
+ * what needs the user stands out; the keyboard and a phone work too.
+ */
+
+/** The app's own store module: Vite serves the page the same instance the app uses. */
+const STORE = '/src/store/app.ts';
+
+/** Feeds events to the store as the stream would, with ids after everything in the log. */
+let fed = 0;
+const feed = (
+  page: Page,
+  events: { agent: string; type: string; data: unknown; runId?: string }[],
+) =>
+  page.evaluate(
+    async ({ src, events, from }) => {
+      const { ingest } = (await import(/* @vite-ignore */ src)) as typeof AppStore;
+      ingest(
+        events.map((e, i) => ({
+          id: `7ZZZZZZZZZ${String(from + i).padStart(16, '0')}`,
+          ts: Date.now(),
+          runId: 'r-test',
+          parentId: null,
+          ...e,
+        })) as Parameters<(typeof AppStore)['ingest']>[0],
+      );
+    },
+    { src: STORE, events, from: (fed += events.length) - events.length },
+  );
+
+const list = (page: Page) => page.getByRole('navigation', { name: 'Chat dei mostri' });
+const row = (page: Page, name: string) =>
+  list(page).getByRole('link', { name: new RegExp(`^${name},`) });
+/** The god's chat is its bar at the head of the sidebar, not a row (D-102). */
+const god = (page: Page) => page.getByTestId('god-bar');
+
+test.use({ viewport: { width: 1440, height: 900 } });
+
+test('one chat per monster, in the team order, the orchestrator open', async ({ page }) => {
+  await page.goto('/?mock=demo&squadra=7');
+  const rows = list(page).getByTestId('chat-row');
+  // The orchestrator is its bar (D-102); then the Squadra personale, then the project of the
+  // demo with its lead first (D-100).
+  await expect(rows).toHaveCount(9);
+  await expect(god(page)).toHaveAccessibleName(/^Titan, /);
+  await expect(god(page)).toHaveAttribute('href', '#/?chat=titan');
+  expect(await rows.evaluateAll((els) => els.map((el) => el.getAttribute('data-agent')))).toEqual([
+    'rhea',
+    'dione',
+    'tethys',
+    'enceladus',
+    'hyperion',
+    'mimas',
+    'iapetus',
+    'calypso',
+    'pandora',
+  ]);
+  await expect(god(page)).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { name: 'Titan', level: 1 })).toBeVisible();
+
+  // The open question stands out on the row of the chat it belongs to.
+  await expect(god(page)).toHaveAttribute('data-waiting', 'true');
+  await expect(god(page).getByTestId('god-question')).toHaveText('1');
+  // A monster at work says what it does under its name; one in trouble says so.
+  await expect(row(page, 'Rhea')).toContainText('Cerco “tram 28 orari weekend”');
+  await expect(row(page, 'Mimas')).toContainText('Il foglio delle spese');
+  // The direct chat with Dione keeps to itself.
+  await expect(row(page, 'Dione')).toContainText('Bella luce!');
+  await row(page, 'Dione').click();
+  await expect(page).toHaveURL(/#\/\?chat=dione$/);
+  await expect(page.getByTestId('user-bubble')).toHaveText([
+    'Dione, mi scrivi una bio breve per Instagram?',
+    'Usa questa foto per il post di sabato, e fammi vedere il menu in una pagina.',
+  ]);
+  await expect(page.getByTestId('question-card')).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Messaggio' })).toHaveAttribute(
+    'placeholder',
+    'Scrivi a Dione… (@ per un altro mostro)',
+  );
+});
+
+test('a message in another chat shows up as unread, and is read once opened', async ({ page }) => {
+  await page.goto('/?mock=demo');
+  await expect(row(page, 'Enceladus')).toBeVisible();
+  // The chats view sets the read baseline when it mounts (lazy chunk): wait for it first.
+  await expect(page.getByTestId('chat-panel')).toBeVisible();
+  await expect(row(page, 'Enceladus').getByTestId('chat-row-unread')).toHaveCount(0);
+  await feed(page, [
+    {
+      agent: 'enceladus',
+      runId: 'r-ence',
+      type: 'message',
+      data: { role: 'agent', text: 'Ho riordinato il diario di oggi.' },
+    },
+  ]);
+  await expect(row(page, 'Enceladus').getByTestId('chat-row-unread')).toHaveText('1');
+  await expect(row(page, 'Enceladus')).toHaveAccessibleName(/1 da leggere/);
+  await expect(row(page, 'Enceladus')).toContainText('Ho riordinato il diario di oggi.');
+  await row(page, 'Enceladus').click();
+  await expect(page.getByTestId('agent-bubble')).toContainText(['Ho riordinato il diario']);
+  await expect(row(page, 'Enceladus').getByTestId('chat-row-unread')).toHaveCount(0);
+  // Still read after a look elsewhere and a reload.
+  await god(page).click();
+  await page.reload();
+  await expect(row(page, 'Enceladus').getByTestId('chat-row-unread')).toHaveCount(0);
+});
+
+test('a monster at work: thinking in its row, a working line at the bottom of its chat', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/?chat=rhea');
+  const avatar = row(page, 'Rhea').locator('svg[data-dots]');
+  await expect(avatar).toHaveAttribute('data-expression', 'think');
+  await expect(page.getByTestId('working-row')).toContainText('Cerco “tram 28 orari weekend”');
+  await expect(page.getByTestId('chat-status')).toContainText('Al lavoro');
+  // Rhea's chat shows the tasks Titan passed her and their results, not Titan's conversation.
+  const tasks = page.getByTestId('received-task');
+  // The demo's Lisbon task (the finished job of the morning comes before it, D-068).
+  const lisbon = tasks.filter({ hasText: 'spunti su Lisbona' });
+  await expect(lisbon).toContainText('Titan ha chiesto a Rhea: «');
+  await expect(lisbon).toHaveAttribute('data-status', 'completed');
+  await expect(lisbon).toContainText('5 spunti salvati');
+  await expect(tasks.last()).toContainText('Al lavoro…');
+  await expect(page.getByTestId('user-bubble')).toHaveCount(0);
+});
+
+test('keyboard: arrows move between chats, Ctrl/Cmd+K finds a monster in the palette', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo&squadra=7');
+  await god(page).focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(row(page, 'Rhea')).toBeFocused();
+  await expect(page).toHaveURL(/chat=rhea$/);
+  await page.keyboard.press('End');
+  // The last row is the last monster of the last squad (the demo's project).
+  await expect(row(page, 'Pandora')).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'Pandora', level: 1 })).toBeVisible();
+  await page.keyboard.press('Home');
+  // The first stop of the arrows is the god's bar, above the squads (D-102).
+  await expect(god(page)).toBeFocused();
+  await expect(page).toHaveURL(/chat=titan$/);
+  await expect(god(page)).toHaveAttribute('aria-current', 'page');
+  await page.keyboard.press('ArrowDown');
+  await expect(row(page, 'Rhea')).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(god(page)).toBeFocused();
+  // Only the open chat is in the tab order.
+  await expect(
+    page.locator('[data-testid="chat-row"][tabindex="0"], [data-testid="god-bar"][tabindex="0"]'),
+  ).toHaveCount(1);
+  await expect(god(page)).toHaveAttribute('tabindex', '0');
+
+  await page.getByRole('combobox', { name: 'Messaggio' }).focus();
+  await page.keyboard.press('ControlOrMeta+k');
+  const search = page.getByTestId('palette-input');
+  await expect(search).toBeFocused();
+  await search.fill('in ordine');
+  // Enceladus, by role ("Tiene in ordine le note"), first among the results.
+  await expect(page.getByTestId('palette-item').first()).toContainText('Enceladus');
+  await search.press('Enter');
+  await expect(page.getByTestId('palette')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Enceladus', level: 1 })).toBeVisible();
+  // The team in the sidebar is never filtered: every monster stays in place.
+  await expect(list(page).getByTestId('chat-row')).toHaveCount(9);
+});
+
+test('a question asked while working for the orchestrator: in both chats, badge in one', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo');
+  await expect(god(page)).toBeVisible();
+  // The demo's tram delegation is Titan's run; Rhea asks something there.
+  await feed(page, [
+    {
+      agent: 'rhea',
+      runId: 'run_seed_tram',
+      type: 'question',
+      data: {
+        questionId: 'q-tram',
+        question: 'Il tram 28 o il 12?',
+        options: [],
+        blocking: true,
+      },
+    },
+  ]);
+  const card = page.getByTestId('question-card').filter({ hasText: 'Il tram 28 o il 12?' });
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('Rhea ti chiede');
+  await expect(god(page).getByTestId('god-question')).toHaveText('2');
+  await expect(row(page, 'Rhea')).toContainText('Aspetta una tua risposta');
+  await expect(row(page, 'Rhea').getByTestId('chat-row-question')).toHaveCount(0);
+  await row(page, 'Rhea').click();
+  await expect(card).toBeVisible();
+});
+
+test.describe('phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('the list, then a chat, then back to the list', async ({ page }) => {
+    await page.goto('/?mock=demo');
+    await expect(list(page)).toBeVisible();
+    await expect(page.getByTestId('chat-panel')).toHaveCount(0);
+    await god(page).click();
+    await expect(list(page)).toHaveCount(0);
+    await expect(page.getByTestId('question-card').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Indietro' }).click();
+    await expect(list(page)).toBeVisible();
+    await expect(page).not.toHaveURL(/chat=/);
+    // Back from a chat opened from the list is the list too.
+    await row(page, 'Dione').click();
+    await expect(page.getByRole('heading', { name: 'Dione', level: 1 })).toBeVisible();
+    await page.goBack();
+    await expect(list(page)).toBeVisible();
+  });
+});
+
+test('"Riduci movimento" stops the idle animations of the monsters, and is remembered', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/?chat=rhea');
+  // Every strip lives by frames: Rhea at work thinks, Dione at rest blinks (docs/design.md);
+  // Enceladus goes round in circles in the demo: confused (D-068).
+  const frames = (name: string) =>
+    row(page, name)
+      .locator('svg[data-dots] [data-frame]')
+      .first()
+      .evaluate((el) => getComputedStyle(el).animationName);
+  await expect.poll(() => frames('Rhea')).toMatch(/^dk-think/);
+  await expect.poll(() => frames('Dione')).toMatch(/^dk-idle/);
+  await expect.poll(() => frames('Enceladus')).toMatch(/^dk-confused/);
+  // In place: the rows never move, nothing walks.
+  await expect(page.locator('[data-gait]')).toHaveCount(0);
+
+  await page.goto('/?mock=demo#/impostazioni?sezione=aspetto');
+  const toggle = page.getByRole('switch', { name: 'Riduci movimento' });
+  await toggle.click();
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'reduced');
+  await page.goto('/?mock=demo#/?chat=rhea');
+  await expect(god(page)).toBeVisible();
+  const names = await page
+    .locator('svg[data-dots] [data-frame]')
+    .evaluateAll((els) => [...new Set(els.map((el) => getComputedStyle(el).animationName))]);
+  expect(names).toEqual(['none']);
+  const meter = await page
+    .getByTestId('working-row')
+    .locator('.meter > i')
+    .nth(2)
+    .evaluate((el) => getComputedStyle(el).animationName);
+  expect(meter).toBe('none');
+});
+
+test('the monitor of the monster, the instrumentation line and "Dietro le quinte" on that turn', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo');
+  const monitor = page.getByTestId('chat-monitor');
+  await expect(monitor).toContainText('Titan');
+  await expect(monitor).toContainText('aspetta una tua risposta');
+  // The conversation also holds the finished job of the morning, whose instinct cost a little.
+  await expect(page.getByTestId('chat-summary')).toContainText(/\d+ strumenti · .*(gratis|\$)/i);
+  // Under the turn: what the run did, from its events.
+  const line = page.getByTestId('instrumentation').last();
+  await expect(line).toContainText(
+    'Titan › Delega · Ricerca web · Pagina web · Nota scritta · gratis',
+  );
+  await line.click();
+  const term = page.getByTestId('agent-terminal');
+  await expect(term.getByRole('heading', { name: 'Dietro le quinte di Titan' })).toBeVisible();
+  await expect(term.locator('[data-focus]').first()).toContainText('inizio lavoro');
+  await page.keyboard.press('Escape');
+  await expect(term).toHaveCount(0);
+
+  // Off in the settings, off in the chat.
+  await page.evaluate(async (src) => {
+    const { setPrefs } = (await import(/* @vite-ignore */ src)) as {
+      setPrefs: (p: { showDetails: boolean }) => void;
+    };
+    setPrefs({ showDetails: false });
+  }, '/src/store/prefs.ts');
+  await expect(page.getByTestId('instrumentation')).toHaveCount(0);
+  await expect(page.getByTestId('chat-summary')).toHaveCount(0);
+});
+
+test('the keypad: a letter presses the key when the composer is empty', async ({ page }) => {
+  await page.goto('/?mock=demo&mockSpeed=0.4');
+  const card = page.getByTestId('question-card').filter({ hasText: 'Che tono diamo ai post?' });
+  await expect(card).toHaveAttribute('data-keypad', 'on');
+  const input = page.getByRole('combobox', { name: 'Messaggio' });
+  await expect(input).toHaveAttribute('placeholder', 'Scrivi a Titan, oppure premi A, B o C');
+  // Typing in the composer is writing, not pressing.
+  await input.fill('c');
+  await input.press('b');
+  await expect(card).toHaveAttribute('data-status', 'open');
+  await input.fill('');
+  await input.press('b');
+  await expect(card).toHaveAttribute('data-status', 'answered');
+  await expect(card).toContainText('Hai scelto: Ironico');
+});

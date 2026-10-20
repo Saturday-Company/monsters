@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-bundle
+apps/desktop/release
+apps/desktop/.package
+apps/desktop/.signing
+coverage
+ci-results
+apps/site/.astro
+.cloudflare
+pnpm-lock.yaml
+# Hand-written project docs and the brief keep their own formatting.
+*.md
+docs
+bozze
+.claude

@@ -1,0 +1,64 @@
+{
+  "name": "@monsters/web",
+  "version": "0.0.0",
+  "description": "Monsters web UI: one chat per monster, agent terminal, notes, action log and kill switch",
+  "license": "Apache-2.0",
+  "author": "Giulio Banchini and Saturday Company",
+  "homepage": "https://monsters.saturdaycompany.workers.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Saturday-Company/monsters.git",
+    "directory": "apps/web"
+  },
+  "bugs": {
+    "url": "https://github.com/Saturday-Company/monsters/issues"
+  },
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json",
+    "test:e2e": "playwright test",
+    "screenshots": "SCREENSHOTS=1 playwright test screenshots",
+    "icons": "node scripts/brand-icons.ts && prettier --write src/components/settings/brand-icons.ts",
+    "test:e2e:core": "pnpm run build && playwright test -c playwright.core.config.ts",
+    "test:e2e:onboarding": "playwright test -c playwright.onboarding.config.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@fontsource-variable/instrument-sans": "5.3.0",
+    "@fontsource/doto": "5.3.0",
+    "@fontsource/martian-mono": "5.3.0",
+    "@monsters/monster-kit": "workspace:*",
+    "@monsters/shared": "workspace:*",
+    "@phosphor-icons/react": "2.1.10",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "croner": "10.0.1",
+    "pdfjs-dist": "6.3.289",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
+    "tailwind-merge": "3.7.0",
+    "zod": "4.6.7",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@monsters/core": "workspace:*",
+    "@monsters/providers": "workspace:*",
+    "@playwright/test": "1.64.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "simple-icons": "16.33.0",
+    "tailwindcss": "4.3.3",
+    "vite": "8.3.4"
+  }
+}

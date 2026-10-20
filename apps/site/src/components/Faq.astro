@@ -1,0 +1,74 @@
+---
+/*
+ * The FAQ as `man monsters`: a printed manual page. Each question is asked by a monster of the
+ * squad; the answers fold like before.
+ */
+import { type RosterName, monsterFor, ROSTER } from '@monsters/monster-kit';
+import { fill, type Strings } from '../i18n/strings.ts';
+import { REPO_URL } from '../lib/feed.ts';
+import Mon from './Mon.astro';
+import Win from './Win.astro';
+
+interface Props {
+  t: Strings;
+  version: string;
+}
+const { t, version } = Astro.props;
+const m = t.man;
+const seeAlso: [string, string][] = [
+  ['README.md', `${REPO_URL}#readme`],
+  ['docs/mcp-vault.md', `${REPO_URL}/blob/main/docs/mcp-vault.md`],
+  ['docs/security-model.md', `${REPO_URL}/blob/main/docs/security-model.md`],
+  ['docs/ARCHITECTURE.md', `${REPO_URL}/blob/main/docs/ARCHITECTURE.md`],
+];
+---
+
+<section class="section" id="faq" aria-labelledby="faq-title">
+  <Win t={t} title="man monsters" id="man" kind="paper" class="man" foot="Manual page monsters(1) line 1 (press h for help or q to quit)">
+    <p class="man__hdr" aria-hidden="true">
+      <span>MONSTERS(1)</span><span>{m.section}</span><span>MONSTERS(1)</span>
+    </p>
+    <p class="man__h">{m.name}</p>
+    <p class="man__p">{m.nameLine}</p>
+    <p class="man__h">{m.synopsis}</p>
+    <p class="man__p mono"><b>monsters</b> &lt;command&gt; [options]</p>
+    <h2 class="man__h man__h--q display" id="faq-title">{t.faq.title}</h2>
+    <ul class="faq" role="list">
+      {
+        t.faq.items.map((item) => {
+          const who = item.who as RosterName;
+          return (
+            <li>
+              <details>
+                <summary>
+                  <span class="screen">
+                    <Mon genome={monsterFor(who)} size={56} sleep={false} />
+                  </span>
+                  <span>
+                    <span class="label faq__who">{fill(t.faq.asks, { name: ROSTER[who].name })}</span>
+                    <span class="faq__q">{item.q}</span>
+                  </span>
+                  <span class="faq__x" aria-hidden="true" />
+                </summary>
+                <p class="faq__a">{item.a}</p>
+              </details>
+            </li>
+          );
+        })
+      }
+    </ul>
+    <p class="man__h">{m.seeAlso}</p>
+    <p class="man__p man__see">
+      {
+        seeAlso.map(([label, href]) => (
+          <a href={href} rel="noopener">
+            {label}
+          </a>
+        ))
+      }
+    </p>
+    <p class="man__hdr man__ftr" aria-hidden="true">
+      <span>monsters {version}</span><span>2026</span><span>MONSTERS(1)</span>
+    </p>
+  </Win>
+</section>

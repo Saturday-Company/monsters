@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "types": ["node", "astro/client"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "declaration": false,
+    "sourceMap": false,
+    "noEmit": true
+  },
+  "include": ["src", "test", "scripts", "astro.config.ts", "vitest.config.ts", ".astro/types.d.ts"],
+  "exclude": ["dist", "node_modules"]
+}

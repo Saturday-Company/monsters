@@ -1,0 +1,90 @@
+---
+/*
+ * A terminal window: title bar with path, pid and bracketed controls, optional tabs, a body
+ * and a status line. `screen` windows are black LED glass, `paper` ones are printed. The
+ * controls (minimize, maximize, close) and the drag work with JavaScript (src/client/wins.ts);
+ * without it the window is just a framed block.
+ */
+import type { Strings } from '../i18n/strings.ts';
+import { winUid } from '../lib/win.ts';
+
+interface Props {
+  t: Strings;
+  title: string;
+  pid?: number | string | undefined;
+  kind?: 'screen' | 'paper';
+  tabs?: { id: string; label: string }[] | undefined;
+  foot?: string | undefined;
+  drag?: boolean;
+  class?: string;
+  id?: string;
+  label?: string;
+  /** A handwritten-ish annotation stuck to the window. */
+  note?: string | undefined;
+}
+const {
+  t,
+  title,
+  pid,
+  kind = 'screen',
+  tabs,
+  foot,
+  drag = false,
+  class: cls = '',
+  id,
+  label,
+  note,
+} = Astro.props;
+const uid = winUid(id ?? title);
+---
+
+<div
+  class={`win win--${kind} ${cls}`}
+  data-win
+  data-drag={drag ? '' : undefined}
+  id={id}
+  role="group"
+  aria-label={label ?? title}
+>
+  <div class="win__bar">
+    <span class="win__grip" aria-hidden="true"></span>
+    <span class="win__title">{title}</span>
+    {pid !== undefined && <span class="win__pid">pid {pid}</span>}
+    <span class="win__ctl">
+      <button type="button" data-win-min aria-expanded="true" aria-controls={`${uid}-body`}
+        ><span aria-hidden="true">[_]</span><span class="sr-only">{t.win.min}: {title}</span></button
+      ><button type="button" data-win-max aria-pressed="false"
+        ><span aria-hidden="true">[□]</span><span class="sr-only">{t.win.max}: {title}</span></button
+      ><button type="button" data-win-close
+        ><span aria-hidden="true">[x]</span><span class="sr-only">{t.win.close}: {title}</span></button
+      >
+    </span>
+  </div>
+  {
+    tabs && (
+      <div class="win__tabs" role="tablist" aria-label={title}>
+        {tabs.map((tab, i) => (
+          <button
+            type="button"
+            role="tab"
+            id={`${uid}-tab-${tab.id}`}
+            aria-selected={i === 0 ? 'true' : 'false'}
+            aria-controls={`${uid}-panel-${tab.id}`}
+            tabindex={i === 0 ? 0 : -1}
+            data-tab={tab.id}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+    )
+  }
+  <div class="win__body" id={`${uid}-body`}>
+    <slot />
+  </div>
+  <p class="win__exited" hidden>
+    {t.win.exited} <button type="button" data-win-reopen>{t.win.reopen}</button>
+  </p>
+  {foot && <div class="win__foot" aria-hidden="true">{foot}</div>}
+  {note && <span class="scrawl" aria-hidden="true">{note}</span>}
+</div>

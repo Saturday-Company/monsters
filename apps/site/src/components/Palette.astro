@@ -1,0 +1,42 @@
+---
+/*
+ * The command palette: a modal one-line shell opened with `/` or Ctrl+K (or the key in the
+ * bar). The parser is src/lib/palette.ts; the browser part is loaded on first open.
+ */
+import { type Strings } from '../i18n/strings.ts';
+
+interface Props {
+  t: Strings;
+}
+const { t } = Astro.props;
+---
+
+<dialog class="pal" data-palette aria-labelledby="pal-title">
+  <div class="win win--screen pal__win">
+    <div class="win__bar">
+      <span class="win__grip" aria-hidden="true"></span>
+      <span class="win__title" id="pal-title">{t.palette.title}</span>
+      <span class="win__pid">tty1</span>
+      <span class="win__ctl">
+        <button type="button" data-pal-close
+          ><span aria-hidden="true">[x]</span><span class="sr-only">{t.win.close}</span></button
+        >
+      </span>
+    </div>
+    <div class="pal__out" data-pal-out role="log" aria-live="polite"></div>
+    <form class="pal__form" data-pal-form>
+      <label class="sr-only" for="pal-in">{t.palette.label}</label>
+      <span class="pal__ps" aria-hidden="true">you@localhost:~$</span>
+      <input
+        id="pal-in"
+        type="text"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+        enterkeyhint="go"
+        data-pal-in
+      />
+    </form>
+    <p class="pal__hint label">{t.palette.hint}</p>
+  </div>
+</dialog>

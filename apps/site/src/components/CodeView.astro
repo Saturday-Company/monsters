@@ -1,0 +1,21 @@
+---
+/*
+ * Highlighted source lines (from src/lib/code.ts) with a line-number gutter. The gutter is
+ * hidden from screen readers; the code scrolls sideways inside its window, never the page.
+ */
+interface Props {
+  lines: string[];
+  start?: number;
+  label: string;
+  /** Extra class per line, by 0-based index (diff colours). */
+  marks?: Record<number, string>;
+}
+const { lines, start = 1, label, marks = {} } = Astro.props;
+const width = String(start + lines.length - 1).length;
+---
+
+<pre class="code" tabindex="0" aria-label={label}><code>{
+  lines.map((l, i) => (
+    <span class={`cl ${marks[i] ?? ''}`}><span class="cl__n" aria-hidden="true">{String(start + i).padStart(width, ' ')}</span><Fragment set:html={l || ' '} /></span>
+  ))
+}</code></pre>

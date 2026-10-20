@@ -1,0 +1,66 @@
+/*
+ * The god's bar (docs/design.md, "La barra del Dio", D-101): a black screen on
+ * the chassis, at the head of the sidebar. Only light inside; it is pressed
+ * like a light key on a screen (a veil of light under the pointer, 1 px down).
+ */
+
+@layer components {
+  .god-bar {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border-radius: 12px;
+    transform: translateY(0);
+  }
+
+  @media (hover: hover) {
+    .god-bar:hover {
+      background-image: linear-gradient(var(--screen-hover), var(--screen-hover));
+    }
+  }
+
+  .god-bar:active {
+    background-image: linear-gradient(var(--screen-press), var(--screen-press));
+    transform: translateY(var(--sink-flat));
+    transition: transform var(--dur-press) var(--steps-press);
+  }
+
+  /* Its chat is open (D-102): the outline of a chosen strip, around the screen, past a gap of chassis. */
+  .god-bar[aria-current='page'] {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.045),
+      0 0 0 2px var(--chassis),
+      0 0 0 3.5px var(--ink);
+  }
+
+  .god-bar:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 5px;
+  }
+
+  /* A question waits in the god's chat: the signal orange as text (≥ 4.5:1 on black). */
+  .god-signal {
+    color: var(--signal);
+  }
+
+  /* Unread messages in the god's chat: a tile of light on the screen. */
+  .god-unread {
+    background: var(--screen-ink);
+    color: var(--screen);
+  }
+
+  .god-marquee {
+    display: block;
+    width: 100%;
+  }
+
+  .god-name {
+    color: var(--lit);
+  }
+
+  .god-bar[data-state='halted'] .god-name,
+  .god-bar[data-state='offline'] .god-name {
+    color: var(--screen-muted);
+  }
+}

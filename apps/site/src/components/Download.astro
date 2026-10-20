@@ -1,0 +1,85 @@
+---
+import { fill, type Strings } from '../i18n/strings.ts';
+import { RELEASES_URL, formatSize, type Download } from '../lib/feed.ts';
+
+interface Props {
+  t: Strings;
+  version: string;
+  releaseDate: string | null;
+  downloads: Download[];
+}
+const { t, version, releaseDate, downloads } = Astro.props;
+const date = releaseDate
+  ? new Intl.DateTimeFormat(t.lang === 'it' ? 'it-IT' : 'en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(releaseDate))
+  : '';
+const groups = (['linux', 'mac', 'windows'] as const).map((os) => ({
+  os,
+  name: t.download[os],
+  files: downloads.filter((d) => d.os === os),
+}));
+const first = downloads[0];
+// The default pick, before the browser says which system it is: the first file (AppImage).
+const picks = JSON.stringify(
+  Object.fromEntries(
+    downloads.map((d) => [d.id, { url: d.url, os: d.os, label: t.download[d.os] }]),
+  ),
+);
+---
+
+<section class="section" id="download" aria-labelledby="dl-title">
+  <div class="dl__top">
+    <div class="power">
+      <h2 class="display h2" id="dl-title">{t.download.title}</h2>
+      <p class="lede mono">{fill(t.download.released, { version, date })}</p>
+    </div>
+    {
+      first && (
+        <div class="dl__main" data-dl-main data-picks={picks} data-label={t.hero.downloadFor}>
+          <span class="label" data-dl-detected hidden>
+            {t.download.detected}: <b data-dl-os />
+          </span>
+          <a class="key key--signal" href={RELEASES_URL} data-dl-main-key rel="noopener">
+            <span data-dl-main-text>{t.download.all}</span>
+            <span class="key__arrow" aria-hidden="true">
+              ↓
+            </span>
+          </a>
+        </div>
+      )
+    }
+  </div>
+
+  <div class="dl__grid">
+    {
+      groups.map((g) => (
+        <div class="dl__os" data-os={g.os}>
+          <h3>{g.name.toLowerCase()}</h3>
+          <div class="dl__files">
+            {g.files.map((d) => (
+              <a class="key dlkey" href={d.url} data-dl-id={d.id} download rel="noopener">
+                <span class="f">{d.format}</span>
+                <span class="s">{t.download.sub[d.id]}</span>
+                <span class="z">{formatSize(d.size)}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      ))
+    }
+  </div>
+
+  <ul class="dl__notes">
+    <li>{t.download.alpha}</li>
+    <li>{t.download.mac_note}</li>
+    <li>{t.download.win_note}</li>
+    <li>
+      {t.download.updates}{' '}
+      <a href={RELEASES_URL} rel="noopener">{t.download.all}</a>
+    </li>
+  </ul>
+</section>

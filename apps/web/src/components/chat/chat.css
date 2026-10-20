@@ -1,0 +1,380 @@
+/*
+ * The chat of the instrument (docs/design.md, "La chat" and "Dietro le quinte").
+ * Materials only from the tokens; motion by frames (`steps()`), never blurs or
+ * filters; "Riduci movimento" leaves the state changes only.
+ */
+
+@layer components {
+  /* What a monster showed in Anteprima (D-075): a card that opens it, lit like a row. */
+  @media (hover: hover) {
+    .preview-row:hover:not([data-shown]) {
+      background-color: var(--panel);
+    }
+  }
+
+  .preview-row:active {
+    box-shadow: inset 0 0 0 1.5px var(--ink);
+  }
+
+  .preview-row:focus-visible {
+    outline: 2px solid var(--signal-ink);
+    outline-offset: 2px;
+  }
+
+  .preview-row[data-shown] {
+    box-shadow: inset 0 0 0 1.5px var(--signal-ink);
+  }
+
+  /* ------------------------------------------------------------ bubbles */
+
+  .bubble {
+    border-radius: 14px;
+    box-shadow:
+      0 0 0 1px var(--seam),
+      0 1px 0 1px var(--seam-light);
+  }
+
+  /* A monster speaks from its screen on the left: the corner by the avatar is sharp. */
+  .bubble-agent {
+    border-top-left-radius: 4px;
+  }
+
+  /* The user's voice is the clearest thing on the instrument: ink, with the panel as text. */
+  .bubble-user {
+    border-top-right-radius: 4px;
+    background-color: var(--ink);
+    color: var(--panel);
+    box-shadow: 0 1px 0 var(--seam-light);
+  }
+
+  .bubble-user ::selection {
+    background: color-mix(in oklab, var(--signal), transparent 40%);
+    color: var(--on-signal);
+  }
+
+  /* -------------------------------------------------- instrumentation */
+
+  /* "TITAN › DELEGA ×2 · RICERCA WEB ×3 · 4,1 S · GRATIS" under a turn. */
+  .instr {
+    display: block;
+    position: relative;
+    max-width: 100%;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 16px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-muted);
+    text-align: left;
+    border-radius: 4px;
+  }
+
+  /* The line is 16 px tall: the target is 24 px (WCAG 2.5.8), the look does not change. */
+  .instr::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    height: max(100%, 24px);
+    transform: translateY(-50%);
+  }
+
+  /* The arrow says where a press goes: shown under the pointer, always on a touch screen. */
+  .instr-go {
+    opacity: 0;
+  }
+
+  @media (hover: hover) {
+    .instr:hover {
+      color: var(--ink);
+    }
+
+    .instr:hover .instr-go {
+      opacity: 1;
+    }
+  }
+
+  @media (hover: none) {
+    .instr-go {
+      opacity: 1;
+    }
+  }
+
+  .instr:focus-visible .instr-go {
+    opacity: 1;
+  }
+
+  /* -------------------------------------------- events among monsters */
+
+  /* A `.label` centred between two seam dashes, the same length on both sides. */
+  .event-line {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .event-line::before,
+  .event-line::after {
+    content: '';
+    flex: 1 1 0;
+    min-width: 16px;
+    max-width: 120px;
+    height: 2px;
+    background: linear-gradient(var(--seam) 0 1px, var(--seam-light) 1px 2px);
+  }
+
+  /* On a phone the words matter more than the dashes: they go, the label takes two lines. */
+  @media (max-width: 479px) {
+    .event-line::before,
+    .event-line::after {
+      display: none;
+    }
+  }
+
+  /* ------------------------------------------------------------ monitor */
+
+  .monitor {
+    --lit: var(--screen-ink);
+  }
+
+  .monitor-name {
+    color: var(--lit);
+  }
+
+  /*
+   * Light keys on a screen: no cap, the light of the text. Under the pointer
+   * the words light up and a veil of light comes under them; pressed, they
+   * sink 1 px like every flat key.
+   */
+  .screen-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 8px;
+    color: var(--screen-muted);
+    transform: translateY(0);
+  }
+
+  @media (hover: hover) {
+    .screen-key:hover:not(:disabled) {
+      color: var(--screen-ink);
+      background-color: var(--screen-hover);
+    }
+  }
+
+  .screen-key:active:not(:disabled) {
+    color: var(--screen-ink);
+    transform: translateY(var(--sink-flat));
+    background-color: var(--screen-press);
+    transition: transform var(--dur-press) var(--steps-press);
+  }
+
+  .screen-key:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .screen-key:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 1px;
+  }
+
+  /* The question light on a screen: the signal orange as text (≥ 4.5:1 on black). */
+  .text-screen-signal {
+    color: var(--signal);
+  }
+
+  /* ------------------------------------------------------------ receipt */
+
+  /* The receipt of a job (D-068): a display, its foot split by a line of light. */
+  .receipt {
+    border-radius: 12px;
+  }
+
+  .receipt-foot {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .receipt-undo {
+    height: 36px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  }
+
+  .receipt-undo[data-state='armed'] {
+    box-shadow: inset 0 0 0 1px var(--screen-stop);
+  }
+
+  /* ------------------------------------------------------------ keypad */
+
+  .keypad-key {
+    min-height: 56px;
+    border-radius: 12px;
+  }
+
+  .keypad-key .keycap {
+    min-width: 28px;
+    height: 26px;
+    font-size: 12px;
+    color: var(--ink);
+  }
+
+  .keypad-key[data-recommended] .keycap {
+    box-shadow:
+      inset 0 0 0 1px var(--signal-edge),
+      0 2px 0 var(--signal-edge);
+  }
+
+  /* ----------------------------------------------------------- composer */
+
+  .composer-well {
+    border-radius: 14px;
+  }
+
+  .composer-well:focus-within {
+    outline: 2px solid var(--signal-ink);
+    outline-offset: 1px;
+  }
+
+  /* ----------------------------------------------- terminal ("Dietro le quinte") */
+
+  .term {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 20px;
+    color: var(--screen-ink);
+  }
+
+  .term .md {
+    --md-code-bg: rgba(255, 255, 255, 0.07);
+    --md-rule: rgba(255, 255, 255, 0.18);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 20px;
+  }
+
+  .term .md :where(a) {
+    color: var(--screen-ink);
+  }
+
+  .term ::selection {
+    background: color-mix(in oklab, var(--signal), transparent 45%);
+  }
+
+  .term-filter {
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 6px;
+    color: var(--screen-muted);
+  }
+
+  @media (hover: hover) {
+    .term-filter:hover:not([aria-checked='true']) {
+      color: var(--screen-ink);
+      background-color: var(--screen-hover);
+    }
+  }
+
+  .term-filter:active:not([aria-checked='true']) {
+    transform: translateY(var(--sink-flat));
+    background-color: var(--screen-press);
+    transition: transform var(--dur-press) var(--steps-press);
+  }
+
+  .term-filter[aria-checked='true'] {
+    color: var(--screen);
+    background-color: var(--screen-ink);
+  }
+
+  .term-input {
+    background-color: rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.6);
+    color: var(--screen-ink);
+  }
+
+  .term-input::placeholder {
+    color: var(--screen-muted);
+  }
+
+  .term-input:focus {
+    outline: 2px solid var(--signal);
+    outline-offset: 0;
+  }
+
+  /* A file a tool made (a screenshot), on the terminal's screen. */
+  .term-file {
+    background-color: rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+
+  @media (hover: hover) {
+    .term-file:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  .term-file:active {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  }
+
+  .term-file:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 1px;
+  }
+
+  .term-pre {
+    background-color: rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+
+  /* The run the instrumentation line asked for: a bar of the monster's light on the left. */
+  .term-row[data-focus] {
+    box-shadow: inset 2px 0 0 var(--lit, var(--screen-ink));
+    background-color: rgba(255, 255, 255, 0.035);
+  }
+
+  .scroll-screen {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+}
+
+/* ------------------------------------------------------------- motion */
+
+/*
+ * What arrives in an open chat rises in (styles.css `.rise-in`, put by
+ * ChatPanel only on the rows that were not there when the chat opened);
+ * a monster that starts working lights its name like a screen waking up.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  /* 520 ms = 13 frames; ChatMonitor's KICK_MS is the same length. */
+  :root:not([data-motion='reduced']) .monitor[data-kick] .monitor-name,
+  :root:not([data-motion='reduced']) .monitor[data-kick] .monitor-meter {
+    animation: monitor-kick 520ms steps(1, end);
+  }
+
+  /* The cursor of the greeting on the big screen. */
+  :root:not([data-motion='reduced']) .screen-cursor {
+    animation: caret-blink var(--dur-blink) steps(1, end) infinite;
+  }
+}
+
+@keyframes monitor-kick {
+  0% {
+    opacity: 0.25;
+  }
+  18% {
+    opacity: 1;
+  }
+  36% {
+    opacity: 0.45;
+  }
+  54% {
+    opacity: 1;
+  }
+}

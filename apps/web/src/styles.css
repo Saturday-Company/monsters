@@ -1,0 +1,1486 @@
+@import 'tailwindcss';
+
+/*
+ * The "Strumento" design (docs/design.md, D-062). Theme colours are CSS
+ * variables written by theme/tokens.ts (applyTheme). Fonts are bundled
+ * (@fontsource, imported by main.tsx): the app never fetches a font.
+ */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme inline {
+  --color-chassis: var(--chassis);
+  --color-panel: var(--panel);
+  --color-raised: var(--raised);
+  --color-well: var(--well);
+  --color-seam: var(--seam);
+  --color-seam-light: var(--seam-light);
+  --color-key-edge: var(--key-edge);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-signal: var(--signal);
+  --color-on-signal: var(--on-signal);
+  --color-signal-ink: var(--signal-ink);
+  --color-stop: var(--stop);
+  --color-on-stop: var(--on-stop);
+  --color-stop-ink: var(--stop-ink);
+  --color-stop-soft: var(--stop-soft);
+  --color-ok: var(--ok);
+  --color-screen: var(--screen);
+  --color-screen-ink: var(--screen-ink);
+  --color-screen-muted: var(--screen-muted);
+  --color-screen-off: var(--screen-off);
+  --color-screen-stop: var(--screen-stop);
+  --color-screen-ok: var(--screen-ok);
+  /*
+   * The names of the previous design, still used by the views not restyled
+   * yet: each maps to its nearest part of the instrument.
+   */
+  --color-content: var(--panel);
+  --color-window: var(--chassis);
+  --color-sidebar: var(--chassis);
+  --color-glass-selected: var(--panel);
+  --color-fill: var(--fill);
+  --color-fill-strong: var(--fill-strong);
+  --color-separator: var(--separator);
+  --color-accent: var(--signal);
+  --color-on-accent: var(--on-signal);
+  --color-accent-ink: var(--signal-ink);
+  --color-danger: var(--stop);
+  --color-on-danger: var(--on-stop);
+  --color-danger-soft: var(--stop-soft);
+  --color-on-danger-soft: var(--stop-ink);
+  --font-sans:
+    'Instrument Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Ubuntu Sans',
+    system-ui, 'Noto Sans', Roboto, sans-serif;
+  --font-mono:
+    'Martian Mono', ui-monospace, 'SF Mono', 'Cascadia Code', 'Ubuntu Sans Mono', Menlo, Consolas,
+    monospace;
+  /* Dots: the wordmark, the monsters' names on their monitors, the clock. Never under 18 px. */
+  --font-display: 'Doto', 'Martian Mono', ui-monospace, monospace;
+}
+
+/*
+ * Type scale (docs/design.md, "Caratteri"): body 15 px, chat 16 px. Every
+ * size of the UI is one of these; `cn()` knows them (lib/utils.ts).
+ */
+@theme {
+  --text-micro: 12px;
+  --text-micro--line-height: 16px;
+  --text-caption: 13px;
+  --text-caption--line-height: 18px;
+  --text-footnote: 14px;
+  --text-footnote--line-height: 20px;
+  --text-body: 15px;
+  --text-body--line-height: 22px;
+  --text-large: 16px;
+  --text-large--line-height: 24px;
+  --text-title3: 18px;
+  --text-title3--line-height: 24px;
+  --text-title2: 22px;
+  --text-title2--line-height: 28px;
+  --text-title1: 24px;
+  --text-title1--line-height: 30px;
+  --text-display: 30px;
+  --text-display--line-height: 36px;
+  --text-hero: 44px;
+  --text-hero--line-height: 44px;
+}
+
+/* Z-index scale: app 1, sheet 30, popover 40, rail 50, toast 50. */
+
+@layer base {
+  /*
+   * The grammar of motion (docs/design.md, "Movimento", D-084). One frame is
+   * 40 ms, like a display at 25 fps: a press takes two frames, something
+   * small that comes in three, a sheet four. Everything moves by `steps()`;
+   * only transform, opacity and visibility change; exits are faster or instant.
+   */
+  :root {
+    --dur-press: 80ms;
+    --dur-ui: 120ms;
+    --dur-sheet: 160ms;
+    --steps-press: steps(2, jump-end);
+    --steps-ui: steps(3, jump-end);
+    --steps-sheet: steps(4, jump-end);
+    /* Attention: what waits for the user blinks at 1 Hz, nothing else blinks. */
+    --dur-blink: 1s;
+    /* A key sinks until 1 px of thickness is left: 2 px for keys, 1 px for tiles and flat keys. */
+    --sink-key: 2px;
+    --sink-flat: 1px;
+    /* Pointer over a pressable row: the next tone of the surface it sits on (set by the surfaces). */
+    --row-hover: var(--panel);
+    /* On a black screen: a veil of light under the pointer, a little more while pressed. */
+    --screen-hover: rgba(255, 255, 255, 0.07);
+    --screen-press: rgba(255, 255, 255, 0.11);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    background: var(--chassis);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.45;
+    background: var(--chassis);
+    overflow: hidden;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--signal), transparent 68%);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--signal-ink);
+    outline-offset: 2px;
+  }
+
+  /* The hand only over what can be pressed; never over what cannot (yet). */
+  :is(button, summary, select, [role='tab'], [role='option'], [role='menuitem']) {
+    cursor: pointer;
+  }
+
+  :is(button, select):disabled {
+    cursor: default;
+  }
+}
+
+@layer components {
+  /*
+   * Labels and instrumentation (docs/design.md, "Caratteri"): Martian Mono,
+   * 11 px, upper case, spaced. Short words only; sentences stay in Instrument Sans.
+   */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 16px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The wordmark and the clock: dots, never under 18 px. */
+  .dots {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+  }
+
+  /*
+   * Seams (docs/design.md, "Materiali"): a dark line and a light one under it.
+   * `.seam-h` / `.seam-v` are rules of their own (2 px); `.seam-t/b/l/r` draw
+   * the seam inside an element's edge.
+   */
+  .seam-h {
+    flex-shrink: 0;
+    height: 2px;
+    background: linear-gradient(var(--seam) 0 1px, var(--seam-light) 1px 2px);
+  }
+
+  .seam-v {
+    flex-shrink: 0;
+    width: 2px;
+    background: linear-gradient(to right, var(--seam) 0 1px, var(--seam-light) 1px 2px);
+  }
+
+  .seam-t {
+    box-shadow:
+      inset 0 1px 0 var(--seam),
+      inset 0 2px 0 var(--seam-light);
+  }
+
+  .seam-b {
+    box-shadow:
+      inset 0 -1px 0 var(--seam-light),
+      inset 0 -2px 0 var(--seam);
+  }
+
+  .seam-l {
+    box-shadow:
+      inset 1px 0 0 var(--seam),
+      inset 2px 0 0 var(--seam-light);
+  }
+
+  .seam-r {
+    box-shadow:
+      inset -1px 0 0 var(--seam-light),
+      inset -2px 0 0 var(--seam);
+  }
+
+  /* Sunk into the chassis: fields, the search, the tracks of the switches. */
+  .well {
+    background-color: var(--well);
+    box-shadow:
+      inset 0 1px 0 var(--seam),
+      inset 0 0 0 1px color-mix(in oklab, var(--seam), transparent 55%),
+      0 1px 0 var(--seam-light);
+  }
+
+  /*
+   * A screen (docs/design.md, "Schermo"): black in both themes, a 1 px
+   * reflection inside, set into the chassis by a seam. Only light inside.
+   */
+  .screen {
+    background-color: var(--screen);
+    color: var(--screen-ink);
+    border-radius: 10px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.045),
+      0 0 0 1px var(--seam),
+      0 1px 0 1px var(--seam-light);
+  }
+
+  /* Static scan lines, only on big screens (terminal, graph, monitors). */
+  .screen-lines {
+    position: relative;
+  }
+
+  .screen-lines::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.05) 0 1px,
+      transparent 1px 2px
+    );
+  }
+
+  /*
+   * Indicator lights (docs/design.md, "Spie"): 8 px, a lens with a static
+   * glow. Green ready, orange something to do, red stopped or error. Never
+   * the only sign: a word or a number always goes with them.
+   */
+  .led {
+    --led: color-mix(in oklab, var(--ink), transparent 80%);
+    display: inline-block;
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background-color: var(--led);
+    box-shadow:
+      inset 0 -1px 1px rgba(0, 0, 0, 0.3),
+      inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  }
+
+  .screen .led,
+  .led[data-on-screen] {
+    --led: rgba(255, 255, 255, 0.13);
+  }
+
+  .led:is([data-tone='ok'], [data-tone='signal'], [data-tone='stop']) {
+    box-shadow:
+      inset 0 -1px 1px rgba(0, 0, 0, 0.25),
+      inset 0 1px 1px rgba(255, 255, 255, 0.5),
+      0 0 7px 1px color-mix(in oklab, var(--led), transparent 45%);
+  }
+
+  .led[data-tone='ok'] {
+    --led: var(--ok);
+  }
+
+  .led[data-tone='signal'] {
+    --led: var(--signal);
+  }
+
+  .led[data-tone='stop'] {
+    --led: var(--stop);
+  }
+
+  .screen .led[data-tone='stop'] {
+    --led: var(--screen-stop);
+  }
+
+  /*
+   * Keys (docs/design.md, "Tasto" and "Movimento"): a cap with a 1 px edge
+   * and 3 px of thickness below. Pressed, it sinks 2 px in two frames (the
+   * thickness goes to 1 px); released, it is up at once. Only `transform`
+   * and the shadow change. Under the pointer the cap changes one tone; on a
+   * touch screen there is no hover, the press is the feedback.
+   */
+  .key {
+    --cap: var(--raised);
+    --cap-hover: color-mix(in oklab, var(--raised), var(--ink) 4%);
+    --edge: var(--key-edge);
+    --hi: rgba(255, 255, 255, 0.75);
+    background-color: var(--cap);
+    border-radius: 10px;
+    box-shadow:
+      inset 0 0 0 1px var(--edge),
+      inset 0 2px 0 -1px var(--hi),
+      0 3px 0 var(--edge);
+    transform: translateY(0);
+  }
+
+  [data-theme='dark'] .key {
+    --hi: rgba(255, 255, 255, 0.07);
+  }
+
+  @media (hover: hover) {
+    .key:hover:not(:disabled, [data-pressed='true']) {
+      --cap: var(--cap-hover);
+    }
+  }
+
+  .key:active:not(:disabled),
+  .key[data-pressed='true'] {
+    transform: translateY(var(--sink-key));
+    box-shadow:
+      inset 0 0 0 1px var(--edge),
+      inset 0 2px 0 -1px var(--hi),
+      0 1px 0 var(--edge);
+    transition:
+      transform var(--dur-press) var(--steps-press),
+      box-shadow var(--dur-press) var(--steps-press);
+  }
+
+  /*
+   * Small controls with a target of at least 24 px (WCAG 2.5.8) without
+   * changing how they look: a transparent pseudo-element as tall as needed.
+   */
+  .hit-24 {
+    position: relative;
+  }
+
+  .hit-24::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    height: max(100%, 24px);
+    transform: translateY(-50%);
+  }
+
+  /*
+   * The chosen one (chip, segment, tab, option card): besides the sunk cap, a
+   * 1.5 px inner outline in --ink, so the state is not told by a tone of the
+   * cap alone (WCAG 1.4.11). Not for a key held for a moment.
+   */
+  .key[data-pressed='true'][aria-checked='true'],
+  .key[data-pressed='true'][aria-pressed='true'],
+  .key[data-pressed='true'][aria-selected='true'] {
+    box-shadow:
+      inset 0 0 0 1.5px var(--ink),
+      inset 0 2px 0 -1px var(--hi),
+      0 1px 0 var(--edge);
+  }
+
+  .key.key-primary {
+    --cap: var(--signal);
+    --cap-hover: color-mix(in oklab, var(--signal), white 7%);
+    --edge: var(--signal-edge);
+    --hi: rgba(255, 255, 255, 0.3);
+    color: var(--on-signal);
+  }
+
+  .key.key-danger {
+    --cap: var(--stop);
+    --cap-hover: color-mix(in oklab, var(--stop), white 6%);
+    --edge: color-mix(in oklab, var(--stop), black 40%);
+    --hi: rgba(255, 255, 255, 0.22);
+    color: var(--on-stop);
+  }
+
+  /*
+   * A primary key that cannot be pressed yet is a normal key with quiet words
+   * (docs/design.md, "Tasto"): orange only when there is something to do. A
+   * key held down on purpose (`data-pressed`, "Entro…") keeps its colour.
+   */
+  .key.key-primary:disabled:not([data-pressed='true']) {
+    --cap: var(--raised);
+    --edge: var(--key-edge);
+    --hi: rgba(255, 255, 255, 0.75);
+    color: var(--ink-muted);
+    opacity: 1;
+  }
+
+  [data-theme='dark'] .key.key-primary:disabled:not([data-pressed='true']) {
+    --hi: rgba(255, 255, 255, 0.07);
+  }
+
+  /*
+   * The lever of a switch (components/ui/controls.tsx): a cap that stands out
+   * of its sunk track in both themes (WCAG 1.4.11, ≥ 3:1: the edge in light,
+   * the cap in dark). Not a `.key`: it never changes on hover. It snaps to
+   * the other side in two frames, like a press (both ways: it is the state).
+   */
+  .lever {
+    background-color: var(--lever);
+    box-shadow:
+      inset 0 0 0 1px var(--lever-edge),
+      inset 0 2px 0 -1px rgba(255, 255, 255, 0.55),
+      0 2px 0 var(--lever-edge);
+    transition: translate var(--dur-press) var(--steps-press);
+  }
+
+  [data-theme='dark'] .lever {
+    box-shadow:
+      inset 0 0 0 1px var(--lever-edge),
+      inset 0 2px 0 -1px rgba(255, 255, 255, 0.16),
+      0 2px 0 var(--lever-edge);
+  }
+
+  /*
+   * Ghost keys: no cap (icons in the rail, quiet actions). With no thickness
+   * to give, they sink 1 px like a membrane; a shadow of a well under the
+   * pointer, a deeper one while pressed.
+   */
+  .key-ghost {
+    background-color: transparent;
+    border-radius: 10px;
+    transform: translateY(0);
+  }
+
+  @media (hover: hover) {
+    .key-ghost:hover:not(:disabled) {
+      background-color: color-mix(in oklab, var(--ink), transparent 93%);
+    }
+  }
+
+  .key-ghost:active:not(:disabled) {
+    transform: translateY(var(--sink-flat));
+    background-color: color-mix(in oklab, var(--ink), transparent 89%);
+    transition: transform var(--dur-press) var(--steps-press);
+  }
+
+  /*
+   * A pressable row (the strips of the sidebar, rows of lists and modules,
+   * items of menus): rows are surfaces, not keys, so they never move. Under
+   * the pointer they take the next tone of the surface they sit on
+   * (`--row-hover`: chassis → panel, panel → raised, raised → panel, on a
+   * screen a veil of light); pressed, they take the outline of the choice at
+   * once. The chosen row has the outline already.
+   */
+  @media (hover: hover) {
+    .row-key:hover:not(:disabled, [aria-current='page'], [aria-selected='true'], [data-chosen]) {
+      background-color: var(--row-hover);
+    }
+  }
+
+  .row-key:active:not(:disabled) {
+    background-color: var(--row-hover);
+    box-shadow: inset 0 0 0 1.5px var(--row-ring, var(--ink));
+  }
+
+  /*
+   * A pressable picture (an image in a bubble, a tile): its surface is the
+   * picture, so the light is a ring: quiet under the pointer, the outline of
+   * the choice while pressed.
+   */
+  @media (hover: hover) {
+    :is(.tile-key, .md-image):hover {
+      box-shadow: 0 0 0 1.5px var(--ink-muted);
+    }
+  }
+
+  :is(.tile-key, .md-image):active {
+    box-shadow: 0 0 0 1.5px var(--ink);
+  }
+
+  .module,
+  .on-panel,
+  .content-card,
+  .boot-module {
+    --row-hover: var(--raised);
+    --row-ring: var(--ink);
+  }
+
+  .card,
+  .raised,
+  .popover,
+  .set-module,
+  .vault-sheet,
+  .device,
+  .pv-note {
+    --row-hover: var(--panel);
+    --row-ring: var(--ink);
+  }
+
+  .screen,
+  .on-screen {
+    --row-hover: var(--screen-hover);
+    --row-ring: rgba(255, 255, 255, 0.4);
+  }
+
+  /* A key cap with a letter or a shortcut (⌘K, A, B…): a small tile in Martian Mono. */
+  .keycap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: var(--ink-muted);
+    background-color: var(--raised);
+    box-shadow:
+      inset 0 0 0 1px var(--key-edge),
+      0 2px 0 var(--key-edge);
+  }
+
+  /*
+   * The content module: a panel set into the chassis, its top-left corner
+   * rounded like a module in a frame, a seam where it meets the chassis.
+   */
+  .module {
+    background-color: var(--panel);
+    border-top-left-radius: 14px;
+    box-shadow:
+      0 0 0 1px var(--seam),
+      inset 1px 1px 0 var(--seam-light);
+  }
+
+  /* The card of the screens with no shell (sign in, first start): a module on its own. */
+  .content-card {
+    background-color: var(--panel);
+    box-shadow:
+      0 0 0 1px var(--seam),
+      inset 0 1px 0 var(--seam-light),
+      0 6px 0 -2px rgba(var(--shadow-rgb), 0.1);
+  }
+
+  /*
+   * Menus, popovers, dialogs, sheets (docs/design.md, "Menu, popover,
+   * dialoghi"): raised, a seam for border, a short solid shadow and a light
+   * soft one. `.popover` is the same material for the small floating controls.
+   */
+  .raised,
+  .popover {
+    background-color: var(--raised);
+    box-shadow:
+      0 0 0 1px var(--seam),
+      0 6px 0 -2px rgba(var(--shadow-rgb), 0.12),
+      0 18px 40px -18px rgba(var(--shadow-rgb), 0.32);
+  }
+
+  [data-theme='dark'] :is(.raised, .popover) {
+    box-shadow:
+      0 0 0 1px var(--seam),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 6px 0 -2px rgba(0, 0, 0, 0.4),
+      0 18px 40px -18px rgba(0, 0, 0, 0.7);
+  }
+
+  /* A card on the panel: raised, a seam around it, no shadow. */
+  .card {
+    background-color: var(--raised);
+    box-shadow: 0 0 0 1px var(--seam);
+  }
+
+  @media (prefers-contrast: more) {
+    .card,
+    .raised,
+    .popover,
+    .module,
+    .content-card {
+      box-shadow: inset 0 0 0 1px var(--ink-faint);
+    }
+  }
+
+  /*
+   * The level meter (components/ui/Meter.tsx): four segments, lit in turns by
+   * frames while a monster works, off at rest. Opacity only.
+   */
+  .meter {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 10px;
+  }
+
+  .meter > i {
+    display: block;
+    width: 3px;
+    height: 10px;
+    border-radius: 1px;
+    background-color: var(--meter, currentColor);
+    opacity: 0.2;
+  }
+
+  .meter[data-on] > i:first-child {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion='reduced']) .meter[data-on] > i:nth-child(2) {
+      animation: meter-2 480ms steps(1, end) infinite;
+    }
+    :root:not([data-motion='reduced']) .meter[data-on] > i:nth-child(3) {
+      animation: meter-3 720ms steps(1, end) infinite;
+    }
+    :root:not([data-motion='reduced']) .meter[data-on] > i:nth-child(4) {
+      animation: meter-4 1120ms steps(1, end) infinite;
+    }
+    /* Attention (docs/design.md, "Movimento"): only what waits for the user blinks, at 1 Hz. */
+    :root:not([data-motion='reduced']) .led[data-blink] {
+      animation: led-blink var(--dur-blink) steps(1, end) infinite;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .meter[data-on] > i:nth-child(2) {
+      opacity: 1;
+    }
+  }
+
+  :root[data-motion='reduced'] .meter[data-on] > i:nth-child(2) {
+    opacity: 1;
+  }
+
+  @keyframes meter-2 {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    70% {
+      opacity: 0.2;
+    }
+  }
+
+  @keyframes meter-3 {
+    0%,
+    100% {
+      opacity: 0.2;
+    }
+    30% {
+      opacity: 1;
+    }
+    80% {
+      opacity: 0.2;
+    }
+  }
+
+  @keyframes meter-4 {
+    0%,
+    100% {
+      opacity: 0.2;
+    }
+    45% {
+      opacity: 1;
+    }
+    60% {
+      opacity: 0.2;
+    }
+  }
+
+  @keyframes led-blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  /* A caret on a screen or at the end of a reply being written: on half a second, off half. */
+  @keyframes caret-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  /*
+   * Coming in (docs/design.md, "Movimento"): four movements, by frames, used
+   * by every part of the UI. Going out is instant (the element leaves the
+   * page) except for the pane on the right, which plays `slide-out`.
+   *   .rise-in   something that arrives in the flow: a message, a card, a step,
+   *              a menu over the composer, a toast (4 px up, three frames)
+   *   .drop-in   something that hangs from the rail: the palette (6 px down)
+   *   .slide-in  a sheet or the pane from the right edge (24 px, four frames)
+   *   .light-on  a part of a screen that switches on: a tab, a line, a
+   *              segment (from dim to lit, three frames, no movement)
+   */
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion='reduced']) .rise-in {
+      animation: rise-in var(--dur-ui) var(--steps-ui) backwards;
+    }
+    :root:not([data-motion='reduced']) .drop-in {
+      animation: drop-in var(--dur-ui) var(--steps-ui) backwards;
+    }
+    :root:not([data-motion='reduced']) .slide-in {
+      animation: slide-in var(--dur-sheet) var(--steps-sheet) backwards;
+    }
+    :root:not([data-motion='reduced']) .light-on {
+      animation: light-on var(--dur-ui) var(--steps-ui) backwards;
+    }
+  }
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes drop-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes slide-out {
+    from {
+      opacity: 1;
+      transform: none;
+    }
+    to {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+  }
+
+  @keyframes light-on {
+    from {
+      opacity: 0.2;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /*
+   * A caret that turns when its drawer opens or closes (`details`, rows that
+   * open, "+" that becomes "×"): the result of a press, so two frames like a
+   * press. The rotation is the caller's (`group-open:rotate-90`: the `rotate` property).
+   */
+  .turn {
+    transition: rotate var(--dur-press) var(--steps-press);
+  }
+
+  /* Opaque under the composer and its bottom margin (the scrolled chat used to show through
+     the last few pixels), a short fade above it. */
+  .composer-dock {
+    background: linear-gradient(to top, var(--panel) calc(100% - 12px), transparent);
+  }
+
+  .scroll-soft {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--ink), transparent 80%) transparent;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /*
+   * Markdown from the models (components/ui/Markdown.tsx): compact, in the
+   * colour of its container. Inside bubbles `--md-code-bg` comes from
+   * theme/bubbles.ts, which checks its contrast with the text.
+   */
+  .md {
+    --md-code-bg: var(--fill);
+    --md-rule: color-mix(in oklab, currentColor, transparent 78%);
+    overflow-wrap: anywhere;
+  }
+
+  .md > * + *,
+  .md li > * + * {
+    margin-top: 0.5em;
+  }
+
+  .md :where(h1, h2, h3, h4, h5, h6) {
+    font-weight: 650;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+
+  .md :where(h1, h2) {
+    font-size: 1.06em;
+  }
+
+  .md :where(h3, h4, h5, h6) {
+    font-size: 1em;
+  }
+
+  .md > :where(h1, h2, h3, h4, h5, h6):not(:first-child) {
+    margin-top: 0.85em;
+  }
+
+  .md :where(strong) {
+    font-weight: 650;
+  }
+
+  .md :where(ul, ol) {
+    padding-left: 1.3em;
+  }
+
+  .md :where(ul) {
+    list-style: disc;
+  }
+
+  .md :where(ol) {
+    list-style: decimal;
+  }
+
+  .md :where(li) + li {
+    margin-top: 0.2em;
+  }
+
+  .md :where(li)::marker {
+    color: color-mix(in oklab, currentColor, transparent 25%);
+  }
+
+  .md :where(li:has(> .md-check)) {
+    list-style: none;
+    margin-left: -1.3em;
+  }
+
+  .md-check {
+    margin-right: 0.45em;
+    vertical-align: -0.1em;
+    accent-color: currentColor;
+  }
+
+  .md :where(blockquote) {
+    border-left: 3px solid var(--md-rule);
+    padding-left: 0.75em;
+  }
+
+  .md :where(hr) {
+    border: 0;
+    border-top: 1px solid var(--md-rule);
+    margin-block: 0.75em;
+  }
+
+  .md :where(code) {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--md-code-bg);
+    border-radius: 6px;
+    padding: 0.1em 0.35em;
+  }
+
+  .md :where(pre) {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    line-height: 1.55;
+    background: var(--md-code-bg);
+    border-radius: 12px;
+    padding: 0.6em 0.8em;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .md :where(pre code) {
+    background: none;
+    padding: 0;
+    font-size: 1em;
+  }
+
+  .md-table {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  .md-table table {
+    border-collapse: collapse;
+    font-size: 0.93em;
+    line-height: 1.4;
+  }
+
+  .md-table :where(th, td) {
+    border-bottom: 1px solid var(--md-rule);
+    padding: 0.3em 0.75em 0.3em 0;
+    text-align: left;
+    vertical-align: top;
+    overflow-wrap: normal;
+    min-width: 6ch;
+  }
+
+  .md-table :where(th) {
+    font-weight: 650;
+  }
+
+  .md-link {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  @media (hover: hover) {
+    .md-link:hover {
+      text-decoration-thickness: 2px;
+    }
+  }
+
+  .md-ext {
+    display: inline;
+    margin-left: 0.15em;
+    vertical-align: 0.05em;
+    opacity: 0.8;
+  }
+
+  .md-note {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    gap: 0.3em;
+    vertical-align: baseline;
+    border-radius: 999px;
+    background: var(--md-code-bg);
+    padding: 0.02em 0.55em 0.02em 0.45em;
+    font-weight: 600;
+    font-size: 0.94em;
+    text-decoration: none;
+    box-shadow: inset 0 0 0 1px var(--md-rule);
+  }
+
+  .md-note > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Only a note chip that opens something lights up (a missing note is a plain mark). */
+  @media (hover: hover) {
+    :is(a, button).md-note:hover {
+      box-shadow: inset 0 0 0 1.5px color-mix(in oklab, currentColor, transparent 50%);
+    }
+  }
+
+  /* An image in a message (D-075): its own size up to the bubble's width, a click opens Anteprima. */
+  .md-image {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0.4em 0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px var(--md-rule);
+    cursor: zoom-in;
+  }
+
+  .md-image img {
+    display: block;
+    max-width: 100%;
+    max-height: 320px;
+    object-fit: contain;
+  }
+
+  .md-image:focus-visible {
+    outline: 2px solid var(--signal-ink);
+    outline-offset: 2px;
+  }
+
+  /* An image on the internet, not loaded until asked: where it is and the key to load it. */
+  .md-remote {
+    display: flex;
+    max-width: 100%;
+    align-items: center;
+    gap: 0.6em;
+    margin: 0.4em 0;
+    border-radius: 10px;
+    background: var(--md-code-bg);
+    padding: 0.5em 0.6em 0.5em 0.75em;
+    box-shadow: inset 0 0 0 1px var(--md-rule);
+    font-size: 0.94em;
+  }
+
+  .md-remote > .min-w-0 {
+    flex: 1;
+  }
+
+  .md-remote-key {
+    display: inline-flex;
+    flex-shrink: 0;
+    height: 30px;
+    align-items: center;
+    border-radius: 8px;
+    padding: 0 0.7em;
+    color: var(--signal-ink);
+    box-shadow: inset 0 0 0 1px var(--md-rule);
+  }
+
+  @media (hover: hover) {
+    .md-remote-key:hover {
+      box-shadow: inset 0 0 0 1.5px color-mix(in oklab, currentColor, transparent 50%);
+    }
+  }
+
+  /* A note now in the trash: struck through, and it says so. */
+  .md-note-trashed > span:first-of-type {
+    text-decoration: line-through;
+  }
+
+  .md-note > .md-note-tag {
+    flex-shrink: 0;
+    font-weight: 400;
+  }
+
+  .md-streaming > :last-child::after {
+    content: '';
+    display: inline-block;
+    width: 2px;
+    height: 1.05em;
+    margin-left: 2px;
+    translate: 0 3px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  /* Still writing: the caret blinks (work going on, not a call for attention); still with less motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion='reduced']) .md-streaming > :last-child::after {
+      animation: caret-blink var(--dur-blink) steps(1, end) infinite;
+    }
+  }
+}
+
+/*
+ * Notes (docs/design.md, "Note, Attività, Impostazioni"): the memory bank.
+ * The open note is a sheet of `--raised` set into the panel; the text is
+ * Instrument Sans 17/28 on a 68ch column; links to other notes are the signal
+ * as underlined text; tags are small key caps. The graph is a black screen.
+ */
+@layer components {
+  /* The sheet of the open note (and of the new note, the trash): raised, a seam around it. */
+  .vault-sheet {
+    background-color: var(--raised);
+    border-radius: 14px;
+    box-shadow:
+      0 0 0 1px var(--seam),
+      0 1px 0 1px var(--seam-light);
+  }
+
+  [data-theme='dark'] .vault-sheet {
+    box-shadow:
+      0 0 0 1px var(--seam),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .vault-md {
+    font-size: 17px;
+    line-height: 28px;
+    max-width: 68ch;
+  }
+
+  .vault-md :where(h1) {
+    font-size: 1.45em;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+
+  .vault-md :where(h2) {
+    font-size: 1.2em;
+  }
+
+  .vault-md :where(h3) {
+    font-size: 1.05em;
+  }
+
+  .vault-md > * + * {
+    margin-top: 0.7em;
+  }
+
+  .vault-md {
+    --md-code-bg: var(--well);
+  }
+
+  /* [[Links]] to other notes: the signal as text, underlined (no pills inside the notes). */
+  .vault-md .md-note {
+    display: inline;
+    padding: 0;
+    border-radius: 2px;
+    background: none;
+    box-shadow: none;
+    font-size: 1em;
+    font-weight: 550;
+    color: var(--signal-ink);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  .vault-md .md-note > span {
+    white-space: normal;
+  }
+
+  @media (hover: hover) {
+    .vault-md a.md-note:hover {
+      text-decoration-thickness: 2px;
+      box-shadow: none;
+    }
+  }
+
+  /* A link to a note not written yet: muted, a dashed line. */
+  .vault-md .md-note.vault-missing {
+    color: var(--ink-muted);
+    font-weight: 500;
+    outline: none;
+    text-decoration-style: dashed;
+  }
+
+  .vault-md .md-link {
+    color: var(--signal-ink);
+  }
+
+  /* Tags: a small key cap in Martian Mono. */
+  .vault-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 5px;
+    vertical-align: 0.12em;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: var(--ink-muted);
+    background-color: var(--raised);
+    box-shadow:
+      inset 0 0 0 1px var(--key-edge),
+      0 2px 0 var(--key-edge);
+    transform: translateY(0);
+  }
+
+  @media (hover: hover) {
+    .vault-tag:hover {
+      color: var(--ink);
+    }
+  }
+
+  /* A tile is 2 px thick: it sinks 1 px, like every key, until 1 px is left. */
+  .vault-tag:active {
+    transform: translateY(var(--sink-flat));
+    box-shadow:
+      inset 0 0 0 1px var(--key-edge),
+      0 1px 0 var(--key-edge);
+    transition:
+      transform var(--dur-press) var(--steps-press),
+      box-shadow var(--dur-press) var(--steps-press);
+  }
+
+  /* Inside a raised sheet the cap is a tone lighter than the paper: the panel. */
+  .vault-sheet .vault-tag {
+    background-color: var(--panel);
+  }
+
+  /* An embedded note or an attachment: a small card sunk in the page. */
+  .vault-embed {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    gap: 0.5em;
+    border-radius: 10px;
+    padding: 0.4em 0.85em;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--ink);
+    background-color: var(--well);
+    box-shadow:
+      inset 0 1px 0 var(--seam),
+      0 1px 0 var(--seam-light);
+  }
+
+  @media (hover: hover) {
+    a.vault-embed:hover {
+      color: var(--signal-ink);
+    }
+  }
+
+  .vault-embed.vault-missing {
+    background: transparent;
+    color: var(--ink-muted);
+    font-weight: 500;
+    box-shadow: none;
+    outline: 1px dashed var(--ink-faint);
+    outline-offset: -1px;
+  }
+
+  /* Dates in the list: instrumentation, Martian Mono with tabular figures. */
+  .vault-date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 16px;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .vault-row-tag.keycap {
+    height: 18px;
+    min-width: 0;
+    flex-shrink: 0;
+    padding: 0 5px;
+    font-size: 11px;
+    background-color: var(--panel);
+    box-shadow:
+      inset 0 0 0 1px var(--key-edge),
+      0 1.5px 0 var(--key-edge);
+  }
+
+  [aria-current='page'] .vault-row-tag.keycap {
+    background-color: var(--raised);
+  }
+
+  /* Lists split by seams (history, trash): a dark line and a light one between the rows. */
+  .vault-rules > li + li {
+    box-shadow:
+      inset 0 1px 0 var(--seam),
+      inset 0 2px 0 var(--seam-light);
+  }
+
+  .vault-snippet mark {
+    background: color-mix(in oklab, var(--signal), transparent 78%);
+    color: inherit;
+    border-radius: 2px;
+    padding: 0 0.1em;
+  }
+
+  /*
+   * The graph: a black screen with a faint grid of unlit dots behind the
+   * notes (a static background, drawn once), and the canvas on top.
+   */
+  .vault-graph-screen {
+    background-image: radial-gradient(circle, var(--screen-off) 1.1px, transparent 1.6px);
+    background-size: 14px 14px;
+    background-position: 7px 7px;
+  }
+}
+
+/*
+ * Ferma (components/shell/KillSwitch.tsx, docs/design.md "Il binario
+ * superiore"): a red lever under a safety cover with hazard stripes. First
+ * press lifts the cover (68°, three frames), second throws the lever down.
+ * Transforms only; the cover's 3D lives inside the housing's perspective.
+ */
+@layer components {
+  .kill-house {
+    position: relative;
+    width: 34px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    background-color: var(--well);
+    box-shadow:
+      inset 0 1px 0 var(--seam),
+      inset 0 0 0 1px color-mix(in oklab, var(--seam), transparent 40%),
+      0 1px 0 var(--seam-light);
+    perspective: 120px;
+  }
+
+  /* The slot the lever runs in, and the two screws of the hinge. */
+  .kill-house::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 9px;
+    bottom: 6px;
+    width: 6px;
+    margin-left: -3px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.5);
+    box-shadow: 0 1px 0 var(--seam-light);
+  }
+
+  .kill-house::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 5px;
+    right: 5px;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(
+      to right,
+      var(--key-edge) 0 4px,
+      transparent 4px calc(100% - 4px),
+      var(--key-edge) calc(100% - 4px)
+    );
+  }
+
+  .kill-lever {
+    position: absolute;
+    left: 7px;
+    right: 7px;
+    top: 8px;
+    height: 14px;
+    border-radius: 4px;
+    background-color: var(--stop);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 0 -3px 0 rgba(0, 0, 0, 0.22),
+      0 2px 0 color-mix(in oklab, var(--stop), black 50%);
+    transform: translateY(0);
+    transition: transform var(--dur-press) var(--steps-press);
+  }
+
+  /* Two ridges on the paddle, for the finger. */
+  .kill-lever::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    top: 4px;
+    height: 4px;
+    border-top: 1px solid rgba(0, 0, 0, 0.28);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.28);
+  }
+
+  .kill[data-state='halted'] .kill-lever {
+    transform: translateY(14px);
+  }
+
+  .kill-cover {
+    position: absolute;
+    inset: 1px;
+    border-radius: 7px;
+    background: repeating-linear-gradient(
+      135deg,
+      var(--signal) 0 3.5px,
+      rgba(26, 14, 4, 0.66) 3.5px 7px
+    );
+    box-shadow:
+      inset 0 0 0 1.5px var(--signal-edge),
+      inset 0 2.5px 0 -1px rgba(255, 255, 255, 0.45),
+      0 2px 0 rgba(0, 0, 0, 0.22);
+    transform-origin: 50% 0;
+    transform: rotateX(0deg);
+  }
+
+  /* The cover lifts in four frames (a part bigger than a key); it falls back shut at once. */
+  .kill:is([data-state='armed'], [data-state='halted']) .kill-cover {
+    transition: transform var(--dur-sheet) var(--steps-sheet);
+  }
+
+  .kill:is([data-state='armed'], [data-state='halted']) .kill-cover {
+    transform: rotateX(68deg);
+  }
+
+  /* The housing has no thickness of its own: pressed, it gives 1 px like a flat key. */
+  .kill:active:not(:disabled) .kill-house {
+    transform: translateY(var(--sink-flat));
+  }
+
+  /* The colon of the clock on the status display ticks once a second. */
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion='reduced']) .clock-colon {
+      animation: led-blink 2s steps(1, end) infinite;
+    }
+  }
+}
+
+/*
+ * "Riduci movimento" (the system's or the app's, both write `data-motion` on
+ * <html>): every change becomes a change of state, at once. The animations
+ * above are only declared without it; this net catches every transition left
+ * (a key still goes down when pressed, it just does not travel) and any
+ * animation from elsewhere: one iteration of nothing, then the end state.
+ */
+:root[data-motion='reduced'] *,
+:root[data-motion='reduced'] *::before,
+:root[data-motion='reduced'] *::after {
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  animation-duration: 1ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * Integrated title bar (docs/design.md, lib/desktop.ts). The top rail
+ * (`data-titlebar`, 52 px of chassis across the window) drags the window;
+ * every control in it stays clickable.
+ *   inset   (macOS): the traffic lights take the first 76 px on the left (16 px
+ *           margin, three 14 px buttons 9 px apart since macOS 26); 92 px keeps
+ *           the wordmark 16 px clear of them.
+ *   overlay (Windows, Linux): the system buttons are drawn over the top right
+ *           in the chassis colour; `env(titlebar-area-*)` says how much room
+ *           they take (0 in a browser).
+ */
+html:is([data-chrome='inset'], [data-chrome='overlay']) [data-titlebar] {
+  -webkit-app-region: drag;
+}
+html[data-chrome='inset'] .titlebar-start {
+  padding-left: 92px;
+}
+html[data-chrome='overlay'] .titlebar-end {
+  padding-right: max(
+    12px,
+    calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 8px)
+  );
+}
+/* Screens without the rail (loading, errors): a strip along the top drags the window. */
+html:is([data-chrome='inset'], [data-chrome='overlay']):not(:has([data-shell], [data-titlebar]))
+  body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 28px;
+  z-index: 60;
+  pointer-events: none;
+  -webkit-app-region: drag;
+}
+html:is([data-chrome='inset'], [data-chrome='overlay'])
+  :is(
+    a,
+    button,
+    input,
+    select,
+    textarea,
+    label,
+    summary,
+    [role='button'],
+    [role='switch'],
+    [role='tab'],
+    [role='menuitem'],
+    [tabindex],
+    [contenteditable='true']
+  ) {
+  -webkit-app-region: no-drag;
+}

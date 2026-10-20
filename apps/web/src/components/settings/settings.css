@@ -1,0 +1,51 @@
+/*
+ * Settings as modules of the instrument (docs/design.md, "Note, Attività,
+ * Impostazioni"): each group is a raised module with a seam around it, its
+ * rows split by seams (a dark line and a light one under it).
+ */
+
+.set-module {
+  background-color: var(--raised);
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px var(--seam),
+    0 2px 0 var(--seam-light);
+}
+
+[data-theme='dark'] .set-module {
+  box-shadow:
+    0 0 0 1px var(--seam),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.set-rows > * + *,
+.set-seam-t {
+  box-shadow:
+    inset 0 1px 0 var(--seam),
+    inset 0 2px 0 var(--seam-light);
+}
+
+/* A native select sunk like a field, with a caret drawn in the ink (no image). */
+.set-select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
+    linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 52%,
+    calc(100% - 12px) 52%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* Commands and paths in the words of a module: Martian Mono runs large, so a size smaller. */
+.set-module code {
+  font-family: var(--font-mono);
+  font-size: 0.84em;
+}
+
+@media (prefers-contrast: more) {
+  .set-module {
+    box-shadow: inset 0 0 0 1px var(--ink-faint);
+  }
+}

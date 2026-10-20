@@ -1,0 +1,22 @@
+---
+import { type Strings } from '../i18n/strings.ts';
+
+interface Props {
+  t: Strings;
+}
+const { t } = Astro.props;
+---
+
+<dialog class="arcade" data-arcade aria-labelledby="arcade-title">
+  <div class="arcade__bar">
+    <span class="arcade__title" id="arcade-title">{t.invaders.title}</span>
+    <span class="label">{t.invaders.help}</span>
+    <button type="button" class="key key--sm" data-arcade-close>{t.invaders.close}</button>
+  </div>
+  <canvas width="480" height="360" data-arcade-canvas aria-label={t.invaders.title}></canvas>
+  <div class="arcade__pad">
+    <button type="button" class="key" data-pad="left" aria-label={t.invaders.left}>◀</button>
+    <button type="button" class="key" data-pad="fire">{t.invaders.fire}</button>
+    <button type="button" class="key" data-pad="right" aria-label={t.invaders.right}>▶</button>
+  </div>
+</dialog>

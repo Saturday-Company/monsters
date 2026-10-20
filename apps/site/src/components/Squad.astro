@@ -1,0 +1,98 @@
+---
+import { type Strings } from '../i18n/strings.ts';
+import { SQUAD, specOf } from '../lib/monsters.ts';
+import {
+  AGENTS_MD,
+  AGENT_YAML,
+  GENOME_JSON,
+} from '../../../../packages/core/src/agents/definition.ts';
+import { highlight, rheaAgentYaml } from '../lib/code.ts';
+import { crc32 } from '../lib/hexdump.ts';
+import CodeView from './CodeView.astro';
+import Mon from './Mon.astro';
+import Strike from './Strike.astro';
+import Win from './Win.astro';
+
+interface Props {
+  t: Strings;
+}
+const { t } = Astro.props;
+const yaml = rheaAgentYaml();
+const yamlLines = await highlight(yaml, 'yaml');
+// The agent folder as the core defines it (packages/core/src/agents/definition.ts).
+const tree = [
+  'rhea/',
+  `├── ${AGENTS_MD}      # ${t.squadx.tree[0]}`,
+  `├── ${AGENT_YAML}     # ${t.squadx.tree[1]}`,
+  `└── ${GENOME_JSON}    # ${t.squadx.tree[2]}`,
+  '',
+  `0 directories, 3 files`,
+].join('\n');
+const yamlPid =4800 + (parseInt(crc32(yaml).slice(0, 2), 16) % 99);
+const members = SQUAD.map((m, i) => ({ ...m, spec: specOf(m.genome), slot: i }));
+---
+
+<section class="section" id="squad" aria-labelledby="squad-title">
+  <div class="section__head power">
+    <h2 class="display h2" id="squad-title">
+      <Strike text={t.squad.title} word={t.squadx.strike} />
+    </h2>
+    <p class="lede">{t.squad.body}</p>
+  </div>
+
+  <div class="squad__grid">
+    {
+      members.map((m) => (
+        <article
+          class={`cart ${m.key === 'titan' ? 'cart--big' : ''}`}
+          tabindex="0"
+          aria-labelledby={`cart-${m.key}`}
+        >
+          <div class="cart__grip" aria-hidden="true" />
+          <header class="cart__label">
+            <h3 class="cart__name" id={`cart-${m.key}`}>
+              {m.name.toLowerCase()}
+            </h3>
+            <span class="label">
+              {t.squad.slot} {String(m.slot).padStart(2, '0')}
+            </span>
+          </header>
+          <div class="screen cart__window">
+            <Mon genome={m.genome} happy size={m.key === 'titan' ? 340 : 170} />
+          </div>
+          <p class="cart__trait">{t.squad.traits[m.key]}</p>
+          <dl class="cart__spec label">
+            <dt>{t.squad.role}</dt>
+            <dd>{m.key === 'titan' ? t.squad.orchestrator : t.squad.agent}</dd>
+            <dt>{t.squad.hue}</dt>
+            <dd>{m.spec.hue}</dd>
+            <dt>{t.squad.shape}</dt>
+            <dd>{m.spec.shape}</dd>
+            <dt>{t.squad.seed}</dt>
+            <dd>{m.spec.seed}</dd>
+          </dl>
+        </article>
+      ))
+    }
+  </div>
+
+  <div class="squad__yaml">
+    <div class="squad__tree">
+      <Win t={t} title="tree ~/.monsters/agents/rhea" id="agent-tree" kind="paper" drag>
+        <pre class="tree" tabindex="0" aria-label="tree">{tree}</pre>
+      </Win>
+      <p class="squad__yaml-note">{t.squadx.yaml}</p>
+    </div>
+    <Win
+      t={t}
+      title="~/.monsters/agents/rhea/agent.yaml"
+      id="agent-yaml"
+      pid={yamlPid}
+      drag
+      foot={`yaml · utf-8 · LF · ${yamlLines.length}L · crc32:${crc32(yaml)}`}
+      note={`↑ ${t.win.real}`}
+    >
+      <CodeView lines={yamlLines} label="agent.yaml" />
+    </Win>
+  </div>
+</section>

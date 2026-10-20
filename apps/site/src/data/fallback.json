@@ -1,0 +1,34 @@
+{
+  "_comment": "Used when the build cannot reach the update feed or GitHub. Refresh it when a release ships.",
+  "feeds": [
+    {
+      "version": "0.1.0-alpha.17",
+      "releaseDate": "2026-10-19T16:40:03.539Z",
+      "files": [
+        { "url": "Monsters-0.1.0-alpha.17-linux-x86_64.AppImage", "size": 123295747 },
+        { "url": "Monsters-0.1.0-alpha.17-linux-amd64.deb", "size": 104792076 }
+      ]
+    },
+    {
+      "version": "0.1.0-alpha.17",
+      "releaseDate": "2026-10-19T16:40:03.539Z",
+      "files": [{ "url": "Monsters-Setup-0.1.0-alpha.17-x64-unsigned.exe", "size": 124626414 }]
+    },
+    {
+      "version": "0.1.0-alpha.17",
+      "releaseDate": "2026-10-19T16:57:38.078Z",
+      "files": [
+        { "url": "Monsters-0.1.0-alpha.17-mac-x64.dmg", "size": 141717026 },
+        { "url": "Monsters-0.1.0-alpha.17-mac-arm64.dmg", "size": 135025433 }
+      ]
+    }
+  ],
+  "stars": null,
+  "contributors": [
+    {
+      "login": "insalatadiriso",
+      "name": "Giulio Banchini",
+      "url": "https://github.com/insalatadiriso"
+    }
+  ]
+}

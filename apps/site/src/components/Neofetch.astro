@@ -1,0 +1,68 @@
+---
+/*
+ * The datasheet as `neofetch` would print it: Titan in half blocks (the same algorithm as the
+ * CLI banner), facts from the strings, the squad's colours as the palette row. The kill switch
+ * line and the uptime are live (src/client/wins.ts); without JavaScript they read as built.
+ */
+import { dotPalette } from '@monsters/monster-kit';
+import { type Strings } from '../i18n/strings.ts';
+import { SQUAD, halfBlockLines, titan } from '../lib/monsters.ts';
+import Win from './Win.astro';
+
+interface Props {
+  t: Strings;
+  version: string;
+}
+const { t, version } = Astro.props;
+const n = t.neofetch;
+const art = halfBlockLines(titan());
+const rows: [string, string][] = [
+  ['OS', n.os],
+  ['Host', n.host],
+  ['Kernel', 'Node 24 · TypeScript · SQLite'],
+  ['Version', `monsters ${version}`],
+  ['Shell', n.shell],
+  ['Squad', n.squad],
+  ['Providers', n.providers],
+  ['Memory', n.memory],
+  ['Remote', 'Telegram · SSH'],
+  ['Brake', n.brake],
+  ['Caps', n.caps],
+  ['License', 'Apache-2.0'],
+];
+const swatches = SQUAD.map((m) => dotPalette(m.genome).lit);
+const user = 'you@localhost';
+---
+
+<Win t={t} title={n.title} id="neofetch" class="neofetch" pid={4747} drag>
+  <div class="nf">
+    <pre class="nf__art" aria-hidden="true"><Fragment set:html={art.join('\n')} /></pre>
+    <div class="nf__info">
+      <p class="nf__head"><span class="pr">{user}</span></p>
+      <p class="nf__rule" aria-hidden="true">{'-'.repeat(user.length)}</p>
+      <dl>
+      {
+        rows.map(([k, v]) => (
+          <div>
+            <dt>{k}:</dt>
+            <dd>{v}</dd>
+          </div>
+        ))
+      }
+      <div>
+        <dt>Kill switch:</dt>
+        <dd>
+          <span class="nf__armed">{n.kill}</span><span class="nf__pulled">{n.killed}</span>
+        </dd>
+      </div>
+      <div>
+        <dt>Uptime:</dt>
+        <dd><span data-uptime>0m</span> ({n.uptime})</dd>
+      </div>
+      </dl>
+      <p class="nf__swatch" aria-hidden="true">
+        {swatches.map((c) => <span style={`background:${c}`} />)}
+      </p>
+    </div>
+  </div>
+</Win>

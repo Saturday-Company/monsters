@@ -1,0 +1,13 @@
+---
+/* A heading with one word crossed out by hand, like a correction on a proof. */
+interface Props {
+  text: string;
+  word: string;
+}
+const { text, word } = Astro.props;
+const at = text.indexOf(word);
+const before = at < 0 ? text : text.slice(0, at);
+const after = at < 0 ? '' : text.slice(at + word.length);
+---
+
+{before}{at >= 0 && <del class="strike">{word}</del>}{after}

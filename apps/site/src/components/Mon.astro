@@ -1,0 +1,31 @@
+---
+/*
+ * A real dot monster, prerendered: the idle SVG, plus the happy one (hover) and the sleeping one
+ * (kill switch). CSS shows one at a time.
+ */
+import type { MonsterGenome } from '@monsters/monster-kit';
+import { dotsSvg } from '../lib/monsters.ts';
+
+interface Props {
+  genome: MonsterGenome;
+  title?: string;
+  happy?: boolean;
+  size?: number;
+  class?: string;
+  /** Prerender the sleeping SVG too (small avatars dim with CSS instead, to save bytes). */
+  sleep?: boolean;
+}
+
+const { genome, title, happy = false, size = 170, class: cls = '', sleep: withSleep = true } =
+  Astro.props;
+const idle = dotsSvg(genome, 'idle', { size, ...(title ? { title } : {}) });
+const glad = happy ? dotsSvg(genome, 'happy', { size }) : '';
+const sleep = withSleep ? dotsSvg(genome, 'sleep', { size }) : '';
+const tag = (svg: string, c: string) => svg.replace('<svg ', `<svg class="${c}" `);
+---
+
+<div class={`mon ${withSleep ? '' : 'mon--dim'} ${cls}`}>
+  <Fragment set:html={idle} />
+  {happy && <Fragment set:html={tag(glad, 'mon-happy')} />}
+  {withSleep && <Fragment set:html={tag(sleep, 'mon-sleep')} />}
+</div>

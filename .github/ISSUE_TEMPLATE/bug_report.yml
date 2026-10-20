@@ -1,0 +1,72 @@
+name: Bug report
+description: Something does not work as expected
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Search existing issues first. For security problems do not use this form: see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Monsters version
+      description: Shown in the app (About) or with `monsters --version`.
+      placeholder: '0.1.0-alpha.18'
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - Windows
+        - macOS
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation type
+      options:
+        - AppImage
+        - deb
+        - dmg
+        - exe
+        - source
+    validations:
+      required: true
+  - type: input
+    id: provider
+    attributes:
+      label: Model provider
+      description: The provider and model involved, if any.
+      placeholder: 'OpenRouter, a local model, ...'
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Relevant lines from `<MONSTERS_HOME>/logs` and from the desktop log. Redact API keys, tokens, personal data and private paths before pasting.
+      render: shell

@@ -1,0 +1,97 @@
+---
+/*
+ * A terminal session with the real CLI strings (packages/cli/src/main.ts) and the real banner of
+ * `monsters chat` (half blocks, packages/cli/src/banner.ts), typed line by line when it scrolls
+ * into view.
+ */
+import { type Strings } from '../i18n/strings.ts';
+import { REPO_URL } from '../lib/feed.ts';
+import { cliHelp } from '../lib/code.ts';
+import { crc32 } from '../lib/hexdump.ts';
+import { SQUAD, caption, halfBlockLines } from '../lib/monsters.ts';
+import Win from './Win.astro';
+
+interface Props {
+  t: Strings;
+  version: string;
+}
+const { t, version } = Astro.props;
+const URL = 'http://127.0.0.1:4747';
+const team = SQUAD.slice(0, 4);
+const arts = team.map((m) => halfBlockLines(m.genome));
+const GAP = '   ';
+const pad = (line: string) => {
+  const visible = line.replace(/<[^>]+>/g, '').length;
+  return line + ' '.repeat(Math.max(0, 17 - visible));
+};
+const banner = arts[0]!.map((_, i) => arts.map((a) => pad(a[i] ?? '')).join(GAP));
+const names = team.map((m) => caption(m.name)).join(GAP);
+
+const help = cliHelp(version);
+const helpLines = help.replace(/\n$/, '').split('\n');
+
+const build = `git clone ${REPO_URL} && cd monsters && pnpm install && pnpm --filter @monsters/web build && pnpm --filter @monsters/cli exec monsters start`;
+
+type Line = { html: string; cls?: string; pause?: number };
+const lines: Line[] = [
+  { html: '<span class="p">$</span> monsters start', pause: 500 },
+  { html: `Monsters ${version} is running at ${URL}`, cls: 'o' },
+  { html: `Open ${URL}/ in your browser.`, cls: 'o', pause: 700 },
+  { html: '<span class="p">$</span> monsters chat', pause: 400 },
+  { html: ' ' },
+  ...banner.map((b) => ({ html: b, cls: 'art' })),
+  { html: names, cls: 'o' },
+  { html: ' ' },
+  { html: "<span class=\"p\">›</span> sum up this week's notes", pause: 600 },
+  { html: '<span class="g">titan</span> › on it. rhea reads, dione drafts.', pause: 900 },
+  { html: '<span class="p">$</span> monsters kill', pause: 400 },
+  { html: '<span class="r">Stopped.</span> Runs aborted: 2, processes killed: 1.', cls: 'o' },
+  { html: 'Nothing will run until you type "monsters resume".', cls: 'o' },
+  { html: '<span class="p">$</span> <span class="cursor"></span>' },
+];
+---
+
+<section class="section" id="source" aria-labelledby="term-title">
+  <div class="section__head power">
+    <h2 class="display h2" id="term-title">{t.terminal.title}</h2>
+    <p class="lede">{t.terminal.body}</p>
+  </div>
+
+  <div class="term__row">
+  <div class="screen term">
+    <div class="term__bar label">
+      <span>tty0 · monsters</span><span>{version}</span>
+    </div>
+    <pre
+      class="term__body"
+      data-term
+      role="img"
+      aria-label={t.terminal.screen}>{
+        lines.map((l) => (
+          <span class={`ln ${l.cls ?? ''}`} data-pause={l.pause ?? 0} set:html={l.html} />
+        ))
+      }</pre>
+  </div>
+  <Win
+    t={t}
+    title="monsters help"
+    id="cli-help"
+    class="term__help"
+    foot={`${helpLines.length}L · crc32:${crc32(help)} · ${t.terminalx.help}`}
+    drag
+  >
+    <div class="ascroll" data-ascroll>
+      <pre class="help" tabindex="0" aria-label="monsters help" data-ascroll-view>{help}</pre>
+      <span class="ascroll__bar" aria-hidden="true" data-ascroll-bar></span>
+    </div>
+  </Win>
+  </div>
+
+  <div class="cmd">
+    <span class="cmd__label label">{t.terminal.label}</span>
+    <code data-copy-src>{build}</code>
+    <button type="button" class="key" data-copy data-copied={t.terminal.copied}
+      >{t.terminal.copy}</button
+    >
+  </div>
+</section>

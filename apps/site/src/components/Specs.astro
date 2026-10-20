@@ -1,0 +1,100 @@
+---
+import { type Strings } from '../i18n/strings.ts';
+import Neofetch from './Neofetch.astro';
+
+interface Props {
+  t: Strings;
+  stamp: string;
+  version: string;
+}
+const { t, stamp, version } = Astro.props;
+const left = t.specs.pinsLeft.map(([name, desc], i) => ({ n: i + 1, name, desc }));
+const right = t.specs.pinsRight.map(([name, desc], i) => ({ n: i + 9, name, desc }));
+const pad = (n: number) => String(n).padStart(2, '0');
+---
+
+<section class="section" id="specs" aria-labelledby="specs-title">
+  <div class="section__head power">
+    <h2 class="display h2" id="specs-title">{t.specs.title}</h2>
+  </div>
+
+  <ul class="claims" role="list">
+    {
+      t.specs.claims.map((c, i) => (
+        <li class="claim">
+          <span class="claim__v">
+            {c.value}
+            <sup class="fn">
+              <a href={`#fn-${i + 1}`} id={`fnref-${i + 1}`} aria-label={`Note ${i + 1}`}>
+                {i + 1}
+              </a>
+            </sup>
+          </span>
+          <span class="label">{c.label}</span>
+        </li>
+      ))
+    }
+  </ul>
+
+  <div class="specs__fetch">
+    <Neofetch t={t} version={version} />
+  </div>
+
+  <div class="chip">
+    <ol class="pins pins--l" role="list">
+      {
+        left.map((p) => (
+          <li class="pin">
+            <span class="pin__desc">{p.desc}</span>
+            <span class="pin__name">{p.name}</span>
+            <span class="pin__leg" aria-hidden="true">
+              <span class="pin__num">{pad(p.n)}</span>
+            </span>
+          </li>
+        ))
+      }
+    </ol>
+    <div class="chip__body" aria-hidden="true">
+      <span class="chip__dot"></span>
+      <p class="chip__part">{stamp}</p>
+      <ul class="chip__lines label">
+        {t.specs.chip.map((l) => <li>{l}</li>)}
+        <li>Apache-2.0</li>
+      </ul>
+    </div>
+    <ol class="pins pins--r" role="list" start="9">
+      {
+        right.map((p) => (
+          <li class="pin">
+            <span class="pin__leg" aria-hidden="true">
+              <span class="pin__num">{pad(p.n)}</span>
+            </span>
+            <span class="pin__name">{p.name}</span>
+            <span class="pin__desc">{p.desc}</span>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+
+  <div class="notes">
+    <ol>
+      {
+        t.specs.claims.map((c, i) => (
+          <li id={`fn-${i + 1}`}>
+            <span class="label">{i + 1}</span>
+            <span>{c.note}</span>
+          </li>
+        ))
+      }
+    </ol>
+    <aside class="receipt" aria-labelledby="receipt-title">
+      <span class="label">{t.specs.receipt} {stamp}</span>
+      <h3 id="receipt-title">{t.specs.instinctTitle}</h3>
+      <ul>
+        {t.specs.instinct.map((l) => <li>{l}</li>)}
+      </ul>
+      <span class="key key--sm key--ink" aria-hidden="true">↺ {t.specs.undo}</span>
+    </aside>
+  </div>
+</section>

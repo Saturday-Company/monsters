@@ -1,0 +1,97 @@
+{
+  "id": "gen-1792132576-x37qbcADCs0JWPtPfbsm",
+  "object": "chat.completion",
+  "created": 1792132576,
+  "model": "mistralai/mistral-nemo",
+  "provider": "DeepInfra",
+  "system_fingerprint": null,
+  "service_tier": "default",
+  "choices": [
+    {
+      "index": 0,
+      "logprobs": null,
+      "finish_reason": "length",
+      "native_finish_reason": "length",
+      "message": {
+        "role": "assistant",
+        "content": "Based",
+        "refusal": null,
+        "annotations": [
+          {
+            "type": "url_citation",
+            "url_citation": {
+              "url": "https://gastroranking.it/ristoranti/liguria/genova",
+              "title": "I 15 migliori ristoranti in Genova Nella nostra classifica .",
+              "start_index": 0,
+              "end_index": 0,
+              "content": "Città\ncucina\nPrezzo\n* Meno di 20€ ( 1 )\n* Da 20 a 30€ ( 4 )\n* Da 30 a 45€ ( 1 )\n* Da 45 a 60€ ( 1 )\nI migliori ristoranti in Genova\n3749 ristoranti in GastroRanking\nOrdinare per Migliore valutazione Numero di offerte Ristoranti vicini\nTu sei qui:\nPagina iniziale\nRistoranti\nLiguria\nGenova\n|9 ,1\n* 158\n* Recensioni |\n  9 ,1\n  158 Recensioni\nMatama' Bistrot\n* 322\n* Recensioni |\n  9 ,1\n  322 Recensioni\nIl Ristoro dei Grimaldi\nGenova\n22/04/2026: Delicious, generous, affordable pizzas and friendly service! I highly recommend them!\n15/04/2026: One of the best pizzas I've ever eaten\npizza more focaccia mais\n|9 ,1\n* 187\n* Recensioni |\n  9 ,1\n  187 Recensioni\nRomeo Viganotti Gelateria\n* 282\n* Recensioni |\n  8 ,9\n  282 Recensioni\nTrattoria Rensin\npesce ravioli fritto dolci funghi\n|8 ,9\n* 289\n* Recensioni |\n  8 ,9\n  289 Recensioni\nPestobene\nGenova\n06/05/2026: Excellent pesto, I will definitely be bac"
+            }
+          },
+          {
+            "type": "url_citation",
+            "url_citation": {
+              "url": "https://santamonicagenova.it/",
+              "title": "Ristorante Pesce e Vista Mare a Genova | Santamonica",
+              "start_index": 0,
+              "end_index": 0,
+              "content": "Santamonica è un ristorante di pesce a Genova, sul Lungomare Lombardo, con la sala affacciata sul mare aperto. Un progetto in costante divenire, basato sull’attenzione al gusto e sulla qualità della materia prima. Pesce di Camogli, verdure dell’orto genovese, pasta e pane di nostra produzione.\nPrenota un tavolo Scopri il menu\nScorri\nVista del ristorante Santamonica sul Lungomare Lombardo di Genova con vista mare\nLa nostra proposta\nSommelier Monica Capurro\nLa qualità della materia prima è fondamentale: ci rivolgiamo quanto più possibile a pescatori e produttori locali. Il pesce arriva da Camogli, le verdure da un piccolo orto sulle alture di Genova.\nI nostri piatti sono elaborati ma allo stesso tempo semplici, per valorizzare al meglio i prodotti della Liguria.\nPasta fresca, pane, focaccia e dolci sono tutti di nostra produzione.\nUna cucina elegante, in cui anche l’estetica e il piatto fi"
+            }
+          },
+          {
+            "type": "url_citation",
+            "url_citation": {
+              "url": "https://trattoria-serra.grubbio.com/",
+              "title": "Trattoria Serra: Authentic Seafood Dining in Genoa",
+              "start_index": 0,
+              "end_index": 0,
+              "content": "Via Sampierdarena, 261 r, 16149 Genova GE, Italy\n€30–40 Seafood restaurant , Italian restaurant , Ligurian restaurant\n493 reviews\n12:15 PM - 02:30 PM 07:15 PM - 09:30 PM\n[+39 010 412903](tel:+39 010 412903)\nWrite a Review Save Share\nOverview Menu Service Options Hours & Location Reviews\nAbout Trattoria Serra\nNestled on Via Sampierdarena in Genoa, Trattoria Serra stands out as a true sanctuary for seafood lovers seeking authentic Ligurian flavors far from the usual tourist paths. This intimate eatery offers a warm, family-style atmosphere where every dish celebrates the bounty of the Mediterranean Sea with straightforward elegance.\nThe charm lies not only in the freshness of the ingredients but in the care with which traditional recipes are brought to the table.\nFrom the moment you arrive, the friendly and attentive staff make you feel at home, embodying the relaxed yet attentive characte"
+            }
+          },
+          {
+            "type": "url_citation",
+            "url_citation": {
+              "url": "https://www.tripadvisor.com/Restaurants-g187823-Genoa_Italian_Riviera_Liguria.html",
+              "title": "THE 10  BEST Restaurants in Genoa (Updated September 2026)",
+              "start_index": 0,
+              "end_index": 0,
+              "content": "Locanda Antichi Sapori\n4.4 4.4 of 5 bubbles\n(1,674 reviews)\nTuscan, Ligurian $$ - $$$\nOpen now\nMenu\nWe visited this restaurant during 4 days in Genova and it’s absolutely amazing... Wonderful fish\nSponsored\nReserve\n6. Locanda Antichi Sapori\n  4.4 4.4 of 5 bubbles\n  (1,674 reviews)\n  Tuscan, Ligurian $$ - $$$\n  Open now\n  Menu\n  We visited this restaurant during 4 days in Genova and it’s absolutely amazing... Wonderful fish\n  7:30 PM\n  8:00 PM\n  8:30 PM\n4.5 4.5 of 5 bubbles\n(1,523 reviews)\nItalian • $$$$\nOpen now\nReserve\nVoltalacarta\n4.6 4.6 of 5 bubbles\n(858 reviews)\nItalian • $$$$\nOpen now\nIl Marin Ristoro del Porto Antico\n4.4 4.4 of 5 bubbles\n(860 reviews)\nItalian • $$$$\nClosed today\nZeffirino Genova\n4.3 4.3 of 5 bubbles\n(1,098 reviews)\nItalian • $$$$\nOpen now\nRistorante Ippogrifo\nOpen now\nScalvini\n4.7 4.7 of 5 bubbles\n(891 reviews)\nItalian • $$$$\nOpen now\nOstaietta\n4.6 4.6 of 5 bubble"
+            }
+          },
+          {
+            "type": "url_citation",
+            "url_citation": {
+              "url": "https://www.tripadvisor.com/Restaurants-g187823-zfp10954-Genoa_Italian_Riviera_Liguria.html",
+              "title": "THE 10 BEST Fine Dining Restaurants in Genoa (UPDATED 2025)",
+              "start_index": 0,
+              "end_index": 0,
+              "content": "7. Zeffirino Genova\n  4.3\n  (1,056 reviews)\n  Italian, Seafood $$$$\n  Opens in 57 min\n  Menu\n  Portions of the trio of tuna were to sizeable for me, so no dessert. Staff is a... Veal was tender and soft, do not need k...\n14. Le Cicale in Citta'\n  4.3\n  (435 reviews)\n  Italian, Seafood $$$$\n  Closed today\n  Menu\n  This is the place to visit. The chef is a legend. He’s a humble, nice and... Great for Business Lunch\n15. Vittorio al Mare\n  4.1\n  (799 reviews)\n  Italian, Seafood $$$$\n  Opens in 57 min\n  Menu\n  I had dinner at Vittorio al Mare with my mother last Sunday and it was amazing... Fine Dining\n  8:00 PM\n  8:30 PM\n  9:00 PM\n16. Osteria Del Bai\n  4.5\n  (139 reviews)\n  Italian, Seafood $$$$\n  Closed now\n  Menu\n  Perfect Recommendation Welcome back\n  Reserve\n17. Da Olindo\n  4.0\n  (553 reviews)\n  Italian, Seafood $$$$\n  Closed now\n  My tuna bresaola with fresh figues was delicious with on"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 2700,
+    "completion_tokens": 1,
+    "total_tokens": 2701,
+    "cost": 0.00107833,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 7.833e-5,
+      "upstream_inference_prompt_cost": 7.83e-5,
+      "upstream_inference_completions_cost": 3e-8
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 0,
+      "audio_tokens": 0
+    }
+  }
+}

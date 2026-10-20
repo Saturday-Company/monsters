@@ -1,0 +1,127 @@
+version: 2.1
+
+# Cloud CI on CircleCI: the checks of .github/workflows/ci.yml on Linux, Windows and macOS, run
+# through scripts/ci-cloud.sh (= `pnpm ci:local --no-package` on the checked-out commit).
+#
+# Never on a push: free-plan credits are limited. Every workflow runs only when
+# its run-* parameter is true, and only the scheduled triggers and the manual/API triggers set
+# them (all false by default, so a push pipeline runs nothing and costs nothing). The push
+# trigger of the project should also be disabled in Project Settings > Project Setup.
+# Schedules and budget: docs/ci.md.
+
+parameters:
+  run-linux:
+    type: boolean
+    default: false
+  run-windows:
+    type: boolean
+    default: false
+  run-macos:
+    type: boolean
+    default: false
+
+executors:
+  linux:
+    machine:
+      image: ubuntu-2404:current
+    # 2 vCPU, 7.5 GB, 10 credits/min (Docker medium has 4 GB: the typed lint alone takes ~3 GB).
+    resource_class: medium
+  windows:
+    machine:
+      image: windows-server-2022-gui:current
+      shell: bash.exe
+    # 4 vCPU, 16 GB, 40 credits/min.
+    resource_class: windows.medium
+  macos:
+    macos:
+      xcode: 27.0.0
+    # 6 vCPU (Apple M4 Pro), 28 GB, 200 credits/min; one macOS job at a time on Free.
+    resource_class: m4pro.medium
+
+commands:
+  checks:
+    parameters:
+      store:
+        description: pnpm store folder (cached between runs)
+        type: string
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - pnpm-v1-{{ .Environment.CIRCLE_JOB }}-{{ checksum "pnpm-lock.yaml" }}
+            - pnpm-v1-{{ .Environment.CIRCLE_JOB }}-
+      - run:
+          name: Node 24 and pnpm
+          command: bash scripts/ci-cloud.sh setup
+      - run:
+          name: CI (steps of ci.yml via ci-local, no package step)
+          command: bash scripts/ci-cloud.sh run
+          environment:
+            CLOUD_CI_PNPM_STORE: << parameters.store >>
+          no_output_timeout: 20m
+      - save_cache:
+          key: pnpm-v1-{{ .Environment.CIRCLE_JOB }}-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - << parameters.store >>
+      # ci-results/<stamp>-<commit>-<os>.json + .log (CiResult of scripts/ci-local.ts); stored
+      # even when a step failed.
+      - store_artifacts:
+          path: ci-results
+
+jobs:
+  checks-linux:
+    executor: linux
+    steps:
+      - checks:
+          store: ~/.pnpm-store
+  checks-windows:
+    executor: windows
+    steps:
+      - run:
+          name: Windows tuning (Defender off, long paths)
+          shell: powershell.exe -ExecutionPolicy Bypass
+          command: |
+            try { Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction Stop } catch { Write-Host $_ }
+            New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Value 1 -PropertyType DWord -Force | Out-Null
+            git config --global core.longpaths true
+      - checks:
+          store: C:\Users\circleci\.pnpm-store
+  checks-macos:
+    executor: macos
+    steps:
+      - checks:
+          store: ~/.pnpm-store
+
+# Each workflow: its parameter set, and never for a push or pull request event (belt and braces
+# over the false defaults).
+workflows:
+  linux:
+    when:
+      and:
+        - << pipeline.parameters.run-linux >>
+        - not:
+            matches:
+              pattern: ^(push|pull_request)$
+              value: << pipeline.event.name >>
+    jobs:
+      - checks-linux
+  windows:
+    when:
+      and:
+        - << pipeline.parameters.run-windows >>
+        - not:
+            matches:
+              pattern: ^(push|pull_request)$
+              value: << pipeline.event.name >>
+    jobs:
+      - checks-windows
+  macos:
+    when:
+      and:
+        - << pipeline.parameters.run-macos >>
+        - not:
+            matches:
+              pattern: ^(push|pull_request)$
+              value: << pipeline.event.name >>
+    jobs:
+      - checks-macos

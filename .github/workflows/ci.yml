@@ -1,0 +1,85 @@
+name: CI
+
+# On every push to main and every pull request (D-143). Linux runs everything, Windows and macOS
+# the typecheck and the unit tests. The same steps run locally with `pnpm ci:local`
+# (scripts/ci-local.ts), see docs/ci.md.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Cores started by the tests (unit and e2e) never download the embedding model
+# nor touch the system keychain.
+env:
+  MONSTERS_EMBEDDINGS: 'off'
+  MONSTERS_SECRETS: 'file'
+
+jobs:
+  linux:
+    name: linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      # The public-repo guard: personal data, private hosts and paths, real-looking secrets.
+      - run: pnpm check:public
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm test
+      - run: pnpm --filter @monsters/web build
+
+      # End-to-end tests of the UI: Chromium of Playwright, the mock flows (Vite dev server)
+      # and the UI served by a real core with a fake provider.
+      - name: Install Chromium for Playwright
+        run: pnpm --filter @monsters/web exec playwright install --with-deps chromium
+      - name: UI flows (mock core)
+        run: pnpm --filter @monsters/web exec playwright test
+      - name: UI against a real core
+        run: pnpm --filter @monsters/web exec playwright test -c playwright.core.config.ts
+      - name: Onboarding against a real core
+        run: pnpm --filter @monsters/web exec playwright test -c playwright.onboarding.config.ts
+
+  unit:
+    name: unit (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+        env:
+          # No step here runs Electron.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: pnpm typecheck
+      # Windows runners are several times slower on tests that start a real core, git or child
+      # processes: a longer per-test limit there, the same 5 s elsewhere.
+      - run: pnpm test ${{ runner.os == 'Windows' && '--testTimeout=30000 --hookTimeout=30000' || '' }}

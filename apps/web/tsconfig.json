@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "types": ["vite/client", "node"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "declaration": false,
+    "sourceMap": false,
+    "noEmit": true
+  },
+  "include": [
+    "src",
+    "test",
+    "e2e",
+    "e2e-core",
+    "scripts",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "playwright.core.config.ts",
+    "playwright.onboarding.config.ts"
+  ]
+}

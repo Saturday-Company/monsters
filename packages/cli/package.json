@@ -1,0 +1,54 @@
+{
+  "name": "@monsters/cli",
+  "version": "0.0.0",
+  "description": "The `monsters` command: start the core, check status, kill switch",
+  "license": "Apache-2.0",
+  "author": "Giulio Banchini and Saturday Company",
+  "homepage": "https://monsters.saturdaycompany.workers.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Saturday-Company/monsters.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/Saturday-Company/monsters/issues"
+  },
+  "type": "module",
+  "private": true,
+  "bin": {
+    "monsters": "./bin/monsters.js"
+  },
+  "exports": {
+    ".": {
+      "monsters-dist": {
+        "types": "./dist/main.d.ts",
+        "default": "./dist/main.js"
+      },
+      "default": "./src/main.ts"
+    }
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.2.0",
+    "@monsters/core": "workspace:*",
+    "@monsters/monster-kit": "workspace:*",
+    "@monsters/shared": "workspace:*",
+    "@monsters/vault": "workspace:*",
+    "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.2.0",
+    "@monsters/providers": "workspace:*",
+    "@types/ws": "8.18.2"
+  }
+}

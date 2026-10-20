@@ -1,0 +1,17 @@
+#!/bin/sh
+# Optional pre-push hook (not installed by default): quick local CI (`pnpm ci:local --quick`, no
+# e2e) on every commit being pushed. Install: git config core.hooksPath scripts/git-hooks
+# Remove: git config --unset core.hooksPath. Skip once: git push --no-verify.
+tested=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Branch deletions push an all-zero hash: nothing to test.
+  case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+  case " $tested " in *" $local_sha "*) continue ;; esac
+  echo "pre-push: ci:local --quick on $local_ref ($local_sha)"
+  pnpm ci:local --quick --commit "$local_sha" </dev/null || {
+    echo "pre-push: local CI failed, push stopped (git push --no-verify to skip)" >&2
+    exit 1
+  }
+  tested="$tested $local_sha"
+done
+exit 0

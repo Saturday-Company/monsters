@@ -1,0 +1,54 @@
+{
+  "name": "@monsters/monster-kit",
+  "version": "0.0.0",
+  "description": "Parametric SVG monster kit: genome schema, parts, OKLCH palettes and renderer.",
+  "license": "Apache-2.0",
+  "author": "Giulio Banchini and Saturday Company",
+  "homepage": "https://monsters.saturdaycompany.workers.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Saturday-Company/monsters.git",
+    "directory": "packages/monster-kit"
+  },
+  "bugs": {
+    "url": "https://github.com/Saturday-Company/monsters/issues"
+  },
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "monsters-dist": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "default": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "concept": "node scripts/concept.ts",
+    "team-sheet": "node scripts/team.ts",
+    "dots-sheet": "node scripts/dots-sheet.ts"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "2.6.2"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

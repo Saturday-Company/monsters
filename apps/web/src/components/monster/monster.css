@@ -1,0 +1,20 @@
+/*
+ * Container of a monster. The frames are switched by the kit's `dotCss` (installed once by
+ * main.tsx); this file only sizes the box, dims a sleeping monster and rests the ones out of
+ * sight.
+ */
+
+.monster {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+
+.monster svg {
+  display: block;
+}
+
+/* Out of the viewport (Monster.tsx, `watchOffscreen`): frame 0 until it is back. */
+.monster[data-offscreen] svg[data-dots] g {
+  animation: none !important;
+}

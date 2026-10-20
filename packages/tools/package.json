@@ -1,0 +1,52 @@
+{
+  "name": "@monsters/tools",
+  "version": "0.0.0",
+  "description": "Built-in agent tools for Monsters: web search and web fetch",
+  "license": "Apache-2.0",
+  "author": "Giulio Banchini and Saturday Company",
+  "homepage": "https://monsters.saturdaycompany.workers.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Saturday-Company/monsters.git",
+    "directory": "packages/tools"
+  },
+  "bugs": {
+    "url": "https://github.com/Saturday-Company/monsters/issues"
+  },
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "monsters-dist": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "default": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@monsters/shared": "workspace:*",
+    "node-html-markdown": "2.0.0",
+    "node-html-parser": "6.1.13",
+    "undici": "7.30.0",
+    "zod": "4.6.7"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "@monsters/vault",
+  "version": "0.0.0",
+  "description": "Monsters second brain: Obsidian-compatible Markdown vault, SQLite index, git history, vault tools",
+  "license": "Apache-2.0",
+  "author": "Giulio Banchini and Saturday Company",
+  "homepage": "https://monsters.saturdaycompany.workers.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Saturday-Company/monsters.git",
+    "directory": "packages/vault"
+  },
+  "bugs": {
+    "url": "https://github.com/Saturday-Company/monsters/issues"
+  },
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "monsters-dist": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "default": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "demo": "node scripts/demo.ts"
+  },
+  "dependencies": {
+    "@monsters/db": "workspace:*",
+    "@monsters/shared": "workspace:*",
+    "@orama/stemmers": "3.1.18",
+    "chokidar": "5.0.0",
+    "isomorphic-git": "1.42.5",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "optionalDependencies": {
+    "@huggingface/transformers": "4.3.0"
+  }
+}

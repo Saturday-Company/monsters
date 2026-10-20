@@ -1,0 +1,110 @@
+---
+import { fill, type Strings } from '../i18n/strings.ts';
+import { genomeFor } from '../lib/monsters.ts';
+import { genomeJsonHtml } from '../lib/genome-json.ts';
+import { bytesOf, crc32, xxd } from '../lib/hexdump.ts';
+import { toBase64 } from '../lib/manifesto.ts';
+import { tabPanel } from '../lib/win.ts';
+import Mon from './Mon.astro';
+import Win from './Win.astro';
+
+interface Props {
+  t: Strings;
+}
+const { t } = Astro.props;
+const name = t.generator.defaultName;
+const genome = genomeFor(name);
+const json = JSON.stringify(genome, null, 2);
+const bytes = bytesOf(json);
+const EXPRS = ['idle', 'happy', 'think', 'talk', 'sleep', 'error', 'confused'];
+---
+
+<section class="section" id="generator" aria-labelledby="gen-title">
+  <div class="section__head power">
+    <h2 class="display h2" id="gen-title">{t.generator.title}</h2>
+    <p class="lede">{t.generator.body}</p>
+  </div>
+
+  <div class="gen" data-gen>
+    <form class="gen__controls" data-gen-form>
+      <div class="field">
+        <label class="label" for="gen-name">{t.generator.name}</label>
+        <input
+          id="gen-name"
+          name="name"
+          type="text"
+          value={name}
+          maxlength="40"
+          autocomplete="off"
+          spellcheck="false"
+          data-gen-input
+        />
+      </div>
+      <fieldset class="keys" data-gen-exprs>
+        <legend class="label">{t.generator.expression}</legend>
+        {
+          EXPRS.map((e) => (
+            <button
+              type="button"
+              class="key key--sm"
+              data-expr={e}
+              aria-pressed={e === 'idle' ? 'true' : 'false'}
+            >
+              {t.generator.expressions[e]}
+            </button>
+          ))
+        }
+      </fieldset>
+      <div class="gen__actions">
+        <button type="button" class="key key--sm" data-gen-random>{t.generator.random}</button>
+        <button type="button" class="key key--sm" data-gen-copy>{t.generator.copy}</button>
+        <button type="button" class="key key--sm key--ink" data-gen-svg>{t.generator.svg}</button>
+      </div>
+      <p class="toast label" role="status" aria-live="polite" data-gen-toast></p>
+    </form>
+
+    <div class="screen gen__screen">
+      <span class="label gen__status" aria-hidden="true" data-gen-status>17×15</span>
+      <span class="label gen__name" aria-hidden="true" data-gen-label>{name.toUpperCase()}</span>
+      <div data-gen-out role="img" aria-label={fill(t.generator.alt, { name })}>
+        <Mon genome={genome} size={420} />
+      </div>
+    </div>
+
+    <Win
+      t={t}
+      title={`${genome.id}/${t.generator.genome}`}
+      id="genome"
+      kind="paper"
+      class="gen__json"
+      tabs={[
+        { id: 'json', label: t.generator.genome },
+        { id: 'hex', label: 'xxd' },
+        { id: 'b64', label: '[b.64]' },
+      ]}
+    >
+      <div class="gen__meta label" aria-hidden="true">
+        <span data-gen-seed>seed {genome.seed}</span>
+        <span>crc32:<b data-gen-crc>{crc32(json)}</b></span>
+        <span><b data-gen-bytes>{bytes.length}</b> B</span>
+      </div>
+      <pre
+        {...tabPanel('genome', 'json', true)}
+        tabindex="0"
+        aria-label={t.generator.genome}
+        data-gen-json><Fragment set:html={genomeJsonHtml(genome)} /></pre>
+      <pre
+        {...tabPanel('genome', 'hex')}
+        class="hex"
+        tabindex="0"
+        aria-label="xxd"
+        data-gen-hex>{xxd(bytes).join('\n')}</pre>
+      <pre
+        {...tabPanel('genome', 'b64')}
+        class="hex hex--b64"
+        tabindex="0"
+        aria-label="base64"
+        data-gen-b64>{toBase64(json)}</pre>
+    </Win>
+  </div>
+</section>
