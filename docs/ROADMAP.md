@@ -104,9 +104,21 @@ A review in October 2026 produced waves of fixes; the first four are done.
 Completion criteria: no open Blocker or High issue; a test for every fix; green CI on the three systems and a
 clean-clone walkthrough on video; a week of use without crashes or stalled automations.
 
+## English first
+
+Monsters started in Italian; the open-source release makes it **English first, with an Italian translation**.
+
+- [ ] A small typed dictionary (English source, Italian translation checked by the typecheck), language from the
+  system and switchable in Settings.
+- [ ] Every user-facing string of the interface and of the core (errors, notifications, Telegram, receipts, "Da
+  rivedere") moved to the dictionary.
+- [ ] Monsters' prompts, onboarding and proposed team follow the chosen language.
+- [ ] A guard test that fails on hand-written UI text outside the dictionary.
+- [ ] Docs in `docs/` in English, Italian where useful.
+
 ## Later
 
-- A project website and public documentation (the landing site is live).
+- Public documentation (the website is live at https://getmonsters.dev).
 - A mobile app.
 - Optional hosted services around the open-source core: account, managed keys, hosted decision model, encrypted vault
   backup, relay for Telegram and mobile. The local core will always work without an account.
