@@ -55,9 +55,12 @@ export function ownerCookie(core: CoreServer): string {
 const ANSWER_PATH = /^\/api\/questions\/[^/]+\/answer$/;
 
 const cores: CoreServer[] = [];
+// Closing a core waits for its runs and children: on a busy Windows runner that is more than
+// the 10 s default of a hook. The limit is here because `--hookTimeout` on the command line
+// does not reach the projects of the workspace (vitest 5), while `--testTimeout` does.
 afterEach(async () => {
   for (const c of cores.splice(0)) await c.close();
-});
+}, 60_000);
 
 export interface Deferred<T = void> {
   promise: Promise<T>;

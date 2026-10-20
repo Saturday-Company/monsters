@@ -70,6 +70,12 @@ export const FAKE_BOT = {
   username: 'monsters_test_bot',
 };
 
+/**
+ * How long a wait lasts by default. A reply may come after a real child process (the
+ * terminal starts PowerShell on Windows), several times slower on the Windows runners.
+ */
+const WAIT_MS = process.platform === 'win32' ? 20_000 : 4000;
+
 export class FakeTelegram {
   readonly token: string;
   readonly calls: ApiCall[] = [];
@@ -318,11 +324,11 @@ export class FakeTelegram {
   }
 
   /** Resolves with the first message (past or future) matching `match`. */
-  waitMessage(match: (m: SentMessage) => boolean, timeoutMs = 4000): Promise<SentMessage> {
+  waitMessage(match: (m: SentMessage) => boolean, timeoutMs = WAIT_MS): Promise<SentMessage> {
     return this.#waitFor(() => this.messages.find(match), timeoutMs, 'message');
   }
 
-  waitCall(match: (c: ApiCall) => boolean, timeoutMs = 4000): Promise<ApiCall> {
+  waitCall(match: (c: ApiCall) => boolean, timeoutMs = WAIT_MS): Promise<ApiCall> {
     return this.#waitFor(() => this.calls.find(match), timeoutMs, 'call');
   }
 

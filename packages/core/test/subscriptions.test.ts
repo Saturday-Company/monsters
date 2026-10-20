@@ -406,8 +406,11 @@ describe('Claude Agent', () => {
     expect(argv).toEqual(expect.arrayContaining(['mcp__claude_ai_Figma', 'mcp__claude_ai_Slack']));
     // The checks ran in a folder of Monsters, not in the user's projects.
     for (const r of records(record).filter((x) => x.kind === 'mcp-get')) {
-      // The child's own cwd is a real path (`/private/var/…` on macOS).
-      expect(r['cwd'] as string).toContain(realpathSync.native(t.core.paths.home));
+      // The child's cwd is spelled by its system (real on macOS, `/private/var/…`; the short
+      // 8.3 name kept on Windows): both sides in their real spelling.
+      expect(realpathSync.native(r['cwd'] as string)).toContain(
+        realpathSync.native(t.core.paths.home),
+      );
     }
     const removed = await t.json<ClaudeConnectionsResponse>(
       'DELETE',
