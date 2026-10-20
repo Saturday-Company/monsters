@@ -4825,3 +4825,20 @@ resta acceso, perché ci sono link in giro (README vecchi, app già installate),
 noindex bastano a non avere due copie nei risultati. Il feed degli aggiornamenti (`monsters-updates`, D-050) **non**
 cambia indirizzo: lo leggono le app installate. Proprietà Dominio in Search Console, verificata con un TXT sulla zona.
 **Motivazione:** un dominio corto e nostro per il progetto pubblico, senza rompere gli indirizzi già distribuiti.
+
+### D-151 · `web_fetch` usa il `fetch` di undici, non quello di Node
+**Stato:** fatta · 20/10/2026 (PR di Dependabot #7, undici 7.30 → 8.12)
+**Contesto:** con undici 8 tutte le letture di `web_fetch` fallivano con «fetch failed» (anche i 403, che diventavano
+`UNAVAILABLE` invece di `SITE_REFUSED`). Il dispatcher fissato sugli IP verificati (D-019) è un `Agent` del pacchetto
+`undici`, ma la richiesta partiva dal `fetch` globale di Node, che ha dentro un suo undici: la 7 in Node 24, la 8 in
+Node 26. undici 8 ha tolto i vecchi metodi dei gestori (`onConnect`, `onHeaders`…) che il `fetch` di undici 7 passa
+ancora, e l'`Agent` li rifiuta (`UND_ERR_INVALID_ARG: invalid onRequestStart method`). Con undici 7 nel pacchetto
+funzionava solo perché la major coincideva con quella di Node 24: su Node 26 lo stesso codice si rompeva all'inverso.
+**Scelta:** `web_fetch` chiama `fetch` importato da `undici`, la stessa copia del suo `Agent`, quindi la versione di
+undici dentro Node (o dentro Electron) non conta più. Il resto non cambia: redirect a mano con il controllo SSRF a
+ogni salto, segnale (stop e kill switch) più tempo massimo, limite di byte letti, certificati di sistema
+(`tls.setDefaultCACertificates` vale anche per le connessioni dell'`Agent`); il proxy resta escluso come in D-121.
+Test nuovo in `scripts/build-core.test.ts`: una sonda costruita con le opzioni del bundle legge una pagina passando da
+un redirect e poi viene fermata a metà richiesta (`ABORTED`); con il `fetch` globale fallisce.
+**Lezione:** un oggetto di undici (dispatcher, `Agent`) va usato con il `fetch` dello stesso pacchetto; mescolarlo con
+quello di Node lega il codice alla versione di Node.

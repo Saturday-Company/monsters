@@ -179,8 +179,18 @@ async function fakeModelServer(): Promise<ModelServer> {
 class Api {
   readonly url: string;
   #cookies = new Map<string, string>();
+  /** The session's secret from setup or login, sent with the cookie as the web UI does (S-B13). */
+  #secret = '';
   constructor(url: string) {
     this.url = url;
+  }
+
+  #auth(): Record<string, string> {
+    return {
+      'x-monsters-request': '1',
+      cookie: [...this.#cookies].map(([k, v]) => `${k}=${v}`).join('; '),
+      ...(this.#secret ? { 'x-monsters-session': this.#secret } : {}),
+    };
   }
 
   async call(
@@ -192,8 +202,7 @@ class Api {
       method,
       headers: {
         ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-        'x-monsters-request': '1',
-        cookie: [...this.#cookies].map(([k, v]) => `${k}=${v}`).join('; '),
+        ...this.#auth(),
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       signal: AbortSignal.timeout(15_000),
@@ -210,6 +219,7 @@ class Api {
     } catch {
       data = { text };
     }
+    if (typeof data['sessionSecret'] === 'string') this.#secret = data['sessionSecret'];
     return { status: res.status, data };
   }
 
@@ -223,8 +233,7 @@ class Api {
     const res = await fetch(`${this.url}/api/files`, {
       method: 'POST',
       headers: {
-        'x-monsters-request': '1',
-        cookie: [...this.#cookies].map(([k, v]) => `${k}=${v}`).join('; '),
+        ...this.#auth(),
       },
       body: form,
       signal: AbortSignal.timeout(15_000),
