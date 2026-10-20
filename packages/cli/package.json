@@ -39,7 +39,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "2.2.0",
+    "@modelcontextprotocol/server": "2.3.1",
     "@monsters/core": "workspace:*",
     "@monsters/monster-kit": "workspace:*",
     "@monsters/shared": "workspace:*",
@@ -47,7 +47,7 @@
     "ws": "8.22.0"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "2.2.0",
+    "@modelcontextprotocol/client": "2.3.1",
     "@monsters/providers": "workspace:*",
     "@types/ws": "8.18.2"
   }
