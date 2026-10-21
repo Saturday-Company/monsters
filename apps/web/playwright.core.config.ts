@@ -35,8 +35,9 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: 'retain-on-failure',
-    // The browser's language, so the app's (D-153): E2E_LOCALE=en-US while the specs move to English.
-    locale: process.env['E2E_LOCALE'] ?? 'it-IT',
+    // The browser's language, so the app's (D-153): the suites run in English; E2E_LOCALE=it-IT runs
+    // them in Italian, only where a spec supports it.
+    locale: process.env['E2E_LOCALE'] ?? 'en-US',
     timezoneId: 'Europe/Rome',
     viewport: { width: 1440, height: 900 },
   },
@@ -56,7 +57,7 @@ export default defineConfig({
       MONSTERS_HOME: HOME,
       MONSTERS_E2E_PORT: String(PORT),
       // A fresh home takes the system's language: the same as the browser's (D-153).
-      MONSTERS_LANG: (process.env['E2E_LOCALE'] ?? 'it-IT').slice(0, 2),
+      MONSTERS_LANG: (process.env['E2E_LOCALE'] ?? 'en-US').slice(0, 2),
     },
     stdout: 'pipe',
     gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },

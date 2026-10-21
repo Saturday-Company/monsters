@@ -20,7 +20,7 @@ const SHOTS = process.env['MONSTERS_E2E_SHOTS'];
 
 async function closeNotice(page: Page) {
   // The demo's notice (a tool in pause) would cover the page.
-  const close = page.getByRole('button', { name: 'Chiudi', exact: true });
+  const close = page.getByRole('button', { name: 'Close', exact: true });
   if (await close.count()) {
     await close.first().click();
     await expect(close).toHaveCount(0);
@@ -48,23 +48,23 @@ test('Automazioni: from the sidebar, the list by squad, the detail and a giro', 
   await page.goto('/?mock=demo');
   const sidebar = page.getByTestId('sidebar');
   // Above Note, with its shortcut.
-  const links = sidebar.getByRole('navigation', { name: 'Sezioni' }).getByRole('link');
-  await expect(links.first()).toHaveAccessibleName('Automazioni');
-  await expect(links.nth(1)).toHaveAccessibleName('Note');
+  const links = sidebar.getByRole('navigation', { name: 'Sections' }).getByRole('link');
+  await expect(links.first()).toHaveAccessibleName('Automations');
+  await expect(links.nth(1)).toHaveAccessibleName('Notes');
   await links.first().click();
   await expect(page).toHaveURL(/#\/automazioni$/);
   const toolbar = page.locator('[data-titlebar]');
-  await expect(toolbar.getByRole('heading', { name: 'Automazioni', level: 1 })).toBeVisible();
+  await expect(toolbar.getByRole('heading', { name: 'Automations', level: 1 })).toBeVisible();
 
   const squad = page.getByTestId('automation-squad');
   await expect(squad).toHaveCount(1);
-  await expect(squad.getByRole('heading')).toHaveText('Social di Saturday · 1');
+  await expect(squad.getByRole('heading')).toHaveText('Saturday Social · 1');
   const row = page.getByTestId('automation-row');
   await expect(row).toHaveCount(1);
-  await expect(row).toContainText('Post della settimana');
-  await expect(row).toContainText('ogni domenica alle 23:00 · Iapetus con Calypso e Pandora');
+  await expect(row).toContainText('Weekly posts');
+  await expect(row).toContainText('every Sunday at 11:00 PM · Iapetus with Calypso and Pandora');
   await expect(row.getByTestId('run-state')).toHaveAttribute('data-state', 'completed');
-  await expect(row.getByTestId('automation-next')).toContainText(/^Prossimo: dom /);
+  await expect(row.getByTestId('automation-next')).toContainText(/^Next: Sun, /);
   await expect(row.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   await expect(row.getByTestId('crew-screen').first()).toBeVisible();
   await shot(page, 'automazioni-elenco-chiaro');
@@ -72,50 +72,48 @@ test('Automazioni: from the sidebar, the list by squad, the detail and a giro', 
   await row.getByRole('link').click();
   await expect(page).toHaveURL(/#\/automazioni\?automazione=post-della-settimana$/);
   const detail = page.getByTestId('automation-detail');
-  await expect(detail.getByTestId('automation-name')).toHaveText('Post della settimana');
+  await expect(detail.getByTestId('automation-name')).toHaveText('Weekly posts');
   await expect(detail.getByTestId('automation-objective')).toContainText(
-    'Prepara i post della pagina di Saturday',
+    'Prepare the posts of the Saturday page',
   );
   await expect(detail.getByTestId('automation-next-runs').getByRole('listitem')).toHaveCount(3);
   const crew = detail.getByTestId('automation-crew');
   await expect(crew.getByRole('listitem')).toHaveCount(3);
-  await expect(crew.getByRole('listitem').first()).toContainText('IapetusCapo');
+  await expect(crew.getByRole('listitem').first()).toContainText('IapetusLead');
   await expect(detail.getByTestId('automation-results')).toContainText(
-    'Progetti/Social di Saturday/Post',
+    'Projects/Saturday Social/Posts',
   );
-  await expect(detail.getByTestId('automation-results')).toContainText('nell’app e su Telegram');
+  await expect(detail.getByTestId('automation-results')).toContainText(
+    'in the app and on Telegram',
+  );
   const giri = detail.getByTestId('giro-row');
   await expect(giri).toHaveCount(2);
   await expect(giri.first()).toHaveAttribute('data-state', 'completed');
-  await expect(giri.first()).toContainText('all’ora prevista');
-  await expect(giri.first()).toContainText(/4 passi · 16\.480 token · gratis/i);
+  await expect(giri.first()).toContainText('on schedule');
+  await expect(giri.first()).toContainText(/4 steps · 16,480 tokens · free/i);
 
   await giri.first().getByRole('link').click();
   await expect(page).toHaveURL(/&giro=run_auto_/);
   const giro = page.getByTestId('giro-view');
   await expect(giro).toHaveAttribute('data-state', 'completed');
-  await expect(giro.getByTestId('giro-objective')).toContainText(
-    '[Automazione «Post della settimana»',
-  );
-  await expect(giro.getByTestId('giro-final')).toContainText('i post della settimana');
+  await expect(giro.getByTestId('giro-objective')).toContainText('[Automation “Weekly posts”');
+  await expect(giro.getByTestId('giro-final')).toContainText('the posts for the week');
   // The wikilink of the answer is a note chip (Markdown).
   await expect(giro.getByTestId('giro-final').getByTestId('note-chip')).toHaveCount(1);
   await expect(giro.getByTestId('giro-note')).toHaveCount(1);
-  await expect(giro.getByTestId('giro-note')).toHaveAttribute('href', /#\/note\?nota=Progetti/);
+  await expect(giro.getByTestId('giro-note')).toHaveAttribute('href', /#\/note\?nota=Projects/);
   // Iapetus, Calypso (who worked for it) and Iapetus's answer.
   await expect(giro.getByTestId('giro-message')).toHaveCount(3);
-  await expect(giro.getByTestId('giro-message').nth(1)).toContainText('Calypso · per il capo');
-  await page.getByRole('link', { name: 'Torna a «Post della settimana»' }).click();
+  await expect(giro.getByTestId('giro-message').nth(1)).toContainText('Calypso · for the lead');
+  await page.getByRole('link', { name: 'Back to “Weekly posts”' }).click();
   await expect(detail).toBeVisible();
 });
 
 test('Automazioni: the giri are not in the chat of the capo', async ({ page }) => {
   await page.goto('/?mock=demo#/?chat=iapetus');
   await expect(page.getByTestId('chat-panel')).toBeVisible();
-  await expect(page.getByTestId('chat-panel')).not.toContainText(
-    '[Automazione «Post della settimana»',
-  );
-  await expect(page.getByTestId('chat-panel')).not.toContainText('Passo il piano e i testi');
+  await expect(page.getByTestId('chat-panel')).not.toContainText('[Automation “Weekly posts”');
+  await expect(page.getByTestId('chat-panel')).not.toContainText('I’ll hand the plan and the copy');
 });
 
 test('Automazioni: a new one with a preset, the advanced rule and its next giri', async ({
@@ -124,47 +122,47 @@ test('Automazioni: a new one with a preset, the advanced rule and its next giri'
   await page.goto('/?mock=demo#/automazioni');
   await page.getByTestId('automation-new').click();
   const form = page.getByTestId('automation-form');
-  await expect(form.getByRole('heading', { name: 'Nuova automazione' })).toBeVisible();
+  await expect(form.getByRole('heading', { name: 'New automation' })).toBeVisible();
   // Nothing written: the form says what is missing.
   await page.getByTestId('form-save').click();
-  await expect(form).toContainText('Dai un nome all’automazione.');
-  await page.getByTestId('form-name').fill('Riassunto del venerdì');
-  await page.getByTestId('form-objective').fill('Fammi il riassunto delle note della settimana.');
+  await expect(form).toContainText('Give the automation a name.');
+  await page.getByTestId('form-name').fill('Friday summary');
+  await page.getByTestId('form-objective').fill('Give me a summary of the week’s notes.');
 
-  const preset = form.getByRole('radiogroup', { name: 'Quando gira' });
+  const preset = form.getByRole('radiogroup', { name: 'When it runs' });
   const preview = page.getByTestId('form-schedule-text');
-  await preset.getByRole('radio', { name: 'Ogni giorno' }).click();
+  await preset.getByRole('radio', { name: 'Every day' }).click();
   await page.getByTestId('form-time').fill('08:30');
-  await expect(preview).toHaveText('ogni giorno alle 8:30');
+  await expect(preview).toHaveText('every day at 8:30 AM');
   await expect(page.getByTestId('form-next-runs').getByRole('listitem')).toHaveCount(3);
-  await preset.getByRole('radio', { name: 'Avanzato' }).click();
+  await preset.getByRole('radio', { name: 'Advanced' }).click();
   await expect(page.getByTestId('form-cron')).toHaveValue('30 8 * * *');
   await page.getByTestId('form-cron').fill('0 9 1 * *');
-  await expect(preview).toHaveText('il 1° di ogni mese alle 9:00');
+  await expect(preview).toHaveText('on the 1st of every month at 9:00 AM');
   await page.getByTestId('form-cron').fill('0 9 1 *');
-  await expect(page.getByTestId('form-schedule-preview')).toContainText('Regola non valida');
-  await preset.getByRole('radio', { name: 'Ogni settimana' }).click();
+  await expect(page.getByTestId('form-schedule-preview')).toContainText('Invalid rule');
+  await preset.getByRole('radio', { name: 'Every week' }).click();
   // Monday is chosen: Friday too, at 18:00.
-  await form.getByRole('button', { name: 'venerdì' }).click();
+  await form.getByRole('button', { name: 'Friday' }).click();
   await page.getByTestId('form-time').fill('18:00');
-  await expect(preview).toHaveText('ogni lunedì e venerdì alle 18:00');
+  await expect(preview).toHaveText('every Monday and Friday at 6:00 PM');
   await page.getByTestId('pick-enceladus').first().click();
   await expect(page.getByTestId('pick-enceladus').first()).toHaveAttribute('aria-checked', 'true');
-  await form.getByRole('group', { name: 'Partecipano' }).getByTestId('pick-rhea').click();
-  await page.getByTestId('form-folder').fill('Riassunti');
+  await form.getByRole('group', { name: 'Taking part' }).getByTestId('pick-rhea').click();
+  await page.getByTestId('form-folder').fill('Summaries');
   await shot(page, 'automazioni-nuova-chiaro');
   await page.getByTestId('form-save').click();
 
-  await expect(page).toHaveURL(/automazione=riassunto-del-venerdi$/);
+  await expect(page).toHaveURL(/automazione=friday-summary$/);
   const detail = page.getByTestId('automation-detail');
-  await expect(detail.getByTestId('automation-name')).toHaveText('Riassunto del venerdì');
+  await expect(detail.getByTestId('automation-name')).toHaveText('Friday summary');
   await expect(detail.getByTestId('automation-monitor')).toContainText(
-    'ogni lunedì e venerdì alle 18:00',
+    'every Monday and Friday at 6:00 PM',
   );
   await expect(detail.getByTestId('automation-crew').getByRole('listitem')).toHaveCount(2);
-  await expect(detail.getByTestId('automation-giri')).toContainText('Ancora nessun giro.');
-  await page.locator('[data-titlebar]').getByRole('heading', { name: 'Automazioni' }).isVisible();
-  await page.getByTestId('sidebar').getByRole('link', { name: 'Automazioni' }).click();
+  await expect(detail.getByTestId('automation-giri')).toContainText('No runs yet.');
+  await page.locator('[data-titlebar]').getByRole('heading', { name: 'Automations' }).isVisible();
+  await page.getByTestId('sidebar').getByRole('link', { name: 'Automations' }).click();
   await expect(page.getByTestId('automation-row')).toHaveCount(2);
 });
 
@@ -174,10 +172,10 @@ test('Automazioni: pause, Esegui ora, the chat of the busy capo, 409 when stoppe
   await page.goto('/?mock=demo#/automazioni?automazione=post-della-settimana');
   const detail = page.getByTestId('automation-detail');
   await expect(detail).toHaveAttribute('data-status', 'active');
-  await detail.getByRole('button', { name: 'Metti in pausa' }).click();
+  await detail.getByRole('button', { name: 'Pause' }).click();
   await expect(detail).toHaveAttribute('data-status', 'paused');
-  await expect(detail.getByTestId('automation-monitor')).not.toContainText('prossimo giro');
-  await detail.getByRole('button', { name: 'Riprendi' }).click();
+  await expect(detail.getByTestId('automation-monitor')).not.toContainText('next run');
+  await detail.getByRole('button', { name: 'Resume' }).click();
   await expect(detail).toHaveAttribute('data-status', 'active');
 
   await holdMock(page);
@@ -185,14 +183,14 @@ test('Automazioni: pause, Esegui ora, the chat of the busy capo, 409 when stoppe
   const giro = page.getByTestId('giro-view');
   await stepMockUntil(page, () => giro.isVisible());
   await expect(giro).toHaveAttribute('data-state', 'running');
-  await expect(giro.getByTestId('giro-objective')).toContainText('eseguita ora');
+  await expect(giro.getByTestId('giro-objective')).toContainText('run now');
   // The capo works on the giro: its chat says so, and where to look.
   await page.evaluate(() => {
     window.location.hash = '#/?chat=iapetus';
   });
   await stepMockUntil(page, () => page.getByTestId('automation-busy').isVisible());
   await expect(page.getByTestId('automation-busy')).toContainText(
-    'Sta facendo l’automazione «Post della settimana»: il tuo messaggio parte appena finisce',
+    'Running the automation “Weekly posts”: your message goes out as soon as it’s done',
   );
   await expect(page.getByTestId('working-row')).toHaveCount(0);
   await shot(page, 'automazioni-chat-occupato-chiaro');
@@ -207,8 +205,8 @@ test('Automazioni: pause, Esegui ora, the chat of the busy capo, 409 when stoppe
   await expect(page.getByTestId('halt-banner')).toBeVisible();
   await page.getByTestId('automation-run-now').click();
   const problem = page.getByTestId('run-now-problem');
-  await expect(problem).toContainText('I mostri sono fermi');
-  await problem.getByRole('button', { name: 'Riprendi i mostri' }).click();
+  await expect(problem).toContainText('The monsters are stopped');
+  await problem.getByRole('button', { name: 'Resume the monsters' }).click();
   await expect(page.getByTestId('halt-banner')).toHaveCount(0);
 });
 
@@ -219,22 +217,22 @@ test('Automazioni: a draft of a monster waits for "Conferma"; delete asks in the
   await expect(page.getByTestId('automation-row')).toHaveCount(1);
   await page.evaluate(() =>
     (window as unknown as MockHooks).__monstersMock.automations.propose({
-      name: 'Riassunto delle note',
+      name: 'Notes summary',
       lead: 'enceladus',
     }),
   );
   // The `automation_change` of the stream reads the list again.
-  const draft = page.getByTestId('automation-row').filter({ hasText: 'Riassunto delle note' });
+  const draft = page.getByTestId('automation-row').filter({ hasText: 'Notes summary' });
   await expect(draft).toHaveAttribute('data-status', 'draft');
-  await expect(draft).toContainText('Bozza');
+  await expect(draft).toContainText('Draft');
   await expect(draft.getByRole('switch')).toHaveCount(0);
   await draft.getByRole('link').click();
   const banner = page.getByTestId('draft-banner');
-  await expect(banner).toContainText('Bozza: conferma');
-  await expect(banner).toContainText('L’ha proposta Enceladus.');
+  await expect(banner).toContainText('Draft: confirm');
+  await expect(banner).toContainText('Enceladus suggested it.');
   await expect(page.getByTestId('automation-run-now')).toHaveCount(0);
   await shot(page, 'automazioni-bozza-chiaro');
-  await banner.getByRole('button', { name: 'Conferma' }).click();
+  await banner.getByRole('button', { name: 'Confirm' }).click();
   await expect(banner).toHaveCount(0);
   await expect(page.getByTestId('automation-detail')).toHaveAttribute('data-status', 'active');
   await expect(page.getByTestId('automation-run-now')).toBeVisible();
@@ -243,13 +241,13 @@ test('Automazioni: a draft of a monster waits for "Conferma"; delete asks in the
   page.on('dialog', () => {
     throw new Error('no browser dialogs');
   });
-  await page.getByRole('button', { name: 'Elimina' }).click();
+  await page.getByRole('button', { name: 'Delete' }).click();
   const confirm = page.getByTestId('delete-confirm');
-  await expect(confirm).toContainText('Elimino «Riassunto delle note»?');
-  await confirm.getByRole('button', { name: 'Annulla' }).click();
+  await expect(confirm).toContainText('Delete “Notes summary”?');
+  await confirm.getByRole('button', { name: 'Cancel' }).click();
   await expect(confirm).toHaveCount(0);
-  await page.getByRole('button', { name: 'Elimina' }).click();
-  await confirm.getByRole('button', { name: 'Elimina' }).click();
+  await page.getByRole('button', { name: 'Delete' }).click();
+  await confirm.getByRole('button', { name: 'Delete' }).click();
   await expect(page).toHaveURL(/#\/automazioni$/);
   await expect(page.getByTestId('automation-row')).toHaveCount(1);
 });
@@ -259,16 +257,16 @@ test('Automazioni on a phone: each level full screen, the rail goes one level up
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/?mock=demo');
-  await page.getByTestId('sidebar').getByRole('link', { name: 'Automazioni' }).click();
+  await page.getByTestId('sidebar').getByRole('link', { name: 'Automations' }).click();
   await expect(page.getByTestId('automation-row')).toBeVisible();
   await expectNoSideScroll(page, 390);
   await page.getByTestId('automation-row').getByRole('link').click();
   const back = page.getByTestId('toolbar-back');
-  await expect(back).toHaveText('Automazioni');
+  await expect(back).toHaveText('Automations');
   await page.getByTestId('giro-row').first().getByRole('link').click();
   await expect(page.getByTestId('giro-view')).toBeVisible();
   await expect(page.getByTestId('giro-final').getByTestId('note-chip')).toHaveCount(1);
-  await expect(back).toHaveText('Giri');
+  await expect(back).toHaveText('Runs');
   await shot(page, 'automazioni-giro-telefono-chiaro');
   await back.click();
   await expect(page.getByTestId('automation-detail')).toBeVisible();
@@ -320,16 +318,16 @@ test('Automazioni: an open question of a giro is answered on its page (collaudo 
         };
       }
     ).__monstersMock;
-    mock.ask('iapetus', run, 'Cosa vuoi che esca questa settimana?', [], undefined, () => {});
+    mock.ask('iapetus', run, 'What do you want out this week?', [], undefined, () => {});
   }, runId);
   const card = giro.getByTestId('giro-questions').getByTestId('question-card');
   await stepMockUntil(page, () => card.isVisible());
   await expect(card).toHaveAttribute('data-status', 'open');
-  await expect(card).toContainText('Scrivi la tua risposta qui sotto.');
-  await expect(card).not.toContainText('nel campo dei messaggi');
+  await expect(card).toContainText('Write your answer below.');
+  await expect(card).not.toContainText('in the message field');
   const input = card.getByTestId('question-answer-input');
-  await input.fill('Tre post: il lancio, lo studio, un consiglio.');
-  await card.getByRole('button', { name: 'Rispondi' }).click();
+  await input.fill('Three posts: the launch, the studio, a tip.');
+  await card.getByRole('button', { name: 'Answer' }).click();
   await stepMockUntil(
     page,
     async () => (await card.getByTestId('question-answer-input').count()) === 0,

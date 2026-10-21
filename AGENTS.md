@@ -24,7 +24,7 @@ in `docs/security-model.md`. Most of `docs/` is in Italian.
 - Web UI: `pnpm --filter @monsters/web build` (served by the core at `/`), `… dev` (Vite, also `?mock=demo` for fake
   data), `… test:e2e` (flows against the mock core), `… test:e2e:core` (build + real core with a fake provider),
   `… test:e2e:onboarding` (onboarding on the real core). First time: `pnpm --filter @monsters/web exec playwright
-  install chromium`.
+  install chromium`. The web e2e run in English; `lingua.e2e.ts` covers Italian.
 - Website: `apps/site` (Astro, static, D-144): `pnpm site:dev`, `pnpm site:build` (`MONSTERS_SITE_OFFLINE=1` skips the
   feed and GitHub calls), `pnpm site:deploy [-- --dry-run]` (assets-only Worker `monsters` on workers.dev via `cf`).
   Monsters come from `@monsters/monster-kit`, never from reference images.

@@ -65,9 +65,9 @@ const webSearch = defineTool({
       query,
       results: [
         {
-          title: 'Encelado - NASA Science',
+          title: 'Enceladus - NASA Science',
           url: 'https://science.nasa.gov/saturn/moons/enceladus/',
-          snippet: 'Geyser di ghiaccio, un oceano sotto la crosta.',
+          snippet: 'Ice geysers, an ocean under the crust.',
         },
       ],
     }),

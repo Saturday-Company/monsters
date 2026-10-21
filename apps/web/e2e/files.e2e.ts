@@ -14,7 +14,7 @@ const SHOTS = process.env['MONSTERS_E2E_SHOTS'];
 const shot = async (page: Page, name: string) => {
   if (!SHOTS) return;
   // The demo's notice (a tool in pause) would cover the composer.
-  const close = page.getByRole('button', { name: 'Chiudi', exact: true });
+  const close = page.getByRole('button', { name: 'Close', exact: true });
   if (await close.count()) {
     await close.first().click();
     await expect(close).toHaveCount(0);
@@ -106,7 +106,7 @@ test('the clip attaches files: chips with the upload, send when done, chips in t
 }) => {
   await page.goto('/?mock=demo#/?chat=rhea');
   await expect(page.getByTestId('chat-panel')).toHaveAttribute('data-agent', 'rhea');
-  const send = composer(page).getByRole('button', { name: 'Invia' });
+  const send = composer(page).getByRole('button', { name: 'Send' });
   await page.getByTestId('composer-file-input').setInputFiles([
     { name: 'tramonto.png', mimeType: 'image/png', buffer: picture() },
     { name: 'note di viaggio.txt', mimeType: 'text/plain', buffer: Buffer.from('Tram 28 alle 8') },
@@ -118,8 +118,8 @@ test('the clip attaches files: chips with the upload, send when done, chips in t
   await expect(send).toBeDisabled();
   await expect(chips(page).nth(0)).toHaveAttribute('data-state', 'ready');
   await expect(chips(page).nth(1)).toHaveAttribute('data-state', 'ready');
-  await expect(chips(page).nth(1)).toContainText('Testo');
-  await page.locator('#composer-input').fill('Guarda questi');
+  await expect(chips(page).nth(1)).toContainText('Text');
+  await page.locator('#composer-input').fill('Look at these');
   await shot(page, 'composer-allegati');
   await expect(send).toBeEnabled();
   await send.click();
@@ -127,7 +127,7 @@ test('the clip attaches files: chips with the upload, send when done, chips in t
   const bubble = page.getByTestId('bubble-attachments').last();
   await expect(bubble.getByTestId('image-tile')).toHaveCount(1);
   await expect(bubble.getByTestId('file-chip')).toContainText('note di viaggio.txt');
-  await expect(page.getByTestId('agent-bubble').last()).toContainText('Ho ricevuto 2 file');
+  await expect(page.getByTestId('agent-bubble').last()).toContainText('Got 2 files');
   await shot(page, 'bolla-allegati');
   // A press on the picture opens it in Anteprima, on the right.
   await bubble.getByTestId('image-tile').click();
@@ -146,15 +146,15 @@ test('only files, no words: the message goes; a chip can be removed; wrong files
   ]);
   await expect(chips(page)).toHaveCount(3);
   await expect(chips(page).nth(0).getByTestId('upload-error')).toHaveText(/HEIC/);
-  await expect(chips(page).nth(1).getByTestId('upload-error')).toHaveText(/non si allega/);
-  await chips(page).nth(1).getByRole('button', { name: 'Togli setup.exe' }).click();
+  await expect(chips(page).nth(1).getByTestId('upload-error')).toHaveText(/can’t be attached/);
+  await chips(page).nth(1).getByRole('button', { name: 'Remove setup.exe' }).click();
   await expect(chips(page)).toHaveCount(2);
   await expect(chips(page).nth(1)).toHaveAttribute('data-state', 'ready');
-  await composer(page).getByRole('button', { name: 'Invia' }).click();
+  await composer(page).getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('bubble-attachments').last().getByTestId('image-tile')).toHaveCount(
     1,
   );
-  await expect(page.getByTestId('agent-bubble').last()).toContainText('Ho ricevuto il file');
+  await expect(page.getByTestId('agent-bubble').last()).toContainText('Got the file');
 });
 
 test('paste an image in the field and drop files on the chat', async ({ page }) => {
@@ -164,7 +164,7 @@ test('paste an image in the field and drop files on the chat', async ({ page }) 
     { name: 'image.png', type: 'image/png', png: true },
   ]);
   await expect(chips(page)).toHaveCount(1);
-  await expect(chips(page).first()).toContainText(/immagine incollata \d\d\.\d\d\.png/);
+  await expect(chips(page).first()).toContainText(/pasted image \d\d\.\d\d\.png/);
   await dispatchFiles(page, '[data-testid="chat-scroller"]', 'drop', [
     { name: 'budget.csv', type: 'text/csv', text: 'voce,euro\nhotel,240' },
   ]);
@@ -177,15 +177,13 @@ test('the monsters’ files show as chips: a screenshot of Rhea, a page of Dione
   page,
 }) => {
   await page.goto('/?mock=demo');
-  const shotRow = page
-    .getByTestId('file-row')
-    .filter({ hasText: 'Rhea ha salvato uno screenshot' });
+  const shotRow = page.getByTestId('file-row').filter({ hasText: 'Rhea saved a screenshot' });
   await expect(shotRow).toHaveCount(1);
   await expect(shotRow.getByTestId('image-tile')).toBeVisible();
   await page.goto('/?mock=demo#/?chat=dione');
-  const page_ = page.getByTestId('file-row').filter({ hasText: 'Dione ha creato una pagina' });
-  await expect(page_).toContainText('Menu della settimana');
-  await expect(page_.getByTestId('file-chip')).toContainText('Menu della settimana.html');
+  const page_ = page.getByTestId('file-row').filter({ hasText: 'Dione created a page' });
+  await expect(page_).toContainText('Weekly menu');
+  await expect(page_.getByTestId('file-chip')).toContainText('Weekly menu.html');
   // The user's photo rides on the bubble.
   await expect(
     page.getByTestId('bubble-attachments').first().getByTestId('image-tile'),
@@ -201,57 +199,51 @@ test('File: Ctrl 4, filters, search, delete with "Di nuovo"', async ({ page }) =
   await expect(page).toHaveURL(/#\/file$/);
   const tiles = page.getByTestId('file-tile');
   await expect(tiles).toHaveCount(9);
-  await expect(page.getByTestId('files-count')).toHaveText('9 file');
-  const filter = page.getByRole('radiogroup', { name: 'Quali file' });
-  await filter.getByRole('radio', { name: 'Immagini' }).click();
+  await expect(page.getByTestId('files-count')).toHaveText('9 files');
+  const filter = page.getByRole('radiogroup', { name: 'Which files' });
+  await filter.getByRole('radio', { name: 'Images' }).click();
   await expect(tiles).toHaveCount(3);
-  await filter.getByRole('radio', { name: 'Documenti' }).click();
+  await filter.getByRole('radio', { name: 'Documents' }).click();
   await expect(tiles).toHaveCount(4);
-  await expect(tiles.filter({ hasText: 'Preventivo Lisbona.pdf' })).toHaveAttribute(
-    'data-kind',
-    'pdf',
-  );
-  await filter.getByRole('radio', { name: 'Dai mostri' }).click();
+  await expect(tiles.filter({ hasText: 'Lisbon quote.pdf' })).toHaveAttribute('data-kind', 'pdf');
+  await filter.getByRole('radio', { name: 'From the monsters' }).click();
   await expect(tiles).toHaveCount(5);
-  await expect(tiles.filter({ hasText: 'Screenshot di Rhea' })).toHaveCount(1);
-  await expect(tiles.filter({ hasText: 'Pagina di Titan' })).toHaveCount(1);
-  await filter.getByRole('radio', { name: 'Tutti' }).click();
-  await page.getByTestId('files-search').fill('TRAMONTO');
-  // The name of the photo, and the text of the quote ("i posti migliori per il tramonto").
+  await expect(tiles.filter({ hasText: 'Screenshot by Rhea' })).toHaveCount(1);
+  await expect(tiles.filter({ hasText: 'Page by Titan' })).toHaveCount(1);
+  await filter.getByRole('radio', { name: 'All' }).click();
+  await page.getByTestId('files-search').fill('ALFAMA');
+  // The name of the photo, and the text of the quote ("Two nights in Alfama").
   await expect(tiles).toHaveCount(2);
   await expect(tiles.filter({ hasText: 'tramonto-alfama.jpg' })).toHaveCount(1);
   await expect(
     tiles.filter({ hasText: 'tramonto-alfama.jpg' }).getByTestId('file-snippet'),
   ).toHaveCount(0);
   // The words in the text of a file, not in its name: the piece of text around them (D-086).
-  await page.getByTestId('files-search').fill('funicolari');
+  await page.getByTestId('files-search').fill('funiculars');
   await expect(tiles).toHaveCount(1);
-  await expect(tiles.first()).toContainText('Preventivo Lisbona.pdf');
-  await expect(tiles.first().getByTestId('file-snippet')).toContainText('Tram 28 e funicolari');
+  await expect(tiles.first()).toContainText('Lisbon quote.pdf');
+  await expect(tiles.first().getByTestId('file-snippet')).toContainText('Tram 28 and funiculars');
   await page.getByTestId('files-search').fill('');
   await expect(tiles).toHaveCount(9);
 
-  await tiles
-    .filter({ hasText: 'Menu della settimana.html' })
-    .getByRole('button', { name: /apri/ })
-    .click();
-  await expect(page.getByTestId('preview-title')).toContainText('Menu della settimana');
+  await tiles.filter({ hasText: 'Weekly menu.html' }).getByRole('button', { name: /open/ }).click();
+  await expect(page.getByTestId('preview-title')).toContainText('Weekly menu');
   await expect(page.getByTestId('preview-body')).toHaveAttribute('data-renderer', 'html');
 
-  const pdf = tiles.filter({ hasText: 'Preventivo Lisbona.pdf' });
+  const pdf = tiles.filter({ hasText: 'Lisbon quote.pdf' });
   const del = pdf.getByTestId('file-delete');
   await del.click();
   await expect(del).toHaveAttribute('data-armed', 'true');
-  await expect(del).toContainText('Di nuovo');
+  await expect(del).toContainText('Again');
   await del.click();
   await expect(tiles).toHaveCount(8);
-  await expect(page.getByText('Ho eliminato Preventivo Lisbona.pdf.')).toBeVisible();
+  await expect(page.getByText('I deleted Lisbon quote.pdf.')).toBeVisible();
 });
 
 test('File: the empty state when nothing matches', async ({ page }) => {
   await page.goto('/?mock=demo#/file');
-  await page.getByTestId('files-search').fill('nessuno si chiama così');
-  await expect(page.getByTestId('files-empty')).toContainText('Nessun file così');
+  await page.getByTestId('files-search').fill('nobody is called that');
+  await expect(page.getByTestId('files-empty')).toContainText('No files like that');
 });
 
 for (const scheme of ['dark', 'light'] as const) {

@@ -36,13 +36,11 @@ test('an image of the chat: fitted, real size with Esc back, Esc closes', async 
   await page.getByTestId('chat-image').click();
   await expect(dock(page)).toBeVisible();
   await expect(dock(page).getByTestId('dock-tab-preview')).toHaveAttribute('aria-selected', 'true');
-  await expect(dock(page).getByTestId('preview-title')).toHaveText('Menu autunno.png');
-  await expect(dock(page).getByTestId('preview-line')).toContainText(
-    /Immagine · 47 KB · da Dione/i,
-  );
+  await expect(dock(page).getByTestId('preview-title')).toHaveText('Autumn menu.png');
+  await expect(dock(page).getByTestId('preview-line')).toContainText(/Image · 47 KB · by Dione/i);
   const area = dock(page).getByTestId('preview-image-area');
   await expect(area).toHaveAttribute('data-zoom', 'fit');
-  await expect(dock(page).getByTestId('preview-zoom')).toContainText(/Adattata · \d+% · 960×640/i);
+  await expect(dock(page).getByTestId('preview-zoom')).toContainText(/Fitted · \d+% · 960×640/i);
   // The checkerboard is under the image only, the image is decoded.
   await expect
     .poll(() =>
@@ -72,10 +70,10 @@ test('an image of the chat: fitted, real size with Esc back, Esc closes', async 
 
 test('a PDF, a note and a page of the chat; the strip keeps them', async ({ page }) => {
   await page.goto(SCENE);
-  await page.getByTestId('file-link').filter({ hasText: 'Preventivo Lisbona' }).click();
+  await page.getByTestId('file-link').filter({ hasText: 'Lisbon quote' }).click();
   const pdf = dock(page).getByTestId('preview-pdf');
   await expect(pdf.getByTestId('preview-pdf-page')).toHaveCount(2);
-  await expect(dock(page).getByTestId('preview-pdf-pages')).toHaveText('Pagina 1 / 2');
+  await expect(dock(page).getByTestId('preview-pdf-pages')).toHaveText('Page 1 / 2');
   // The page is painted (some dark ink on the white canvas).
   await expect
     .poll(() =>
@@ -99,16 +97,16 @@ test('a PDF, a note and a page of the chat; the strip keeps them', async ({ page
   await expect(dock(page).getByTestId('vault-note-body')).toContainText('Alfama');
   // A link inside the note opens that note here too.
   await dock(page).getByTestId('vault-link').first().click();
-  await expect(dock(page).getByTestId('preview-title')).toHaveText(/Lisbona/);
+  await expect(dock(page).getByTestId('preview-title')).toHaveText(/Lisbon/);
 
   await page.getByTestId('preview-row').click();
-  await expect(dock(page).getByTestId('preview-title')).toHaveText('Menu della settimana.html');
+  await expect(dock(page).getByTestId('preview-title')).toHaveText('Weekly menu.html');
   const strip = dock(page).getByTestId('preview-strip');
   await expect(strip.getByTestId('preview-chip')).toHaveCount(4);
   // The same item again is not added twice: it is selected.
-  await page.getByTestId('file-link').filter({ hasText: 'Preventivo Lisbona' }).click();
+  await page.getByTestId('file-link').filter({ hasText: 'Lisbon quote' }).click();
   await expect(strip.getByTestId('preview-chip')).toHaveCount(4);
-  await expect(strip.locator('[data-active]')).toContainText('Preventivo Lisbona.pdf');
+  await expect(strip.locator('[data-active]')).toContainText('Lisbon quote.pdf');
   // ✕ on a chip closes that item; the last ✕ closes the pane.
   for (let n = 3; n >= 0; n--) {
     await strip.getByTestId('preview-chip-close').first().click();
@@ -121,33 +119,33 @@ test('text, CSV, JSON, code and other files', async ({ page }) => {
   await page.goto(SCENE);
   await open(page, { kind: 'file', fileId: 'f-spese' });
   const table = dock(page).getByTestId('preview-table');
-  await expect(table.locator('th')).toHaveText(['Data', 'Voce', 'Categoria', 'Importo']);
+  await expect(table.locator('th')).toHaveText(['Date', 'Item', 'Category', 'Amount']);
   await expect(table.locator('tbody tr')).toHaveCount(6);
-  await expect(table).toContainText('Regalo per Dione; fiori');
-  await dock(page).getByRole('radio', { name: 'Testo' }).click();
-  await expect(dock(page).getByTestId('preview-code')).toContainText('2026-10-01;Affitto studio');
+  await expect(table).toContainText('Gift for Dione; flowers');
+  await dock(page).getByRole('radio', { name: 'Text' }).click();
+  await expect(dock(page).getByTestId('preview-code')).toContainText('2026-10-01;Studio rent');
 
   await open(page, { kind: 'file', fileId: 'f-impostazioni' });
   const json = dock(page).getByTestId('preview-code');
   await expect(json.locator('> span')).toHaveCount(18);
-  await expect(json.locator('> span').nth(1)).toHaveText('  "tema": "scuro",');
+  await expect(json.locator('> span').nth(1)).toHaveText('  "theme": "dark",');
   await expect(json.locator('.t-str').first()).toBeVisible();
 
   await open(page, { kind: 'file', fileId: 'f-conta-parole' });
   const code = dock(page).getByTestId('preview-code');
-  await expect(code.locator('.t-com').first()).toHaveText('# Conta le parole di un file di testo');
+  await expect(code.locator('.t-com').first()).toHaveText('# Count the words of a text file');
   await expect(code.locator('.t-key').first()).toHaveText('import');
 
   await open(page, { kind: 'file', fileId: 'f-foto-viaggio' });
-  await expect(dock(page).getByTestId('preview-other')).toContainText('Foto viaggio.zip');
+  await expect(dock(page).getByTestId('preview-other')).toContainText('Trip photos.zip');
   await expect(dock(page).getByTestId('preview-other')).toContainText('18 MB');
   const download = dock(page).getByTestId('preview-download');
-  await expect(download).toHaveAttribute('download', 'Foto viaggio.zip');
+  await expect(download).toHaveAttribute('download', 'Trip photos.zip');
   // No bridge in a browser: nothing to open with the system.
   await expect(dock(page).getByTestId('preview-open-system')).toHaveCount(0);
 
   await open(page, { kind: 'file', fileId: 'non-esiste' });
-  await expect(dock(page).getByTestId('preview-missing')).toHaveText('Questo file non c’è più.');
+  await expect(dock(page).getByTestId('preview-missing')).toHaveText('This file is gone.');
 });
 
 test('a page of a monster stays in its sandbox', async ({ page, consoleErrors }) => {
@@ -200,10 +198,10 @@ test('a page of a monster stays in its sandbox', async ({ page, consoleErrors })
   await open(page, { kind: 'file', fileId: 'f-pagina-menu' });
   const menu = page.frameLocator('[data-testid="preview-html"]');
   await expect(async () => {
-    await menu.getByRole('button', { name: 'Mi piace' }).click();
-    await expect(menu.locator('#count')).toHaveText(/^(Un voto|\d+ voti)\.$/, { timeout: 500 });
+    await menu.getByRole('button', { name: 'Like' }).click();
+    await expect(menu.locator('#count')).toHaveText(/^(One vote|\d+ votes)\.$/, { timeout: 500 });
   }).toPass();
-  await expect(dock(page).getByTestId('preview-sandbox-note')).toContainText('niente rete');
+  await expect(dock(page).getByTestId('preview-sandbox-note')).toContainText('no network');
 });
 
 test('a page made after reading the web never opens by itself, even in the chat on screen', async ({
@@ -219,14 +217,14 @@ test('a page made after reading the web never opens by itself, even in the chat 
       type: 'preview',
       data: {
         item: { kind: 'file', fileId: 'f-pagina-inerte' },
-        name: 'Prezzi trovati.html',
+        name: 'Prices found.html',
         fileKind: 'html',
         inert: true,
       },
     });
   });
   await expect(
-    page.getByTestId('preview-row').filter({ hasText: 'Prezzi trovati.html' }),
+    page.getByTestId('preview-row').filter({ hasText: 'Prices found.html' }),
   ).toBeVisible();
   await page.waitForTimeout(300);
   await expect(dock(page)).toHaveCount(0);
@@ -239,20 +237,20 @@ test('a page made after reading the web: no scripts until the user turns them on
   await page.goto(SCENE);
   await open(page, { kind: 'file', fileId: 'f-pagina-inerte' });
   const inner = page.frameLocator('[data-testid="preview-html"]');
-  await expect(inner.getByRole('heading', { name: 'Prezzi trovati' })).toBeVisible();
-  await expect(inner.locator('#state')).toHaveText('Script spenti.');
+  await expect(inner.getByRole('heading', { name: 'Prices found' })).toBeVisible();
+  await expect(inner.locator('#state')).toHaveText('Scripts off.');
   const note = dock(page).getByTestId('preview-inert');
   await expect(note).toContainText(
-    'Pagina con script disattivati: è stata creata dopo aver letto contenuti esterni.',
+    'Page with scripts turned off: it was made after reading external content.',
   );
   await dock(page).getByTestId('preview-allow-scripts').click();
   // A second click, after the warning.
-  await expect(note).toContainText('Se non ti fidi');
-  await expect(inner.locator('#state')).toHaveText('Script spenti.');
+  await expect(note).toContainText('If you don’t trust');
+  await expect(inner.locator('#state')).toHaveText('Scripts off.');
   await dock(page).getByTestId('preview-allow-scripts').click();
   await expect(note).toHaveCount(0);
   await expect(page.frameLocator('[data-testid="preview-html"]').locator('#state')).toHaveText(
-    'Script accesi.',
+    'Scripts on.',
   );
   // While the scripts were off the browser said so (also for the probes of Playwright): only that.
   expect(consoleErrors.filter((e) => !/Blocked script execution/.test(e))).toEqual([]);
@@ -271,7 +269,7 @@ test('a remote image loads only when asked, without a referrer', async ({ page }
   });
   await page.goto(SCENE);
   const card = page.getByTestId('remote-image-card');
-  await expect(card).toContainText('La vista da Graça');
+  await expect(card).toContainText('The view from Graça');
   await expect(card).toContainText('upload.wikimedia.org');
   // The whole address, not only the site (D-085).
   await expect(card.getByTestId('remote-image-url')).toHaveText(
@@ -293,15 +291,15 @@ test('the tabs: Dietro le quinte and Consumi in the pane, following the chat', a
     'true',
   );
   const term = dock(page).getByTestId('agent-terminal');
-  await expect(term.getByRole('heading', { name: 'Dietro le quinte di Titan' })).toBeVisible();
+  await expect(term.getByRole('heading', { name: 'Behind the scenes of Titan' })).toBeVisible();
   // The screenshot of the browser opens in Anteprima.
   await term.getByTestId('term-file').click();
-  await expect(dock(page).getByTestId('preview-title')).toHaveText('Schermata carris.pt.png');
-  await expect(dock(page).getByTestId('preview-line')).toContainText(/da Rhea/i);
+  await expect(dock(page).getByTestId('preview-title')).toHaveText('Screenshot carris.pt.png');
+  await expect(dock(page).getByTestId('preview-line')).toContainText(/by Rhea/i);
 
   await dock(page).getByTestId('dock-tab-usage').click();
   await expect(
-    dock(page).getByTestId('usage-sheet').getByRole('heading', { name: 'Consumi di Titan' }),
+    dock(page).getByTestId('usage-sheet').getByRole('heading', { name: 'Usage of Titan' }),
   ).toBeVisible();
   // Arrows move between the tabs.
   await dock(page).getByTestId('dock-tab-usage').focus();
@@ -312,10 +310,10 @@ test('the tabs: Dietro le quinte and Consumi in the pane, following the chat', a
   );
   // Another chat: the pane stays and shows that monster.
   await page.getByRole('link', { name: /^Rhea,/ }).click();
-  await expect(term.getByRole('heading', { name: 'Dietro le quinte di Rhea' })).toBeVisible();
+  await expect(term.getByRole('heading', { name: 'Behind the scenes of Rhea' })).toBeVisible();
   // CONTESTO selects Consumi, for Rhea.
   await page.getByTestId('chat-monitor').getByTestId('context-key').click();
-  await expect(dock(page).getByRole('heading', { name: 'Consumi di Rhea' })).toBeVisible();
+  await expect(dock(page).getByRole('heading', { name: 'Usage of Rhea' })).toBeVisible();
   await expect(page.getByTestId('chat-monitor').getByTestId('context-key')).toHaveAttribute(
     'aria-expanded',
     'true',
@@ -386,8 +384,8 @@ test('⌘J / Ctrl J and the palette toggle the pane; the focus goes there when a
   await page.keyboard.press('ControlOrMeta+j');
   await expect(dock(page)).toHaveCount(0);
   await page.keyboard.press('ControlOrMeta+k');
-  await page.getByPlaceholder('Cerca un mostro, una nota, un comando…').fill('pannello');
-  await page.getByRole('option', { name: /Pannello a destra/ }).click();
+  await page.getByPlaceholder('Search a monster, a note, a command…').fill('pane');
+  await page.getByRole('option', { name: /Right-hand pane/ }).click();
   await expect(dock(page)).toBeVisible();
 });
 
@@ -402,7 +400,7 @@ test('a monster showing something: open beside its chat, a chip elsewhere', asyn
           agent: a,
           runId: `run_show_${f}`,
           type: 'run',
-          data: { status: 'started', goal: 'Mostra' },
+          data: { status: 'started', goal: 'Show' },
         });
         mock.append({
           agent: a,
@@ -413,23 +411,23 @@ test('a monster showing something: open beside its chat, a chip elsewhere', asyn
       },
       [agent, fileId, name] as const,
     );
-  const input = page.getByRole('combobox', { name: 'Messaggio' });
+  const input = page.getByRole('combobox', { name: 'Message' });
   await input.focus();
   // Titan's chat is on screen: it opens, and the composer keeps the focus.
-  await show('titan', 'f-preventivo', 'Preventivo Lisbona.pdf');
-  await expect(dock(page).getByTestId('preview-title')).toHaveText('Preventivo Lisbona.pdf');
+  await show('titan', 'f-preventivo', 'Lisbon quote.pdf');
+  await expect(dock(page).getByTestId('preview-title')).toHaveText('Lisbon quote.pdf');
   await expect(input).toBeFocused();
   await page.getByTestId('dock-close').click();
   // Dione is not on screen: only the chip in her chat.
-  await show('dione', 'f-spese', 'Spese ottobre.csv');
+  await show('dione', 'f-spese', 'October expenses.csv');
   await page.waitForTimeout(400);
   await expect(dock(page)).toHaveCount(0);
   await page.getByRole('link', { name: /^Dione,/ }).click();
-  const row = page.getByTestId('preview-row').filter({ hasText: 'Spese ottobre.csv' });
-  await expect(row).toContainText('Dione ti mostra');
+  const row = page.getByTestId('preview-row').filter({ hasText: 'October expenses.csv' });
+  await expect(row).toContainText('Dione shows you');
   await row.click();
-  await expect(dock(page).getByTestId('preview-title')).toHaveText('Spese ottobre.csv');
-  await expect(row).toContainText('In anteprima');
+  await expect(dock(page).getByTestId('preview-title')).toHaveText('October expenses.csv');
+  await expect(row).toContainText('In the preview');
 });
 
 test('"Da rivedere" makes room for the pane below 1600 px, and stays beside it above', async ({
@@ -502,13 +500,13 @@ test.describe('phone', () => {
         type: 'preview',
         data: {
           item: { kind: 'file', fileId: 'f-spese' },
-          name: 'Spese ottobre.csv',
+          name: 'October expenses.csv',
           fileKind: 'sheet',
         },
       });
     });
     await expect(
-      page.getByTestId('preview-row').filter({ hasText: 'Spese ottobre.csv' }),
+      page.getByTestId('preview-row').filter({ hasText: 'October expenses.csv' }),
     ).toBeVisible();
     await expect(dock(page)).toHaveCount(0);
   });
@@ -586,12 +584,12 @@ for (const theme of ['light', 'dark'] as const) {
         await open(page, { kind: 'file', fileId: 'f-preventivo' });
         await expect(dock(page).getByTestId('preview-pdf-page').first()).toBeVisible();
         await shot('pdf');
-        await open(page, { kind: 'note', path: 'Risorse/Tram 28.md' });
+        await open(page, { kind: 'note', path: 'Resources/Tram 28.md' });
         await expect(dock(page).getByTestId('vault-note-body')).toBeVisible();
         await shot('nota');
         await open(page, { kind: 'file', fileId: 'f-pagina-menu' });
         await expect(
-          page.frameLocator('[data-testid="preview-html"]').getByText('Menu della settimana'),
+          page.frameLocator('[data-testid="preview-html"]').getByText('Weekly menu'),
         ).toBeVisible();
         await shot('pagina');
         await open(page, { kind: 'file', fileId: 'f-conta-parole' });
