@@ -22,31 +22,31 @@ async function openMember(page: Page, id: string) {
 test('rename a monster and give it another look', async ({ page }) => {
   await openTeam(page);
   const rhea = await openMember(page, 'rhea');
-  await rhea.getByRole('button', { name: 'Cambia il nome di Rhea' }).click();
-  const field = rhea.getByLabel('Il nome di Rhea');
+  await rhea.getByRole('button', { name: 'Change Rhea’s name' }).click();
+  const field = rhea.getByLabel('Rhea’s name');
   await field.fill('Ti4');
-  await rhea.getByRole('button', { name: 'Salva' }).click();
-  await expect(rhea.getByRole('alert')).toContainText('Solo lettere');
+  await rhea.getByRole('button', { name: 'Save' }).click();
+  await expect(rhea.getByRole('alert')).toContainText('Letters only');
   await field.fill('dione');
-  await rhea.getByRole('button', { name: 'Salva' }).click();
-  await expect(rhea.getByRole('alert')).toContainText('C’è già un mostro');
+  await rhea.getByRole('button', { name: 'Save' }).click();
+  await expect(rhea.getByRole('alert')).toContainText('There’s already a monster');
   await field.fill('Febe');
-  await rhea.getByRole('button', { name: 'Salva' }).click();
-  await expect(page.getByText('Rhea ora si chiama Febe.')).toBeVisible();
+  await rhea.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Rhea is now called Febe.')).toBeVisible();
   // Same monster (same id), new name everywhere.
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Febe,/ })).toBeVisible();
 
   // A look among new previews, the current one first.
   const febe = page.getByTestId('team-member-rhea');
-  await febe.getByRole('button', { name: 'Cambia aspetto' }).click();
+  await febe.getByRole('button', { name: 'Change look' }).click();
   const looks = febe.getByTestId('team-looks-rhea');
   await expect(looks.getByRole('radio')).toHaveCount(4);
-  await expect(looks.getByRole('radio', { name: 'Lascia Febe com’è' })).toBeVisible();
-  await looks.getByRole('radio', { name: 'Aspetto nuovo 2 per Febe' }).click();
-  await expect(page.getByText('Febe ha un aspetto nuovo.')).toBeVisible();
+  await expect(looks.getByRole('radio', { name: 'Keep Febe as is' })).toBeVisible();
+  await looks.getByRole('radio', { name: 'New look 2 for Febe' }).click();
+  await expect(page.getByText('Febe has a new look.')).toBeVisible();
 
   await page.goto('/?mock=demo#/log');
-  await expect(page.getByText('Hai cambiato nome a Rhea: ora è Febe').first()).toBeVisible();
+  await expect(page.getByText('You renamed Rhea: now Febe').first()).toBeVisible();
 });
 
 test('role and duties: checked in the page, AGENTS.md edited by hand needs a yes', async ({
@@ -54,64 +54,64 @@ test('role and duties: checked in the page, AGENTS.md edited by hand needs a yes
 }) => {
   await openTeam(page);
   const enceladus = await openMember(page, 'enceladus');
-  await enceladus.getByRole('button', { name: 'Modifica' }).click();
+  await enceladus.getByRole('button', { name: 'Edit' }).click();
   const form = enceladus.getByTestId('team-role-form-enceladus');
-  await form.getByLabel('Compiti, uno per riga').fill('');
-  await form.getByRole('button', { name: 'Salva' }).click();
-  await expect(form.getByText('Serve almeno un compito.')).toBeVisible();
+  await form.getByLabel('Duties, one per line').fill('');
+  await form.getByRole('button', { name: 'Save' }).click();
+  await expect(form.getByText('At least one duty is needed.')).toBeVisible();
   await form
-    .getByLabel('Compiti, uno per riga')
-    .fill('Non cancelli mai una nota: la sposti in Archivio.\nOgni lunedì togli i doppioni.');
-  await form.getByRole('button', { name: 'Salva' }).click();
+    .getByLabel('Duties, one per line')
+    .fill('You never delete a note: you move it to Archive.\nEvery Monday you remove duplicates.');
+  await form.getByRole('button', { name: 'Save' }).click();
   // Its instructions were changed by hand: replace them only after a yes.
   const overwrite = form.getByTestId('team-overwrite');
-  await expect(overwrite).toContainText('Hai modificato a mano le istruzioni di Enceladus');
-  await expect(overwrite).toContainText('Una copia resta salvata');
-  await overwrite.getByRole('button', { name: 'Sostituisci' }).click();
-  await expect(page.getByText('Ruolo e compiti di Enceladus salvati.')).toBeVisible();
-  await expect(page.getByTestId('team-member-enceladus')).toContainText('2 compiti');
+  await expect(overwrite).toContainText('You edited Enceladus’s instructions by hand');
+  await expect(overwrite).toContainText('A copy stays saved');
+  await overwrite.getByRole('button', { name: 'Replace' }).click();
+  await expect(page.getByText('Enceladus’s role and duties saved.')).toBeVisible();
+  await expect(page.getByTestId('team-member-enceladus')).toContainText('2 duties');
 });
 
 test('remove a monster, find it among the archived, bring it back', async ({ page }) => {
   await openTeam(page);
   // The capo squadra cannot be removed: only its name changes.
   const titan = await openMember(page, 'titan');
-  await expect(titan.getByRole('button', { name: 'Togli' })).toHaveCount(0);
-  await expect(titan).toContainText('il suo ruolo non si cambia');
+  await expect(titan.getByRole('button', { name: 'Remove' })).toHaveCount(0);
+  await expect(titan).toContainText('its role can’t be changed');
 
   const dione = await openMember(page, 'dione');
-  await dione.getByRole('button', { name: 'Togli' }).click();
-  await dione.getByRole('button', { name: 'Sì, togli' }).click();
-  await expect(page.getByText(/Dione non è più nella squadra/)).toBeVisible();
+  await dione.getByRole('button', { name: 'Remove' }).click();
+  await dione.getByRole('button', { name: 'Yes, remove' }).click();
+  await expect(page.getByText(/Dione is no longer in the squad/)).toBeVisible();
   await expect(page.getByTestId('team-member-dione')).toHaveCount(0);
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Dione,/ })).toHaveCount(0);
 
   const archived = page.getByTestId('team-archived-dione');
-  await expect(archived).toContainText('Tolto il');
-  await archived.getByRole('button', { name: 'Riporta' }).click();
-  await expect(page.getByText('Dione è di nuovo nella squadra.')).toBeVisible();
+  await expect(archived).toContainText('Removed on');
+  await archived.getByRole('button', { name: 'Bring back' }).click();
+  await expect(page.getByText('Dione is back in the squad.')).toBeVisible();
   await expect(page.getByTestId('team-member-dione')).toBeVisible();
   await expect(page.getByTestId('team-archived')).toHaveCount(0);
 });
 
 test('add a monster from a description, reviewed before it is added', async ({ page }) => {
   await openTeam(page);
-  await page.getByRole('button', { name: 'Aggiungi un mostro' }).click();
+  await page.getByRole('button', { name: 'Add a monster' }).click();
   const add = page.getByTestId('team-add');
   // An idea fills the description.
-  await add.getByRole('button', { name: 'Riassunti' }).click();
-  await expect(add.getByLabel('Cosa deve fare?')).toHaveValue(
-    'Riassume documenti e note lunghe in pochi punti chiari.',
+  await add.getByRole('button', { name: 'Summaries' }).click();
+  await expect(add.getByLabel('What should it do?')).toHaveValue(
+    'Sums up long documents and notes in a few clear points.',
   );
-  await add.getByRole('button', { name: 'Prepara il mostro' }).click();
+  await add.getByRole('button', { name: 'Prepare the monster' }).click();
   const draft = page.getByTestId('team-draft');
-  await expect(draft.getByLabel('Cosa fa, in una riga')).toHaveValue(
-    'Riassume documenti e note lunghe in pochi punti chiari.',
+  await expect(draft.getByLabel('What it does, in one line')).toHaveValue(
+    'Sums up long documents and notes in a few clear points.',
   );
-  await draft.getByLabel('Nome', { exact: true }).fill('Pan');
-  await draft.getByRole('button', { name: 'Un altro aspetto' }).click();
-  await draft.getByRole('button', { name: 'Aggiungi alla squadra' }).click();
-  await expect(page.getByText('Pan è nella squadra: scrivigli dalla sua chat.')).toBeVisible();
+  await draft.getByLabel('Name', { exact: true }).fill('Pan');
+  await draft.getByRole('button', { name: 'Another look' }).click();
+  await draft.getByRole('button', { name: 'Add to the squad' }).click();
+  await expect(page.getByText('Pan is in the squad: write to it from its chat.')).toBeVisible();
   await expect(page.getByTestId('team-member-pan')).toBeVisible();
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Pan,/ })).toBeVisible();
 });
@@ -119,27 +119,27 @@ test('add a monster from a description, reviewed before it is added', async ({ p
 test('your profile: name and tone; what to always ask, in Permessi', async ({ page }) => {
   await openTeam(page);
   const you = page.getByTestId('team-you');
-  await you.getByRole('button', { name: 'Cambia il tuo nome' }).click();
-  await you.getByLabel('Il tuo nome').fill('Giulia');
-  await you.getByRole('button', { name: 'Salva' }).click();
-  await expect(page.getByText('Da ora i mostri ti chiamano Giulia.')).toBeVisible();
+  await you.getByRole('button', { name: 'Change your name' }).click();
+  await you.getByLabel('Your name').fill('Giulia');
+  await you.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('From now on the monsters call you Giulia.')).toBeVisible();
   await expect(you.getByTestId('team-user-name')).toContainText('Giulia');
 
-  await you.getByLabel('Tono').selectOption({ index: 1 });
-  await expect(page.getByText('Tono salvato.')).toBeVisible();
+  await you.getByLabel('Tone').selectOption({ index: 1 });
+  await expect(page.getByText('Tone saved.')).toBeVisible();
 
   // What they always ask lives in Permessi now (D-066): Squadra links to it.
   await you.getByTestId('team-ask-always-link').click();
-  await expect(page.getByRole('tab', { name: 'Permessi' })).toHaveAttribute(
+  await expect(page.getByRole('tab', { name: 'Permissions' })).toHaveAttribute(
     'aria-selected',
     'true',
   );
   const ask = page.getByTestId('team-ask-always');
-  await expect(ask).toContainText('Pubblicare, scrivere ad altri');
-  const goal = ask.getByRole('switch', { name: 'Cambiare un obiettivo' });
+  await expect(ask).toContainText('Publishing, writing to others');
+  const goal = ask.getByRole('switch', { name: 'Changing a goal' });
   await goal.click();
   await expect(goal).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByText('Da ora ti chiedono prima di: cambiare un obiettivo.')).toBeVisible();
+  await expect(page.getByText('From now on they ask you first: changing a goal.')).toBeVisible();
 });
 
 test('change the password: the current one is checked, then the new one works', async ({
@@ -147,29 +147,29 @@ test('change the password: the current one is checked, then the new one works', 
 }) => {
   await page.goto('/?mock=demo#/impostazioni?sezione=generale');
   const account = page.getByTestId('settings-account');
-  await account.getByRole('button', { name: 'Cambia password' }).click();
+  await account.getByRole('button', { name: 'Change password' }).click();
   const form = account.getByTestId('password-form');
-  await form.getByLabel('Password attuale').fill('sbagliata');
-  await form.getByLabel('Nuova password', { exact: true }).fill('corta');
-  await form.getByRole('button', { name: 'Cambia password' }).click();
-  await expect(form.getByText('Almeno 8 caratteri.', { exact: true }).first()).toBeVisible();
-  await form.getByLabel('Nuova password', { exact: true }).fill('una-password-nuova');
-  await form.getByLabel('Ripeti la nuova password').fill('una-password-diversa');
-  await form.getByRole('button', { name: 'Cambia password' }).click();
-  await expect(form.getByText('Le due password non sono uguali.')).toBeVisible();
-  await form.getByLabel('Ripeti la nuova password').fill('una-password-nuova');
-  await form.getByRole('button', { name: 'Cambia password' }).click();
-  await expect(form.getByRole('alert')).toHaveText('La password attuale non è giusta.');
+  await form.getByLabel('Current password').fill('wrong');
+  await form.getByLabel('New password', { exact: true }).fill('short');
+  await form.getByRole('button', { name: 'Change password' }).click();
+  await expect(form.getByText('At least 8 characters.', { exact: true }).first()).toBeVisible();
+  await form.getByLabel('New password', { exact: true }).fill('a-new-password');
+  await form.getByLabel('Repeat the new password').fill('a-different-password');
+  await form.getByRole('button', { name: 'Change password' }).click();
+  await expect(form.getByText('The two passwords don’t match.')).toBeVisible();
+  await form.getByLabel('Repeat the new password').fill('a-new-password');
+  await form.getByRole('button', { name: 'Change password' }).click();
+  await expect(form.getByRole('alert')).toHaveText('The current password isn’t right.');
 
-  await form.getByLabel('Password attuale').fill('mostriciattoli');
-  await form.getByRole('button', { name: 'Cambia password' }).click();
-  await expect(page.getByText('Password cambiata.')).toBeVisible();
+  await form.getByLabel('Current password').fill('mostriciattoli');
+  await form.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.getByText('Password changed.')).toBeVisible();
   await expect(account.getByTestId('password-form')).toHaveCount(0);
 
   // Out and in again with the new one.
-  await account.getByRole('button', { name: 'Esci' }).click();
+  await account.getByRole('button', { name: 'Sign out' }).click();
   await page.getByLabel('Email').fill('ciao@monsters.local');
-  await page.getByLabel('Password').fill('una-password-nuova');
-  await page.getByRole('button', { name: 'Entra' }).click();
+  await page.getByLabel('Password').fill('a-new-password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByTestId('sidebar')).toBeVisible();
 });

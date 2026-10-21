@@ -14,7 +14,7 @@ test('gallery: "Cambia il token" replaces the token and keeps who uses it', asyn
   const gallery = page.getByTestId('mcp-gallery');
   await gallery.getByTestId('gallery-github').click();
   const panel = page.getByTestId('gallery-panel-github');
-  await expect(panel.getByTestId('gallery-state')).toHaveText('Collegato');
+  await expect(panel.getByTestId('gallery-state')).toHaveText('Connected');
   const pressed = async () =>
     Promise.all(
       ['Titan', 'Rhea', 'Dione'].map((name) =>
@@ -25,19 +25,19 @@ test('gallery: "Cambia il token" replaces the token and keeps who uses it', asyn
 
   await panel.getByTestId('mcp-change-token').click();
   const form = panel.getByTestId('mcp-token-form');
-  await expect(form.getByRole('link', { name: 'Crea il token' })).toHaveAttribute(
+  await expect(form.getByRole('link', { name: 'Create the token' })).toHaveAttribute(
     'href',
     /github\.com/,
   );
-  await form.getByRole('button', { name: 'Salva e prova' }).click();
-  await expect(form.getByRole('alert')).toContainText('Incolla qui il token nuovo');
+  await form.getByRole('button', { name: 'Save and test' }).click();
+  await expect(form.getByRole('alert')).toContainText('Paste the new token here');
   await form.getByLabel(/token/i).fill('ghp_NUOVO_SEGRETO_5678');
-  await form.getByRole('button', { name: 'Salva e prova' }).click();
-  await expect(page.getByText('Token di GitHub cambiato.')).toBeVisible();
+  await form.getByRole('button', { name: 'Save and test' }).click();
+  await expect(page.getByText('GitHub token changed.')).toBeVisible();
   await expect(panel.getByTestId('mcp-token-form')).toHaveCount(0);
   // Tried at once with the new token; still connected, same monsters.
-  await expect(panel.getByTestId('mcp-tools')).toContainText('Funziona');
-  await expect(panel.getByTestId('gallery-state')).toHaveText('Collegato');
+  await expect(panel.getByTestId('mcp-tools')).toContainText('Works');
+  await expect(panel.getByTestId('gallery-state')).toHaveText('Connected');
   expect(await pressed()).toEqual(before);
   await expect(page.locator('body')).not.toContainText('SEGRETO');
 });
@@ -45,25 +45,25 @@ test('gallery: "Cambia il token" replaces the token and keeps who uses it', asyn
 test('"Altri programmi": "Cambia il token" of a program with a secret', async ({ page }) => {
   await page.goto(URL);
   const section = page.getByTestId('mcp-settings');
-  await section.getByRole('button', { name: 'Aggiungi un programma' }).click();
+  await section.getByRole('button', { name: 'Add an app' }).click();
   const form = section.getByTestId('mcp-add-form');
-  await form.getByLabel('Nome').fill('calendario');
-  await form.getByLabel('Comando').fill('npx -y @esempio/mcp-calendario');
-  await form.getByLabel('Variabili (facoltative)').fill('API_KEY=segreto-123');
-  await form.getByRole('button', { name: 'Aggiungi', exact: true }).click();
+  await form.getByLabel('Name').fill('calendario');
+  await form.getByLabel('Command').fill('npx -y @esempio/mcp-calendario');
+  await form.getByLabel('Variables (optional)').fill('API_KEY=segreto-123');
+  await form.getByRole('button', { name: 'Add', exact: true }).click();
   const card = section.getByTestId('mcp-server-calendario');
   await card.getByRole('button', { expanded: false }).first().click();
   const dione = card.getByRole('button', { name: 'Dione', exact: true });
   const before = await dione.getAttribute('aria-pressed');
 
   await card.getByTestId('mcp-change-token').click();
-  await card.getByLabel('Nuovo valore di API_KEY').fill('segreto-NUOVO-456');
-  await card.getByRole('button', { name: 'Salva e prova' }).click();
-  await expect(page.getByText('Token di calendario cambiato.')).toBeVisible();
-  await expect(card.getByTestId('mcp-tools')).toContainText('Funziona');
+  await card.getByLabel('New value for API_KEY').fill('segreto-NUOVO-456');
+  await card.getByRole('button', { name: 'Save and test' }).click();
+  await expect(page.getByText('calendario token changed.')).toBeVisible();
+  await expect(card.getByTestId('mcp-tools')).toContainText('Works');
   await expect(dione).toHaveAttribute('aria-pressed', before ?? 'true');
-  await card.getByRole('button', { name: 'Dettagli' }).click();
-  await expect(card.getByTestId('mcp-details')).toContainText('API_KEY (valori nascosti)');
+  await card.getByRole('button', { name: 'Details' }).click();
+  await expect(card.getByTestId('mcp-details')).toContainText('API_KEY (values hidden)');
   await expect(page.locator('body')).not.toContainText('NUOVO-456');
 });
 
@@ -75,20 +75,20 @@ test('the sign-in with the core on another computer: paste the page of return', 
   await gallery.getByTestId('gallery-notion').click();
   const panel = page.getByTestId('gallery-panel-notion');
   const popup = page.waitForEvent('popup');
-  await panel.getByRole('button', { name: 'Collega' }).click();
+  await panel.getByRole('button', { name: 'Connect' }).click();
   await (await popup).close();
   await expect(panel.getByTestId('gallery-waiting')).toBeVisible();
   // The core said the page will not open: the field is already there.
   const paste = panel.getByTestId('oauth-paste');
-  const field = paste.getByLabel('Indirizzo della pagina di ritorno');
+  const field = paste.getByLabel('Address of the return page');
   await expect(field).toBeVisible();
   await field.fill('https://www.notion.so/qualcosa');
-  await paste.getByRole('button', { name: 'Completa l’accesso' }).click();
-  await expect(paste.getByRole('alert')).toContainText('Non è l’indirizzo della pagina di ritorno');
+  await paste.getByRole('button', { name: 'Finish signing in' }).click();
+  await expect(paste.getByRole('alert')).toContainText('That’s not the address of the return page');
   await field.fill('http://127.0.0.1:4747/api/mcp-oauth/callback?code=abc&state=xyz');
-  await paste.getByRole('button', { name: 'Completa l’accesso' }).click();
-  await expect(panel.getByTestId('gallery-state')).toHaveText('Collegato');
-  await expect(panel.getByTestId('mcp-tools')).toContainText('Funziona');
+  await paste.getByRole('button', { name: 'Finish signing in' }).click();
+  await expect(panel.getByTestId('gallery-state')).toHaveText('Connected');
+  await expect(panel.getByTestId('mcp-tools')).toContainText('Works');
 });
 
 test('without the paste hint, the way out is one click away while waiting', async ({ page }) => {
@@ -97,11 +97,11 @@ test('without the paste hint, the way out is one click away while waiting', asyn
   await gallery.getByTestId('gallery-notion').click();
   const panel = page.getByTestId('gallery-panel-notion');
   const popup = page.waitForEvent('popup');
-  await panel.getByRole('button', { name: 'Collega' }).click();
+  await panel.getByRole('button', { name: 'Connect' }).click();
   await (await popup).close();
-  const toggle = panel.getByRole('button', { name: 'La pagina di ritorno non si apre?' });
+  const toggle = panel.getByRole('button', { name: 'Return page won’t open?' });
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   // The mock browser comes back by itself: connected, the way out goes away.
-  await expect(panel.getByTestId('gallery-state')).toHaveText('Collegato');
+  await expect(panel.getByTestId('gallery-state')).toHaveText('Connected');
   await expect(panel.getByTestId('oauth-paste')).toHaveCount(0);
 });

@@ -14,7 +14,7 @@ const SHOTS = process.env['SCREENSHOTS'];
 const key = (page: Page) => page.getByTestId('chat-monitor').getByTestId('context-key');
 
 async function send(page: Page, text: string) {
-  const input = page.getByRole('combobox', { name: 'Messaggio' });
+  const input = page.getByRole('combobox', { name: 'Message' });
   await input.fill(text);
   await input.press('Enter');
 }
@@ -23,7 +23,7 @@ test('the preview on the monitor and the panel it opens', async ({ page }) => {
   await page.goto('/?mock=demo#/?chat=titan');
   await expect(key(page).getByTestId('context-amount')).toHaveText(/^\d+%$/);
   await expect(key(page)).toHaveAccessibleName(
-    /^Contesto e consumi di Titan: \d+% della finestra del modello$/,
+    /^Context and usage of Titan: \d+% of the model’s window$/,
   );
   // 20 lineette, some lit by part, the rest free.
   const bar = key(page).getByTestId('context-bar');
@@ -32,18 +32,18 @@ test('the preview on the monitor and the panel it opens', async ({ page }) => {
 
   await key(page).click();
   const sheet = page.getByTestId('usage-sheet');
-  await expect(sheet.getByRole('heading', { name: 'Consumi di Titan' })).toBeVisible();
+  await expect(sheet.getByRole('heading', { name: 'Usage of Titan' })).toBeVisible();
   await expect(sheet.getByTestId('usage-percent')).toHaveText(
     (await key(page).getByTestId('context-amount').textContent())!,
   );
   const legend = sheet.getByTestId('usage-legend');
-  for (const part of ['Istruzioni', 'Strumenti', 'Conversazione', 'Messaggio di adesso'])
+  for (const part of ['Instructions', 'Tools', 'Conversation', 'Current message'])
     await expect(legend).toContainText(part);
-  await expect(sheet.getByTestId('usage-context')).toContainText('65.536 token');
-  await expect(sheet.getByTestId('usage-context')).toContainText('75% · qui si compatta');
-  await expect(sheet.getByTestId('usage-session')).toContainText('Chiamate');
+  await expect(sheet.getByTestId('usage-context')).toContainText('65,536 tokens');
+  await expect(sheet.getByTestId('usage-context')).toContainText('75% · compacts here');
+  await expect(sheet.getByTestId('usage-session')).toContainText('Calls');
   await expect(sheet.getByTestId('usage-cost')).toContainText(/\$/);
-  await expect(sheet.getByTestId('usage-day')).toContainText('su 10 €');
+  await expect(sheet.getByTestId('usage-day')).toContainText('of €10');
   // The caps live in Settings → Modelli; on a wide window the pane stays beside them.
   await sheet.getByTestId('usage-caps-link').click();
   await expect(page).toHaveURL(/impostazioni\?sezione=tetto/);
@@ -74,14 +74,14 @@ test('live: a new step of the monster moves the preview and the open panel', asy
   await expect(amount).toHaveText('0%');
   await key(page).click();
   const sheet = page.getByTestId('usage-sheet');
-  await expect(sheet.getByTestId('usage-context')).toContainText('Nessun passo');
-  await send(page, 'Mi riscrivi la bio in tono più leggero?');
+  await expect(sheet.getByTestId('usage-context')).toContainText('No steps');
+  await send(page, 'Can you rewrite my bio in a lighter tone?');
   await expect(amount).toHaveText(/^\d+%$/, { timeout: 15_000 });
   await expect(sheet.getByTestId('usage-percent')).toHaveText(/^\d+%$/);
-  await expect(sheet.getByTestId('usage-legend')).toContainText('Risultati degli strumenti', {
+  await expect(sheet.getByTestId('usage-legend')).toContainText('Tool results', {
     timeout: 15_000,
   });
-  await expect(sheet.getByTestId('usage-session')).toContainText('Chiamate');
+  await expect(sheet.getByTestId('usage-session')).toContainText('Calls');
   await expect(sheet.getByTestId('usage-in')).not.toHaveText('0');
 });
 
@@ -93,19 +93,19 @@ test('a monster on the Claude plan: its base apart, no money', async ({ page }) 
       window as unknown as { __monstersMock: { useSubscription(id: string): void } }
     ).__monstersMock.useSubscription('mimas'),
   );
-  await send(page, 'Ciao Mimas, a che punto sono i conti?');
+  await send(page, 'Hi Mimas, where are we on the accounts?');
   await expect(key(page).getByTestId('context-amount')).toHaveText(/^\d+%$/, { timeout: 15_000 });
   await key(page).click();
   const sheet = page.getByTestId('usage-sheet');
-  await expect(sheet.getByTestId('usage-legend')).toContainText('Base di Claude Code', {
+  await expect(sheet.getByTestId('usage-legend')).toContainText('Claude Code base', {
     timeout: 15_000,
   });
-  await expect(sheet.getByTestId('usage-context')).toContainText('1.000.000 token');
-  await expect(sheet.getByTestId('usage-cost')).toContainText('incluso nell’abbonamento');
+  await expect(sheet.getByTestId('usage-context')).toContainText('1,000,000 tokens');
+  await expect(sheet.getByTestId('usage-cost')).toContainText('included in the subscription');
   await expect(sheet.getByTestId('usage-subscription')).toContainText(
-    'Mimas lavora con l’abbonamento',
+    'Mimas works on the subscription',
   );
-  await expect(sheet.getByTestId('usage-session')).toContainText('Cache letta');
+  await expect(sheet.getByTestId('usage-session')).toContainText('Cache read');
 });
 
 test('"Riduci movimento": the lineette light up without frames', async ({ page }) => {
