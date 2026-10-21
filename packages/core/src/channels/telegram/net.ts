@@ -6,6 +6,7 @@ import {
 } from '@monsters/shared';
 import { proxyAgentFor } from '@monsters/shared/node';
 import { GrammyError, type ApiClientOptions } from 'grammy';
+import { telegramStrings } from './telegram.strings.ts';
 
 /*
  * What the Telegram code shares about the way out: the client options of every `Api` (the
@@ -50,7 +51,7 @@ export function tokenCheckFailure(err: unknown, apiRoot: string | undefined): To
   if (tokenRefused(err)) {
     return {
       code: 'invalid_token',
-      message: 'Telegram non riconosce questo token.',
+      message: telegramStrings().tokenUnknown,
       kind: 'refused_token',
       detail: (err as GrammyError).description,
     };
@@ -59,7 +60,7 @@ export function tokenCheckFailure(err: unknown, apiRoot: string | undefined): To
     // Telegram answered, with something else (429, 5xx): it is there, try again later.
     return {
       code: 'verification_failed',
-      message: `Telegram ha risposto con un errore (${err.error_code}): riprova tra poco.`,
+      message: telegramStrings().telegramError(err.error_code),
       kind: 'telegram',
       detail: `${err.error_code} ${err.description}`,
     };

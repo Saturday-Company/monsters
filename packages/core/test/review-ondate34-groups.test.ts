@@ -86,7 +86,7 @@ async function startGroup(rhea: FakeScript): Promise<{ t: TestHub; tg: FakeTeleg
   await t.waitEvent(isChannel('connected', (e) => e.data.bot === undefined));
   const code = await t.json<TelegramPairing>('POST', '/api/telegram/pairing');
   tg.text(GIULIO, `/start ${code.code}`);
-  await tg.waitMessage((m) => toGiulio(m) && m.text.includes('ora puoi comandare'));
+  await tg.waitMessage((m) => toGiulio(m) && m.text.includes('you can now command'));
   await t.json('POST', '/api/telegram/bots', { token: RHEA_TOKEN, agent: 'rhea' });
   await t.waitEvent(isChannel('connected', (e) => e.data.bot === RHEA));
   tg.addedToGroup(RHEA_TOKEN, GROUP, GIULIO);
@@ -153,11 +153,11 @@ describe('the reply check of a chat with other people', () => {
       chat: GROUP,
       token: RHEA_TOKEN,
     });
-    await tg.waitMessage((m) => inGroup(m) && m.text.includes('Questa risposta non la mando qui'));
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('I’m not sending this reply here'));
     const notice = await tg.waitMessage(
-      (m) => toGiulio(m) && m.text.includes('voleva rispondere nel gruppo'),
+      (m) => toGiulio(m) && m.text.includes('wanted to reply in the group'),
     );
-    expect(JSON.stringify(notice.reply_markup)).toContain('Manda comunque');
+    expect(JSON.stringify(notice.reply_markup)).toContain('Send anyway');
     expect(tg.messages.some((m) => inGroup(m) && m.text.includes('trentamila'))).toBe(false);
     const refused = t
       .events()
@@ -210,8 +210,8 @@ describe('the reply check of a chat with other people', () => {
       ],
       blocking: false,
     });
-    await tg.waitMessage((m) => inGroup(m) && m.text.includes('Serve l’ok di Giulio'));
-    await tg.waitMessage((m) => toGiulio(m) && m.text.includes('voleva fare una domanda'));
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('Giulio’s OK is needed'));
+    await tg.waitMessage((m) => toGiulio(m) && m.text.includes('wanted to ask a question'));
     expect(tg.messages.some((m) => inGroup(m) && m.text.includes('trentamila'))).toBe(false);
     gate.resolve();
   });

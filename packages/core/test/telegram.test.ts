@@ -4,7 +4,12 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fake, type FakeScript } from '@monsters/providers/testing';
-import type { LogEvent, TelegramPairing, TelegramView } from '@monsters/shared';
+import {
+  setAppLang,
+  type LogEvent,
+  type TelegramPairing,
+  type TelegramView,
+} from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   DecisionGate,
@@ -39,6 +44,7 @@ const ANNA: FakeUser = { id: 2002, first_name: 'Anna', username: 'anna' };
 
 const fakes: FakeTelegram[] = [];
 afterEach(async () => {
+  setAppLang('en');
   for (const f of fakes.splice(0)) await f.close();
 });
 
@@ -97,7 +103,7 @@ async function pair(t: TestHub, tg: FakeTelegram, user: FakeUser): Promise<void>
 
 async function pairWith(tg: FakeTelegram, user: FakeUser, code: string): Promise<void> {
   tg.text(user, `/start ${code}`);
-  await tg.waitMessage((m) => m.chat_id === user.id && m.text.includes('ora puoi comandare'));
+  await tg.waitMessage((m) => m.chat_id === user.id && m.text.includes('you can now command'));
 }
 
 describe('telegram: token and connection', () => {
@@ -256,7 +262,7 @@ describe('telegram: pairing and whitelist', () => {
     tick();
     tg.text(GIULIO, '/start ZZZZZZZZ');
     await t.waitEvent(isChannel('pairing_failed', (e) => e.data.reason === 'wrong_code'));
-    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text === 'Codice non valido.');
+    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text === 'That code isn’t valid.');
     expect(tg.sentTo(GIULIO.id)).toHaveLength(1);
     expect((await t.json<TelegramView>('GET', '/api/telegram')).pairing?.attemptsLeft).toBe(
       PAIRING_MAX_TOTAL_ATTEMPTS - 1,
@@ -289,13 +295,13 @@ describe('telegram: pairing and whitelist', () => {
     code = await t.json<TelegramPairing>('POST', '/api/telegram/pairing');
     tick();
     for (let i = 0; i < 5; i++) tg.text(STRANGER, `/start WRONG00${i}`);
-    tg.text(GIULIO, '/aiuto');
-    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.startsWith('Scrivimi'));
+    tg.text(GIULIO, '/help');
+    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.startsWith('Write to me'));
     tick();
     tg.text(STRANGER, `/start ${code.code}`);
     await t.waitEvent(isChannel('pairing_failed', (e) => e.data.reason === 'too_many_attempts'));
     // One answer in all: the first wrong code of this code's life.
-    expect(tg.sentTo(STRANGER.id).map((m) => m.text)).toEqual(['Codice non valido.']);
+    expect(tg.sentTo(STRANGER.id).map((m) => m.text)).toEqual(['That code isn’t valid.']);
     view = await t.json<TelegramView>('GET', '/api/telegram');
     expect(view.users.map((u) => u.id)).toEqual([GIULIO.id]);
     expect(view.pairing).not.toBeNull();
@@ -339,7 +345,7 @@ describe('telegram: pairing and whitelist', () => {
     await t.waitEvent(isChannel('ignored', (e) => e.data.reason === 'not_private'));
     tg.text(GIULIO, '/stop', { forwarded: true });
     await t.waitEvent(isChannel('ignored', (e) => e.data.reason === 'forwarded'));
-    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.includes('inoltrati'));
+    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.includes('forwarded messages'));
 
     expect(tg.sentTo(STRANGER.id)).toEqual([]);
     expect(tg.sentTo(-100123)).toEqual([]);
@@ -400,7 +406,7 @@ describe('telegram: talking to the team', () => {
     tg.text(GIULIO, 'scrivi un post');
     const question = await tg.waitMessage((m) => m.text.includes('Quale tono per il post?'));
     expect(question.text).toContain('<b>Ironico</b> · battute leggere');
-    expect(question.text).toContain('<i>(consigliata)</i>');
+    expect(question.text).toContain('<i>(recommended)</i>');
     const buttons = question.reply_markup!.inline_keyboard!.flat();
     expect(buttons.map((b) => b.text)).toEqual(['1. Ironico', '2. Serio']);
 
@@ -412,7 +418,7 @@ describe('telegram: talking to the team', () => {
     await tg.waitMessage(
       (m) =>
         m.message_id === question.message_id &&
-        m.text.includes('✅ Risposta (da Telegram): Ironico'),
+        m.text.includes('✅ Answer (from Telegram): Ironico'),
     );
     expect(question.reply_markup?.inline_keyboard).toEqual([]);
     await tg.waitMessage((m) => m.text.includes('Va bene, tono ironico.'));
@@ -422,7 +428,7 @@ describe('telegram: talking to the team', () => {
       (c) =>
         c.method === 'answerCallbackQuery' &&
         typeof c.payload['text'] === 'string' &&
-        c.payload['text'].includes('non aspetta'),
+        c.payload['text'].includes('no longer waiting'),
     );
   });
 
@@ -444,8 +450,7 @@ describe('telegram: talking to the team', () => {
     const open = await t.json<{ id: string }[]>('GET', '/api/questions?status=open');
     await t.json('POST', `/api/questions/${open[0]!.id}/answer`, { optionId: '2' });
     await tg.waitMessage(
-      (m) =>
-        m.message_id === first.message_id && m.text.includes('✅ Risposta (dall’interfaccia): No'),
+      (m) => m.message_id === first.message_id && m.text.includes('✅ Answer (from the app): No'),
     );
 
     const second = await tg.waitMessage((m) => m.text.includes('Come si chiama tua sorella?'));
@@ -473,23 +478,21 @@ describe('telegram: talking to the team', () => {
     expect(aborted.ts - sent).toBeLessThan(2000);
     const kill = t.events().find((e): e is LogEvent<'kill'> => e.type === 'kill');
     expect(kill?.data).toMatchObject({ scope: 'global', by: 'telegram', runsAborted: 1 });
-    await tg.waitMessage((m) => m.text.includes('Fermato tutto. Lavori interrotti: 1'));
+    await tg.waitMessage((m) => m.text.includes('Everything stopped. Work interrupted: 1'));
     expect(Date.now() - sent).toBeLessThan(2000);
     expect(t.core.runs.halted).toBe(true);
 
     tg.text(GIULIO, 'riparti');
-    await tg.waitMessage((m) => m.text.includes('I mostri sono fermi'));
+    await tg.waitMessage((m) => m.text.includes('The monsters are stopped'));
 
-    tg.text(GIULIO, '/stato');
-    await tg.waitMessage((m) => m.text.includes('<b>Fermi</b>'));
+    tg.text(GIULIO, '/status');
+    await tg.waitMessage((m) => m.text.includes('<b>Stopped</b>'));
 
-    tg.text(GIULIO, '/riprendi');
-    const confirm = await tg.waitMessage((m) => m.text.includes('Faccio ripartire i mostri?'));
+    tg.text(GIULIO, '/resume');
+    const confirm = await tg.waitMessage((m) => m.text.includes('Start the monsters again?'));
     expect(t.core.runs.halted).toBe(true);
     tg.press(GIULIO, confirm, 'resume:yes');
-    await tg.waitMessage(
-      (m) => m.message_id === confirm.message_id && m.text.includes('Ripartiti'),
-    );
+    await tg.waitMessage((m) => m.message_id === confirm.message_id && m.text.includes('Back on'));
     expect(t.core.runs.halted).toBe(false);
     expect(t.events().find((e) => e.type === 'resume')?.data).toEqual({ by: 'telegram' });
   });
@@ -497,19 +500,19 @@ describe('telegram: talking to the team', () => {
   it('/stato lists the projects with what their lead is doing (D-097)', async () => {
     const { t, tg } = await startBot({});
     await t.json('POST', '/api/projects', { name: 'Saturday', lead: { name: 'Leda' } });
-    tg.text(GIULIO, '/stato');
-    const status = await tg.waitMessage((m) => m.text.includes('<b>Progetti</b>'));
-    expect(status.text).toContain('• Saturday — Leda è libero');
+    tg.text(GIULIO, '/status');
+    const status = await tg.waitMessage((m) => m.text.includes('<b>Projects</b>'));
+    expect(status.text).toContain('• Saturday — Leda is free');
   });
 
   it('/nuova starts a new conversation, also with one agent', async () => {
     const { t, tg } = await startBot({});
-    tg.text(GIULIO, '/nuova');
-    await tg.waitMessage((m) => m.text.startsWith('Nuova conversazione:'));
-    tg.text(GIULIO, '/nuova @Rhea');
-    await tg.waitMessage((m) => m.text.startsWith('Nuova conversazione con Rhea'));
-    tg.text(GIULIO, '/nuova @Nessuno');
-    await tg.waitMessage((m) => m.text.includes('nessun mostro con questo nome'));
+    tg.text(GIULIO, '/new');
+    await tg.waitMessage((m) => m.text.startsWith('New conversation:'));
+    tg.text(GIULIO, '/new @Rhea');
+    await tg.waitMessage((m) => m.text.startsWith('New conversation with Rhea'));
+    tg.text(GIULIO, '/new @Nessuno');
+    await tg.waitMessage((m) => m.text.includes('no monster with that name'));
     const fresh = t
       .events()
       .filter((e): e is LogEvent<'new_conversation'> => e.type === 'new_conversation');
@@ -530,7 +533,7 @@ describe('telegram: notifications (DecisionGate, use 3)', () => {
     clock.now += 60 * 60_000;
     const first = await t.json<{ runId: string }>('POST', '/api/messages', { text: 'dal browser' });
     await t.runEnded(first.runId);
-    const done = await tg.waitMessage((m) => m.text.includes('Titan ha finito.'));
+    const done = await tg.waitMessage((m) => m.text.includes('Titan is done.'));
     expect(done.text).toContain('Fatto dal browser.');
     const decision = t
       .events()
@@ -684,21 +687,21 @@ describe('telegram: delivery', () => {
     const { t, tg } = await startBot({});
     tg.failSends(2, 'drop');
     tg.failSends(2, 'error500');
-    tg.text(GIULIO, '/stato');
-    tg.text(GIULIO, '/aiuto');
-    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.startsWith('Scrivimi'));
+    tg.text(GIULIO, '/status');
+    tg.text(GIULIO, '/help');
+    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.startsWith('Write to me'));
     const texts = tg.sentTo(GIULIO.id).map((m) => m.text);
-    // Pairing reply, then /stato, then /aiuto: nothing lost, nothing reordered.
+    // Pairing reply, then /status, then /help: nothing lost, nothing reordered.
     expect(texts).toHaveLength(3);
-    expect(texts[1]).toContain('<b>Attivi.</b>');
-    expect(texts[2]).toMatch(/^Scrivimi/);
+    expect(texts[1]).toContain('<b>Running.</b>');
+    expect(texts[2]).toMatch(/^Write to me/);
     expect(t.events().some(isError('telegram_send_failed'))).toBe(false);
   });
 
   it('gives up after a while, with a bounded queue, and logs it', async () => {
     const { t, tg } = await startBot({}, { telegram: { sendGiveUpMs: 300, sendQueueMax: 2 } });
     tg.failSends(10_000, 'error500');
-    for (let i = 0; i < 4; i++) tg.text(GIULIO, '/stato');
+    for (let i = 0; i < 4; i++) tg.text(GIULIO, '/status');
     const full = await t.waitEvent(isError('telegram_send_failed'));
     expect(full.data.message).toContain('too many messages waiting');
     await t.waitEvent(
@@ -706,8 +709,8 @@ describe('telegram: delivery', () => {
         isError('telegram_send_failed')(e) && e.data.message.includes('500'),
     );
     tg.failSends(0);
-    tg.text(GIULIO, '/aiuto');
-    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.startsWith('Scrivimi'));
+    tg.text(GIULIO, '/help');
+    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.startsWith('Write to me'));
   });
 
   it('no "typing…" while a blocking question waits for the answer', async () => {
@@ -839,7 +842,7 @@ describe('telegram: whitelist and accounts', () => {
     await pairWith(tg, GIULIO, code.code);
     expect(t.events().filter(isChannel('pairing_failed'))).toHaveLength(1);
     // The clock never moved: within 10 s an account is logged once, and answered once.
-    expect(tg.sentTo(STRANGER.id).map((m) => m.text)).toEqual(['Codice non valido.']);
+    expect(tg.sentTo(STRANGER.id).map((m) => m.text)).toEqual(['That code isn’t valid.']);
     const view = await t.json<TelegramView>('GET', '/api/telegram');
     expect(view.users.map((u) => u.id)).toEqual([GIULIO.id]);
   });
@@ -853,7 +856,7 @@ describe('telegram: whitelist and accounts', () => {
     tg.text(GIULIO, 'lavora');
     await t.waitEvent((e): e is LogEvent<'run'> => e.type === 'run' && e.data.status === 'started');
     tg.text(ANNA, 'aggiungi questo');
-    await tg.waitMessage((m) => m.chat_id === ANNA.id && m.text.includes('Aggiunto al lavoro'));
+    await tg.waitMessage((m) => m.chat_id === ANNA.id && m.text.includes('Added to'));
     gate.resolve();
     await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.includes('Ecco per Giulio.'));
     await pause(200);
@@ -981,14 +984,14 @@ describe('telegram: questions', () => {
     tg.text(GIULIO, 'Sì, pubblica', { replyTo: question.message_id });
     // The run the answer starts replies in this chat.
     await tg.waitMessage((m) => m.text.includes('Pubblicato, come chiedi.'));
-    expect(question.text).not.toContain('Non serve più');
+    expect(question.text).not.toContain('No answer needed');
     expect(again.t.provider.calls).toHaveLength(1);
     expect(JSON.stringify(again.t.provider.calls[0]!.options.prompt)).toContain(
       'Risposta alla tua domanda \\"Pubblico?\\": Sì, pubblica',
     );
     // Answered once: a second reply is told the question is over, nothing new starts.
     tg.text(GIULIO, 'No', { replyTo: question.message_id });
-    await tg.waitMessage((m) => m.text.includes('non aspetta più una risposta'));
+    await tg.waitMessage((m) => m.text.includes('no longer waiting for an answer'));
     expect(again.t.provider.calls).toHaveLength(1);
   });
 });
@@ -1018,24 +1021,24 @@ describe('telegram: drafts of the monsters (D-098)', () => {
     // Every field that becomes real (D-103): the monster's rules, tools and model, folder, web, cap.
     for (const field of [
       '🧩 <b>Sofia</b>',
-      'Ruolo: testi dei post',
+      'Role: testi dei post',
       '1. scrivi i testi dei post',
-      'Strumenti: note, niente terminale né file',
-      'Modello: come Tethys',
-      'Collegamenti: nessuno',
-      'Ricerca web: sì',
-      'Tetto di spesa: quello della squadra',
+      'Tools: notes, no terminal or files',
+      'Model: like Tethys',
+      'Connections: none',
+      'Web search: yes',
+      'Spending cap: the squad’s',
     ])
       expect(card.text).toContain(field);
     const buttons = card.reply_markup!.inline_keyboard!.flat();
-    expect(buttons.map((b) => b.text)).toEqual(['✅ Conferma', 'Scarta']);
+    expect(buttons.map((b) => b.text)).toEqual(['✅ Confirm', 'Discard']);
     expect(buttons[0]!.callback_data).toBe('d:y:p:social');
     // A reply in words does not confirm anything.
     tg.text(GIULIO, 'sì', { replyTo: card.message_id });
-    await tg.waitMessage((m) => m.text.includes('usa i pulsanti Conferma o Scarta'));
+    await tg.waitMessage((m) => m.text.includes('use the Confirm or Discard buttons'));
     tg.press(GIULIO, card, buttons[0]!.callback_data);
     await tg.waitMessage(
-      (m) => m.message_id === card.message_id && m.text.includes('✅ Confermata (da Telegram)'),
+      (m) => m.message_id === card.message_id && m.text.includes('✅ Confirmed (from Telegram)'),
     );
     expect(t.core.hub.team.project('social')?.status).toBe('active');
     expect(t.core.hub.team.byId('sofia')?.config.project).toBe('social');
@@ -1045,9 +1048,7 @@ describe('telegram: drafts of the monsters (D-098)', () => {
     expect(auto.text).toContain('dal lunedì al venerdì alle 8:00');
     const [conferma, scarta] = auto.reply_markup!.inline_keyboard!.flat();
     tg.press(GIULIO, auto, scarta!.callback_data);
-    await tg.waitMessage(
-      (m) => m.message_id === auto.message_id && m.text.includes('■ Lasciata stare'),
-    );
+    await tg.waitMessage((m) => m.message_id === auto.message_id && m.text.includes('■ Discarded'));
     expect(await t.json('GET', '/api/automations')).toEqual([]);
     // A late press: the draft is gone.
     tg.press(GIULIO, auto, conferma!.callback_data);
@@ -1055,7 +1056,7 @@ describe('telegram: drafts of the monsters (D-098)', () => {
       (c) =>
         c.method === 'answerCallbackQuery' &&
         typeof c.payload['text'] === 'string' &&
-        c.payload['text'].includes('bozza'),
+        /draft|bozza/i.test(c.payload['text']),
     );
   });
 
@@ -1076,10 +1077,10 @@ describe('telegram: drafts of the monsters (D-098)', () => {
       });
       tg.text(GIULIO, 'apri un progetto per il sito');
       const card = await tg.waitMessage((m) => m.text.includes('progetto «Sito»'));
-      expect(card.text).toContain('Tutti i mostri del progetto potranno leggere e scrivere');
-      expect(card.text).toContain('fuori da Monsters Progetti');
+      expect(card.text).toContain('All the project’s monsters will be able to read and write');
+      expect(card.text).toContain('outside Monsters Progetti');
       const buttons = card.reply_markup!.inline_keyboard!.flat();
-      expect(buttons.map((b) => b.text)).toEqual(['Apri nell’app', 'Scarta']);
+      expect(buttons.map((b) => b.text)).toEqual(['Open in the app', 'Discard']);
       expect(buttons[0]!.callback_data).toMatch(/^d:o:/);
       // A Conferma forged by a client does not confirm it either.
       tg.press(GIULIO, card, buttons[0]!.callback_data.replace('d:o:', 'd:y:'));
@@ -1087,7 +1088,7 @@ describe('telegram: drafts of the monsters (D-098)', () => {
         (c) =>
           c.method === 'answerCallbackQuery' &&
           typeof c.payload['text'] === 'string' &&
-          c.payload['text'].includes('Confermala nell’app'),
+          c.payload['text'].includes('Confirm it in the app'),
       );
       expect(t.core.hub.team.project('sito')?.status).toBe('draft');
     } finally {
@@ -1122,29 +1123,29 @@ describe('telegram: the draft card shows what becomes real (D-103)', () => {
     tg.text(GIULIO, 'una rassegna ogni mattina');
     const card = await tg.waitMessage((m) => m.text.includes('«Rassegna»'));
     for (const field of [
-      'Partecipano: Rhea',
-      'Avvisi: app sì, Telegram sì',
+      'Participants: Rhea',
+      'Notices: app yes, Telegram yes',
       'Alla fine scrivi tre righe.',
-      'Capo: Titan',
-      'Limiti per giro: quelli di ogni lavoro',
+      'Squad lead: Titan',
+      'Limits per run: each job’s own',
     ])
       expect(card.text).toContain(field);
     expect(card.reply_markup!.inline_keyboard!.flat().map((b) => b.text)).toEqual([
-      '✅ Conferma',
-      'Scarta',
+      '✅ Confirm',
+      'Discard',
     ]);
 
     tg.text(GIULIO, 'e una lunga il lunedì');
     const long = await tg.waitMessage((m) => m.text.includes('«Lunga»'));
-    expect(long.text).toContain('troppo lunga per un messaggio');
+    expect(long.text).toContain('too long for a message');
     const buttons = long.reply_markup!.inline_keyboard!.flat();
-    expect(buttons.map((b) => b.text)).toEqual(['Apri nell’app', 'Scarta']);
+    expect(buttons.map((b) => b.text)).toEqual(['Open in the app', 'Discard']);
     tg.press(GIULIO, long, buttons[0]!.callback_data);
     await tg.waitCall(
       (c) =>
         c.method === 'answerCallbackQuery' &&
         typeof c.payload['text'] === 'string' &&
-        c.payload['text'].includes('Da rivedere'),
+        c.payload['text'].includes('To review'),
     );
     // A Conferma forged by a client does not confirm what the card could not show (item 12).
     tg.press(GIULIO, long, buttons[0]!.callback_data.replace('d:o:', 'd:y:'));
@@ -1152,14 +1153,14 @@ describe('telegram: the draft card shows what becomes real (D-103)', () => {
       (c) =>
         c.method === 'answerCallbackQuery' &&
         typeof c.payload['text'] === 'string' &&
-        c.payload['text'].includes('Confermala nell’app'),
+        c.payload['text'].includes('Confirm it in the app'),
     );
     expect(
       tg.calls.some(
         (c) =>
           c.method === 'answerCallbackQuery' &&
           typeof c.payload['text'] === 'string' &&
-          c.payload['text'].includes('Fatto: confermata'),
+          c.payload['text'].includes('Done: confirmed'),
       ),
     ).toBe(false);
   });
@@ -1201,16 +1202,16 @@ describe('telegram: a proposal for CLAUDE.md or AGENTS.md (D-113)', () => {
       const card = await tg.waitMessage((m) =>
         m.text.includes('le istruzioni di «Saturday» (CLAUDE.md)'),
       );
-      expect(card.text).toContain('📄 File: <b>CLAUDE.md</b> · progetto Saturday');
+      expect(card.text).toContain('📄 File: <b>CLAUDE.md</b> · project Saturday');
       expect(card.text).toContain('<pre>');
       // Escaped in the HTML of the message.
       expect(card.text).toContain('+I test: pnpm test &lt;ok&gt; &amp; basta.');
       const buttons = card.reply_markup!.inline_keyboard!.flat();
-      expect(buttons.map((b) => b.text)).toEqual(['✅ Applica', 'Lascia stare']);
+      expect(buttons.map((b) => b.text)).toEqual(['✅ Apply', 'Leave it']);
       expect(buttons[0]!.callback_data).toMatch(/^d:y:i:/);
       tg.press(GIULIO, card, buttons[0]!.callback_data);
       await tg.waitMessage(
-        (m) => m.message_id === card.message_id && m.text.includes('✅ Applicata (da Telegram)'),
+        (m) => m.message_id === card.message_id && m.text.includes('✅ Applied (from Telegram)'),
       );
       expect(readFileSync(join(folder, 'CLAUDE.md'), 'utf8')).toBe(
         `${CLAUDE}I test: pnpm test <ok> & basta.\n`,
@@ -1220,14 +1221,14 @@ describe('telegram: a proposal for CLAUDE.md or AGENTS.md (D-113)', () => {
       const other = await tg.waitMessage((m) =>
         m.text.includes('le istruzioni di «Saturday» (AGENTS.md)'),
       );
-      expect(other.text).toContain('(nuovo)');
-      expect(other.text).toContain('La differenza è lunga: la trovi anche nell’app.');
+      expect(other.text).toContain('(new)');
+      expect(other.text).toContain('The diff is long: you’ll find it in the app too.');
       expect(other.text).not.toContain('<pre>');
       const more = other.reply_markup!.inline_keyboard!.flat();
-      expect(more.map((b) => b.text)).toEqual(['✅ Applica', 'Lascia stare']);
+      expect(more.map((b) => b.text)).toEqual(['✅ Apply', 'Leave it']);
       tg.press(GIULIO, other, more[1]!.callback_data);
       await tg.waitMessage(
-        (m) => m.message_id === other.message_id && m.text.includes('■ Lasciata stare'),
+        (m) => m.message_id === other.message_id && m.text.includes('■ Left alone'),
       );
     } finally {
       rmSync(folder, { recursive: true, force: true });
@@ -1263,10 +1264,10 @@ describe('telegram: what Telegram refuses', () => {
     const { tg } = await startBot({});
     tg.floodRetryAfterS = 2;
     tg.failSends(1, 'flood');
-    tg.text(GIULIO, '/aiuto');
-    await tg.waitMessage((m) => m.text.startsWith('Scrivimi'), 8000);
+    tg.text(GIULIO, '/help');
+    await tg.waitMessage((m) => m.text.startsWith('Write to me'), 8000);
     const tries = tg.calls.filter(
-      (c) => c.method === 'sendMessage' && String(c.payload['text']).startsWith('Scrivimi'),
+      (c) => c.method === 'sendMessage' && String(c.payload['text']).startsWith('Write to me'),
     );
     expect(tries).toHaveLength(2);
     // Polling answers every second: the retry still waits the 2 s Telegram asked for.
@@ -1284,8 +1285,8 @@ describe('telegram: what Telegram refuses', () => {
     // The other pieces of the long answer never left; nothing was logged as a lost message.
     expect(tg.sentTo(GIULIO.id)).toHaveLength(before);
     expect(t.events().some(isError('telegram_send_failed'))).toBe(false);
-    tg.text(GIULIO, '/aiuto');
-    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.startsWith('Scrivimi'));
+    tg.text(GIULIO, '/help');
+    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.startsWith('Write to me'));
   });
 
   it('an edit that fails for a reason other than "not modified" is logged', async () => {
@@ -1316,7 +1317,7 @@ describe('telegram: what Telegram refuses', () => {
         },
       });
     }
-    tg.text(GIULIO, '/stato');
+    tg.text(GIULIO, '/status');
     await tg.waitMessage((m) => m.text.includes('Progetto numero 99'));
     const pieces = tg.sentTo(GIULIO.id).filter((m) => m.text.includes('Progetto numero'));
     expect(pieces.length).toBeGreaterThan(1);
@@ -1376,7 +1377,7 @@ function standalone(
 }
 
 describe('telegram: polling that holds', () => {
-  it('a 429 on getUpdates is waited out and says so, not "non risponde"', async () => {
+  it('a 429 on getUpdates is waited out and says so, not "isn’t responding"', async () => {
     const { t, tg } = await startBot({});
     tg.floodRetryAfterS = 1;
     tg.failGetUpdates(1, 'flood');
@@ -1385,7 +1386,7 @@ describe('telegram: polling that holds', () => {
     expect(down.data.message).toContain('429');
     const view = await t.json<TelegramView>('GET', '/api/telegram');
     expect(view.status).toBe('retrying');
-    expect(view.error).toContain('rallentare');
+    expect(view.error).toContain('slow down');
     const next = await tg.waitCall((c) => c.method === 'getUpdates' && c.at > at);
     // Not the 20 ms of the ordinary backoff: the second Telegram asked for.
     expect(next.at - at).toBeGreaterThanOrEqual(800);
@@ -1430,16 +1431,16 @@ describe('telegram: polling that holds', () => {
     const { channel, log, online, db } = standalone(tg, { state: (d) => new Flaky(d) });
     channel.start();
     await online();
-    tg.text(GIULIO, '/aiuto');
+    tg.text(GIULIO, '/help');
     while (!log.query({ limit: 100 }).some((e) => e.type === 'error')) await pause(10);
     const crash = log.query({ limit: 100 }).find((e) => e.type === 'error');
     expect(crash?.data).toMatchObject({ code: 'telegram_failed', message: 'disk full' });
     // It starts again on its own, and the update that was lost with the crash is handled.
-    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.startsWith('Scrivimi'));
+    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.startsWith('Write to me'));
     // And it keeps working afterwards: a second message is answered too.
-    tg.text(GIULIO, '/aiuto');
+    tg.text(GIULIO, '/help');
     await pause(1500);
-    expect(tg.sentTo(GIULIO.id).filter((m) => m.text.startsWith('Scrivimi'))).toHaveLength(2);
+    expect(tg.sentTo(GIULIO.id).filter((m) => m.text.startsWith('Write to me'))).toHaveLength(2);
     await online();
     await channel.stop();
     db.close();
@@ -1564,3 +1565,84 @@ describe('telegram: token saved twice, or while stopping', () => {
 
 // Keep the helper types used.
 export type { SentMessage };
+
+describe('telegram: the app’s language (D-153)', () => {
+  const commandNames = (tg: FakeTelegram, nth: number): string[] => {
+    const calls = tg.calls.filter((c) => c.method === 'setMyCommands');
+    const commands = calls[nth]?.payload['commands'] as { command: string }[] | undefined;
+    return (commands ?? []).map((c) => c.command);
+  };
+
+  it('registers the commands in the language, answers to both names, and follows a change of language', async () => {
+    const { tg } = await startBot({});
+    await tg.waitCall((c) => c.method === 'setMyCommands');
+    expect(commandNames(tg, 0)).toEqual(['stop', 'resume', 'new', 'status', 'help']);
+
+    // The Italian names still work in English...
+    tg.text(GIULIO, '/stato');
+    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.includes('<b>Running.</b>'));
+    tg.text(GIULIO, '/aiuto');
+    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.startsWith('Write to me'));
+
+    // ...the language changes: the commands are registered again, with their descriptions.
+    setAppLang('it');
+    await tg.waitCall(
+      (c) =>
+        c.method === 'setMyCommands' &&
+        tg.calls.filter((x) => x.method === 'setMyCommands').length > 1,
+    );
+    expect(commandNames(tg, 1)).toEqual(['stop', 'riprendi', 'nuova', 'stato', 'aiuto']);
+    const second = tg.calls.filter((c) => c.method === 'setMyCommands')[1]!;
+    expect(JSON.stringify(second.payload['commands'])).toContain('Ferma subito tutti i mostri');
+
+    // ...and the English names work in Italian.
+    tg.text(GIULIO, '/status');
+    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.includes('<b>Attivi.</b>'));
+    tg.text(GIULIO, '/resume');
+    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text === 'I mostri non sono fermi.');
+    tg.text(GIULIO, '/nuova @Nessuno');
+    await tg.waitMessage(
+      (m) => m.chat_id === GIULIO.id && m.text === 'Non c’è nessun mostro con questo nome.',
+    );
+  });
+
+  it('the card of a draft and its buttons follow the language', async () => {
+    const { tg } = await startBot({
+      titan: [
+        fake.toolCall('tools_search', { query: 'automazione' }),
+        fake.toolCall('automation_propose', {
+          name: 'Rassegna',
+          cron: '0 8 * * 1-5',
+          objective: 'La rassegna stampa del giorno.',
+          participants: ['Rhea'],
+          telegram: true,
+        }),
+        fake.text('Proposta.'),
+      ],
+    });
+    setAppLang('it');
+    tg.text(GIULIO, 'una rassegna ogni mattina');
+    const card = await tg.waitMessage((m) => m.text.includes('«Rassegna»'));
+    for (const field of [
+      'Partecipano: Rhea',
+      'Avvisi: app sì, Telegram sì',
+      'Capo: Titan',
+      'Limiti per giro: quelli di ogni lavoro',
+      'Conferma la crea così com’è',
+    ])
+      expect(card.text).toContain(field);
+    expect(card.reply_markup!.inline_keyboard!.flat().map((b) => b.text)).toEqual([
+      '✅ Conferma',
+      'Scarta',
+    ]);
+  });
+
+  it('the stop reason and the answer to a stop follow the language', async () => {
+    const { t, tg } = await startBot({});
+    setAppLang('it');
+    tg.text(GIULIO, '/stop');
+    await tg.waitMessage((m) => m.text.includes('Fermato tutto.'));
+    const kill = t.events().find((e): e is LogEvent<'kill'> => e.type === 'kill');
+    expect(kill?.data.reason).toBe('/stop da Telegram');
+  });
+});

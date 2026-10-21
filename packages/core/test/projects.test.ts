@@ -1104,8 +1104,8 @@ describe('projects: folders that are too wide (review of 18/10, M2)', () => {
       (x) => x,
       true,
     ).join('\n');
-    expect(lines).toContain('testo di terzi');
-    expect(lines).toContain('Tutti i mostri del progetto potranno leggere e scrivere');
-    expect(lines).toContain('nell’app');
+    expect(lines).toContain('third-party text');
+    expect(lines).toContain('All the project’s monsters will be able to read and write');
+    expect(lines).toContain('done in the app');
   });
 });
