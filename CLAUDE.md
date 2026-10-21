@@ -5,7 +5,9 @@ every coding agent.
 
 Key rules, in short:
 
-- Code and comments in English; docs in `docs/` are mostly Italian, community files are in English.
+- Code, comments, guides and community files in English; `docs/DECISIONS.md`, `docs/research/` and `docs/eval/` are an
+  Italian archive. The app is English first with Italian as a choice: visible texts live in `*.strings.ts` EN/IT
+  dictionaries (`docs/i18n.md`).
 - TypeScript strict, ESM, erasable syntax only, relative imports with the `.ts` extension.
 - Every agent action goes through `EventLog.append`; every job starts from `RunController.startRun` with its
   `AbortSignal`; child processes are started with `scope.spawn` so the kill switch reaches them.

@@ -3,7 +3,8 @@
 Monsters is a local-first, provider-agnostic agentic hub: a team of AI agents ("monsters") that run on your own
 computer, with an Obsidian-compatible vault, an action log, spending caps and a kill switch. Architecture is in
 `docs/ARCHITECTURE.md`, technical decisions in `docs/DECISIONS.md`, direction in `docs/ROADMAP.md`, the security model
-in `docs/security-model.md`. Most of `docs/` is in Italian.
+in `docs/security-model.md`. The guides in `docs/` are in English; `docs/DECISIONS.md`, `docs/research/` and
+`docs/eval/` are an Italian archive (new decisions are written in English).
 
 ## Commands (Node 24, pnpm 12)
 
@@ -87,8 +88,9 @@ in `docs/security-model.md`. Most of `docs/` is in Italian.
 
 ## Conventions
 
-- Code and comments in English. UI copy is Italian and English. Documentation in `docs/` is mostly Italian; community
-  files (README, CONTRIBUTING, SECURITY, AGENTS) are in English. Commit messages are in English for public
+- Code, comments, guides and community files in English. The app is English first with Italian as a choice (D-153):
+  every visible text lives in a typed EN/IT `*.strings.ts` dictionary next to its code, never written by hand (the
+  `check-i18n` guard in `pnpm lint` fails otherwise); how-to and glossary in `docs/i18n.md`. Commit messages are in English for public
   contributions, short, and signed off (`git commit -s`, see the DCO in `CONTRIBUTING.md`).
 - TypeScript strict, ESM, erasable syntax only (no enums or namespaces): Node runs the `.ts` files directly. Relative
   imports include the `.ts` extension.
