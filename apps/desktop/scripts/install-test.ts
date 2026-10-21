@@ -286,6 +286,8 @@ function appEnv(extra: Record<string, string>): Record<string, string> {
     MONSTERS_EMBEDDINGS: 'off',
     MONSTERS_TELEGRAM: 'off',
     MONSTERS_UPDATE: 'off',
+    // The probe reads the Italian texts of the first-start page (the app is English first, D-153).
+    MONSTERS_LANG: 'it',
     ...extra,
   };
 }

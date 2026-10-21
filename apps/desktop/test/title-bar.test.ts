@@ -174,7 +174,7 @@ describe('pages of the app in the palette of the instrument', () => {
   });
 
   it('connections page: integrated bar for the chrome of the platform', () => {
-    expect(connectionsPageHtml('inset')).toContain('<html lang="it" data-chrome="inset">');
+    expect(connectionsPageHtml('inset')).toContain('<html lang="en" data-chrome="inset">');
     const overlay = connectionsPageHtml('overlay');
     expect(overlay).toContain('data-chrome="overlay"');
     expect(overlay).toContain('env(titlebar-area-width');
@@ -214,8 +214,8 @@ describe('pages of the app in the palette of the instrument', () => {
       expect(html).not.toContain('will-change');
     }
     // The status page knows the chrome of the window: room for the traffic lights or the buttons.
-    expect(pages[0]).toContain('<html lang="it" data-chrome="inset">');
-    expect(pages[1]).toContain('<html lang="it" data-chrome="overlay">');
+    expect(pages[0]).toContain('<html lang="en" data-chrome="inset">');
+    expect(pages[1]).toContain('<html lang="en" data-chrome="overlay">');
     expect(statusPageHtml({ kind: 'starting' })).toContain('data-chrome="frame"');
     // Titan is the dot creature of the web UI (renderDots), with its frames.
     for (const html of pages.slice(0, 2)) {

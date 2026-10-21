@@ -139,17 +139,17 @@ describe('desktop log', () => {
 });
 
 describe('status page', () => {
-  it('speaks Italian and keeps a strict CSP', () => {
+  it('speaks the app’s language and keeps a strict CSP', () => {
     expect(
       statusCopy({ kind: 'restarting', attempt: 2, maxAttempts: 5, delayMs: 2000 }).body[0],
-    ).toBe('Lo riavvio tra 2 secondi (tentativo 2 di 5).');
+    ).toBe('Restarting in 2 seconds (attempt 2 of 5).');
     const html = statusPageHtml({ kind: 'failed', logPath: '/h/<x>/desktop.log' });
-    expect(html).toContain('lang="it"');
-    expect(html).toContain('Riprova');
+    expect(html).toContain('lang="en"');
+    expect(html).toContain('Try again');
     expect(html).toContain('/h/&#60;x&#62;/desktop.log');
     expect(html).toMatch(/default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-/);
     expect(html).not.toContain('unsafe-eval');
-    // Starting: "Connessioni…" is there too (audit UX 1.2), still a script allowed by hash only.
+    // Starting: "Connections…" is there too (audit UX 1.2), still a script allowed by hash only.
     expect(statusPageHtml({ kind: 'starting' })).toContain('data-action="connections"');
     expect(statusPageUrl({ kind: 'starting' })).toMatch(/^data:text\/html;charset=utf-8;base64,/);
   });

@@ -1,9 +1,10 @@
 import { app, session, WebContentsView, type BrowserWindow } from 'electron';
+import { appLang } from '@monsters/shared';
 import { bannerHtml } from './remote-copy.ts';
 
 /*
- * The banner over the window in the client mode (M3.3, D-047): "Riconnessione…" while the
- * tunnel is down, "Collegato a …" for a moment when it is back. A small transparent
+ * The banner over the window in the client mode (M3.3, D-047): "Reconnecting…" while the
+ * tunnel is down, "Connected to …" for a moment when it is back. A small transparent
  * WebContentsView at the bottom of the window, above the page, so the remote UI stays
  * where it is (no reload, nothing injected into it). Its page is a data: URL without
  * script, in a sandboxed renderer of its own session; it cannot navigate.
@@ -64,7 +65,7 @@ export class LinkBanner {
   show(win: BrowserWindow, text: string, tone: 'busy' | 'ok', hideAfterMs?: number): void {
     clearTimeout(this.#hideTimer);
     const view = this.#ensure(win);
-    const key = `${tone}:${text}`;
+    const key = `${appLang()}:${tone}:${text}`;
     if (this.#shown !== key) {
       this.#shown = key;
       const html = bannerHtml(text, tone);

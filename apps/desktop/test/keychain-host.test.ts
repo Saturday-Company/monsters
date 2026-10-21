@@ -161,6 +161,7 @@ describe('keychain host', () => {
     expect(helpers[0]!.got).toEqual([
       {
         nativePath: NATIVE,
+        lang: 'en',
         op: 'get',
         service: 'Monsters',
         account: ACCOUNT,
@@ -202,7 +203,7 @@ describe('keychain host', () => {
         type: 'keychain',
         id: 1,
         ok: false,
-        message: 'portachiavi non raggiungibile: il processo è uscito (codice 6)',
+        message: 'keychain unreachable: the process exited (code 6)',
       },
     ]);
     session.handle({ type: 'keychain', id: 2, op: 'get', service: 'Monsters', account: ACCOUNT });
@@ -211,7 +212,7 @@ describe('keychain host', () => {
       type: 'keychain',
       id: 2,
       ok: false,
-      message: 'il portachiavi non ha risposto entro 0 s',
+      message: 'the keychain didn’t answer within 0 s',
     });
     expect(killed).toContain(helpers[1]!.pid);
   });
@@ -241,7 +242,7 @@ describe('keychain host', () => {
     });
     expect(none.helpers).toHaveLength(0);
     expect(none.replies).toEqual([
-      { type: 'keychain', id: 3, ok: false, message: 'modulo del portachiavi non disponibile' },
+      { type: 'keychain', id: 3, ok: false, message: 'keychain module not available' },
     ]);
 
     const busy = setup(() => undefined);
@@ -256,7 +257,7 @@ describe('keychain host', () => {
     }
     expect(busy.helpers).toHaveLength(4);
     expect(busy.replies).toEqual([
-      { type: 'keychain', id: 5, ok: false, message: 'troppe richieste al portachiavi' },
+      { type: 'keychain', id: 5, ok: false, message: 'too many keychain requests' },
     ]);
     busy.session.close();
     expect(busy.killed).toHaveLength(4);
@@ -338,7 +339,7 @@ describe('only the entries of Monsters, only the keyring binary (review of wave 
     await tick();
     expect(helpers).toHaveLength(0);
     expect(replies.map((r) => (r.ok ? 'ok' : r.message))).toEqual(
-      others.map(() => 'voce del portachiavi che non è di Monsters'),
+      others.map(() => 'keychain entry that doesn’t belong to Monsters'),
     );
   });
 
@@ -357,7 +358,7 @@ describe('only the entries of Monsters, only the keyring binary (review of wave 
     expect(runKeychainOp({ ...base, service: 'Other' }, load, linux)).toEqual({
       ok: false,
       kind: 'store',
-      message: 'voce del portachiavi che non è di Monsters',
+      message: 'keychain entry that doesn’t belong to Monsters',
     });
     for (const nativePath of [
       '/core/node_modules/@napi-rs/keyring/index.js',

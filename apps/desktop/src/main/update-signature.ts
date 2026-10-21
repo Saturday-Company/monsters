@@ -37,6 +37,7 @@ import { createHash, createPublicKey, sign, verify, type KeyObject } from 'node:
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
+import { updateSignatureStrings } from './update-signature.strings.ts';
 
 export const SIGNATURE_HEADER = 'monsters-update-signature-v1';
 export const SIGNATURE_SUFFIX = '.sig';
@@ -420,29 +421,28 @@ export function refusalOf(err: unknown): UpdateRefusedError | null {
   return err instanceof UpdateRefusedError ? err : null;
 }
 
-/** The refusal in a few words for the user (the menu, the dialog after "Cerca aggiornamenti"). */
+/** The refusal in a few words for the user (the menu, the dialog after "Check for updates"). */
 export function describeRefusal(version: string | null, reason: VerifyRefusal): string {
+  const t = updateSignatureStrings();
   if (version === null) {
     if (reason === 'no-keys') return describeRefusal('', reason);
-    if (reason === 'fetch') {
-      return 'non riesco a leggere l’aggiornamento e la sua firma: riprovo più tardi';
-    }
-    if (reason === 'missing') return 'l’aggiornamento non è firmato: non lo scarico';
-    return 'la firma dell’aggiornamento non è valida: non lo scarico';
+    if (reason === 'fetch') return t.fetchAny;
+    if (reason === 'missing') return t.missingAny;
+    return t.invalidAny;
   }
   switch (reason) {
     case 'missing':
-      return `l’aggiornamento ${version} non è firmato: non lo scarico`;
+      return t.missing(version);
     case 'no-keys':
-      return 'questa versione non ha la chiave per verificare gli aggiornamenti: scarica Monsters dal sito';
+      return t.noKeys;
     case 'unknown-key':
-      return `l’aggiornamento ${version} è firmato con una chiave che non conosco: non lo scarico`;
+      return t.unknownKey(version);
     case 'mismatch':
-      return `l’aggiornamento ${version} non corrisponde a quello firmato: non lo scarico`;
+      return t.mismatch(version);
     case 'fetch':
-      return `non riesco a leggere la firma dell’aggiornamento ${version}: riprovo più tardi`;
+      return t.fetch(version);
     case 'malformed':
     case 'invalid':
-      return `la firma dell’aggiornamento ${version} non è valida: non lo scarico`;
+      return t.invalid(version);
   }
 }

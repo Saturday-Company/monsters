@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { KeychainOp } from '@monsters/shared';
+import { helperStrings } from './index.strings.ts';
 import { isKeyringBinary, isMonstersEntry } from './entries.ts';
 
 /*
@@ -33,6 +34,8 @@ export interface HelperRequest {
   service: string;
   account: string;
   value?: string;
+  /** The app's language, for the messages (the helper does not hold it). */
+  lang?: 'en' | 'it';
 }
 
 export type HelperReply =
@@ -76,10 +79,10 @@ export function runKeychainOp(
   hashOf: (path: string) => string = sha256Of,
 ): HelperReply {
   if (!isMonstersEntry(request.service, request.account)) {
-    return { ok: false, kind: 'store', message: 'voce del portachiavi che non è di Monsters' };
+    return { ok: false, kind: 'store', message: helperStrings(request.lang).notMonstersEntry };
   }
   if (!isKeyringBinary(request.nativePath, system.platform, system.arch)) {
-    return { ok: false, kind: 'module', message: 'binario del portachiavi non valido' };
+    return { ok: false, kind: 'module', message: helperStrings(request.lang).badBinary };
   }
   if (request.sha256 !== undefined) {
     let hash: string | null;
@@ -92,7 +95,7 @@ export function runKeychainOp(
       return {
         ok: false,
         kind: 'module',
-        message: 'il binario del portachiavi non è quello del programma: non lo carico',
+        message: helperStrings(request.lang).binaryMismatch,
       };
     }
   }

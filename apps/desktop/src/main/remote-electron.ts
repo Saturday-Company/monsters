@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import type { HostKeyInfo, TunnelOptions } from '@monsters/remote';
 import { dialog, net, powerMonitor, type BrowserWindow } from 'electron';
 import type { ConnectionsView } from './connections-page.ts';
+import { connectionsStrings } from './connections-page.strings.ts';
 import { LOCAL_CHOICE, profileAddress, type StoredProfile, type TargetChoice } from './profiles.ts';
 import { hostKeyDialog, linkStatusText, TRUST_BUTTON } from './remote-copy.ts';
 import type { LinkState } from './remote-core.ts';
@@ -12,7 +13,7 @@ import type { LinkState } from './remote-core.ts';
  * here so the main module only connects them to the window.
  */
 
-/** First connection to a computer: the user compares the fingerprint. Default "Annulla". */
+/** First connection to a computer: the user compares the fingerprint. Default "Cancel". */
 export async function confirmHostKey(
   win: BrowserWindow | null,
   info: HostKeyInfo,
@@ -62,7 +63,7 @@ export function watchWakeAndNetwork(poke: (why: string) => void): void {
 }
 
 /**
- * What the connections page lists: "Questo computer", then the profiles with their form
+ * What the connections page lists: "This computer", then the profiles with their form
  * values. `current` is null at the first start, before anything is chosen.
  */
 export function connectionsView(opts: {
@@ -78,8 +79,8 @@ export function connectionsView(opts: {
     rows: [
       {
         choice: LOCAL_CHOICE,
-        name: 'Questo computer',
-        address: 'I mostri lavorano qui',
+        name: connectionsStrings().localName,
+        address: connectionsStrings().localAddress,
       },
       ...opts.profiles.map((p) => ({
         choice: p.id,

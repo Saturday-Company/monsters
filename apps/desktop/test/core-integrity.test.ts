@@ -118,7 +118,7 @@ describe('core integrity (S-M9)', () => {
       file: 'core-manifests/linux-x64.json',
     });
     expect(checkProblemText(missing as Exclude<CoreCheck, { ok: true }>)).toContain(
-      'manca l’elenco dei file',
+      'the list of the program’s files is missing',
     );
     const manifest = await buildCoreManifest(core, LINUX);
     writeFileSync(
@@ -139,7 +139,7 @@ describe('core integrity (S-M9)', () => {
     writeFileSync(join(core, 'monsters.js'), 'cambiato');
     const changed = await checkPackagedCore({ appPath: app, coreDir: core, ...LINUX });
     expect(checkProblemText(changed as Exclude<CoreCheck, { ok: true }>)).toBe(
-      'resources/core/monsters.js è cambiato',
+      'resources/core/monsters.js has changed',
     );
   });
 

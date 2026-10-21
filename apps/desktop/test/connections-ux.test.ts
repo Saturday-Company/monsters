@@ -22,8 +22,8 @@ import {
 } from '../src/main/core-jobs.ts';
 import { fromAppPage, fromCorePage, targetInfo } from '../src/main/ipc-guards.ts';
 import {
-  DUPLICATE_NAME,
-  HOST_LOOKS_LIKE_NAME,
+  duplicateNameMessage,
+  hostLooksLikeName,
   hostWarning,
   parseProfileForm,
   ProfileStore,
@@ -37,7 +37,7 @@ import { tempDir } from './helpers.ts';
 
 /*
  * First start and connections of the desktop app (audit UX, section 1): the choice of the
- * first start, the connections form and its checks, "Prova" without changing computer, the
+ * first start, the connections form and its checks, "Try" without changing computer, the
  * confirmation before stopping work in progress, the IPC of the new bridge calls.
  */
 
@@ -60,22 +60,23 @@ describe('first start', () => {
     expect(new ProfileStore(path).firstStart).toBe(false);
   });
 
-  it('the page: "Dove lavorano i tuoi mostri?", this computer recommended and focused', () => {
+  it('the page: "Where do your monsters work?", this computer recommended and focused', () => {
     const html = statusPageHtml({ kind: 'welcome' });
-    expect(html).toContain('<h1>Dove lavorano i tuoi mostri?</h1>');
+    expect(html).toContain('<h1>Where do your monsters work?</h1>');
+    expect(html).toContain('<html lang="en"');
     expect(html).toContain('data-status="welcome"');
     const local = /<button[^>]*data-action="local"[^>]*>/.exec(html)?.[0] ?? '';
     expect(local).toContain('autofocus');
-    expect(html).toContain('Su questo computer <em>Consigliato</em>');
+    expect(html).toContain('On this computer <em>Recommended</em>');
     expect(html).toContain('data-action="add-connection"');
-    expect(html).toContain('Su un altro mio computer');
+    expect(html).toContain('On another computer of mine');
     // Only one autofocus: Enter chooses this computer.
     expect(html.match(/\sautofocus[\s>]/g)).toHaveLength(1);
     expect(html).toMatch(/script-src 'sha256-[^']+'/);
     expect(html).not.toContain('unsafe-eval');
   });
 
-  it('starting, failed, locked: "Connessioni…" is always there; failed opens the log', () => {
+  it('starting, failed, locked: "Connections…" is always there; failed opens the log', () => {
     for (const view of [
       { kind: 'starting' as const },
       { kind: 'failed' as const, logPath: '/l' },
@@ -83,15 +84,15 @@ describe('first start', () => {
     ]) {
       expect(statusPageHtml(view)).toContain('data-action="connections"');
     }
-    expect(statusPageHtml({ kind: 'failed', logPath: '/l' })).toContain('Apri il log');
+    expect(statusPageHtml({ kind: 'failed', logPath: '/l' })).toContain('Open the log');
     expect(isStatusAction('open-log')).toBe(true);
     expect(isStatusAction('evil')).toBe(false);
   });
 
-  it('no developer commands in a packaged app, no "motore" anywhere', () => {
+  it('no developer commands in a packaged app, no "engine" anywhere', () => {
     const packaged = statusPageHtml({ kind: 'missing', path: '/opt/m/core.js', dev: false });
     expect(packaged).not.toContain('pnpm');
-    expect(packaged).toContain('installa di nuovo Monsters');
+    expect(packaged).toContain('reinstall Monsters');
     expect(statusPageHtml({ kind: 'missing', path: '/x', dev: true })).toContain('pnpm build:core');
     for (const view of [
       { kind: 'starting' as const },
@@ -101,7 +102,7 @@ describe('first start', () => {
       { kind: 'remote-connecting' as const, name: 'casa' },
     ]) {
       const html = statusPageHtml(view);
-      expect(html).not.toMatch(/motore|Questo PC|lsof|ss -ltnp/);
+      expect(html).not.toMatch(/engine|This PC|lsof|ss -ltnp/);
     }
   });
 
@@ -113,26 +114,24 @@ describe('first start', () => {
 });
 
 describe('connections form', () => {
-  it('Computer first, Nome optional, the rest under "Opzioni avanzate" (closed)', () => {
+  it('Computer first, Name optional, the rest under "Advanced options" (closed)', () => {
     const html = connectionsPageHtml();
     expect(html.indexOf('for="host"')).toBeLessThan(html.indexOf('for="name"'));
-    expect(html).toContain('placeholder="192.168.1.20 o pc-casa.local"');
+    expect(html).toContain('placeholder="192.168.1.20 or home-pc.local"');
     const advanced = html.slice(html.indexOf('<details class="advanced"'));
     for (const f of ['user', 'sshPort', 'identityFile', 'remotePort', 'remoteHome']) {
       expect(advanced).toContain(`for="${f}"`);
     }
     expect(html).not.toMatch(/<details class="advanced"[^>]* open/);
-    // Enter is "Salva e collega"; "Prova" next to it.
-    expect(html).toMatch(/<button type="submit" id="save-connect">Salva e collega<\/button>/);
-    expect(html).toContain('<button type="button" id="test">Prova</button>');
+    // Enter is "Save and connect"; "Try" next to it.
+    expect(html).toMatch(/<button type="submit" id="save-connect">Save and connect<\/button>/);
+    expect(html).toContain('<button type="button" id="test">Try</button>');
     // No sysadmin words in the visible text.
     const text = html
       .replace(/<script>[\s\S]*<\/script>/, '')
       .replace(/<style>[\s\S]*<\/style>/, '');
-    expect(text).not.toMatch(
-      /MONSTERS_HOME|~\/\.ssh\/config|token della riga di comando|Questo PC/,
-    );
-    expect(text).toContain('Entra senza password');
+    expect(text).not.toMatch(/MONSTERS_HOME|~\/\.ssh\/config|command-line token|This PC/);
+    expect(text).toContain('Sign in without a password');
   });
 
   it('empty name: the address; same name twice refused, whatever the case', () => {
@@ -147,13 +146,13 @@ describe('connections form', () => {
     expect(first.ok).toBe(true);
     expect(store.save({ name: ' casa ', host: 'altro.lan' })).toEqual({
       ok: false,
-      errors: { name: DUPLICATE_NAME },
+      errors: { name: duplicateNameMessage() },
     });
     // The name taken from the address: the message goes to the address.
     store.save({ name: 'ufficio.lan', host: 'x.lan' });
     expect(store.save({ host: 'ufficio.lan' })).toEqual({
       ok: false,
-      errors: { host: DUPLICATE_NAME },
+      errors: { host: duplicateNameMessage() },
     });
     // Editing a profile keeps its own name.
     if (first.ok) {
@@ -162,8 +161,8 @@ describe('connections form', () => {
   });
 
   it('warns when the address looks like the name of the connection', () => {
-    expect(hostWarning('Casa', 'Casa')).toBe(HOST_LOOKS_LIKE_NAME);
-    expect(hostWarning('PC di casa', '')).toBe(HOST_LOOKS_LIKE_NAME);
+    expect(hostWarning('Casa', 'Casa')).toBe(hostLooksLikeName());
+    expect(hostWarning('PC di casa', '')).toBe(hostLooksLikeName());
     expect(hostWarning('casa.lan', 'casa.lan')).toBeNull();
     expect(hostWarning('192.168.1.20', 'Casa')).toBeNull();
     expect(hostWarning('', 'Casa')).toBeNull();
@@ -197,7 +196,7 @@ describe('connections form', () => {
     const unknown = () => Promise.resolve(false);
     const known = () => Promise.resolve(true);
     expect(await hostCheck({ host: 'casa' }, ssh('hostname casa\n'), unknown)).toMatch(
-      /^Non trovo «casa» in rete\./,
+      /^I can’t find “casa” on the network\./,
     );
     expect(await hostCheck({ host: 'casa' }, ssh('hostname casa\n'), known)).toBeNull();
     expect(
@@ -247,8 +246,8 @@ class StayingHost extends EventEmitter implements CoreHost {
   }
 }
 
-describe('"Prova"', () => {
-  const profile = { name: 'PC di casa', host: 'casa.lan' };
+describe('"Try"', () => {
+  const profile = { name: 'Home PC', host: 'casa.lan' };
 
   it('opens a tunnel of its own, says the version, closes it; the destination stays', async () => {
     const local = new StayingHost();
@@ -271,7 +270,7 @@ describe('"Prova"', () => {
     });
     expect(await result).toEqual({
       ok: true,
-      message: 'Funziona: Monsters 0.1.0 risponde su «PC di casa».',
+      message: 'It works: Monsters 0.1.0 is answering on “Home PC”.',
     });
     expect(opened).toMatchObject({ host: 'casa.lan' });
     expect(tunnel.closed).toBe(true);
@@ -287,7 +286,7 @@ describe('"Prova"', () => {
       ok: false,
       kind: 'host-not-found',
       message: expect.stringMatching(
-        /^Non trovo «casa\.lan» in rete\. Controlla l’indirizzo/,
+        /^I can’t find “casa\.lan” on the network\. Check the address/,
       ) as unknown,
       field: 'host',
     });
@@ -301,7 +300,7 @@ describe('"Prova"', () => {
 describe('failures in plain words', () => {
   it('cite the address, say what to do, point at the field', () => {
     expect(remoteFailureCopy('auth-failed', 'Casa', 'casa.lan', '', 'linux')).toMatchObject({
-      message: expect.stringContaining('«casa.lan» ha rifiutato l’accesso') as unknown,
+      message: expect.stringContaining('“casa.lan” refused the sign-in') as unknown,
       tip: expect.stringContaining('ssh-copy-id') as unknown,
       fix: 'user',
     });
@@ -319,10 +318,10 @@ describe('failures in plain words', () => {
       message: 'x',
       detail: '',
     });
-    expect(html).toContain('Non trovo «casa» in rete.');
-    // "Correggi la connessione" is the primary button, before "Riprova".
+    expect(html).toContain('I can’t find “casa” on the network.');
+    // "Fix the connection" is the primary button, before "Try again".
     expect(html).toMatch(
-      /<button type="button" data-action="fix">Correggi la connessione<\/button><button id="retry" type="button" class="secondary">/,
+      /<button type="button" data-action="fix">Fix the connection<\/button><button id="retry" type="button" class="secondary">/,
     );
     const changed = statusPageHtml({
       kind: 'remote-failed',
@@ -389,21 +388,21 @@ describe('work in progress before stopping the local core', () => {
     expect(shouldConfirmStop(null, null)).toBe(false);
   });
 
-  it('dialogs: the count, "Annulla" by default', () => {
-    const leave = leaveLocalDialog('PC di casa', 2);
+  it('dialogs: the count, "Cancel" by default', () => {
+    const leave = leaveLocalDialog('Home PC', 2);
     expect(leave.message).toBe(
-      'Su questo computer ci sono 2 lavori in corso: se passi a «PC di casa» si fermano.',
+      'On this computer there are 2 tasks running: if you switch to “Home PC” they will stop.',
     );
-    expect(leave.buttons).toEqual(['Passa comunque', 'Annulla']);
-    expect(leave.buttons[leave.defaultId]).toBe('Annulla');
+    expect(leave.buttons).toEqual(['Switch anyway', 'Cancel']);
+    expect(leave.buttons[leave.defaultId]).toBe('Cancel');
     expect(leave.cancelId).toBe(leave.defaultId);
-    expect(leaveLocalDialog('x', null).message).toBe('Passare a «x»?');
+    expect(leaveLocalDialog('x', null).message).toBe('Switch to “x”?');
     expect(quitDialog(1).message).toBe(
-      'Su questo computer c’è un lavoro in corso: se esci si ferma.',
+      'On this computer there’s a task running: if you quit it will stop.',
     );
-    expect(quitDialog(1, 'update').buttons[0]).toBe('Riavvia');
+    expect(quitDialog(1, 'update').buttons[0]).toBe('Restart');
     const update = updateReadyDialog('0.2.0');
-    expect(update.buttons).toEqual(['Riavvia ora', 'Più tardi']);
+    expect(update.buttons).toEqual(['Restart now', 'Later']);
     expect(update.cancelId).toBe(1);
   });
 });
@@ -456,7 +455,7 @@ describe('IPC of the bridge', () => {
   it('where the window is connected: name and state, nothing else', () => {
     expect(targetInfo(null, true)).toEqual({
       kind: 'local',
-      name: 'Questo computer',
+      name: 'This computer',
       state: 'ready',
     });
     expect(targetInfo(null, false).state).toBe('starting');

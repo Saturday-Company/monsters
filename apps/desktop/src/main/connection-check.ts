@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
 import { readFileSync, writeFileSync } from 'node:fs';
 import type { ConnectionProfile, TunnelErrorKind, TunnelState } from '@monsters/remote';
+import { profileStrings } from './profiles.strings.ts';
 import { remoteFailureCopy, type FixField } from './remote-copy.ts';
 import type { TunnelLike } from './remote-core.ts';
 
@@ -113,7 +114,7 @@ export async function hostCheck(
   if (d?.proxied) return null;
   const hostname = d?.hostname ?? profile.host;
   if ((await resolve(hostname)) !== false) return null;
-  return `Non trovo «${profile.host}» in rete. Controlla l’indirizzo (per esempio 192.168.1.20 o pc-casa.local) e, se usi una VPN come Tailscale, che sia accesa. Se sei sicuro, premi di nuovo «Salva».`;
+  return profileStrings().check.hostNotFound(profile.host);
 }
 
 export type TestResult =
@@ -121,7 +122,7 @@ export type TestResult =
   | { ok: false; kind: TunnelErrorKind; message: string; field: FixField | null };
 
 /**
- * "Prova": a tunnel of its own, closed at the end, whatever happens. The first attempt of a
+ * "Try": a tunnel of its own, closed at the end, whatever happens. The first attempt of a
  * tunnel is never retried by itself (D-044), so `failed` comes quickly with the reason.
  */
 export async function testConnection(
@@ -147,7 +148,7 @@ export async function testConnection(
     if (state?.status === 'connected') {
       return {
         ok: true,
-        message: `Funziona: Monsters ${state.coreVersion} risponde su «${profile.name}».`,
+        message: profileStrings().check.works(state.coreVersion, profile.name),
       };
     }
     const error =

@@ -1,8 +1,9 @@
+import { coreJobsStrings } from './core-jobs.strings.ts';
 import type { CoreAuth } from './login.ts';
 
 /*
  * Work in progress on the local core, before something would stop it: switching to another
- * computer or "Esci" stop the core the app started (D-045, D-047), and with it every run.
+ * computer or "Quit" stop the core the app started (D-045, D-047), and with it every run.
  * The count comes from `GET /api/status` (`runs`: the active runs of RunController), asked with
  * the CLI token of the data directory or the window's cookie. When the core does not answer in
  * time the count is unknown (null) and the app asks anyway: losing work silently is worse than
@@ -58,55 +59,49 @@ export interface ConfirmCopy {
   cancelId: number;
 }
 
-const works = (n: number) => (n === 1 ? 'c’è un lavoro in corso' : `ci sono ${n} lavori in corso`);
-
-/** Leaving this computer for `name`. Button 0 goes on, 1 ("Annulla") is the default. */
+/** Leaving this computer for `name`. Button 0 goes on, 1 ("Cancel") is the default. */
 export function leaveLocalDialog(name: string, runs: number | null): ConfirmCopy {
+  const t = coreJobsStrings();
   return {
     type: 'warning',
     message:
-      runs === null
-        ? `Passare a «${name}»?`
-        : `Su questo computer ${works(runs)}: se passi a «${name}» ${runs === 1 ? 'si ferma' : 'si fermano'}.`,
-    detail:
-      runs === null
-        ? `Se passi a «${name}», Monsters su questo computer si ferma e i lavori eventualmente in corso si interrompono. Lo ritrovi com’era tornando su «Questo computer».`
-        : 'Li ritrovi in Attività tornando su «Questo computer», ma dovrai farli ripartire.',
-    buttons: ['Passa comunque', 'Annulla'],
+      runs === null ? t.leave.unknownMessage(name) : t.running(runs, t.leave.condition(name)),
+    detail: runs === null ? t.leave.unknownDetail(name) : t.leave.detail,
+    buttons: [t.leave.go, t.leave.cancel],
     defaultId: 1,
     cancelId: 1,
   };
 }
 
 /**
- * "Esci" (or "Riavvia ora" for an update) with work in progress. Button 0 goes on, 1
- * ("Annulla") is the default.
+ * "Quit" (or "Restart now" for an update) with work in progress. Button 0 goes on, 1
+ * ("Cancel") is the default.
  */
 export function quitDialog(runs: number | null, action: 'quit' | 'update' = 'quit'): ConfirmCopy {
-  const verb = action === 'quit' ? 'esci' : 'riavvii per aggiornare';
+  const t = coreJobsStrings();
+  const condition = action === 'quit' ? t.quit.quitCondition : t.quit.updateCondition;
   return {
     type: 'warning',
     message:
       runs === null
         ? action === 'quit'
-          ? 'Uscire da Monsters?'
-          : 'Riavviare Monsters per aggiornarlo?'
-        : `Su questo computer ${works(runs)}: se ${verb} ${runs === 1 ? 'si ferma' : 'si fermano'}.`,
+          ? t.quit.unknownMessage
+          : t.quit.unknownUpdateMessage
+        : t.running(runs, condition),
     detail:
       action === 'update'
-        ? 'Monsters si riavvia da solo con la versione nuova; i lavori interrotti li ritrovi in Attività. Se preferisci, aggiorna più tardi.'
+        ? t.quit.updateDetail
         : runs === null
-          ? 'Uscendo, Monsters su questo computer si ferma e i lavori eventualmente in corso si interrompono. Per lasciarlo lavorare chiudi solo la finestra.'
-          : 'Per lasciare lavorare i mostri chiudi solo la finestra: Monsters resta acceso.',
-    buttons: [action === 'quit' ? 'Esci' : 'Riavvia', 'Annulla'],
+          ? t.quit.unknownDetail
+          : t.quit.detail,
+    buttons: [action === 'quit' ? t.quit.quit : t.quit.restart, t.quit.cancel],
     defaultId: 1,
     cancelId: 1,
   };
 }
 
 /** The first time the window is closed: Monsters keeps working (notification). */
-export const CLOSE_NOTICE = {
-  title: 'Monsters continua a lavorare',
-  body: (quitKeys: string) =>
-    `Anche a finestra chiusa i mostri vanno avanti. Per chiudere davvero Monsters: Esci (${quitKeys}).`,
-} as const;
+export function closeNotice(quitKeys: string): { title: string; body: string } {
+  const t = coreJobsStrings().closeNotice;
+  return { title: t.title, body: t.body(quitKeys) };
+}

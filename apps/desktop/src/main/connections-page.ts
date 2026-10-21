@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
+import { appLang } from '@monsters/shared';
+import { connectionsStrings } from './connections-page.strings.ts';
+import { profileStrings } from './profiles.strings.ts';
 import { INSTRUMENT_CSS, pageThemeCss, WORDMARK } from './page-theme.ts';
 import { TITLE_BAR_HEIGHT, type WindowChrome } from './title-bar.ts';
 
 /*
- * The "Connessioni" page (M3.3, D-047): choose between "Questo computer" and the other
+ * The "Connections" page (M3.3, D-047): choose between "This computer" and the other
  * computers, add, edit, try and remove connection profiles. A self-contained page like the
  * status page (data: URL, strict CSP, script allowed only by hash), shown in its own small
  * window with the preload's `monstersConnections` API and nothing else. The parts of the
@@ -11,15 +14,16 @@ import { TITLE_BAR_HEIGHT, type WindowChrome } from './title-bar.ts';
  * window: the 52 px top rail (wordmark, a seam, the title) is the drag area, with room for the
  * traffic lights (macOS) or the system buttons (Windows, Linux). The computers are a module
  * with a label; the state of the one in use is on a small screen; the form is a module too,
- * with sunk fields, a switch for "Entra senza password" and the advanced options in a darker
+ * with sunk fields, a switch for "Sign in without a password" and the advanced options in a darker
  * drawer. The script builds the DOM with textContent only: names typed by the user never
  * become markup.
  *
- * The form (audit UX 1.4, 1.6, 1.12): "Computer" first, "Nome" optional, everything else
- * under "Opzioni avanzate" with the values ssh would use as placeholders; a warning when the
- * address looks like a name; "Prova" opens and closes a tunnel without changing computer;
- * Enter is "Salva e collega"; Esc with unsaved changes asks for a second Esc; the list keeps
- * the focus when it is rebuilt.
+ * The form (audit UX 1.4, 1.6, 1.12): "Computer" first, "Name" optional, everything else
+ * under "Advanced options" with the values ssh would use as placeholders; a warning when the
+ * address looks like a name; "Try" opens and closes a tunnel without changing computer;
+ * Enter is "Save and connect"; Esc with unsaved changes asks for a second Esc; the list keeps
+ * the focus when it is rebuilt. The words are in the app's language (D-153): the HTML is built
+ * with it and the script gets its few texts as JSON, so the page is rebuilt on a change.
  */
 
 /** One row of the list, as the page receives it from the main process. */
@@ -27,13 +31,13 @@ export interface ConnectionRow {
   /** `local` or the profile id. */
   choice: string;
   name: string;
-  /** `utente@computer:porta`, or a description for "Questo computer". */
+  /** `user@computer:port`, or a description for "This computer". */
   address: string;
-  /** The form values of a profile (strings), for "Modifica". Absent for "Questo computer". */
+  /** The form values of a profile (strings), for "Edit". Absent for "This computer". */
   form?: Record<string, string | boolean>;
 }
 
-/** The form the page should open now ("Aggiungi un computer", "Correggi la connessione"). */
+/** The form the page should open now ("Add a computer", "Fix the connection"). */
 export interface FormRequest {
   /** A profile id, or null for a new computer. */
   choice: string | null;
@@ -44,16 +48,17 @@ export interface FormRequest {
 export interface ConnectionsView {
   /** `local`, a profile id, or null while nothing is chosen yet (first start). */
   current: string | null;
-  /** What the current connection is doing, in Italian ("Collegato", "Mi ricollego…"). */
+  /** What the current connection is doing, in the app's language ("Connected", "Reconnecting…"). */
   status: string;
   rows: ConnectionRow[];
   /** Consumed once by the page. */
   form?: FormRequest;
 }
 
-const SCRIPT = String.raw`
+const SCRIPT_BODY = String.raw`
 const api = window.monstersConnections;
 const $ = (id) => document.getElementById(id);
+const fmt = (s, name) => s.replace('{name}', () => name);
 const FIELDS = ['host','name','user','sshPort','identityFile','remotePort','remoteHome'];
 const ADVANCED = ['user','sshPort','identityFile','remotePort','remoteHome'];
 let view = { current: null, status: '', rows: [] };
@@ -84,17 +89,17 @@ function render() {
     const actions = el('div', { class: 'row-actions' });
     if (!current) {
       actions.append(el('button', { type: 'button', class: 'primary', 'data-use': row.choice,
-        'data-key': 'use:' + row.choice, 'aria-label': 'Usa ' + row.name, text: 'Usa',
+        'data-key': 'use:' + row.choice, 'aria-label': fmt(T.useAria, row.name), text: T.use,
         onclick: () => use(row.choice) }));
     }
     if (row.form) {
       actions.append(el('button', { type: 'button', 'data-key': 'edit:' + row.choice,
-        'aria-label': 'Modifica ' + row.name, text: 'Modifica', onclick: () => openForm(row) }));
+        'aria-label': fmt(T.editAria, row.name), text: T.edit, onclick: () => openForm(row) }));
       const confirming = confirmRemove === row.choice;
       actions.append(el('button', { type: 'button', class: confirming ? 'danger' : '',
         'data-key': 'remove:' + row.choice,
-        'aria-label': (confirming ? 'Conferma eliminazione di ' : 'Elimina ') + row.name,
-        text: confirming ? 'Conferma' : 'Elimina', onclick: () => remove(row.choice) }));
+        'aria-label': fmt(confirming ? T.confirmAria : T.removeAria, row.name),
+        text: confirming ? T.confirm : T.remove, onclick: () => remove(row.choice) }));
     }
     list.append(el('article', { class: 'row' + (current ? ' current' : ''), 'data-choice': row.choice },
       el('div', { class: 'row-text' },
@@ -120,7 +125,7 @@ function openForm(row, field) {
   confirmRemove = null;
   escArmed = false;
   forceHost = null;
-  $('form-title').textContent = row ? 'Modifica ' + row.name : 'Aggiungi un computer';
+  $('form-title').textContent = row ? fmt(T.editTitle, row.name) : T.addTitle;
   for (const f of FIELDS) {
     $(f).value = (row && row.form && row.form[f]) || '';
     $(f).classList.remove('highlight');
@@ -166,7 +171,7 @@ function warnHost() {
   let text = '';
   if (host && (/\s/.test(host) || (name && host.toLowerCase() === name.toLowerCase()
       && !/[.:]/.test(host) && host.toLowerCase() !== 'localhost'))) {
-    text = 'Questo sembra il nome della connessione. Qui serve l’indirizzo dell’altro computer, per esempio 192.168.1.20 o pc-casa.local.';
+    text = T.looksLikeName;
   }
   if (forceHost !== null && forceHost !== host) forceHost = null;
   if (!text && forceHost === null) $('warn-host').textContent = '';
@@ -209,7 +214,7 @@ async function save(connect) {
   if (forceHost !== null && forceHost === form.host.trim()) form.force = true;
   const res = await api.save(form);
   if (!res || !res.ok) {
-    if (!showErrors(res)) $('form-error').textContent = 'Non sono riuscito a salvare la connessione.';
+    if (!showErrors(res)) $('form-error').textContent = T.saveFailed;
     return;
   }
   closeForm();
@@ -222,7 +227,7 @@ async function tryIt() {
   const out = $('test-result');
   const button = $('test');
   out.className = 'test-result';
-  out.textContent = 'Provo a collegarmi…';
+  out.textContent = T.trying;
   button.disabled = true;
   try {
     const res = await api.test(formValues());
@@ -232,7 +237,7 @@ async function tryIt() {
       return;
     }
     out.className = 'test-result ' + (res && res.ok ? 'ok' : 'ko');
-    out.textContent = (res && res.message) || 'Non sono riuscito a provare la connessione.';
+    out.textContent = (res && res.message) || T.tryFailed;
     if (res && !res.ok && res.field && $(res.field)) {
       if (ADVANCED.includes(res.field)) $('advanced').open = true;
       $(res.field).classList.add('highlight');
@@ -293,7 +298,7 @@ document.addEventListener('keydown', (e) => {
   const dirty = JSON.stringify(formValues()) !== initial;
   if (dirty && !escArmed) {
     escArmed = true;
-    $('form-error').textContent = 'Hai modifiche non salvate: premi di nuovo Esc per chiudere senza salvarle.';
+    $('form-error').textContent = T.unsaved;
     return;
   }
   closeForm();
@@ -301,6 +306,15 @@ document.addEventListener('keydown', (e) => {
 api.onChange(refresh);
 refresh();
 `;
+
+/** The page's script with its texts (JSON, `<` escaped: it sits inside a <script>). */
+function connectionsScript(): string {
+  const texts = JSON.stringify({
+    ...connectionsStrings().script,
+    looksLikeName: profileStrings().hostLooksLikeName,
+  }).replace(/</g, '\\u003c');
+  return `const T = ${texts};\n${SCRIPT_BODY}`;
+}
 
 interface Field {
   id: string;
@@ -313,55 +327,41 @@ interface Field {
   warn?: boolean;
 }
 
-const MAIN_FIELDS: Field[] = [
-  {
-    id: 'host',
-    label: 'Computer',
-    hint: 'L’indirizzo dell’altro computer: va bene anche il nome Tailscale, o utente@indirizzo.',
-    placeholder: '192.168.1.20 o pc-casa.local',
-    warn: true,
-  },
-  {
-    id: 'name',
-    label: 'Nome',
-    hint: 'Facoltativo: come vuoi vederlo nei menu. Se lo lasci vuoto uso l’indirizzo.',
-    placeholder: 'PC di casa',
-  },
-];
+function mainFields(): Field[] {
+  const f = connectionsStrings().fields;
+  return [
+    { id: 'host', ...f.host, warn: true },
+    { id: 'name', ...f.name },
+  ];
+}
 
-const ADVANCED_FIELDS: Field[] = [
-  { id: 'user', label: 'Utente', hint: 'Il tuo nome utente su quel computer.' },
-  { id: 'sshPort', label: 'Porta', hint: 'La porta SSH di quel computer.', inputmode: 'numeric' },
-  {
-    id: 'identityFile',
-    label: 'Chiave',
-    hint: 'Senza, uso le chiavi SSH che usi già.',
-    placeholder: '~/.ssh/id_ed25519',
-    extra: '<button type="button" id="pick">Scegli…</button>',
-  },
-  {
-    id: 'remotePort',
-    label: 'Porta di Monsters',
-    hint: 'La leggo da sola su quel computer.',
-    placeholder: '4747',
-    inputmode: 'numeric',
-  },
-  {
-    id: 'remoteHome',
-    label: 'Cartella dati',
-    hint: 'Solo se lì Monsters usa una cartella diversa da quella di sempre.',
-    placeholder: '~/.monsters',
-  },
-];
+function advancedFields(): Field[] {
+  const f = connectionsStrings().fields;
+  return [
+    { id: 'user', ...f.user },
+    { id: 'sshPort', ...f.sshPort, inputmode: 'numeric' },
+    {
+      id: 'identityFile',
+      label: f.identityFile.label,
+      hint: f.identityFile.hint,
+      placeholder: f.identityFile.placeholder,
+      extra: `<button type="button" id="pick">${escape(f.identityFile.pick)}</button>`,
+    },
+    { id: 'remotePort', ...f.remotePort, inputmode: 'numeric' },
+    { id: 'remoteHome', ...f.remoteHome },
+  ];
+}
+
+const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 function fieldHtml(f: Field): string {
   const describedBy = [f.hint ? `hint-${f.id}` : '', f.warn ? `warn-${f.id}` : '', `err-${f.id}`]
     .filter(Boolean)
     .join(' ');
   return `<div class="field">
-<label for="${f.id}">${f.label}</label>
-<div class="input-row"><input id="${f.id}" name="${f.id}" autocomplete="off" spellcheck="false" aria-describedby="${describedBy}"${f.placeholder ? ` placeholder="${f.placeholder}"` : ''}${f.inputmode ? ` inputmode="${f.inputmode}"` : ''}>${f.extra ?? ''}</div>
-${f.hint ? `<p class="hint" id="hint-${f.id}">${f.hint}</p>` : ''}
+<label for="${f.id}">${escape(f.label)}</label>
+<div class="input-row"><input id="${f.id}" name="${f.id}" autocomplete="off" spellcheck="false" aria-describedby="${describedBy}"${f.placeholder ? ` placeholder="${escape(f.placeholder)}"` : ''}${f.inputmode ? ` inputmode="${f.inputmode}"` : ''}>${f.extra ?? ''}</div>
+${f.hint ? `<p class="hint" id="hint-${f.id}">${escape(f.hint)}</p>` : ''}
 ${f.warn ? `<p class="warn" id="warn-${f.id}" aria-live="polite"></p>` : ''}
 <p class="error" id="err-${f.id}" aria-live="polite"></p>
 </div>`;
@@ -372,7 +372,7 @@ const LIGHT =
 
 /*
  * The parts come from INSTRUMENT_CSS; here the layout. The rail stays on top while the page
- * scrolls. "Usa" is a plain key: the one orange key is "Salva e collega". The state of the
+ * scrolls. "Use" is a plain key: the one orange key is "Save and connect". The state of the
  * computer in use is a small screen, like the display of the main window; a test, a warning,
  * an error each have their light.
  */
@@ -431,7 +431,9 @@ details.before b{color:var(--ink);font-weight:600}
 `;
 
 export function connectionsPageHtml(chrome: WindowChrome = 'frame'): string {
-  const scriptHash = createHash('sha256').update(SCRIPT).digest('base64');
+  const t = connectionsStrings();
+  const script = connectionsScript();
+  const scriptHash = createHash('sha256').update(script).digest('base64');
   const csp = [
     "default-src 'none'",
     "style-src 'unsafe-inline'",
@@ -441,12 +443,12 @@ export function connectionsPageHtml(chrome: WindowChrome = 'frame'): string {
     "form-action 'none'",
   ].join('; ');
   return `<!doctype html>
-<html lang="it" data-chrome="${chrome}">
+<html lang="${appLang()}" data-chrome="${chrome}">
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <meta name="color-scheme" content="light dark">
-<title>Connessioni · Monsters</title>
+<title>${escape(t.pageTitle)}</title>
 <style>
 ${pageThemeCss()}
 ${INSTRUMENT_CSS}
@@ -454,40 +456,40 @@ ${STYLE}
 </style>
 </head>
 <body>
-<header class="titlebar rail">${WORDMARK}<span class="rail-seam" aria-hidden="true"></span><h1>Connessioni</h1></header>
+<header class="titlebar rail">${WORDMARK}<span class="rail-seam" aria-hidden="true"></span><h1>${escape(t.windowTitle)}</h1></header>
 <main>
-<p class="intro">Usa i mostri che lavorano su un altro tuo computer, o torna a quelli di questo.</p>
+<p class="intro">${escape(t.intro)}</p>
 <div class="group">
-<p class="label group-label" aria-hidden="true">Computer</p>
-<section id="list" class="card" aria-label="Elenco dei computer"></section>
+<p class="label group-label" aria-hidden="true">${escape(t.computersLabel)}</p>
+<section id="list" class="card" aria-label="${escape(t.listLabel)}"></section>
 </div>
-<button id="add" type="button">Aggiungi un computer</button>
+<button id="add" type="button">${escape(t.add)}</button>
 <form id="form" class="card" hidden novalidate>
-<h2 id="form-title">Aggiungi un computer</h2>
-${MAIN_FIELDS.map(fieldHtml).join('\n')}
-<div class="field check"><div class="check-text"><label for="autoLogin">Entra senza password</label>
-<p class="hint" id="hint-autoLogin">Monsters usa il tuo accesso SSH a quel computer per farti entrare da solo. Se lo togli, la prima volta ti chiede email e password.</p></div><input type="checkbox" class="switch" id="autoLogin" aria-describedby="hint-autoLogin"><span class="led" aria-hidden="true"></span></div>
-<details class="advanced" id="advanced"><summary>Opzioni avanzate</summary>
-${ADVANCED_FIELDS.map(fieldHtml).join('\n')}
+<h2 id="form-title">${escape(t.add)}</h2>
+${mainFields().map(fieldHtml).join('\n')}
+<div class="field check"><div class="check-text"><label for="autoLogin">${escape(t.autoLogin)}</label>
+<p class="hint" id="hint-autoLogin">${escape(t.autoLoginHint)}</p></div><input type="checkbox" class="switch" id="autoLogin" aria-describedby="hint-autoLogin"><span class="led" aria-hidden="true"></span></div>
+<details class="advanced" id="advanced"><summary>${escape(t.advanced)}</summary>
+${advancedFields().map(fieldHtml).join('\n')}
 </details>
 <p class="test-result" id="test-result" role="status" aria-live="polite"></p>
 <p class="error" id="form-error" aria-live="polite"></p>
 <div class="form-actions">
-<button type="submit" id="save-connect">Salva e collega</button>
-<button type="button" id="test">Prova</button>
-<button type="button" id="save">Salva</button>
-<button type="button" id="cancel">Annulla</button>
+<button type="submit" id="save-connect">${escape(t.saveAndConnect)}</button>
+<button type="button" id="test">${escape(t.test)}</button>
+<button type="button" id="save">${escape(t.save)}</button>
+<button type="button" id="cancel">${escape(t.cancel)}</button>
 </div>
 </form>
-<details class="before"><summary>Prima di iniziare</summary>
+<details class="before"><summary>${escape(t.before)}</summary>
 <ol>
-<li><b>Sull’altro computer</b> Monsters dev’essere acceso.</li>
-<li><b>Sull’altro computer</b> serve l’accesso SSH: su Mac in Impostazioni di Sistema → Generali → Condivisione → Login remoto; su Windows «Server OpenSSH» tra le Funzionalità facoltative; su Linux il pacchetto openssh-server.</li>
-<li><b>Da questo computer</b> devi poter entrare con una chiave SSH, senza password: Monsters non chiede mai password.</li>
+<li><b>${escape(t.beforeOther)}</b> ${escape(t.beforeRunning)}</li>
+<li><b>${escape(t.beforeOther)}</b> ${escape(t.beforeSsh)}</li>
+<li><b>${escape(t.beforeThis)}</b> ${escape(t.beforeKey)}</li>
 </ol>
 </details>
 </main>
-<script>${SCRIPT}</script>
+<script>${script}</script>
 </body>
 </html>
 `;

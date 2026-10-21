@@ -4,18 +4,19 @@ import { ConnectionProfileSchema, sshAliasFor, type ConnectionProfile } from '@m
 import { isLang, type Lang } from '@monsters/shared';
 import type { ThemeChoice } from './app-theme.ts';
 import { readTextFile } from './home.ts';
+import { profileStrings } from './profiles.strings.ts';
 
 /*
  * Connection profiles of the client mode (M3.3, D-047): the remote cores the app can use
- * through an SSH tunnel, plus the last choice ("Questo computer" or a profile). Stored in the
+ * through an SSH tunnel, plus the last choice ("This computer" or a profile). Stored in the
  * app's user data folder (`connections.json`, mode 600): no secrets in it, only where to
  * connect (SSH keys stay in ~/.ssh or in the agent; passwords are not supported), and the
- * theme chosen in the web UI's Settings when it is not "Sistema" (app-theme.ts, D-091).
+ * theme chosen in the web UI's Settings when it is not "System" (app-theme.ts, D-091).
  * The form of the connections page sends strings; `parseProfileForm` turns them into a
- * profile with Italian messages per field. Pure Node, no Electron.
+ * profile with messages per field, in the app's language. Pure Node, no Electron.
  */
 
-/** "Questo computer": the local core (attached or started by the app). */
+/** "This computer": the local core (attached or started by the app). */
 export const LOCAL_CHOICE = 'local';
 /** `local` or the id of a profile. */
 export type TargetChoice = string;
@@ -34,7 +35,7 @@ export interface ConnectionsFile {
   version: 1;
   profiles: StoredProfile[];
   last: TargetChoice;
-  /** The theme of the Settings; absent: "Sistema". Older apps ignore it. */
+  /** The theme of the Settings; absent: "System". Older apps ignore it. */
   theme?: 'light' | 'dark';
   /** The app's language as the web UI last said it (D-153); absent: the system's. */
   language?: Lang;
@@ -68,41 +69,30 @@ export type FormResult =
   | { ok: true; profile: Omit<StoredProfile, 'id'> }
   | { ok: false; errors: Partial<Record<ProfileField, string>> };
 
-const MESSAGES: Record<ProfileField, string> = {
-  name: 'Il nome può avere al massimo 80 caratteri.',
-  host: 'Scrivi l’indirizzo dell’altro computer, per esempio 192.168.1.20 o pc-casa.local: senza spazi e senza "-" all’inizio.',
-  user: 'Il nome utente non può contenere spazi né iniziare con "-".',
-  sshPort: 'La porta è un numero tra 1 e 65535 (di solito 22).',
-  identityFile: 'Il percorso della chiave è troppo lungo.',
-  remotePort: 'La porta di Monsters è un numero tra 1 e 65535 (di solito 4747).',
-  remoteHome: 'La cartella non può contenere virgolette, $ o \\.',
-};
-
 /** The host field holds what looks like the name of the connection, not an address. */
-export const HOST_LOOKS_LIKE_NAME =
-  'Questo sembra il nome della connessione. Qui serve l’indirizzo dell’altro computer, per esempio 192.168.1.20 o pc-casa.local.';
+export const hostLooksLikeName = (): string => profileStrings().hostLooksLikeName;
 
-/** Another profile already has this name: the "Usa" menu would be ambiguous. */
-export const DUPLICATE_NAME = 'C’è già una connessione con questo nome: scegline un altro.';
+/** Another profile already has this name: the "Use" menu would be ambiguous. */
+export const duplicateNameMessage = (): string => profileStrings().duplicateName;
 
 /**
  * A warning for the host field while the user types (shown, never blocking): spaces, or the
- * same text as the name ("Casa" in both fields). An alias of ~/.ssh/config may legitimately
+ * same text as the name ("Home" in both fields). An alias of ~/.ssh/config may legitimately
  * equal the name, so this only warns; the check at save time (connection-check.ts) asks ssh
  * and the DNS.
  */
 export function hostWarning(host: string, name: string): string | null {
   const h = host.trim();
   if (h === '') return null;
-  if (/\s/.test(h)) return HOST_LOOKS_LIKE_NAME;
+  if (/\s/.test(h)) return hostLooksLikeName();
   const n = name.trim();
   if (n !== '' && h.toLowerCase() === n.toLowerCase() && !looksLikeAddress(h)) {
-    return HOST_LOOKS_LIKE_NAME;
+    return hostLooksLikeName();
   }
   return null;
 }
 
-/** An IP address, or a name with a dot (pc-casa.local, casa.tailnet.ts.net). */
+/** An IP address, or a name with a dot (home-pc.local, home.tailnet.ts.net). */
 export function looksLikeAddress(host: string): boolean {
   return host.includes('.') || host.includes(':') || host.toLowerCase() === 'localhost';
 }
@@ -119,7 +109,7 @@ function port(v: unknown): number | undefined {
 }
 
 /**
- * Validates the form of the connections page. `utente@computer` in the host field is split
+ * Validates the form of the connections page. `user@computer` in the host field is split
  * (the user field wins when both are given). The name is optional: empty, it is the address.
  * Automatic login is on unless the form turns it off.
  */
@@ -147,12 +137,12 @@ export function parseProfileForm(form: unknown): FormResult {
     for (const issue of parsed.error.issues) {
       const field = issue.path[0];
       if (typeof field === 'string' && (PROFILE_FIELDS as readonly string[]).includes(field)) {
-        errors[field as ProfileField] ??= MESSAGES[field as ProfileField];
+        errors[field as ProfileField] ??= profileStrings().fieldErrors[field as ProfileField];
       }
     }
-    if (Object.keys(errors).length === 0) errors.host = MESSAGES.host;
+    if (Object.keys(errors).length === 0) errors.host = profileStrings().fieldErrors.host;
     // Spaces in the host: most likely the name of the connection typed in the wrong field.
-    if (errors.host && /\s/.test(host)) errors.host = HOST_LOOKS_LIKE_NAME;
+    if (errors.host && /\s/.test(host)) errors.host = hostLooksLikeName();
     // An empty name takes the host: its error belongs to the host field.
     if (errors.name && text(f.name) === '') delete errors.name;
     return { ok: false, errors };
@@ -227,7 +217,7 @@ export function readConnectionsFile(raw: string | null): {
   }
   const last =
     typeof d.last === 'string' && profiles.some((p) => p.id === d.last) ? d.last : LOCAL_CHOICE;
-  // Any other theme (none, "system", something unknown) is "Sistema": never a reason to
+  // Any other theme (none, "system", something unknown) is "System": never a reason to
   // call the file damaged.
   const theme = d.theme === 'light' || d.theme === 'dark' ? d.theme : null;
   const language = isLang(d.language) ? d.language : null;
@@ -254,10 +244,9 @@ export function corruptCopyPath(path: string, now: Date = new Date()): string {
 }
 
 /** Shown when a newer app wrote the profiles: they are used, never rewritten. */
-export const NEWER_FILE_MESSAGE =
-  'Le connessioni sono state salvate da una versione più recente di Monsters: aggiorna l’app per modificarle.';
+export const newerFileMessage = (): string => profileStrings().newerFile;
 
-/** `utente@computer:porta` as shown in lists. */
+/** `user@computer:port` as shown in lists. */
 export function profileAddress(p: ConnectionProfile): string {
   return `${p.user ? `${p.user}@` : ''}${p.host}${p.sshPort ? `:${p.sshPort}` : ''}`;
 }
@@ -363,7 +352,7 @@ export class ProfileStore {
 
   /** Adds (no id) or replaces (id of an existing profile) a profile from the form. */
   save(form: unknown): { ok: true; profile: StoredProfile } | Extract<FormResult, { ok: false }> {
-    if (this.readOnly) return { ok: false, errors: { name: NEWER_FILE_MESSAGE } };
+    if (this.readOnly) return { ok: false, errors: { name: newerFileMessage() } };
     const result = parseProfileForm(form);
     if (!result.ok) return result;
     const id = (form as ProfileForm).id;
@@ -372,7 +361,7 @@ export class ProfileStore {
     if (this.#data.profiles.some((p, i) => i !== index && sameName(p.name))) {
       return {
         ok: false,
-        errors: { [text((form as ProfileForm).name) ? 'name' : 'host']: DUPLICATE_NAME },
+        errors: { [text((form as ProfileForm).name) ? 'name' : 'host']: duplicateNameMessage() },
       };
     }
     const profile: StoredProfile = {

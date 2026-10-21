@@ -47,7 +47,7 @@ import { AppTheme, envTheme } from './app-theme.ts';
 import { ConnectionsWindow } from './connections-window.ts';
 import {
   activeRunCount,
-  CLOSE_NOTICE,
+  closeNotice,
   leaveLocalDialog,
   quitDialog,
   shouldConfirmStop,
@@ -113,10 +113,12 @@ import {
 } from './status-page.ts';
 import type { CoreChild } from './supervisor.ts';
 import { coreProxyEnv, PROXY_PROBE_URL } from './system-proxy.ts';
-import { appImageWithoutSandbox, SANDBOX_NOTICE, sandboxNoticePath } from './linux-sandbox.ts';
+import { appStrings } from './app.strings.ts';
+import { loginItemStrings } from './login-item.strings.ts';
+import { appImageWithoutSandbox, sandboxNotice, sandboxNoticePath } from './linux-sandbox.ts';
 import {
   debFailureDialog,
-  DEB_FAILURE_BUTTONS,
+  debFailureButtons,
   spawnAfterExit,
   Updater,
   manualCheckDialog,
@@ -276,9 +278,15 @@ async function refreshCoreProxy(): Promise<void> {
   }
 }
 
-/** The app's language: the web UI's last word, else the system's (D-153). */
+/**
+ * The app's language (D-153): the web UI's last word, else `MONSTERS_LANG` (tests, support), else
+ * the system's.
+ */
 function appLanguage(): Lang {
-  return store?.language ?? resolveLang(app.getPreferredSystemLanguages());
+  const forced = process.env['MONSTERS_LANG'];
+  return (
+    store?.language ?? (isLang(forced) ? forced : resolveLang(app.getPreferredSystemLanguages()))
+  );
 }
 
 function spawnCore(): CoreChild {
@@ -408,7 +416,10 @@ function showWindow(): void {
 }
 
 let shownStatus = '';
+/** The last page of the status page shown, to build it again when the language changes. */
+let lastStatusView: StatusView | null = null;
 function showStatus(view: StatusView): void {
+  lastStatusView = view;
   const key = JSON.stringify(view);
   if (coreOrigin === null && key === shownStatus) return;
   shownStatus = key;
@@ -506,63 +517,62 @@ async function coreAction(path: '/api/kill' | '/api/resume'): Promise<boolean> {
   }
   log.info(`menu ${path}: ${status || 'core unreachable'}`);
   if (status !== 200) {
+    const t = appStrings().coreAction;
     void dialog.showMessageBox({
       type: 'error',
-      message:
-        path === '/api/kill'
-          ? 'Non sono riuscito a fermare i mostri'
-          : 'Non sono riuscito a riprendere',
+      message: path === '/api/kill' ? t.killFailed : t.resumeFailed,
       detail: !target
         ? link
-          ? `Non sono collegato a ${link.name} in questo momento.`
-          : 'Monsters non è ancora acceso su questo computer: aspetta un attimo e riprova.'
+          ? t.notConnected(link.name)
+          : t.notRunning
         : status === 401 && target.kind === 'remote'
-          ? 'Prima accedi a Monsters nella finestra (email e password), poi riprova.'
-          : 'Monsters non ha risposto come doveva. Riprova dal pulsante nella finestra di Monsters.',
+          ? t.signInFirst
+          : t.noAnswer,
     });
   }
   return status === 200;
 }
 
 function menuItems() {
+  const t = appStrings().menu;
   return {
-    open: { id: 'monsters-open', label: 'Apri Monsters', click: () => showWindow() },
-    kill: { id: 'monsters-kill', label: 'Ferma tutto', click: () => void coreAction('/api/kill') },
+    open: { id: 'monsters-open', label: t.open, click: () => showWindow() },
+    kill: { id: 'monsters-kill', label: t.kill, click: () => void coreAction('/api/kill') },
     resume: {
       id: 'monsters-resume',
-      label: 'Riprendi',
+      label: t.resume,
       click: () => void coreAction('/api/resume'),
     },
     quit: {
       id: 'monsters-quit',
-      label: 'Esci da Monsters',
+      label: t.quit,
       accelerator: 'CmdOrCtrl+Q',
       click: () => app.quit(),
     },
     loginItem: {
       id: 'monsters-login-item',
-      label: 'Apri all’accesso',
+      label: loginItemStrings().label,
       type: 'checkbox' as const,
       checked: loginItem?.state().enabled ?? false,
       click: (item: Electron.MenuItem) => toggleLoginItem(item.checked),
     },
     connections: {
       id: 'monsters-connections',
-      label: 'Connessioni…',
+      label: t.connections,
       click: () => connections?.open(),
     },
     reconnect: {
       id: 'monsters-reconnect',
-      label: 'Ricollega',
+      label: t.reconnect,
       visible: link !== null,
       click: () => host()?.retry(),
     },
-    // "Questo computer" and the remote profiles; the checked one is what the window shows.
+    // "This computer" and the remote profiles; the checked one is what the window shows.
     targets: {
       id: 'monsters-targets',
-      label: 'Usa',
+      label: t.use,
       submenu: [
-        { label: 'Questo computer', id: `monsters-target-${LOCAL_CHOICE}`, choice: LOCAL_CHOICE },
+        { label: t.thisComputer, id: `monsters-target-${LOCAL_CHOICE}`, choice: LOCAL_CHOICE },
         ...(store?.list() ?? []).map((p) => ({
           label: p.name,
           id: `monsters-target-${p.id}`,
@@ -579,7 +589,7 @@ function menuItems() {
   } satisfies Record<string, MenuItemConstructorOptions>;
 }
 
-/** "Cerca aggiornamenti" / "Riavvia per aggiornare" (updater.ts), when updates are on. */
+/** "Check for updates" / "Restart to update" (updater.ts), when updates are on. */
 function updateItems(): MenuItemConstructorOptions[] {
   const entry = updater ? updateMenuEntry(updater.state) : null;
   if (!entry) return [];
@@ -601,12 +611,13 @@ function updateItems(): MenuItemConstructorOptions[] {
 
 function buildMenus(): void {
   const i = menuItems();
+  const t = appStrings().menu;
   const sep: MenuItemConstructorOptions = { type: 'separator' };
   const template: MenuItemConstructorOptions[] = [
     {
       label: 'Monsters',
       submenu: [
-        ...(isMac ? [{ role: 'about' as const, label: 'Informazioni su Monsters' }, sep] : []),
+        ...(isMac ? [{ role: 'about' as const, label: t.about }, sep] : []),
         i.open,
         ...updateItems(),
         sep,
@@ -621,9 +632,9 @@ function buildMenus(): void {
         sep,
         ...(isMac
           ? [
-              { role: 'hide' as const, label: 'Nascondi Monsters' },
-              { role: 'hideOthers' as const, label: 'Nascondi altre' },
-              { role: 'unhide' as const, label: 'Mostra tutte' },
+              { role: 'hide' as const, label: t.hide },
+              { role: 'hideOthers' as const, label: t.hideOthers },
+              { role: 'unhide' as const, label: t.unhide },
               sep,
             ]
           : []),
@@ -631,38 +642,36 @@ function buildMenus(): void {
       ],
     },
     {
-      label: 'Modifica',
+      label: t.edit,
       submenu: [
-        { role: 'undo', label: 'Annulla' },
-        { role: 'redo', label: 'Ripeti' },
+        { role: 'undo', label: t.undo },
+        { role: 'redo', label: t.redo },
         sep,
-        { role: 'cut', label: 'Taglia' },
-        { role: 'copy', label: 'Copia' },
-        { role: 'paste', label: 'Incolla' },
-        { role: 'selectAll', label: 'Seleziona tutto' },
+        { role: 'cut', label: t.cut },
+        { role: 'copy', label: t.copy },
+        { role: 'paste', label: t.paste },
+        { role: 'selectAll', label: t.selectAll },
       ],
     },
     {
-      label: 'Vista',
+      label: t.view,
       submenu: [
-        { role: 'reload', label: 'Ricarica' },
+        { role: 'reload', label: t.reload },
         sep,
-        { role: 'resetZoom', label: 'Dimensioni reali' },
-        { role: 'zoomIn', label: 'Ingrandisci' },
-        { role: 'zoomOut', label: 'Riduci' },
+        { role: 'resetZoom', label: t.actualSize },
+        { role: 'zoomIn', label: t.zoomIn },
+        { role: 'zoomOut', label: t.zoomOut },
         sep,
-        { role: 'togglefullscreen', label: 'Schermo intero' },
-        ...(app.isPackaged
-          ? []
-          : [sep, { role: 'toggleDevTools' as const, label: 'Strumenti per sviluppatori' }]),
+        { role: 'togglefullscreen', label: t.fullScreen },
+        ...(app.isPackaged ? [] : [sep, { role: 'toggleDevTools' as const, label: t.devTools }]),
       ],
     },
     {
-      label: 'Finestra',
+      label: t.window,
       submenu: [
-        { role: 'minimize', label: 'Riduci a icona' },
-        ...(isMac ? [{ role: 'zoom' as const, label: 'Zoom' }] : []),
-        { label: 'Chiudi finestra', accelerator: 'CmdOrCtrl+W', click: () => win?.hide() },
+        { role: 'minimize', label: t.minimize },
+        ...(isMac ? [{ role: 'zoom' as const, label: t.zoom }] : []),
+        { label: t.closeWindow, accelerator: 'CmdOrCtrl+W', click: () => win?.hide() },
       ],
     },
   ];
@@ -851,10 +860,7 @@ function closeNoticeOnce(): void {
   }
   log.info('window closed for the first time: telling that Monsters keeps working');
   if (!Notification.isSupported()) return;
-  const n = new Notification({
-    title: CLOSE_NOTICE.title,
-    body: CLOSE_NOTICE.body(isMac ? '⌘Q' : 'Ctrl+Q'),
-  });
+  const n = new Notification(closeNotice(isMac ? '⌘Q' : 'Ctrl+Q'));
   n.on('click', () => showWindow());
   n.show();
 }
@@ -885,6 +891,25 @@ function currentTargetInfo() {
   return targetInfo(link, !!host()?.target);
 }
 
+/**
+ * The app's language changed (D-153): menus, tray and dock, the connections window and the status
+ * page (while it is the one shown) are built again, and the banner of a reconnection. Dialogs and
+ * notifications take the language when they are shown.
+ */
+function applyLanguage(): void {
+  buildMenus();
+  connections?.relocalize();
+  if (coreOrigin === null && lastStatusView) {
+    shownStatus = '';
+    showStatus(lastStatusView);
+  }
+  if (win && link?.status === 'reconnecting') {
+    const text = bannerText(link);
+    if (text) banner.show(win, text, 'busy');
+  }
+  notifyTarget();
+}
+
 /** Tells the core's page that the destination or its state changed. */
 function notifyTarget(): void {
   if (!win || win.isDestroyed() || coreOrigin === null) return;
@@ -895,7 +920,7 @@ function notifyTarget(): void {
   win.webContents.send('monsters:target-changed', info);
 }
 
-/** "Apri all'accesso" from the menus; says why when the system does not allow it. */
+/** "Open at login" from the menus; says why when the system does not allow it. */
 function toggleLoginItem(enabled: boolean): void {
   if (!loginItem) return;
   const state = loginItem.set(enabled);
@@ -904,8 +929,8 @@ function toggleLoginItem(enabled: boolean): void {
   if (!state.supported || state.enabled !== enabled || (enabled && state.note)) {
     const options = {
       type: state.supported ? ('info' as const) : ('warning' as const),
-      message: state.supported ? 'Apri all’accesso' : 'Apri all’accesso non è disponibile',
-      detail: state.note ?? 'Il sistema non mi ha lasciato cambiarlo. Riprova.',
+      message: state.supported ? loginItemStrings().label : loginItemStrings().unavailable,
+      detail: state.note ?? loginItemStrings().couldntChange,
       noLink: true,
     };
     const parent = win && !win.isDestroyed() && win.isVisible() ? win : null;
@@ -965,7 +990,7 @@ function registerIpc(): void {
     pickingFolder = true;
     try {
       const res = await dialog.showOpenDialog(win, {
-        title: 'Scegli una cartella',
+        title: appStrings().pickFolder,
         defaultPath: homedir(),
         properties: ['openDirectory', 'createDirectory', 'dontAddToRecent'],
       });
@@ -1004,7 +1029,7 @@ function registerIpc(): void {
     if (lang === appLang()) return;
     log.info(`language: ${lang}`);
     setAppLang(lang, app.getLocale());
-    buildMenus();
+    applyLanguage();
   });
   // "Apri all'accesso" (D-095): from the core's page (local or remote, it is this computer's
   // app either way), only true or false; the answer is what the system says now.
@@ -1073,7 +1098,8 @@ async function useTarget(
   opts: { force?: boolean; parent?: BrowserWindow | null } = {},
 ): Promise<boolean> {
   if (choice !== LOCAL_CHOICE && !store?.get(choice)) return false;
-  const name = choice === LOCAL_CHOICE ? 'Questo computer' : (store?.get(choice)?.name ?? '');
+  const name =
+    choice === LOCAL_CHOICE ? appStrings().menu.thisComputer : (store?.get(choice)?.name ?? '');
   if (choice !== switcher?.choice) {
     const ok = await confirmStopLocal((runs) => leaveLocalDialog(name, runs), opts.parent ?? win);
     if (!ok) {
@@ -1088,7 +1114,7 @@ async function useTarget(
   return true;
 }
 
-/** The buttons of the status page besides "Riprova". */
+/** The buttons of the status page besides "Try again". */
 async function statusAction(action: StatusAction): Promise<void> {
   log.info(`status page: ${action}`);
   const h = host();
@@ -1274,7 +1300,7 @@ async function acceptSandboxNotice(): Promise<boolean> {
   log.info('Chromium sandbox off: AppImage on a system without user namespaces (use the .deb)');
   const accepted = sandboxNoticePath(app.getPath('userData'));
   if (existsSync(accepted)) return true;
-  const { buttons, checkboxLabel, ...text } = SANDBOX_NOTICE;
+  const { buttons, checkboxLabel, ...text } = sandboxNotice();
   const answer = await dialog.showMessageBox({
     type: 'warning',
     ...text,
@@ -1303,7 +1329,7 @@ function onUpdateState(state: UpdateState): void {
   if (!Notification.isSupported()) return;
   const copy = updateReadyNotice(state.version);
   const n = new Notification({ title: copy.title, body: copy.body });
-  // A click asks "Riavvia ora / Più tardi" (audit UX 1.10): the menu entry is easy to miss.
+  // A click asks "Restart now / Later" (audit UX 1.10): the menu entry is easy to miss.
   n.on('click', () => void askToInstall(state.version));
   n.show();
 }
@@ -1366,7 +1392,7 @@ async function installUpdate(): Promise<void> {
   if (result === 'refused' && state?.kind === 'error') {
     void dialog.showMessageBox({
       type: 'warning',
-      message: 'Non posso installare l’aggiornamento',
+      message: appStrings().update.cannotInstall,
       detail: `${state.message.charAt(0).toUpperCase()}${state.message.slice(1)}.`,
     });
   }
@@ -1392,18 +1418,18 @@ async function tellDebFailure(report: DebFailureReport): Promise<void> {
       ? await dialog.showMessageBox(parent, options)
       : await dialog.showMessageBox(options);
     const button = d.buttons[response];
-    if (button === DEB_FAILURE_BUTTONS[0] && command) {
+    if (button === debFailureButtons()[0] && command) {
       try {
         await clipboard.writeText(command);
         log.info('updates: install command copied');
         // Shown again: the link is still there, and the user sees the copy happened.
-        detail = `Comando copiato: incollalo in un terminale.\n\n${d.detail}`;
+        detail = `${appStrings().update.commandCopied}\n\n${d.detail}`;
       } catch (err) {
         log.info(`updates: cannot copy the command: ${(err as Error).message}`);
       }
       continue;
     }
-    if (button === DEB_FAILURE_BUTTONS[1] && report.update.url) {
+    if (button === debFailureButtons()[1] && report.update.url) {
       // Through the same filter as every link, and only to the origin of the feed.
       if (isFeedOrigin(report.update.url, updateFeed)) void openExternal(report.update.url);
       else log.info('updates: link not opened (not on the origin of the feed)');
@@ -1502,10 +1528,7 @@ function startUpdater(): void {
       // by the updater is started once this process is gone.
       if (appImage) spawnAfterExit(appImage, relaunchArgs(process.argv.slice(1)));
       else if (process.platform === 'linux' && process.env['APPIMAGE']) {
-        dialog.showErrorBox(
-          'Aggiornamento non riuscito',
-          'Monsters non trova più il suo file: scaricalo di nuovo dal sito.',
-        );
+        dialog.showErrorBox(appStrings().update.failedTitle, appStrings().update.fileGone);
       } else app.relaunch();
       app.quit();
     },
@@ -1646,11 +1669,9 @@ async function startFailed(err: unknown): Promise<void> {
   await dialog
     .showMessageBox({
       type: 'error',
-      message: 'Monsters non riesce a partire',
-      detail:
-        `Non riesco a usare la cartella dei dati di Monsters (${home}): controlla che esista ` +
-        `e che tu possa scriverci, poi riapri Monsters.\n\nDettagli: ${message}`,
-      buttons: ['Esci'],
+      message: appStrings().startFailed.message,
+      detail: appStrings().startFailed.detail(home, message),
+      buttons: [appStrings().startFailed.quit],
     })
     .catch(() => {});
   app.exit(1);

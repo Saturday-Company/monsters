@@ -115,7 +115,7 @@ describe('signed provider', () => {
     await expect(unsigned.provider.getLatestVersion()).rejects.toMatchObject({
       name: 'UpdateRefusedError',
       reason: 'missing',
-      message: 'l’aggiornamento 0.1.0-alpha.14 non è firmato: non lo scarico',
+      message: 'update 0.1.0-alpha.14 isn’t signed: I’m not downloading it',
     });
     const changed = make({
       'alpha-linux.yml': [CHANNEL.replace(sha('d'), sha('evil'))],
