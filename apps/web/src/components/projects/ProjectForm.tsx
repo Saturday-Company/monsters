@@ -28,6 +28,7 @@ import { Segmented, Switch } from '../ui/controls.tsx';
 import { Field, Input, Label } from '../ui/field.tsx';
 import { SquadChart } from './SquadChart.tsx';
 import { FolderPickButton, useCanPickFolder } from './FolderPicker.tsx';
+import { formStrings } from './form.strings.ts';
 
 /*
  * A new project from the app (D-097, D-100; docs/design.md, "Progetti"): its
@@ -87,6 +88,7 @@ type LeadChoice = 'new' | 'copy';
 type Errors = Partial<Record<'name' | 'folder' | 'lead' | 'form', string>>;
 
 export function ProjectForm() {
+  const s = formStrings();
   const ids = domId(useId());
   const agents = useAgents();
   const projects = useProjects();
@@ -121,16 +123,14 @@ export function ProjectForm() {
     const np = projectNameProblem(name, projects ?? []);
     if (np) e.name = np;
     if (folder !== 'none' && !looksAbsolute(shownPath)) {
-      e.folder = 'Scrivi il percorso completo della cartella, per esempio ~/Progetti/Sito.';
+      e.folder = s.folderRelative;
     }
-    if (lead === 'copy' && !leadFrom) e.lead = 'Scegli il mostro da copiare come capo.';
+    if (lead === 'copy' && !leadFrom) e.lead = s.leadMissing;
     if (lead === 'new' && leadName.trim()) {
       const n = leadName.replace(/\s+/g, ' ').trim();
       const problem =
         nameProblem(n) ??
-        (names.some((x) => x.toLowerCase() === n.toLowerCase())
-          ? 'C’è già un mostro con questo nome, in questa o in un’altra squadra.'
-          : null);
+        (names.some((x) => x.toLowerCase() === n.toLowerCase()) ? s.leadTaken : null);
       if (problem) e.lead = problem;
     }
     return e;
@@ -188,9 +188,7 @@ export function ProjectForm() {
     void refreshProjects();
     void refreshAgents().catch(() => {});
     notify(
-      failed.length > 0
-        ? `${made.name} è pronto, ma non ho copiato ${failed.join('; ')}`
-        : `${made.name} è pronto: scrivi al suo capo da qui.`,
+      failed.length > 0 ? s.readyWithFailures(made.name, failed.join('; ')) : s.ready(made.name),
       failed.length > 0 ? 'error' : 'success',
     );
     openPage(projectPath(made.id));
@@ -206,65 +204,53 @@ export function ProjectForm() {
     >
       <div className="grid gap-1 px-1">
         <h2 id={`${ids}-title`} className="text-title2 font-semibold text-ink">
-          Nuovo progetto
+          {s.title}
         </h2>
-        <p className="max-w-[62ch] text-body text-ink-muted">
-          Un progetto è una squadra con il suo capo, i suoi mostri, una cartella delle note, la sua
-          cartella sul computer e un suo tetto di spesa. Il tuo capo resta sopra tutti.
-        </p>
+        <p className="max-w-[62ch] text-body text-ink-muted">{s.intro}</p>
         <SquadChart className="pt-1.5" />
       </div>
 
-      <Group title="Il progetto">
+      <Group title={s.project.title}>
         <div className="grid gap-5 px-4 pt-1 pb-4">
-          <Field id={`${ids}-name`} label="Nome" error={errors.name}>
+          <Field id={`${ids}-name`} label={s.project.name} error={errors.name}>
             <Input
               id={`${ids}-name`}
               value={name}
               maxLength={40}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Social di Saturday"
+              placeholder={s.project.placeholder}
               aria-invalid={errors.name ? true : undefined}
               data-testid="project-name"
             />
           </Field>
           <p className="text-footnote text-ink-muted">
-            Le sue note andranno in{' '}
+            {s.project.notesIn} {/* i18n-ignore: the vault's folder name, data */}
             <span className="font-mono text-ink">Progetti/{name.trim() || '…'}/</span>.
           </p>
         </div>
       </Group>
 
-      <Group
-        title="Cartella"
-        description="La cartella del computer dove lavorano i mostri del progetto: il loro terminale, i file e Claude Code o Codex partono da lì. Tutti i mostri del progetto potranno leggere e scrivere qui. Non la tua cartella personale né le cartelle nascoste."
-      >
+      <Group title={s.folder.title} description={s.folder.description}>
         <div className="grid gap-4 px-4 pt-1 pb-4">
           <Segmented<FolderChoice>
             value={folder}
             onChange={setFolder}
-            label="Cartella del progetto"
+            label={s.folder.label}
             size="sm"
             options={[
-              { value: 'none', label: 'Nessuna' },
-              { value: 'existing', label: 'Una che c’è' },
-              { value: 'new', label: 'Una nuova' },
+              { value: 'none', label: s.folder.none },
+              { value: 'existing', label: s.folder.existing },
+              { value: 'new', label: s.folder.new },
             ]}
           />
           {folder === 'none' ? (
-            <p className="text-footnote text-ink-muted">
-              Ogni mostro lavora nella sua cartella privata.
-            </p>
+            <p className="text-footnote text-ink-muted">{s.folder.noneHint}</p>
           ) : (
             <Field
               id={`${ids}-path`}
-              label="Percorso completo"
+              label={s.folder.path}
               error={errors.folder}
-              hint={
-                folder === 'new'
-                  ? `La creo io${canPick ? ': con Scegli… indichi dove' : ''}. Non dentro le note né dentro i dati di Monsters.`
-                  : 'Per esempio un repo: ~/Progetti/Sito. Non dentro le note né dentro i dati di Monsters.'
-              }
+              hint={folder === 'new' ? s.folder.newHint(canPick) : s.folder.existingHint}
             >
               <div className="flex gap-2">
                 <Input
@@ -274,7 +260,7 @@ export function ProjectForm() {
                     setPath(e.target.value);
                     setPathTyped(true);
                   }}
-                  placeholder="~/Progetti/Sito"
+                  placeholder={s.folder.placeholder}
                   spellCheck={false}
                   autoCapitalize="off"
                   aria-invalid={errors.folder ? true : undefined}
@@ -295,26 +281,23 @@ export function ProjectForm() {
         </div>
       </Group>
 
-      <Group
-        title="Capo del progetto"
-        description="Coordina i mostri del progetto come il tuo capo fa con la tua squadra. Una copia ha il ruolo, l’aspetto e i modelli dell’originale e una memoria tutta sua."
-      >
+      <Group title={s.lead.title} description={s.lead.description}>
         <div className="grid gap-4 px-4 pt-1 pb-4">
           <Segmented<LeadChoice>
             value={lead}
             onChange={setLead}
-            label="Chi guida il progetto"
+            label={s.lead.label}
             size="sm"
             options={[
-              { value: 'new', label: 'Uno nuovo' },
-              { value: 'copy', label: 'Copia un mostro' },
+              { value: 'new', label: s.lead.new },
+              { value: 'copy', label: s.lead.copy },
             ]}
           />
           {lead === 'new' ? (
             <Field
               id={`${ids}-lead`}
-              label="Nome del capo"
-              hint="Vuoto: gli do io un nome libero."
+              label={s.lead.name}
+              hint={s.lead.nameHint}
               error={errors.lead}
             >
               <Input
@@ -322,14 +305,14 @@ export function ProjectForm() {
                 value={leadName}
                 maxLength={24}
                 onChange={(e) => setLeadName(e.target.value)}
-                placeholder="Atlas"
+                placeholder={s.lead.placeholder}
                 aria-invalid={errors.lead ? true : undefined}
                 data-testid="project-lead-name"
               />
             </Field>
           ) : (
             <div className="grid gap-2">
-              <Label id={`${ids}-from`}>Da copiare</Label>
+              <Label id={`${ids}-from`}>{s.lead.from}</Label>
               <div
                 role="radiogroup"
                 aria-labelledby={`${ids}-from`}
@@ -352,8 +335,7 @@ export function ProjectForm() {
               )}
               {leadFrom && (
                 <p className="text-footnote text-ink-muted">
-                  Si chiamerà {freeCopyName(names) ?? 'con un nome libero'}: lo cambi dopo, dalla
-                  sua chat.
+                  {s.lead.willBeCalled(freeCopyName(names))}
                 </p>
               )}
             </div>
@@ -362,14 +344,11 @@ export function ProjectForm() {
       </Group>
 
       {sources.length > 0 && (
-        <Group
-          title="Primi mostri"
-          description="Copia nel progetto i mostri che ti servono: l’originale resta dov’è. Uno nuovo, su misura, lo aggiungi dopo dalla Squadra del progetto."
-        >
+        <Group title={s.first.title} description={s.first.description}>
           <div className="grid gap-2 px-4 pt-1 pb-4">
             <div
               role="group"
-              aria-label="Mostri da copiare"
+              aria-label={s.first.label}
               className="flex flex-wrap gap-2.5 pb-1"
               data-testid="project-copies"
             >
@@ -389,10 +368,10 @@ export function ProjectForm() {
 
       {links && links.length > 0 && (
         <Group
-          title="Collegamenti"
+          title={s.links.title}
           as="ul"
           testId="project-form-links"
-          description="I programmi e i servizi dati a tutta la squadra arrivano anche al progetto. Spegni quelli che non gli servono: li riaccendi quando vuoi dalla scheda Collegamenti del progetto."
+          description={s.links.description}
         >
           {links.map((l) => {
             const key = `${l.kind}:${l.id}`;
@@ -402,18 +381,14 @@ export function ProjectForm() {
                 as="li"
                 testId="project-form-link"
                 label={l.label}
-                description={
-                  l.kind === 'claude'
-                    ? 'Tramite l’abbonamento Claude, per chi lavora con Claude'
-                    : 'Dato a tutta la squadra'
-                }
+                description={l.kind === 'claude' ? s.links.viaClaude : s.links.team}
               >
                 <Switch
                   checked={!linksOff.includes(key)}
                   onCheckedChange={(on) =>
                     setLinksOff((off) => (on ? off.filter((x) => x !== key) : [...off, key]))
                   }
-                  label={`${l.label} per il progetto`}
+                  label={s.links.switch(l.label)}
                 />
               </Row>
             );
@@ -428,7 +403,7 @@ export function ProjectForm() {
       )}
       <div className="flex flex-wrap justify-end gap-2 px-1">
         <Button variant="ghost" onClick={() => window.history.back()}>
-          Annulla
+          {s.cancel}
         </Button>
         <Button
           type="submit"
@@ -436,7 +411,7 @@ export function ProjectForm() {
           variant={name.trim() ? 'primary' : 'secondary'}
           data-testid="project-create"
         >
-          {busy ? 'Lo preparo…' : 'Crea il progetto'}
+          {busy ? s.creating : s.create}
         </Button>
       </div>
     </form>

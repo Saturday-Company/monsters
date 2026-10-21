@@ -8,6 +8,7 @@ import {
   placeLabels,
   type GraphLayout,
 } from '../../lib/graph-layout.ts';
+import { noteStrings } from './note.strings.ts';
 
 /*
  * Link graph of the vault on a canvas (loaded with its own chunk), drawn as a
@@ -517,9 +518,7 @@ export default function GraphView({
     const n = notes[i];
     if (!n) return;
     const count = neighbours[i]!.length;
-    setAnnounce(
-      `${n.title}, ${count === 1 ? '1 collegamento' : `${count} collegamenti`}. Invio per aprirla.`,
-    );
+    setAnnounce(noteStrings().graph.selected(n.title, count));
   };
 
   const onKey = (e: KeyboardEvent<HTMLCanvasElement>) => {
@@ -546,7 +545,7 @@ export default function GraphView({
         ref={canvasRef}
         tabIndex={0}
         role="img"
-        aria-label={`Grafo dei collegamenti: ${notes.length} note, ${links.length} collegamenti. Usa le frecce per scorrere le note e Invio per aprirle.`}
+        aria-label={noteStrings().graph.label(notes.length, links.length)}
         onKeyDown={onKey}
         onBlur={() => setSelected(-1)}
         className="absolute inset-0 cursor-grab touch-none rounded-[12px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal"

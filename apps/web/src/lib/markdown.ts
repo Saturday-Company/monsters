@@ -123,7 +123,7 @@ export function noteName(target: string): string {
 
 /** Normalised key to compare a note link with a vault path. */
 export function noteKey(target: string): string {
-  return noteName(target).toLocaleLowerCase('it-IT');
+  return noteName(target).toLowerCase();
 }
 
 /**

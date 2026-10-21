@@ -107,12 +107,12 @@ describe('Markdown', () => {
     expect(safeUrl('#/altro')).toBe('');
   });
 
-  it('never loads remote images by itself: a card with "Mostra immagine" (D-075)', () => {
+  it('never loads remote images by itself: a card with "Show image" (D-075)', () => {
     const html = render('![foto](https://example.org/a.png)');
     expect(html).not.toContain('<img');
     expect(html).toContain('remote-image-card');
-    expect(html).toContain('Da example.org');
-    expect(html).toContain('Mostra immagine');
+    expect(html).toContain('From example.org');
+    expect(html).toContain('Show image');
     // Plain http is a link only.
     const plain = render('![foto](http://example.org/a.png)');
     expect(plain).not.toContain('<img');

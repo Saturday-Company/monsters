@@ -6,7 +6,7 @@ import { MarkedMemoryLines } from '../src/components/vault/NoteReader.tsx';
 
 /*
  * Review of the waves 3 and 4, memory: the lines of a monster's memory written after
- * third-party text show in its note with «È mia», which takes the mark away.
+ * third-party text show in its note with “It’s mine”, which takes the mark away.
  */
 
 const note = (path: string, content: string) =>
@@ -15,7 +15,7 @@ const note = (path: string, content: string) =>
 const agents = [{ id: 'rhea', name: 'Rhea' }];
 
 describe('the marked lines of a memory', () => {
-  it('each with «È mia», without the mark', () => {
+  it('each with “It’s mine”, without the mark', () => {
     const html = renderToStaticMarkup(
       createElement(MarkedMemoryLines, {
         note: note(
@@ -28,8 +28,8 @@ describe('the marked lines of a memory', () => {
     );
     expect(html).toContain('data-testid="memory-marked"');
     expect(html).toContain('La NASA ha la pagina più aggiornata');
-    expect(html).toContain('È mia');
-    expect(html).toContain('aria-label="È mia: La NASA ha la pagina più aggiornata"');
+    expect(html).toContain('It’s mine');
+    expect(html).toContain('aria-label="It’s mine: La NASA ha la pagina più aggiornata"');
     expect(html).not.toContain(MEMORY_TAINT_MARK);
     expect(html).not.toContain('rapporti brevi');
   });

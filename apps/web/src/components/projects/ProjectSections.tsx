@@ -1,5 +1,6 @@
 import {
   formatEur,
+  formatList,
   MCP_CATALOG,
   type ClaudeConnectionsResponse,
   type McpServersResponse,
@@ -43,25 +44,27 @@ import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { ProjectDocsDrafts } from './DraftCards.tsx';
 import { FolderPickButton, useCanPickFolder } from './FolderPicker.tsx';
+import { sectionsStrings } from './sections.strings.ts';
 
 /*
  * The tabs of a project's page besides the chat and the squad (D-100):
- * - Note: the notes of its area (`Progetti/<nome>/`), written by its monsters,
+ * - Notes: the notes of its area (`Progetti/<nome>/`), written by its monsters,
  *   read by everyone;
- * - Cartella: the folder where its monsters work, on a small screen with
- *   "Copia" (the browser cannot open a folder of the computer, and the
+ * - Folder: the folder where its monsters work, on a small screen with
+ *   "Copy" (the browser cannot open a folder of the computer, and the
  *   desktop bridge opens only files of the notes), changed or taken away;
  *   the monsters' proposals for its CLAUDE.md and AGENTS.md (D-113);
- * - Collegamenti: which servers given to the whole team its monsters see,
+ * - Connections: which servers given to the whole team its monsters see,
  *   and the web search;
- * - Automazioni: its automations, as in the Automazioni section;
- * - Spesa: its cap, with the team's above and the monsters' below (three
+ * - Automations: its automations, as in the Automations section;
+ * - Spend: its cap, with the team's above and the monsters' below (three
  *   levels, D-070, D-097).
  */
 
-/* ---------------------------------------------------------------- Note */
+/* ---------------------------------------------------------------- Notes */
 
 export function ProjectNotes({ p }: { p: ProjectView }) {
+  const s = sectionsStrings().notes;
   const [notes, setNotes] = useState<VaultNoteSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const area = p.vaultArea;
@@ -71,10 +74,10 @@ export function ProjectNotes({ p }: { p: ProjectView }) {
       .overview()
       .then((o) => {
         if (!alive) return;
-        const prefix = `${area}/`.toLocaleLowerCase('it-IT');
+        const prefix = `${area}/`.toLowerCase();
         setNotes(
           o.notes
-            .filter((n) => n.path.toLocaleLowerCase('it-IT').startsWith(prefix))
+            .filter((n) => n.path.toLowerCase().startsWith(prefix))
             .sort((a, b) => b.updated.localeCompare(a.updated)),
         );
       })
@@ -86,18 +89,18 @@ export function ProjectNotes({ p }: { p: ProjectView }) {
 
   return (
     <Group
-      title="Note del progetto"
+      title={s.title}
       as="ul"
       testId="project-notes"
       description={
         <>
-          Stanno in <span className="font-mono text-ink">{area}/</span>: i mostri del progetto
-          scrivono lì, tutti le possono leggere.
+          {s.stayIn} <span className="font-mono text-ink">{area}/</span>
+          {s.stayInRest}
         </>
       }
       footer={
         <a href={PATHS.vault} className="font-medium text-signal-ink hover:underline">
-          Tutte le note
+          {s.all}
         </a>
       }
     >
@@ -113,16 +116,14 @@ export function ProjectNotes({ p }: { p: ProjectView }) {
       {!error && notes === null && (
         <li>
           <RowBody>
-            <p className="label text-ink-muted">Carico…</p>
+            <p className="label text-ink-muted">{sectionsStrings().loading}</p>
           </RowBody>
         </li>
       )}
       {notes?.length === 0 && (
         <li>
           <RowBody>
-            <p className="text-body text-ink-muted">
-              Ancora nessuna nota: quando il capo o i suoi mostri ne scrivono una, compare qui.
-            </p>
+            <p className="text-body text-ink-muted">{s.empty}</p>
           </RowBody>
         </li>
       )}
@@ -151,7 +152,7 @@ export function ProjectNotes({ p }: { p: ProjectView }) {
   );
 }
 
-/* ------------------------------------------------------------- Cartella */
+/* --------------------------------------------------------------- Folder */
 
 type FolderChoice = 'existing' | 'new';
 
@@ -163,6 +164,7 @@ export function ProjectFolder({
   onChanged: (p: ProjectView) => void;
 }) {
   const id = domId(useId());
+  const s = sectionsStrings().folder;
   const [editing, setEditing] = useState(!p.folder);
   const [path, setPath] = useState(p.folder ?? '');
   const [choice, setChoice] = useState<FolderChoice>('existing');
@@ -174,23 +176,22 @@ export function ProjectFolder({
     if (!p.folder) return;
     try {
       await navigator.clipboard.writeText(p.folder);
-      notify('Percorso copiato.', 'success');
+      notify(s.copied, 'success');
     } catch {
-      notify('Non riesco a copiarlo: selezionalo e copialo a mano.', 'error');
+      notify(s.copyFailed, 'error');
     }
   };
   const save = async (e: FormEvent) => {
     e.preventDefault();
     const t = path.trim();
-    if (!looksAbsolute(t))
-      return setError('Scrivi il percorso completo, per esempio ~/Progetti/Sito.');
+    if (!looksAbsolute(t)) return setError(s.relative);
     setBusy(true);
     setError(null);
     try {
       onChanged(
         await getApi().updateProject(p.id, { folder: { path: t, create: choice === 'new' } }),
       );
-      notify('Cartella del progetto salvata.', 'success');
+      notify(s.saved, 'success');
       setEditing(false);
     } catch (err) {
       setError(describeError(err));
@@ -203,7 +204,7 @@ export function ProjectFolder({
     setBusy(true);
     try {
       onChanged(await getApi().approveProjectDocs(p.id));
-      notify('Istruzioni della cartella approvate.', 'success');
+      notify(s.approved, 'success');
     } catch (err) {
       notify(describeError(err), 'error');
     } finally {
@@ -214,7 +215,7 @@ export function ProjectFolder({
     setBusy(true);
     try {
       onChanged(await getApi().updateProject(p.id, { folder: null }));
-      notify('Ora ogni mostro lavora nella sua cartella privata.');
+      notify(s.removed);
       setPath('');
       setEditing(true);
     } catch (err) {
@@ -225,14 +226,10 @@ export function ProjectFolder({
   };
 
   return (
-    <Group
-      title="Cartella del progetto"
-      testId="project-folder"
-      description="Qui lavorano i mostri del progetto: il terminale, i file e gli altri assistenti (Claude Code, Codex) partono da questa cartella. Le istruzioni del progetto (CLAUDE.md, AGENTS.md) che ci trovano le leggono come note, non come ordini. Tutti i mostri del progetto possono leggere e scrivere qui, anche i file che lanciano comandi (Makefile, script di package.json e simili) e partono al tuo prossimo test o commit: quelli senza terminale non li toccano, quelli con il terminale sì, e se hanno letto testo di terzi chiedono prima."
-    >
+    <Group title={s.title} testId="project-folder" description={s.description}>
       {p.folder && (
         <Row
-          label="Percorso"
+          label={s.path}
           description={
             <span
               className="screen mt-1.5 block rounded-[8px] px-3 py-2 font-mono text-caption leading-[1.5] break-all text-screen-ink"
@@ -245,8 +242,8 @@ export function ProjectFolder({
           <Button
             variant="ghost"
             size="iconSm"
-            aria-label="Copia il percorso della cartella del progetto"
-            title="Copia il percorso"
+            aria-label={s.copyLabel}
+            title={s.copyTitle}
             onClick={() => void copy()}
           >
             <Copy size={18} aria-hidden />
@@ -255,16 +252,13 @@ export function ProjectFolder({
       )}
       {p.folder && !p.folderExists && !(p.status === 'draft' && p.plan?.createFolder) && (
         <RowBody>
-          <Status testId="project-folder-missing">
-            La cartella non c’è più (spostata o cancellata): scegline un’altra o rimettila al suo
-            posto.
-          </Status>
+          <Status testId="project-folder-missing">{s.missing}</Status>
         </RowBody>
       )}
       {p.folderDocs?.changed && (
         <Row
-          label="Istruzioni cambiate"
-          description={`${p.folderDocs.files.join(' o ')} della cartella non è più come l’hai approvato: finché non lo approvi, i mostri del progetto lavorano con le difese di quando leggono testo di terzi (chiedono prima di mandare dati fuori).`}
+          label={s.docsChanged}
+          description={s.docsChangedText(p.folderDocs.files.join(s.filesJoin))}
           testId="project-folder-docs-changed"
         >
           <Button
@@ -273,38 +267,29 @@ export function ProjectFolder({
             onClick={() => void approve()}
             data-testid="project-folder-docs-approve"
           >
-            Approva
+            {s.approve}
           </Button>
         </Row>
       )}
       {p.folder && <ProjectDocsDrafts project={p.id} />}
-      {!p.folder && !editing && (
-        <Row
-          label="Nessuna cartella"
-          description="Ogni mostro lavora nella sua cartella privata."
-        />
-      )}
+      {!p.folder && !editing && <Row label={s.none} description={s.noneText} />}
       {editing ? (
         <form onSubmit={(e) => void save(e)} noValidate>
           <RowBody className="sm:max-w-[560px]">
             <Segmented<FolderChoice>
               value={choice}
               onChange={setChoice}
-              label="Che cartella"
+              label={s.which}
               size="sm"
               options={[
-                { value: 'existing', label: 'Una che c’è' },
-                { value: 'new', label: 'Una nuova' },
+                { value: 'existing', label: s.existing },
+                { value: 'new', label: s.new },
               ]}
             />
             <FormField
               id={id}
-              label="Percorso completo"
-              hint={
-                choice === 'new'
-                  ? `La creo io, se non c’è${canPick ? ': con Scegli… indichi dove' : ''}. Non dentro le note né dentro i dati di Monsters.`
-                  : 'Una cartella di questo computer, non dentro le note né dentro i dati di Monsters.'
-              }
+              label={s.fullPath}
+              hint={choice === 'new' ? s.newHint(canPick) : s.existingHint}
               error={error}
             >
               <div className="flex gap-2">
@@ -312,7 +297,7 @@ export function ProjectFolder({
                   id={id}
                   value={path}
                   onChange={(e) => setPath(e.target.value)}
-                  placeholder="~/Progetti/Sito"
+                  placeholder={s.placeholder}
                   spellCheck={false}
                   autoCapitalize="off"
                   aria-invalid={error ? true : undefined}
@@ -330,11 +315,11 @@ export function ProjectFolder({
             </FormField>
             <div className="flex flex-wrap gap-2">
               <Button type="submit" size="sm" disabled={busy || !path.trim()}>
-                Salva
+                {s.save}
               </Button>
               {p.folder && (
                 <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
-                  Annulla
+                  {s.cancel}
                 </Button>
               )}
             </div>
@@ -344,11 +329,11 @@ export function ProjectFolder({
         <RowBody>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-              {p.folder ? 'Cambia cartella' : 'Scegli una cartella'}
+              {p.folder ? s.change : s.choose}
             </Button>
             {p.folder && (
               <Button variant="dangerSoft" size="sm" disabled={busy} onClick={() => void remove()}>
-                Togli la cartella
+                {s.take}
               </Button>
             )}
           </div>
@@ -358,7 +343,7 @@ export function ProjectFolder({
   );
 }
 
-/* --------------------------------------------------------- Collegamenti */
+/* --------------------------------------------------------- Connections */
 
 /** The name of a service of the gallery (`MCP_CATALOG`), as Impostazioni → Collegamenti says it. */
 function serviceName(id: string): string {
@@ -372,6 +357,7 @@ export function ProjectLinks({
   p: ProjectView;
   onChanged: (p: ProjectView) => void;
 }) {
+  const s = sectionsStrings().links;
   const agents = useAgents();
   const [mcp, setMcp] = useState<McpServersResponse | null>(null);
   const [claude, setClaude] = useState<ClaudeConnectionsResponse | null>(null);
@@ -410,73 +396,66 @@ export function ProjectLinks({
     void update({ connections: { [kind]: next } });
   };
 
-  const team = (mcp?.servers ?? []).filter((s) => s.agents.includes('*'));
+  const team = (mcp?.servers ?? []).filter((sv) => sv.agents.includes('*'));
   const own = (mcp?.servers ?? []).filter(
-    (s) => !s.agents.includes('*') && s.agents.some((a) => members.has(a)),
+    (sv) => !sv.agents.includes('*') && sv.agents.some((a) => members.has(a)),
   );
   const services = (claude?.connections ?? []).filter((c) => c.added && c.agents.includes('*'));
 
   return (
     <>
-      <Group
-        title="Ricerca sul web"
-        testId="project-web"
-        footer="Vale insieme ai permessi di ogni mostro: chi non ha il web non lo prende da qui."
-      >
-        <Row
-          label="I mostri del progetto cercano sul web"
-          description="Spenta, il progetto lavora solo con le note, la cartella e i collegamenti qui sotto (anche il browser si spegne)."
-        >
+      <Group title={s.webTitle} testId="project-web" footer={s.webFooter}>
+        <Row label={s.webLabel} description={s.webDescription}>
           <Switch
             checked={p.webSearch}
             disabled={busy}
             onCheckedChange={(v) => void update({ webSearch: v })}
-            label="Ricerca sul web per il progetto"
+            label={s.webSwitch}
           />
         </Row>
       </Group>
 
       <Group
-        title="Programmi e servizi"
+        title={s.title}
         as="ul"
         testId="project-links"
-        description="Un collegamento dato a tutta la squadra arriva ai mostri del progetto solo se lo accendi qui. Uno dato a un mostro per nome gli arriva comunque."
+        description={s.description}
         footer={
           <a
             href={settingsPath('collegamenti')}
             className="font-medium text-signal-ink hover:underline"
           >
-            Collega altri programmi in Impostazioni → Collegamenti
+            {s.more}
           </a>
         }
       >
         {mcp === null && claude === null && (
           <li>
             <RowBody>
-              <p className="label text-ink-muted">Carico…</p>
+              <p className="label text-ink-muted">{sectionsStrings().loading}</p>
             </RowBody>
           </li>
         )}
         {mcp !== null && team.length + own.length + services.length === 0 && (
           <li>
             <RowBody>
-              <p className="text-body text-ink-muted">Nessun programma collegato, per ora.</p>
+              <p className="text-body text-ink-muted">{s.none}</p>
             </RowBody>
           </li>
         )}
-        {team.map((s) => (
+        {team.map((sv) => (
           <Row
-            key={s.name}
+            key={sv.name}
             as="li"
             testId="project-link"
-            label={s.label}
-            description={s.enabled ? 'Dato a tutta la squadra' : 'Spento in Impostazioni'}
+            label={sv.label}
+            description={sv.enabled ? s.team : s.off}
           >
             <Switch
-              checked={p.connections.mcp.includes(s.name)}
+              checked={p.connections.mcp.includes(sv.name)}
               disabled={busy}
-              onCheckedChange={(v) => toggle('mcp', s.name, v)}
-              label={`${s.label} per il progetto`}
+              onCheckedChange={(v) => toggle('mcp', sv.name, v)}
+              label={s.switch(sv.label)}
             />
           </Row>
         ))}
@@ -486,25 +465,22 @@ export function ProjectLinks({
             as="li"
             testId="project-link"
             label={serviceName(c.id)}
-            description="Tramite l’abbonamento Claude, per chi lavora con Claude"
+            description={s.viaClaude}
           >
             <Switch
               checked={p.connections.claude.includes(c.id)}
               disabled={busy}
               onCheckedChange={(v) => toggle('claude', c.id, v)}
-              label={`${serviceName(c.id)} per il progetto`}
+              label={s.switch(serviceName(c.id))}
             />
           </Row>
         ))}
-        {own.map((s) => (
+        {own.map((sv) => (
           <Row
-            key={s.name}
+            key={sv.name}
             as="li"
-            label={s.label}
-            description={`Solo per ${s.agents
-              .filter((a) => members.has(a))
-              .map(nameOf)
-              .join(', ')}: si cambia in Impostazioni`}
+            label={sv.label}
+            description={s.only(formatList(sv.agents.filter((a) => members.has(a)).map(nameOf)))}
           />
         ))}
       </Group>
@@ -512,9 +488,10 @@ export function ProjectLinks({
   );
 }
 
-/* ---------------------------------------------------------- Automazioni */
+/* ---------------------------------------------------------- Automations */
 
 export function ProjectAutomations({ p }: { p: ProjectView }) {
+  const s = sectionsStrings().automations;
   const tick = useAutomationTick();
   const list = useLoaded(() => getApi().automations(), tick);
   const mine = list.data?.filter((a) => a.project === p.id) ?? null;
@@ -523,19 +500,18 @@ export function ProjectAutomations({ p }: { p: ProjectView }) {
     <div className="grid gap-4" data-testid="project-automations">
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={create} data-testid="project-automation-new">
-          <Plus size={16} aria-hidden /> Nuova automazione
+          <Plus size={16} aria-hidden /> {s.new}
         </Button>
         <a
           href={automationPath()}
           className="inline-flex h-10 items-center gap-1.5 px-2 text-body font-medium text-signal-ink hover:underline"
         >
-          Tutte le automazioni <ArrowRight size={15} weight="bold" aria-hidden />
+          {s.all} <ArrowRight size={15} weight="bold" aria-hidden />
         </a>
       </div>
       {mine && mine.length === 0 ? (
         <p className="px-1 text-body text-ink-muted" data-testid="project-automations-empty">
-          Il progetto non ha ancora automazioni: un lavoro che la squadra fa da sola, a un’ora
-          fissa, con il capo che passa i compiti ai suoi mostri.
+          {s.empty}
         </p>
       ) : (
         <AutomationList
@@ -548,7 +524,7 @@ export function ProjectAutomations({ p }: { p: ProjectView }) {
   );
 }
 
-/* ---------------------------------------------------------------- Spesa */
+/* --------------------------------------------------------------- Spend */
 
 export function ProjectSpend({
   p,
@@ -557,6 +533,7 @@ export function ProjectSpend({
   p: ProjectView;
   onChanged: (p: ProjectView) => void;
 }) {
+  const s = sectionsStrings().spend;
   const [view, setView] = useState<ProjectSpendView | null>(null);
   const [team, setTeam] = useState<SpendView | null>(null);
   const [failed, setFailed] = useState(false);
@@ -580,15 +557,15 @@ export function ProjectSpend({
   if (failed) {
     return (
       <p className="px-1 text-footnote text-ink-muted" role="status">
-        Non riesco a leggere la spesa del progetto adesso. Riprova tra poco.
+        {s.failed}
       </p>
     );
   }
-  if (!view) return <p className="label px-1 text-ink-muted">Carico…</p>;
+  if (!view) return <p className="label px-1 text-ink-muted">{sectionsStrings().loading}</p>;
 
   const saveProject = async (caps: { dailyEur: number | null; monthlyEur: number | null }) => {
     onChanged(await getApi().updateProject(p.id, { spend: caps }));
-    notify('Tetto del progetto salvato.', 'success');
+    notify(s.projectSaved, 'success');
     setRound((r) => r + 1);
   };
   const saveAgent = async (
@@ -597,13 +574,13 @@ export function ProjectSpend({
     caps: { dailyEur: number | null; monthlyEur: number | null },
   ) => {
     await getApi().setSpend({ agents: { [id]: caps } });
-    notify(`Tetto di ${name} salvato.`, 'success');
+    notify(s.agentSaved(name), 'success');
     setRound((r) => r + 1);
   };
   const teamCaps = team
     ? [
-        team.day.capEur !== null ? `${formatEur(team.day.capEur)} al giorno` : null,
-        team.month.capEur !== null ? `${formatEur(team.month.capEur)} al mese` : null,
+        team.day.capEur !== null ? s.perDay(formatEur(team.day.capEur)) : null,
+        team.month.capEur !== null ? s.perMonth(formatEur(team.month.capEur)) : null,
       ].filter(Boolean)
     : [];
   const agentCaps = new Map(team?.agents.map((a) => [a.id, a.caps]) ?? []);
@@ -615,26 +592,24 @@ export function ProjectSpend({
   };
   const unpriced = unpricedNotice(
     view.agents.flatMap((a) => a.unpriced ?? []),
-    'Il tetto del progetto',
+    s.subject,
   );
   const estimated = estimatedNotice(
     view.agents.flatMap((a) => a.estimated ?? []),
-    'Il tetto del progetto',
+    s.subject,
   );
 
   return (
     <>
       <Group
-        title="Tetto del progetto"
+        title={s.title}
         testId="project-spend"
-        description="Quanto possono spendere i mostri del progetto con i modelli a pagamento. Al tetto i loro lavori a pagamento si fermano; gli altri progetti e la Squadra personale vanno avanti."
+        description={s.description}
         footer={
           <span data-testid="project-spend-team">
-            {teamCaps.length > 0
-              ? `Vale anche il tetto di tutta la squadra (${teamCaps.join(', ')}): si ferma il primo che arriva. `
-              : 'Tutta la squadra non ha un tetto. '}
+            {teamCaps.length > 0 ? s.teamCap(teamCaps.join(', ')) : s.noTeamCap}
             <a href={SPEND_CAP_PATH} className="font-medium text-signal-ink hover:underline">
-              Tetto di spesa della squadra
+              {s.teamLink}
             </a>
           </span>
         }
@@ -644,7 +619,7 @@ export function ProjectSpend({
           links={[
             {
               id: 'monster',
-              label: 'Mostro',
+              label: s.monster,
               ...chainOf(
                 closestOf(
                   view.agents.map((a) => ({
@@ -655,10 +630,10 @@ export function ProjectSpend({
                 ),
               ),
             },
-            { id: 'project', label: 'Progetto', ...chainOf(closestMeter(view.day, view.month)) },
+            { id: 'project', label: s.project, ...chainOf(closestMeter(view.day, view.month)) },
             {
               id: 'team',
-              label: 'Tutta la squadra',
+              label: s.team,
               ...chainOf(team ? closestMeter(team.day, team.month) : null),
             },
           ]}
@@ -676,16 +651,14 @@ export function ProjectSpend({
         {view.status !== 'ok' && (
           <RowBody>
             <Status testId="project-spend-status">
-              {view.status === 'stopped'
-                ? 'Il progetto ha raggiunto il suo tetto: i lavori a pagamento dei suoi mostri sono fermi. Alzalo qui sotto per farli ripartire.'
-                : 'Il progetto ha speso più dell’80% del suo tetto.'}
+              {view.status === 'stopped' ? s.stopped : s.warning}
             </Status>
           </RowBody>
         )}
-        <Row label="Oggi" description={noCapNote(view.day)} testId="project-spend-day">
+        <Row label={s.today} description={noCapNote(view.day)} testId="project-spend-day">
           <SpendDisplay meter={view.day} />
         </Row>
-        <Row label="Questo mese" description={noCapNote(view.month)}>
+        <Row label={s.month} description={noCapNote(view.month)}>
           <SpendDisplay meter={view.month} />
         </Row>
         <RowBody>
@@ -693,7 +666,7 @@ export function ProjectSpend({
             testId="project-caps"
             daily={view.caps.dailyEur ?? null}
             monthly={view.caps.monthlyEur ?? null}
-            emptyHint="Vuoto: vale solo il tetto della squadra."
+            emptyHint={s.emptyHint}
             onSave={saveProject}
           />
         </RowBody>
@@ -701,17 +674,21 @@ export function ProjectSpend({
 
       {view.agents.length > 0 && (
         <Group
-          title="Per mostro"
+          title={s.perMonster}
           as="ul"
           testId="project-spend-agents"
-          description="Un tetto in più solo per un mostro, oltre a quelli del progetto e della squadra."
+          description={s.perMonsterDescription}
         >
           {view.agents.map((a) => (
             <li key={a.id} data-testid={`project-spend-agent-${a.id}`}>
               <Row
                 leading={<AgentMark id={a.id} color="var(--ink-muted)" width={40} height={34} />}
                 label={a.name}
-                description={`Oggi ${formatEur(a.day.spentEur)} · questo mese ${formatEur(a.month.spentEur)}${a.paid ? '' : ' · usa modelli gratuiti o un abbonamento'}`}
+                description={s.agentLine(
+                  formatEur(a.day.spentEur),
+                  formatEur(a.month.spentEur),
+                  a.paid,
+                )}
               />
               {a.paid && (
                 <RowBody>
@@ -719,7 +696,7 @@ export function ProjectSpend({
                     testId={`project-caps-${a.id}`}
                     daily={agentCaps.get(a.id)?.dailyEur ?? null}
                     monthly={agentCaps.get(a.id)?.monthlyEur ?? null}
-                    emptyHint="Vuoto: valgono i tetti del progetto e della squadra."
+                    emptyHint={s.agentEmptyHint}
                     onSave={(caps) => saveAgent(a.id, a.name, caps)}
                   />
                 </RowBody>

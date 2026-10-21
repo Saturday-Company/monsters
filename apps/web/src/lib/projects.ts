@@ -5,15 +5,15 @@ import {
   type ProjectPlanMember,
   type ProjectView,
 } from '@monsters/shared';
-import { PERSONAL_SQUAD } from './automations.ts';
 import { monsterFor } from './monsters.ts';
+import { projectsLibStrings } from './projects.strings.ts';
 
 /*
  * Projects in the UI (plan of 17/10 §3 B1, D-097, D-100): the squads of the
  * sidebar (the personal one, then one per active project with its lead
  * first), the free name a copied monster gets (as the core proposes it), the
  * folder a new project would get, and the plan of a proposed project in
- * words for "Da rivedere".
+ * words for "To review".
  */
 
 /** What the squads need of a monster (an `AgentView`, or a summary in the tests). */
@@ -51,7 +51,11 @@ export function squadsOf<T extends SquadMember>(
   projects: readonly ProjectView[] | null,
 ): { god: T | null; squads: Squad<T>[] } {
   const god = agents.find((a) => a.isOrchestrator) ?? null;
-  const personal: Squad<T> = { key: '', label: PERSONAL_SQUAD, members: [] };
+  const personal: Squad<T> = {
+    key: '',
+    label: projectsLibStrings().personalSquad,
+    members: [],
+  };
   const byProject = new Map<string, Squad<T>>();
   for (const p of projects ?? []) {
     if (isLive(p)) byProject.set(p.id, { key: p.id, label: p.name, project: p, members: [] });
@@ -111,6 +115,7 @@ export function copyName(
     .trim();
   const candidates: string[] = [];
   if (words) {
+    // i18n-ignore: the separators of the core's copy names ("Rhea · Saturday", "Rhea di Saturday")
     for (const sep of [' · ', ' di ']) {
       const room = 24 - source.length - sep.length;
       if (room >= 2) candidates.push(`${source}${sep}${words.slice(0, room).trim()}`);
@@ -122,6 +127,7 @@ export function copyName(
 
 /** Where a new folder goes when the user does not say (the core's `~/Monsters Progetti/<name>`). */
 export function newFolderPath(name: string): string {
+  // i18n-ignore: the core's own default folder, whatever the app's language
   const clean = name.replace(/[\\/:*?"<>|]/g, '').trim() || 'Progetto';
   return `~/Monsters Progetti/${clean}`;
 }
@@ -131,12 +137,13 @@ export function newFolderPath(name: string): string {
  * dialog), with the separator `parent` already uses (`\` on Windows).
  */
 export function newFolderIn(parent: string, name: string): string {
+  // i18n-ignore: the same fallback folder name as the core's
   const clean = name.replace(/[\\/:*?"<>|]/g, '').trim() || 'Progetto';
   const sep = parent.includes('\\') && !parent.includes('/') ? '\\' : '/';
   return `${parent.replace(/[\\/]+$/, '')}${sep}${clean}`;
 }
 
-/** Why a project's name will not do, in Italian; null when it is fine. */
+/** Why a project's name will not do; null when it is fine. */
 export function projectNameProblem(
   name: string,
   others: readonly Pick<ProjectView, 'id' | 'name'>[],
@@ -144,13 +151,11 @@ export function projectNameProblem(
 ): string | null {
   const parsed = ProjectNameSchema.safeParse(name);
   if (!parsed.success) {
-    return name.trim()
-      ? 'Solo lettere, numeri, spazi, apostrofi e trattini (al massimo 40).'
-      : 'Dai un nome al progetto.';
+    return name.trim() ? projectsLibStrings().nameInvalid : projectsLibStrings().nameEmpty;
   }
   const lower = parsed.data.toLowerCase();
   const other = others.find((p) => p.id !== self && p.name.toLowerCase() === lower);
-  return other ? `C’è già un progetto che si chiama ${other.name}.` : null;
+  return other ? projectsLibStrings().nameTaken(other.name) : null;
 }
 
 /** Whether a path is written in full (`/…`, `~/…`, `C:\…`): the core wants an absolute folder. */
@@ -162,7 +167,7 @@ export function looksAbsolute(path: string): boolean {
 /** A monster a proposal brings: a new one (its draft) or a copy of a monster of another squad. */
 export interface PlannedMember {
   name: string;
-  /** The role in a few words (a new one), or "copia di Rhea". */
+  /** The role in a few words (a new one), or "a copy of Rhea". */
   detail: string;
   /** The look: the draft's genome, or the copied monster's id (its look comes from the team). */
   genome?: unknown;
@@ -187,14 +192,14 @@ export function plannedMembers(
     given.push(name);
     return {
       name,
-      detail: `con il ruolo e le regole di ${source}; nome, aspetto e memoria suoi`,
+      detail: projectsLibStrings().copyDetail(source),
       genome: monsterFor(name),
       copyOf: m.copyOf,
     };
   });
 }
 
-/** What the lead of a plan will be, in words: "Atlas, nuovo" or "copia di Rhea". */
+/** What the lead of a plan will be, in words: "Atlas, new" or "a copy of Rhea". */
 export function plannedLead(
   draft: Pick<ProjectView, 'plan' | 'name'>,
   nameOf: (id: string) => string,
@@ -203,11 +208,11 @@ export function plannedLead(
   if (lead.from) {
     return {
       name: lead.name ?? null,
-      detail: `con il ruolo e le regole di ${nameOf(lead.from)}; nome, aspetto e memoria suoi`,
+      detail: projectsLibStrings().copyDetail(nameOf(lead.from)),
       copyOf: lead.from,
     };
   }
-  return { name: lead.name ?? null, detail: 'nuovo, con una memoria sua' };
+  return { name: lead.name ?? null, detail: projectsLibStrings().newLeadDetail };
 }
 
 /**

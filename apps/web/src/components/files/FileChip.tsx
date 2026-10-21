@@ -17,6 +17,7 @@ import { cn } from '../../lib/utils.ts';
 import { useFileMeta } from '../../store/files.ts';
 import { openPreview } from '../../store/preview.ts';
 import { useFileUrl } from '../preview/files.ts';
+import { filesStrings } from './files.strings.ts';
 
 /*
  * A file as the instrument shows it (docs/design.md, "Allegati e File"): a
@@ -182,6 +183,7 @@ export function FileChip({
   tone?: 'raised' | 'ink';
   className?: string;
 }) {
+  const s = filesStrings().chip;
   const id = file.id;
   const canOpen = open && id !== undefined && progress === undefined && !error;
   const meta = `${kindLabel(file.kind)} · ${formatSize(file.size)}`;
@@ -207,7 +209,7 @@ export function FileChip({
           </span>
         ) : progress !== undefined ? (
           <span className="flex items-center gap-2">
-            <ProgressDashes value={progress} label={`Carico ${file.name}`} />
+            <ProgressDashes value={progress} label={s.uploading(file.name)} />
             <span className="label text-ink-muted">{Math.round(progress * 100)}%</span>
           </span>
         ) : (
@@ -233,8 +235,8 @@ export function FileChip({
         <button
           type="button"
           onClick={() => openPreview({ kind: 'file', fileId: id })}
-          title={`Apri ${file.name} nell’anteprima`}
-          aria-label={`${file.name}, ${meta}: apri nell’anteprima`}
+          title={s.openTitle(file.name)}
+          aria-label={s.openLabel(file.name, meta)}
           className="row-key flex h-full min-w-0 flex-1 items-center gap-2.5 rounded-[12px] py-2 pr-3 pl-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
         >
           {body}
@@ -248,8 +250,8 @@ export function FileChip({
         <button
           type="button"
           onClick={onRemove}
-          aria-label={`Togli ${file.name}`}
-          title="Togli"
+          aria-label={s.removeLabel(file.name)}
+          title={s.remove}
           className="key-ghost mr-1.5 inline-flex size-8 shrink-0 items-center justify-center rounded-[8px] text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-signal-ink"
         >
           <X size={14} weight="bold" aria-hidden />
@@ -267,7 +269,7 @@ export function ImageTile({ meta }: { meta: FileMeta }) {
     <button
       type="button"
       onClick={() => openPreview({ kind: 'file', fileId: meta.id })}
-      aria-label={`${meta.name}, immagine: apri nell’anteprima`}
+      aria-label={filesStrings().chip.imageLabel(meta.name)}
       title={meta.name}
       data-testid="image-tile"
       className="card tile-key block overflow-hidden rounded-[14px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
@@ -284,7 +286,7 @@ export function FileById({ id, image = false }: { id: string; image?: boolean })
   if (meta === 'missing') {
     return (
       <span className="label rounded-[10px] px-2 py-1 text-ink-muted" data-testid="file-missing">
-        File eliminato
+        {filesStrings().chip.gone}
       </span>
     );
   }

@@ -1,14 +1,18 @@
 import {
   ApiErrorSchema,
   FileListSchema,
+  formatNumber,
   type FileKind,
   type FileMeta,
   type PreviewItem,
 } from '@monsters/shared';
 import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import { ApiError, describeError } from '../../lib/api.ts';
+import { kindLabel } from '../../lib/files.ts';
+import { filesLibStrings } from '../../lib/files.strings.ts';
 import { sessionSecret } from '../../lib/session-secret.ts';
 import { getApi } from '../../store/app.ts';
+import { previewStrings } from './preview.strings.ts';
 
 /*
  * The files of the preview pane (contract: packages/shared/src/files.ts): their
@@ -335,25 +339,23 @@ export function useFileMeta(id: string | null): MetaState {
 
 /* --------------------------------------------------------------- words */
 
-const KIND_WORD: Record<FileKind, string> = {
-  image: 'Immagine',
-  pdf: 'PDF',
-  document: 'Documento',
-  sheet: 'Foglio',
-  text: 'Testo',
-  html: 'Pagina',
-  other: 'File',
-};
+export const kindWord = (kind: FileKind): string => kindLabel(kind);
 
-export const kindWord = (kind: FileKind): string => KIND_WORD[kind];
-
-/** "1,2 MB", "820 KB", "512 byte". */
+/** "1.2 MB", "820 KB", "512 bytes" ("1,2 MB" and "512 byte" in Italian). */
 export function formatBytes(n: number): string {
-  if (n < 1024) return `${n} byte`;
+  if (n < 1024) return previewStrings().bytes(n);
+  const one = (v: number) =>
+    formatNumber(
+      v,
+      v < 10
+        ? { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+        : {
+            maximumFractionDigits: 0,
+          },
+    );
   const kb = n / 1024;
-  if (kb < 1024) return `${kb < 10 ? kb.toFixed(1).replace('.', ',') : Math.round(kb)} KB`;
-  const mb = kb / 1024;
-  return `${mb < 10 ? mb.toFixed(1).replace('.', ',') : Math.round(mb)} MB`;
+  if (kb < 1024) return `${one(kb)} KB`;
+  return `${one(kb / 1024)} MB`;
 }
 
 /** The name of a note from its path: the last part, without `.md`. */
@@ -365,7 +367,7 @@ export function noteTitle(path: string): string {
 /** What the strip says for an item, as far as it is known. */
 export function itemName(item: PreviewItem): string {
   if (item.kind === 'note') return noteTitle(item.path);
-  return metas.get(item.fileId)?.name ?? 'File';
+  return metas.get(item.fileId)?.name ?? filesLibStrings().kinds.other;
 }
 
 /** How a text file is shown: as code (with light colours), a table, JSON or plain text. */

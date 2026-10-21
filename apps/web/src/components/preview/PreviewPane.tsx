@@ -43,13 +43,14 @@ import {
   rendererOf,
   useFileMeta,
 } from './files.ts';
+import { previewStrings } from './preview.strings.ts';
 import { HtmlView, ImageView, OtherView, TextView } from './renderers.tsx';
 
 /*
- * Anteprima (docs/design.md, "Pannello a destra"; D-075): the strip of what is
+ * Preview (docs/design.md, "Pannello a destra"; D-075): the strip of what is
  * open (name and ✕), then the item shown: a header with its name, kind, size
- * and who made it, its keys (Apri con il sistema, Mostra nella cartella, Copia,
- * Scarica; a note: Apri nelle Note), and the item itself by kind.
+ * and who made it, its keys (Open in the system, Show in the folder, Copy,
+ * Download; a note: Open in Notes), and the item itself by kind.
  */
 
 const PdfView = lazy(() => import('./PdfView.tsx'));
@@ -65,6 +66,7 @@ const ICONS: Record<FileMeta['kind'], Icon> = {
 };
 
 function StripChip({ item, index, active }: { item: PreviewItem; index: number; active: boolean }) {
+  const s = previewStrings();
   const meta = useFileMeta(item.kind === 'file' ? item.fileId : null);
   const ready = meta.state === 'ready' ? meta.meta : null;
   const name = item.kind === 'note' ? noteTitle(item.path) : (ready?.name ?? itemName(item));
@@ -94,8 +96,8 @@ function StripChip({ item, index, active }: { item: PreviewItem; index: number; 
       <button
         type="button"
         onClick={() => usePreview.getState().closeItem(index)}
-        aria-label={`Chiudi ${name}`}
-        title="Chiudi"
+        aria-label={s.closeItem(name)}
+        title={s.close}
         className="w-7 shrink-0 justify-center"
         data-testid="preview-chip-close"
       >
@@ -183,26 +185,25 @@ async function toPng(blob: Blob): Promise<Blob> {
   );
 }
 
-const copied = (what: string) => notify(`${what} negli appunti`, 'success');
-const notCopied = () => notify('Non sono riuscito a copiarlo', 'error');
+const copied = (what: string) => notify(previewStrings().copiedToClipboard(what), 'success');
+const notCopied = () => notify(previewStrings().notCopied, 'error');
 
 function FileItem({ fileId }: { fileId: string }) {
+  const s = previewStrings();
   const state = useFileMeta(fileId);
   const nameOf = useNameOf();
   const file = useFileUrl(state.state === 'ready' ? fileId : null);
-  if (state.state === 'loading') return <p className="sr-only">Carico…</p>;
+  if (state.state === 'loading') return <p className="sr-only">{s.loading}</p>;
   if (state.state !== 'ready')
     return (
       <p className="px-5 py-10 text-center text-screen-muted" data-testid="preview-missing">
-        {state.state === 'missing'
-          ? 'Questo file non c’è più.'
-          : `Non riesco a leggere questo file: ${state.text}`}
+        {state.state === 'missing' ? s.missing : s.unreadable(state.text)}
       </p>
     );
   const meta = state.meta;
   const kind = rendererOf(meta);
   const who =
-    meta.source === 'user' ? 'da te' : meta.agent ? `da ${nameOf(meta.agent)}` : 'da Monsters';
+    meta.source === 'user' ? s.whoYou : meta.agent ? s.whoAgent(nameOf(meta.agent)) : s.whoMonsters;
   const bridge = desktop();
   // With a ticket of the session in a browser (S-B13): the views wait for it.
   const url = file.src;
@@ -213,11 +214,11 @@ function FileItem({ fileId }: { fileId: string }) {
       {bridge?.openFile && kind !== 'html' && (
         <Key
           icon={AppWindow}
-          label="Apri nel sistema"
+          label={s.openSystem}
           testId="preview-open-system"
           onClick={() =>
             void bridge.openFile!(meta.path).then(
-              (ok) => ok || notify('Questo file si apre solo dalla sua cartella', 'info'),
+              (ok) => ok || notify(s.openOnlyFromFolder, 'info'),
             )
           }
         />
@@ -225,7 +226,7 @@ function FileItem({ fileId }: { fileId: string }) {
       {bridge?.showFileInFolder && (
         <Key
           icon={FolderOpen}
-          label="Mostra nella cartella"
+          label={s.showFolder}
           testId="preview-show-folder"
           onClick={() => void bridge.showFileInFolder!(meta.path)}
         />
@@ -233,11 +234,11 @@ function FileItem({ fileId }: { fileId: string }) {
       {copyable && (
         <Key
           icon={Copy}
-          label="Copia"
+          label={s.copy}
           testId="preview-copy"
           onClick={() =>
             void copyFile(meta).then(
-              () => copied(kind === 'image' ? 'Immagine' : 'Testo'),
+              () => copied(kind === 'image' ? s.copiedImage : s.copiedText),
               notCopied,
             )
           }
@@ -245,7 +246,7 @@ function FileItem({ fileId }: { fileId: string }) {
       )}
       <Key
         icon={DownloadSimple}
-        label="Scarica"
+        label={s.download}
         href={downloadHref(meta.id, 'content')}
         download={meta.name}
         onClick={downloadOnClick(meta.id, meta.name)}
@@ -261,11 +262,11 @@ function FileItem({ fileId }: { fileId: string }) {
         keys={keys}
       />
       <div className="flex min-h-0 flex-1 flex-col" data-testid="preview-body" data-renderer={kind}>
-        {url === undefined && kind !== 'other' && <p className="sr-only">Carico…</p>}
+        {url === undefined && kind !== 'other' && <p className="sr-only">{s.loading}</p>}
         {url !== undefined && kind === 'image' && <ImageView meta={meta} url={url} />}
         {url !== undefined && kind === 'pdf' && (
           <Suspense
-            fallback={<p className="px-5 py-10 text-center text-screen-muted">Carico il PDF…</p>}
+            fallback={<p className="px-5 py-10 text-center text-screen-muted">{s.loadingPdf}</p>}
           >
             <PdfView meta={meta} url={url} />
           </Suspense>
@@ -292,6 +293,7 @@ function noteLinks(): Promise<(target: string) => string | null> {
 }
 
 function NoteItem({ path }: { path: string }) {
+  const s = previewStrings();
   const nameOf = useNameOf();
   const [state, setState] = useState<
     | { path: string; note: VaultNote; resolve: (t: string) => string | null }
@@ -312,7 +314,7 @@ function NoteItem({ path }: { path: string }) {
   }, [path]);
   const shown = state?.path === path ? state : null;
   const resolve = useMemo(() => (shown && 'note' in shown ? shown.resolve : () => null), [shown]);
-  if (!shown) return <p className="sr-only">Carico la nota…</p>;
+  if (!shown) return <p className="sr-only">{s.loadingNote}</p>;
   if ('error' in shown)
     return (
       <p className="px-5 py-10 text-center text-screen-muted" data-testid="preview-missing">
@@ -331,34 +333,30 @@ function NoteItem({ path }: { path: string }) {
     openPreview({ kind: 'note', path: target });
   };
   const who =
-    note.author === 'user'
-      ? 'scritta da te'
-      : note.author
-        ? `scritta da ${nameOf(note.author)}`
-        : null;
-  const folder = note.path.includes('/') ? note.path.split('/').slice(0, -1).join(' › ') : 'Note';
+    note.author === 'user' ? s.writtenByYou : note.author ? s.writtenBy(nameOf(note.author)) : null;
+  const folder = note.path.includes('/') ? note.path.split('/').slice(0, -1).join(' › ') : s.notes;
   return (
     <>
       <Header
         title={note.title}
-        line={['Nota', folder, who].filter(Boolean).join(' · ')}
+        line={[s.noteKind, folder, who].filter(Boolean).join(' · ')}
         keys={
           <>
             <Key
               icon={NotePencil}
-              label="Apri nelle Note"
+              label={s.openInNotes}
               testId="preview-open-notes"
               onClick={() => openPage(vaultPath(note.path))}
             />
             {note.content !== null && (
               <Key
                 icon={Copy}
-                label="Copia"
+                label={s.copy}
                 testId="preview-copy"
                 onClick={() =>
                   void navigator.clipboard
                     .writeText(note.content ?? '')
-                    .then(() => copied('Nota'), notCopied)
+                    .then(() => copied(s.copiedNote), notCopied)
                 }
               />
             )}
@@ -373,9 +371,9 @@ function NoteItem({ path }: { path: string }) {
       >
         <article className="pv-note px-5 py-5">
           {note.content === null ? (
-            <p className="text-body text-ink-muted">Questo file non è una nota di testo.</p>
+            <p className="text-body text-ink-muted">{s.notText}</p>
           ) : note.content.trim() === '' ? (
-            <p className="text-body text-ink-muted">La nota è vuota.</p>
+            <p className="text-body text-ink-muted">{s.emptyNote}</p>
           ) : (
             <VaultMarkdown
               text={withoutTitle(note.content, note.title)}
@@ -383,11 +381,7 @@ function NoteItem({ path }: { path: string }) {
               onTag={(tag) => openPage(`#/note?tag=${encodeURIComponent(tag)}`)}
             />
           )}
-          {note.truncated && (
-            <p className="mt-4 text-footnote text-ink-muted">
-              La nota è molto lunga: qui ne vedi solo l’inizio.
-            </p>
-          )}
+          {note.truncated && <p className="mt-4 text-footnote text-ink-muted">{s.longNote}</p>}
         </article>
       </div>
     </>
@@ -395,6 +389,7 @@ function NoteItem({ path }: { path: string }) {
 }
 
 export default function PreviewPane() {
+  const s = previewStrings();
   const items = usePreview((s) => s.items);
   const active = usePreview((s) => s.active);
   const item = items[active];
@@ -404,18 +399,15 @@ export default function PreviewPane() {
         className="flex flex-1 flex-col items-center justify-center gap-2 px-8 text-center"
         data-testid="preview-empty"
       >
-        <p className="text-body text-screen-ink">Niente in anteprima</p>
-        <p className="max-w-[320px] text-caption leading-5 text-screen-muted">
-          Tocca un allegato, un’immagine o una nota in chat: si apre qui, accanto alla
-          conversazione.
-        </p>
+        <p className="text-body text-screen-ink">{s.emptyTitle}</p>
+        <p className="max-w-[320px] text-caption leading-5 text-screen-muted">{s.emptyText}</p>
       </div>
     );
   }
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="preview-pane">
       <ul
-        aria-label="Aperti in anteprima"
+        aria-label={s.openItems}
         className="pv-strip scroll-screen flex shrink-0 gap-1 overflow-x-auto px-3 py-2"
         data-testid="preview-strip"
       >

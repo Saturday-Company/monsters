@@ -1,4 +1,4 @@
-import type { DraftView, ProjectView } from '@monsters/shared';
+import { setAppLang, type DraftView, type ProjectView } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
 import { mentionTarget } from '../src/components/chat/Composer.tsx';
 import {
@@ -55,7 +55,7 @@ describe('the squads of the sidebar', () => {
     const { god, squads } = squadsOf(agents, [project('social', { name: 'Social di Saturday' })]);
     expect(god?.id).toBe('titan');
     expect(squads.map((s) => [s.key, s.label, s.members.map((x) => x.id)])).toEqual([
-      ['', 'Squadra personale', ['rhea', 'dione']],
+      ['', 'Personal squad', ['rhea', 'dione']],
       ['social', 'Social di Saturday', ['iapetus', 'calypso']],
     ]);
   });
@@ -65,10 +65,7 @@ describe('the squads of the sidebar', () => {
       m('titan', { isOrchestrator: true }),
       m('atlas', { project: 'nuovo', isLead: true }),
     ];
-    expect(squadsOf(agents, null).squads.map((s) => s.label)).toEqual([
-      'Squadra personale',
-      'nuovo',
-    ]);
+    expect(squadsOf(agents, null).squads.map((s) => s.label)).toEqual(['Personal squad', 'nuovo']);
     const archived = project('nuovo', { archived: true });
     expect(squadsOf(agents, [archived]).squads.map((s) => s.key)).toEqual(['']);
     const draft = project('bozza', { status: 'draft' });
@@ -114,9 +111,9 @@ describe('the form of a new project', () => {
 
   it('checks the name as the core does, and against the other projects', () => {
     const others = [project('social', { name: 'Social di Saturday' })];
-    expect(projectNameProblem('', others)).toBe('Dai un nome al progetto.');
-    expect(projectNameProblem('Sito/nuovo', others)).toMatch(/^Solo lettere/);
-    expect(projectNameProblem('social di saturday', others)).toMatch(/^C’è già un progetto/);
+    expect(projectNameProblem('', others)).toBe('Give the project a name.');
+    expect(projectNameProblem('Sito/nuovo', others)).toMatch(/^Letters, numbers/);
+    expect(projectNameProblem('social di saturday', others)).toMatch(/^There’s already a project/);
     expect(projectNameProblem('Social di Saturday', others, 'social')).toBeNull();
     expect(projectNameProblem('Newsletter', others)).toBeNull();
   });
@@ -135,7 +132,7 @@ describe('the plan of a proposed project', () => {
       nameOf,
       ['Rhea', 'Dione'],
     );
-    const words = (n: string) => `con il ruolo e le regole di ${n}; nome, aspetto e memoria suoi`;
+    const words = (n: string) => `with ${n}’s role and rules; its own name, look and memory`;
     expect(list.map((x) => [x.name, x.detail])).toEqual([
       ['Telesto', 'scrive i testi'],
       ['Tethys', words('Rhea')],
@@ -150,12 +147,44 @@ describe('the plan of a proposed project', () => {
       project('sito', { status: 'draft', plan: { lead, members: [], automations: [] } });
     expect(plannedLead(p({ name: 'Atlas' }), nameOf)).toEqual({
       name: 'Atlas',
-      detail: 'nuovo, con una memoria sua',
+      detail: 'new, with a memory of its own',
     });
     expect(plannedLead(p({ from: 'rhea' }), nameOf)).toMatchObject({
       name: null,
-      detail: 'con il ruolo e le regole di Rhea; nome, aspetto e memoria suoi',
+      detail: 'with Rhea’s role and rules; its own name, look and memory',
     });
+  });
+
+  it('speaks Italian when the app does', () => {
+    setAppLang('it');
+    try {
+      const others = [project('social', { name: 'Social di Saturday' })];
+      expect(projectNameProblem('', others)).toBe('Dai un nome al progetto.');
+      expect(projectNameProblem('social di saturday', others)).toBe(
+        'C’è già un progetto che si chiama Social di Saturday.',
+      );
+      expect(squadsOf([m('rhea')], null).squads[0]!.label).toBe('Squadra personale');
+      expect(
+        plannedLead(
+          project('sito', {
+            status: 'draft',
+            plan: { lead: { name: 'Atlas' }, members: [], automations: [] },
+          }),
+          nameOf,
+        ).detail,
+      ).toBe('nuovo, con una memoria sua');
+      expect(
+        plannedLead(
+          project('sito', {
+            status: 'draft',
+            plan: { lead: { from: 'rhea' }, members: [], automations: [] },
+          }),
+          nameOf,
+        ).detail,
+      ).toBe('con il ruolo e le regole di Rhea; nome, aspetto e memoria suoi');
+    } finally {
+      setAppLang('en');
+    }
   });
 
   it('gives a new lead a look before it is born, the same every time (D-102)', () => {

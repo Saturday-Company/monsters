@@ -1,4 +1,4 @@
-import { ulid, type EventInput, type LogEvent } from '@monsters/shared';
+import { setAppLang, ulid, type EventInput, type LogEvent } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
 import {
   fileTag,
@@ -42,31 +42,52 @@ describe('the composer’s checks', () => {
     expect(precheck({ name: 'l.docx', size: 10, type: '' })).toBeNull();
     expect(precheck({ name: 'IMG_1.HEIC', size: 10, type: 'image/heic' })).toMatch(/HEIC/);
     expect(precheck({ name: 'x.html', size: 10, type: 'text/html' })).toMatch(/HTML/);
-    expect(precheck({ name: 'setup.exe', size: 10, type: '' })).toMatch(/non si allega/);
+    expect(precheck({ name: 'setup.exe', size: 10, type: '' })).toMatch(/can’t be attached/);
     expect(precheck({ name: 'big.pdf', size: 26 * 1024 * 1024, type: '' })).toMatch(/25 MB/);
-    expect(precheck({ name: 'vuoto.txt', size: 0, type: 'text/plain' })).toMatch(/vuoto/);
+    expect(precheck({ name: 'empty.txt', size: 0, type: 'text/plain' })).toMatch(/empty/);
+  });
+
+  it('says it in Italian too', () => {
+    setAppLang('it');
+    try {
+      expect(precheck({ name: 'setup.exe', size: 10, type: '' })).toMatch(/non si allega/);
+      expect(precheck({ name: 'vuoto.txt', size: 0, type: 'text/plain' })).toMatch(/vuoto/);
+      expect(
+        pastedName(
+          new File(['x'], 'image.png', { type: 'image/png' }),
+          new Date(2026, 9, 16, 9, 5),
+        ),
+      ).toBe('immagine incollata 09.05.png');
+      expect(formatSize(1.25 * 1024 * 1024)).toBe('1,3 MB');
+      expect(sourceText({ source: 'user', kind: 'image' }, (id) => id)).toBe('Da te');
+      expect(sourceText({ source: 'tool', kind: 'image', agent: 'rhea' }, () => 'Rhea')).toBe(
+        'Screenshot di Rhea',
+      );
+    } finally {
+      setAppLang('en');
+    }
   });
 
   it('names a pasted image and guesses kinds before the core says', () => {
     const file = new File(['x'], 'image.png', { type: 'image/png' });
-    expect(pastedName(file, new Date(2026, 9, 16, 9, 5))).toBe('immagine incollata 09.05.png');
+    expect(pastedName(file, new Date(2026, 9, 16, 9, 5))).toBe('pasted image 09.05.png');
     expect(pastedName(new File(['x'], 'foto.jpg', { type: 'image/jpeg' }))).toBe('foto.jpg');
     expect(guessKind({ name: 'a.xlsx', type: '' })).toBe('sheet');
     expect(guessKind({ name: 'a.pptx', type: '' })).toBe('document');
     expect(formatSize(2048)).toBe('2 KB');
-    expect(formatSize(1.25 * 1024 * 1024)).toBe('1,3 MB');
+    expect(formatSize(1.25 * 1024 * 1024)).toBe('1.3 MB');
     expect(fileTag('lettera.docx', 'document')).toBe('DOCX');
     expect(fileTag('pagina', 'html')).toBe('HTML');
   });
 
   it('says who made a file', () => {
     const nameOf = (id: string) => (id === 'rhea' ? 'Rhea' : id);
-    expect(sourceText({ source: 'user', kind: 'image' }, nameOf)).toBe('Da te');
+    expect(sourceText({ source: 'user', kind: 'image' }, nameOf)).toBe('From you');
     expect(sourceText({ source: 'tool', kind: 'image', agent: 'rhea' }, nameOf)).toBe(
-      'Screenshot di Rhea',
+      'Screenshot by Rhea',
     );
     expect(sourceText({ source: 'agent', kind: 'html', agent: 'rhea' }, nameOf)).toBe(
-      'Pagina di Rhea',
+      'Page by Rhea',
     );
   });
 });

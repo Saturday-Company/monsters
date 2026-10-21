@@ -14,24 +14,20 @@ import { ToolbarContent, ToolbarTitle } from '../shell/Toolbar.tsx';
 import { Segmented } from '../ui/controls.tsx';
 import { EmptyScreen } from '../ui/EmptyScreen.tsx';
 import { FileThumb } from './FileChip.tsx';
+import { filesStrings } from './files.strings.ts';
 
 /*
  * The File section (docs/design.md, "File"; D-075): every file of the user
  * and of the monsters, newest first, as a grid of tiles with the picture or the
  * small screen of the type, the name, size and date, and who made it. Filters
  * as joined keys, a search on the name and the text (with the piece of text
- * found, D-086), delete with "DI NUOVO" like Ferma.
+ * found, D-086), delete with "AGAIN" like Stop.
  * A press opens the preview on the right.
  */
 
 type Filter = 'all' | 'images' | 'documents' | 'monsters';
 
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'all', label: 'Tutti' },
-  { value: 'images', label: 'Immagini' },
-  { value: 'documents', label: 'Documenti' },
-  { value: 'monsters', label: 'Dai mostri' },
-];
+const FILTER_VALUES: Filter[] = ['all', 'images', 'documents', 'monsters'];
 
 function queryOf(filter: Filter, q: string): FileListQuery {
   return {
@@ -43,12 +39,13 @@ function queryOf(filter: Filter, q: string): FileListQuery {
   };
 }
 
-/** How long the delete key stays armed ("DI NUOVO"), as Ferma. */
+/** How long the delete key stays armed ("AGAIN"), as Stop. */
 const ARMED_MS = 5000;
 const DOWNLOAD_KEY =
   'key inline-flex size-9 items-center justify-center rounded-[9px] text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink';
 
 function FileTile({ meta, onDeleted }: { meta: FileMeta; onDeleted: (id: string) => void }) {
+  const s = filesStrings();
   const nameOf = useNameOf();
   const agent = useAgent(meta.source === 'user' ? '' : (meta.agent ?? ''));
   const [armed, setArmed] = useState(false);
@@ -70,7 +67,7 @@ function FileTile({ meta, onDeleted }: { meta: FileMeta; onDeleted: (id: string)
       await getApi().deleteFile(meta.id);
       useFiles.getState().drop(meta.id);
       onDeleted(meta.id);
-      notify(`Ho eliminato ${meta.name}.`);
+      notify(s.deleted(meta.name));
     } catch (err) {
       notify(describeError(err), 'error');
       setBusy(false);
@@ -90,7 +87,7 @@ function FileTile({ meta, onDeleted }: { meta: FileMeta; onDeleted: (id: string)
       <button
         type="button"
         onClick={() => openPreview({ kind: 'file', fileId: meta.id })}
-        aria-label={`${meta.name}: apri nell’anteprima`}
+        aria-label={s.openLabel(meta.name)}
         className="flex min-w-0 flex-1 flex-col text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
       >
         <span className="seam-b block aspect-[4/3] w-full overflow-hidden bg-well">
@@ -135,8 +132,8 @@ function FileTile({ meta, onDeleted }: { meta: FileMeta; onDeleted: (id: string)
             href={download}
             download={meta.name}
             onClick={downloadOnClick(meta.id, meta.name)}
-            aria-label={`Scarica ${meta.name}`}
-            title="Scarica"
+            aria-label={s.download(meta.name)}
+            title={s.downloadTitle}
             className={DOWNLOAD_KEY}
           >
             <DownloadSimple size={16} aria-hidden />
@@ -145,8 +142,8 @@ function FileTile({ meta, onDeleted }: { meta: FileMeta; onDeleted: (id: string)
           <button
             type="button"
             onClick={downloadOnClick(meta.id, meta.name)}
-            aria-label={`Scarica ${meta.name}`}
-            title="Scarica"
+            aria-label={s.download(meta.name)}
+            title={s.downloadTitle}
             className={DOWNLOAD_KEY}
           >
             <DownloadSimple size={16} aria-hidden />
@@ -156,8 +153,8 @@ function FileTile({ meta, onDeleted }: { meta: FileMeta; onDeleted: (id: string)
           type="button"
           onClick={() => void del()}
           disabled={busy}
-          aria-label={armed ? `Premi di nuovo per eliminare ${meta.name}` : `Elimina ${meta.name}`}
-          title={armed ? 'Premi di nuovo per eliminare' : 'Elimina'}
+          aria-label={armed ? s.deleteArmedLabel(meta.name) : s.deleteLabel(meta.name)}
+          title={armed ? s.deleteArmedTitle : s.delete}
           data-testid="file-delete"
           data-armed={armed ? 'true' : undefined}
           className={cn(
@@ -166,7 +163,7 @@ function FileTile({ meta, onDeleted }: { meta: FileMeta; onDeleted: (id: string)
           )}
         >
           <Trash size={16} aria-hidden />
-          {armed && <span className="label">Di nuovo</span>}
+          {armed && <span className="label">{s.again}</span>}
         </button>
       </div>
     </li>
@@ -174,20 +171,14 @@ function FileTile({ meta, onDeleted }: { meta: FileMeta; onDeleted: (id: string)
 }
 
 function EmptyState({ filtered }: { filtered: boolean }) {
+  const s = filesStrings();
   return (
-    <EmptyScreen
-      testId="files-empty"
-      title={filtered ? 'Nessun file così' : 'Ancora nessun file'}
-      text={
-        filtered
-          ? 'Prova un altro filtro, o cerca un altro nome.'
-          : 'Allega immagini e documenti dalla chat con la graffetta, incollali o trascinali. Qui finiscono anche gli screenshot e le pagine dei mostri.'
-      }
-    />
+    <EmptyScreen testId="files-empty" title={s.emptyTitle(filtered)} text={s.emptyText(filtered)} />
   );
 }
 
 export default function FilesView() {
+  const s = filesStrings();
   const [filter, setFilter] = useState<Filter>('all');
   const [q, setQ] = useState('');
   const [files, setFiles] = useState<FileMeta[] | null>(null);
@@ -229,22 +220,22 @@ export default function FilesView() {
       data-testid="files-view"
     >
       <ToolbarContent>
-        <ToolbarTitle id="files-title">File</ToolbarTitle>
+        <ToolbarTitle id="files-title">{s.title}</ToolbarTitle>
       </ToolbarContent>
       {showBar && (
         <div className="flex flex-wrap items-center gap-3 px-4 pt-4 pb-3 sm:px-6">
           <Segmented<Filter>
             value={filter}
             onChange={setFilter}
-            options={FILTERS}
-            label="Quali file"
+            options={FILTER_VALUES.map((value) => ({ value, label: s.filters[value] }))}
+            label={s.which}
             size="sm"
             className={cn(
               phone && 'grid w-full grid-cols-4 [&>button]:px-1 [&>button]:text-footnote',
             )}
           />
           <label className="relative block min-w-[200px] flex-1 sm:max-w-[360px]">
-            <span className="sr-only">Cerca nei nomi e nel testo dei file</span>
+            <span className="sr-only">{s.searchLabel}</span>
             <MagnifyingGlass
               size={15}
               aria-hidden
@@ -254,7 +245,7 @@ export default function FilesView() {
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Cerca nei file"
+              placeholder={s.searchPlaceholder}
               data-testid="files-search"
               className="well h-10 w-full rounded-[10px] pr-9 pl-9.5 text-body text-ink placeholder:text-ink-muted focus:outline-2 focus:outline-offset-0 focus:outline-signal-ink [&::-webkit-search-cancel-button]:hidden"
             />
@@ -262,7 +253,7 @@ export default function FilesView() {
               <button
                 type="button"
                 onClick={() => setQ('')}
-                aria-label="Cancella la ricerca"
+                aria-label={s.clearSearch}
                 className="absolute top-1/2 right-1.5 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-[7px] text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-signal-ink"
               >
                 <X size={13} weight="bold" aria-hidden />
@@ -275,7 +266,7 @@ export default function FilesView() {
               data-testid="files-count"
               aria-live="polite"
             >
-              {files.length === 1 ? '1 file' : `${files.length} file`}
+              {s.count(files.length)}
             </p>
           )}
         </div>
@@ -288,13 +279,13 @@ export default function FilesView() {
           </p>
         ) : files === null ? (
           <p className="label text-ink-muted" aria-busy="true">
-            Carico…
+            {s.loading}
           </p>
         ) : files.length === 0 ? (
           <EmptyState filtered={filtered} />
         ) : (
           <ul
-            aria-label="File"
+            aria-label={s.list}
             data-testid="files-grid"
             className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] sm:gap-4"
           >

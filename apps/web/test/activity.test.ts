@@ -138,9 +138,11 @@ describe('undo and redo', () => {
 describe('trash wording', () => {
   const nameOf = (id: string) => (id === 'dione' ? 'Dione' : id);
   it('says who deleted it, in words, and when an undo removed it', () => {
-    expect(trashedText({ deletedBy: 'user' }, false, nameOf)).toBe('cancellata da te');
-    expect(trashedText({ deletedBy: 'dione' }, false, nameOf)).toBe('cancellata da Dione');
-    expect(trashedText({ deletedBy: 'user' }, true, nameOf)).toBe('tolta annullando la creazione');
+    expect(trashedText({ deletedBy: 'user' }, false, nameOf)).toBe('deleted by you');
+    expect(trashedText({ deletedBy: 'dione' }, false, nameOf)).toBe('deleted by Dione');
+    expect(trashedText({ deletedBy: 'user' }, true, nameOf)).toBe(
+      'removed by undoing its creation',
+    );
     const undo = change('undo', 'Inbox/X.md', 'act_u', { undoneActionId: 'act_c' });
     expect(trashedByUndo('act_u', [undo])).toBe(true);
     expect(trashedByUndo('act_c', [undo])).toBe(false);
