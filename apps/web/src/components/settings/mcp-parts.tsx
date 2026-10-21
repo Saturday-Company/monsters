@@ -6,6 +6,7 @@ import { cn, domId } from '../../lib/utils.ts';
 import { getApi } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Meter } from '../ui/Meter.tsx';
+import { mcpStrings } from './mcp.strings.ts';
 
 /*
  * Pieces shared by the MCP settings (McpServersSection) and the gallery of
@@ -15,15 +16,7 @@ import { Meter } from '../ui/Meter.tsx';
 
 export type Agents = McpServersResponse['agents'];
 
-const STATUS_TEXT: Record<McpServerStatus, string> = {
-  off: 'Spento',
-  idle: 'Pronto',
-  starting: 'Si avvia…',
-  running: 'Acceso',
-  error: 'Problema',
-};
-
-/** The message of the core when it has one in Italian, the generic one otherwise. */
+/** The message of the core when it has a specific one, the generic one otherwise. */
 export function errorOf(err: unknown): string {
   if (
     err instanceof ApiError &&
@@ -38,7 +31,7 @@ export function errorOf(err: unknown): string {
 
 /**
  * The state of a server with its light (UI-22): green when it is on and ready
- * (started, or waiting for its first use), grey and "Spento" when it is off.
+ * (started, or waiting for its first use), grey and "Off" when it is off.
  */
 export function StatusPill({
   status,
@@ -47,7 +40,7 @@ export function StatusPill({
 }: {
   status: McpServerStatus;
   error?: string | undefined;
-  /** The user's lever: a server turned off is "Spento" whatever its process says. */
+  /** The user's lever: a server turned off is "Off" whatever its process says. */
   enabled?: boolean;
 }) {
   const shown: McpServerStatus = enabled ? status : 'off';
@@ -67,7 +60,7 @@ export function StatusPill({
         className="led"
         data-tone={shown === 'error' ? 'stop' : ready ? 'ok' : undefined}
       />
-      {STATUS_TEXT[shown]}
+      {mcpStrings().parts.status[shown]}
     </span>
   );
 }
@@ -85,6 +78,7 @@ export function AgentPicker({
   needsWeb?: boolean;
   disabled?: boolean;
 }) {
+  const s = mcpStrings().parts;
   const all = value.includes('*');
   const has = (id: string) => all || value.includes(id);
   const toggle = (id: string) => {
@@ -93,8 +87,8 @@ export function AgentPicker({
   };
   return (
     <div className="grid gap-2">
-      <p className="text-footnote font-medium text-ink">Chi lo usa</p>
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Mostri che lo usano">
+      <p className="text-footnote font-medium text-ink">{s.whoUses}</p>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={s.whoUsesLabel}>
         {agents.map((a) => {
           const blocked = needsWeb && !a.web;
           const on = has(a.id) && !blocked;
@@ -105,7 +99,7 @@ export function AgentPicker({
               aria-pressed={on}
               disabled={disabled || blocked}
               onClick={() => toggle(a.id)}
-              title={blocked ? `${a.name} non ha il permesso del web` : undefined}
+              title={blocked ? s.noWebTitle(a.name) : undefined}
               data-pressed={on ? 'true' : undefined}
               className={cn(
                 'key inline-flex h-9 items-center gap-2 rounded-[9px] px-3.5 text-footnote font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink disabled:opacity-50',
@@ -121,7 +115,7 @@ export function AgentPicker({
                 aria-hidden
               />
               {a.name}
-              {blocked ? ' (senza web)' : ''}
+              {blocked ? s.noWebSuffix : ''}
             </button>
           );
         })}
@@ -131,6 +125,7 @@ export function AgentPicker({
 }
 
 export function ToolsResult({ result }: { result: McpTestResponse | null }) {
+  const s = mcpStrings().parts;
   if (!result) return null;
   if (!result.ok) {
     return (
@@ -140,7 +135,7 @@ export function ToolsResult({ result }: { result: McpTestResponse | null }) {
         data-testid="mcp-test-error"
       >
         <Warning size={18} aria-hidden className="mt-px shrink-0" />
-        <span>{result.error ?? 'Non riesco ad avviarlo.'}</span>
+        <span>{result.error ?? s.cantStart}</span>
       </p>
     );
   }
@@ -149,15 +144,14 @@ export function ToolsResult({ result }: { result: McpTestResponse | null }) {
     <div className="grid gap-1.5" data-testid="mcp-tools">
       <p className="flex items-center gap-1.5 text-footnote font-medium text-ink">
         <span aria-hidden className="led mx-1" data-tone="ok" />
-        Funziona{result.server ? ` (${result.server})` : ''}: {usable.length}{' '}
-        {usable.length === 1 ? 'strumento' : 'strumenti'}.
+        {s.works(result.server, usable.length)}
       </p>
       <ul className="grid gap-0.5 text-footnote text-ink-muted">
         {result.tools.map((t) => (
           <li key={t.name} className="min-w-0">
             <span className="font-mono text-caption text-ink">{t.name}</span>
             {t.skipped ? (
-              <span className="text-stop-ink"> · non usabile: {t.skipped}</span>
+              <span className="text-stop-ink">{s.unusable(t.skipped)}</span>
             ) : t.description ? (
               <span> · {t.description}</span>
             ) : null}
@@ -191,7 +185,7 @@ export function TestButton({ testing, onClick }: { testing: boolean; onClick: ()
   return (
     <Button variant="secondary" size="sm" onClick={onClick} disabled={testing}>
       {testing ? <Meter active className="text-ink-muted" /> : null}
-      {testing ? 'Provo…' : 'Prova'}
+      {testing ? mcpStrings().parts.testing : mcpStrings().parts.test}
     </Button>
   );
 }
@@ -210,7 +204,7 @@ export function Details({ children }: { children: ReactNode }) {
         className="inline-flex items-center gap-1 justify-self-start rounded text-footnote font-medium text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
       >
         <CaretRight size={12} aria-hidden className={cn('turn', open && 'rotate-90')} />
-        Dettagli
+        {mcpStrings().parts.details}
       </button>
       {open && (
         <div

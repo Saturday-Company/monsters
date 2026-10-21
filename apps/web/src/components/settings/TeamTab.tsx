@@ -1,5 +1,6 @@
 import { ArrowCounterClockwise, Plus } from '@phosphor-icons/react';
 import {
+  formatDate,
   type ArchivedMemberView,
   type ProfileUpdate,
   type ProfileView,
@@ -18,8 +19,10 @@ import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { Button } from '../ui/button.tsx';
 import { nameProblem, plainly, teamError } from './data.ts';
 import { InstinctSection } from './InstinctSection.tsx';
+import { partsStrings } from './parts.strings.ts';
 import { Group, InlineEdit, Row, RowBody, selectClass, TextSetting } from './parts.tsx';
 import { ScorecardSection } from './ScorecardSection.tsx';
+import { teamStrings } from './team.strings.ts';
 import { AddMonster, MemberRow } from './TeamMembers.tsx';
 
 /*
@@ -45,51 +48,49 @@ function ProfileGroups({
   lead: TeamView['members'][number] | undefined;
   save: (update: ProfileUpdate, done: string) => Promise<void>;
 }) {
+  const s = teamStrings().tab;
   const toneId = domId(useId());
   const languageId = domId(useId());
   return (
     <>
       <Group
-        title="Tu"
+        title={s.youTitle}
         testId="team-you"
         footer={
           <>
-            Tutto questo sta anche nella nota{' '}
+            {s.footerBefore}
             <a
               href={vaultPath(PROFILE_NOTE)}
               className="font-medium text-ink underline underline-offset-2"
               data-testid="team-profile-link"
             >
-              Profilo
+              {s.profileLink}
             </a>
-            , insieme a quello che i mostri imparano di te. Cosa ti chiedono sempre prima di agire
-            lo scegli in{' '}
+            {s.footerMid}
             <a
               href={settingsPath('permessi')}
               className="font-medium text-ink underline underline-offset-2"
               data-testid="team-ask-always-link"
             >
-              Permessi
+              {s.permissionsLink}
             </a>
-            .
+            {s.footerAfter}
           </>
         }
       >
-        <Row label="Il tuo nome" description="Come ti chiamano i mostri.">
+        <Row label={s.yourName} description={s.yourNameHint}>
           <InlineEdit
             value={profile.userName}
-            label="il tuo nome"
+            label={s.yourNameLabel}
             testId="team-user-name"
             check={nameProblem}
-            onSave={(userName) =>
-              plainly(() => save({ userName }, `Da ora i mostri ti chiamano ${userName}.`))
-            }
+            onSave={(userName) => plainly(() => save({ userName }, s.nameSaved(userName)))}
           />
         </Row>
-        <Row label="Il tuo capo" description="Ti risponde per primo e passa i compiti agli altri.">
+        <Row label={s.yourLead} description={s.yourLeadHint}>
           <InlineEdit
             value={profile.orchestratorName}
-            label="il nome del tuo capo"
+            label={s.yourLeadNameLabel}
             testId="team-lead-name"
             check={nameProblem}
             before={
@@ -103,18 +104,16 @@ function ProfileGroups({
               )
             }
             onSave={(orchestratorName) =>
-              plainly(() =>
-                save({ orchestratorName }, `Il tuo capo ora si chiama ${orchestratorName}.`),
-              )
+              plainly(() => save({ orchestratorName }, s.leadRenamed(orchestratorName)))
             }
           />
         </Row>
-        <Row label="Tono" htmlFor={toneId} description="Come ti scrivono.">
+        <Row label={s.tone} htmlFor={toneId} description={s.toneHint}>
           <select
             id={toneId}
             className={selectClass}
             value={profile.tone}
-            onChange={(e) => void save({ tone: e.target.value }, 'Tono salvato.').catch(complain)}
+            onChange={(e) => void save({ tone: e.target.value }, s.toneSaved).catch(complain)}
           >
             {profile.options.tones.map((o) => (
               <option key={o.id} value={o.id}>
@@ -123,13 +122,13 @@ function ProfileGroups({
             ))}
           </select>
         </Row>
-        <Row label="Lingua" htmlFor={languageId} description="In che lingua ti rispondono.">
+        <Row label={s.language} htmlFor={languageId} description={s.languageHint}>
           <select
             id={languageId}
             className={selectClass}
             value={profile.language}
             onChange={(e) =>
-              void save({ language: e.target.value }, 'Lingua salvata.').catch(complain)
+              void save({ language: e.target.value }, s.languageSaved).catch(complain)
             }
           >
             {profile.options.languages.map((o) => (
@@ -140,11 +139,11 @@ function ProfileGroups({
           </select>
         </Row>
         <TextSetting
-          label="Il tuo stile"
+          label={s.style}
           value={profile.style}
-          empty="Niente di particolare."
-          placeholder="Per esempio: frasi brevi, niente emoji, dammi sempre un esempio."
-          onSave={(style) => plainly(() => save({ style }, 'Stile salvato.'))}
+          empty={s.styleEmpty}
+          placeholder={s.stylePlaceholder}
+          onSave={(style) => plainly(() => save({ style }, s.styleSaved))}
         />
       </Group>
     </>
@@ -158,6 +157,8 @@ function ArchivedRow({
   member: ArchivedMemberView;
   onRestored: () => void;
 }) {
+  const s = teamStrings().tab;
+  const common = partsStrings();
   const id = domId(useId());
   const [busy, setBusy] = useState(false);
   const [asking, setAsking] = useState<string | null>(null);
@@ -166,7 +167,7 @@ function ArchivedRow({
     setBusy(true);
     try {
       const back = await getApi().restoreMember(member.id, newName);
-      notify(`${back.name} è di nuovo nella squadra.`, 'success');
+      notify(s.backInSquad(back.name), 'success');
       onRestored();
     } catch (err) {
       const text = teamError(err);
@@ -188,15 +189,15 @@ function ArchivedRow({
           />
         }
         label={member.name}
-        description={`Tolto il ${new Date(member.archivedAt).toLocaleDateString('it-IT', {
-          day: 'numeric',
-          month: 'long',
-        })} · ${member.role}`}
+        description={s.removedOn(
+          formatDate(member.archivedAt, { day: 'numeric', month: 'long' }),
+          member.role,
+        )}
       >
         {!asking && (
           <Button variant="secondary" size="sm" disabled={busy} onClick={() => void restore()}>
             <ArrowCounterClockwise size={16} aria-hidden />
-            Riporta
+            {s.bringBack}
           </Button>
         )}
       </Row>
@@ -218,22 +219,22 @@ function ArchivedRow({
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <label htmlFor={id} className="sr-only">
-                Nuovo nome per {member.name}
+                {s.newNameFor(member.name)}
               </label>
               <input
                 id={id}
                 value={name}
                 maxLength={24}
                 autoFocus
-                placeholder="Un altro nome"
+                placeholder={s.anotherName}
                 onChange={(e) => setName(e.target.value)}
                 className="well h-10 w-48 rounded-[10px] px-3.5 text-body text-ink focus:outline-2 focus:outline-offset-0 focus:outline-signal-ink"
               />
               <Button type="submit" size="sm" disabled={busy || !name.trim()}>
-                Riporta con questo nome
+                {s.bringBackAs}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setAsking(null)}>
-                Annulla
+                {common.cancel}
               </Button>
             </div>
           </RowBody>
@@ -245,6 +246,7 @@ function ArchivedRow({
 
 /** The monsters of the projects, read-only here: a project's squad is managed on its page (U-12). */
 function ProjectSquads() {
+  const s = teamStrings().tab;
   const agents = useAgents();
   const projects = useProjects();
   const { squads } = squadsOf(agents, projects);
@@ -264,7 +266,7 @@ function ProjectSquads() {
                 label={
                   <span className="flex flex-wrap items-baseline gap-x-2.5">
                     <span className="text-large font-semibold">{m.name}</span>
-                    {m.isLead && <span className="label text-signal-ink">capo del progetto</span>}
+                    {m.isLead && <span className="label text-signal-ink">{s.projectLead}</span>}
                   </span>
                 }
                 description={m.role}
@@ -272,9 +274,9 @@ function ProjectSquads() {
                 <a
                   href={`#${projectPath(sq.key, 'squadra')}`}
                   className="text-footnote font-medium text-signal-ink hover:underline"
-                  aria-label={`Apri la squadra di ${sq.label}`}
+                  aria-label={s.openSquadOf(sq.label)}
                 >
-                  Apri il progetto
+                  {s.openProject}
                 </a>
               </Row>
             ))}
@@ -286,6 +288,7 @@ function ProjectSquads() {
 }
 
 export function TeamTab() {
+  const s = teamStrings().tab;
   const [team, setTeam] = useState<TeamView | null>(null);
   const [profile, setProfile] = useState<ProfileView | null>(null);
   const [failed, setFailed] = useState(false);
@@ -321,7 +324,7 @@ export function TeamTab() {
   if (failed) {
     return (
       <p className="px-1 text-footnote text-ink-muted" role="status">
-        Non riesco a leggere la squadra adesso. Riprova tra poco.
+        {s.failed}
       </p>
     );
   }
@@ -336,25 +339,21 @@ export function TeamTab() {
   return (
     <>
       <Group
-        title="La squadra"
+        title={s.squad}
         as="ul"
         testId="team-members"
-        footer={
-          full
-            ? `La squadra è al completo: al massimo ${team.maxMembers} mostri oltre al capo. Per aggiungerne uno, prima togline un altro.`
-            : 'Ognuno ha la sua chat, i suoi compiti e una cartella nelle note dove scrive.'
-        }
+        footer={full ? s.squadFull(team.maxMembers) : s.squadFooter}
       >
         {lead && (
           <li className="list-none" data-testid="team-squad-boss">
-            <p className="label px-4 pt-3 pb-1 text-ink-muted">Il tuo capo</p>
+            <p className="label px-4 pt-3 pb-1 text-ink-muted">{s.leadGroup}</p>
             <ul className="set-rows">
               <MemberRow member={lead} taken={taken} onChanged={changed} />
             </ul>
           </li>
         )}
         <li className="list-none" data-testid="team-squad-personal">
-          <p className="label px-4 pt-3 pb-1 text-ink-muted">Squadra personale</p>
+          <p className="label px-4 pt-3 pb-1 text-ink-muted">{s.personalSquad}</p>
           <ul className="set-rows">
             {others.map((m) => (
               <MemberRow key={m.id} member={m} taken={taken} onChanged={changed} />
@@ -368,7 +367,7 @@ export function TeamTab() {
                   className="row-key flex min-h-[52px] w-full items-center gap-2.5 px-4 text-left text-body font-medium text-ink [&_svg]:text-signal-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink disabled:text-ink-muted"
                 >
                   <Plus size={18} aria-hidden />
-                  Aggiungi un mostro
+                  {s.addMonster}
                 </button>
               </li>
             )}
@@ -390,12 +389,7 @@ export function TeamTab() {
       )}
 
       {team.archived.length > 0 && (
-        <Group
-          title="Mostri archiviati"
-          as="ul"
-          testId="team-archived"
-          footer="La loro chat resta in Attività. Riportati, ritrovano compiti e note."
-        >
+        <Group title={s.archived} as="ul" testId="team-archived" footer={s.archivedFooter}>
           {team.archived.map((a) => (
             <ArchivedRow key={a.id} member={a} onRestored={changed} />
           ))}

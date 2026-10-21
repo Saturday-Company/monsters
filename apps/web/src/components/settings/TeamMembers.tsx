@@ -23,6 +23,8 @@ import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { Button } from '../ui/button.tsx';
 import { Chip, Switch } from '../ui/controls.tsx';
 import { nameProblem, plainly, teamError } from './data.ts';
+import { partsStrings } from './parts.strings.ts';
+import { teamStrings } from './team.strings.ts';
 import {
   ConfirmButton,
   DisclosureRow,
@@ -60,27 +62,27 @@ function dutiesOf(text: string): string[] {
 
 /** Problems of the fields, by field, in plain words; empty when they can be saved. */
 function roleProblems(f: RoleFields): Record<string, string> {
+  const s = teamStrings().members;
   const out: Record<string, string> = {};
   if (!TeamRoleSchema.safeParse(f.role).success) {
-    out['role'] = 'Una riga sola, tra 5 e 120 caratteri.';
+    out['role'] = s.roleLine;
   }
   if (!TeamMissionSchema.safeParse(f.mission).success) {
-    out['mission'] = 'Una riga sola, tra 5 e 200 caratteri.';
+    out['mission'] = s.missionLine;
   }
   const duties = dutiesOf(f.duties);
-  if (duties.length === 0) out['duties'] = 'Serve almeno un compito.';
-  else if (duties.length > MAX_DUTIES) out['duties'] = `Al massimo ${MAX_DUTIES} compiti.`;
+  if (duties.length === 0) out['duties'] = s.dutiesNone;
+  else if (duties.length > MAX_DUTIES) out['duties'] = s.dutiesMax(MAX_DUTIES);
   else {
     const bad = duties.find((d) => !AgentDutySchema.safeParse(d).success);
-    if (bad)
-      out['duties'] = `Il compito “${bad.slice(0, 30)}” non va bene: troppo corto o troppo lungo.`;
+    if (bad) out['duties'] = s.dutyBad(bad.slice(0, 30));
   }
   const area = agentAreaProblem(normalizeAgentArea(f.area));
   if (area) out['area'] = area;
   return out;
 }
 
-/** The fields of the role form, shared by "Modifica" and the new monster. */
+/** The fields of the role form, shared by "Edit" and the new monster. */
 function RoleInputs({
   name,
   title,
@@ -89,12 +91,13 @@ function RoleInputs({
   errors,
 }: {
   name: string;
-  /** "la ricercatrice": the mission completes "Sei Rhea, la ricercatrice: …". */
+  /** "the researcher": the mission completes "You are Rhea, the researcher: …". */
   title: string;
   fields: RoleFields;
   set: (patch: Partial<RoleFields>) => void;
   errors: Record<string, string>;
 }) {
+  const s = teamStrings().members;
   const id = domId(useId());
   const aria = (key: string) => ({
     'aria-invalid': errors[key] ? true : undefined,
@@ -104,9 +107,9 @@ function RoleInputs({
     <>
       <FormField
         id={`${id}-role`}
-        label="Cosa fa, in una riga"
+        label={s.whatItDoes}
         error={errors['role']}
-        hint="Si legge sotto il suo nome."
+        hint={s.whatItDoesHint}
       >
         <input
           id={`${id}-role`}
@@ -119,9 +122,9 @@ function RoleInputs({
       </FormField>
       <FormField
         id={`${id}-mission`}
-        label="Il suo obiettivo"
+        label={s.goal}
         error={errors['mission']}
-        hint={`Completa la frase “Sei ${name}, ${title}: …”.`}
+        hint={s.goalHint(name, title)}
       >
         <input
           id={`${id}-mission`}
@@ -134,9 +137,9 @@ function RoleInputs({
       </FormField>
       <FormField
         id={`${id}-duties`}
-        label="Compiti, uno per riga"
+        label={s.duties}
         error={errors['duties']}
-        hint={`Al massimo ${MAX_DUTIES}.`}
+        hint={s.dutiesHint(MAX_DUTIES)}
       >
         <textarea
           id={`${id}-duties`}
@@ -147,12 +150,7 @@ function RoleInputs({
           {...aria('duties')}
         />
       </FormField>
-      <FormField
-        id={`${id}-area`}
-        label="Dove scrive nelle note"
-        error={errors['area']}
-        hint="Una cartella delle note: lì mette quello che prepara."
-      >
+      <FormField id={`${id}-area`} label={s.area} error={errors['area']} hint={s.areaHint}>
         <input
           id={`${id}-area`}
           value={fields.area}
@@ -164,18 +162,10 @@ function RoleInputs({
       </FormField>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-footnote font-medium text-ink">Fa ricerche sul web</p>
-          <p className="text-footnote text-ink-muted">
-            È il suo mestiere: il capo gli passa le ricerche e ha più passi per lavoro. Il web lo
-            usa ogni mostro che ne ha il permesso, in Permessi.
-          </p>
+          <p className="text-footnote font-medium text-ink">{s.web}</p>
+          <p className="text-footnote text-ink-muted">{s.webText}</p>
         </div>
-        <Switch
-          words
-          checked={fields.web}
-          onCheckedChange={(web) => set({ web })}
-          label="Fa ricerche sul web"
-        />
+        <Switch words checked={fields.web} onCheckedChange={(web) => set({ web })} label={s.web} />
       </div>
     </>
   );
@@ -190,6 +180,8 @@ function RoleForm({
   onSaved: () => void;
   onCancel: () => void;
 }) {
+  const s = teamStrings().members;
+  const common = partsStrings();
   const start: RoleFields = {
     role: member.role,
     mission: member.mission ?? '',
@@ -215,7 +207,7 @@ function RoleForm({
     setBusy(true);
     try {
       await getApi().updateMember(member.id, force ? { ...update, force: true } : update);
-      notify(`Ruolo e compiti di ${member.name} salvati.`, 'success');
+      notify(s.roleSaved(member.name), 'success');
       onSaved();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'instructions_edited') setOverwrite(true);
@@ -237,7 +229,7 @@ function RoleForm({
       <RowBody className="sm:max-w-[520px]">
         <RoleInputs
           name={member.name}
-          title={member.title ?? 'della squadra'}
+          title={member.title ?? s.titleDefault}
           fields={fields}
           set={(patch) => setFields((f) => ({ ...f, ...patch }))}
           errors={errors}
@@ -248,16 +240,13 @@ function RoleForm({
             role="alert"
             data-testid="team-overwrite"
           >
-            <p className="text-footnote leading-snug text-ink">
-              Hai modificato a mano le istruzioni di {member.name}: le sostituisco? Una copia resta
-              salvata.
-            </p>
+            <p className="text-footnote leading-snug text-ink">{s.overwrite(member.name)}</p>
             <div className="flex gap-2">
               <Button size="sm" disabled={busy} onClick={() => void send(true)}>
-                Sostituisci
+                {s.replace}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setOverwrite(false)}>
-                Annulla
+                {common.cancel}
               </Button>
             </div>
           </div>
@@ -270,10 +259,10 @@ function RoleForm({
         {!overwrite && (
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={busy}>
-              {busy ? 'Salvo…' : 'Salva'}
+              {busy ? common.saving : common.save}
             </Button>
             <Button variant="ghost" size="sm" onClick={onCancel}>
-              Annulla
+              {common.cancel}
             </Button>
           </div>
         )}
@@ -292,6 +281,7 @@ function LookPicker({
   onSaved: () => void;
   onClose: () => void;
 }) {
+  const s = teamStrings().members;
   const [looks, setLooks] = useState<unknown[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -324,7 +314,7 @@ function LookPicker({
     setChosen(i);
     try {
       await getApi().setMemberLook(member.id, genome);
-      notify(`${member.name} ha un aspetto nuovo.`, 'success');
+      notify(s.looksSaved(member.name), 'success');
       onSaved();
     } catch (err) {
       setChosen(-1);
@@ -352,7 +342,7 @@ function LookPicker({
       <MonsterScreen genome={genomeFrom(genome, member.name)} mood="idle" width={84} height={72} />
       <span className="label flex items-center gap-1.5 text-ink-muted">
         {chosen === i && <span aria-hidden className="led size-1.5" data-tone="signal" />}
-        {i === -1 ? 'Com’è adesso' : `Nuovo ${i + 1}`}
+        {i === -1 ? s.asItIs : s.newLook(i + 1)}
       </span>
     </button>
   );
@@ -361,14 +351,14 @@ function LookPicker({
     <RowBody>
       <div
         role="radiogroup"
-        aria-label={`Aspetti per ${member.name}`}
+        aria-label={s.looksFor(member.name)}
         className="flex flex-wrap gap-3 pb-1"
         data-testid={`team-looks-${member.id}`}
       >
-        {tile(member.genome, -1, `Lascia ${member.name} com’è`)}
-        {looks?.map((g, i) => tile(g, i, `Aspetto nuovo ${i + 1} per ${member.name}`))}
+        {tile(member.genome, -1, s.keepAsIs(member.name))}
+        {looks?.map((g, i) => tile(g, i, s.newLookFor(i + 1, member.name)))}
         {!looks && !error && (
-          <span className="self-center text-footnote text-ink-muted">Ne preparo qualcuno…</span>
+          <span className="self-center text-footnote text-ink-muted">{s.preparing}</span>
         )}
       </div>
       {error && (
@@ -379,10 +369,10 @@ function LookPicker({
       <div className="flex gap-2">
         <Button variant="secondary" size="sm" disabled={busy} onClick={() => void more()}>
           <ArrowClockwise size={16} aria-hidden />
-          Altri
+          {s.more}
         </Button>
         <Button variant="ghost" size="sm" onClick={onClose}>
-          Chiudi
+          {s.close}
         </Button>
       </div>
     </RowBody>
@@ -425,14 +415,15 @@ export function MemberRow({
   member: TeamMemberView;
   taken: (name: string, self?: string) => boolean;
   onChanged: () => void;
-  /** A "Scrivi" row that opens the monster's chat (the project's tab). */
+  /** A "Write" row that opens the monster's chat (the project's tab). */
   chat?: boolean;
   /** Its screen follows what it is doing, and its status is read out. */
   live?: boolean;
-  /** "Togli" of another kind than the personal squad's archive (a project's monster). */
+  /** "Remove" of another kind than the personal squad's archive (a project's monster). */
   removal?: { description: string; run: () => Promise<void> };
   testId?: string;
 }) {
+  const s = teamStrings().members;
   const [open, setOpen] = useState<'look' | 'role' | null>(null);
   const [busy, setBusy] = useState(false);
   const lead = member.isOrchestrator || member.isLead === true;
@@ -445,12 +436,7 @@ export function MemberRow({
         return;
       }
       const r = await getApi().archiveMember(member.id);
-      notify(
-        `${member.name} non è più nella squadra.${
-          r.questionsClosed > 0 ? ' Le sue domande aperte sono chiuse.' : ''
-        } Lo ritrovi in “Mostri archiviati”.`,
-        'success',
-      );
+      notify(s.archived(member.name, r.questionsClosed), 'success');
       onChanged();
     } catch (err) {
       notify(teamError(err), 'error');
@@ -466,51 +452,49 @@ export function MemberRow({
       label={
         <span className="flex flex-wrap items-baseline gap-x-2.5">
           <span className="text-large font-semibold">{member.name}</span>
-          {member.isOrchestrator && <span className="label text-signal-ink">il tuo capo</span>}
-          {member.isLead && <span className="label text-signal-ink">Capo</span>}
+          {member.isOrchestrator && <span className="label text-signal-ink">{s.lead}</span>}
+          {member.isLead && <span className="label text-signal-ink">{s.leadShort}</span>}
         </span>
       }
       description={
         <>
-          {member.isLead ? 'Coordina il progetto e passa i compiti agli altri.' : member.role}
+          {member.isLead ? s.coordinatesProject : member.role}
           {live && <LiveNote id={member.id} />}
         </>
       }
     >
       <div className="set-rows">
         {chat && (
-          <Row label="Chat" description={`Scrivi a ${member.name} dalla sua chat.`}>
+          <Row label={s.chat} description={s.writeFromChat(member.name)}>
             <Button
               variant="secondary"
               size="sm"
               onClick={() => openChat(member.id)}
-              aria-label={`Scrivi a ${member.name}`}
+              aria-label={s.writeTo(member.name)}
             >
-              <ChatCircle size={16} aria-hidden /> Scrivi
+              <ChatCircle size={16} aria-hidden /> {s.write}
             </Button>
           </Row>
         )}
-        <Row label="Nome">
+        <Row label={s.name}>
           <InlineEdit
             value={member.name}
-            label={`il nome di ${member.name}`}
-            check={(n) =>
-              nameProblem(n) ?? (taken(n, member.id) ? 'C’è già un mostro con questo nome.' : null)
-            }
+            label={s.nameOf(member.name)}
+            check={(n) => nameProblem(n) ?? (taken(n, member.id) ? s.nameTaken : null)}
             onSave={(name) =>
               plainly(async () => {
                 await getApi().updateMember(member.id, { name });
-                notify(`${member.name} ora si chiama ${name}. Chat e note restano sue.`, 'success');
+                notify(s.renamed(member.name, name), 'success');
                 onChanged();
               })
             }
           />
         </Row>
         <div>
-          <Row label="Aspetto">
+          <Row label={s.look}>
             {open !== 'look' && (
               <Button variant="secondary" size="sm" onClick={() => setOpen('look')}>
-                Cambia aspetto
+                {s.changeLook}
               </Button>
             )}
           </Row>
@@ -528,26 +512,21 @@ export function MemberRow({
           )}
         </div>
         {lead ? (
-          <Row
-            label="Ruolo"
-            description={
-              member.isLead
-                ? 'Coordina i mostri del progetto: il suo ruolo non si cambia, il nome sì.'
-                : 'Coordina la squadra: il suo ruolo non si cambia, il nome sì.'
-            }
-          />
+          <Row label={s.role} description={member.isLead ? s.leadOfProject : s.leadOfSquad} />
         ) : (
           <>
             <div>
               <Row
-                label="Ruolo e compiti"
-                description={`${member.duties?.length ?? 0} ${
-                  member.duties?.length === 1 ? 'compito' : 'compiti'
-                } · scrive in ${member.area ?? '…'}/${member.web ? ' · fa ricerche sul web' : ''}`}
+                label={s.roleAndDuties}
+                description={s.dutiesLine(
+                  member.duties?.length ?? 0,
+                  member.area ?? '…',
+                  member.web,
+                )}
               >
                 {open !== 'role' && (
                   <Button variant="secondary" size="sm" onClick={() => setOpen('role')}>
-                    Modifica
+                    {s.edit}
                   </Button>
                 )}
               </Row>
@@ -565,16 +544,13 @@ export function MemberRow({
               )}
             </div>
             <Row
-              label={removal ? 'Togli dal progetto' : 'Togli dalla squadra'}
-              description={
-                removal?.description ??
-                'La sua chat resta in Attività e puoi riportarlo quando vuoi.'
-              }
+              label={removal ? s.removeFromProject : s.removeFromSquad}
+              description={removal?.description ?? s.removeText}
             >
               <ConfirmButton
-                label="Togli"
-                question={`Tolgo ${member.name}?`}
-                confirm="Sì, togli"
+                label={s.remove}
+                question={s.removeQuestion(member.name)}
+                confirm={s.removeConfirm}
                 busy={busy}
                 onConfirm={() => void archive()}
               />
@@ -607,6 +583,7 @@ function DraftReview({
   onBack: () => void;
   onAdded: () => void;
 }) {
+  const s = teamStrings().members;
   const nameId = domId(useId());
   const form = useRef<HTMLFormElement>(null);
   // Opened from the chat: the form is below the team, in sight at once.
@@ -659,7 +636,7 @@ function DraftReview({
     e.preventDefault();
     const n = name.replace(/\s+/g, ' ').trim();
     const found = roleProblems(fields);
-    const np = nameProblem(n) ?? (taken(n) ? 'C’è già un mostro con questo nome.' : null);
+    const np = nameProblem(n) ?? (taken(n) ? s.nameTaken : null);
     if (np) found['name'] = np;
     setErrors(found);
     if (Object.keys(found).length > 0) return;
@@ -681,10 +658,10 @@ function DraftReview({
       };
       if (project) {
         await getApi().addProjectMember(project.id, request);
-        notify(`${n} è nel progetto ${project.name}: scrivigli dalla sua chat.`, 'success');
+        notify(s.addedToProject(n, project.name), 'success');
       } else {
         const added = await getApi().addMember(request);
-        notify(`${added.name} è nella squadra: scrivigli dalla sua chat.`, 'success');
+        notify(s.addedToSquad(added.name), 'success');
       }
       onAdded();
     } catch (err) {
@@ -708,10 +685,10 @@ function DraftReview({
           <div className="grid gap-2">
             <p className="text-footnote leading-snug text-ink-muted">
               {draft.source === 'model'
-                ? 'L’ho preparato dalla tua descrizione: controlla e cambia quello che vuoi.'
+                ? s.fromDescription
                 : draft.source === 'proposal'
-                  ? 'L’ha proposto il tuo capo: controlla e cambia quello che vuoi.'
-                  : 'Controlla e cambia quello che vuoi.'}
+                  ? s.fromProposal
+                  : s.check}
             </p>
             <Button
               variant="secondary"
@@ -720,11 +697,11 @@ function DraftReview({
               onClick={() => void otherLook()}
             >
               <ArrowClockwise size={16} aria-hidden />
-              Un altro aspetto
+              {s.anotherLook}
             </Button>
           </div>
         </div>
-        <FormField id={nameId} label="Nome" error={errors['name']}>
+        <FormField id={nameId} label={s.name} error={errors['name']}>
           <input
             id={nameId}
             value={name}
@@ -754,11 +731,11 @@ function DraftReview({
               onChange={(e) => setUseProposedModel(e.target.checked)}
             />
             <span>
-              Modello proposto:{' '}
+              {s.proposedModel}
               <span className="font-mono">
                 {proposedModel.provider}/{proposedModel.model}
               </span>
-              {useProposedModel ? '' : ' (userà quelli del tuo capo)'}
+              {useProposedModel ? '' : s.proposedModelOff}
             </span>
           </label>
         )}
@@ -770,10 +747,10 @@ function DraftReview({
         <div className="flex flex-wrap gap-2">
           <Button type="submit" size="sm" disabled={busy}>
             <Check size={16} aria-hidden />
-            {busy ? 'Lo sveglio…' : project ? 'Aggiungi al progetto' : 'Aggiungi alla squadra'}
+            {busy ? s.wakingUp : project ? s.addToProject : s.addToSquad}
           </Button>
           <Button variant="ghost" size="sm" onClick={onBack}>
-            Indietro
+            {s.back}
           </Button>
         </div>
       </RowBody>
@@ -781,7 +758,7 @@ function DraftReview({
   );
 }
 
-/** "Aggiungi un mostro": a ready-made one or one made to measure, reviewed, then added. */
+/** "Add a monster": a ready-made one or one made to measure, reviewed, then added. */
 export function AddMonster({
   taken,
   onCancel,
@@ -797,6 +774,8 @@ export function AddMonster({
   /** A new monster of a project (D-100): the same flow, created in its squad. */
   project?: { id: string; name: string } | undefined;
 }) {
+  const s = teamStrings().members;
+  const common = partsStrings();
   const descId = domId(useId());
   const [suggestions, setSuggestions] = useState<TeamSuggestions | null>(null);
   const [description, setDescription] = useState('');
@@ -834,7 +813,7 @@ export function AddMonster({
 
   if (draft) {
     return (
-      <Group title="Nuovo mostro" testId="team-add">
+      <Group title={s.newMonster} testId="team-add">
         <DraftReview
           draft={draft}
           proposal={proposal}
@@ -855,7 +834,7 @@ export function AddMonster({
   return (
     <div className="grid gap-5" data-testid="team-add">
       {suggestions && suggestions.archetypes.length > 0 && (
-        <Group title="Nuovo mostro: uno pronto" as="ul">
+        <Group title={s.newReady} as="ul">
           {suggestions.archetypes.map((a) => (
             <Row
               key={a.archetype}
@@ -872,31 +851,31 @@ export function AddMonster({
                 variant="secondary"
                 size="sm"
                 disabled={busy !== null}
-                aria-label={`Scegli ${a.name}, ${a.title}`}
+                aria-label={s.choose(a.name, a.title)}
                 onClick={() => void prepare({ archetype: a.archetype }, a.archetype)}
               >
-                {busy === a.archetype ? 'Preparo…' : 'Scegli'}
+                {busy === a.archetype ? s.preparingIt : s.pick}
               </Button>
             </Row>
           ))}
         </Group>
       )}
       <Group
-        title={suggestions?.archetypes.length ? 'Oppure su misura' : 'Nuovo mostro'}
-        footer="Lo prepara il modello dalla tua descrizione: può volerci un minuto. Prima di aggiungerlo lo puoi cambiare."
+        title={suggestions?.archetypes.length ? s.orCustom : s.newMonster}
+        footer={s.customFooter}
       >
         <form
           noValidate
           onSubmit={(e) => {
             e.preventDefault();
             const d = description.replace(/\s+/g, ' ').trim();
-            if (d.length < 5) return setError('Scrivi in qualche parola cosa deve fare.');
+            if (d.length < 5) return setError(s.describe);
             void prepare({ description: d }, 'description');
           }}
         >
           <RowBody>
             {suggestions && suggestions.ideas.length > 0 && (
-              <div className="flex flex-wrap gap-1.5" aria-label="Idee" role="group">
+              <div className="flex flex-wrap gap-1.5" aria-label={s.ideas} role="group">
                 {suggestions.ideas.map((i) => (
                   <Chip
                     key={i.id}
@@ -908,13 +887,13 @@ export function AddMonster({
                 ))}
               </div>
             )}
-            <FormField id={descId} label="Cosa deve fare?" error={error}>
+            <FormField id={descId} label={s.whatShouldItDo} error={error}>
               <textarea
                 id={descId}
                 rows={3}
                 maxLength={500}
                 value={description}
-                placeholder="Per esempio: segue le mie spese e mi avvisa quando sforo il budget."
+                placeholder={s.describePlaceholder}
                 onChange={(e) => setDescription(e.target.value)}
                 className={textareaClass}
               />
@@ -922,10 +901,10 @@ export function AddMonster({
             <div className="flex flex-wrap gap-2">
               <Button type="submit" size="sm" disabled={busy !== null || !description.trim()}>
                 <Sparkle size={16} aria-hidden />
-                {busy === 'description' ? 'Ci penso…' : 'Prepara il mostro'}
+                {busy === 'description' ? s.thinking : s.prepare}
               </Button>
               <Button variant="ghost" size="sm" onClick={onCancel}>
-                Annulla
+                {common.cancel}
               </Button>
             </div>
           </RowBody>

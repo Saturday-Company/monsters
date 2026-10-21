@@ -7,15 +7,17 @@ import { cn } from '../../lib/utils.ts';
 import { getApi, notify } from '../../store/app.ts';
 import { Button, buttonVariants } from '../ui/button.tsx';
 import { PlanLimitsBlock } from '../usage/PlanLimitsBlock.tsx';
+import { serviceLabel } from './data.ts';
 import { ConfirmButton, RowBody, ServiceRow } from './parts.tsx';
+import { subscriptionsStrings } from './subscriptions.strings.ts';
 
 /*
  * Settings → Modelli, the plans the user already pays for (M2.7, D-005,
- * D-035), only in the ways the providers allow; each one as a row of "Con
- * cosa pensano i mostri" once on, or of the list to connect.
+ * D-035), only in the ways the providers allow; each one as a row of "What
+ * the monsters think with" once on, or of the list to connect.
  * - ChatGPT: OpenAI's required elements (UI/UX guidelines of Sign in with
  *   ChatGPT): "Continue with ChatGPT", the first-use modal, "Manage usage".
- * - Abbonamento Claude (the Claude Agent harness): plain text label, no logo,
+ * - Claude subscription (the Claude Agent harness): plain text label, no logo,
  *   no login button: the login is done by the user in a terminal with Claude Code.
  * - Codex: the same ChatGPT sign-in.
  */
@@ -53,10 +55,11 @@ function ExternalLink({
 /**
  * First sign-in with plan usage on: OpenAI's welcome, dismissable. Not a native
  * modal (`showModal` makes the whole page inert, kill switch included): a
- * dialog in a layer that starts below the top bar, so "Ferma tutto" stays
+ * dialog in a layer that starts below the top bar, so "Stop everything" stays
  * visible and clickable (ARCHITECTURE §8).
  */
 export function ChatGPTWelcome({ onDone }: { onDone: () => void }) {
+  const s = subscriptionsStrings();
   const [open, setOpen] = useState(true);
   const done = useRef(onDone);
   useEffect(() => {
@@ -87,22 +90,19 @@ export function ChatGPTWelcome({ onDone }: { onDone: () => void }) {
         className="raised relative m-0 w-[min(440px,100%)] rounded-[16px] p-6 text-ink"
       >
         <h2 id="chatgpt-welcome-title" className="text-title2 font-semibold">
-          You&rsquo;re using your ChatGPT plan
+          {s.welcomeTitle}
         </h2>
         <p className="mt-2 text-large leading-snug text-ink-muted">
-          Eligible usage in this app uses your ChatGPT plan. Manage usage in your{' '}
+          {s.welcomeBefore}
           <a href={USAGE_URL} target="_blank" rel="noreferrer" className="text-ink underline">
-            ChatGPT settings
+            {s.welcomeLink}
           </a>
-          .
+          {s.welcomeAfter}
         </p>
-        <p className="mt-2 text-footnote leading-snug text-ink-muted">
-          I mostri che usano ChatGPT consumano il tuo piano. Il limite per Monsters lo scegli tu
-          nelle impostazioni di ChatGPT.
-        </p>
+        <p className="mt-2 text-footnote leading-snug text-ink-muted">{s.welcomeNote}</p>
         <div className="mt-5 flex justify-end">
           <Button onClick={close} autoFocus>
-            Got it
+            {s.gotIt}
           </Button>
         </div>
       </dialog>
@@ -177,13 +177,14 @@ function ContinueWithChatGPT({ busy, onClick }: { busy: boolean; onClick: () => 
       data-testid="continue-with-chatgpt"
       className="inline-flex h-9 items-center justify-center rounded-full bg-[#0d0d0d] px-4 text-body font-medium text-white ring-1 ring-white/15 hover:bg-[#262626] active:translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink disabled:opacity-50"
     >
-      Continue with ChatGPT
+      {subscriptionsStrings().continue}
     </button>
   );
 }
 
-/** ChatGPT, signed in: the plan in use, "Manage usage", Scollega. */
+/** ChatGPT, signed in: the plan in use, "Manage usage", Disconnect. */
 export function ChatGPTConnected({ s, refresh }: { s: SubscriptionsResponse; refresh: Refresh }) {
+  const t = subscriptionsStrings();
   const { busy, act } = useAct(refresh);
   const c = s.chatgpt;
   return (
@@ -191,30 +192,30 @@ export function ChatGPTConnected({ s, refresh }: { s: SubscriptionsResponse; ref
       testId="subscription-chatgpt"
       configured
       title="ChatGPT"
-      tag="Il tuo piano"
+      tag={t.chatgpt.tag}
       status={
         <>
-          Collegato{c.email ? ` come ${c.email}` : ''}. I mostri che scegli usano il tuo piano.
+          {t.chatgpt.connected(c.email)}
           {c.message ? ` ${c.message}` : ''}
         </>
       }
       actions={
         <>
           <ExternalLink href={c.usageUrl} testId="manage-usage">
-            Manage usage
+            {t.manageUsage}
           </ExternalLink>
           <ConfirmButton
-            label="Scollega"
-            question="Scollego ChatGPT?"
-            confirm="Sì, scollega"
+            label={t.chatgpt.disconnect}
+            question={t.chatgpt.disconnectQuestion}
+            confirm={t.chatgpt.disconnectConfirm}
             busy={busy}
-            onConfirm={() => void act(() => getApi().chatgptLogout(), 'ChatGPT scollegato.')}
+            onConfirm={() => void act(() => getApi().chatgptLogout(), t.chatgpt.disconnected)}
           />
         </>
       }
     >
       <RowBody>
-        <PlanUsage title="Utilizzo del piano" plan="chatgpt" view={s.limits.chatgpt} />
+        <PlanUsage title={t.planUsage} plan="chatgpt" view={s.limits.chatgpt} />
       </RowBody>
     </ServiceRow>
   );
@@ -222,6 +223,7 @@ export function ChatGPTConnected({ s, refresh }: { s: SubscriptionsResponse; ref
 
 /** ChatGPT, not signed in: OpenAI's texts and button (D-005), then the wait for the browser. */
 export function ChatGPTAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: Refresh }) {
+  const t = subscriptionsStrings();
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const c = s.chatgpt;
@@ -243,12 +245,10 @@ export function ChatGPTAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: 
     <ServiceRow
       testId="subscription-chatgpt"
       configured={false}
-      title="Use your ChatGPT plan"
+      title={t.addTitle}
       status={
         <>
-          Complete eligible AI requests in this app with usage included in your ChatGPT plan or
-          credits balance. Funziona con Plus e Pro ed è separato da Monsters: a noi non paghi
-          niente.
+          {t.addStatus} {t.chatgpt.addNote}
           {c.message ? ` ${c.message}` : ''}
         </>
       }
@@ -257,22 +257,22 @@ export function ChatGPTAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: 
       {c.pending && (
         <RowBody className="gap-1.5 text-footnote leading-snug text-ink-muted">
           <p>
-            <strong className="font-semibold text-ink">Completa l’accesso nel browser.</strong>{' '}
-            Questa pagina si aggiorna da sola quando hai finito.
+            <strong className="font-semibold text-ink">{t.chatgpt.finish}</strong>{' '}
+            {t.chatgpt.updates}
             {url && (
               <>
                 {' '}
                 <a href={url} target="_blank" rel="noreferrer" className="text-ink underline">
-                  Riapri la pagina di accesso
+                  {t.chatgpt.reopen}
                 </a>
                 .
               </>
             )}
           </p>
           <p>
-            Monsters gira su un altro computer? Prima apri il tunnel dal tuo:{' '}
+            {t.chatgpt.tunnel}
             <code className="font-mono text-ink">
-              ssh -L {c.callbackPort ?? 1455}:127.0.0.1:{c.callbackPort ?? 1455} utente@computer
+              {t.chatgpt.sshCommand(c.callbackPort ?? 1455)}
             </code>
           </p>
         </RowBody>
@@ -281,7 +281,7 @@ export function ChatGPTAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: 
   );
 }
 
-/** "Utilizzo del piano" (D-111): the windows of the plan, under its row. */
+/** "Plan usage" (D-111): the windows of the plan, under its row. */
 function PlanUsage({
   title,
   plan,
@@ -300,6 +300,7 @@ function PlanUsage({
 }
 
 function ClaudeTerminalHint() {
+  const t = subscriptionsStrings().claude;
   return (
     <div
       className="flex gap-2.5 text-footnote leading-snug text-ink-muted"
@@ -307,39 +308,39 @@ function ClaudeTerminalHint() {
     >
       <Terminal size={20} aria-hidden className="mt-px shrink-0 text-ink" />
       <p>
-        <strong className="font-semibold text-ink">Apri un terminale ed esegui</strong>{' '}
-        <code className="font-mono text-ink">claude</code>, poi accedi con il tuo abbonamento (
-        <code className="font-mono text-ink">/login</code>). Monsters non vede mai le tue
-        credenziali: quando hai finito, premi «Ricontrolla».
+        <strong className="font-semibold text-ink">{t.terminalTitle}</strong>{' '}
+        <code className="font-mono text-ink">{'claude'}</code>
+        {t.terminalMid}
+        <code className="font-mono text-ink">{'/login'}</code>
+        {t.terminalAfter}
       </p>
     </div>
   );
 }
 
-/** Abbonamento Claude, turned on: ready, or what is missing (the login is the user's, in a terminal). */
+/** Claude subscription, turned on: ready, or what is missing (the login is the user's, in a terminal). */
 export function ClaudeConnected({ s, refresh }: { s: SubscriptionsResponse; refresh: Refresh }) {
+  const t = subscriptionsStrings().claude;
   const { busy, act } = useAct(refresh);
   const c = s.claude;
   const needsLogin = c.state === 'logged_out' || c.state === 'unknown' || c.state === 'error';
   const status =
     c.state === 'subscription'
-      ? `Pronto: i mostri che scegli lavorano con Claude Code e il tuo abbonamento${
-          c.version ? ` (versione ${c.version})` : ''
-        }.`
+      ? t.ready(c.version)
       : c.state === 'api_key'
-        ? 'Claude Code userebbe una chiave API: pagheresti a consumo, non con l’abbonamento. Esegui claude e accedi con il tuo piano.'
+        ? t.apiKey
         : c.state === 'other'
-          ? 'Claude Code usa un altro metodo di accesso che hai impostato tu.'
+          ? t.other
           : c.state === 'not_found' && !c.installing
-            ? 'Non trovo più Claude Code: reinstallalo, oppure scollega e collega di nuovo.'
+            ? t.notFound
             : c.installing
-              ? 'Installo il componente di Anthropic, ci vuole qualche minuto…'
-              : 'Manca l’accesso a Claude Code.';
+              ? t.installing
+              : t.missingLogin;
   return (
     <ServiceRow
       testId="subscription-claude"
       configured
-      title="Abbonamento Claude"
+      title={serviceLabel('claude-agent')}
       tag="Claude Code"
       status={
         <>
@@ -351,13 +352,13 @@ export function ClaudeConnected({ s, refresh }: { s: SubscriptionsResponse; refr
         <>
           {c.state !== 'subscription' && (
             <Button variant="secondary" size="sm" disabled={busy} onClick={() => refresh(true)}>
-              Ricontrolla
+              {t.checkAgain}
             </Button>
           )}
           <ConfirmButton
-            label="Scollega"
-            question="Scollego l’abbonamento Claude?"
-            confirm="Sì, scollega"
+            label={t.disconnect}
+            question={t.disconnectQuestion}
+            confirm={t.disconnectConfirm}
             busy={busy}
             onConfirm={() => void act(() => getApi().deactivateHarness('claude-agent'))}
           />
@@ -371,15 +372,20 @@ export function ClaudeConnected({ s, refresh }: { s: SubscriptionsResponse; refr
       )}
       {c.state === 'subscription' && (
         <RowBody>
-          <PlanUsage title="Utilizzo del piano" plan="claude" view={s.limits.claude} />
+          <PlanUsage
+            title={subscriptionsStrings().planUsage}
+            plan="claude"
+            view={s.limits.claude}
+          />
         </RowBody>
       )}
     </ServiceRow>
   );
 }
 
-/** Abbonamento Claude, off: what it is, and the one button (no logo, no login of ours). */
+/** Claude subscription, off: what it is, and the one button (no logo, no login of ours). */
 export function ClaudeAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: Refresh }) {
+  const t = subscriptionsStrings().claude;
   const { busy, act } = useAct(refresh);
   const c = s.claude;
   const install = c.state === 'not_found';
@@ -387,12 +393,8 @@ export function ClaudeAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: R
     <ServiceRow
       testId="subscription-claude"
       configured={false}
-      title="Abbonamento Claude"
-      status={
-        install
-          ? `Usa Claude Code col tuo abbonamento. Non lo trovo su questo computer: puoi installarlo tu, oppure Monsters installa il componente ufficiale di Anthropic (${c.package.name} ${c.package.version}, licenza ${c.package.license}).`
-          : 'Usa Claude Code sul computer dove gira Monsters, col tuo abbonamento. L’accesso lo fai tu, nel terminale.'
-      }
+      title={serviceLabel('claude-agent')}
+      status={install ? t.addInstall(c.package.name, c.package.version, c.package.license) : t.add}
       actions={
         <Button
           variant="secondary"
@@ -400,7 +402,7 @@ export function ClaudeAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: R
           disabled={busy || c.installing}
           onClick={() => void act(() => getApi().activateHarness('claude-agent', install))}
         >
-          {c.installing ? 'Installo…' : install ? 'Installa e collega' : 'Collega'}
+          {c.installing ? t.installingButton : install ? t.installAndConnect : t.connect}
         </Button>
       }
     />
@@ -409,29 +411,26 @@ export function ClaudeAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: R
 
 /** Codex, turned on. */
 export function CodexConnected({ s, refresh }: { s: SubscriptionsResponse; refresh: Refresh }) {
+  const t = subscriptionsStrings().codex;
   const { busy, act } = useAct(refresh);
   const c = s.codex;
   return (
     <ServiceRow
       testId="subscription-codex"
       configured
-      title="Codex (per programmare)"
-      tag="Piano ChatGPT"
+      title={serviceLabel('codex')}
+      tag={t.tag}
       status={
         <>
-          {c.installing
-            ? 'Installo Codex, ci vuole qualche minuto…'
-            : c.state === 'ready'
-              ? 'Pronto: usa il tuo piano ChatGPT.'
-              : 'Codex non è ancora installato.'}
+          {c.installing ? t.installing : c.state === 'ready' ? t.ready : t.notInstalled}
           {c.message ? ` ${c.message}` : ''}
         </>
       }
       actions={
         <ConfirmButton
-          label="Scollega"
-          question="Scollego Codex?"
-          confirm="Sì, scollega"
+          label={t.disconnect}
+          question={t.disconnectQuestion}
+          confirm={t.disconnectConfirm}
           busy={busy}
           onConfirm={() => void act(() => getApi().deactivateHarness('codex'))}
         />
@@ -442,6 +441,7 @@ export function CodexConnected({ s, refresh }: { s: SubscriptionsResponse; refre
 
 /** Codex, off: it needs ChatGPT first, and is installed only on request. */
 export function CodexAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: Refresh }) {
+  const t = subscriptionsStrings().codex;
   const { busy, act } = useAct(refresh);
   const c = s.codex;
   const install = c.state === 'not_found';
@@ -449,13 +449,13 @@ export function CodexAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: Re
     <ServiceRow
       testId="subscription-codex"
       configured={false}
-      title="Codex (per programmare)"
+      title={serviceLabel('codex')}
       status={
         c.state === 'needs_chatgpt'
-          ? 'L’agente di OpenAI che scrive codice e usa il computer, con lo stesso accesso a ChatGPT. Collega prima ChatGPT.'
+          ? t.needsChatgpt
           : install
-            ? `L’agente di OpenAI che scrive codice e usa il computer. Monsters installa il programma ufficiale (${c.package.name} ${c.package.version}, licenza ${c.package.license}, circa 450 MB) solo se lo chiedi tu.`
-            : 'L’agente di OpenAI che scrive codice e usa il computer, con il tuo accesso a ChatGPT.'
+            ? t.addInstall(c.package.name, c.package.version, c.package.license)
+            : t.add
       }
       actions={
         c.state !== 'needs_chatgpt' && (
@@ -465,7 +465,7 @@ export function CodexAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: Re
             disabled={busy || c.installing}
             onClick={() => void act(() => getApi().activateHarness('codex', install))}
           >
-            {c.installing ? 'Installo…' : install ? 'Installa e collega' : 'Collega'}
+            {c.installing ? t.installingButton : install ? t.installAndConnect : t.connect}
           </Button>
         )
       }

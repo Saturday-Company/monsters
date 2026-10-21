@@ -1,5 +1,7 @@
 import {
   formatEur,
+  formatList,
+  formatNumber,
   type SpendMeterView,
   type SpendUpdate,
   type SpendView,
@@ -11,9 +13,10 @@ import { errorText, getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Input } from '../ui/field.tsx';
 import { AgentMark, DisclosureRow, FormField, Group, Row, RowBody, Status } from './parts.tsx';
+import { spendStrings } from './spend.strings.ts';
 
 /*
- * Settings → Modelli → Tetto di spesa (D-070): what the monsters spent today
+ * Settings → Models → Spending cap (D-070): what the monsters spent today
  * and this month with paid models, against the caps of the team and, when
  * set, of a monster. A cap reached stops only the work that costs money;
  * subscriptions and free models are counted apart, in the footer. The numbers
@@ -51,7 +54,7 @@ export function SpendDisplay({ meter, testId }: { meter: SpendMeterView; testId?
 
 /** The screen already says "spent / cap": a line under it only when there is no cap to compare to. */
 export function noCapNote(meter: SpendMeterView): string | undefined {
-  return meter.capEur === null ? 'Senza tetto.' : undefined;
+  return meter.capEur === null ? spendStrings().noCap : undefined;
 }
 
 /** One link of the chain of caps: a monster, the project, the whole team. */
@@ -99,12 +102,6 @@ export function hotLink(links: readonly CapLink[]): CapLink['id'] | null {
   return best?.id ?? null;
 }
 
-const OF_LINK: Record<CapLink['id'], string> = {
-  monster: 'del mostro',
-  project: 'del progetto',
-  team: 'della squadra',
-};
-
 /**
  * A cap higher than one that holds it (a monster above its project or the team, a project above
  * the team) can never be the first to stop anything: one sentence per such link, said plainly.
@@ -118,7 +115,10 @@ export function capWarnings(links: readonly CapLink[]): string[] {
       if (!outer.meter || outer.meter.capEur === null || outer.period !== inner.period) continue;
       if (inner.meter.capEur <= outer.meter.capEur) continue;
       out.push(
-        `${inner.who ? `${inner.label} (${inner.who})` : inner.label}: più alto del tetto ${OF_LINK[outer.id]}: scatta prima quello.`,
+        spendStrings().higherThan(
+          inner.who ? `${inner.label} (${inner.who})` : inner.label,
+          outer.id,
+        ),
       );
       break;
     }
@@ -127,9 +127,9 @@ export function capWarnings(links: readonly CapLink[]): string[] {
 }
 
 /**
- * "Mostro ≤ Progetto ≤ Tutta la squadra" (U-13): the three caps in the order they
+ * "Monster ≤ Project ≤ Whole squad" (U-13): the three caps in the order they
  * hold, on a small screen, the one closest to its threshold lit. At the top of
- * every view of Spesa, so the caps are said once, here.
+ * every view of Spending, so the caps are said once, here.
  */
 export function CapChain({ links, testId }: { links: readonly CapLink[]; testId: string }) {
   const hot = hotLink(links);
@@ -138,7 +138,10 @@ export function CapChain({ links, testId }: { links: readonly CapLink[]; testId:
   return (
     <div
       role="group"
-      aria-label={`Come valgono i tetti: ${links.map((l) => l.label).join(', poi ')}${hotLabel ? `. Il più vicino al limite: ${hotLabel.label}` : ''}`}
+      aria-label={spendStrings().chainLabel(
+        links.map((l) => l.label),
+        hotLabel?.label ?? null,
+      )}
       className="screen mx-4 my-3 flex flex-wrap items-stretch gap-x-2 gap-y-2 rounded-[10px] px-3 py-2.5"
       data-testid={testId}
       data-hot={hot ?? undefined}
@@ -164,8 +167,8 @@ export function CapChain({ links, testId }: { links: readonly CapLink[]; testId:
               </span>
               <span className="font-mono text-micro tabular-nums">
                 {l.meter
-                  ? `${formatEur(l.meter.spentEur)} / ${formatEur(l.meter.capEur ?? 0)} ${l.period ?? ''}`
-                  : 'senza tetto'}
+                  ? `${formatEur(l.meter.spentEur)} / ${formatEur(l.meter.capEur ?? 0)} ${l.period ? spendStrings().period[l.period] : ''}`
+                  : spendStrings().noCapShort}
                 {l.who ? ` · ${l.who}` : ''}
               </span>
             </div>
@@ -185,30 +188,24 @@ export function CapChain({ links, testId }: { links: readonly CapLink[]; testId:
   );
 }
 
-/** "Anthropic", "Anthropic e OpenAI", "Anthropic, OpenAI e Google". */
-function listWords(items: readonly string[]): string {
-  if (items.length <= 1) return items.join('');
-  return `${items.slice(0, -1).join(', ')} e ${items.at(-1)!}`;
-}
-
 /**
  * What the cap cannot count (D-114): paid models whose price Monsters does not
  * know. They are not stopped, so the card says it plainly; null when there are none.
  */
-export function unpricedNotice(labels: readonly string[], whose = 'Il tetto'): string | null {
+export function unpricedNotice(labels: readonly string[], whose?: string): string | null {
   const names = [...new Set(labels)];
   if (names.length === 0) return null;
-  return `${whose} non conta quello che spendi con ${listWords(names)}: Monsters non conosce il prezzo di quei modelli, quindi lì non ferma niente. Controlla la spesa sul sito del fornitore.`;
+  return spendStrings().unpriced(names, whose);
 }
 
 /**
  * Direct keys priced by OpenRouter's public list (D-114): the cap counts them at an estimated
  * cost and stops them like the others; null when there are none.
  */
-export function estimatedNotice(labels: readonly string[], whose = 'Il tetto'): string | null {
+export function estimatedNotice(labels: readonly string[], whose?: string): string | null {
   const names = [...new Set(labels)];
   if (names.length === 0) return null;
-  return `Con ${listWords(names)} il costo è stimato: Monsters conta i token al prezzo del listino pubblico di OpenRouter. ${whose} lo conta e ferma i lavori quando lo raggiungi; la cifra vera è sul sito del fornitore.`;
+  return spendStrings().estimated(names, whose);
 }
 
 /** "12,5" or "12.5" → 12.5; empty → null (no cap); not a number or below 0,50 → undefined. */
@@ -217,10 +214,11 @@ export function parseEur(text: string): number | null | undefined {
   return n === null ? null : n !== undefined && n >= 0.5 ? n : undefined;
 }
 
+// No grouping: the field is read back by `parseAmount`, where a "," or a "." may be a decimal mark.
 const eurText = (v: number | null | undefined) =>
-  v == null ? '' : v.toLocaleString('it-IT', { maximumFractionDigits: 2 });
+  v == null ? '' : formatNumber(v, { maximumFractionDigits: 2, useGrouping: false });
 
-/** Two fields (a day, a month) and "Salva": the caps of the team or of one monster. */
+/** Two fields (a day, a month) and "Save": the caps of the team or of one monster. */
 export function CapsForm({
   daily,
   monthly,
@@ -236,6 +234,7 @@ export function CapsForm({
   dailyRef?: React.RefObject<HTMLInputElement | null>;
   emptyHint: string;
 }) {
+  const s = spendStrings();
   const id = domId(useId());
   const [day, setDay] = useState(eurText(daily));
   const [month, setMonth] = useState(eurText(monthly));
@@ -255,7 +254,7 @@ export function CapsForm({
     const d = parseEur(day);
     const m = parseEur(month);
     if (d === undefined || m === undefined) {
-      setError('Scrivi una cifra in euro (almeno 0,50), o lascia vuoto per nessun tetto.');
+      setError(s.form.invalid);
       return;
     }
     setError(null);
@@ -272,7 +271,7 @@ export function CapsForm({
   return (
     <form onSubmit={(e) => void submit(e)} className="grid gap-3" data-testid={testId}>
       <div className="grid items-start gap-3 sm:grid-cols-2">
-        <FormField id={`${id}-day`} label="Al giorno (€)">
+        <FormField id={`${id}-day`} label={s.form.day}>
           <Input
             id={`${id}-day`}
             ref={dailyRef}
@@ -283,7 +282,7 @@ export function CapsForm({
             data-testid={`${testId}-day`}
           />
         </FormField>
-        <FormField id={`${id}-month`} label="Al mese (€)">
+        <FormField id={`${id}-month`} label={s.form.month}>
           <Input
             id={`${id}-month`}
             inputMode="decimal"
@@ -310,7 +309,7 @@ export function CapsForm({
           disabled={busy || !changed}
           data-testid={`${testId}-save`}
         >
-          Salva
+          {s.save}
         </Button>
       </div>
     </form>
@@ -325,6 +324,7 @@ export function chainOf(
 }
 
 export function SpendSection() {
+  const s = spendStrings();
   const [view, setView] = useState<SpendView | null>(null);
   const [failed, setFailed] = useState(false);
   const dailyRef = useRef<HTMLInputElement | null>(null);
@@ -343,7 +343,7 @@ export function SpendSection() {
   if (failed)
     return (
       <p className="px-1 text-footnote text-ink-muted" role="status">
-        Non riesco a leggere il tetto di spesa adesso. Riprova tra poco.
+        {s.failed}
       </p>
     );
   if (!view) return null;
@@ -358,9 +358,11 @@ export function SpendSection() {
   const reached = view.status === 'stopped';
   const notCounted = [
     view.free.requests > 0
-      ? `${view.free.requests.toLocaleString('it-IT')} richieste a modelli gratuiti`
+      ? s.freeRequests(formatNumber(view.free.requests), view.free.requests)
       : null,
-    ...view.subscriptions.map((s) => `${s.label}: ${s.requests.toLocaleString('it-IT')} richieste`),
+    ...view.subscriptions.map((sub) =>
+      s.subscriptionRequests(sub.label, formatNumber(sub.requests), sub.requests),
+    ),
   ].filter(Boolean);
   const unpriced = unpricedNotice(view.unpriced.map((u) => u.label));
   const estimated = estimatedNotice((view.estimated ?? []).map((u) => u.label));
@@ -370,20 +372,20 @@ export function SpendSection() {
       title={SETTINGS_SECTIONS.tettoDiSpesa.label}
       id="settings-tetto"
       testId="spend-section"
-      description="Quanto possono spendere i mostri con i modelli a pagamento. Al tetto quei lavori si fermano finché non lo alzi; abbonamenti e modelli gratuiti non contano."
+      description={s.description}
       footer={
         <span data-testid="spend-footer">
-          {notCounted.length > 0 ? `Questo mese, fuori dal conto: ${notCounted.join(' · ')}. ` : ''}
-          Cambio fisso: 1 $ = {view.usdToEur.toLocaleString('it-IT')} €.
+          {notCounted.length > 0 ? s.notCounted(notCounted.join(' · ')) : ''}
+          {s.rate(formatNumber(view.usdToEur))}
         </span>
       }
     >
       <CapChain
         testId="spend-chain"
         links={[
-          { id: 'monster', ...chainOf(closestOf(view.agents)), label: 'Mostro' },
-          { id: 'project', ...chainOf(closestOf(view.projects ?? [])), label: 'Progetto' },
-          { id: 'team', ...chainOf(closestMeter(view.day, view.month)), label: 'Tutta la squadra' },
+          { id: 'monster', ...chainOf(closestOf(view.agents)), label: s.links.monster },
+          { id: 'project', ...chainOf(closestOf(view.projects ?? [])), label: s.links.project },
+          { id: 'team', ...chainOf(closestMeter(view.day, view.month)), label: s.links.team },
         ]}
       />
       {unpriced && (
@@ -399,9 +401,7 @@ export function SpendSection() {
       {view.status !== 'ok' && (
         <RowBody>
           <Status testId="spend-status">
-            {reached
-              ? 'Hai raggiunto il tetto: i lavori con modelli a pagamento sono fermi. Alzalo qui sotto per farli ripartire.'
-              : `Hai speso più dell’${Math.round(view.warnAt * 100)}% del tetto.`}
+            {reached ? s.reached : s.warned(Math.round(view.warnAt * 100))}
           </Status>
           {reached && (
             <div>
@@ -415,20 +415,20 @@ export function SpendSection() {
                   const next = Math.max(1, Math.ceil(((cap.capEur ?? 0) * 2) / 5) * 5);
                   void save(
                     cap === view.day ? { dailyEur: next } : { monthlyEur: next },
-                    `Tetto alzato a ${formatEur(next)} ${cap === view.day ? 'al giorno' : 'al mese'}: i lavori ripartono.`,
+                    s.raised(formatEur(next), cap === view.day),
                   ).catch((err: unknown) => notify(errorText(err), 'error'));
                 }}
               >
-                Alza il tetto
+                {s.raise}
               </Button>
             </div>
           )}
         </RowBody>
       )}
-      <Row label="Oggi" description={noCapNote(view.day)} testId="spend-day">
+      <Row label={s.today} description={noCapNote(view.day)} testId="spend-day">
         <SpendDisplay meter={view.day} testId="spend-day-display" />
       </Row>
-      <Row label="Questo mese" description={noCapNote(view.month)} testId="spend-month">
+      <Row label={s.thisMonth} description={noCapNote(view.month)} testId="spend-month">
         <SpendDisplay meter={view.month} testId="spend-month-display" />
       </Row>
       <RowBody>
@@ -437,15 +437,15 @@ export function SpendSection() {
           daily={view.day.capEur}
           monthly={view.month.capEur}
           dailyRef={dailyRef}
-          emptyHint="Vuoto: nessun tetto."
-          onSave={(caps) => save(caps, 'Tetto di spesa salvato.')}
+          emptyHint={s.emptyHint}
+          onSave={(caps) => save(caps, s.saved)}
         />
       </RowBody>
       {paid.length > 0 && (
         <DisclosureRow
           as="div"
-          label="Per mostro"
-          description="Un tetto in più solo per un mostro, oltre a quello della squadra."
+          label={s.perMonster}
+          description={s.perMonsterText}
           testId="spend-agents"
         >
           <ul className="grid">
@@ -454,17 +454,20 @@ export function SpendSection() {
                 <Row
                   leading={<AgentMark id={a.id} color="var(--ink-muted)" width={40} height={34} />}
                   label={a.name}
-                  description={`Oggi ${formatEur(a.day.spentEur)} · questo mese ${formatEur(a.month.spentEur)}${a.paid ? '' : ' · ora usa modelli gratuiti'}${a.unpriced?.length ? ` · ${listWords(a.unpriced)} fuori dal conto` : ''}`}
+                  description={s.agentLine(
+                    formatEur(a.day.spentEur),
+                    formatEur(a.month.spentEur),
+                    a.paid,
+                    a.unpriced?.length ? formatList(a.unpriced) : null,
+                  )}
                 />
                 <RowBody>
                   <CapsForm
                     testId={`spend-caps-${a.id}`}
                     daily={a.caps.dailyEur}
                     monthly={a.caps.monthlyEur}
-                    emptyHint="Vuoto: vale solo il tetto della squadra."
-                    onSave={(caps) =>
-                      save({ agents: { [a.id]: caps } }, `Tetto di ${a.name} salvato.`)
-                    }
+                    emptyHint={s.agentEmptyHint}
+                    onSave={(caps) => save({ agents: { [a.id]: caps } }, s.agentSaved(a.name))}
                   />
                 </RowBody>
               </li>

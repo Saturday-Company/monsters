@@ -3,6 +3,7 @@ import { useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { capitalize, modelLabel } from '../../store/derive.ts';
 import { cn, domId } from '../../lib/utils.ts';
 import { Input } from '../ui/field.tsx';
+import { modelsStrings } from './models.strings.ts';
 import { fieldOnGroup, selectClass } from './parts.tsx';
 
 /*
@@ -10,9 +11,9 @@ import { fieldOnGroup, selectClass } from './parts.tsx';
  * list, not a text field with suggestions (a `<datalist>` showed only the
  * models starting like the one already written). A short list (the Claude
  * plan, Codex, ChatGPT, a key) is a select with one line on each model and
- * "Altro…" at the bottom for a name that is not there; a long one (OpenRouter,
+ * "Other…" at the bottom for a name that is not there; a long one (OpenRouter,
  * hundreds of models) is a field that searches the list as you type, where a
- * name that is not in the list counts as "Altro".
+ * name that is not in the list counts as "Other".
  */
 
 export type ModelList = ModelInfoView[] | 'loading' | 'error' | undefined;
@@ -23,11 +24,11 @@ const SELECT_MAX = 15;
 const SHOWN = 60;
 const OTHER = '__other__';
 
-/** A model as people say it: its name in the list, "Gratuito, scelto da OpenRouter" for the free router. */
+/** A model as people say it: its name in the list, "Free, picked by OpenRouter" for the free router. */
 export function modelName(model: string, list: ModelList): string {
   const id = model.trim();
   if (!id) return '';
-  if (id === 'openrouter/free') return 'Gratuito, scelto da OpenRouter';
+  if (id === 'openrouter/free') return modelsStrings().picker.freeRouter;
   const named = Array.isArray(list) ? list.find((m) => m.id === id)?.name : undefined;
   return named ?? capitalize(modelLabel(id));
 }
@@ -42,11 +43,11 @@ export function orderedModels(provider: string, list: readonly ModelInfoView[]):
   return [...list].sort((a, b) => rank(a.id) - rank(b.id));
 }
 
-/** "Sonnet · equilibrato", "Gemini 2.5 Flash Lite · a pagamento, non attivo". */
+/** "Sonnet · balanced", "Gemini 2.5 Flash Lite · paid, not enabled". */
 export function optionText(provider: string, m: ModelInfoView, freeOnly: boolean): string {
   const name = m.name ?? m.id;
   if (provider === 'openrouter' && !isOpenRouterFreeModel(m.id)) {
-    return `${name} · a pagamento${freeOnly ? ', non attivo' : ''}`;
+    return modelsStrings().picker.paidOption(name, freeOnly);
   }
   return m.description ? `${name} · ${m.description}` : name;
 }
@@ -93,12 +94,13 @@ export function ModelPicker({
   provider: string;
   value: string;
   list: ModelList;
-  /** "Modello 1 di Rhea": the name of the control. */
+  /** "Model 1 of Rhea": the name of the control. */
   label: string;
   /** OpenRouter accepts only free models for now. */
   freeOnly: boolean;
   onChange: (model: string) => void;
 }) {
+  const s = modelsStrings().picker;
   const models = useMemo(
     () => (Array.isArray(list) ? orderedModels(provider, list) : null),
     [provider, list],
@@ -119,7 +121,7 @@ export function ModelPicker({
           aria-label={label}
           value={value}
           spellCheck={false}
-          placeholder={list === 'loading' ? 'Carico i modelli…' : 'Nome del modello'}
+          placeholder={list === 'loading' ? s.loading : s.modelName}
           onChange={(e) => onChange(e.target.value)}
           className={cn(fieldOnGroup, 'h-10 text-body')}
         />
@@ -166,6 +168,7 @@ function SelectPicker({
   freeOnly: boolean;
   onChange: (model: string) => void;
 }) {
+  const s = modelsStrings().picker;
   const known = models.some((m) => m.id === value.trim());
   const [other, setOther] = useState(false);
   const custom = other || (!!value.trim() && !known);
@@ -189,7 +192,7 @@ function SelectPicker({
       >
         {!value.trim() && !custom && (
           <option value="" disabled>
-            Scegli un modello
+            {s.choose}
           </option>
         )}
         {models.map((m) => (
@@ -197,15 +200,15 @@ function SelectPicker({
             {optionText(provider, m, freeOnly)}
           </option>
         ))}
-        <option value={OTHER}>Altro…</option>
+        <option value={OTHER}>{s.other}</option>
       </select>
       {custom && (
         <Input
           ref={field}
-          aria-label={`Nome del ${label.charAt(0).toLowerCase()}${label.slice(1)}`}
+          aria-label={s.nameOf(label)}
           value={value}
           spellCheck={false}
-          placeholder="Il nome esatto del modello"
+          placeholder={s.exactName}
           onChange={(e) => onChange(e.target.value)}
           className={cn(fieldOnGroup, 'h-10 text-body')}
           data-testid="model-other"
@@ -230,6 +233,7 @@ function SearchPicker({
   freeOnly: boolean;
   onChange: (model: string) => void;
 }) {
+  const s = modelsStrings().picker;
   const listId = domId(useId());
   const [open, setOpen] = useState(false);
   /**
@@ -300,7 +304,7 @@ function SearchPicker({
         value={readable}
         spellCheck={false}
         autoComplete="off"
-        placeholder="Cerca un modello"
+        placeholder={s.search}
         onFocus={show}
         onClick={() => !open && show()}
         onBlur={settle}
@@ -322,7 +326,7 @@ function SearchPicker({
       )}
       {unknown && (
         <p className="mt-1 px-1 text-footnote text-ink-muted" data-testid="model-unknown">
-          Non è nell’elenco: si usa così, come id. Se non è quello esatto, scegli dall’elenco.
+          {s.unknown}
         </p>
       )}
       {open && (
@@ -333,7 +337,7 @@ function SearchPicker({
           <ul
             id={listId}
             role="listbox"
-            aria-label={`Elenco dei modelli: ${label}`}
+            aria-label={s.listLabel(label)}
             className="scroll-soft max-h-72 overflow-y-auto p-1.5"
           >
             {shown.map((m, i) => (
@@ -363,14 +367,12 @@ function SearchPicker({
             ))}
             {shown.length === 0 && (
               <li role="presentation" className="px-3 py-2.5 text-footnote text-ink-muted">
-                Nessun modello con questo nome: lo uso com’è scritto (Altro).
+                {s.none}
               </li>
             )}
           </ul>
           <p className="label seam-t px-3.5 py-2 text-ink-muted">
-            {found.length > SHOWN
-              ? `${SHOWN} di ${found.length} · scrivi per cercare`
-              : `${found.length} ${found.length === 1 ? 'modello' : 'modelli'}`}
+            {found.length > SHOWN ? s.partial(SHOWN, found.length) : s.count(found.length)}
           </p>
         </div>
       )}

@@ -7,10 +7,12 @@ import { Button } from '../ui/button.tsx';
 import { Segmented } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { errorOf } from './mcp-parts.tsx';
+import { mcpStrings } from './mcp.strings.ts';
 import { FormField } from './parts.tsx';
+import { partsStrings } from './parts.strings.ts';
 
 /*
- * "Cambia il token" (D-072): a new value for the secret of a connection,
+ * "Change the token" (D-072): a new value for the secret of a connection,
  * without disconnecting it. Only that value changes: the other variables or
  * headers are sent empty (the core keeps them), the address, who uses it and
  * the permissions stay as they are. The core stops the old connection; the
@@ -57,6 +59,8 @@ export function SecretChange({
   onTest?: () => void;
   disabled?: boolean;
 }) {
+  const s = mcpStrings().secret;
+  const common = partsStrings();
   const id = domId(useId());
   const keys = token ? [token.header] : [...server.envKeys, ...server.headerKeys];
   const [open, setOpen] = useState(false);
@@ -76,7 +80,7 @@ export function SecretChange({
     e.preventDefault();
     const v = value.trim();
     if (!v) {
-      setError('Incolla qui il token nuovo.');
+      setError(s.empty);
       return;
     }
     setBusy(true);
@@ -88,7 +92,7 @@ export function SecretChange({
       );
       onSaved(data);
       close();
-      notify(`Token di ${service} cambiato.`, 'success');
+      notify(s.changed(service), 'success');
       onTest?.();
     } catch (err) {
       setError(errorOf(err));
@@ -106,7 +110,7 @@ export function SecretChange({
         onClick={() => setOpen(true)}
         data-testid="mcp-change-token"
       >
-        Cambia il token
+        {s.change}
       </Button>
     );
   }
@@ -122,7 +126,7 @@ export function SecretChange({
         <Segmented<string>
           value={key}
           onChange={setKey}
-          label="Quale valore cambiare"
+          label={s.which}
           size="sm"
           className="justify-self-start"
           options={keys.map((k) => ({ value: k, label: k }))}
@@ -130,9 +134,9 @@ export function SecretChange({
       )}
       <FormField
         id={id}
-        label={token?.label ?? (keys.length === 1 ? `Nuovo valore di ${key}` : 'Nuovo valore')}
+        label={token?.label ?? (keys.length === 1 ? s.newValueOf(key) : s.newValue)}
         error={error}
-        hint="Chi lo usa e i permessi restano come sono. Il vecchio token vale finché non salvi."
+        hint={s.hint}
       >
         <div className="grid gap-2">
           <Input
@@ -153,7 +157,7 @@ export function SecretChange({
               rel="noreferrer"
               className="inline-flex items-center gap-1 justify-self-start text-footnote font-medium text-signal-ink underline underline-offset-2"
             >
-              Crea il token
+              {s.create}
               <ArrowSquareOut size={14} aria-hidden />
             </a>
           )}
@@ -161,10 +165,10 @@ export function SecretChange({
       </FormField>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" size="sm" disabled={busy}>
-          {busy ? 'Salvo…' : 'Salva e prova'}
+          {busy ? common.saving : s.saveAndTest}
         </Button>
         <Button variant="ghost" size="sm" disabled={busy} onClick={close}>
-          Annulla
+          {common.cancel}
         </Button>
       </div>
     </form>
