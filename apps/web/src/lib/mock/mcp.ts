@@ -17,6 +17,7 @@ import {
   type McpToolView,
 } from '@monsters/shared';
 import type { RawResponse } from '../transport.ts';
+import { tr } from './lang.ts';
 
 /** `?mockRemote=1`: the mock plays a core reached on the network (D-072). */
 function remoteCore(): boolean {
@@ -30,7 +31,7 @@ function remoteCore(): boolean {
 /*
  * `/api/mcp-servers` of the mock core (M2.5): servers kept in memory, a test
  * that "starts" them and lists made-up tools. A command or address containing
- * `non-esiste` fails to start, like a program that is not installed.
+ * `non-esiste` (or `does-not-exist`) fails to start, like a program that is not installed.
  */
 
 const HOME = '/home/demo';
@@ -58,6 +59,9 @@ const fail = (status: number, error: string, message?: string): RawResponse => (
   status,
   body: { error, ...(message ? { message } : {}) },
 });
+
+const noServer = (name: string) =>
+  tr(`There’s no server “${name}”.`, `Non c’è nessun server “${name}”.`);
 
 function toolViews(server: string, list: string[][]): McpToolView[] {
   return list.map(([name = '', description = '']) => ({
@@ -146,7 +150,14 @@ export class MockMcp {
       ...s,
       knownTools: (s.knownTools ?? []).map((t) =>
         t.name === 'create_issue'
-          ? { ...t, description, skipped: 'nuovo o cambiato: in pausa finché non lo accetti' }
+          ? {
+              ...t,
+              description,
+              skipped: tr(
+                'new or changed: paused until you accept it',
+                'nuovo o cambiato: in pausa finché non lo accetti',
+              ),
+            }
           : t,
       ),
       pausedTools: [
@@ -169,15 +180,17 @@ export class MockMcp {
         tool: 'mcp__github',
         server: 'github',
         tools: [{ name: 'create_issue', change: 'changed' }],
-        message:
+        message: tr(
+          'GitHub changed the “create_issue” tool: it stays paused until you accept it.',
           'GitHub ha cambiato lo strumento «create_issue»: resta in pausa finché non lo accetti.',
+        ),
       },
     });
   }
 
   private accept(name: string, body: unknown): RawResponse {
     const s = this.servers.get(name);
-    if (!s) return fail(404, 'unknown_server', `Non c’è nessun server “${name}”.`);
+    if (!s) return fail(404, 'unknown_server', noServer(name));
     const p = McpAcceptRequestSchema.safeParse(body ?? {});
     if (!p.success) return fail(400, 'invalid_request', p.error.issues[0]?.message);
     const wanted = p.data.tools;
@@ -204,7 +217,10 @@ export class MockMcp {
           tool: `mcp__${name}`,
           server: name,
           tools: accepted.map((t) => ({ name: t.name, change: t.change })),
-          message: `Hai accettato ${accepted.length === 1 ? `«${accepted[0]!.name}»` : `${accepted.length} strumenti`} di ${s.label}.`,
+          message: tr(
+            `You accepted ${accepted.length === 1 ? `“${accepted[0]!.name}”` : `${accepted.length} tools`} from ${s.label}.`,
+            `Hai accettato ${accepted.length === 1 ? `«${accepted[0]!.name}»` : `${accepted.length} strumenti`} di ${s.label}.`,
+          ),
         },
       });
     }
@@ -230,7 +246,10 @@ export class MockMcp {
       return fail(
         400,
         'invalid_server',
-        'Il nome può avere solo lettere minuscole, cifre e trattini (al massimo 24), e deve iniziare con una lettera.',
+        tr(
+          'The name can only have lowercase letters, digits and hyphens (at most 24), and must start with a letter.',
+          'Il nome può avere solo lettere minuscole, cifre e trattini (al massimo 24), e deve iniziare con una lettera.',
+        ),
       );
     }
     const p = McpServerRequestSchema.safeParse(body);
@@ -239,14 +258,24 @@ export class MockMcp {
     const prev = this.servers.get(name);
     const ids = new Set(this.agents().map((a) => a.id));
     if ((req.agents ?? []).some((id) => id !== '*' && !ids.has(id))) {
-      return fail(404, 'unknown_agent', 'Non c’è nessun mostro con questo nome nella squadra.');
+      return fail(
+        404,
+        'unknown_agent',
+        tr(
+          'There’s no monster with this name in the squad.',
+          'Non c’è nessun mostro con questo nome nella squadra.',
+        ),
+      );
     }
     const isBrowser = (req.preset ?? prev?.preset) === 'browser';
     if (isBrowser !== (name === BROWSER_SERVER)) {
       return fail(
         400,
         'invalid_server',
-        '“browser” è il nome del browser di Monsters: scegline un altro.',
+        tr(
+          '“browser” is the name of Monsters’ browser: pick another one.',
+          '“browser” è il nome del browser di Monsters: scegline un altro.',
+        ),
       );
     }
     let next: McpServerView;
@@ -263,13 +292,20 @@ export class MockMcp {
       const command = req.command ?? prev?.command;
       const url = req.url ?? prev?.url;
       if (transport === 'stdio' && !command?.trim()) {
-        return fail(400, 'invalid_server', 'Scrivi il comando che avvia il server.');
+        return fail(
+          400,
+          'invalid_server',
+          tr('Write the command that starts the server.', 'Scrivi il comando che avvia il server.'),
+        );
       }
       if (transport === 'http' && !/^https?:\/\/\S+$/.test(url ?? '')) {
         return fail(
           400,
           'invalid_server',
-          'Scrivi l’indirizzo completo, per esempio https://esempio.it/mcp.',
+          tr(
+            'Write the full address, for example https://example.com/mcp.',
+            'Scrivi l’indirizzo completo, per esempio https://esempio.it/mcp.',
+          ),
         );
       }
       next = {
@@ -317,9 +353,13 @@ export class MockMcp {
    */
   private oauthStart(name: string): RawResponse {
     const s = this.servers.get(name);
-    if (!s) return fail(404, 'unknown_server', `Non c’è nessun server “${name}”.`);
+    if (!s) return fail(404, 'unknown_server', noServer(name));
     if (!s.oauth) {
-      return fail(400, 'invalid_server', 'Questo programma non usa l’accesso con OAuth.');
+      return fail(
+        400,
+        'invalid_server',
+        tr('This app doesn’t use OAuth sign-in.', 'Questo programma non usa l’accesso con OAuth.'),
+      );
     }
     const redirectUri = 'http://127.0.0.1:4747/api/mcp-oauth/callback';
     if (s.oauth.connected) {
@@ -341,7 +381,7 @@ export class MockMcp {
     setTimeout(() => {
       const now = this.servers.get(name);
       if (!now?.oauth?.pending) return;
-      const ok = !(now.url ?? '').includes('nega');
+      const ok = !/nega|deny/.test(now.url ?? '');
       this.servers.set(name, { ...now, oauth: { connected: ok, pending: false } });
       if (ok) {
         this.log({
@@ -367,8 +407,10 @@ export class MockMcp {
     if (!text.includes('/api/mcp-oauth/callback') || !/[?&]state=/.test(text) || !waiting) {
       const res: McpOAuthFinishResponse = {
         ok: false,
-        message:
+        message: tr(
+          'That’s not the address of the return page: copy it from the browser’s address bar after signing in.',
           'Non è l’indirizzo della pagina di ritorno: copialo dalla barra del browser dopo l’accesso.',
+        ),
       };
       return { status: 200, body: res };
     }
@@ -378,13 +420,16 @@ export class MockMcp {
       type: 'mcp_server',
       data: { server: waiting.name, action: 'signed_in', transport: 'http', by: 'ui' },
     });
-    const res: McpOAuthFinishResponse = { ok: true, message: `${waiting.label} è collegato.` };
+    const res: McpOAuthFinishResponse = {
+      ok: true,
+      message: tr(`${waiting.label} is connected.`, `${waiting.label} è collegato.`),
+    };
     return { status: 200, body: res };
   }
 
   private oauthSignOut(name: string): RawResponse {
     const s = this.servers.get(name);
-    if (!s?.oauth) return fail(404, 'unknown_server', `Non c’è nessun server “${name}”.`);
+    if (!s?.oauth) return fail(404, 'unknown_server', noServer(name));
     this.servers.set(name, { ...s, status: 'idle', oauth: { connected: false, pending: false } });
     this.log({
       agent: 'user',
@@ -396,16 +441,22 @@ export class MockMcp {
 
   private test(name: string): RawResponse {
     const s = this.servers.get(name);
-    if (!s) return fail(404, 'unknown_server', `Non c’è nessun server “${name}”.`);
+    if (!s) return fail(404, 'unknown_server', noServer(name));
     if (s.oauth && !s.oauth.connected) {
-      const error = 'Serve l’accesso: premi “Collega” e conferma nel browser.';
+      const error = tr(
+        'Access needed: press “Connect” and confirm in the browser.',
+        'Serve l’accesso: premi “Collega” e conferma nel browser.',
+      );
       this.servers.set(name, { ...s, status: 'error', error });
       const res: McpTestResponse = { ok: false, tools: [], error };
       return { status: 200, body: res };
     }
     const target = `${s.command ?? ''} ${s.url ?? ''}`;
-    if (target.includes('non-esiste')) {
-      const error = `Non trovo il programma “${s.command ?? ''}”: controlla che sia installato e scritto bene.`;
+    if (target.includes('non-esiste') || target.includes('does-not-exist')) {
+      const error = tr(
+        `I can’t find the program “${s.command ?? ''}”: check that it’s installed and spelled correctly.`,
+        `Non trovo il programma “${s.command ?? ''}”: controlla che sia installato e scritto bene.`,
+      );
       this.servers.set(name, { ...s, status: 'error', error });
       this.log({
         agent: 'system',
@@ -474,7 +525,11 @@ export class MockMcp {
     if (!m) return null;
     const id = decodeURIComponent(m[1] ?? '');
     if (!MCP_CATALOG.some((e) => e.id === id && e.viaClaude)) {
-      return fail(404, 'unknown_service', `${id} non si collega tramite Claude.`);
+      return fail(
+        404,
+        'unknown_service',
+        tr(`${id} doesn’t connect through Claude.`, `${id} non si collega tramite Claude.`),
+      );
     }
     if (m[2] === '/check') return { status: 200, body: this.claudeView() };
     if (method === 'PUT') {
@@ -515,7 +570,7 @@ export class MockMcp {
     if (method === 'PUT') return this.upsert(name, body);
     if (method === 'DELETE') {
       const s = this.servers.get(name);
-      if (!s) return fail(404, 'unknown_server', `Non c’è nessun server “${name}”.`);
+      if (!s) return fail(404, 'unknown_server', noServer(name));
       this.servers.delete(name);
       this.log({
         agent: 'user',

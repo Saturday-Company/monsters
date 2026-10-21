@@ -17,6 +17,7 @@ import {
   type TelegramView,
 } from '@monsters/shared';
 import type { RawResponse } from '../transport.ts';
+import { tr } from './lang.ts';
 
 /*
  * `/api/telegram` of the mock core (M2.6). A token containing `000000` is
@@ -178,13 +179,16 @@ export class MockTelegram {
         if (!pasted) return fail(400, 'invalid_token', TELEGRAM_TOKEN_SHAPE_MESSAGE);
         p.data.token = pasted;
         if (p.data.token.includes('000000')) {
-          return fail(400, 'invalid_token', 'Telegram non riconosce questo token.');
+          return fail(400, 'invalid_token', unknownToken());
         }
         if ([...this.bots.values()].some((b) => b.token === p.data.token)) {
           return fail(
             409,
             'bot_in_use',
-            'Questo token è di un bot dedicato a un mostro: per il bot principale creane un altro.',
+            tr(
+              'This token belongs to a bot dedicated to a monster: create another one for the main bot.',
+              'Questo token è di un bot dedicato a un mostro: per il bot principale creane un altro.',
+            ),
           );
         }
         this.token = p.data.token;
@@ -199,7 +203,13 @@ export class MockTelegram {
         this.pairing = null;
         return ok(this.view());
       case 'POST /api/telegram/pairing': {
-        if (!this.token) return fail(409, 'no_token', 'Collega prima il bot con il suo token.');
+        if (!this.token) {
+          return fail(
+            409,
+            'no_token',
+            tr('Connect the bot with its token first.', 'Collega prima il bot con il suo token.'),
+          );
+        }
         let code = '';
         for (let i = 0; i < 8; i++) code += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
         this.pairing = { code, expiresAt: Date.now() + 10 * 60_000, attemptsLeft: 5 };
@@ -231,7 +241,16 @@ export class MockTelegram {
       case 'DELETE /api/telegram/users/:id': {
         const id = Number(path.split('/').at(-1));
         const user = this.users.find((u) => u.id === id);
-        if (!user) return fail(404, 'not_found', 'Questo account non è tra quelli collegati.');
+        if (!user) {
+          return fail(
+            404,
+            'not_found',
+            tr(
+              'This account isn’t among the connected ones.',
+              'Questo account non è tra quelli collegati.',
+            ),
+          );
+        }
         this.users = this.users.filter((u) => u.id !== id);
         this.event({
           channel: 'telegram',
@@ -257,12 +276,21 @@ export class MockTelegram {
 
   private checkAgent(agent: string): RawResponse | null {
     const a = this.agents().find((x) => x.id === agent);
-    if (!a) return fail(400, 'invalid_agent', 'Non c’è nessun mostro con questo nome.');
+    if (!a) {
+      return fail(
+        400,
+        'invalid_agent',
+        tr('There’s no monster with this name.', 'Non c’è nessun mostro con questo nome.'),
+      );
+    }
     if (a.isOrchestrator) {
       return fail(
         400,
         'invalid_agent',
-        `${a.name} parla già con il bot principale: scegli un altro mostro.`,
+        tr(
+          `${a.name} already talks through the main bot: pick another monster.`,
+          `${a.name} parla già con il bot principale: scegli un altro mostro.`,
+        ),
       );
     }
     return null;
@@ -279,18 +307,28 @@ export class MockTelegram {
       if (!pasted) return fail(400, 'invalid_token', TELEGRAM_TOKEN_SHAPE_MESSAGE);
       p.data.token = pasted;
       if (p.data.token.includes('000000')) {
-        return fail(400, 'invalid_token', 'Telegram non riconosce questo token.');
+        return fail(400, 'invalid_token', unknownToken());
       }
       const id = p.data.token.split(':')[0]!;
       if (p.data.token === this.token) {
         return fail(
           409,
           'bot_in_use',
-          'Questo è il token del bot principale: per un mostro crea un bot nuovo con @BotFather.',
+          tr(
+            'This is the main bot’s token: for a monster, create a new bot with @BotFather.',
+            'Questo è il token del bot principale: per un mostro crea un bot nuovo con @BotFather.',
+          ),
         );
       }
       if (this.bots.has(id)) {
-        return fail(409, 'bot_in_use', 'Questo bot è già collegato a un mostro.');
+        return fail(
+          409,
+          'bot_in_use',
+          tr(
+            'This bot is already connected to a monster.',
+            'Questo bot è già collegato a un mostro.',
+          ),
+        );
       }
       const wrong = this.checkAgent(p.data.agent);
       if (wrong) return wrong;
@@ -349,7 +387,9 @@ export class MockTelegram {
       return ok(this.view(), 201);
     }
     const b = this.bots.get(decodeURIComponent(parts[0]!));
-    if (!b) return fail(404, 'not_found', 'Questo bot non c’è più.');
+    if (!b) {
+      return fail(404, 'not_found', tr('This bot is gone.', 'Questo bot non c’è più.'));
+    }
     const rest = parts.slice(1);
     const route = `${method} ${rest
       .map((x, i) => (i === 1 && /^-?\d+$/.test(x) ? ':n' : x))
@@ -378,13 +418,16 @@ export class MockTelegram {
         if (!pasted) return fail(400, 'invalid_token', TELEGRAM_TOKEN_SHAPE_MESSAGE);
         p.data.token = pasted;
         if (p.data.token.includes('000000')) {
-          return fail(400, 'invalid_token', 'Telegram non riconosce questo token.');
+          return fail(400, 'invalid_token', unknownToken());
         }
         if (p.data.token.split(':')[0] !== b.id) {
           return fail(
             409,
             'other_bot',
-            `Questo token è di un altro bot: serve quello di @${b.bot.username}.`,
+            tr(
+              `This token belongs to another bot: you need the one for @${b.bot.username}.`,
+              `Questo token è di un altro bot: serve quello di @${b.bot.username}.`,
+            ),
           );
         }
         b.token = p.data.token;
@@ -407,7 +450,7 @@ export class MockTelegram {
         return ok(this.view());
       case 'POST chats/:n/approve': {
         const chat = b.chats.find((c) => c.id === n);
-        if (!chat) return fail(404, 'not_found', 'Questo gruppo non c’è più.');
+        if (!chat) return fail(404, 'not_found', groupGone());
         b.chats = b.chats.map((c) => (c.id === n ? { ...c, status: 'approved' } : c));
         this.event({
           channel: 'telegram',
@@ -420,7 +463,7 @@ export class MockTelegram {
       }
       case 'DELETE chats/:n': {
         const chat = b.chats.find((c) => c.id === n);
-        if (!chat) return fail(404, 'not_found', 'Questo gruppo non c’è più.');
+        if (!chat) return fail(404, 'not_found', groupGone());
         b.chats = b.chats.filter((c) => c.id !== n);
         this.event({
           channel: 'telegram',
@@ -452,7 +495,7 @@ export class MockTelegram {
       }
       case 'POST people/:n/approve': {
         const person = b.people.find((x) => x.id === n);
-        if (!person) return fail(404, 'not_found', 'Questa persona non c’è più.');
+        if (!person) return fail(404, 'not_found', personGone());
         b.people = b.people.map((x) => (x.id === n ? { ...x, status: 'approved' } : x));
         this.event({
           channel: 'telegram',
@@ -465,10 +508,17 @@ export class MockTelegram {
       }
       case 'DELETE people/:n': {
         if (this.users.some((u) => u.id === n)) {
-          return fail(409, 'owner', 'Il tuo account resta sempre: è quello che approva.');
+          return fail(
+            409,
+            'owner',
+            tr(
+              'Your account always stays: it’s the one that approves.',
+              'Il tuo account resta sempre: è quello che approva.',
+            ),
+          );
         }
         const person = b.people.find((x) => x.id === n);
-        if (!person) return fail(404, 'not_found', 'Questa persona non c’è più.');
+        if (!person) return fail(404, 'not_found', personGone());
         b.people = b.people.filter((x) => x.id !== n);
         this.event({
           channel: 'telegram',
@@ -484,6 +534,11 @@ export class MockTelegram {
     }
   }
 }
+
+const unknownToken = () =>
+  tr('Telegram doesn’t recognise this token.', 'Telegram non riconosce questo token.');
+const groupGone = () => tr('This group is gone.', 'Questo gruppo non c’è più.');
+const personGone = () => tr('This person is gone.', 'Questa persona non c’è più.');
 
 /** "@CalypsoSaturdayBot": the monster's name, letters and digits only, unique. */
 function usernameFor(name: string, taken: readonly string[] = []): string {

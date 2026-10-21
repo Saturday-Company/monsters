@@ -16,6 +16,7 @@ import {
 } from '@monsters/shared';
 import type { RawResponse } from '../transport.ts';
 import type { MockDecisions } from './decisions.ts';
+import { tr } from './lang.ts';
 
 /*
  * The instinct of the mock core (D-067): engine and modes of the uses (the
@@ -87,7 +88,12 @@ export function mockReceipt(
                 },
               ]
             : []),
-          { text: 'Note salvate', kind: 'notes' as const, ok: true, by: 'rules' as const },
+          {
+            text: tr('Notes saved', 'Note salvate'),
+            kind: 'notes' as const,
+            ok: true,
+            by: 'rules' as const,
+          },
         ],
         ...(e.data.check?.retried ? { retried: true } : {}),
         ...(e.data.model ? { model: e.data.model } : {}),
@@ -293,7 +299,10 @@ export class MockInstinct {
           return fail(
             400,
             'mode_not_available',
-            `«${INSTINCT_USE_INFO[use].label}» non ha la modalità ${mode}.`,
+            tr(
+              `“${INSTINCT_USE_INFO[use].label}” doesn’t have the ${mode} mode.`,
+              `«${INSTINCT_USE_INFO[use].label}» non ha la modalità ${mode}.`,
+            ),
           );
         }
       }

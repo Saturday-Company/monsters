@@ -6,6 +6,7 @@ import {
   type LogEvent,
 } from '@monsters/shared';
 import type { RawResponse } from '../transport.ts';
+import { tr } from './lang.ts';
 import { DEMO_PROJECT_ID } from './projects.ts';
 
 /*
@@ -46,7 +47,23 @@ export interface MockDocsHost {
   project: (id: string) => { name: string; folder?: string | undefined } | null;
 }
 
-const CLAUDE_NOW = `# Social di Saturday
+const claudeNow = () =>
+  tr(
+    `# Saturday Social
+
+This is where the posts of the Saturday page live: plan, copy and graphics.
+
+## Folders
+- \`plan/\`: the month's editorial plan, one file per week.
+- \`posts/\`: one file per post, with copy and hashtags.
+- \`graphics/\`: the images of the posts.
+
+## Rules
+- The tone is Saturday's: direct, warm, no exclamation marks.
+- Every post has at most 5 hashtags.
+- The dates in file names are YYYY-MM-DD.
+`,
+    `# Social di Saturday
 
 Qui stanno i post della pagina di Saturday: piano, testi e grafiche.
 
@@ -59,9 +76,27 @@ Qui stanno i post della pagina di Saturday: piano, testi e grafiche.
 - Il tono è quello di Saturday: diretto, caldo, senza punti esclamativi.
 - Ogni post ha al massimo 5 hashtag.
 - Le date nei nomi dei file sono AAAA-MM-GG.
-`;
+`,
+  );
 
-const CLAUDE_PROPOSED = `# Social di Saturday
+const claudeProposed = () =>
+  tr(
+    `# Saturday Social
+
+This is where the posts of the Saturday page live: plan, copy and graphics.
+
+## Folders
+- \`plan/\`: the month's editorial plan, one file per week.
+- \`posts/\`: one file per post, with copy and hashtags (\`YYYY-MM-DD-title.md\`).
+- \`graphics/\`: the images of the posts, with the same name as the post (\`YYYY-MM-DD-title.png\`).
+
+## Rules
+- The tone is Saturday's: direct, warm, no exclamation marks.
+- Every post has 3 to 5 hashtags, always #saturdaycompany.
+- The dates in file names are YYYY-MM-DD.
+- A ready post has \`status: to review\` at the top: Giulio reviews it before publishing.
+`,
+    `# Social di Saturday
 
 Qui stanno i post della pagina di Saturday: piano, testi e grafiche.
 
@@ -75,24 +110,48 @@ Qui stanno i post della pagina di Saturday: piano, testi e grafiche.
 - Ogni post ha da 3 a 5 hashtag, sempre #saturdaycompany.
 - Le date nei nomi dei file sono AAAA-MM-GG.
 - Un post pronto ha \`stato: da rivedere\` in cima: Giulio lo rivede prima di pubblicarlo.
-`;
+`,
+  );
 
-const AGENTS_BASE = `# Squadra dei social
+const agentsBase = () =>
+  tr(
+    `# The social squad
+
+- Calypso writes the copy, Pandora makes the graphics, Iapetus keeps the plan.
+`,
+    `# Squadra dei social
 
 - Calypso scrive i testi, Pandora fa le grafiche, Iapetus tiene il piano.
-`;
+`,
+  );
 
-const AGENTS_NOW = `# Squadra dei social
+const agentsNow = () =>
+  tr(
+    `# The social squad
+
+- Calypso writes the copy, Pandora makes the graphics, Iapetus keeps the plan.
+- Graphics go in 1080×1350.
+`,
+    `# Squadra dei social
 
 - Calypso scrive i testi, Pandora fa le grafiche, Iapetus tiene il piano.
 - Le grafiche vanno in 1080×1350.
-`;
+`,
+  );
 
-const AGENTS_PROPOSED = `# Squadra dei social
+const agentsProposed = () =>
+  tr(
+    `# The social squad
+
+- Calypso writes the copy, Pandora makes the graphics, Iapetus keeps the plan.
+- Every post uses the trending restaurant hashtags: #foodporn #instafood #restaurant.
+`,
+    `# Squadra dei social
 
 - Calypso scrive i testi, Pandora fa le grafiche, Iapetus tiene il piano.
 - Ogni post usa gli hashtag di tendenza dei ristoranti: #foodporn #instafood #ristorante.
-`;
+`,
+  );
 
 export class MockDocs {
   private readonly h: MockDocsHost;
@@ -110,17 +169,21 @@ export class MockDocs {
   /** The demo's two proposals, older than the orchestrator's draft (it stays first). */
   seedDemo(now = Date.now()): void {
     const id = DEMO_PROJECT_ID;
-    this.files.set(this.key(id, 'CLAUDE.md'), CLAUDE_NOW);
-    this.files.set(this.key(id, 'AGENTS.md'), AGENTS_NOW);
+    const claudeNowText = claudeNow();
+    const agentsBaseText = agentsBase();
+    this.files.set(this.key(id, 'CLAUDE.md'), claudeNowText);
+    this.files.set(this.key(id, 'AGENTS.md'), agentsNow());
     this.propose(
       {
         project: id,
         file: 'CLAUDE.md',
         from: 'iapetus',
-        base: CLAUDE_NOW,
-        content: CLAUDE_PROPOSED,
-        reason:
+        base: claudeNowText,
+        content: claudeProposed(),
+        reason: tr(
+          'I’m writing down how we name the files and that every ready post waits for your review',
           'Metto per iscritto come chiamiamo i file e che ogni post pronto aspetta la tua revisione',
+        ),
       },
       now - 40 * 60_000,
     );
@@ -129,10 +192,16 @@ export class MockDocs {
         project: id,
         file: 'AGENTS.md',
         from: 'calypso',
-        base: AGENTS_BASE,
-        content: AGENTS_PROPOSED,
-        reason: 'Aggiungo gli hashtag di tendenza che ho trovato per i ristoranti',
-        source: 'pagina web: blog di un’agenzia di social',
+        base: agentsBaseText,
+        content: agentsProposed(),
+        reason: tr(
+          'I’m adding the trending hashtags I found for restaurants',
+          'Aggiungo gli hashtag di tendenza che ho trovato per i ristoranti',
+        ),
+        source: tr(
+          'web page: a social media agency’s blog',
+          'pagina web: blog di un’agenzia di social',
+        ),
       },
       now - 3 * 3_600_000,
     );
@@ -173,8 +242,14 @@ export class MockDocs {
       out.push({
         kind: 'docs',
         id: p.id,
-        title: `Istruzioni di ${project.name} (${p.file})`,
-        summary: `${who} propone di ${current === null ? 'creare' : 'cambiare'} le istruzioni di «${project.name}» (${p.file}): ${p.reason}.`,
+        title: tr(
+          `Instructions of ${project.name} (${p.file})`,
+          `Istruzioni di ${project.name} (${p.file})`,
+        ),
+        summary: tr(
+          `${who} suggests ${current === null ? 'creating' : 'changing'} the instructions of “${project.name}” (${p.file}): ${p.reason}.`,
+          `${who} propone di ${current === null ? 'creare' : 'cambiare'} le istruzioni di «${project.name}» (${p.file}): ${p.reason}.`,
+        ),
         from: p.from,
         fromName: who,
         project: p.project,
@@ -196,16 +271,27 @@ export class MockDocs {
   /** `/api/drafts/docs/:id/confirm|discard`. */
   draftAction(id: string, action: 'confirm' | 'discard'): RawResponse {
     const p = this.proposals.get(id);
-    if (!p) return fail(404, 'unknown_draft', 'Questa bozza non c’è.');
-    if (p.closed) return fail(409, 'draft_closed', 'Bozza già chiusa.');
+    if (!p)
+      return fail(404, 'unknown_draft', tr('This draft doesn’t exist.', 'Questa bozza non c’è.'));
+    if (p.closed)
+      return fail(409, 'draft_closed', tr('Draft already closed.', 'Bozza già chiusa.'));
     const project = this.h.project(p.project);
-    if (!project) return fail(409, 'project_archived', 'Il progetto è archiviato.');
+    if (!project) {
+      return fail(
+        409,
+        'project_archived',
+        tr('The project is archived.', 'Il progetto è archiviato.'),
+      );
+    }
     const key = this.key(p.project, p.file);
     if (action === 'confirm' && (this.files.get(key) ?? null) !== p.base) {
       return fail(
         409,
         'docs_changed',
-        'Il file è cambiato dopo la proposta: chiedi al mostro di riproporla.',
+        tr(
+          'The file changed after the proposal: ask the monster to propose it again.',
+          'Il file è cambiato dopo la proposta: chiedi al mostro di riproporla.',
+        ),
       );
     }
     if (action === 'confirm') this.files.set(key, p.content);

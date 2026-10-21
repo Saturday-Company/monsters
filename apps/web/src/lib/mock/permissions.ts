@@ -7,6 +7,7 @@ import {
   type PermissionsResponse,
 } from '@monsters/shared';
 import type { RawResponse } from '../transport.ts';
+import { tr } from './lang.ts';
 
 /*
  * `/api/permissions` of the mock core (M2.1): the team's defaults plus the
@@ -45,7 +46,7 @@ export class MockPermissions {
       vault: true,
       web: false,
       shell: true,
-      folders: [{ path: `${HOME}/Documenti/Conti`, write: true }],
+      folders: [{ path: `${HOME}/${tr('Documents/Accounts', 'Documenti/Conti')}`, write: true }],
     });
   }
 
@@ -71,16 +72,27 @@ export class MockPermissions {
     for (const f of out.folders) {
       const path = f.path.replace(/^~(?=\/|$)/, HOME).replace(/\/+$/, '');
       if (!path.startsWith('/')) {
-        return fail(400, 'invalid_folder', 'Scrivi il percorso completo della cartella.');
+        return fail(
+          400,
+          'invalid_folder',
+          tr('Write the full path of the folder.', 'Scrivi il percorso completo della cartella.'),
+        );
       }
-      if (path.includes('non-esiste')) {
-        return fail(400, 'invalid_folder', `La cartella ${path} non esiste.`);
+      if (path.includes('non-esiste') || path.includes('does-not-exist')) {
+        return fail(
+          400,
+          'invalid_folder',
+          tr(`The folder ${path} doesn’t exist.`, `La cartella ${path} non esiste.`),
+        );
       }
       if (path === VAULT || path.startsWith(`${VAULT}/`)) {
         return fail(
           400,
           'invalid_folder',
-          'È la cartella delle note: i mostri la usano già, con la cronologia e l’annulla. Scegli un’altra cartella.',
+          tr(
+            'This is the notes folder: the monsters already use it, with history and undo. Pick another folder.',
+            'È la cartella delle note: i mostri la usano già, con la cronologia e l’annulla. Scegli un’altra cartella.',
+          ),
         );
       }
       f.path = path;

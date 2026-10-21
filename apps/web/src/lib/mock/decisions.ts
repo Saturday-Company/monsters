@@ -4,6 +4,7 @@ import {
   type DecisionsView,
 } from '@monsters/shared';
 import type { RawResponse } from '../transport.ts';
+import { tr } from './lang.ts';
 
 /*
  * `/api/settings/decisions` and the TypeSafe key of the mock core (M2.9). A
@@ -15,6 +16,12 @@ const fail = (status: number, error: string, message?: string): RawResponse => (
   body: { error, ...(message ? { message } : {}) },
 });
 const ok = (body: unknown): RawResponse => ({ status: 200, body });
+
+const noKeyMessage = () =>
+  tr(
+    'To use the expert model you first need the TypeSafe key.',
+    'Per usare il modello esperto serve prima la chiave di TypeSafe.',
+  );
 
 export class MockDecisions {
   private view: DecisionsView = {
@@ -31,7 +38,7 @@ export class MockDecisions {
   /** Changes the engine; an error response when Jev has no key. */
   setEngine(engine: DecisionsView['engine']): RawResponse | null {
     if (engine === 'jev' && !this.view.jev.keySet) {
-      return fail(409, 'no_key', 'Per usare il modello esperto serve prima la chiave di TypeSafe.');
+      return fail(409, 'no_key', noKeyMessage());
     }
     this.view = { ...this.view, engine };
     return null;
@@ -46,11 +53,7 @@ export class MockDecisions {
         const p = DecisionsUpdateSchema.safeParse(body);
         if (!p.success) return fail(400, 'invalid_request', p.error.issues[0]?.message);
         if (p.data.engine === 'jev' && !this.view.jev.keySet) {
-          return fail(
-            409,
-            'no_key',
-            'Per usare il modello esperto serve prima la chiave di TypeSafe.',
-          );
+          return fail(409, 'no_key', noKeyMessage());
         }
         this.view = { ...this.view, engine: p.data.engine };
         return ok(this.view);
@@ -59,7 +62,11 @@ export class MockDecisions {
         const p = TypeSafeKeyRequestSchema.safeParse(body);
         if (!p.success) return fail(400, 'invalid_request', p.error.issues[0]?.message);
         if (p.data.key.includes('000000')) {
-          return fail(400, 'invalid_key', 'TypeSafe non riconosce questa chiave.');
+          return fail(
+            400,
+            'invalid_key',
+            tr('TypeSafe doesn’t recognise this key.', 'TypeSafe non riconosce questa chiave.'),
+          );
         }
         this.view = { ...this.view, jev: { ...this.view.jev, keySet: true, keySource: 'file' } };
         return ok(this.view);

@@ -4,6 +4,7 @@ import {
   fileContentBody,
   fileContentHeaders,
 } from '../../../packages/core/src/server/file-headers.ts';
+import type { Lang } from '@monsters/shared';
 import { mockFile, type MockFileBody } from '../src/lib/mock/files-data.ts';
 
 /*
@@ -129,8 +130,9 @@ export function pdf(pages: string[][]): Buffer {
 
 const cache = new Map<string, Buffer>();
 
-function bytesOf(id: string, body: MockFileBody): Buffer {
-  const known = cache.get(id);
+function bytesOf(id: string, body: MockFileBody, lang: Lang): Buffer {
+  const key = `${lang}:${id}`;
+  const known = cache.get(key);
   if (known) return known;
   let out: Buffer;
   switch (body.kind) {
@@ -154,7 +156,7 @@ function bytesOf(id: string, body: MockFileBody): Buffer {
       out = Buffer.concat([Buffer.from('PK\x05\x06', 'latin1'), Buffer.alloc(18)]);
       break;
   }
-  cache.set(id, out);
+  cache.set(key, out);
   return out;
 }
 
@@ -168,7 +170,9 @@ export function mockFilesMiddleware(
 ): void {
   const m = ROUTE.exec(req.url ?? '');
   if (!m || req.method !== 'GET') return next();
-  const file = mockFile(m[1]!);
+  // The page of the mock asks for English with `lang=en`; the Italian URLs are as they were.
+  const lang: Lang = /[?&]lang=en\b/.test(req.url ?? '') ? 'en' : 'it';
+  const file = mockFile(m[1]!, lang);
   if (!file || (m[2] === 'thumb' && !file.meta.hasThumb)) {
     res.statusCode = 404;
     res.setHeader('Content-Type', 'application/json');
@@ -177,7 +181,7 @@ export function mockFilesMiddleware(
   }
   // As the core serves it: the lockdown first on a scripted page, an inert one without scripts.
   const meta = /[?&]scripts=1\b/.test(req.url ?? '') ? { ...file.meta, inert: false } : file.meta;
-  const body = fileContentBody(meta, bytesOf(file.meta.id, file.body));
+  const body = fileContentBody(meta, bytesOf(file.meta.id, file.body, lang));
   const type = file.body.kind === 'text' ? `${file.meta.mime}; charset=utf-8` : file.meta.mime;
   res.statusCode = 200;
   res.setHeader('Content-Type', type);

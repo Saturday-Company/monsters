@@ -23,8 +23,6 @@ import {
   type WebSearchSettings,
   type StatusResponse,
   type StreamMessage,
-  appLang,
-  isLang,
   LanguageRequestSchema,
   type Lang,
 } from '@monsters/shared';
@@ -34,18 +32,8 @@ import type { RawResponse, SocketLike, Transport } from '../transport.ts';
 import { applyLive, type LiveState } from '../../store/derive.ts';
 import { MOCK_DEMO_USER, MOCK_SETUP_CODE } from './constants.ts';
 
-/** `?lang=it` of the page (e2e and demos), else the one of the start (saved or the browser's). */
-function mockLang(): Lang {
-  try {
-    const q = new URLSearchParams(window.location.search).get('lang');
-    if (isLang(q)) return q;
-  } catch {
-    // no window (tests)
-  }
-  return appLang();
-}
 import { mockTeam } from './team.ts';
-import { AMBIENT_JOBS, type AmbientJob } from './ambient.ts';
+import { ambientJobs, type AmbientJob } from './ambient.ts';
 import { createRng } from '@monsters/monster-kit';
 import { MockOnboarding } from '../../onboarding/mock.ts';
 import { MockMcp } from './mcp.ts';
@@ -64,6 +52,8 @@ import { DEMO_PROJECT_ID, MockProjects } from './projects.ts';
 import { CHANGELOG } from '../changelog-data.ts';
 import { MockDocs } from './docs.ts';
 import { seedPreviewScene } from './preview-scene.ts';
+import { setMockLang, startLang, tr } from './lang.ts';
+import { noteTitle, notePath } from './paths.ts';
 
 /** The mock core reports the newest version of the changelog, so "Novità" has a current one. */
 const MOCK_VERSION = CHANGELOG[0]?.version ?? '0.0.0-mock';
@@ -134,7 +124,34 @@ const fail = (status: number, error: string, message?: string): RawResponse => (
   body: message ? { error, message } : { error },
 });
 
+/** The three tones of the posts, asked after the research (ids stay, texts follow the language). */
+function toneOptions(): Question['options'] {
+  return [
+    {
+      id: 'amichevole',
+      label: tr('Friendly', 'Amichevole'),
+      description: tr('Like advice between friends', 'Come un consiglio tra amici'),
+    },
+    {
+      id: 'ironico',
+      label: tr('Ironic', 'Ironico'),
+      description: tr('Light, with a joke', 'Leggero, con una battuta'),
+    },
+    {
+      id: 'elegante',
+      label: tr('Elegant', 'Elegante'),
+      description: tr('Clean, travel-magazine style', 'Pulito, da rivista di viaggi'),
+    },
+  ];
+}
+
 export class MockCore {
+  /** The app's language (D-153): `?lang=` of the page, else the browser's; set before any content is built. */
+  private language: Lang = (() => {
+    const lang = startLang();
+    setMockLang(lang);
+    return lang;
+  })();
   readonly events: LogEvent[] = [];
   private agents: AgentSummary[];
   /** First start: a fresh install has no team until the onboarding creates it. */
@@ -197,8 +214,6 @@ export class MockCore {
   private readonly onAnswer = new Map<string, (choice: string) => void>();
   private halted: { at: number; reason: string | null } | null = null;
   private keyLabel: string | null = null;
-  /** The app's language (D-153): `?lang=` of the page, else the browser's. */
-  private language: Lang = mockLang();
   private braveKey = false;
   /** Paid web search (D-071): the user's choice; the mock has credit when a key is set. */
   private webSearch: { mode: PaidSearchMode; engine: PaidSearchEngineName } = {
@@ -572,7 +587,10 @@ export class MockCore {
         const p = SetupBodySchema.safeParse(body);
         if (!p.success) return fail(400, 'invalid_request', p.error.issues[0]?.message);
         if (p.data.setupCode !== MOCK_SETUP_CODE) return fail(403, 'invalid_setup_code');
-        if (p.data.language) this.language = p.data.language;
+        if (p.data.language) {
+          this.language = p.data.language;
+          setMockLang(this.language);
+        }
         this.auth = { user: { email: p.data.email, password: p.data.password }, loggedIn: true };
         this.saveAuth();
         this.append({ agent: 'system', type: 'auth', data: { action: 'setup', channel: 'ui' } });
@@ -698,7 +716,14 @@ export class MockCore {
         if (!p.success) return fail(400, 'invalid_request');
         if (this.halted) return fail(409, 'halted');
         if (p.data.attachments?.some((id) => !this.files.has(id))) {
-          return fail(404, 'unknown_file', 'Un allegato non c’è più: toglilo e riprova.');
+          return fail(
+            404,
+            'unknown_file',
+            tr(
+              'An attachment is gone: remove it and try again.',
+              'Un allegato non c’è più: toglilo e riprova.',
+            ),
+          );
         }
         return ok({ runId: this.receive(p.data) });
       }
@@ -736,7 +761,8 @@ export class MockCore {
       case 'PUT /api/settings/openrouter-key': {
         const p = OpenRouterKeyRequestSchema.safeParse(body);
         if (!p.success) return fail(400, 'invalid_request', p.error.issues[0]?.message);
-        if (!p.data.key.startsWith('sk-or-')) return fail(400, 'invalid_key', 'chiave non valida');
+        if (!p.data.key.startsWith('sk-or-'))
+          return fail(400, 'invalid_key', tr('invalid key', 'chiave non valida'));
         this.keyLabel = 'Monsters (mock)';
         this.onboarding.keySaved();
         this.providers.setOpenRouter(true);
@@ -746,6 +772,7 @@ export class MockCore {
         const p = LanguageRequestSchema.safeParse(body);
         if (!p.success) return fail(400, 'invalid_request', p.error.issues[0]?.message);
         this.language = p.data.language;
+        setMockLang(this.language);
         return this.handle('GET', '/api/settings', undefined);
       }
       case 'PUT /api/settings/openrouter': {
@@ -787,7 +814,10 @@ export class MockCore {
       return fail(
         409,
         'busy',
-        `${this.orchestrator.name} sta ancora lavorando: aspetta che finisca o fermalo, poi inizia una nuova conversazione.`,
+        tr(
+          `${this.orchestrator.name} is still working: wait for it to finish or stop it, then start a new conversation.`,
+          `${this.orchestrator.name} sta ancora lavorando: aspetta che finisca o fermalo, poi inizia una nuova conversazione.`,
+        ),
       );
     }
     const event = this.append({
@@ -829,7 +859,7 @@ export class MockCore {
     if (kind === 'project') return this.projects.draftAction(id, action);
     if (kind === 'automation') return this.automations.draftAction(id, action);
     if (kind === 'docs') return this.docs.draftAction(id, action);
-    return fail(404, 'unknown_draft', 'Bozza sconosciuta.');
+    return fail(404, 'unknown_draft', tr('Unknown draft.', 'Bozza sconosciuta.'));
   }
 
   private agentsSnapshot(): AgentSummary[] {
@@ -906,7 +936,10 @@ export class MockCore {
           type: 'error',
           data: {
             code: 'aborted',
-            message: `Il lavoro di ${a.name} si è fermato: hai fermato tutti i mostri`,
+            message: tr(
+              `${a.name}’s work stopped: you stopped all the monsters`,
+              `Il lavoro di ${a.name} si è fermato: hai fermato tutti i mostri`,
+            ),
           },
         });
         this.append({ agent: a.id, runId, type: 'run', data: { status: 'aborted' } });
@@ -1042,21 +1075,23 @@ export class MockCore {
     } else if (/\b(screenshot|pagina html)\b/i.test(req.text)) {
       // A monster saves a screenshot of the browser, or makes a page (D-075).
       this.fileRun(target, runId, /screenshot/i.test(req.text) ? 'screenshot' : 'page');
-    } else if (/\bpubblica/i.test(req.text)) {
+    } else if (/\b(pubblica|publish)/i.test(req.text)) {
       // The brake on the actions that leave the computer, from any chat.
       this.outboundRun(orch, runId, req.text);
-    } else if (/\b(tetto|spesa|spendi)\b/i.test(req.text)) {
+    } else if (/\b(tetto|spesa|spendi|spending|spend|cap)\b/i.test(req.text)) {
       // The spending cap (D-070): a paid job that reaches it, in any chat.
       this.spendRun(req.to && this.agents.some((a) => a.id === req.to) ? req.to : orch, runId);
     } else if (req.to && req.to !== orch && this.agents.some((a) => a.id === req.to)) {
       this.directReply(req.to, runId, req.text);
-    } else if (/errore|rompi/i.test(req.text)) {
+    } else if (/errore|rompi|error|break/i.test(req.text)) {
       this.failingRun(orch, runId);
     } else if (/\bmenu\b/i.test(req.text)) {
       this.openQuestionRun(orch, runId, req.text);
-    } else if (/\b(nuovo mostro|crea(re)?\s+un\s+mostro)\b/i.test(req.text)) {
+    } else if (
+      /\b(nuovo mostro|crea(re)?\s+un\s+mostro|new monster|create\s+a\s+monster)\b/i.test(req.text)
+    ) {
       this.proposalRun(orch, runId);
-    } else if (/\bvolantin/i.test(req.text)) {
+    } else if (/\b(volantin|flyer)/i.test(req.text)) {
       this.parkedQuestionRun(orch, runId, req.text);
     } else {
       this.mainScenario(orch, runId, req.text);
@@ -1069,15 +1104,26 @@ export class MockCore {
       [
         200,
         () =>
-          this.append({ agent, runId, type: 'run', data: { status: 'started', goal: 'Allegati' } }),
+          this.append({
+            agent,
+            runId,
+            type: 'run',
+            data: { status: 'started', goal: tr('Attachments', 'Allegati') },
+          }),
       ],
       [10, () => this.modelStep(agent, runId, 0, 0)],
       ...this.streamSteps(
         agent,
         runId,
         count === 1
-          ? 'Ho ricevuto il file: lo guardo e ti dico cosa ne penso.'
-          : `Ho ricevuto ${count} file: li guardo uno per uno.`,
+          ? tr(
+              'Got the file: I’ll take a look and tell you what I think.',
+              'Ho ricevuto il file: lo guardo e ti dico cosa ne penso.',
+            )
+          : tr(
+              `Got ${count} files: I’ll go through them one by one.`,
+              `Ho ricevuto ${count} file: li guardo uno per uno.`,
+            ),
       ),
       [300, () => this.append({ agent, runId, type: 'run', data: { status: 'completed' } })],
     ]);
@@ -1101,8 +1147,14 @@ export class MockCore {
         agent,
         runId,
         what === 'screenshot'
-          ? 'Ecco lo screenshot della pagina: lo trovi anche tra i File.'
-          : 'Ho creato la pagina: la apri dalla chat o dai File.',
+          ? tr(
+              'Here’s the screenshot of the page: you’ll also find it in Files.',
+              'Ecco lo screenshot della pagina: lo trovi anche tra i File.',
+            )
+          : tr(
+              'I made the page: open it from the chat or from Files.',
+              'Ho creato la pagina: la apri dalla chat o dai File.',
+            ),
       ),
       [300, () => this.append({ agent, runId, type: 'run', data: { status: 'completed' } })],
     ]);
@@ -1146,7 +1198,10 @@ export class MockCore {
       ...this.streamSteps(
         agent,
         runId,
-        `Ciao! Sono ${name}. Ho guardato nelle note: ci sono già due appunti utili, li tengo presenti. Dimmi pure se vuoi che vada più a fondo.`,
+        tr(
+          `Hi! I’m ${name}. I looked through the notes: there are already two useful ones, I’ll keep them in mind. Tell me if you want me to dig deeper.`,
+          `Ciao! Sono ${name}. Ho guardato nelle note: ci sono già due appunti utili, li tengo presenti. Dimmi pure se vuoi che vada più a fondo.`,
+        ),
       ),
       [300, () => this.append({ agent, runId, type: 'run', data: { status: 'completed' } })],
     ]);
@@ -1159,10 +1214,18 @@ export class MockCore {
   private proposalRun(orch: string, runId: string): void {
     const draft = this.squad.proposalDraft({
       name: 'Lyra',
-      title: 'l’archivista',
-      role: 'tiene in ordine le idee',
-      mission: 'raccogli le idee sparse e le trasformi in note ordinate e collegate',
-      duties: ['Una nota per idea, con i collegamenti alle note vicine.'],
+      title: tr('the archivist', 'l’archivista'),
+      role: tr('keeps ideas in order', 'tiene in ordine le idee'),
+      mission: tr(
+        'you gather scattered ideas and turn them into tidy, linked notes',
+        'raccogli le idee sparse e le trasformi in note ordinate e collegate',
+      ),
+      duties: [
+        tr(
+          'One note per idea, with links to the nearby notes.',
+          'Una nota per idea, con i collegamenti alle note vicine.',
+        ),
+      ],
       area: 'Idee',
       web: false,
     });
@@ -1175,7 +1238,7 @@ export class MockCore {
             agent: orch,
             runId,
             type: 'run',
-            data: { status: 'started', goal: 'Un nuovo mostro' },
+            data: { status: 'started', goal: tr('A new monster', 'Un nuovo mostro') },
           }),
       ],
       [
@@ -1212,7 +1275,10 @@ export class MockCore {
       ...this.streamSteps(
         orch,
         runId,
-        'Ti ho preparato **Lyra**, l’archivista: tiene in ordine le idee nella cartella Idee. Se ti va, la crei con un tocco dalla scheda.',
+        tr(
+          'I prepared **Lyra**, the archivist, who keeps ideas in order in the Idee folder. If you like, create her with one tap from the card.',
+          'Ti ho preparato **Lyra**, l’archivista: tiene in ordine le idee nella cartella Idee. Se ti va, la crei con un tocco dalla scheda.',
+        ),
       ),
       [300, () => this.append({ agent: orch, runId, type: 'run', data: { status: 'completed' } })],
     ]);
@@ -1229,19 +1295,28 @@ export class MockCore {
       [
         400,
         () =>
-          this.ask(orch, runId, 'Quali piatti ci sono nel menu?', [], undefined, (answer) =>
-            this.schedule([
-              ...this.streamSteps(
-                orch,
-                runId,
-                `Grazie! Preparo le bozze con questi piatti: ${answer}.`,
-              ),
-              [
-                300,
-                () =>
-                  this.append({ agent: orch, runId, type: 'run', data: { status: 'completed' } }),
-              ],
-            ]),
+          this.ask(
+            orch,
+            runId,
+            tr('Which dishes are on the menu?', 'Quali piatti ci sono nel menu?'),
+            [],
+            undefined,
+            (answer) =>
+              this.schedule([
+                ...this.streamSteps(
+                  orch,
+                  runId,
+                  tr(
+                    `Thanks! I’ll prepare the drafts with these dishes: ${answer}.`,
+                    `Grazie! Preparo le bozze con questi piatti: ${answer}.`,
+                  ),
+                ),
+                [
+                  300,
+                  () =>
+                    this.append({ agent: orch, runId, type: 'run', data: { status: 'completed' } }),
+                ],
+              ]),
           ),
       ],
     ]);
@@ -1265,10 +1340,18 @@ export class MockCore {
           this.ask(
             orch,
             runId,
-            'Che formato per il volantino?',
+            tr('What format for the flyer?', 'Che formato per il volantino?'),
             [
-              { id: '1', label: 'A5 da banco', description: 'Due facciate, foto del piatto' },
-              { id: '2', label: 'Locandina A3', description: 'Una facciata, testo grande' },
+              {
+                id: '1',
+                label: tr('Tabletop A5', 'A5 da banco'),
+                description: tr('Two sides, photo of the dish', 'Due facciate, foto del piatto'),
+              },
+              {
+                id: '2',
+                label: tr('A3 poster', 'Locandina A3'),
+                description: tr('One side, large text', 'Una facciata, testo grande'),
+              },
             ],
             '1',
             (answer) => {
@@ -1281,10 +1364,20 @@ export class MockCore {
                       agent: orch,
                       runId: next,
                       type: 'run',
-                      data: { status: 'started', goal: `Risposta: ${answer}` },
+                      data: {
+                        status: 'started',
+                        goal: tr(`Answer: ${answer}`, `Risposta: ${answer}`),
+                      },
                     }),
                 ],
-                ...this.streamSteps(orch, next, `Perfetto: preparo il volantino in ${answer}.`),
+                ...this.streamSteps(
+                  orch,
+                  next,
+                  tr(
+                    `Perfect: I’ll prepare the flyer as ${answer}.`,
+                    `Perfetto: preparo il volantino in ${answer}.`,
+                  ),
+                ),
                 [
                   300,
                   () =>
@@ -1299,7 +1392,14 @@ export class MockCore {
             },
           ),
       ],
-      ...this.streamSteps(orch, runId, 'Ti ho chiesto il formato: aspetto la tua risposta.'),
+      ...this.streamSteps(
+        orch,
+        runId,
+        tr(
+          'I asked you for the format: I’m waiting for your answer.',
+          'Ti ho chiesto il formato: aspetto la tua risposta.',
+        ),
+      ),
       [
         200,
         () => {
@@ -1325,8 +1425,14 @@ export class MockCore {
    * publish, the instinct holds the call and asks ("Dione vuole …, cioè pubblicare. Procedo?").
    */
   private outboundRun(orch: string, runId: string, text: string): void {
-    const goal = 'Pubblica il post «Tram 28 all’alba» su Instagram';
-    const summary = 'pubblicare il post «Tram 28 all’alba» su Instagram';
+    const goal = tr(
+      'Publish the post “Tram 28 at dawn” on Instagram',
+      'Pubblica il post «Tram 28 all’alba» su Instagram',
+    );
+    const summary = tr(
+      'publish the post “Tram 28 at dawn” on Instagram',
+      'pubblicare il post «Tram 28 all’alba» su Instagram',
+    );
     const details = { tool: 'mcp__instagram__create_post', category: 'publish', summary };
     let parentId: string | null = null;
     let callEvent = '';
@@ -1344,8 +1450,11 @@ export class MockCore {
                 use: 'outbound',
                 action: yes ? 'outbound_approved' : 'outbound_refused',
                 message: yes
-                  ? `Hai detto sì: Dione può ${summary}.`
-                  : `Hai detto no: Dione non farà ${summary}.`,
+                  ? tr(`You said yes: Dione can ${summary}.`, `Hai detto sì: Dione può ${summary}.`)
+                  : tr(
+                      `You said no: Dione won’t ${summary}.`,
+                      `Hai detto no: Dione non farà ${summary}.`,
+                    ),
                 subject: 'dione',
                 details: { ...details, outcome: yes ? 'approved' : 'refused' },
               },
@@ -1383,7 +1492,9 @@ export class MockCore {
                 to: 'dione',
                 status: 'completed',
                 goal,
-                summary: yes ? 'Post pubblicato' : 'Non pubblicato: hai detto no',
+                summary: yes
+                  ? tr('Post published', 'Post pubblicato')
+                  : tr('Not published: you said no', 'Non pubblicato: hai detto no'),
               },
             }),
         ],
@@ -1391,8 +1502,14 @@ export class MockCore {
           orch,
           runId,
           yes
-            ? 'Fatto: Dione ha pubblicato il post su Instagram.'
-            : 'Va bene, niente pubblicazione: il post resta tra le bozze.',
+            ? tr(
+                'Done: Dione published the post on Instagram.',
+                'Fatto: Dione ha pubblicato il post su Instagram.',
+              )
+            : tr(
+                'Okay, no publishing: the post stays in the drafts.',
+                'Va bene, niente pubblicazione: il post resta tra le bozze.',
+              ),
         ),
         [
           200,
@@ -1427,7 +1544,10 @@ export class MockCore {
             data: {
               callId: 'c-pub',
               tool: 'mcp__instagram__create_post',
-              input: { caption: 'Tram 28 all’alba', image: 'Bozze/tram28.jpg' },
+              input: {
+                caption: tr('Tram 28 at dawn', 'Tram 28 all’alba'),
+                image: tr('Drafts/tram28.jpg', 'Bozze/tram28.jpg'),
+              },
             },
           }).id;
           this.append({
@@ -1438,7 +1558,10 @@ export class MockCore {
             data: {
               use: 'outbound',
               action: 'outbound_hold',
-              message: `Dione vuole ${summary}: aspetta la tua risposta.`,
+              message: tr(
+                `Dione wants to ${summary}: waiting for your answer.`,
+                `Dione vuole ${summary}: aspetta la tua risposta.`,
+              ),
               subject: 'dione',
               confidence: 0.93,
               details,
@@ -1447,13 +1570,21 @@ export class MockCore {
           this.ask(
             'dione',
             runId,
-            `Dione vuole ${summary}. Procedo?`,
+            tr(`Dione wants to ${summary}. Go ahead?`, `Dione vuole ${summary}. Procedo?`),
             [
-              { id: '1', label: 'Sì, procedi', description: 'Solo questa azione' },
-              { id: '2', label: 'No, non farlo', description: 'Il mostro va avanti senza' },
+              {
+                id: '1',
+                label: tr('Yes, go ahead', 'Sì, procedi'),
+                description: tr('Just this action', 'Solo questa azione'),
+              },
+              {
+                id: '2',
+                label: tr('No, don’t do it', 'No, non farlo'),
+                description: tr('The monster carries on without it', 'Il mostro va avanti senza'),
+              },
             ],
             undefined,
-            (choice) => finish(/^s[iì]/i.test(choice)),
+            (choice) => finish(/^(s[iì]|yes)/i.test(choice)),
           );
         },
       ],
@@ -1468,14 +1599,21 @@ export class MockCore {
     const name = this.agents.find((a) => a.id === orch)?.name ?? orch;
     const stopped = () => {
       const why =
-        this.spend.stopReason('rhea') ?? 'raggiunto il tetto di spesa della squadra di oggi';
+        this.spend.stopReason('rhea') ??
+        tr(
+          'the squad’s spending cap for today was reached',
+          'raggiunto il tetto di spesa della squadra di oggi',
+        );
       this.append({
         agent: orch,
         runId,
         type: 'error',
         data: {
           code: 'spend_cap',
-          message: `${name} si ferma: ${why}. Per farlo continuare alza il tetto ${why.includes(' del progetto ') ? 'nella scheda Spesa del progetto' : 'in Impostazioni → Modelli'}.`,
+          message: tr(
+            `${name} stops: ${why}. To let it continue, raise the cap in Settings → Models.`,
+            `${name} si ferma: ${why}. Per farlo continuare alza il tetto in Impostazioni → Modelli.`,
+          ),
         },
       });
       this.append({ agent: orch, runId, type: 'run', data: { status: 'failed', error: why } });
@@ -1506,7 +1644,9 @@ export class MockCore {
             data: {
               callId: 'c-fail',
               tool: 'web_fetch',
-              input: { url: 'https://esempio.invalid/report' },
+              input: {
+                url: tr('https://example.invalid/report', 'https://esempio.invalid/report'),
+              },
             },
           }),
       ],
@@ -1521,7 +1661,7 @@ export class MockCore {
               callId: 'c-fail',
               tool: 'web_fetch',
               ok: false,
-              error: 'ENOTFOUND esempio.invalid',
+              error: tr('ENOTFOUND example.invalid', 'ENOTFOUND esempio.invalid'),
               durationMs: 840,
             },
           }),
@@ -1535,7 +1675,10 @@ export class MockCore {
             type: 'error',
             data: {
               code: 'agent_failed',
-              message: 'Non riesco ad aprire la pagina: il sito non risponde.',
+              message: tr(
+                'I can’t open the page: the site isn’t responding.',
+                'Non riesco ad aprire la pagina: il sito non risponde.',
+              ),
             },
           }),
       ],
@@ -1553,9 +1696,11 @@ export class MockCore {
   }
 
   private mainScenario(orch: string, runId: string, text: string): void {
-    const topic = /lisbona/i.test(text) ? 'Lisbona' : 'il tuo progetto';
+    const topic = /lisbon/i.test(text)
+      ? tr('Lisbon', 'Lisbona')
+      : tr('your project', 'il tuo progetto');
     const noteAction = `act_${ulid().slice(-8).toLowerCase()}`;
-    const notePath = `Risorse/Spunti su ${topic}.md`;
+    const notePath = tr(`Resources/Tips on ${topic}.md`, `Risorse/Spunti su ${topic}.md`);
     this.schedule([
       [
         250,
@@ -1569,7 +1714,10 @@ export class MockCore {
             data: {
               use: 'route_hint',
               action: 'route_hint',
-              message: 'Ho suggerito di affidare la richiesta a Rhea.',
+              message: tr(
+                'I suggested handing the request to Rhea.',
+                'Ho suggerito di affidare la richiesta a Rhea.',
+              ),
               subject: orch,
               confidence: 0.82,
               details: { route: 'Rhea' },
@@ -1580,7 +1728,10 @@ export class MockCore {
       ...this.streamSteps(
         orch,
         runId,
-        `Ricevuto! Chiedo a Rhea di raccogliere qualche spunto su ${topic}, poi ti faccio sapere.`,
+        tr(
+          `Got it! I’ll ask Rhea to gather a few tips on ${topic}, then let you know.`,
+          `Ricevuto! Chiedo a Rhea di raccogliere qualche spunto su ${topic}, poi ti faccio sapere.`,
+        ),
       ).slice(0, -1),
       [
         200,
@@ -1592,7 +1743,10 @@ export class MockCore {
             data: {
               callId: 'c-del',
               tool: 'delegate',
-              input: { to: 'rhea', goal: `Trova 5 spunti su ${topic}` },
+              input: {
+                to: 'rhea',
+                goal: tr(`Find 5 tips on ${topic}`, `Trova 5 spunti su ${topic}`),
+              },
             },
           }),
       ],
@@ -1607,9 +1761,12 @@ export class MockCore {
               from: orch,
               to: 'rhea',
               status: 'started',
-              goal: `Trova 5 spunti su ${topic}`,
-              why: 'Servono idee verificate per i post',
-              doneWhen: 'Una nota con 5 spunti e le fonti',
+              goal: tr(`Find 5 tips on ${topic}`, `Trova 5 spunti su ${topic}`),
+              why: tr('We need checked ideas for the posts', 'Servono idee verificate per i post'),
+              doneWhen: tr(
+                'A note with 5 tips and the sources',
+                'Una nota con 5 spunti e le fonti',
+              ),
             },
           });
           this.rheaWork(runId, del.id, topic, notePath, noteAction, () =>
@@ -1629,7 +1786,7 @@ export class MockCore {
     done: () => void,
   ): void {
     const agent = 'rhea';
-    const query = `${topic} cosa vedere in un weekend`;
+    const query = tr(`${topic} what to see in a weekend`, `${topic} cosa vedere in un weekend`);
     this.schedule([
       [
         400,
@@ -1641,7 +1798,10 @@ export class MockCore {
             type: 'message',
             data: {
               role: 'agent',
-              text: 'Parto dal web, poi salvo tutto in una nota. ',
+              text: tr(
+                'I’ll start from the web, then save everything in a note. ',
+                'Parto dal web, poi salvo tutto in una nota. ',
+              ),
               partial: true,
             },
           }),
@@ -1672,9 +1832,18 @@ export class MockCore {
               durationMs: 870,
               output: {
                 results: [
-                  { title: `${topic}: 10 cose da fare`, url: 'https://www.visitlisboa.com/it' },
-                  { title: 'I miradouros più belli', url: 'https://example.org/miradouros' },
-                  { title: 'Tram 28, guida pratica', url: 'https://example.org/tram-28' },
+                  {
+                    title: tr(`${topic}: 10 things to do`, `${topic}: 10 cose da fare`),
+                    url: tr('https://www.visitlisboa.com/en', 'https://www.visitlisboa.com/it'),
+                  },
+                  {
+                    title: tr('The most beautiful miradouros', 'I miradouros più belli'),
+                    url: 'https://example.org/miradouros',
+                  },
+                  {
+                    title: tr('Tram 28: a practical guide', 'Tram 28, guida pratica'),
+                    url: 'https://example.org/tram-28',
+                  },
                 ],
               },
             },
@@ -1691,7 +1860,7 @@ export class MockCore {
             data: {
               callId: 'c-vc',
               tool: 'vault_write',
-              input: { path: notePath, tags: ['spunti', 'social'] },
+              input: { path: notePath, tags: tr(['tips', 'social'], ['spunti', 'social']) },
             },
           }),
       ],
@@ -1731,7 +1900,13 @@ export class MockCore {
             runId,
             parentId,
             type: 'message',
-            data: { role: 'agent', text: `Fatto: 5 spunti con le fonti nella nota ${notePath}.` },
+            data: {
+              role: 'agent',
+              text: tr(
+                `Done: 5 tips with sources in the note ${notePath}.`,
+                `Fatto: 5 spunti con le fonti nella nota ${notePath}.`,
+              ),
+            },
           }),
       ],
       [
@@ -1745,8 +1920,11 @@ export class MockCore {
               from: 'titan',
               to: 'rhea',
               status: 'completed',
-              goal: `Trova 5 spunti su ${topic}`,
-              summary: `5 spunti salvati in “Spunti su ${topic}”`,
+              goal: tr(`Find 5 tips on ${topic}`, `Trova 5 spunti su ${topic}`),
+              summary: tr(
+                `5 tips saved in “Tips on ${topic}”`,
+                `5 spunti salvati in “Spunti su ${topic}”`,
+              ),
             },
           });
           // Like the core: the delegate call returns when the delegated work is done.
@@ -1758,7 +1936,10 @@ export class MockCore {
               callId: 'c-del',
               tool: 'delegate',
               ok: true,
-              output: `5 spunti salvati in “Spunti su ${topic}”`,
+              output: tr(
+                `5 tips saved in “Tips on ${topic}”`,
+                `5 spunti salvati in “Spunti su ${topic}”`,
+              ),
             },
           });
           done();
@@ -1775,12 +1956,11 @@ export class MockCore {
           this.ask(
             orch,
             runId,
-            `Rhea ha trovato 5 spunti su ${topic}. Che tono diamo ai post?`,
-            [
-              { id: 'amichevole', label: 'Amichevole', description: 'Come un consiglio tra amici' },
-              { id: 'ironico', label: 'Ironico', description: 'Leggero, con una battuta' },
-              { id: 'elegante', label: 'Elegante', description: 'Pulito, da rivista di viaggi' },
-            ],
+            tr(
+              `Rhea found 5 tips on ${topic}. What tone should we give the posts?`,
+              `Rhea ha trovato 5 spunti su ${topic}. Che tono diamo ai post?`,
+            ),
+            toneOptions(),
             'amichevole',
             (choice) => this.writePosts(orch, runId, choice),
           ),
@@ -1790,7 +1970,12 @@ export class MockCore {
 
   private writePosts(orch: string, runId: string, choice: string): void {
     const actionId = `act_${ulid().slice(-8).toLowerCase()}`;
-    const path = 'Progetti/Social/Bozze dei post.md';
+    const path = notePath('socialPosts');
+    const postsLink = path.replace(/\.md$/, '');
+    const goal = tr(
+      `Write 3 posts in a ${choice.toLowerCase()} tone`,
+      `Scrivi 3 post con tono ${choice.toLowerCase()}`,
+    );
     this.schedule([
       [
         300,
@@ -1803,7 +1988,7 @@ export class MockCore {
               from: orch,
               to: 'dione',
               status: 'started',
-              goal: `Scrivi 3 post con tono ${choice.toLowerCase()}`,
+              goal,
             },
           }),
       ],
@@ -1849,31 +2034,50 @@ export class MockCore {
               from: orch,
               to: 'dione',
               status: 'completed',
-              goal: `Scrivi 3 post con tono ${choice.toLowerCase()}`,
-              summary: '3 bozze pronte',
+              goal,
+              summary: tr('3 drafts ready', '3 bozze pronte'),
             },
           }),
       ],
       ...this.streamSteps(
         orch,
         runId,
-        [
-          `Ecco fatto! Dione ha scritto 3 post con tono ${choice.toLowerCase()}: li trovi in [[Progetti/Social/Bozze dei post|Bozze dei post]].`,
-          '',
-          '### Le bozze',
-          '1. **Tram 28 all’alba**: il giro classico, prima della folla.',
-          '2. **Pastéis de Belém**: la colazione che sa di vacanza.',
-          '3. **Tramonto al miradouro**: l’ultima foto del weekend.',
-          '',
-          '| Post | Giorno | Ora consigliata |',
-          '| --- | --- | --- |',
-          '| Tram 28 | sabato | 9:00 |',
-          '| Pastéis | sabato | 13:00 |',
-          '| Miradouro | domenica | 19:30 |',
-          '',
-          'Hashtag: `#Lisbona` `#weekend`. Le fonti sono in [[Lisbona, spunti per il weekend]] e sul [sito del turismo](https://www.visitlisboa.com).',
-          'Vuoi che li programmi a questi orari?',
-        ].join('\n'),
+        tr(
+          [
+            `All done! Dione wrote 3 posts in a ${choice.toLowerCase()} tone: you’ll find them in [[${postsLink}|Post drafts]].`,
+            '',
+            '### The drafts',
+            '1. **Tram 28 at dawn**: the classic ride, before the crowds.',
+            '2. **Pastéis de Belém**: the breakfast that tastes like vacation.',
+            '3. **Sunset at the miradouro**: the last photo of the weekend.',
+            '',
+            '| Post | Day | Suggested time |',
+            '| --- | --- | --- |',
+            '| Tram 28 | Saturday | 9:00 |',
+            '| Pastéis | Saturday | 13:00 |',
+            '| Miradouro | Sunday | 19:30 |',
+            '',
+            `Hashtags: \`#Lisbon\` \`#weekend\`. The sources are in [[${noteTitle('lisbonTips')}]] and on the [tourism website](https://www.visitlisboa.com).`,
+            'Do you want me to schedule them at these times?',
+          ],
+          [
+            `Ecco fatto! Dione ha scritto 3 post con tono ${choice.toLowerCase()}: li trovi in [[${postsLink}|Bozze dei post]].`,
+            '',
+            '### Le bozze',
+            '1. **Tram 28 all’alba**: il giro classico, prima della folla.',
+            '2. **Pastéis de Belém**: la colazione che sa di vacanza.',
+            '3. **Tramonto al miradouro**: l’ultima foto del weekend.',
+            '',
+            '| Post | Giorno | Ora consigliata |',
+            '| --- | --- | --- |',
+            '| Tram 28 | sabato | 9:00 |',
+            '| Pastéis | sabato | 13:00 |',
+            '| Miradouro | domenica | 19:30 |',
+            '',
+            `Hashtag: \`#Lisbona\` \`#weekend\`. Le fonti sono in [[${noteTitle('lisbonTips')}]] e sul [sito del turismo](https://www.visitlisboa.com).`,
+            'Vuoi che li programmi a questi orari?',
+          ],
+        ).join('\n'),
       ),
       [200, () => this.append({ agent: orch, runId, type: 'run', data: { status: 'completed' } })],
     ]);
@@ -1898,7 +2102,7 @@ export class MockCore {
       const busy = this.agents.length - free.length;
       if (free.length === 0 || busy > Math.ceil(this.agents.length / 2)) return;
       const agent = rng.pick(free);
-      const jobs = AMBIENT_JOBS.filter((j) => j.agent === agent.id);
+      const jobs = ambientJobs().filter((j) => j.agent === agent.id);
       if (jobs.length === 0) return;
       this.ambientJob(rng.pick(jobs), rng.chance(0.35), rng.chance(0.15), rng.next());
     };
@@ -1972,7 +2176,10 @@ export class MockCore {
               data: {
                 use: 'stuck',
                 action: 'stuck_nudge',
-                message: `${job.agent} girava a vuoto: gli ho chiesto di cambiare strada.`,
+                message: tr(
+                  `${job.agent} was going round in circles: I asked it to try another way.`,
+                  `${job.agent} girava a vuoto: gli ho chiesto di cambiare strada.`,
+                ),
                 subject: job.agent,
                 confidence: 0.88,
               },
@@ -2015,7 +2222,7 @@ export class MockCore {
               to: job.agent,
               status: fails ? 'failed' : 'completed',
               goal: job.goal,
-              ...(fails ? { error: job.oops } : { summary: 'Fatto' }),
+              ...(fails ? { error: job.oops } : { summary: tr('Done', 'Fatto') }),
             },
           });
           this.append({ agent: orch, runId, type: 'run', data: { status: 'completed' } });
@@ -2026,7 +2233,7 @@ export class MockCore {
               agent: job.agent,
               runId,
               type: 'message',
-              data: { role: 'agent', text: `Fatto: “${job.goal}”.` },
+              data: { role: 'agent', text: tr(`Done: “${job.goal}”.`, `Fatto: “${job.goal}”.`) },
             });
           this.append({
             agent: job.agent,
@@ -2053,7 +2260,10 @@ export class MockCore {
         agent: 'enceladus',
         runId: r0,
         type: 'run',
-        data: { status: 'started', goal: 'Riordina il diario di oggi' },
+        data: {
+          status: 'started',
+          goal: tr('Tidy up today’s journal', 'Riordina il diario di oggi'),
+        },
       },
       at(0),
     );
@@ -2062,7 +2272,7 @@ export class MockCore {
         agent: 'enceladus',
         runId: r0,
         type: 'tool_call',
-        data: { callId: 's1', tool: 'vault_edit', input: { path: 'Diario/2026-10-14.md' } },
+        data: { callId: 's1', tool: 'vault_edit', input: { path: notePath('diary') } },
       },
       at(0.2),
     );
@@ -2073,7 +2283,7 @@ export class MockCore {
         type: 'vault_change',
         data: {
           action: 'edit',
-          path: 'Diario/2026-10-14.md',
+          path: notePath('diary'),
           commit: '1a2b3c4',
           actionId: 'act_seed_diary',
         },
@@ -2112,7 +2322,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'user',
-          text: 'Dione, mi scrivi una bio breve per Instagram?',
+          text: tr(
+            'Dione, can you write me a short bio for Instagram?',
+            'Dione, mi scrivi una bio breve per Instagram?',
+          ),
           to: 'dione',
           channel: 'ui',
         },
@@ -2130,7 +2343,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'agent',
-          text: 'Eccola: **Viaggi lenti, foto storte, caffè sempre.** Se vuoi una versione più seria, dimmelo.',
+          text: tr(
+            'Here it is: **Slow travels, crooked photos, coffee always.** If you want a more serious version, just say so.',
+            'Eccola: **Viaggi lenti, foto storte, caffè sempre.** Se vuoi una versione più seria, dimmelo.',
+          ),
         },
       },
       at(0.6),
@@ -2150,7 +2366,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'user',
-          text: 'Usa questa foto per il post di sabato, e fammi vedere il menu in una pagina.',
+          text: tr(
+            'Use this photo for Saturday’s post, and show me the menu on a page.',
+            'Usa questa foto per il post di sabato, e fammi vedere il menu in una pagina.',
+          ),
           to: 'dione',
           channel: 'ui',
           attachments: [photo.id],
@@ -2163,7 +2382,7 @@ export class MockCore {
         agent: 'dione',
         runId: rf,
         type: 'run',
-        data: { status: 'started', goal: 'Pagina dei post' },
+        data: { status: 'started', goal: tr('Posts page', 'Pagina dei post') },
       },
       at(0.05),
     );
@@ -2175,7 +2394,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'agent',
-          text: 'Bella luce! La uso per sabato. Il menu è in una pagina: aprila qui sopra.',
+          text: tr(
+            'Great light! I’ll use it for Saturday. The menu is on a page: open it above.',
+            'Bella luce! La uso per sabato. Il menu è in una pagina: aprila qui sopra.',
+          ),
         },
       },
       at(0.1),
@@ -2193,7 +2415,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'user',
-          text: 'Ciao Titan! Mi prepari 3 post per il weekend a Lisbona?',
+          text: tr(
+            'Hi Titan! Can you prepare 3 posts for the weekend in Lisbon?',
+            'Ciao Titan! Mi prepari 3 post per il weekend a Lisbona?',
+          ),
           channel: 'ui',
         },
       },
@@ -2204,7 +2429,10 @@ export class MockCore {
         agent: orch,
         runId: r1,
         type: 'run',
-        data: { status: 'started', goal: '3 post sul weekend a Lisbona' },
+        data: {
+          status: 'started',
+          goal: tr('3 posts about the weekend in Lisbon', '3 post sul weekend a Lisbona'),
+        },
       },
       at(0.05),
     );
@@ -2215,7 +2443,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'agent',
-          text: 'Volentieri! Chiedo a Rhea di cercare gli spunti migliori, poi passo tutto a Dione per i testi.',
+          text: tr(
+            'Gladly! I’ll ask Rhea to find the best tips, then hand everything over to Dione for the copy.',
+            'Volentieri! Chiedo a Rhea di cercare gli spunti migliori, poi passo tutto a Dione per i testi.',
+          ),
           partial: true,
         },
       },
@@ -2229,7 +2460,7 @@ export class MockCore {
         data: {
           callId: 's2',
           tool: 'delegate',
-          input: { to: 'rhea', goal: 'Trova 5 spunti su Lisbona' },
+          input: { to: 'rhea', goal: tr('Find 5 tips on Lisbon', 'Trova 5 spunti su Lisbona') },
         },
       },
       at(0.05),
@@ -2243,9 +2474,12 @@ export class MockCore {
           from: orch,
           to: 'rhea',
           status: 'started',
-          goal: 'Trova 5 spunti su Lisbona per un weekend',
-          why: 'Servono idee verificate',
-          doneWhen: 'Una nota con 5 spunti e le fonti',
+          goal: tr(
+            'Find 5 tips on Lisbon for a weekend',
+            'Trova 5 spunti su Lisbona per un weekend',
+          ),
+          why: tr('We need checked ideas', 'Servono idee verificate'),
+          doneWhen: tr('A note with 5 tips and the sources', 'Una nota con 5 spunti e le fonti'),
         },
       },
       at(0.02),
@@ -2261,7 +2495,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'agent',
-          text: 'Comincio dalle guide ufficiali, poi controllo i miradouros. ',
+          text: tr(
+            'I’ll start with the official guides, then check the miradouros. ',
+            'Comincio dalle guide ufficiali, poi controllo i miradouros. ',
+          ),
           partial: true,
         },
       },
@@ -2276,7 +2513,10 @@ export class MockCore {
         data: {
           callId: 's3',
           tool: 'web_search',
-          input: { query: 'Lisbona weekend cosa vedere ottobre', maxResults: 5 },
+          input: {
+            query: tr('Lisbon weekend what to see October', 'Lisbona weekend cosa vedere ottobre'),
+            maxResults: 5,
+          },
         },
       },
       at(0.1),
@@ -2294,7 +2534,10 @@ export class MockCore {
           durationMs: 1240,
           output: {
             results: [
-              { title: 'Lisbona in 2 giorni', url: 'https://www.visitlisboa.com/it' },
+              {
+                title: tr('Lisbon in 2 days', 'Lisbona in 2 giorni'),
+                url: tr('https://www.visitlisboa.com/en', 'https://www.visitlisboa.com/it'),
+              },
               { title: 'Miradouro da Senhora do Monte', url: 'https://example.org/miradouro' },
             ],
           },
@@ -2308,7 +2551,11 @@ export class MockCore {
         runId: r1,
         parentId: p,
         type: 'tool_call',
-        data: { callId: 's4', tool: 'web_fetch', input: { url: 'https://www.visitlisboa.com/it' } },
+        data: {
+          callId: 's4',
+          tool: 'web_fetch',
+          input: { url: tr('https://www.visitlisboa.com/en', 'https://www.visitlisboa.com/it') },
+        },
       },
       at(0.1),
     );
@@ -2322,7 +2569,7 @@ export class MockCore {
           callId: 's4',
           tool: 'web_fetch',
           ok: false,
-          error: 'Timeout dopo 15 s',
+          error: tr('Timed out after 15 s', 'Timeout dopo 15 s'),
           durationMs: 15000,
         },
       },
@@ -2354,7 +2601,10 @@ export class MockCore {
         data: {
           callId: 's5',
           tool: 'vault_write',
-          input: { path: 'Risorse/Lisbona, spunti per il weekend.md', tags: ['viaggi', 'spunti'] },
+          input: {
+            path: notePath('lisbonTips'),
+            tags: tr(['travel', 'tips'], ['viaggi', 'spunti']),
+          },
         },
       },
       at(0.2),
@@ -2367,7 +2617,7 @@ export class MockCore {
         type: 'vault_change',
         data: {
           action: 'create',
-          path: 'Risorse/Lisbona, spunti per il weekend.md',
+          path: notePath('lisbonTips'),
           commit: '9e8d7c6',
           actionId: 'act_seed_lisbon',
         },
@@ -2385,7 +2635,7 @@ export class MockCore {
           tool: 'vault_write',
           ok: true,
           durationMs: 51,
-          output: { path: 'Risorse/Lisbona, spunti per il weekend.md' },
+          output: { path: notePath('lisbonTips') },
         },
       },
       at(0.02),
@@ -2398,7 +2648,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'agent',
-          text: 'Ho salvato 5 spunti con le fonti. La pagina del turismo era lenta, ho usato due guide alternative.',
+          text: tr(
+            'I saved 5 tips with sources. The tourism page was slow, so I used two alternative guides.',
+            'Ho salvato 5 spunti con le fonti. La pagina del turismo era lenta, ho usato due guide alternative.',
+          ),
         },
       },
       at(0.1),
@@ -2428,8 +2681,14 @@ export class MockCore {
           from: orch,
           to: 'rhea',
           status: 'completed',
-          goal: 'Trova 5 spunti su Lisbona per un weekend',
-          summary: '5 spunti salvati in “Lisbona, spunti per il weekend”',
+          goal: tr(
+            'Find 5 tips on Lisbon for a weekend',
+            'Trova 5 spunti su Lisbona per un weekend',
+          ),
+          summary: tr(
+            `5 tips saved in “${noteTitle('lisbonTips')}”`,
+            `5 spunti salvati in “${noteTitle('lisbonTips')}”`,
+          ),
         },
       },
       at(0.05),
@@ -2443,7 +2702,10 @@ export class MockCore {
           callId: 's2',
           tool: 'delegate',
           ok: true,
-          output: '5 spunti salvati in “Lisbona, spunti per il weekend”',
+          output: tr(
+            `5 tips saved in “${noteTitle('lisbonTips')}”`,
+            `5 spunti salvati in “${noteTitle('lisbonTips')}”`,
+          ),
           durationMs: 41_000,
         },
       },
@@ -2455,7 +2717,10 @@ export class MockCore {
         agent: 'mimas',
         runId: 'run_seed_budget',
         type: 'run',
-        data: { status: 'started', goal: 'Aggiorna il foglio delle spese' },
+        data: {
+          status: 'started',
+          goal: tr('Update the expenses sheet', 'Aggiorna il foglio delle spese'),
+        },
       },
       at(1),
     );
@@ -2466,7 +2731,10 @@ export class MockCore {
         type: 'error',
         data: {
           code: 'agent_failed',
-          message: 'Il foglio delle spese è aperto da un altro programma',
+          message: tr(
+            'The expenses sheet is open in another program',
+            'Il foglio delle spese è aperto da un altro programma',
+          ),
         },
       },
       at(0.2),
@@ -2484,12 +2752,11 @@ export class MockCore {
     this.ask(
       orch,
       r1,
-      'Rhea ha trovato 5 spunti su Lisbona. Che tono diamo ai post?',
-      [
-        { id: 'amichevole', label: 'Amichevole', description: 'Come un consiglio tra amici' },
-        { id: 'ironico', label: 'Ironico', description: 'Leggero, con una battuta' },
-        { id: 'elegante', label: 'Elegante', description: 'Pulito, da rivista di viaggi' },
-      ],
+      tr(
+        'Rhea found 5 tips on Lisbon. What tone should we give the posts?',
+        'Rhea ha trovato 5 spunti su Lisbona. Che tono diamo ai post?',
+      ),
+      toneOptions(),
       'amichevole',
       (choice) => this.writePosts(orch, r1, choice),
       at(0.5),
@@ -2505,7 +2772,10 @@ export class MockCore {
           from: orch,
           to: 'rhea',
           status: 'started',
-          goal: 'Controlla gli orari del tram 28 nel weekend',
+          goal: tr(
+            'Check the tram 28 schedule for the weekend',
+            'Controlla gli orari del tram 28 nel weekend',
+          ),
         },
       },
       now - 40_000,
@@ -2515,14 +2785,22 @@ export class MockCore {
         agent: 'rhea',
         runId: r2,
         type: 'tool_call',
-        data: { callId: 's6', tool: 'web_search', input: { query: 'tram 28 orari weekend' } },
+        data: {
+          callId: 's6',
+          tool: 'web_search',
+          input: { query: tr('tram 28 weekend schedule', 'tram 28 orari weekend') },
+        },
       },
       now - 20_000,
     );
     this.seedStuck(now);
     this.live = {
       ...this.live,
-      titan: { mood: 'waiting', activity: 'Ti ho fatto una domanda', since: now },
+      titan: {
+        mood: 'waiting',
+        activity: tr('I asked you a question', 'Ti ho fatto una domanda'),
+        since: now,
+      },
     };
   }
 
@@ -2556,7 +2834,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'user',
-          text: 'Ci prepari tre idee per il post di lunedì sul nuovo menù?',
+          text: tr(
+            'Can you come up with three ideas for Monday’s post about the new menu?',
+            'Ci prepari tre idee per il post di lunedì sul nuovo menù?',
+          ),
           to: agent,
           channel: 'telegram',
           telegram: origin,
@@ -2571,7 +2852,7 @@ export class MockCore {
         type: 'run',
         data: {
           status: 'started',
-          goal: 'Tre idee per il post di lunedì',
+          goal: tr('Three ideas for Monday’s post', 'Tre idee per il post di lunedì'),
           thread: `telegram:${origin.bot}:${origin.chat}`,
         },
       },
@@ -2584,7 +2865,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'agent',
-          text: 'Eccole, Livio:\n\n1. **Il menù in tre foto**: un carosello piatto per piatto.\n2. **Chi lo cucina**: una foto dello chef con la sua frase.\n3. **Indovina il piatto**: un dettaglio da vicino, la risposta nelle storie.\n\nDimmi quale preferite e scrivo il testo.',
+          text: tr(
+            'Here they are, Livio:\n\n1. **The menu in three photos**: a carousel, dish by dish.\n2. **Who cooks it**: a photo of the chef with their quote.\n3. **Guess the dish**: a close-up detail, the answer in the stories.\n\nTell me which ones you prefer and I’ll write the text.',
+            'Eccole, Livio:\n\n1. **Il menù in tre foto**: un carosello piatto per piatto.\n2. **Chi lo cucina**: una foto dello chef con la sua frase.\n3. **Indovina il piatto**: un dettaglio da vicino, la risposta nelle storie.\n\nDimmi quale preferite e scrivo il testo.',
+          ),
         },
       },
       at(0.8),
@@ -2603,14 +2887,22 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'user',
-          text: 'Titan, fai preparare ai social il post per la serata di sabato?',
+          text: tr(
+            'Titan, can you have the social team prepare the post for Saturday night?',
+            'Titan, fai preparare ai social il post per la serata di sabato?',
+          ),
           channel: 'ui',
         },
       },
       at(2),
     );
     this.append(
-      { agent: orch, runId: ask, type: 'run', data: { status: 'started', goal: 'Post di sabato' } },
+      {
+        agent: orch,
+        runId: ask,
+        type: 'run',
+        data: { status: 'started', goal: tr('Saturday post', 'Post di sabato') },
+      },
       at(0.02),
     );
     this.append(
@@ -2621,7 +2913,10 @@ export class MockCore {
         data: {
           callId: 'ps1',
           tool: 'project_send',
-          input: { project: 'Social di Saturday', text: 'Il post per la serata di sabato' },
+          input: {
+            project: tr('Saturday Social', 'Social di Saturday'),
+            text: tr('The post for Saturday night', 'Il post per la serata di sabato'),
+          },
         },
       },
       at(0.1),
@@ -2633,7 +2928,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'user',
-          text: 'Prepara il post per la serata di sabato: musica dal vivo dalle 21, ingresso libero. Tono amichevole, una foto della sala.',
+          text: tr(
+            'Prepare the post for Saturday night: live music from 9 pm, free entry. Friendly tone, a photo of the room.',
+            'Prepara il post per la serata di sabato: musica dal vivo dalle 21, ingresso libero. Tono amichevole, una foto della sala.',
+          ),
           to: lead,
           channel: 'system',
           from: orch,
@@ -2658,7 +2956,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'agent',
-          text: 'Ho passato il lavoro a Iapetus, il capo di Social di Saturday: ti dico appena ha finito.',
+          text: tr(
+            'I passed the work to Iapetus, the lead of Saturday Social: I’ll tell you as soon as it’s done.',
+            'Ho passato il lavoro a Iapetus, il capo di Social di Saturday: ti dico appena ha finito.',
+          ),
         },
       },
       at(0.05),
@@ -2669,12 +2970,14 @@ export class MockCore {
         agent: lead,
         runId: work,
         type: 'run',
-        data: { status: 'started', goal: 'Post della serata di sabato' },
+        data: { status: 'started', goal: tr('Saturday night post', 'Post della serata di sabato') },
       },
       at(0.05),
     );
-    const answer =
-      'Fatto: Calypso ha scritto il testo («Sabato si suona! Dalle 21, ingresso libero») e Pandora ha preparato la grafica con la foto della sala. Il post è nelle note del progetto, pronto per sabato alle 18.';
+    const answer = tr(
+      'Done: Calypso wrote the text (“Saturday we play! From 9 pm, free entry”) and Pandora prepared the graphic with the photo of the room. The post is in the project notes, ready for Saturday at 6 pm.',
+      'Fatto: Calypso ha scritto il testo («Sabato si suona! Dalle 21, ingresso libero») e Pandora ha preparato la grafica con la foto della sala. Il post è nelle note del progetto, pronto per sabato alle 18.',
+    );
     this.append(
       { agent: lead, runId: work, type: 'message', data: { role: 'agent', text: answer } },
       at(1.5),
@@ -2705,12 +3008,27 @@ export class MockCore {
    */
   private seedMeeting(orch: string, at: (minutes: number) => number): void {
     const run = 'run_seed_meeting';
-    const request = 'Titan, mi riassumi la riunione di ieri con Bruno e mi segni le cose da fare?';
-    const note = 'Riunioni/Riassunto riunione con Bruno.md';
-    const dioneGoal = 'Riassumi la riunione del 15/10 con Bruno e fai la lista delle cose da fare';
-    const dioneDone = 'Una nota con il riassunto e almeno 3 cose da fare, ognuna con chi e quando';
-    const rheaGoal = 'Trova indirizzo e sito del ristorante proposto da Bruno';
-    const rheaDone = 'Indirizzo e sito del ristorante nella nota del riassunto';
+    const request = tr(
+      'Titan, can you summarize yesterday’s meeting with Bruno and note down the to-dos?',
+      'Titan, mi riassumi la riunione di ieri con Bruno e mi segni le cose da fare?',
+    );
+    const note = notePath('meetingSummary');
+    const dioneGoal = tr(
+      'Summarize the Oct 15 meeting with Bruno and make a to-do list',
+      'Riassumi la riunione del 15/10 con Bruno e fai la lista delle cose da fare',
+    );
+    const dioneDone = tr(
+      'A note with the summary and at least 3 to-dos, each with who and when',
+      'Una nota con il riassunto e almeno 3 cose da fare, ognuna con chi e quando',
+    );
+    const rheaGoal = tr(
+      'Find the address and website of the restaurant Bruno suggested',
+      'Trova indirizzo e sito del ristorante proposto da Bruno',
+    );
+    const rheaDone = tr(
+      'The restaurant’s address and website in the summary note',
+      'Indirizzo e sito del ristorante nella nota del riassunto',
+    );
     const model = 'meta-llama/llama-3.3-70b-instruct:free';
     const add = (input: EventInput, minutes: number) => this.append(input, at(minutes));
     const typesafe = (t: number, agent: string) =>
@@ -2802,7 +3120,10 @@ export class MockCore {
         data: {
           use: 'route_hint',
           action: 'route_hint',
-          message: 'Ho suggerito di affidare la richiesta a Dione.',
+          message: tr(
+            'I suggested handing the request to Dione.',
+            'Ho suggerito di affidare la richiesta a Dione.',
+          ),
           subject: orch,
           confidence: 0.84,
           details: { route: 'Dione' },
@@ -2819,7 +3140,10 @@ export class MockCore {
         data: {
           use: 'tier',
           action: 'tier',
-          message: `Richiesta difficile: ${orch} usa ${model}.`,
+          message: tr(
+            `Hard request: ${orch} uses ${model}.`,
+            `Richiesta difficile: ${orch} usa ${model}.`,
+          ),
           subject: orch,
           details: { level: 'hard', model: `openrouter:${model}`, moved: false },
         },
@@ -2834,7 +3158,10 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'agent',
-          text: 'Ci pensa Dione per il riassunto; a Rhea chiedo il ristorante di cui avete parlato.',
+          text: tr(
+            'Dione will take care of the summary; I’ll ask Rhea about the restaurant you talked about.',
+            'Ci pensa Dione per il riassunto; a Rhea chiedo il ristorante di cui avete parlato.',
+          ),
           partial: true,
         },
       },
@@ -2851,13 +3178,13 @@ export class MockCore {
           to: 'dione',
           status: 'started',
           goal: dioneGoal,
-          why: 'Sapere cosa fare questa settimana',
+          why: tr('Know what to do this week', 'Sapere cosa fare questa settimana'),
           doneWhen: dioneDone,
         },
       },
       0.01,
     ).id;
-    tool('dione', d1, 'm2', 'vault_read', { path: 'Riunioni/2026-10-15 Bruno.md' }, 0.1);
+    tool('dione', d1, 'm2', 'vault_read', { path: notePath('meetingNotes') }, 0.1);
     result('dione', d1, 'm2', 'vault_read', 18, 0.01);
     free(0.05, 'dione', 1);
     tool('dione', d1, 'm3', 'vault_write', { path: note }, 0.1);
@@ -2882,9 +3209,15 @@ export class MockCore {
         data: {
           use: 'done_check',
           action: 'retry',
-          message: 'Il lavoro di Dione non era finito: gli ho chiesto di completarlo.',
+          message: tr(
+            'Dione’s work wasn’t finished: I asked it to complete it.',
+            'Il lavoro di Dione non era finito: gli ho chiesto di completarlo.',
+          ),
           subject: 'dione',
-          details: { missing: ['due cose da fare senza «chi»'], after: 'verified' },
+          details: {
+            missing: [tr('two to-dos without a “who”', 'due cose da fare senza «chi»')],
+            after: 'verified',
+          },
         },
       },
       0.01,
@@ -2913,13 +3246,16 @@ export class MockCore {
           to: 'dione',
           status: 'completed',
           goal: dioneGoal,
-          summary: 'Riassunto e 4 cose da fare, con chi e quando',
+          summary: tr(
+            'Summary and 4 to-dos, with who and when',
+            'Riassunto e 4 cose da fare, con chi e quando',
+          ),
           check: {
             verdict: 'verified',
             retried: true,
             criteria: [
               { text: dioneDone, kind: 'done_when', ok: true, by: 'model', p: 0.91 },
-              { text: 'Note salvate', kind: 'notes', ok: true, by: 'rules' },
+              { text: tr('Notes saved', 'Note salvate'), kind: 'notes', ok: true, by: 'rules' },
             ],
           },
           model: `openrouter:${model}`,
@@ -2938,7 +3274,7 @@ export class MockCore {
           callId: 'm1',
           tool: 'delegate',
           ok: true,
-          output: 'Riassunto e 4 cose da fare',
+          output: tr('Summary and 4 to-dos', 'Riassunto e 4 cose da fare'),
           durationMs: 24_000,
         },
       },
@@ -2954,16 +3290,20 @@ export class MockCore {
       },
       0.01,
     ).id;
-    tool('rhea', d2, 'm6', 'web_search', { query: 'Tasca do Chico Lisbona' }, 0.05);
-    result('rhea', d2, 'm6', 'web_search', 910, 0.02);
-    const fetch = tool(
+    tool(
       'rhea',
       d2,
-      'm7',
-      'web_fetch',
-      { url: 'https://www.guida-lisbona.example/tasca-do-chico' },
-      0.02,
-    ).id;
+      'm6',
+      'web_search',
+      { query: tr('Tasca do Chico Lisbon', 'Tasca do Chico Lisbona') },
+      0.05,
+    );
+    result('rhea', d2, 'm6', 'web_search', 910, 0.02);
+    const guideUrl = tr(
+      'https://www.lisbon-guide.example/tasca-do-chico',
+      'https://www.guida-lisbona.example/tasca-do-chico',
+    );
+    const fetch = tool('rhea', d2, 'm7', 'web_fetch', { url: guideUrl }, 0.02).id;
     typesafe(0.02, 'rhea');
     add(
       {
@@ -2973,12 +3313,14 @@ export class MockCore {
         type: 'security',
         data: {
           action: 'injection_removed',
-          source: 'web_fetch https://www.guida-lisbona.example/tasca-do-chico',
+          source: `web_fetch ${guideUrl}`,
           tool: 'web_fetch',
           p: 0.94,
           blocks: 1,
-          message:
-            'Ho tolto da web_fetch https://www.guida-lisbona.example/tasca-do-chico un testo che dava ordini ai mostri.',
+          message: tr(
+            `I removed from web_fetch ${guideUrl} a text that was giving orders to the monsters.`,
+            `Ho tolto da web_fetch ${guideUrl} un testo che dava ordini ai mostri.`,
+          ),
         },
       },
       0.01,
@@ -3007,8 +3349,10 @@ export class MockCore {
         data: {
           use: 'done_check',
           action: 'doubt',
-          message:
+          message: tr(
+            'Rhea’s work is in doubt: the address comes from a guide, not from the restaurant’s website',
             'Il lavoro di Rhea è in dubbio: l’indirizzo viene da una guida, non dal sito del ristorante',
+          ),
           subject: 'rhea',
         },
       },
@@ -3024,7 +3368,7 @@ export class MockCore {
           to: 'rhea',
           status: 'completed',
           goal: rheaGoal,
-          summary: 'Indirizzo aggiunto alla nota',
+          summary: tr('Address added to the note', 'Indirizzo aggiunto alla nota'),
           check: {
             verdict: 'doubt',
             criteria: [
@@ -3034,9 +3378,12 @@ export class MockCore {
                 ok: false,
                 by: 'model',
                 p: 0.41,
-                reason: 'l’indirizzo viene da una guida, il sito del ristorante non c’è',
+                reason: tr(
+                  'the address comes from a guide, the restaurant has no website',
+                  'l’indirizzo viene da una guida, il sito del ristorante non c’è',
+                ),
               },
-              { text: 'Note salvate', kind: 'notes', ok: true, by: 'rules' },
+              { text: tr('Notes saved', 'Note salvate'), kind: 'notes', ok: true, by: 'rules' },
             ],
           },
           model: `openrouter:${model}`,
@@ -3055,7 +3402,7 @@ export class MockCore {
           callId: 'm5',
           tool: 'delegate',
           ok: true,
-          output: 'Indirizzo aggiunto',
+          output: tr('Address added', 'Indirizzo aggiunto'),
           durationMs: 14_000,
         },
       },
@@ -3069,11 +3416,18 @@ export class MockCore {
         type: 'message',
         data: {
           role: 'agent',
-          text: [
-            'Fatto: il riassunto è in [[Riassunto riunione con Bruno]], con 4 cose da fare, ognuna con chi e quando.',
-            '',
-            'Rhea ha aggiunto l’indirizzo della Tasca do Chico, ma viene da una guida: controllalo prima di prenotare.',
-          ].join('\n'),
+          text: tr(
+            [
+              `Done: the summary is in [[${noteTitle('meetingSummary')}]], with 4 to-dos, each with who and when.`,
+              '',
+              'Rhea added the address of Tasca do Chico, but it comes from a guide: check it before booking.',
+            ],
+            [
+              `Fatto: il riassunto è in [[${noteTitle('meetingSummary')}]], con 4 cose da fare, ognuna con chi e quando.`,
+              '',
+              'Rhea ha aggiunto l’indirizzo della Tasca do Chico, ma viene da una guida: controllalo prima di prenotare.',
+            ],
+          ).join('\n'),
         },
       },
       0.03,
@@ -3089,7 +3443,10 @@ export class MockCore {
         agent: 'enceladus',
         runId: run,
         type: 'run',
-        data: { status: 'started', goal: 'Riordina le note di ottobre' },
+        data: {
+          status: 'started',
+          goal: tr('Tidy up the October notes', 'Riordina le note di ottobre'),
+        },
       },
       now - 70_000,
     );
@@ -3099,7 +3456,11 @@ export class MockCore {
           agent: 'enceladus',
           runId: run,
           type: 'tool_call',
-          data: { callId: `s-idx-${i}`, tool: 'vault_list', input: { folder: 'Ottobre' } },
+          data: {
+            callId: `s-idx-${i}`,
+            tool: 'vault_list',
+            input: { folder: tr('October', 'Ottobre') },
+          },
         },
         now - 60_000 + i * 12_000,
       );
@@ -3121,7 +3482,10 @@ export class MockCore {
         data: {
           use: 'stuck',
           action: 'stuck_notice',
-          message: 'Enceladus sembra girare a vuoto.',
+          message: tr(
+            'Enceladus seems to be going round in circles.',
+            'Enceladus sembra girare a vuoto.',
+          ),
           subject: 'enceladus',
           confidence: 0.71,
         },

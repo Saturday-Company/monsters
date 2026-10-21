@@ -8,7 +8,8 @@ import {
   type FileSource,
 } from '@monsters/shared';
 import type { RawResponse } from '../transport.ts';
-import { MOCK_FILES } from './files-data.ts';
+import { mockFiles } from './files-data.ts';
+import { mockLang, tr } from './lang.ts';
 
 /*
  * `/api/files` of the mock core (D-075). Two kinds of files:
@@ -91,7 +92,7 @@ export class MockFiles {
   constructor(options: { log: (event: EventInput, ts?: number) => void; speed: number }) {
     this.#log = options.log;
     this.#speed = options.speed;
-    for (const f of MOCK_FILES) {
+    for (const f of mockFiles(mockLang())) {
       const text =
         f.body.kind === 'text'
           ? f.body.text
@@ -200,7 +201,7 @@ export class MockFiles {
   seedPage(agent: string, runId: string, ts: number): void {
     this.#event(DEMO_PAGE, agent, runId, ts, {
       tool: 'artifact_create',
-      title: 'Menu della settimana',
+      title: tr('Weekly menu', 'Menu della settimana'),
     });
   }
 
@@ -214,13 +215,24 @@ export class MockFiles {
     onProgress?: (loaded: number, total: number) => void,
   ): Promise<RawResponse> {
     const file = form.get('file');
-    if (!(file instanceof Blob)) return fail(400, 'invalid_request', 'Manca il file.');
+    if (!(file instanceof Blob))
+      return fail(400, 'invalid_request', tr('The file is missing.', 'Manca il file.'));
     const name = file instanceof File && file.name ? file.name : 'file';
     if (file.size > FILE_MAX_BYTES) {
-      return fail(413, 'file_too_large', 'Il file è troppo grande: al massimo 25 MB.');
+      return fail(
+        413,
+        'file_too_large',
+        tr('The file is too big: 25 MB at most.', 'Il file è troppo grande: al massimo 25 MB.'),
+      );
     }
     const type = typeOf(name, file.type);
-    if (!type) return fail(415, 'unsupported_type', 'Questo tipo di file non si può allegare.');
+    if (!type) {
+      return fail(
+        415,
+        'unsupported_type',
+        tr('This type of file can’t be attached.', 'Questo tipo di file non si può allegare.'),
+      );
+    }
     const steps = 5;
     for (let i = 1; i <= steps; i++) {
       await new Promise((r) => setTimeout(r, 90 * this.#speed));
@@ -242,7 +254,7 @@ export class MockFiles {
         ? await file.text()
         : type.kind === 'image'
           ? undefined
-          : `Testo di ${name}`;
+          : tr(`Text of ${name}`, `Testo di ${name}`);
     const meta = this.#add(file, name, type, {
       source: 'user',
       ...(typeof agent === 'string' && agent ? { agent } : {}),
@@ -259,7 +271,14 @@ export class MockFiles {
   url(path: string): string {
     const m = /^\/api\/files\/([^/?]+)\/(content|thumb)/.exec(path);
     const stored = m ? this.#files.get(decodeURIComponent(m[1]!)) : undefined;
-    if (!stored?.blob) return `/__mock${path}${stored?.scripts ? '?scripts=1' : ''}`;
+    if (!stored?.blob) {
+      // The dev server's middleware writes the files in the mock's language (English is asked for).
+      const query = [
+        ...(stored?.scripts ? ['scripts=1'] : []),
+        ...(mockLang() === 'en' ? ['lang=en'] : []),
+      ];
+      return `/__mock${path}${query.length > 0 ? `?${query.join('&')}` : ''}`;
+    }
     let url = this.#urls.get(stored.meta.id);
     if (!url) {
       url = URL.createObjectURL(stored.blob);
@@ -310,7 +329,7 @@ export class MockFiles {
     if (!m) return null;
     const id = decodeURIComponent(m[1]!);
     const stored = this.#files.get(id);
-    if (!stored) return fail(404, 'unknown_file', 'File non trovato.');
+    if (!stored) return fail(404, 'unknown_file', tr('File not found.', 'File non trovato.'));
     if (method === 'POST' && m[2] === 'scripts') {
       // "Attiva gli script" (D-085): the dev server serves it with scripts from now on (`url`).
       const { inert: _off, ...meta } = stored.meta;

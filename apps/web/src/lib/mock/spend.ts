@@ -14,6 +14,7 @@ import {
   type SpendView,
 } from '@monsters/shared';
 import type { RawResponse } from '../transport.ts';
+import { tr } from './lang.ts';
 
 /*
  * `/api/settings/spend` of the mock core (D-070): what the team spent today
@@ -116,7 +117,12 @@ export class MockSpend {
       }),
       free: { requests: 214 },
       subscriptions: [
-        { provider: 'claude-agent', label: 'Abbonamento Claude', requests: 38, tokens: 412_000 },
+        {
+          provider: 'claude-agent',
+          label: tr('Claude subscription', 'Abbonamento Claude'),
+          requests: 38,
+          tokens: 412_000,
+        },
       ],
       unpriced: [],
       ...(this.estimatedBy.size > 0
@@ -137,10 +143,11 @@ export class MockSpend {
       for (const who of [undefined, agent]) {
         const m = this.meter(period, who);
         if (m.capEur !== null && m.spentEur >= m.capEur) {
-          const whose = who
-            ? ` di ${this.agents().find((a) => a.id === who)?.name ?? who}`
-            : ' della squadra';
-          return `raggiunto il tetto di spesa${whose} ${period === 'day' ? 'di oggi' : 'di questo mese'}`;
+          const name = who ? (this.agents().find((a) => a.id === who)?.name ?? who) : null;
+          return tr(
+            `${name ? `${name}’s` : 'the squad’s'} spending cap ${period === 'day' ? 'for today' : 'for this month'} was reached`,
+            `raggiunto il tetto di spesa${name ? ` di ${name}` : ' della squadra'} ${period === 'day' ? 'di oggi' : 'di questo mese'}`,
+          );
         }
       }
     }
@@ -193,7 +200,14 @@ export class MockSpend {
     const ids = new Set(this.agents().map((a) => a.id));
     for (const id of Object.keys(u.agents ?? {})) {
       if (!ids.has(id))
-        return fail(404, 'unknown_agent', `Non c’è nessun mostro “${id}” nella squadra.`);
+        return fail(
+          404,
+          'unknown_agent',
+          tr(
+            `There’s no monster “${id}” in the squad.`,
+            `Non c’è nessun mostro “${id}” nella squadra.`,
+          ),
+        );
     }
     if (u.dailyEur !== undefined) this.dailyEur = u.dailyEur;
     if (u.monthlyEur !== undefined) this.monthlyEur = u.monthlyEur;

@@ -285,7 +285,7 @@ describe('the projects of the mock core', () => {
     expect(p.members.map((x) => x.name)).toEqual(['Atlas', 'Telesto', 'Tethys']);
     const drafts = call(core, 'GET', '/api/drafts').body as DraftView[];
     expect(drafts.filter((d) => d.kind !== 'docs').map((d) => [d.kind, d.title])).toEqual([
-      ['automation', 'Controllo del sito'],
+      ['automation', 'Website check'],
     ]);
     expect(call(core, 'POST', '/api/drafts/project/sito-di-saturday/confirm').status).toBe(409);
   });

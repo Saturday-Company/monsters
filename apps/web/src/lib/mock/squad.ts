@@ -33,6 +33,7 @@ import {
 import type { z } from 'zod';
 import type { RawResponse } from '../transport.ts';
 import { colorOf, monsterFor } from '../monsters.ts';
+import { tr } from './lang.ts';
 
 /*
  * Settings → Squadra in the mock core: the team after the onboarding, the
@@ -75,76 +76,122 @@ const fail = (status: number, error: string, message?: string): RawResponse => (
   body: message ? { error, message } : { error },
 });
 
-const LABELS: Record<string, string> = {
-  publish: 'Pubblicare',
-  contact: 'Scrivere ad altri (messaggi, mail)',
-  spend: 'Pagare o comprare',
-  delete: 'Cancellare',
-  goal: 'Cambiare un obiettivo',
-};
+const labels = (): Record<string, string> => ({
+  publish: tr('Publishing', 'Pubblicare'),
+  contact: tr('Writing to others (messages, email)', 'Scrivere ad altri (messaggi, mail)'),
+  spend: tr('Paying or buying', 'Pagare o comprare'),
+  delete: tr('Deleting', 'Cancellare'),
+  goal: tr('Changing a goal', 'Cambiare un obiettivo'),
+});
 
-const IDEAS: TeamSuggestions['ideas'] = [
+const ideas = (): TeamSuggestions['ideas'] => [
   {
     id: 'ricerche',
-    label: 'Ricerche online',
-    description: 'Fa ricerche online e le riassume in note con le fonti.',
+    label: tr('Online research', 'Ricerche online'),
+    description: tr(
+      'Does research online and sums it up in notes with the sources.',
+      'Fa ricerche online e le riassume in note con le fonti.',
+    ),
   },
   {
     id: 'bozze',
-    label: 'Bozze di post e mail',
-    description: 'Scrive bozze di post e mail pronte da usare, nel mio tono.',
+    label: tr('Post and email drafts', 'Bozze di post e mail'),
+    description: tr(
+      'Writes ready-to-use drafts of posts and emails, in my tone.',
+      'Scrive bozze di post e mail pronte da usare, nel mio tono.',
+    ),
   },
   {
     id: 'riassunti',
-    label: 'Riassunti',
-    description: 'Riassume documenti e note lunghe in pochi punti chiari.',
+    label: tr('Summaries', 'Riassunti'),
+    description: tr(
+      'Sums up long documents and notes in a few clear points.',
+      'Riassume documenti e note lunghe in pochi punti chiari.',
+    ),
   },
   {
     id: 'note',
-    label: 'Note in ordine',
-    description: 'Mette in ordine note e idee: collega, raggruppa, toglie i doppioni.',
+    label: tr('Tidy notes', 'Note in ordine'),
+    description: tr(
+      'Tidies up notes and ideas: links, groups, removes duplicates.',
+      'Mette in ordine note e idee: collega, raggruppa, toglie i doppioni.',
+    ),
   },
   {
     id: 'piano',
-    label: 'Piano dei contenuti',
-    description: 'Pianifica i contenuti della settimana e tiene il calendario editoriale.',
+    label: tr('Content plan', 'Piano dei contenuti'),
+    description: tr(
+      'Plans the week’s content and keeps the editorial calendar.',
+      'Pianifica i contenuti della settimana e tiene il calendario editoriale.',
+    ),
   },
   {
     id: 'numeri',
-    label: 'Numeri e dati',
-    description: 'Analizza numeri e dati e ne ricava indicazioni pratiche.',
+    label: tr('Numbers and data', 'Numeri e dati'),
+    description: tr(
+      'Analyses numbers and data and draws practical takeaways.',
+      'Analizza numeri e dati e ne ricava indicazioni pratiche.',
+    ),
   },
 ];
 
-const DEFAULT_DETAILS: Record<string, Details> = {
+const defaultDetails = (): Record<string, Details> => ({
   rhea: {
-    title: 'la ricercatrice',
-    mission: 'trovi informazioni affidabili e aggiornate e le trasformi in note utili',
+    title: tr('the researcher', 'la ricercatrice'),
+    mission: tr(
+      'you find reliable, up-to-date information and turn it into useful notes',
+      'trovi informazioni affidabili e aggiornate e le trasformi in note utili',
+    ),
     duties: [
-      'Usi più fonti, preferisci quelle primarie e controlli le date.',
-      'Bastano 3-5 fonti buone.',
+      tr(
+        'You use several sources, prefer primary ones and check the dates.',
+        'Usi più fonti, preferisci quelle primarie e controlli le date.',
+      ),
+      tr('3-5 good sources are enough.', 'Bastano 3-5 fonti buone.'),
     ],
-    area: 'Risorse/Ricerche',
+    area: tr('Resources/Research', 'Risorse/Ricerche'),
     web: true,
     instructionsEdited: false,
   },
   dione: {
-    title: 'la scrittrice',
-    mission: 'trasformi note e richieste in testi chiari, pronti da usare',
-    duties: ['Per i testi creativi scrivi 2 varianti di taglio o di tono.'],
-    area: 'Inbox/Bozze',
+    title: tr('the writer', 'la scrittrice'),
+    mission: tr(
+      'you turn notes and requests into clear texts, ready to use',
+      'trasformi note e richieste in testi chiari, pronti da usare',
+    ),
+    duties: [
+      tr(
+        'For creative texts you write 2 variants of angle or tone.',
+        'Per i testi creativi scrivi 2 varianti di taglio o di tono.',
+      ),
+    ],
+    area: tr('Inbox/Drafts', 'Inbox/Bozze'),
     web: false,
     instructionsEdited: false,
   },
   enceladus: {
-    title: 'il bibliotecario',
-    mission: 'tieni in ordine le note: collegamenti, cartelle, doppioni',
-    duties: ['Non cancelli mai una nota: la sposti in Archivio.'],
-    area: 'Archivio/Ordine',
+    title: tr('the librarian', 'il bibliotecario'),
+    mission: tr(
+      'you keep the notes in order: links, folders, duplicates',
+      'tieni in ordine le note: collegamenti, cartelle, doppioni',
+    ),
+    duties: [
+      tr(
+        'You never delete a note: you move it to Archive.',
+        'Non cancelli mai una nota: la sposti in Archivio.',
+      ),
+    ],
+    area: tr('Archive/Order', 'Archivio/Ordine'),
     web: false,
     instructionsEdited: true,
   },
-};
+});
+
+const contextFor = (userName: string) =>
+  tr(
+    `${userName} has entrusted you with part of their work.`,
+    `${userName} ti ha affidato una parte del suo lavoro.`,
+  );
 
 const idOf = (name: string) => {
   const slug = slugify(name);
@@ -164,7 +211,7 @@ export class MockSquad {
   private profile = {
     userName: 'Giulio',
     tone: 'amichevole',
-    language: 'it',
+    language: tr('en', 'it'),
     style: '',
     extras: [] as string[],
     text: '',
@@ -193,7 +240,7 @@ export class MockSquad {
     const genome = this.genomeFor(d.name, this.hues());
     return {
       ...d,
-      context: `${this.profile.userName} ti ha affidato una parte del suo lavoro.`,
+      context: contextFor(this.profile.userName),
       genome: { ...genome, id: idOf(d.name) },
       color: colorOf(genome),
       archetype: null,
@@ -215,7 +262,10 @@ export class MockSquad {
         kind: 'monster' as const,
         id,
         title: p.name,
-        summary: `${nameOf(p.from)} propone un nuovo mostro, ${p.name}: ${p.draft!.role}.`,
+        summary: tr(
+          `${nameOf(p.from)} suggests a new monster, ${p.name}: ${p.draft!.role}.`,
+          `${nameOf(p.from)} propone un nuovo mostro, ${p.name}: ${p.draft!.role}.`,
+        ),
         from: p.from,
         fromName: nameOf(p.from),
         createdAt: p.at ?? 0,
@@ -226,8 +276,10 @@ export class MockSquad {
   /** "Conferma" (the monster as proposed) or "Scarta" on a proposal. */
   draftAction(id: string, action: 'confirm' | 'discard'): RawResponse {
     const p = this.proposals.get(id);
-    if (!p) return fail(404, 'unknown_draft', 'Questa bozza non c’è.');
-    if (!p.open || !p.draft) return fail(409, 'draft_closed', 'Bozza già chiusa.');
+    if (!p)
+      return fail(404, 'unknown_draft', tr('This draft doesn’t exist.', 'Questa bozza non c’è.'));
+    if (!p.open || !p.draft)
+      return fail(409, 'draft_closed', tr('Draft already closed.', 'Bozza già chiusa.'));
     if (action === 'discard') {
       return this.handle('POST', `/api/team/proposals/${encodeURIComponent(id)}/discard`, {})!;
     }
@@ -258,7 +310,14 @@ export class MockSquad {
     const p = this.proposals.get(id);
     if (!p) return fail(404, 'unknown_proposal', `no proposal ${id}`);
     if (!p.open) {
-      return fail(409, 'proposal_closed', 'Questa proposta è già stata usata o lasciata stare.');
+      return fail(
+        409,
+        'proposal_closed',
+        tr(
+          'This proposal has already been used or dropped.',
+          'Questa proposta è già stata usata o lasciata stare.',
+        ),
+      );
     }
     return p;
   }
@@ -270,11 +329,11 @@ export class MockSquad {
   private detailsOf(a: AgentSummary): Details {
     let d = this.details.get(a.id);
     if (!d) {
-      d = DEFAULT_DETAILS[a.id] ?? {
-        title: 'l’aiutante',
+      d = defaultDetails()[a.id] ?? {
+        title: tr('the helper', 'l’aiutante'),
         mission: a.role.charAt(0).toLowerCase() + a.role.slice(1),
         duties: [`${a.role}.`],
-        area: `Risorse/${a.name}`,
+        area: `${tr('Resources', 'Risorse')}/${a.name}`,
         web: false,
         instructionsEdited: false,
       };
@@ -319,18 +378,35 @@ export class MockSquad {
     const name = cap(raw);
     const id = idOf(name);
     if (id === 'user' || id === 'system') {
-      return fail(400, 'invalid_name', `Il nome ${name} è riservato: scegline un altro.`);
+      return fail(
+        400,
+        'invalid_name',
+        tr(
+          `The name ${name} is reserved: pick another one.`,
+          `Il nome ${name} è riservato: scegline un altro.`,
+        ),
+      );
     }
     for (const o of this.host.agents()) {
       if (o.id === self) continue;
       if (o.name.toLowerCase() === name.toLowerCase()) {
-        return fail(400, 'invalid_name', `C'è già un mostro che si chiama ${o.name}.`);
+        return fail(
+          400,
+          'invalid_name',
+          tr(
+            `There’s already a monster called ${o.name}.`,
+            `C'è già un mostro che si chiama ${o.name}.`,
+          ),
+        );
       }
       if (o.id === id || idOf(o.name) === id) {
         return fail(
           400,
           'invalid_name',
-          `Il nome ${name} è troppo simile a quello di ${o.name}: scegline un altro.`,
+          tr(
+            `The name ${name} is too similar to ${o.name}’s: pick another one.`,
+            `Il nome ${name} è troppo simile a quello di ${o.name}: scegline un altro.`,
+          ),
         );
       }
     }
@@ -342,7 +418,10 @@ export class MockSquad {
       ? fail(
           409,
           'busy',
-          'La squadra sta ancora lavorando: aspetta che finisca o fermala, poi cambiala.',
+          tr(
+            'The squad is still working: wait for it to finish or stop it, then change it.',
+            'La squadra sta ancora lavorando: aspetta che finisca o fermala, poi cambiala.',
+          ),
         )
       : null;
   }
@@ -397,6 +476,7 @@ export class MockSquad {
   }
 
   private profileView(): ProfileView {
+    const labelsNow = labels();
     const tono = ONBOARDING_QUESTIONS.find((q) => q.id === 'tono')!;
     const group = (id: string) => tono.groups.find((g) => g.id === id)!.options;
     return {
@@ -406,14 +486,14 @@ export class MockSquad {
       language: this.profile.language,
       style: this.profile.style,
       askAlways: {
-        fixed: ASK_ALWAYS_FIXED.map((id) => ({ id, label: LABELS[id] ?? id })),
+        fixed: ASK_ALWAYS_FIXED.map((id) => ({ id, label: labelsNow[id] ?? id })),
         extras: ASK_ALWAYS_EXTRAS.filter((id) => this.profile.extras.includes(id)),
         text: this.profile.text,
       },
       options: {
         tones: group('tono'),
         languages: group('lingua'),
-        extras: ASK_ALWAYS_EXTRAS.map((id) => ({ id, label: LABELS[id] ?? id })),
+        extras: ASK_ALWAYS_EXTRAS.map((id) => ({ id, label: labelsNow[id] ?? id })),
       },
     };
   }
@@ -437,17 +517,23 @@ export class MockSquad {
             {
               archetype: 'rhea' as const,
               name: 'Rhea',
-              title: 'la ricercatrice',
-              role: 'ricerche online e sintesi con fonti',
+              title: tr('the researcher', 'la ricercatrice'),
+              role: tr(
+                'online research and summaries with sources',
+                'ricerche online e sintesi con fonti',
+              ),
             },
             {
               archetype: 'dione' as const,
               name: 'Dione',
-              title: 'la scrittrice',
-              role: 'testi pronti da usare (post, mail, riassunti, piani)',
+              title: tr('the writer', 'la scrittrice'),
+              role: tr(
+                'ready-to-use texts (posts, emails, summaries, plans)',
+                'testi pronti da usare (post, mail, riassunti, piani)',
+              ),
             },
           ].filter((a) => !has(a.archetype)),
-          ideas: IDEAS,
+          ideas: ideas(),
           names: this.freeNames(),
         } satisfies TeamSuggestions);
       }
@@ -508,14 +594,20 @@ export class MockSquad {
       return fail(
         400,
         'orchestrator',
-        'Il tuo capo coordina gli altri: il suo ruolo non si cambia, solo il nome.',
+        tr(
+          'Your squad lead coordinates the others: its role can’t be changed, only its name.',
+          'Il tuo capo coordina gli altri: il suo ruolo non si cambia, solo il nome.',
+        ),
       );
     }
     if (a.isLead && edits.length > 0) {
       return fail(
         400,
         'orchestrator',
-        'Il capo del progetto coordina i mostri del progetto: il suo ruolo non si cambia, solo il nome.',
+        tr(
+          'The project lead coordinates the project’s monsters: its role can’t be changed, only its name.',
+          'Il capo del progetto coordina i mostri del progetto: il suo ruolo non si cambia, solo il nome.',
+        ),
       );
     }
     const rename = r.name !== undefined && cap(r.name) !== a.name;
@@ -531,7 +623,10 @@ export class MockSquad {
       return fail(
         409,
         'instructions_edited',
-        `Le istruzioni di ${a.name} (AGENTS.md) sono state modificate a mano: per riscriverle con il nuovo ruolo conferma (la copia vecchia resta in AGENTS.md.bak).`,
+        tr(
+          `${a.name}’s instructions (AGENTS.md) were edited by hand: to rewrite them with the new role, confirm (the old copy stays in AGENTS.md.bak).`,
+          `Le istruzioni di ${a.name} (AGENTS.md) sono state modificate a mano: per riscriverle con il nuovo ruolo conferma (la copia vecchia resta in AGENTS.md.bak).`,
+        ),
       );
     }
     const name = rename ? cap(r.name!) : a.name;
@@ -573,7 +668,10 @@ export class MockSquad {
       return fail(
         400,
         'color_too_close',
-        'Questo colore è troppo vicino a quello di un altro mostro: scegline un altro.',
+        tr(
+          'This color is too close to another monster’s: pick a different one.',
+          'Questo colore è troppo vicino a quello di un altro mostro: scegline un altro.',
+        ),
       );
     }
     return g.data;
@@ -598,7 +696,10 @@ export class MockSquad {
       return fail(
         400,
         'orchestrator',
-        'Il tuo capo non si può togliere: coordina gli altri. Puoi cambiargli nome.',
+        tr(
+          'Your squad lead can’t be removed: it coordinates the others. You can rename it.',
+          'Il tuo capo non si può togliere: coordina gli altri. Puoi cambiargli nome.',
+        ),
       );
     }
     const busy = this.busy();
@@ -616,7 +717,14 @@ export class MockSquad {
     const x = this.archived.get(id);
     if (!x) return fail(404, 'unknown_agent');
     if (this.personal().filter((a) => !a.isOrchestrator).length >= MAX_TEAM_MEMBERS) {
-      return fail(409, 'team_full', `La squadra ha già ${MAX_TEAM_MEMBERS} mostri oltre al capo.`);
+      return fail(
+        409,
+        'team_full',
+        tr(
+          `The squad already has ${MAX_TEAM_MEMBERS} monsters besides the lead.`,
+          `La squadra ha già ${MAX_TEAM_MEMBERS} mostri oltre al capo.`,
+        ),
+      );
     }
     const busy = this.busy();
     if (busy) return busy;
@@ -628,7 +736,10 @@ export class MockSquad {
         : fail(
             409,
             'name_taken',
-            `${(problem.body as { message: string }).message} Scegli un altro nome per ${x.agent.name}.`,
+            tr(
+              `${(problem.body as { message: string }).message} Pick another name for ${x.agent.name}.`,
+              `${(problem.body as { message: string }).message} Scegli un altro nome per ${x.agent.name}.`,
+            ),
           );
     }
     this.archived.delete(id);
@@ -648,7 +759,7 @@ export class MockSquad {
       if (problem) return problem;
     }
     const free = this.freeNames();
-    const context = `${this.profile.userName} ti ha affidato una parte del suo lavoro.`;
+    const context = contextFor(this.profile.userName);
     const finish = (d: Omit<TeamDraft, 'color' | 'genome' | 'context'>): RawResponse => {
       const genome = this.genomeFor(d.name, this.hues());
       return ok({
@@ -663,20 +774,30 @@ export class MockSquad {
       const wanted = rhea ? 'Rhea' : 'Dione';
       return finish({
         name: r.name ? cap(r.name) : free.includes(wanted) ? wanted : (free[0] ?? 'Tethys'),
-        title: rhea ? 'la ricercatrice' : 'la scrittrice',
+        title: rhea ? tr('the researcher', 'la ricercatrice') : tr('the writer', 'la scrittrice'),
         role: rhea
-          ? 'ricerche online e sintesi con fonti'
-          : 'testi pronti da usare (post, mail, riassunti, piani)',
-        mission: DEFAULT_DETAILS[r.archetype]!.mission,
-        duties: DEFAULT_DETAILS[r.archetype]!.duties,
-        area: DEFAULT_DETAILS[r.archetype]!.area,
+          ? tr('online research and summaries with sources', 'ricerche online e sintesi con fonti')
+          : tr(
+              'ready-to-use texts (posts, emails, summaries, plans)',
+              'testi pronti da usare (post, mail, riassunti, piani)',
+            ),
+        mission: defaultDetails()[r.archetype]!.mission,
+        duties: defaultDetails()[r.archetype]!.duties,
+        area: defaultDetails()[r.archetype]!.area,
         web: rhea,
         archetype: r.archetype,
         source: 'archetype',
       });
     }
     if (this.host.halted()) {
-      return fail(409, 'halted', 'Monsters è fermo: riprendi prima di creare un nuovo mostro.');
+      return fail(
+        409,
+        'halted',
+        tr(
+          'Monsters is stopped: resume before creating a new monster.',
+          'Monsters è fermo: riprendi prima di creare un nuovo mostro.',
+        ),
+      );
     }
     const name = r.name
       ? cap(r.name)
@@ -684,12 +805,12 @@ export class MockSquad {
     const role = r.description.replace(/\s+/g, ' ').trim().slice(0, 120);
     return finish({
       name,
-      title: 'l’aiutante',
+      title: tr('the helper', 'l’aiutante'),
       role,
       mission: role.charAt(0).toLowerCase() + role.slice(1).replace(/\.$/, ''),
       duties: [role],
-      area: `Risorse/${name}`,
-      web: r.web ?? /ricerc|cerca|web|online/i.test(r.description),
+      area: `${tr('Resources', 'Risorse')}/${name}`,
+      web: r.web ?? /ricerc|cerca|research|search|web|online/i.test(r.description),
       archetype: null,
       source: 'model',
     });
@@ -700,7 +821,14 @@ export class MockSquad {
     if (!p.success) return fail(400, 'invalid_request', firstIssue(p.error));
     const r = p.data;
     if (this.personal().filter((a) => !a.isOrchestrator).length >= MAX_TEAM_MEMBERS) {
-      return fail(409, 'team_full', `La squadra ha già ${MAX_TEAM_MEMBERS} mostri oltre al capo.`);
+      return fail(
+        409,
+        'team_full',
+        tr(
+          `The squad already has ${MAX_TEAM_MEMBERS} monsters besides the lead.`,
+          `La squadra ha già ${MAX_TEAM_MEMBERS} mostri oltre al capo.`,
+        ),
+      );
     }
     const proposal = r.proposal ? this.proposal(r.proposal) : undefined;
     if (proposal && 'status' in proposal) return proposal;
@@ -800,7 +928,14 @@ export class MockSquad {
     const p = PasswordChangeRequestSchema.safeParse(body ?? {});
     if (!p.success) return fail(400, 'invalid_request', firstIssue(p.error));
     if (p.data.currentPassword === p.data.newPassword) {
-      return fail(400, 'same_password', 'La nuova password è uguale a quella di adesso.');
+      return fail(
+        400,
+        'same_password',
+        tr(
+          'The new password is the same as the current one.',
+          'La nuova password è uguale a quella di adesso.',
+        ),
+      );
     }
     if (!this.host.checkPassword(p.data.currentPassword)) {
       this.host.log({
@@ -808,7 +943,11 @@ export class MockSquad {
         type: 'auth',
         data: { action: 'password_change_failed', channel: 'ui' },
       });
-      return fail(400, 'wrong_password', 'La password attuale non è giusta.');
+      return fail(
+        400,
+        'wrong_password',
+        tr('The current password is wrong.', 'La password attuale non è giusta.'),
+      );
     }
     this.host.setPassword(p.data.newPassword);
     this.host.log({
