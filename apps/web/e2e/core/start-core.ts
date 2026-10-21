@@ -79,7 +79,9 @@ const providers = new ProviderRegistry().register(
 const core = await startCore({
   home,
   port,
-  env: {},
+  // Only the language of a fresh home (D-153), from the Playwright config: nothing else of this
+  // machine's environment.
+  env: env['MONSTERS_LANG'] ? { MONSTERS_LANG: env['MONSTERS_LANG'] } : {},
   webDist: dist,
   hub: {
     providers,

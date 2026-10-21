@@ -72,7 +72,8 @@ const provider = new FakeProvider({
 const core = await startCore({
   home,
   port,
-  env: {},
+  // Only the language of a fresh home (D-153), from the Playwright config.
+  env: process.env['MONSTERS_LANG'] ? { MONSTERS_LANG: process.env['MONSTERS_LANG'] } : {},
   allowedOrigins: [origin, `http://127.0.0.1:${port}`],
   hub: {
     providers: new ProviderRegistry().register(provider),

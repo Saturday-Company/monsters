@@ -17,7 +17,8 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: 'retain-on-failure',
-    locale: 'it-IT',
+    // The browser's language, so the app's (D-153): E2E_LOCALE=en-US while the specs move to English.
+    locale: process.env['E2E_LOCALE'] ?? 'it-IT',
     timezoneId: 'Europe/Rome',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],

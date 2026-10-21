@@ -33,7 +33,8 @@ export default defineConfig({
   use: {
     baseURL: UI,
     trace: 'retain-on-failure',
-    locale: 'it-IT',
+    // The browser's language, so the app's (D-153): E2E_LOCALE=en-US while the specs move to English.
+    locale: process.env['E2E_LOCALE'] ?? 'it-IT',
     timezoneId: 'Europe/Rome',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
@@ -41,6 +42,8 @@ export default defineConfig({
     {
       command: 'pnpm exec node ../../packages/core/test/e2e-server.ts',
       env: {
+        // A fresh home takes the system's language: the same as the browser's (D-153).
+        MONSTERS_LANG: (process.env['E2E_LOCALE'] ?? 'it-IT').slice(0, 2),
         MONSTERS_E2E_HOME: HOME,
         MONSTERS_E2E_PORT: String(CORE_PORT),
         MONSTERS_E2E_ORIGIN: UI,
