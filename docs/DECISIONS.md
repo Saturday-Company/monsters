@@ -4939,3 +4939,13 @@ pestano i piedi, nessuna chiave dimenticata, nessuna libreria. Chi c'è resta in
 cambia, quindi il comportamento misurato dalle eval resta quello.
 **Conseguenza:** ogni testo nuovo va in un dizionario in due lingue (la guardia lo pretende). I testi esistenti passano nei dizionari a onde
 per area (UI, core e pacchetti, prompt, vault, documenti); la baseline della guardia ne tiene il conto.
+**Review of the English family (21/10/2026, `docs/eval/2026-10-21-english-first.md`):** measured as a real English
+user (English profile, request and writing language, `--user`) on the paid twins of the free chain (`--models paid`,
+Laguna first: it served the free runs), the English prompts were close to the Italian ones and the invented dishes
+of the first run did not come back. The English family was rewritten where the translation had lost force: rules
+in the imperative, "have the writer write 2 variants… then ask with ask_user", "never as a question or a list of
+options in your reply", the user's facts "only" from the profile or the vault, the stop hook's "in plain text". The
+wave-3 English templates stay as `legacy`. After the fixes no metric is clearly worse than Italian (6-10 runs per
+arm); the choice left in the reply without `ask_user` (2/10 in English, 0/6 in Italian) is still open. The
+onboarding now starts the monsters' writing language on the app's language (`defaultWritingLanguage`), not on
+Italian.

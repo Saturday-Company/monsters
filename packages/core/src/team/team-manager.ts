@@ -427,7 +427,7 @@ export class TeamManager {
     const nomi = answers['nomi'] ?? { values: {} };
     nomi.values = { ...nomi.values, user: [userName] };
     answers['nomi'] = nomi;
-    const tone = answers['tono'] ?? { values: { tono: ['amichevole'], lingua: ['it'] } };
+    const tone = answers['tono'] ?? { values: { tono: ['amichevole'], lingua: [appLang()] } };
     tone.values = {
       ...tone.values,
       ...(req.tone !== undefined ? { tono: [req.tone] } : {}),

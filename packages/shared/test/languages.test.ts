@@ -17,6 +17,8 @@ import {
   MCP_CATEGORY_LABEL,
   McpCatalogEntrySchema,
   ONBOARDING_QUESTIONS,
+  onboardingQuestionsIn,
+  defaultWritingLanguage,
   originalRequest,
   PROJECT_TABS,
   projectPagePath,
@@ -117,13 +119,51 @@ describe('the onboarding questions', () => {
   it('keep their ids and options in both languages; only the texts change', () => {
     const shape = () =>
       JSON.parse(
-        JSON.stringify(ONBOARDING_QUESTIONS, (k, v: unknown) =>
-          ['title', 'hint', 'freeText', 'reply', 'label', 'placeholder'].includes(k) ? '' : v,
-        ),
+        JSON.stringify(ONBOARDING_QUESTIONS, function (this: { id?: string }, k, v: unknown) {
+          if (['title', 'hint', 'freeText', 'reply', 'label', 'placeholder'].includes(k)) return '';
+          // The writing language's default follows the app's language (next test).
+          return k === 'defaults' && this.id === 'lingua' ? [] : v;
+        }),
       ) as unknown;
     const en = shape();
     setAppLang('it');
     expect(shape()).toEqual(en);
+  });
+
+  const lingua = () =>
+    ONBOARDING_QUESTIONS.find((q) => q.id === 'tono')!.groups.find((g) => g.id === 'lingua')!;
+
+  it('start the writing language on the app’s language', () => {
+    expect(lingua().defaults).toEqual(['en']);
+    expect(onboardingQuestionsIn('it').find((q) => q.id === 'tono')!.groups[1]!.defaults).toEqual([
+      'it',
+    ]);
+    setAppLang('it');
+    expect(lingua().defaults).toEqual(['it']);
+    expect(
+      checkOnboardingAnswer(
+        ONBOARDING_QUESTIONS.find((q) => q.id === 'tono')!,
+        {
+          values: { tono: ['amichevole'], lingua: lingua().defaults },
+        },
+      ),
+    ).toEqual([]);
+  });
+
+  it('pick the browser’s language only when the app has no words for it', () => {
+    const ids = lingua().options.map((o) => o.id);
+    expect(defaultWritingLanguage(ids, 'en', 'en-US')).toBe('en');
+    expect(defaultWritingLanguage(ids, 'it', 'it-IT')).toBe('it');
+    // The user chose the app's language on the first screen: it wins over the browser's.
+    expect(defaultWritingLanguage(ids, 'en', 'it-IT')).toBe('en');
+    expect(defaultWritingLanguage(ids, 'it', 'en-GB')).toBe('it');
+    // Spanish, French, German: the app is in English only because it has no such words.
+    expect(defaultWritingLanguage(ids, 'en', 'es-ES')).toBe('es');
+    expect(defaultWritingLanguage(ids, 'en', 'de')).toBe('de');
+    expect(defaultWritingLanguage(ids, 'it', 'fr-FR')).toBe('it');
+    expect(defaultWritingLanguage(ids, 'en', 'ja-JP')).toBe('en');
+    expect(defaultWritingLanguage(ids, 'en', '')).toBe('en');
+    expect(defaultWritingLanguage(['de'], 'en')).toBeUndefined();
   });
 
   it('say the first question in the language in use', () => {

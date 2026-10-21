@@ -1,6 +1,11 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
-import { URL_IN_TEXT, WEB_SEARCH_USAGE_PROVIDER, type LogEvent } from '@monsters/shared';
+import {
+  PROFILE_NOTE_PATH,
+  URL_IN_TEXT,
+  WEB_SEARCH_USAGE_PROVIDER,
+  type LogEvent,
+} from '@monsters/shared';
 import { stableJson } from '../src/agents/call-tracker.ts';
 import { endsWithQuestion } from '../src/team/final-question.ts';
 import { FINAL_QUESTION_REMINDERS } from '../src/team/final-question.prompts.ts';
@@ -351,6 +356,12 @@ export interface RunMetrics {
   plainTextQuestion: boolean;
   notes: NoteReport[];
   notesItalian: boolean;
+  /** The language the monsters were asked to write in (D-153). Missing in older results: Italian. */
+  writingLanguage?: 'it' | 'en';
+  /** Every note is in the writing language (or too short to tell). Missing in older results. */
+  notesInLanguage?: boolean;
+  /** Dollars of the model requests of the run (`provider_usage`), paid searches excluded. */
+  costUsd?: number;
   brokenWikilinks: number;
   externalLinks: LinkCheck;
   /** External links of the researcher's notes only: the sources (M2.0). */
@@ -380,6 +391,29 @@ export function isTasteQuestion(text: string): boolean {
   );
 }
 
+/**
+ * English glosses of a dish the user gave: not a new dish. "Tortelli di zucca — pumpkin ravioli"
+ * is the menu's own dish, explained to an English reader (D-153).
+ */
+const GLOSSES: { of: string; gloss: RegExp }[] = [
+  { of: 'tortell', gloss: /\bpumpkin(?:[- ](?:filled|stuffed))? ravioli/g },
+  // "tortelli di zucca — golden ravioli stuffed with pumpkin": the same sentence, the same dish.
+  { of: 'tortell', gloss: /\btortell[^.\n]{0,80}?ravioli/g },
+];
+
+/**
+ * Dish words in `written` (lower case) that `given` never has. A word counts where a word
+ * starts ("toscanatradizionale" holds no "anatra"; a hashtag glued to the dish it names holds
+ * no other); glosses of a given dish are not counted.
+ */
+export function inventedDishesOf(written: string, given: string): string[] {
+  let text = written;
+  for (const g of GLOSSES) if (given.includes(g.of)) text = text.replace(g.gloss, ' ');
+  const starts = (w: string) =>
+    new RegExp(`(?<![\\p{L}\\p{N}])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'u');
+  return DISH_WORDS.filter((w) => starts(w).test(text) && !given.includes(w));
+}
+
 export function evaluateRun(params: {
   events: Ev[];
   vaultRoot: string;
@@ -389,8 +423,11 @@ export function evaluateRun(params: {
   requests: number;
   durationS: number;
   searchFound: boolean | null;
+  /** The monsters' writing language of the run. Default Italian (the runs before D-153). */
+  writingLanguage?: 'it' | 'en';
 }): RunMetrics {
   const { events, vaultRoot, orchestratorId } = params;
+  const writingLanguage = params.writingLanguage ?? 'it';
   const of = <T extends Ev['type']>(type: T): LogEvent<T>[] =>
     events.filter((e) => e.type === type) as LogEvent<T>[];
   const runs: LogEvent<'run'>[] = of('run');
@@ -476,7 +513,7 @@ export function evaluateRun(params: {
   // Facts the user gave: the profile, the request, the answers to the questions.
   let profile = '';
   try {
-    profile = readFileSync(join(vaultRoot, 'profilo.md'), 'utf8');
+    profile = readFileSync(join(vaultRoot, PROFILE_NOTE_PATH), 'utf8');
   } catch {
     // no profile note
   }
@@ -503,7 +540,9 @@ export function evaluateRun(params: {
   ]
     .join('\n')
     .toLowerCase();
-  const inventedDishes = DISH_WORDS.filter((w) => written.includes(w) && !given.includes(w));
+  const inventedDishes = inventedDishesOf(written, given);
+  const loop = loopMetrics(events);
+  const costUsd = Object.values(loop.agents ?? {}).reduce((n, a) => n + a.costUsd, 0);
   return {
     status: runEnd?.data.status ?? 'running',
     requests: params.requests,
@@ -535,6 +574,9 @@ export function evaluateRun(params: {
     plainTextQuestion: /\?/.test(tail),
     notes,
     notesItalian: notes.every((n) => n.language === 'it' || n.language === 'short'),
+    writingLanguage,
+    notesInLanguage: notes.every((n) => n.language === writingLanguage || n.language === 'short'),
+    costUsd: Math.round(costUsd * 1e6) / 1e6,
     brokenWikilinks: notes.reduce((n, x) => n + x.brokenWikilinks.length, 0),
     externalLinks,
     researcherLinks,
@@ -555,6 +597,6 @@ export function evaluateRun(params: {
     delegations: delegations.map((d) => `${d.data.to}: ${d.data.goal.slice(0, 160)}`),
     errors: errors.map((e) => `${e.agent}: ${e.data.code ?? ''} ${e.data.message}`.trim()),
     answer,
-    loop: loopMetrics(events),
+    loop,
   };
 }

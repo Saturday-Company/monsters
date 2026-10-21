@@ -55,7 +55,7 @@ const en: typeof it = {
     summary: 'ready-to-use texts (posts, emails, summaries, plans)',
     mission: 'you turn notes and requests into clear, ready-to-use texts',
     duties: [
-      'You read the notes they point you to by link and you don’t invent facts that aren’t there.',
+      'You read the notes you are pointed to by link and you don’t make up facts that aren’t in them.',
       'Tone, format and length follow the profile. For creative texts (posts, slogans, newsletters) you write 2 variants of angle or tone: the final choice belongs to whoever uses them.',
     ],
     report: 'the text or the path of the draft, the choices made, what is left to decide',

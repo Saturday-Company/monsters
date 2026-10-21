@@ -190,6 +190,24 @@ describe('onboarding profile', () => {
     expect(ONBOARDING_QUESTIONS.length).toBeGreaterThanOrEqual(5);
     expect(ONBOARDING_QUESTIONS.length).toBeLessThanOrEqual(7);
   });
+
+  it('without a language answer the monsters write in the app’s language (D-153)', () => {
+    const tono = { values: { tono: ['diretto'] } };
+    // English app: English monsters, not Italian ones.
+    expect(profileFromAnswers({ ...ANSWERS, tono })).toMatchObject({
+      languageId: 'en',
+      language: 'English',
+    });
+    // The default the onboarding screen starts on is the same.
+    const lingua = ONBOARDING_QUESTIONS.find((q) => q.id === 'tono')!.groups[1]!;
+    expect(lingua.defaults).toEqual(['en']);
+    inLang('it');
+    expect(profileFromAnswers({ ...ANSWERS, tono })).toMatchObject({
+      languageId: 'it',
+      language: 'italiano',
+    });
+    expect(lingua.defaults).toEqual(['it']);
+  });
 });
 
 describe('team proposal', () => {

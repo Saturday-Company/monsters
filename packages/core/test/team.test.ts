@@ -277,7 +277,8 @@ describe('team', () => {
     const before = await output('@rhea Cerca Titano');
     expect(before.backend).toBe('wikipedia');
     expect(before.notice).toMatch(/only from Wikipedia/);
-    expect(hosts.slice(0, 2)).toEqual(['html.duckduckgo.com', 'it.wikipedia.org']);
+    // The region follows the monsters' writing language: English, the app's, by default (D-153).
+    expect(hosts.slice(0, 2)).toEqual(['html.duckduckgo.com', 'en.wikipedia.org']);
     const warnings = t
       .events()
       .filter((e) => e.type === 'error' && e.data.code === 'search_fallback');
