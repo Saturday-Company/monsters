@@ -148,6 +148,8 @@ export function Composer({
   const [sending, setSending] = useState(false);
   const [mentionOff, setMentionOff] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
+  /** Where the caret goes once a text set by the code is in the field (see the layout effect). */
+  const pendingCaret = useRef<number | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const files = useAttachments(agent.id);
   const attaching = files.items.length > 0;
@@ -186,12 +188,14 @@ export function Composer({
   useEffect(() => {
     const onPrefill = (e: Event) => {
       const t = (e as CustomEvent<string>).detail;
+      const el = ref.current;
+      if (el && el.value === t) {
+        // The same text: no render, the caret goes now.
+        el.focus();
+        el.setSelectionRange(t.length, t.length);
+      } else pendingCaret.current = t.length;
       setText(t);
       setCaret(t.length);
-      requestAnimationFrame(() => {
-        ref.current?.focus();
-        ref.current?.setSelectionRange(t.length, t.length);
-      });
     };
     window.addEventListener(PREFILL, onPrefill);
     return () => window.removeEventListener(PREFILL, onPrefill);
@@ -203,18 +207,23 @@ export function Composer({
     if (!el) return;
     el.style.height = '0px';
     el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
+    // The caret of a text set by the code (a picked mention, a prefill), placed as soon as the
+    // value is in the field: a frame later, keys typed meanwhile went in before the caret jumped.
+    const pos = pendingCaret.current;
+    if (pos !== null) {
+      pendingCaret.current = null;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    }
   }, [text]);
 
   const pick = (a: AgentView) => {
     if (!mq) return;
     const next = `${text.slice(0, mq.start)}@${a.name} ${text.slice(caret)}`;
     const pos = mq.start + a.name.length + 2;
+    pendingCaret.current = pos;
     setText(next);
     setCaret(pos);
-    requestAnimationFrame(() => {
-      ref.current?.focus();
-      ref.current?.setSelectionRange(pos, pos);
-    });
   };
 
   const submit = async () => {
