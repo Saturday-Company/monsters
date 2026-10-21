@@ -1,4 +1,4 @@
-Monsters · creature a punti (renderDotsText, colori ANSI a 24 bit: `cat docs/mostri/punti.txt`)
+Monsters · dot creatures (renderDotsText, 24-bit ANSI colours: `cat docs/monsters/dots.txt`)
 
 Titan · orchestratore
         [38;2;246;231;195m▄[0m                    [38;2;246;231;195m▄[0m                    [38;2;135;127;107m▄[0m     [38;2;140;95;52m▀[0m[38;2;140;95;52m▀[0m[38;2;140;95;52m█[0m

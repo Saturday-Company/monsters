@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
 import { type Expression, type MonsterGenome, renderMonster } from '../src/index.ts';
 
-export const outDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../docs/mostri');
+export const outDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../docs/monsters');
 export const FONT = "'DejaVu Sans', 'Inter', system-ui, sans-serif";
 
 export const LABELS: Record<Expression, string> = {

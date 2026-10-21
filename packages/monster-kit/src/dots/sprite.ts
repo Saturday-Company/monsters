@@ -7,7 +7,7 @@ import { DOT_CX, DOT_GROUND, DOT_H, DOT_W, type DotCell, type DotGrid, isLight }
  * parts) once; `paintFrame` draws one frame of one expression on a fresh 17 × 15 grid.
  * Everything is integer and deterministic: same genome, same dots, on every platform.
  *
- * Art rules (see docs/mostri/STILE.md, "Creature a punti"): a rounded silhouette with negative
+ * Art rules (see docs/monsters/STYLE.md, "Dot creatures"): a rounded silhouette with negative
  * space around it (arms and feet stand apart from the body), the face first (big eyes with a
  * white glint, a small mouth, white teeth), few half-lit dots.
  */

@@ -1,6 +1,6 @@
 /**
- * Builds the dot-monster sheet: docs/mostri/punti.html (animated with dotCss), docs/mostri/punti.png
- * (first frames) and docs/mostri/punti.txt (the terminal version, with ANSI colours).
+ * Builds the dot-monster sheet: docs/monsters/dots.html (animated with dotCss), docs/monsters/dots.png
+ * (first frames) and docs/monsters/dots.txt (the terminal version, with ANSI colours).
  * The seven chosen monsters on black screens, on the light and the dark chassis, at real size,
  * every frame of every expression, and 30 random genomes (the rules must work for any genome).
  *
@@ -204,7 +204,7 @@ function sheet(animatedRows: boolean): string {
 }
 
 writeFileSync(
-  resolve(outDir, 'punti.html'),
+  resolve(outDir, 'dots.html'),
   htmlPage({
     title: 'Monsters · creature a punti',
     width: WIDTH,
@@ -213,10 +213,10 @@ writeFileSync(
     css: dotCss,
   }),
 );
-writeFileSync(resolve(outDir, 'punti.png'), toPng(sheet(false), WIDTH));
+writeFileSync(resolve(outDir, 'dots.png'), toPng(sheet(false), WIDTH));
 
 const txt: string[] = [
-  'Monsters · creature a punti (renderDotsText, colori ANSI a 24 bit: `cat docs/mostri/punti.txt`)',
+  'Monsters · dot creatures (renderDotsText, 24-bit ANSI colours: `cat docs/monsters/dots.txt`)',
   '',
 ];
 for (const { entry, genome } of team) {
@@ -228,5 +228,5 @@ for (const { entry, genome } of team) {
   for (let i = 0; i < lines; i++) txt.push(cols.map((c) => c[i] ?? '').join('    '));
   txt.push('');
 }
-writeFileSync(resolve(outDir, 'punti.txt'), txt.join('\n'));
-process.stdout.write(`wrote ${resolve(outDir, 'punti.html')}, punti.png and punti.txt\n`);
+writeFileSync(resolve(outDir, 'dots.txt'), txt.join('\n'));
+process.stdout.write(`wrote ${resolve(outDir, 'dots.html')}, dots.png and dots.txt\n`);

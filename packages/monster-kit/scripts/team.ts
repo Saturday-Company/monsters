@@ -1,7 +1,7 @@
 /**
- * Builds the team sheet: docs/mostri/team.html (animated with monsterCss) and docs/mostri/team.png.
+ * Builds the team sheet: docs/monsters/team.html (animated with monsterCss) and docs/monsters/team.png.
  * The seven chosen monsters, on light and dark, in every expression, plus a 2x close-up of
- * Tethys before and after the mouth redesign (the "before" is a frozen SVG in docs/mostri).
+ * Tethys before and after the mouth redesign (the "before" is a frozen SVG in docs/monsters).
  *
  *   pnpm team-sheet
  */

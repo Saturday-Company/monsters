@@ -1,5 +1,5 @@
 /**
- * Builds the concept sheet: docs/mostri/concept.html and docs/mostri/concept.png.
+ * Builds the concept sheet: docs/monsters/concept.html and docs/monsters/concept.png.
  *
  *   pnpm concept                       # default sheet
  *   pnpm concept -- --expressions out.png   # QA sheet: all 14 variants in every expression

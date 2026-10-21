@@ -1,293 +1,290 @@
-# Modello di sicurezza
+# Security model
 
-Le segnalazioni di vulnerabilità vanno fatte seguendo `SECURITY.md` (nella radice del repository), non con una issue
-pubblica. Questo documento descrive il perimetro, il modello delle minacce e i rischi che abbiamo accettato.
+Vulnerability reports must follow `SECURITY.md` (in the root of the repository), not a public issue. This document
+describes the perimeter, the threat model and the risks we have accepted.
 
-## Nel perimetro
+## In scope
 
-- Il **core locale** e le sue API: autenticazione, sessioni, token della CLI, controllo di `Host` e `Origin`, WebSocket
-  `/api/stream`.
-- Il **kill switch**: qualsiasi modo per far ripartire o continuare il lavoro degli agenti dopo un `kill`.
-- Il **log delle azioni**: segreti (chiavi API, token, password) che finiscono nel log nonostante la redazione.
-- Permessi dei file in `~/.monsters` e accesso ai dati di un altro utente dello stesso PC.
-- Il vault (second brain), i permessi degli agenti sul vault e la reversibilità delle modifiche.
-- Le **cartelle concesse** agli strumenti `fs_*`: qualsiasi modo di leggere o scrivere fuori da quelle cartelle
-  (percorsi, collegamenti simbolici), di raggiungere con `fs_*` il vault o i dati di Monsters, o di scrivere in una
-  cartella concessa in sola lettura.
-- I **permessi degli agenti**: un agente che ottiene uno strumento che l'utente non gli ha concesso, o che continua a
-  usarlo dopo che il permesso è stato tolto.
-- I **segreti di Monsters** (chiavi in `secrets/`, token della CLI, variabili `MONSTERS_*`) che arrivano
-  nell'ambiente dei comandi degli agenti o, in chiaro, al modello.
+- The **local core** and its APIs: authentication, sessions, CLI tokens, `Host` and `Origin` checks, the `/api/stream`
+  WebSocket.
+- The **kill switch**: any way to make the agents' work restart or continue after a `kill`.
+- The **action log**: secrets (API keys, tokens, passwords) that end up in the log despite redaction.
+- File permissions in `~/.monsters` and access to another user's data on the same PC.
+- The vault (second brain), the agents' permissions on the vault and the reversibility of changes.
+- The **granted folders** of the `fs_*` tools: any way to read or write outside those folders (paths, symbolic links),
+  to reach the vault or Monsters' data with `fs_*`, or to write in a folder granted as read-only.
+- The **agents' permissions**: an agent that obtains a tool the user hasn't granted it, or that keeps using it after the
+  permission has been removed.
+- **Monsters' secrets** (keys in `secrets/`, CLI tokens, `MONSTERS_*` variables) that reach the environment of the
+  agents' commands or, in clear, the model.
 
-## Rischi noti
+## Known risks
 
-- **Il log delle azioni è append-only solo verso il core.** L'immutabilità della tabella `events` si regge su trigger
-  SQLite che rifiutano `UPDATE` e `DELETE`. Chi può scrivere il file `~/.monsters/monsters.db` (lo stesso utente del
-  sistema, quindi anche un agente con accesso a una shell) può eliminare i trigger, modificare il database o
-  sostituirlo. Il log serve a ricostruire cosa è successo, non è una prova a prova di manomissione: un registro firmato
-  o tenuto fuori dalla portata degli agenti è un lavoro futuro.
-- **Processi orfani su Windows.** Su Linux e macOS i processi degli agenti stanno in un gruppo proprio, registrato in
-  `~/.monsters/process-groups.json`: se il core va in crash, all'avvio successivo termina i gruppi rimasti, dopo aver
-  verificato che siano ancora i suoi (orario di avvio dei processi). Su Windows i processi figli di un core andato in
-  crash non vengono ancora ripuliti.
-- **Il terminale vale quanto il tuo account.** Un agente con il permesso "Terminale" (`shell`, spento di default)
-  esegue comandi con il tuo utente del sistema: può leggere e scrivere anche fuori dalle cartelle concesse, compresi
-  `~/.monsters` (chiavi, token della CLI, `settings.json`, database) e il vault senza passare da git. È il perimetro
-  che scegli concedendolo, per agente, e la UI lo dice in chiaro. Mitigazioni: l'ambiente dei comandi non contiene i
-  segreti di Monsters (`MONSTERS_*`, chiavi dei provider, valori uguali a una chiave caricata); le chiavi, il token
-  della CLI e il codice di avvio sono mascherati nell'output che arriva al modello e nel log; ogni comando e il suo
-  risultato finiscono nel log; l'output arriva al modello come dato esterno; timeout (120 s, al massimo 600); il kill
-  switch e la fine del lavoro fermano il comando con tutti i suoi discendenti; Monsters non usa mai `sudo` (un
-  comando che lo chiede è rifiutato: è un dosso, non un confine, e non sostituisce i permessi del sistema).
-- **Processi che escono dal gruppo.** Il kill switch raggiunge il gruppo di processi del comando. Un programma che se
-  ne stacca di proposito (`setsid`, demoni, `systemd-run --user`, `launchctl`, attività pianificate) non viene
-  fermato. Su Windows l'albero dei processi si chiude con `taskkill /T` finché il processo principale è vivo.
-- **Il controllo dei dati che escono è una regola, non un confine** (D-070). Dopo una pagina o un risultato di terzi,
-  un indirizzo, una ricerca o un comando che ripete una nota privata, o pezzi lunghi di note verso un sito mai visto nel
-  lavoro, si fermano con la scheda; poche parole si segnano nella ricevuta. Dati cifrati, riassunti con parole proprie
-  o spezzati in tante richieste piccole non si riconoscono; sugli abbonamenti (Claude Agent) le pagine lette con gli
-  strumenti del piano non contaminano ancora il lavoro. I caratteri invisibili (Unicode tag, zero-width, bidi) si tolgono da ogni testo esterno. Il controllo vale anche per gli argomenti di ogni strumento MCP, letture comprese; le note scritte dopo testo di terzi restano segnate: chi le rilegge ha le difese accese.
-- **La memoria dopo testo di terzi.** In un tuo lavoro che ha letto pagine o risultati di terzi, le righe «Da
-  ricordare:» si scrivono da sole con il segno «⟨da testo di terzi⟩»; aspettano la tua conferma (Da rivedere) solo
-  quelle che contengono un indirizzo web, una mail o un ordine («manda», «carica», «usa sempre», «ignora»…), e tutte
-  quelle di un lavoro chiesto da un'altra persona o di un gruppo Telegram. Le righe segnate arrivano al mostro dentro
-  il blocco dei dati esterni, non come «La tua memoria», e un lavoro che le legge ha le difese accese. Nella nota della
-  memoria (Note → Agenti) «È mia» toglie il segno da una riga; solo tu di persona, non il token. È una regola a parole,
-  non un modello: una frase che non sembra un ordine («L'utente preferisce le fonti di X») si scrive da sola, segnata,
-  e il mostro la legge come dato. Oltre 5 bozze aperte per mostro la più vecchia scade, con una riga in Attività.
-- **Impronta degli strumenti MCP** (D-070). Al primo collegamento di un server si fida di quello che vede; da lì uno
-  strumento nuovo o con descrizione o argomenti cambiati resta in pausa finché non lo accetti (i servizi della
-  galleria aggiungono strumenti senza pausa, ma una descrizione cambiata si ferma comunque). Un server che cambia il
-  comportamento senza cambiare nome, descrizione e schema non si vede.
-- **Trascrizioni di Claude Code.** I run con l'abbonamento Claude lasciano la sessione in `~/.claude/projects`
-  (serve a `--resume`, quindi `--no-session-persistence` non si può usare; `CLAUDE_CONFIG_DIR` sposterebbe anche il
-  login). Contengono prompt, memoria e note lette. Quella cartella è chiusa a `fs_*` e al terminale dei mostri (dosso,
-  come il resto) e la memoria automatica di Claude Code è spenta nei run; ma chi ha il terminale può sempre aggirare un
-  dosso, e ogni altro programma dell'utente le legge.
-- **Il cookie dell'app desktop.** La sessione dell'app sta nella sua cartella dati (`~/.config/Monsters`,
-  `~/Library/Application Support/Monsters`, `%APPDATA%\Monsters`). Il pacchetto ha il fuse
-  `EnableCookieEncryption`, ma la chiave è alla portata di ogni processo dell'utente: su macOS è nel Portachiavi (e con
-  RunAsNode acceso un processo che usa il binario dell'app eredita il «Consenti sempre»), su Windows è protetta da DPAPI
-  dell'utente, su Linux sta nel portachiavi (libsecret o kwallet), che non ha controlli per applicazione. **Su Linux
-  senza portachiavi** (server, sessioni senza D-Bus, `--password-store=basic`) Chromium usa una chiave fissa e nota:
-  i cookie sono in pratica in chiaro; senza fuse (avvio dai sorgenti) lo sono su tutti i sistemi. La cifratura
-  protegge da una copia del disco o dei backup, non da un mostro con il terminale. Per questo: in modalità locale il
-  cookie di proprietario è di sessione (non va su disco, a ogni avvio si rientra dal bridge) e un cookie limitato
-  rimasto da una sessione agganciata viene sostituito; la cartella dati dell'app è chiusa al terminale, a `fs_*` e agli
-  harness dei mostri (dosso, come le trascrizioni). Le sessioni agganciate, via SSH e del browser tengono il cookie
-  7 giorni, ma le azioni più sensibili vogliono la password degli ultimi 15 minuti (vedi sotto, «Conferma recente»).
-- **Server della galleria e dipendenze.** Shopify gira da un pacchetto installato una volta con `npm ci` su un
-  lockfile nostro (integrity di ogni pacchetto, niente script, registry pubblico), come il browser. Blender gira da un ambiente Python
-  dedicato (`~/.monsters/mcp-packages/blender`): `uv pip install --require-hashes --only-binary :all:` su requisiti
-  nostri (versione e sha256 di ogni file di ogni pacchetto, indiretti compresi, per Linux, macOS e Windows; niente
-  build), poi il server dal tarball del suo commit con il suo sha256 (uv rifiuta un archivio diverso), `--no-deps`,
-  senza configurazione di uv/pip dell'utente; parte dal Python dell'ambiente, mai `uvx`. Resta: i requisiti li
-  abbiamo generati alla data 18/10, quindi una versione già compromessa prima non si ferma; il tarball viene da
-  projects.blender.org (se Gitea cambia il modo di comprimere gli archivi, l'installazione si ferma finché non
-  aggiorniamo lo sha256).
-- **Il cookie di sessione nel browser arriva a tutti i servizi su `127.0.0.1` (S-B13).** I cookie non distinguono
-  le porte: con la UI aperta in un browser, un altro server su `127.0.0.1:<porta>` che visiti (un dev server con
-  codice scritto da un mostro, il servizio di un altro utente del PC) riceve `monsters_session`. Da solo non basta
-  più: una sessione aperta nel browser è legata a un **segreto della scheda**, che il core dà alla UI all'accesso
-  (nella risposta, mai in un cookie) e che la UI tiene in memoria e in `sessionStorage` (di quell'origine, porta
-  compresa: un altro servizio locale non lo legge). La UI lo manda nell'intestazione `X-Monsters-Session` di ogni
-  richiesta e nel primo messaggio del WebSocket (non nell'URL, che finisce nei log e nella cronologia); il core
-  accetta una richiesta col cookie solo se il segreto è quello della sessione (salvato come hash), altrimenti 401.
-  Le anteprime e i download (`<img>`, `<iframe>` delle pagine in sandbox, link «Scarica») non portano
-  intestazioni: passano con un **gettone** nell'URL (`?ticket=`), chiesto dalla UI con il segreto, legato alla
-  sessione, a quel file e a quella parte (contenuto o miniatura), valido 2 minuti e per 16 richieste, tenuto solo in
-  memoria, con un massimo di gettoni per sessione (quelli di un'altra sessione non spingono fuori i suoi). Fanno
-  eccezione le miniature: un gettone vale per le miniature di tutti i file della sessione (2.048 richieste), così una
-  lista lunga ne chiede uno solo. Nel browser «Scarica» è un pulsante che chiede il gettone al clic, non un link: un
-  indirizzo senza gettone, aperto in una scheda nuova o copiato, risponderebbe 401. Il recupero del segreto con un endpoint protetto da intestazioni (`Sec-Fetch-Site`, anti-CSRF) non regge:
-  un server che ha il cookie le scrive da Node come vuole. Per questo **una scheda nuova chiede il segreto alle schede
-  già aperte** sulla stessa origine (`BroadcastChannel`, che un'altra porta non raggiunge); un ricaricamento lo
-  ritrova in `sessionStorage`; **senza schede aperte il browser chiede di nuovo la password**. **L'app desktop non
-  cambia:** tiene il cookie in una sessione sua per ogni destinazione (D-044), dove nessun altro sito lo riceve, e
-  apre le sessioni senza segreto (accesso automatico, e `partitioned` quando si scrive la password nella finestra);
-  lo stesso per il tunnel SSH dell'app. La CLI usa il token, come prima. Restano: un programma del tuo utente che legge
-  il profilo del browser su disco (cookie e `sessionStorage` salvati per il ripristino delle schede) ha entrambi, come
-  aveva il cookie; e le sessioni aperte prima di questa versione sono state chiuse (si rientra una volta).
-- **Conferma recente per le azioni più sensibili** (rischio residuo di M1). Una sessione confermata con la password
-  resta tua per 7 giorni, ma dare il Terminale a un mostro, abbinare un account Telegram o cambiare il bot principale
-  e accendere «Strumenti per gli altri» di un bot dedicato vogliono la password scritta in quella sessione negli
-  ultimi 15 minuti (lato server, `confirmed_at`); altrimenti il core risponde `confirm_required` e la UI chiede la
-  password («Conferma che sei tu», `POST /api/auth/confirm`, nella stessa sessione). Il cambio di password chiede già
-  quella attuale. La sessione che l'app desktop apre da sola sul suo core (dal canale dell'app, cookie mai su disco,
-  nuova a ogni avvio) conta sempre come recente: l'esperienza della modalità locale non cambia. Dura quanto il core
-  che l'ha aperta: al riavvio del core le sessioni dell'app si chiudono e l'app ne chiede una nuova da sola, così una
-  copia del suo cookie non resta «recente» per una settimana. Ripristinare dall'archivio un mostro (o un progetto
-  con i suoi mostri) che aveva il Terminale chiede la stessa conferma di darglielo.
-- **Aggancio al core locale.** L'app desktop e la CLI mandano il token della CLI solo a un core che prova di essere
-  quello della cartella dei dati (HMAC con la `proofKey` di `server.json`, come il tunnel); un core senza `proofKey` non
-  si aggancia. L'IPC dell'app riconosce la pagina del core dall'origine del frame, non dall'URL.
-- **Cestino dei file.** `fs_delete` e le sovrascritture di `fs_write`/`fs_move` spostano o copiano i file in
-  `~/.monsters/trash/files/`: si recuperano da lì, ma il cestino non si svuota da solo.
-- **Scrivere un file può valere quanto il terminale.** Alcuni file fanno eseguire comandi al computer più tardi:
-  cartelle `.git` (hook, `core.fsmonitor` in `config`), `.husky`, profili della shell (`.bashrc`, `.profile`,
-  `.zshrc`…), `.envrc`, `.npmrc`, `.yarnrc.yml`, `.vimrc`, `.ssh/`, `.vscode/`, avvio automatico
-  (`~/.config/autostart`, `~/Library/LaunchAgents`, cartella Esecuzione automatica di Windows, profili di
-  PowerShell). Un agente **senza** il permesso "Terminale" non può scriverli né spostarci file o cartelle con
-  `fs_write`/`fs_move`, in nessuna cartella concessa; con il terminale il blocco non avrebbe senso e non c'è.
-  L'elenco non è esaustivo (un programma può leggere configurazioni ovunque): concedere la scrittura su una cartella
-  che contiene progetti o file di configurazione resta una scelta da fare con attenzione, e la UI lo ricorda.
-  Dalla review del 18/10 l'elenco copre anche i file di un repo che lanciano comandi al prossimo test o commit
-  (`Makefile`, `justfile`, `Taskfile`, `.pre-commit-config.yaml`, `lefthook`, `conftest.py`, `tox.ini`, `noxfile.py`,
-  `setup.py`, `build.rs`, `.pnpmfile.cjs`, `.devcontainer/`, `.idea/`, `.cargo/config.toml`, `.github/workflows/`) e
-  `~/.local/bin` e `~/.local/share/applications`. Il `package.json` si scrive, ma senza cambiare `scripts`, `husky`,
-  `simple-git-hooks`, `lint-staged` e `bin` (si guarda il contenuto prima e dopo, anche negli spostamenti). **Non è un
-  confine**: chi scrive il sorgente di un progetto (un `.ts`, un `.py`, una configurazione di test) fa partire codice
-  al prossimo `pnpm test` o `git commit` comunque. Per questo la scheda del progetto dice che tutti i suoi mostri
-  scrivono nella cartella, e in un lavoro che ha letto testo di terzi ogni scrittura (`fs_write`, `fs_move`,
-  `fs_delete`) nella cartella di un progetto è una scheda del freno, anche con il terminale, a prescindere dalle regole
-  di "Chiedi sempre". Un percorso relativo conta come dentro la cartella. Non vale per gli agenti di Claude Code o
-  Codex con i loro strumenti: lì restano i controlli dei loro hook.
-- **Cartelle dei progetti.** Un progetto non può avere come cartella la home, la radice di un disco, una cartella che
-  le contiene, una cartella nascosta della home (`~/.ssh`, `~/.config`…), `Library` o `AppData`, né una cartella che
-  contiene o sta dentro le note, i dati di Monsters o la cartella dove è installata l'app. Vale per proposte e per
-  creazione, sul percorso dato e su quello reale, e di nuovo al tocco di "Conferma". La scheda della bozza (app e
-  Telegram) dice che tutti i mostri del progetto potranno leggere e scrivere lì e porta l'avviso di testo di terzi; da
-  Telegram una cartella già esistente fuori da `~/Monsters Progetti` si conferma solo nell'app.
-- **Cartella d'installazione dell'app.** L'app desktop passa al core dove è installata (`resources/` e la cartella
-  dell'eseguibile, variabile `MONSTERS_INSTALL_DIRS`): `fs_*` non ci entra, anche passando da una cartella concessa che
-  la contiene (su Windows l'installazione è per utente, nella home). Il core sta fuori dall'ASAR, in
-  `resources/core`: il pacchetto porta dentro `app.asar` l'elenco sha256 di tutti i suoi file per piattaforma e
-  architettura (`core-manifests/`, generato dal core preparato e ricontrollato sul pacchetto finito), e l'app lo
-  confronta con `resources/core` prima di ogni avvio del core, anche dopo un crash: un file cambiato, in più o mancante
-  e il core non parte, la finestra lo dice (S-M9; ~60 ms per 150 file e 21 MB). Il core di sviluppo indicato con
-  `MONSTERS_DESKTOP_CORE` vale solo fuori dal pacchetto. Su macOS i moduli nativi (`.node`) si firmano dopo il
-  pacchetto: se ne controlla la presenza, il contenuto lo garantisce la library validation.
-  - **Niente moduli da fuori (review del 19/10, n. 1).** I pacchetti facoltativi che il codice cerca dentro un
-    try/catch (`bufferutil`, `utf-8-validate`, `supports-color`, `encoding`) sono nel bundle come moduli che falliscono
-    come un pacchetto assente: il core non li cerca mai su disco. L'app avvia il core con `MONSTERS_CORE_CONFINE=1`,
-    senza `NODE_PATH`: un hook di risoluzione (`module.registerHooks`, in testa a ogni file del bundle) rifiuta ogni
-    `require` o `import()` che finisce fuori da `resources/core`, così un pacchetto messo in `resources/node_modules` o
-    più su non gira nel core. Gli import statici (`@node-rs/argon2`) si risolvono prima dell'hook, ma nella
-    `node_modules` più vicina, quella di `resources/core`, coperta dall'elenco.
-  - **Cosa copre l'elenco, sistema per sistema (n. 4).** Su macOS e Windows l'elenco sta in un `app.asar` coperto dal
-    fuse di integrità (l'hash dell'asar è dentro l'eseguibile firmato). **Su Linux Electron non verifica l'asar**: chi
-    può scrivere nella cartella d'installazione riscrive insieme `app.asar`, l'elenco e il core, e la verifica non lo
-    ferma. Su Linux il controllo vale quindi solo dove l'utente non può scrivere lì: il `.deb` (in `/opt`, di root) e
-    l'AppImage (in sola lettura); una cartella estratta nella home (`--dir`, un archivio) non è protetta. Legare
-    l'elenco alla firma degli aggiornamenti non cambierebbe niente: chi riscrive l'asar riscrive anche il codice che
-    la controlla.
-  - **Tra controllo e uso passa tutta la sessione, non un istante (n. 12).** Il controllo è all'avvio del core; dopo,
-    il core legge altri file anche ore più tardi: `embed-worker.js` ed `extract-worker.js` quando servono, i file
-    della UI (`web/`) a ogni pagina, il `.node` di argon2 al primo uso. Chi può scrivere in `resources/core` con altri
-    mezzi (per esempio un mostro con il terminale, su un'installazione scrivibile dall'utente) può cambiarli dopo il
-    controllo. Il binario del portachiavi, che gira con l'identità dell'helper dell'app, si ricontrolla invece a ogni
-    chiamata: l'helper ne rilegge lo sha256 dall'elenco subito prima di caricarlo (su Linux e Windows; su macOS c'è la
-    library validation), e uno diverso non si carica.
-- **Il binario dell'app non fa da Node.** Il fuse `RunAsNode` dell'app desktop è spento (review del 18/10, S-M8):
-  nessun programma dell'utente può avviare il binario firmato come un Node qualsiasi per ereditarne l'identità (su
-  macOS il "Consenti sempre" del portachiavi sulla chiave dei segreti e i permessi TCC dati all'app; su Ubuntu il
-  profilo AppArmor che gli permette i namespace utente). Le chiamate al portachiavi girano in un processo dell'app
-  (l'helper) il cui JavaScript sta tutto nell'`app.asar`, coperto dal fuse di integrità su macOS e Windows: di
-  `@napi-rs/keyring` carica solo il binario nativo della piattaforma (`process.dlopen`, nome del file fisso), mai il
-  suo `index.js` in `resources/core`. L'helper (e prima ancora l'app) accetta solo le voci di Monsters: servizio `Monsters`, account
-  `home-` più 24 cifre esadecimali; ogni altra voce, per esempio quella di un'altra app che macOS mostrerebbe a nome di
-  Monsters, è rifiutata. Il binario nativo resta fuori dall'asar, in `resources/core` (un `.node` dentro l'asar
-  Electron lo estrarrebbe in una cartella temporanea, scrivibile dall'utente): su macOS lo protegge la library
-  validation del runtime rinforzato (deve essere firmato con il Team ID dell'app), mentre su Windows (installazione
-  per utente) chi può scrivere in `resources/core` può sostituirlo e farlo girare con l'identità dell'helper, come può
-  già sostituire il core (gli hash del core controllati dall'asar, M9, lo fermano all'avvio, e l'helper ricontrolla
-  lo sha256 del binario subito prima di caricarlo: resta solo l'istante tra le due cose). Su Windows e Linux il
-  portachiavi non distingue comunque i programmi. I figli JavaScript del core (browser, server MCP della galleria, Codex, npm)
-  usano un `node` del PATH, come già facevano per installarsi, e non hanno l'identità dell'app: il core lo cerca una
-  volta all'avvio e ne tiene il percorso assoluto, saltando le voci relative del PATH, le cartelle in cui i mostri
-  possono scrivere (cartella dati con le loro home, vault, cartella dei progetti e cartelle concesse in scrittura),
-  su Windows tutto ciò che non è `node.exe` (niente `.cmd` o `.bat`) e i Node più vecchi della 20. Un `node` messo dopo
-  in una cartella del PATH non cambia quello dei figli fino al riavvio; resta dirottabile un `node` in una cartella del
-  PATH scrivibile dall'utente con altri mezzi (per esempio con il terminale). Resta vero che chi esegue
-  programmi come te può chiedere al portachiavi la chiave dei segreti dove il portachiavi non distingue i programmi
-  (Secret Service su Linux) e leggere i file dei dati (vedi "Il terminale vale quanto il tuo account").
-- **Aggiornamenti dell'app desktop** (review del 18/10, S-A4 e S-A5; dettagli in `docs/signing.md`). Dalla prima alpha
-  con la verifica, ogni file di canale del feed (`alpha*.yml`, con lo sha512 dei pacchetti) ha una firma Ed25519
-  nostra (`.sig`), verificata dall'app con le chiavi pubbliche che porta con sé prima di scaricare; per il deb la
-  ricontrolla root, con le chiavi di `/opt/Monsters/resources`, insieme al nome del pacchetto e a una versione più alta
-  di quella installata. Chi scrive nel bucket R2 o controlla l'account Cloudflare non basta più per far installare
-  qualcosa: serve la chiave privata, che non sta su Cloudflare. L'app legge il file di canale e la sua firma una volta
-  sola, dal suo provider, e dà a electron-updater proprio l'oggetto firmato: niente seconda lettura, niente campi legacy
-  (`path`, `sha2`) che portino a un altro download; lo sha512 del file scaricato si ricontrolla contro il file firmato.
-  La chiave privata, nell'utente che fa girare core e agenti, sta solo cifrata (scrypt N=2^20 e AES-256-GCM, con
-  `node:crypto`: nessun altro programma la vede); la passphrase si digita sul terminale a ogni pubblicazione, mai in
-  una variabile d'ambiente. **Non è vero che la chiave sia fuori dalla portata degli agenti:** la pubblicazione esegue
-  codice del repo con la chiave decifrata in memoria, quindi un commit o un `node_modules` manomesso in questo utente
-  può portarla via mentre si pubblica (per questo si pubblica da un checkout pulito di un commit rivisto; un firmatario
-  separato che non esegue codice del repo non c'è ancora). Lo script di root del deb verifica con `/usr/bin/openssl`
-  3.0 o più recente (Depends e controllo della versione). Una build di prova (`--test-build`, chiavi `test-`) non si
-  può pubblicare. Restano: le alpha già installate fino alla 0.1.0-alpha.13 non verificano (si aggiornano una volta
-  senza firma); un feed compromesso può ancora non dare aggiornamenti o fermarsi all'ultima versione firmata; chi ha
-  la chiave privata pubblica come noi. Sul Mac i segreti di firma Apple non devono essere dell'utente della CI
-  (nel disegno `monsters-ci`, che esegue install con gli script delle dipendenze, build e test di ogni commit): la
-  build firmata la fa un utente separato (`monsters-sign`), via sudo, con uno script fisso installato da root fuori dal
-  repo, su un checkout suo del commit verificato per sha e un suo `pnpm install --ignore-scripts`, con la chiave
-  Developer ID non estraibile nel suo portachiavi (vedi `docs/signing.md`, "Mac: utente di firma"). Se i passi di
-  quella sezione non sono stati fatti, i file dei segreti restano leggibili dall'utente della CI, e lo script di CI lo
-  segnala a ogni run. Resta vero, anche con la separazione, che il packaging firmato esegue codice
-  del commit con il portachiavi aperto: un commit malevolo può far firmare qualcos'altro, quindi si firmano solo commit
-  di `main` già rivisti.
-- **File speciali e corse in `fs_*`.** I file si aprono senza seguire un link nell'ultimo elemento e senza bloccarsi
-  (`O_NOFOLLOW|O_NONBLOCK`); sul descrittore si controlla che sia un file normale (una FIFO o un dispositivo si rifiutano
-  senza bloccare il core), si rilegge il percorso reale (`/proc/self/fd` su Linux) e si ripetono i controlli delle
-  cartelle concesse, delle istruzioni e dei file di avvio. Un file con più nomi (hardlink) non si scrive. Le cartelle
-  mancanti si creano un livello alla volta, e spostamenti e cancellazioni passano dalla cartella che contiene la voce:
-  su Linux aperta come descrittore (`/proc/self/fd/<n>/<nome>`, Node non ha `renameat`/`mkdirat`) dopo aver
-  controllato che sia proprio la cartella controllata, così una cartella intermedia sostituita con un link dopo i
-  controlli non porta l'operazione fuori; su macOS e Windows si rilegge il percorso reale della cartella subito prima
-  (la finestra si stringe, non sparisce). Una cartella spostata, sostituita o cancellata dentro la cartella di un
-  progetto, o che ne contiene una, si guarda dentro (al massimo 10.000 voci, oltre si rifiuta): le istruzioni di un
-  progetto non entrano, non escono e non vanno nel cestino neanche dentro una cartella e neanche con il terminale.
-  Senza terminale si guarda dentro anche ogni cartella spostata, ovunque arrivi: nessun file che lancia comandi e
-  nessuna istruzione arrivano a destinazione. Una cartella grande lontana dai progetti (un `node_modules`) si cancella,
-  e con il terminale si sposta, senza guardarci dentro.
+- **The action log is append-only only toward the core.** The immutability of the `events` table rests on SQLite
+  triggers that reject `UPDATE` and `DELETE`. Whoever can write the `~/.monsters/monsters.db` file (the same system
+  user, so also an agent with shell access) can drop the triggers, modify the database or replace it. The log serves
+  to reconstruct what happened, it is not tamper-proof evidence: a signed log, or one kept out of the agents' reach, is
+  future work.
+- **Orphan processes on Windows.** On Linux and macOS the agents' processes live in a group of their own, recorded in
+  `~/.monsters/process-groups.json`: if the core crashes, on the next start it terminates the groups left behind, after
+  checking that they are still its own (processes' start time). On Windows the child processes of a crashed core are
+  not cleaned up yet.
+- **The terminal is worth as much as your account.** An agent with the "Terminal" permission (`shell`, off by default)
+  runs commands as your system user: it can read and write outside the granted folders too, including `~/.monsters`
+  (keys, CLI token, `settings.json`, database) and the vault without going through git. It is the perimeter you choose
+  by granting it, per agent, and the UI says so in plain words. Mitigations: the commands' environment doesn't contain
+  Monsters' secrets (`MONSTERS_*`, provider keys, values equal to a loaded key); keys, the CLI token and the setup code
+  are masked in the output that reaches the model and in the log; every command and its result end up in the log; the
+  output reaches the model as external data; timeouts (120 s, 600 at most); the kill switch and the end of the work
+  stop the command with all its descendants; Monsters never uses `sudo` (a command that asks for it is refused: it is
+  a speed bump, not a boundary, and it doesn't replace the system's permissions).
+- **Processes that leave the group.** The kill switch reaches the command's process group. A program that detaches from
+  it on purpose (`setsid`, daemons, `systemd-run --user`, `launchctl`, scheduled tasks) is not stopped. On Windows the
+  process tree is closed with `taskkill /T` as long as the main process is alive.
+- **The check on outgoing data is a rule, not a boundary** (D-070). After a page or a result from third parties, an
+  address, a search or a command that repeats a private note, or long pieces of notes headed to a site never seen in
+  the work, are stopped with the card; a few words are noted in the receipt. Encrypted data, summaries in one's own
+  words or split into many small requests are not recognized; on subscriptions (Claude Agent) the pages read with the
+  plan's tools don't yet taint the work. Invisible characters (Unicode tags, zero-width, bidi) are removed from every
+  external text. The check also applies to the arguments of every MCP tool, reads included; notes written after text
+  from third parties stay marked: whoever rereads them has the defenses on.
+- **Memory after text from third parties.** In a job of yours that has read pages or results from third parties, the
+  `Da ricordare:` lines (“To remember:”; the marker is still Italian) are written by themselves with the mark
+  `⟨da testo di terzi⟩` (“from third-party text”); only those that contain a web address, an email or an order
+  (“send”, “upload”, “always use”, “ignore”…) wait for your confirmation (To review), and so do all those of a job
+  asked by another person or of a Telegram group. The marked lines reach the monster inside the block of external data,
+  not as “Your memory”, and a job that reads them has the defenses on. In the memory's note (Notes → Agenti), “It’s
+  mine” removes the mark from a line; only you in person, not the token. It is a rule in words, not a model: a sentence
+  that doesn't look like an order (“The user prefers sources from X”) is written by itself, marked, and the monster
+  reads it as data. Beyond 5 open drafts per monster the oldest expires, with a line in Activity.
+- **Fingerprint of MCP tools** (D-070). At a server's first connection what it sees is trusted; from then on a new tool,
+  or one with a changed description or arguments, stays paused until you accept it (the gallery's services add tools
+  without a pause, but a changed description stops anyway). A server that changes behavior without changing name,
+  description and schema is not seen.
+- **Claude Code transcripts.** Runs with the Claude subscription leave the session in `~/.claude/projects` (needed by
+  `--resume`, so `--no-session-persistence` can't be used; `CLAUDE_CONFIG_DIR` would move the login too). They contain
+  prompts, memory and notes read. That folder is closed to `fs_*` and to the monsters' terminal (a speed bump, like the
+  rest) and Claude Code's automatic memory is off in the runs; but whoever has the terminal can always get around a
+  speed bump, and every other program of the user reads them.
+- **The desktop app's cookie.** The app's session lives in its data folder (`~/.config/Monsters`,
+  `~/Library/Application Support/Monsters`, `%APPDATA%\Monsters`). The package has the `EnableCookieEncryption` fuse, but
+  the key is within reach of every process of the user: on macOS it is in the Keychain (and with RunAsNode on, a process
+  that uses the app's binary inherits the “Always allow”), on Windows it is protected by the user's DPAPI, on Linux it
+  is in the keychain (libsecret or kwallet), which has no per-application controls. **On Linux without a keychain**
+  (servers, sessions without D-Bus, `--password-store=basic`) Chromium uses a fixed, known key: the cookies are in
+  practice in clear; without the fuse (a start from sources) they are on every system. The encryption protects from a
+  copy of the disk or of the backups, not from a monster with the terminal. That is why: in local mode the owner's
+  cookie is a session one (it doesn't go to disk, at every start you sign back in from the bridge) and a limited cookie
+  left over from an attached session is replaced; the app's data folder is closed to the terminal, to `fs_*` and to the
+  monsters' harnesses (a speed bump, like the transcripts). Attached, SSH and browser sessions keep the cookie for 7
+  days, but the most sensitive actions want the password from the last 15 minutes (see below, “Recent confirmation”).
+- **Gallery servers and dependencies.** Shopify runs from a package installed once with `npm ci` on a lockfile of ours
+  (integrity of every package, no scripts, public registry), like the browser. Blender runs from a dedicated Python
+  environment (`~/.monsters/mcp-packages/blender`): `uv pip install --require-hashes --only-binary :all:` on
+  requirements of ours (version and sha256 of every file of every package, indirect ones included, for Linux, macOS and
+  Windows; no builds), then the server from the tarball of its commit with its sha256 (uv refuses a different archive),
+  `--no-deps`, without the user's uv/pip configuration; it starts from the environment's Python, never `uvx`. What
+  remains: we generated the requirements on 18/10, so a version already compromised before that is not stopped; the
+  tarball comes from projects.blender.org (if Gitea changes how it compresses archives, installation stops until we
+  update the sha256).
+- **The session cookie in the browser reaches every service on `127.0.0.1` (S-B13).** Cookies don't distinguish ports:
+  with the UI open in a browser, another server on `127.0.0.1:<port>` that you visit (a dev server with code written by
+  a monster, another user's service on the PC) receives `monsters_session`. By itself it is no longer enough: a session
+  opened in the browser is tied to a **tab secret**, which the core gives to the UI at sign-in (in the response, never
+  in a cookie) and which the UI keeps in memory and in `sessionStorage` (of that origin, port included: another local
+  service doesn't read it). The UI sends it in the `X-Monsters-Session` header of every request and in the WebSocket's
+  first message (not in the URL, which ends up in logs and history); the core accepts a request with the cookie only if
+  the secret is the session's (stored as a hash), otherwise 401. Previews and downloads (`<img>`, `<iframe>` of the
+  sandboxed pages, “Download” links) carry no headers: they go through with a **ticket** in the URL (`?ticket=`),
+  requested by the UI with the secret, tied to the session, to that file and to that part (content or thumbnail), valid
+  for 2 minutes and 16 requests, kept only in memory, with a maximum of tickets per session (those of another session
+  don't push out its own). Thumbnails are the exception: one ticket is valid for the thumbnails of all the session's
+  files (2,048 requests), so a long list asks for just one. In the browser “Download” is a button that asks for the
+  ticket on click, not a link: an address without a ticket, opened in a new tab or copied, would answer 401. Retrieving
+  the secret with an endpoint protected by headers (`Sec-Fetch-Site`, anti-CSRF) doesn't hold: a server that has the
+  cookie writes them from Node as it likes. That is why **a new tab asks the secret from the tabs already open** on the
+  same origin (`BroadcastChannel`, which another port doesn't reach); a reload finds it again in `sessionStorage`;
+  **with no open tabs the browser asks for the password again**. **The desktop app doesn't change:** it keeps the cookie
+  in a session of its own for each destination (D-044), where no other site receives it, and opens sessions without a
+  secret (automatic sign-in, and `partitioned` when the password is typed in the window); the same for the app's SSH
+  tunnel. The CLI uses the token, as before. What remains: a program of your user that reads the browser's profile on
+  disk (cookies and `sessionStorage` saved to restore tabs) has both, as it had the cookie; and the sessions opened
+  before this version were closed (you sign back in once).
+- **Recent confirmation for the most sensitive actions** (residual risk of M1). A session confirmed with the password
+  stays yours for 7 days, but giving the Terminal to a monster, pairing a Telegram account or changing the main bot, and
+  turning on “Tools for others” of a dedicated bot want the password typed in that session in the last 15 minutes
+  (server side, `confirmed_at`); otherwise the core answers `confirm_required` and the UI asks for the password
+  (“Confirm it’s you”, `POST /api/auth/confirm`, in the same session). Changing the password already asks for the
+  current one. The session the desktop app opens by itself on its own core (from the app's channel, cookie never on
+  disk, new at every start) always counts as recent: the local mode experience doesn't change. It lasts as long as the
+  core that opened it: when the core restarts the app's sessions close and the app asks for a new one by itself, so a
+  copy of its cookie doesn't stay “recent” for a week. Restoring from the archive a monster (or a project with its
+  monsters) that had the Terminal asks for the same confirmation as granting it.
+- **Attaching to the local core.** The desktop app and the CLI send the CLI token only to a core that proves to be the
+  one of the data folder (HMAC with the `proofKey` of `server.json`, like the tunnel); a core without a `proofKey` is
+  not attached to. The app's IPC recognizes the core's page from the frame's origin, not from the URL.
+- **File trash.** `fs_delete` and the overwrites of `fs_write`/`fs_move` move or copy the files into
+  `~/.monsters/trash/files/`: they can be recovered from there, but the trash doesn't empty itself.
+- **Writing a file can be worth as much as the terminal.** Some files make the computer run commands later: `.git`
+  folders (hooks, `core.fsmonitor` in `config`), `.husky`, shell profiles (`.bashrc`, `.profile`, `.zshrc`…), `.envrc`,
+  `.npmrc`, `.yarnrc.yml`, `.vimrc`, `.ssh/`, `.vscode/`, autostart (`~/.config/autostart`, `~/Library/LaunchAgents`,
+  Windows' Startup folder, PowerShell profiles). An agent **without** the “Terminal” permission can't write them or move
+  files or folders into them with `fs_write`/`fs_move`, in any granted folder; with the terminal the block would make
+  no sense and there isn't one. The list is not exhaustive (a program can read configurations anywhere): granting
+  write access to a folder that contains projects or configuration files remains a choice to make with care, and the UI
+  reminds you. Since the review of 18/10 the list also covers the files of a repo that launch commands at the next test
+  or commit (`Makefile`, `justfile`, `Taskfile`, `.pre-commit-config.yaml`, `lefthook`, `conftest.py`, `tox.ini`,
+  `noxfile.py`, `setup.py`, `build.rs`, `.pnpmfile.cjs`, `.devcontainer/`, `.idea/`, `.cargo/config.toml`,
+  `.github/workflows/`) and `~/.local/bin` and `~/.local/share/applications`. `package.json` can be written, but without
+  changing `scripts`, `husky`, `simple-git-hooks`, `lint-staged` and `bin` (the content is compared before and after,
+  in moves too). **It is not a boundary**: whoever writes a project's source (a `.ts`, a `.py`, a test configuration)
+  makes code run at the next `pnpm test` or `git commit` anyway. That is why the project's card says that all its
+  monsters write in the folder, and in a job that has read text from third parties every write (`fs_write`, `fs_move`,
+  `fs_delete`) in a project's folder is a brake card, even with the terminal, regardless of the “Always ask” rules. A
+  relative path counts as inside the folder. It doesn't apply to Claude Code or Codex agents with their own tools: there
+  the controls of their hooks remain.
+- **Project folders.** A project can't have as its folder the home, a disk's root, a folder that contains them, a hidden
+  folder of the home (`~/.ssh`, `~/.config`…), `Library` or `AppData`, nor a folder that contains or sits inside the
+  notes, Monsters' data or the folder where the app is installed. It applies to proposals and to creation, on the given
+  path and on the real one, and again at the touch of “Confirm”. The draft's card (app and Telegram) says that all the
+  project's monsters will be able to read and write there and carries the warning about text from third parties; from
+  Telegram, an already existing folder outside `~/Monsters Progetti` is confirmed only in the app.
+- **The app's install folder.** The desktop app tells the core where it is installed (`resources/` and the executable's
+  folder, `MONSTERS_INSTALL_DIRS` variable): `fs_*` doesn't enter it, even going through a granted folder that contains
+  it (on Windows the installation is per user, in the home). The core sits outside the ASAR, in `resources/core`: the
+  package carries inside `app.asar` the sha256 list of all its files per platform and architecture
+  (`core-manifests/`, generated from the prepared core and rechecked on the finished package), and the app compares it
+  with `resources/core` before every core start, even after a crash: a changed, extra or missing file and the core
+  doesn't start, the window says so (S-M9; ~60 ms for 150 files and 21 MB). The development core indicated with
+  `MONSTERS_DESKTOP_CORE` applies only outside the package. On macOS the native modules (`.node`) are signed after the
+  package: their presence is checked, their content is guaranteed by library validation.
+  - **No modules from outside (review of 19/10, no. 1).** The optional packages that the code looks for inside a
+    try/catch (`bufferutil`, `utf-8-validate`, `supports-color`, `encoding`) are in the bundle as modules that fail like
+    an absent package: the core never looks for them on disk. The app starts the core with `MONSTERS_CORE_CONFINE=1`,
+    without `NODE_PATH`: a resolution hook (`module.registerHooks`, at the top of every bundle file) refuses every
+    `require` or `import()` that ends up outside `resources/core`, so a package put in `resources/node_modules` or higher
+    up doesn't run in the core. Static imports (`@node-rs/argon2`) resolve before the hook, but in the nearest
+    `node_modules`, that of `resources/core`, covered by the list.
+  - **What the list covers, system by system (no. 4).** On macOS and Windows the list is in an `app.asar` covered by the
+    integrity fuse (the asar's hash is inside the signed executable). **On Linux Electron doesn't verify the asar**:
+    whoever can write in the install folder rewrites `app.asar`, the list and the core together, and the check doesn't
+    stop them. On Linux the check therefore applies only where the user can't write: the `.deb` (in `/opt`, root's) and
+    the AppImage (read-only); a folder extracted in the home (`--dir`, an archive) is not protected. Tying the list to the
+    updates' signature wouldn't change anything: whoever rewrites the asar rewrites the code that checks it too.
+  - **Between check and use passes the whole session, not an instant (no. 12).** The check is at core start; afterwards,
+    the core reads other files even hours later: `embed-worker.js` and `extract-worker.js` when needed, the UI files
+    (`web/`) at every page, argon2's `.node` at first use. Whoever can write in `resources/core` by other means (for
+    example a monster with the terminal, on an installation writable by the user) can change them after the check. The
+    keychain binary, which runs with the identity of the app's helper, is instead rechecked at every call: the helper
+    rereads its sha256 from the list right before loading it (on Linux and Windows; on macOS there is library
+    validation), and a different one is not loaded.
+- **The app's binary doesn't act as Node.** The desktop app's `RunAsNode` fuse is off (review of 18/10, S-M8): no program
+  of the user can start the signed binary as an ordinary Node to inherit its identity (on macOS the Keychain's “Always
+  allow” on the secrets' key and the TCC permissions given to the app; on Ubuntu the AppArmor profile that allows it user
+  namespaces). The keychain calls run in a process of the app (the helper) whose JavaScript lives entirely in the
+  `app.asar`, covered by the integrity fuse on macOS and Windows: of `@napi-rs/keyring` it loads only the platform's
+  native binary (`process.dlopen`, fixed file name), never its `index.js` in `resources/core`. The helper (and before it
+  the app) accepts only Monsters' entries: service `Monsters`, account `home-` plus 24 hexadecimal digits; every other
+  entry, for example one of another app that macOS would show in Monsters' name, is refused. The native binary stays
+  outside the asar, in `resources/core` (a `.node` inside the Electron asar would be extracted into a temporary folder,
+  writable by the user): on macOS it is protected by the hardened runtime's library validation (it must be signed with
+  the app's Team ID), while on Windows (per-user installation) whoever can write in `resources/core` can replace it and
+  make it run with the helper's identity, as they can already replace the core (the core's hashes checked from the asar,
+  M9, stop it at startup, and the helper rechecks the binary's sha256 right before loading it: only the instant between
+  the two remains). On Windows and Linux the keychain doesn't distinguish programs anyway. The core's JavaScript children
+  (browser, gallery MCP servers, Codex, npm) use a `node` from the PATH, as they already did to install themselves, and
+  don't have the app's identity: the core looks for it once at startup and keeps its absolute path, skipping relative
+  PATH entries, the folders where the monsters can write (data folder with their homes, vault, projects folder and
+  folders granted for writing), on Windows everything that isn't `node.exe` (no `.cmd` or `.bat`) and Node versions older
+  than 20. A `node` put later in a PATH folder doesn't change the children's until restart; a `node` in a PATH folder
+  writable by the user by other means (for example with the terminal) can still be hijacked. It remains true that whoever
+  runs programs as you can ask the keychain for the secrets' key where the keychain doesn't distinguish programs
+  (Secret Service on Linux) and read the data files (see “The terminal is worth as much as your account”).
+- **Desktop app updates** (review of 18/10, S-A4 and S-A5; details in `docs/signing.md`). Since the first alpha with
+  verification, every channel file of the feed (`alpha*.yml`, with the packages' sha512) has an Ed25519 signature of ours
+  (`.sig`), verified by the app with the public keys it carries before downloading; for the deb, root rechecks it, with
+  the keys of `/opt/Monsters/resources`, together with the package name and a version higher than the installed one.
+  Whoever writes in the R2 bucket or controls the Cloudflare account is no longer enough to have something installed:
+  the private key is needed, which is not on Cloudflare. The app reads the channel file and its signature only once,
+  from its provider, and gives electron-updater the signed object itself: no second read, no legacy fields (`path`,
+  `sha2`) that lead to another download; the downloaded file's sha512 is rechecked against the signed file. The private
+  key, in the user that runs core and agents, is only there encrypted (scrypt N=2^20 and AES-256-GCM, with
+  `node:crypto`: no other program sees it); the passphrase is typed in the terminal at every publication, never in an
+  environment variable. **It is not true that the key is out of the agents' reach:** publishing runs the repo's code with
+  the decrypted key in memory, so a tampered commit or `node_modules` in this user can take it away while publishing
+  (that is why we publish from a clean checkout of a reviewed commit; a separate signer that doesn't run the repo's code
+  doesn't exist yet). The deb's root script verifies with `/usr/bin/openssl` 3.0 or later (Depends and version check). A
+  test build (`--test-build`, `test-` keys) can't be published. What remains: the alphas already installed up to
+  0.1.0-alpha.13 don't verify (they update once without a signature); a compromised feed can still withhold updates or
+  stop at the last signed version; whoever has the private key publishes like us. On the Mac the Apple signing secrets
+  must not belong to the CI user (in the `monsters-ci` design, which runs install with the dependencies' scripts, build
+  and tests of every commit): the signed build is made by a separate user (`monsters-sign`), via sudo, with a fixed script
+  installed by root outside the repo, on a checkout of its own of the commit verified by sha and its own `pnpm install
+  --ignore-scripts`, with the non-exportable Developer ID key in its keychain (see `docs/signing.md`, “Mac: the signing
+  user”). If the steps of that section haven't been done, the secret files stay readable by the CI user, and the CI
+  script says so at every run. It remains true, even with the separation, that signed packaging runs the commit's code
+  with the keychain open: a malicious commit can get something else signed, so only commits of `main` that have already
+  been reviewed are signed.
+- **Special files and races in `fs_*`.** Files are opened without following a link in the last element and without
+  blocking (`O_NOFOLLOW|O_NONBLOCK`); on the descriptor it is checked that it is a regular file (a FIFO or a device is
+  refused without blocking the core), the real path is reread (`/proc/self/fd` on Linux) and the checks of granted
+  folders, instructions and startup files are repeated. A file with several names (hardlink) is not written. Missing
+  folders are created one level at a time, and moves and deletions go through the folder that contains the entry: on
+  Linux opened as a descriptor (`/proc/self/fd/<n>/<name>`, Node has no `renameat`/`mkdirat`) after checking that it is
+  exactly the checked folder, so an intermediate folder replaced with a link after the checks doesn't take the
+  operation outside; on macOS and Windows the folder's real path is reread right before (the window narrows, it
+  doesn't disappear). A folder moved, replaced or deleted inside a project's folder, or that contains one, is looked
+  inside (10,000 entries at most, beyond that it is refused): a project's instructions don't enter, don't leave and
+  don't go to the trash, not even inside a folder and not even with the terminal. Without the terminal every moved
+  folder is looked inside too, wherever it ends up: no file that launches commands and no instructions reach the
+  destination. A big folder far from the projects (a `node_modules`) is deleted, and with the terminal moved, without
+  looking inside.
 
-- **Il token della CLI non è l'utente di persona.** `~/.monsters/cli-token` è un file che ogni processo del tuo
-  utente può leggere, compreso un agente con il terminale. Con il token si possono vedere lo stato, usare il kill
-  switch, riprendere, scrivere in chat e lanciare le automazioni; non si possono rispondere alle schede del freno,
-  cambiare permessi, regole "Chiedi sempre", tetto di spesa, decisioni dei mostri, Telegram (bot principale,
-  abbinamento, bot dedicati), confermare bozze e progetti, aggiungere, togliere o accettare server MCP e connettori,
-  cambiare chiavi, indirizzi e modelli dei provider e gli abbonamenti, accendere gli script di una pagina, ripristinare
-  un mostro o un progetto archiviato, togliere mostri e progetti, annullare modifiche del vault, né scrivere la memoria
-  di un mostro, il profilo o `Privato/` (si scriverebbero senza segno). Un test elenca tutte le route che cambiano lo
-  stato: una nuova route non classificata lo fa fallire. Lo stesso vale per la
-  sessione che l'app desktop apre da sola con il token (core avviato dal terminale o raggiunto via SSH): per quelle
-  azioni l'app chiede la password. La password senza quella vecchia (`monsters password`) si cambia solo a core
-  fermo. Un messaggio scritto con il token conta ancora come parola tua: un agente con il terminale può scrivere
-  in chat al tuo posto. Un token fuori dalla portata degli agenti (portachiavi) è un lavoro futuro.
-- **Bot dedicati: chi non sei tu lavora con meno strumenti.** In una chat di un bot dedicato (un gruppo, o il
-  privato con una persona ammessa), quando scrive qualcuno che non è l'account abbinato al bot principale, il
-  mostro non ha il terminale (né quello di Claude Code o Codex), non scrive, sposta o cancella file, usa gli altri
-  programmi (MCP e connettori) solo dopo una scheda a te, anche per una lettura (mail, Notion, calendari) o una bozza,
-  e nel vault vede solo l'area del suo progetto, la propria area e `Inbox/`; `file_read` legge solo i file di quella
-  chat. La risposta che va nella chat, e ogni domanda del mostro alla chat, passa dal controllo dei dati in uscita
-  (anche senza testo di terzi): una chiave, una nota privata, la memoria ripetuta o un tratto di seguito di almeno 120
-  caratteri uguale a una nota non partono; le note dell'area del progetto del bot non contano (sono il materiale del
-  gruppo). La chat ne riceve una riga, tu un avviso con «Manda comunque» (su Telegram e in Attività), tranne per una
-  chiave. Gli strumenti completi si riaccendono bot per bot (Impostazioni → Collegamenti →
-  Telegram → "Strumenti per gli altri"), con un avviso; restano comunque chiusi `Privato/` e il profilo. È una
-  regola, non un confine: un riassunto con parole proprie o una risposta spezzata non si riconoscono.
+- **The CLI token is not the user in person.** `~/.monsters/cli-token` is a file that every process of your user can
+  read, including an agent with the terminal. With the token you can see the status, use the kill switch, resume, write
+  in the chat and launch automations; you can't answer the brake cards, change permissions, “Always ask” rules, spending
+  cap, the monsters' decisions, Telegram (main bot, pairing, dedicated bots), confirm drafts and projects, add, remove
+  or accept MCP servers and connectors, change keys, addresses and models of the providers and the subscriptions, turn
+  on a page's scripts, restore an archived monster or project, remove monsters and projects, undo vault changes, nor
+  write a monster's memory, the profile or `Privato/` (they would be written without the mark). A test lists all the
+  routes that change state: a new unclassified route makes it fail. The same goes for the session the desktop app opens
+  by itself with the token (core started from the terminal or reached via SSH): for those actions the app asks for the
+  password. The password without the old one (`monsters password`) is changed only with the core stopped. A message
+  written with the token still counts as your word: an agent with the terminal can write in the chat in your place. A
+  token out of the agents' reach (keychain) is future work.
+- **Dedicated bots: whoever isn't you works with fewer tools.** In a dedicated bot's chat (a group, or the private one
+  with an admitted person), when someone writes who is not the account paired with the main bot, the monster has no
+  terminal (nor that of Claude Code or Codex), doesn't write, move or delete files, uses the other programs (MCP and
+  connectors) only after a card to you, even for a read (mail, Notion, calendars) or a draft, and in the vault sees only
+  its project's area, its own area and `Inbox/`; `file_read` reads only the files of that chat. The reply that goes into
+  the chat, and every question from the monster to the chat, goes through the outgoing-data check (even without text
+  from third parties): a key, a private note, repeated memory or a stretch of at least 120 consecutive characters equal
+  to a note don't go out; the notes of the bot's project area don't count (they are the group's material). The chat
+  receives one line about it, you a notice with “Send anyway” (on Telegram and in Activity), except for a key. The full
+  tools are turned back on bot by bot (Settings → Connections → Telegram → “Tools for others”), with a warning;
+  `Privato/` and the profile stay closed anyway. It is a rule, not a boundary: a summary in one's own words or a split
+  reply is not recognized.
 
-## Fuori dal perimetro
+## Out of scope
 
-- Azioni compiute da un agente dentro i permessi che l'utente gli ha concesso, anche a seguito di prompt injection: è
-  un rischio dichiarato del principio "nessun blocco" (vedi `docs/ARCHITECTURE.md` §5.8). Con il terminale il perimetro
-  è l'intero account dell'utente (vedi sopra). Segnalaci però i modi per **uscire** da quei permessi.
-- Esporre volutamente il core in rete con `--allow-non-loopback`.
-- Vulnerabilità dei provider AI o dei servizi esterni collegati.
+- Actions taken by an agent within the permissions the user granted it, even as a result of prompt injection: it is a
+  declared risk of the “no blocks” principle (see `docs/ARCHITECTURE.md` §5.8). With the terminal the perimeter is the
+  user's whole account (see above). Do report to us ways to **get out of** those permissions, though.
+- Deliberately exposing the core on the network with `--allow-non-loopback`.
+- Vulnerabilities of AI providers or of the external services connected.
 
-## Rischio accettato: `sudo` senza password (D-119)
-Se l'utente che fa girare core e mostri ha `sudo` senza password, un mostro col Terminale (o Claude Code/Codex con i
-loro strumenti di sistema) può fare qualsiasi cosa come root: leggere i dati di Monsters e di altri utenti, cambiare il
-sistema, installare programmi. Le difese di Monsters (cartelle protette, freno, dati in uscita) restano un confine per
-i mostri senza Terminale e un freno per quelli che ce l'hanno. Su un'installazione normale l'utente non ha `sudo`
-senza password e questo rischio non c'è: se ce l'ha, concedere il Terminale equivale a concedere root.
+## Accepted risk: passwordless `sudo` (D-119)
+If the user that runs core and monsters has passwordless `sudo`, a monster with the Terminal (or Claude Code/Codex with
+their system tools) can do anything as root: read the data of Monsters and of other users, change the system, install
+programs. Monsters' defenses (protected folders, brake, outgoing data) remain a boundary for the monsters without the
+Terminal and a brake for those that have it. On a normal installation the user doesn't have passwordless `sudo` and this
+risk doesn't exist: if they do, granting the Terminal is equivalent to granting root.
 
-## Rischio accettato: la passphrase della chiave degli aggiornamenti nel portachiavi (D-126)
-Per pubblicare i rilasci senza che nessuno sia al terminale, chi pubblica può tenere la passphrase della chiave di
-firma degli aggiornamenti nel portachiavi della sessione (per esempio con `MONSTERS_UPDATE_SIGNING_PASSPHRASE_CMD`
-che la legge da lì). Chi controlla quell'utente (anche un mostro col Terminale) può allora firmare un aggiornamento che
-le app installano. La firma resta una difesa piena contro un server degli aggiornamenti violato (storage, CDN, Worker),
-non più contro la macchina di pubblicazione violata. Per tornare a prima: togliere la passphrase dal portachiavi e
-pubblicare scrivendola al terminale; se la macchina fosse compromessa, generare una nuova chiave
-(`update-signing-key.ts generate`) e passare dal ponte di firma descritto in `docs/signing.md`.
+## Accepted risk: the update key's passphrase in the keychain (D-126)
+To publish releases without anyone at the terminal, whoever publishes can keep the update signing key's passphrase in the
+session's keychain (for example with `MONSTERS_UPDATE_SIGNING_PASSPHRASE_CMD` that reads it from there). Whoever controls
+that user (even a monster with the Terminal) can then sign an update that the apps install. The signature remains a full
+defense against a compromised update server (storage, CDN, Worker), no longer against a compromised publishing machine.
+To go back to the previous state: remove the passphrase from the keychain and publish by typing it at the terminal; if
+the machine were compromised, generate a new key (`update-signing-key.ts generate`) and go through the signing bridge
+described in `docs/signing.md`.

@@ -1,347 +1,347 @@
-# Architettura di Monsters
+# Monsters architecture
 
-> Stato: **approvata il 14/10/2026**. Le scelte sono motivate in `DECISIONS.md`, le fonti in `research/`.
+> Status: **approved on 14/10/2026**. The choices are explained in `DECISIONS.md` (in Italian), the sources are in
+> `research/`.
 
-## 1. L'idea in una figura
+## 1. The idea in one picture
 
 ```
-                ┌──────────────────────── canali ────────────────────────┐
+                ┌──────────────────────── channels ──────────────────────┐
                 │  Web UI (React)   CLI/TUI via SSH   Telegram   Desktop │
                 └───────┬───────────────┬───────────────┬──────────┬─────┘
-                        │ HTTP + WebSocket su 127.0.0.1, token + controllo Origin
+                        │ HTTP + WebSocket on 127.0.0.1, token + Origin check
 ┌───────────────────────▼─────────────────────────────────────────────────────────┐
-│ CORE  (un solo processo Node 24, "monsters")                                    │
+│ CORE  (a single Node 24 process, "monsters")                                    │
 │                                                                                 │
-│  Gateway ── Auth (utente locale, sessioni, token CLI, whitelist Telegram)       │
+│  Gateway ── Auth (local user, sessions, CLI token, Telegram allow-list)         │
 │     │                                                                           │
-│  Orchestratore ──delega (agents-as-tools)──▶ Agenti (Rhea, Dione, …N)          │
-│     │   ▲  ask_user (opzioni)                    │                              │
-│     │   └── DecisionGate (regole + System 1)     │                              │
+│  Orchestrator ──delegates (agents-as-tools)──▶ Agents (Rhea, Dione, …N)         │
+│     │   ▲  ask_user (options)                    │                              │
+│     │   └── DecisionGate (rules + System 1)      │                              │
 │     │                                            ▼                              │
-│  Runtime agente: loop AI SDK 7 ── Strumenti: vault_*, web, shell, MCP, CLI      │
+│  Agent runtime: AI SDK 7 loop ── Tools: vault_*, web, shell, MCP, CLI           │
 │     │                              │                                            │
-│  Provider: OpenRouter free → API a consumo → abbonamenti (ChatGPT, Claude Code) │
+│  Provider: OpenRouter free → pay-as-you-go APIs → subscriptions (ChatGPT, Claude Code) │
 │     │                                                                           │
-│  Event log append-only (SQLite) = log delle azioni, stream per la UI, ripresa   │
-│  Kill switch: AbortController globale + stato persistito                        │
+│  Append-only event log (SQLite) = action log, UI stream, resume                 │
+│  Kill switch: global AbortController + persisted state                          │
 │     │                                                                           │
-│  VaultService ── file .md (Obsidian) + git + indice SQLite FTS5 (+ vettori)     │
+│  VaultService ── .md files (Obsidian) + git + SQLite FTS5 index (+ vectors)     │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Un solo processo "core" possiede stato, agenti e vault. Tutti i canali sono client dello stesso core: la web UI, la
-CLI usata via SSH, il bot Telegram e, in Fase 3, l'app desktop (che può collegarsi a un core remoto tramite tunnel SSH).
-Così c'è un solo scrittore del vault, un solo log e un solo kill switch.
+A single "core" process owns state, agents and the vault. Every channel is a client of the same core: the web UI, the
+CLI used over SSH, the Telegram bot and, in Phase 3, the desktop app (which can connect to a remote core through an SSH
+tunnel). That way there is one writer of the vault, one log and one kill switch.
 
-## 2. Principi
+## 2. Principles
 
-1. **Locale e dell'utente.** Tutto gira sul suo PC; i dati sono file leggibili (Markdown, YAML, SQLite).
-2. **Agnostico sul provider.** Ogni chiamata a un modello passa dall'interfaccia `Provider`; nessun modulo conosce
-   un provider specifico.
-3. **Nessun blocco per gli agenti, protezione per l'utente.** Gli agenti non chiedono conferme per usare strumenti:
-   i permessi si concedono una volta all'onboarding. L'utente è protetto da autenticazione sul piano di controllo,
-   log di ogni azione, reversibilità del vault e kill switch. Si chiede all'utente solo per le scelte che spettano a
-   lui (vedi §6).
-4. **Lo stato vive nei file e nel log**, non nel contesto dei modelli. Un agente può ripartire da zero leggendo
-   memoria e log.
-5. **Togliere più che aggiungere.** Istruzioni brevi, pochi strumenti ben descritti, harness semplice da potare a
-   ogni modello nuovo.
+1. **Local and the user's own.** Everything runs on their PC; data is readable files (Markdown, YAML, SQLite).
+2. **Provider-agnostic.** Every model call goes through the `Provider` interface; no module knows a specific
+   provider.
+3. **No blocks for agents, protection for the user.** Agents don't ask for confirmation to use tools: permissions
+   are granted once during onboarding. The user is protected by authentication on the control plane, a log of every
+   action, a reversible vault and the kill switch. The user is asked only about choices that are theirs to make (see
+   §6).
+4. **State lives in files and in the log**, not in the models' context. An agent can restart from zero by reading
+   its memory and the log.
+5. **Remove more than you add.** Short instructions, a few well-described tools, a harness that is easy to prune with
+   every new model.
 
 ## 3. Stack
 
-| Livello | Scelta |
+| Layer | Choice |
 |---|---|
-| Runtime | **Node 24 LTS**, TypeScript strict, ESM. Monorepo **pnpm** |
-| Server | **Hono** (HTTP + WebSocket) su `127.0.0.1` |
-| Loop agentico e provider | **Vercel AI SDK 7** (`ai`), `@openrouter/ai-sdk-provider`, provider ufficiali `@ai-sdk/*`, client MCP `@ai-sdk/mcp` |
-| Abbonamenti (Fase 2) | ChatGPT con *Sign in with ChatGPT*; Claude con il binario ufficiale tramite `@anthropic-ai/claude-agent-sdk`; Codex con `@openai/codex-sdk` |
-| Database | **SQLite** via `node:sqlite` (FTS5 incluso) dietro un piccolo adapter |
-| Vault | file `.md`, `yaml` + `remark` per il parsing, **isomorphic-git** (git di sistema se presente), `chokidar` 5 |
-| Ricerca semantica (Fase 2) | `@huggingface/transformers` 4 + granite-embedding-97m-multilingual-r2 (quint8), vettori in SQLite, fusione RRF |
-| Validazione | **zod 4**, schemi condivisi da strumenti interni, API e server MCP |
-| UI | **React 19 + Vite 8 + Tailwind 4**, componenti shadcn/ui, animazioni in CSS a fotogrammi (D-084), Zustand |
-| Mostri | **SVG parametrico** ("genoma" JSON + kit di parti), componente `<Monster>` |
-| Telegram (Fase 2) | **grammY** |
-| MCP server del vault (Fase 2) | `@modelcontextprotocol/server` v2 |
-| Test | **Vitest** (unità e integrazione, provider finto di AI SDK), **Playwright** (e2e della UI) |
-| Desktop (Fase 3) | **Electron** (Chromium ovunque: serve per il vetro con rifrazione; core in un `utilityProcess`, electron-builder), D-015 riverificata il 15/10/2026 |
+| Runtime | **Node 24 LTS**, strict TypeScript, ESM. **pnpm** monorepo |
+| Server | **Hono** (HTTP + WebSocket) on `127.0.0.1` |
+| Agent loop and providers | **Vercel AI SDK 7** (`ai`), `@openrouter/ai-sdk-provider`, official `@ai-sdk/*` providers, MCP client `@ai-sdk/mcp` |
+| Subscriptions (Phase 2) | ChatGPT with *Sign in with ChatGPT*; Claude with the official binary through `@anthropic-ai/claude-agent-sdk`; Codex with `@openai/codex-sdk` |
+| Database | **SQLite** via `node:sqlite` (FTS5 included) behind a small adapter |
+| Vault | `.md` files, `yaml` + `remark` for parsing, **isomorphic-git** (system git if present), `chokidar` 5 |
+| Semantic search (Phase 2) | `@huggingface/transformers` 4 + granite-embedding-97m-multilingual-r2 (quint8), vectors in SQLite, RRF fusion |
+| Validation | **zod 4**, schemas shared by internal tools, the API and the MCP server |
+| UI | **React 19 + Vite 8 + Tailwind 4**, shadcn/ui components, frame-by-frame CSS animations (D-084), Zustand |
+| Monsters | **Parametric SVG** (JSON "genome" + parts kit), `<Monster>` component |
+| Telegram (Phase 2) | **grammY** |
+| Vault MCP server (Phase 2) | `@modelcontextprotocol/server` v2 |
+| Tests | **Vitest** (unit and integration, AI SDK fake provider), **Playwright** (UI e2e) |
+| Desktop (Phase 3) | **Electron** (Chromium everywhere: needed for the refracting glass; core in a `utilityProcess`, electron-builder), D-015 rechecked on 15/10/2026 |
 
-## 4. Struttura del repository
+## 4. Repository structure
 
 ```
 monsters/
 ├── CLAUDE.md  AGENTS.md  LICENSE  SECURITY.md
-├── docs/                         # memoria dello sviluppo (non è il second brain del prodotto)
+├── docs/                         # development memory (not the product's second brain)
 ├── packages/
-│   ├── core/                     # gateway, auth, event log, kill switch, orchestratore, runtime agenti
-│   ├── providers/                # interfaccia Provider, OpenRouter, RateBudget, provider finto per i test
-│   ├── vault/                    # VaultService, indice, git, strumenti vault_*
-│   ├── tools/                    # web_search, web_fetch, shell, MCP client, CLI (Fase 2)
-│   ├── monster-kit/              # genoma, parti SVG, generatore, animazioni (usato da UI e Telegram)
-│   ├── shared/                   # tipi ed eventi condivisi (schemi zod)
-│   ├── db/                       # adapter SQLite e migrazioni (usato da core e vault)
-│   └── cli/                      # comando `monsters` (avvio, stato, kill, chat da terminale)
+│   ├── core/                     # gateway, auth, event log, kill switch, orchestrator, agent runtime
+│   ├── providers/                # Provider interface, OpenRouter, RateBudget, fake provider for tests
+│   ├── vault/                    # VaultService, index, git, vault_* tools
+│   ├── tools/                    # web_search, web_fetch, shell, MCP client, CLI (Phase 2)
+│   ├── monster-kit/              # genome, SVG parts, generator, animations (used by the UI and Telegram)
+│   ├── shared/                   # shared types and events (zod schemas)
+│   ├── db/                       # SQLite adapter and migrations (used by core and vault)
+│   └── cli/                      # the `monsters` command (start, status, kill, chat from the terminal)
 ├── apps/
-│   ├── web/                      # la UI React
-│   └── desktop/                  # app Electron: core in un utilityProcess, finestra sul core (D-045)
-└── e2e/                          # test end-to-end e demo registrate
+│   ├── web/                      # the React UI
+│   └── desktop/                  # Electron app: core in a utilityProcess, window on the core (D-045)
+└── e2e/                          # end-to-end tests and recorded demos
 ```
 
-## 5. Componenti del core
+## 5. Core components
 
 ### 5.1 Event log
-Tabella `events` append-only in `~/.monsters/monsters.db`: `{id ULID, ts, agent, run_id, parent_id, type, data}`.
-Tipi principali: `message`, `delegation`, `tool_call`, `tool_result`, `decision`, `question`, `answer`,
-`question_expired`, `vault_change` (con SHA del commit e, per un annullamento, l'azione annullata), `provider_usage`,
-`error`, `kill`. È insieme:
-- il **log delle azioni** consultabile dalla UI (filtri per agente, tipo, periodo);
-- lo **stream** che alimenta chat, terminali degli agenti e mostri (via WebSocket);
-- la **fonte per riprendere** un lavoro dopo un riavvio.
-I segreti non entrano mai nel log (redazione per chiave e per pattern prima della scrittura).
+An append-only `events` table in `~/.monsters/monsters.db`: `{id ULID, ts, agent, run_id, parent_id, type, data}`.
+Main types: `message`, `delegation`, `tool_call`, `tool_result`, `decision`, `question`, `answer`,
+`question_expired`, `vault_change` (with the commit SHA and, for an undo, the action that was undone),
+`provider_usage`, `error`, `kill`. It is at once:
+- the **action log** the UI can browse (filters by agent, type, period);
+- the **stream** that feeds chat, agent terminals and monsters (over WebSocket);
+- the **source for resuming** work after a restart.
+Secrets never enter the log (redaction by key and by pattern before writing).
 
-**Archivio** (`packages/core/src/log/archive.ts`): gli eventi voluminosi più vecchi di 90 giorni (`settings.json` →
-`logArchive.{enabled,days}`, minimo 30) escono dal db e vanno in un file gzip al mese,
-`~/.monsters/archive/events-AAAA-MM.jsonl.gz` (mese UTC di `ts`, un evento per riga come lo dà l'API, permessi 600).
-Si spostano solo: `provider_usage`, `tool_result`, `tool_call` (tranne quelli che leggono testo di terzi: per i log
-prima di D-103 sono il segno del taint di un run), i `message` parziali dello streaming e i messaggi dei sotto-agenti
-dentro un giro di automazione chiuso. Tutto il resto resta per sempre; il taglio non va mai oltre l'inizio del mese
-precedente (la spesa del mese e del precedente è sempre intera). Ordine: file scritto in `.tmp`, fsync, riletto e
-confrontato (righe e SHA-256), rinominato, fsync della cartella; solo dopo, in transazioni che tolgono e rimettono il
-trigger `events_no_delete`, la cancellazione. Un giro interrotto non perde niente: al successivo gli eventi già nel
-file si cancellano soltanto. Prima del primo archivio una copia del db (`monsters.db.before-archive`, `VACUUM INTO`),
-tolta quando un giro successivo sposta di nuovo eventi senza errori. Il core fa un giro al massimo una volta al giorno
-(controllo un minuto dopo l'avvio e poi ogni ora; prima se il db è cresciuto di 256 MB), il `VACUUM` solo senza mostri
-al lavoro e con almeno 64 MB liberi; a mano `monsters log archive` (con `VACUUM`), `monsters log read --month
-AAAA-MM`, `GET/POST /api/log/archive`. Ogni giro lascia un evento `log_archive`; l'Attività, finita la storia, dice
-dove sono gli archivi.
+**Archive** (`packages/core/src/log/archive.ts`): bulky events older than 90 days (`settings.json` →
+`logArchive.{enabled,days}`, minimum 30) leave the db and go into one gzip file per month,
+`~/.monsters/archive/events-YYYY-MM.jsonl.gz` (UTC month of `ts`, one event per line as the API returns it,
+permissions 600). Only these are moved: `provider_usage`, `tool_result`, `tool_call` (except those that read text from
+third parties: in logs from before D-103 they are the sign of a run's taint), partial streaming `message`s and the
+messages of sub-agents inside a finished automation run. Everything else stays forever; the cut never goes past the
+start of the previous month (the spending of this month and the previous one is always complete). Order: the file is
+written as `.tmp`, fsynced, read back and compared (rows and SHA-256), renamed, the folder is fsynced; only then is
+the deletion done, in transactions that remove and restore the `events_no_delete` trigger. An interrupted pass loses
+nothing: on the next one, events already in the file are simply deleted. Before the first archive, a copy of the db
+(`monsters.db.before-archive`, `VACUUM INTO`), removed when a later pass moves events again without errors. The core
+makes one pass at most once a day (a check one minute after start and then every hour; sooner if the db has grown by
+256 MB), and the `VACUUM` only with no monsters at work and at least 64 MB free; by hand, `monsters log archive` (with
+`VACUUM`), `monsters log read --month YYYY-MM`, `GET/POST /api/log/archive`. Every pass leaves a `log_archive`
+event; Activity, once the history is over, says where the archives are.
 
 ### 5.2 Kill switch
-Un `AbortController` globale da cui derivano quelli di ogni run, agente e chiamata a strumento. `kill` interrompe
-le chiamate ai modelli, termina i processi figli (shell, CLI, harness) con SIGINT e poi SIGKILL, svuota le code,
-scrive l'evento `kill` e mette il core in stato **fermo**: non parte nulla finché l'utente non riattiva. Raggiungibile
-da UI (pulsante sempre visibile), CLI (`monsters kill`) e Telegram (`/stop`, Fase 2).
+A global `AbortController` from which those of every run, agent and tool call derive. `kill` interrupts model calls,
+terminates child processes (shell, CLI, harnesses) with SIGINT and then SIGKILL, empties the queues, writes the `kill`
+event and puts the core in a **stopped** state: nothing starts until the user resumes. Reachable from the UI (an
+always-visible button), the CLI (`monsters kill`) and Telegram (`/stop`, Phase 2).
 
-### 5.3 Runtime degli agenti
-Un agente è una cartella in `~/.monsters/agents/<id>/`:
+### 5.3 Agent runtime
+An agent is a folder in `~/.monsters/agents/<id>/`:
 ```
-AGENTS.md        # ruolo e regole essenziali (meno di 40 righe), generato da template
-agent.yaml       # nome, colore, provider e catena di fallback, strumenti, permessi sul vault, limiti
-genome.json      # aspetto del mostro
-skills/          # procedure ricorrenti in formato SKILL.md (standard agentskills.io)
+AGENTS.md        # role and essential rules (under 40 lines), generated from a template
+agent.yaml       # name, color, provider and fallback chain, tools, vault permissions, limits
+genome.json      # the monster's look
+skills/          # recurring procedures in SKILL.md format (agentskills.io standard)
 ```
-La memoria di lungo periodo dell'agente sta nel vault, in `Agenti/<Nome>/MEMORY.md`, così l'utente la vede e la
-corregge in Obsidian. A ogni run il prompt di sistema è: AGENTS.md + MEMORY.md + profilo utente essenziale + brief
-del compito. Il loop è `ToolLoopAgent` di AI SDK con limite di passi, AbortSignal e callback che scrivono nel log.
-Quando un agente gira su un harness (Claude Code, Codex) la sua cartella di lavoro riceve AGENTS.md (Codex lo legge da
-lì) e gli strumenti di Monsters arrivano come server MCP. Claude Code non legge file di impostazioni né CLAUDE.md dalla
-cartella (`--setting-sources ""`, D-079): AGENTS.md gli arriva nel prompt di sistema aggiunto, e la configurazione degli
-harness eventualmente scritta nella cartella (`.claude/`, `.mcp.json`, CLAUDE.md, `.codex/`) si toglie a ogni run.
+The agent's long-term memory lives in the vault, in `Agenti/<Name>/MEMORY.md`, so the user can see and correct it in
+Obsidian. On every run the system prompt is: AGENTS.md + MEMORY.md + the essential user profile + the task brief. The
+loop is AI SDK's `ToolLoopAgent` with a step limit, an AbortSignal and callbacks that write to the log. When an agent
+runs on a harness (Claude Code, Codex), its working folder receives AGENTS.md (Codex reads it from there) and
+Monsters' tools arrive as an MCP server. Claude Code reads neither settings files nor CLAUDE.md from the folder
+(`--setting-sources ""`, D-079): AGENTS.md reaches it in the appended system prompt, and any harness configuration
+written in the folder (`.claude/`, `.mcp.json`, CLAUDE.md, `.codex/`) is removed on every run.
 
-### 5.4 Orchestratore
-È un agente come gli altri, con il nome scelto dall'utente, più tre strumenti:
-- `delegate({agent, goal, why, context_links, constraints, output_format, done_when})`: avvia un sottoagente con
-  contesto mirato e restituisce il suo riassunto (massimo ~1.500 token) più i percorsi delle note create. Più
-  `delegate` nello stesso passo partono **in parallelo**.
-- `ask_user({question, options[2-4], recommended, blocking})`: manda all'utente una domanda con opzioni su tutti i
-  canali attivi. Il lavoro che non dipende dalla risposta continua.
-- `team_*` (Fase 1 per l'onboarding): proporre, creare e modificare agenti.
-- `access_request({access: web|service|browser, monster?, service?, project?, why})` (anche i capi dei progetti,
-  D-130): chiede all'utente un accesso che manca a un mostro della squadra. È una domanda del negozio delle domande
-  (app e Telegram, parcheggiata come `ask_user`) con «Sì, concedi» e «No», a cui risponde solo l'utente in persona;
-  al sì il core applica il cambio (Permessi, Collegamenti del progetto, browser) e scrive `access_grant` in Attività.
-Qualsiasi richiesta non rivolta a un agente preciso arriva a lui. Le richieste semplici le esegue da solo: delegare
-costa token (il multi-agente ne consuma molte volte di più) e va fatto solo quando conviene.
+### 5.4 Orchestrator
+It is an agent like the others, with the name the user chose, plus three tools:
+- `delegate({agent, goal, why, context_links, constraints, output_format, done_when})`: starts a sub-agent with
+  targeted context and returns its summary (at most ~1,500 tokens) plus the paths of the notes it created. Several
+  `delegate` calls in the same step start **in parallel**.
+- `ask_user({question, options[2-4], recommended, blocking})`: sends the user a question with options on every
+  active channel. Work that doesn't depend on the answer goes on.
+- `team_*` (Phase 1, for onboarding): propose, create and edit agents.
+- `access_request({access: web|service|browser, monster?, service?, project?, why})` (project leads too, D-130):
+  asks the user for an access a squad monster is missing. It is a question in the questions store (app and Telegram,
+  parked like an `ask_user`) with “Yes, grant” and “No”, which only the user in person can answer; on yes the core
+  applies the change (Permissions, the project's Connections, browser) and writes `access_grant` in Activity.
+Any request not addressed to a specific agent comes to it. It does simple requests itself: delegating costs tokens
+(multi-agent uses many times more of them) and should be done only when it pays off.
 
-### 5.5 DecisionGate e System 1
-Un'unica interfaccia `DecisionPort` con il contratto `/v1/systemone` (stato + domande tipizzate `choice`/`noul`/`score`
-→ risposta + confidenza), così Jev, Laya o un LLM piccolo sono intercambiabili. Usi:
-1. **chiedo o procedo?** prima di un'azione o di una scelta di un agente;
-2. **a chi smisto?** una richiesta generica tra gli agenti del team;
-3. **notifico ora o dopo?** (Fase 2, Telegram).
+### 5.5 DecisionGate and System 1
+A single `DecisionPort` interface with the `/v1/systemone` contract (state + typed `choice`/`noul`/`score` questions →
+answer + confidence), so Jev, Laya or a small LLM are interchangeable. Uses:
+1. **ask or proceed?** before an agent's action or choice;
+2. **who gets it?** routing a generic request among the team's agents;
+3. **notify now or later?** (Phase 2, Telegram).
 
-Il gate è prima a regole, poi a modello:
-- **procede da solo**: azioni locali, reversibili, dentro l'obiettivo (leggere, cercare, scrivere bozze e note);
-- **chiede sempre**: pubblicare, scrivere a terzi, spendere, cancellare in modo irreversibile, cambiare obiettivo,
-  scelte di gusto (tono, design) quando le preferenze note non bastano;
-- **zona grigia**: decide il modello; sotto la soglia di confidenza diventa una `ask_user` con l'opzione consigliata.
-Ogni decisione si registra (stato, opzioni, scelta, chi ha scelto): è il dataset per addestrare Laya in Fase 2.
-Le regole sono modificabili dall'utente ("puoi pubblicare senza chiedere").
+The gate is rules first, then a model:
+- **proceeds on its own**: local, reversible actions within the goal (reading, searching, writing drafts and notes);
+- **always asks**: publishing, writing to third parties, spending, irreversible deletion, changing the goal, matters
+  of taste (tone, design) when the known preferences are not enough;
+- **gray area**: the model decides; below the confidence threshold it becomes an `ask_user` with the recommended
+  option.
+Every decision is recorded (state, options, choice, who chose): it is the dataset to train Laya in Phase 2. The user
+can change the rules (“you can publish without asking”).
 
-Dal 16/10 (D-067) il System 1 è l'**istinto** della squadra (`packages/core/src/team/instinct/`): un servizio solo che
-fa le domande di ogni momento in una chiamata, con una modalità per uso (`off`, `shadow`, `on`), due soglie per uso e un
-ripiego a regole. Oltre al gate: "finito davvero?" dopo ogni delega (sui fatti del log), "gira a vuoto?", la domanda
-lasciata nel testo, la radiografia della richiesta (suggerimento, strumenti, livello del modello), il freno sulle azioni
-che escono dal computer, le iniezioni nei dati esterni, la memoria e la pagella dei mostri. A fine turno il core scrive la
-ricevuta del lavoro, con "Annulla tutto".
+Since 16/10 (D-067) System 1 is the squad's **instinct** (`packages/core/src/team/instinct/`): a single service that
+answers the questions of every moment in one call, with a mode per use (`off`, `shadow`, `on`), two thresholds per use
+and a fallback to rules. Besides the gate: “is it really done?” after every delegation (on the facts of the log), “is
+it spinning its wheels?”, the question left in the text, the X-ray of the request (hint, tools, model level), the
+brake on actions that leave the computer, injections in external data, memory and the monsters' report card. At the
+end of a turn the core writes the receipt of the work, with “Undo the whole job”.
 
-Dal 16/10 (D-070) il freno passa da **ogni** chiamata dei mostri nativi (anche quelle in sola lettura: `web_fetch`,
-`web_search`, il browser) e le sue regole valgono con qualunque motore e modalità; l'istinto giudica solo i casi dubbi.
-Ogni run ha una **contaminazione** (`RunTaint`, `instinct/taint.ts`) condivisa dai suoi agenti: dal primo risultato di una
-fonte di terzi, i dati che escono (indirizzi, ricerche, pagine del browser, comandi del terminale) si confrontano con le
-note lette nel run, il profilo e la memoria. I testi esterni perdono i caratteri invisibili prima di arrivare al
-modello (`agents/invisible.ts`). Il **tetto di spesa** (`team/spend.ts`) somma i `costUsd` di `provider_usage` per
-giorno e mese, squadra e mostro, e ferma i mostri con modelli a pagamento (`RunBudget.spendCheck` e all'avvio del
-turno). Il gestore MCP tiene l'**impronta** degli strumenti di ogni server (`mcp_pins:<nome>` nello stato) e mette in
-pausa quelli nuovi o cambiati.
+Since 16/10 (D-070) the brake covers **every** call of the native monsters (including read-only ones: `web_fetch`,
+`web_search`, the browser) and its rules apply with any engine and mode; the instinct judges only the doubtful cases.
+Every run has a **taint** (`RunTaint`, `instinct/taint.ts`) shared by its agents: from the first result from a
+third-party source on, the data that leaves (addresses, searches, browser pages, terminal commands) is compared with
+the notes read in the run, the profile and the memory. External texts lose invisible characters before reaching the
+model (`agents/invisible.ts`). The **spending cap** (`team/spend.ts`) adds up the `costUsd` of `provider_usage` by day
+and month, squad and monster, and stops the monsters using paid models (`RunBudget.spendCheck` and at the start of the
+turn). The MCP manager keeps the **fingerprint** of every server's tools (`mcp_pins:<name>` in the state) and pauses
+new or changed ones.
 
 ### 5.6 Provider
-Due tipi dietro la stessa interfaccia (bozza in `research/02-provider-e-motore.md`):
-- **model**: il loop è nostro (OpenRouter free e a consumo, Mistral, Anthropic/OpenAI/Google via API, ChatGPT via
-  SIWC, Ollama/LM Studio);
-- **harness**: il loop è di un agente esterno ufficiale (Claude Code, Codex) e noi ne leggiamo gli eventi. Gli
-  strumenti di Monsters gli arrivano via MCP (`/api/harness/mcp`) col freno del core; quelli suoi (terminale,
-  ricerca web del piano, servizi tramite Claude) passano dagli hook HTTP di Claude Code (`/api/harness/hook`), con lo
-  stesso `InstinctGuard` e lo stop hook del mostro (D-069). Dal D-073 anche `PostToolUse` sulla ricerca del piano e sui
-  servizi tramite Claude: il risultato contamina il run, perde i caratteri invisibili e passa dal controllo delle
-  iniezioni (un blocco tolto torna a Claude Code con `updatedToolOutput`). Dal D-074 il run si contamina già nel
-  `PreToolUse` e gli errori dei servizi arrivano da `PostToolUseFailure` (contaminano e ricevono l'avviso).
+Two kinds behind the same interface (draft in `research/02-provider-e-motore.md`):
+- **model**: the loop is ours (OpenRouter free and pay-as-you-go, Mistral, Anthropic/OpenAI/Google via API, ChatGPT
+  via SIWC, Ollama/LM Studio);
+- **harness**: the loop belongs to an official external agent (Claude Code, Codex) and we read its events.
+  Monsters' tools reach it via MCP (`/api/harness/mcp`) with the core's brake; its own (terminal, the plan's web
+  search, services through Claude) go through Claude Code's HTTP hooks (`/api/harness/hook`), with the same
+  `InstinctGuard` and the monster's stop hook (D-069). Since D-073, `PostToolUse` too on the plan's search and on
+  services through Claude: the result taints the run, loses invisible characters and goes through the injection check
+  (a removed block goes back to Claude Code with `updatedToolOutput`). Since D-074 the run is tainted already in
+  `PreToolUse` and service errors arrive from `PostToolUseFailure` (they taint and receive the notice).
 
-Ogni agente ha una **catena di fallback**. Con `openrouter/free` il modello scelto al primo turno si **fissa per la
-sessione**. Un `RateBudget` per provider, condiviso da tutti gli agenti, legge gli header di rate limit e mette in
-coda invece di fallire (con 50 richieste al giorno senza crediti è indispensabile). Nell'onboarding si spiega che
-una ricarica una tantum di 10 $ su OpenRouter porta il limite gratuito a 1.000 richieste al giorno, e che alcuni
-provider dei modelli free possono usare i prompt per l'addestramento.
+Every agent has a **fallback chain**. With `openrouter/free`, the model chosen on the first turn is **pinned for the
+session**. A `RateBudget` per provider, shared by all agents, reads the rate-limit headers and queues instead of
+failing (with 50 requests a day without credit it is indispensable). Onboarding explains that a one-time top-up of
+$10 on OpenRouter raises the free limit to 1,000 requests a day, and that some providers of free models may use the
+prompts for training.
 
-### 5.7 Strumenti
-| Gruppo | Strumenti | Fase |
+### 5.7 Tools
+| Group | Tools | Phase |
 |---|---|---|
 | Vault | `vault_search`, `vault_read`, `vault_list`, `vault_write`, `vault_edit`, `vault_move`, `vault_delete`, `vault_links`, `vault_tags`, `vault_history`, `vault_restore`, `vault_undo`, `vault_propose` | 1 |
-| Web | `web_search` (catena di motori: a pagamento via OpenRouter quando è accesa e la chiave ha credito, Brave se configurato, poi DuckDuckGo e Wikipedia; più domande insieme con `queries`, D-071), `web_fetch` (pagina → Markdown, più pagine con `urls`, passaggi con `find`) | 1 |
+| Web | `web_search` (engine chain: paid via OpenRouter when it is on and the key has credit, Brave if configured, then DuckDuckGo and Wikipedia; several questions at once with `queries`, D-071), `web_fetch` (page → Markdown, several pages with `urls`, passages with `find`) | 1 |
 | Team | `delegate`, `ask_user`, `team_propose`, `team_create`, `design_monster` | 1 |
-| Sistema | `shell` (con timeout, cwd per agente, output troncato, log), `fs_*` fuori dal vault | 2 |
-| Integrazioni | client MCP (qualsiasi server), installazione ed uso di CLI, browser (Playwright/CDP) | 2 |
+| System | `shell` (with timeout, per-agent cwd, truncated output, log), `fs_*` outside the vault | 2 |
+| Integrations | MCP client (any server), installing and using CLIs, browser (Playwright/CDP) | 2 |
 
-Ai modelli piccoli o free si espone un sottoinsieme ridotto di strumenti, per non confonderli.
+Small or free models get a reduced subset of tools, so as not to confuse them.
 
-### 5.8 Auth e sicurezza
-- **Utente locale** con email e password (argon2id) creato al primo avvio; sessione con cookie `HttpOnly`,
-  `SameSite=Strict`. La CLI usa un token in `~/.monsters/` (permessi 600).
-- Il server ascolta **solo su 127.0.0.1**; WebSocket con token e **controllo dell'Origin** (l'errore che ha colpito
-  OpenClaw). L'accesso remoto passa da SSH (tunnel o CLI sul PC), mai da una porta aperta.
-- Segreti (chiavi API, token) in `~/.monsters/secrets/`: cifrati (AES-256-GCM, `<nome>.enc`) con una chiave
-  principale nel portachiavi del sistema (Keychain, Gestione credenziali, Secret Service); dove il portachiavi non c'è
-  o non risponde, file 600 come ripiego dichiarato nella UI e in `monsters secrets` (D-042). Su Linux senza sessione
-  D-Bus o senza schermo per la richiesta di sblocco il ripiego è immediato (30-90 ms); con un portachiavi bloccato su
-  un desktop (GNOME dopo un riavvio con accesso automatico) il core mostra la richiesta della password e la aspetta
-  fino a 20 s (`MONSTERS_SECRETS_TIMEOUT_MS`) prima di ripiegare: è il caso di chi è davanti allo schermo, non si
-  accorcia. Prove, smoke ed e2e girano con `MONSTERS_SECRETS=file` (D-086).
-- **Telegram (Fase 2):** whitelist di ID utente, pairing con codice mostrato nella UI per aggiungerne uno nuovo,
-  `/stop` come kill switch.
-- `SECURITY.md` e canale di segnalazione dal primo rilascio pubblico.
-- Rischio accettato e dichiarato: con "nessun blocco" un agente vittima di prompt injection può fare danni nel
-  perimetro concesso. Mitigazioni: perimetro scelto dall'utente all'onboarding, contenuti esterni marcati come dati,
-  regole "chiedi sempre" del DecisionGate per le azioni verso l'esterno, log e kill switch.
+### 5.8 Auth and security
+- **Local user** with email and password (argon2id) created on first start; a session with an `HttpOnly`,
+  `SameSite=Strict` cookie. The CLI uses a token in `~/.monsters/` (permissions 600).
+- The server listens **only on 127.0.0.1**; WebSocket with token and **Origin check** (the mistake that hit
+  OpenClaw). Remote access goes through SSH (tunnel or CLI on the PC), never through an open port.
+- Secrets (API keys, tokens) in `~/.monsters/secrets/`: encrypted (AES-256-GCM, `<name>.enc`) with a master key in the
+  system keychain (Keychain, Credential Manager, Secret Service); where the keychain is missing or doesn't respond, a
+  600 file as a fallback declared in the UI and in `monsters secrets` (D-042). On Linux without a D-Bus session or
+  without a screen for the unlock prompt the fallback is immediate (30-90 ms); with a locked keychain on a desktop
+  (GNOME after a restart with automatic login) the core shows the password prompt and waits for it for up to 20 s
+  (`MONSTERS_SECRETS_TIMEOUT_MS`) before falling back: that is the case of someone sitting at the screen, so it is
+  not shortened. Tests, smoke tests and e2e run with `MONSTERS_SECRETS=file` (D-086).
+- **Telegram (Phase 2):** allow-list of user IDs, pairing with a code shown in the UI to add a new one, `/stop` as the
+  kill switch.
+- `SECURITY.md` and a reporting channel from the first public release.
+- Accepted and declared risk: with “no blocks”, an agent that falls victim to prompt injection can do damage within
+  the granted perimeter. Mitigations: a perimeter chosen by the user at onboarding, external content marked as data,
+  the DecisionGate's “always ask” rules for actions toward the outside, the log and the kill switch.
 
-### 5.9 Automazioni (D-094)
-Un'automazione è un file in `~/.monsters/automations/<id>.yaml` (nome, capo, mostri che partecipano, regola cron con
-fuso, obiettivo, cartella dei risultati, tetto per giro, avvisi, stato `draft`/`active`/`paused`), letto con lo schema
-di `shared/src/automations.ts`. Il pianificatore (`core/src/automations/service.ts`, orari calcolati con croner)
-calcola il prossimo giro all'avvio e dopo ogni giro; ogni giro sta nel log (`automation_run_started`, `_finished`,
-`_skipped`, `automation_change`). Un giro apre un run suo per il capo (`Dispatcher.startAutomation`, canale
-`automation`) e non entra mai nel lavoro dell'utente: se il capo lavora aspetta (al massimo un'ora, poi "saltato:
-occupato"), e un messaggio scritto durante il giro aspetta la sua fine in un run suo. La chat del capo non vede i run
-delle automazioni (`recentConversation`, indice `automations/run-index.ts`); il giro legge solo la propria storia. Una
-domanda parcheggia il giro (`waiting_user`) e la risposta lo continua in un nuovo run dello stesso giro. Kill switch e
-stato fermo saltano i giri; i giri persi a core spento: uno all'avvio se è passato meno di metà intervallo, altrimenti
-"saltato". API in `/api/automations`, CLI `monsters automations list|run <id>`.
+### 5.9 Automations (D-094)
+An automation is a file in `~/.monsters/automations/<id>.yaml` (name, lead, participating monsters, cron rule with
+time zone, goal, results folder, cap per run, notices, `draft`/`active`/`paused` state), read with the schema in
+`shared/src/automations.ts`. The scheduler (`core/src/automations/service.ts`, times computed with croner) computes
+the next run at startup and after every run; every run is in the log (`automation_run_started`, `_finished`,
+`_skipped`, `automation_change`). A run opens a run of its own for the lead (`Dispatcher.startAutomation`, channel
+`automation`) and never gets into the user's work: if the lead is working it waits (an hour at most, then “skipped:
+busy”), and a message written during the run waits for its end in a run of its own. The lead's chat doesn't see the
+automations' runs (`recentConversation`, index `automations/run-index.ts`); the run reads only its own history. A
+question parks the run (`waiting_user`) and the answer continues it in a new run of the same round. The kill switch and
+the stopped state skip runs; runs missed while the core was off: one at startup if less than half an interval has
+passed, otherwise “skipped”. API in `/api/automations`, CLI `monsters automations list|run <id>`.
 
-### 5.10 Progetti (D-097)
-Un progetto è una squadra con il suo perimetro: `~/.monsters/projects/<id>/project.yaml` (nome, cartella, area delle
-note `Progetti/<nome>/`, capo, tetto di spesa, collegamenti, ricerca web, stato `draft`/`active`, archiviato), schema
-in `shared/src/projects.ts`. I mostri restano in `~/.monsters/agents/` con `project: <id>` nell'agent.yaml (assente =
-Squadra personale): nessuna colonna nuova negli eventi, il progetto di un evento è quello del suo agente. Un solo
-`TeamService` (`members(project)`, `lead(project)`, `projects()`) e un solo `TeamManager` (capo, copie con memoria
-propria, mostri nuovi, archivio). Il capo è `kind: lead`: dentro il progetto fa l'orchestratore (`delegate`,
-`ask_user`, `team_propose_monster`, suggerimenti di smistamento solo sui mostri del progetto), ma per il vault è un
-mostro come gli altri (legge tutto tranne `Privato/`, scrive e cancella in `Progetti/<nome>/**`); `orchestrator()`
-resta il solo orchestratore in cima. Un messaggio generico va all'orchestratore; uno al progetto
-(`POST /api/projects/:id/messages`, `to` con l'id o il nome del progetto, `@Progetto`) va al capo.
-L'orchestratore passa lavoro con `project_send` (messaggio nella chat del capo, canale `system`, `from`), il capo lo
-fa in un run suo e il suo ultimo messaggio torna come evento `project_report`, che l'orchestratore legge al turno dopo
-o con `project_status` (strumenti che si caricano con la ricerca degli strumenti quando sono tanti). I mostri del
-progetto lavorano nella sua cartella (`cwd` di terminale, file e harness, cartella concessa in scrittura); CLAUDE.md e
-AGENTS.md della cartella arrivano nella sezione "## Progetto" del prompt come dati, mai come istruzioni, e l'harness
-non legge né scrive la configurazione della cartella (D-079). Nessun mostro scrive CLAUDE.md o AGENTS.md della
-cartella; i mostri del progetto, il capo e l'orchestratore ne propongono il testo nuovo con `project_docs_propose`
-(evento `project_docs_proposal`, bozza `docs` in "Da rivedere" con la differenza): il core scrive il file quando
-l'utente lo applica, solo se è ancora quello su cui è stata scritta la proposta (D-113). Tetto di spesa a tre livelli (squadra, progetto,
-mostro); un collegamento assegnato a `*` arriva ai mostri della Squadra personale e a quelli dei progetti che lo hanno
-scelto. API in `/api/projects`.
+### 5.10 Projects (D-097)
+A project is a squad with its own perimeter: `~/.monsters/projects/<id>/project.yaml` (name, folder, notes area
+`Progetti/<name>/`, lead, spending cap, connections, web search, `draft`/`active` state, archived), schema in
+`shared/src/projects.ts`. The monsters stay in `~/.monsters/agents/` with `project: <id>` in the agent.yaml (absent =
+Personal squad): no new column in the events, an event's project is that of its agent. A single `TeamService`
+(`members(project)`, `lead(project)`, `projects()`) and a single `TeamManager` (lead, copies with their own memory, new
+monsters, archive). The lead is `kind: lead`: inside the project it acts as the orchestrator (`delegate`, `ask_user`,
+`team_propose_monster`, routing hints only over the project's monsters), but for the vault it is a monster like the
+others (reads everything except `Privato/`, writes and deletes in `Progetti/<name>/**`); `orchestrator()` stays the
+only orchestrator at the top. A generic message goes to the orchestrator; one to the project
+(`POST /api/projects/:id/messages`, `to` with the project's id or name, `@Project`) goes to the lead. The orchestrator
+hands over work with `project_send` (a message in the lead's chat, channel `system`, `from`), the lead does it in a
+run of its own and its last message comes back as a `project_report` event, which the orchestrator reads on the next
+turn or with `project_status` (tools that are loaded through tool search when there are many). The project's monsters
+work in its folder (`cwd` of terminal, files and harness, folder granted for writing); the folder's CLAUDE.md and
+AGENTS.md arrive in the “## Progetto” section of the prompt as data, never as instructions, and the harness neither
+reads nor writes the folder's configuration (D-079). No monster writes the folder's CLAUDE.md or AGENTS.md; the
+project's monsters, the lead and the orchestrator propose its new text with `project_docs_propose` (`project_docs_proposal`
+event, a `docs` draft in “To review” with the diff): the core writes the file when the user applies it, only if it is
+still the one the proposal was written against (D-113). A spending cap at three levels (squad, project, monster); a
+connection assigned to `*` reaches the monsters of the Personal squad and those of the projects that chose it. API in
+`/api/projects`.
 
 ## 6. Second brain
 
-Dettagli completi in `research/04-second-brain.md`. In sintesi:
-- **Fonte di verità**: file `.md` del vault, apribile in Obsidian. L'indice SQLite (FTS5, tag, link, proprietà;
-  vettori in Fase 2) sta in `~/.monsters/index/` e si ricostruisce da zero.
-- **Struttura iniziale**: `Inbox/ Diario/ Progetti/ Aree/ Risorse/ Persone/ Archivio/ Agenti/<Nome>/ Modelli/
-  Allegati/ LEGGIMI.md` (PARA semplificato, nomi localizzati). Si può anche collegare un vault Obsidian esistente.
-- **Convenzioni**: nomi file leggibili e unici, frontmatter minimo (`id`, `type`, `tags`, `created`, `updated`,
-  `author`), tag minuscoli gerarchici, wikilink brevi. Le note create a mano senza frontmatter si accettano così come
-  sono.
-- **Permessi**: l'orchestratore ovunque; i sottoagenti leggono tutto (tranne `private: true`) e scrivono nella
-  propria area, in `Inbox/`, nelle note di cui sono autori e nelle aree concesse; fuori usano `vault_propose`.
-  Nessuno tocca `.obsidian/`, `.git/`, `.trash/`.
-- **Reversibilità**: un commit git per ogni azione, con agente e id dell'azione; snapshot delle modifiche fatte
-  dall'utente in Obsidian prima che un agente scriva; cancellare sposta in `.trash/`; `vault_undo` annulla
-  un'azione intera con un nuovo commit. Ogni operazione è nel log con il link al commit.
-- **Concorrenza**: hash ottimistico (`base_hash`), scrittura atomica, modifiche chirurgiche, watcher che reindicizza
-  le modifiche esterne.
+Full details in `research/04-second-brain.md`. In short:
+- **Source of truth**: the vault's `.md` files, openable in Obsidian. The SQLite index (FTS5, tags, links,
+  properties; vectors in Phase 2) lives in `~/.monsters/index/` and can be rebuilt from scratch.
+- **Initial structure**: `Inbox/ Diario/ Progetti/ Aree/ Risorse/ Persone/ Archivio/ Agenti/<Name>/ Modelli/
+  Allegati/ LEGGIMI.md` (simplified PARA; the folder names are Italian for now, they are identifiers). An existing Obsidian vault can be linked instead.
+- **Conventions**: readable, unique file names, minimal frontmatter (`id`, `type`, `tags`, `created`, `updated`,
+  `author`), lowercase hierarchical tags, short wikilinks. Notes created by hand without frontmatter are accepted as
+  they are.
+- **Permissions**: the orchestrator everywhere; sub-agents read everything (except `private: true`) and write in their
+  own area, in `Inbox/`, in the notes they authored and in the areas granted; elsewhere they use `vault_propose`.
+  Nobody touches `.obsidian/`, `.git/`, `.trash/`.
+- **Reversibility**: one git commit for every action, with the agent and the action id; a snapshot of the changes the
+  user made in Obsidian before an agent writes; deleting moves to `.trash/`; `vault_undo` undoes a whole action with
+  a new commit. Every operation is in the log with the link to the commit.
+- **Concurrency**: optimistic hash (`base_hash`), atomic writes, surgical edits, a watcher that reindexes external
+  changes.
 
-## 7. Onboarding e generazione del team
+## 7. Onboarding and team generation
 
-1. Creazione dell'utente locale (email e password).
-2. Prima chiave: OpenRouter (link per crearla, verifica, avviso su limiti e privacy). Senza chiave si può provare
-   con un modello locale se c'è Ollama.
-3. Compare un solo mostro, l'agente iniziale, che fa 5-7 domande una alla volta (opzioni cliccabili più testo libero):
-   nome dell'orchestratore, di cosa ti occupi, obiettivi, attività da delegare, strumenti usati, cosa non devono
-   mai fare senza chiedere, tono e lingua.
-4. **Permessi**: una schermata unica con cosa potranno fare gli agenti (vault, web, cartelle, shell, browser, account),
-   tutto concesso in un colpo e modificabile dopo.
-5. Le risposte vanno in `profilo.md` nel vault. L'orchestratore propone il team (2-5 agenti, una frase di ruolo
-   ciascuno); l'utente conferma o modifica.
-6. Per ogni agente un LLM produce un JSON validato (ruolo, contesto, strumenti, area del vault, colore, genoma) e il
-   codice lo rende con un template fisso: file brevi e coerenti.
-7. L'agente iniziale diventa l'orchestratore con il nome scelto; i mostri del team "nascono" sulla dashboard.
+1. Creation of the local user (email and password).
+2. First key: OpenRouter (link to create it, verification, notice about limits and privacy). Without a key you can try
+   a local model if Ollama is there.
+3. A single monster appears, the initial agent, which asks 5-7 questions one at a time (clickable options plus free
+   text): the orchestrator's name, what you do, goals, tasks to delegate, tools you use, what they must never do
+   without asking, tone and language.
+4. **Permissions**: a single screen with what the agents will be able to do (vault, web, folders, shell, browser,
+   accounts), all granted in one go and editable later.
+5. The answers go into `profilo.md` in the vault. The orchestrator proposes the team (2-5 agents, one sentence of role
+   each); the user confirms or edits.
+6. For each agent an LLM produces a validated JSON (role, context, tools, vault area, color, genome) and the code
+   renders it with a fixed template: short, consistent files.
+7. The initial agent becomes the orchestrator with the chosen name; the team's monsters are “born” on the dashboard.
 
-## 8. Interfaccia
+## 8. Interface
 
-- **Layout** (D-056, `docs/design.md`): barra laterale a tutta altezza (i mostri, una riga per chat con mostro,
-  stato, anteprima, ora, non letti e domande in evidenza; poi Note, Attività e Impostazioni) e contenuto con una
-  barra strumenti da 52 px (titolo, azioni, kill switch sempre visibile) che fa da barra del titolo nell'app desktop.
-  Bolle dei mostri con una tinta leggera del loro colore, quelle dell'utente nell'accento. Sul telefono la barra
-  laterale è la schermata iniziale e le viste si aprono a tutto schermo con Indietro. Terminale dell'agente in un
-  pannello laterale.
-- **Stile**: superfici neutre e opache, un solo accento, niente vetro (`backdrop-filter`) né sfondi animati: con
-  il vetro l'app scendeva a 15 fps. Contrasto almeno 4.5:1 verificato da `apps/web/test/contrast.test.ts`, "Riduci
-  movimento" e `prefers-reduced-motion`, animazioni dei mostri fuori vista sospese. Tema chiaro e scuro.
-- **Terminale dell'agente**: log strutturato e leggibile (pensiero, strumenti, risultati, errori, sezioni
-  ripiegabili); xterm.js solo per la shell vera (Fase 2).
-- **Lingua**: frasi brevi e amichevoli, niente gergo.
+- **Layout** (D-056, `docs/design.md`): a full-height sidebar (the monsters, one row per chat with a monster, status,
+  preview, time, unread and questions highlighted; then Notes, Activity and Settings) and content with a 52 px toolbar
+  (title, actions, always-visible kill switch) that serves as the title bar in the desktop app. Monsters' bubbles
+  with a light tint of their color, the user's in the accent. On the phone the sidebar is the home screen and views
+  open full screen with Back. The agent's terminal in a side panel.
+- **Style**: neutral, opaque surfaces, a single accent, no glass (`backdrop-filter`) and no animated backgrounds:
+  with glass the app dropped to 15 fps. Contrast of at least 4.5:1 verified by `apps/web/test/contrast.test.ts`,
+  “Reduce motion” and `prefers-reduced-motion`, off-screen monster animations suspended. Light and dark themes.
+- **The agent's terminal**: a structured, readable log (thinking, tools, results, errors, collapsible sections);
+  xterm.js only for the real shell (Phase 2).
+- **Language** (D-153, `docs/i18n.md`): English first, with Italian as a choice. Short, friendly sentences, no jargon.
 
-## 9. I mostri
+## 9. The monsters
 
-- **SVG parametrico**: un genoma JSON (corpo, occhi, bocca, corna, orecchie, coda, zampe, macchie, ciuffo, tinta,
-  personalità) combina parti vettoriali disegnate una volta, con ancoraggi e pivot. I colori derivano dalla tinta in
-  OKLCH (contorno scuro della stessa tinta, ombre, pancia). Stesso nome → stesso mostro.
-- **Animazioni condivise** su tutti i mostri: idle (respiro, ciglia), parla, pensa, festeggia, errore; camminata in
-  Fase 2 con un piccolo motore di steering nostro. La personalità modula ampiezza e velocità.
-- **Generatore** `design_monster`: per ogni nuovo agente l'LLM produce un genoma vincolato allo schema, il codice lo
-  valida e lo distanzia dalle tinte già usate.
-- **I 7 mostri** prendono un tratto dalla loro luna di Saturno (es. Mimas ciclope come il cratere Herschel, Enceladus
-  con il ciuffo-geyser). I concept li sceglie il maintainer.
-- Il riferimento di stile esterno (non incluso nel repo) è **solo riferimento**: niente img2img, niente asset
-  derivati.
+- **Parametric SVG**: a JSON genome (body, eyes, mouth, horns, ears, tail, legs, spots, tuft, hue, personality)
+  combines vector parts drawn once, with anchors and pivots. Colors derive from the hue in OKLCH (a dark outline of
+  the same hue, shadows, belly). Same name → same monster.
+- **Shared animations** on all monsters: idle (breathing, eyelashes), talk, think, celebrate, error; walking in
+  Phase 2 with a small steering engine of ours. Personality modulates amplitude and speed.
+- **Generator** `design_monster`: for every new agent the LLM produces a genome constrained to the schema, the code
+  validates it and keeps it apart from the hues already used.
+- **The 7 monsters** each take a trait from their Saturn moon (e.g. Mimas a cyclops like the Herschel crater,
+  Enceladus with a geyser tuft). The maintainer chooses the concepts.
+- The external style reference (not included in the repo) is **reference only**: no img2img, no derived assets.
 
-## 10. Come sviluppiamo (il sistema agentico applicato a noi)
+## 10. How we develop (the agentic system applied to ourselves)
 
-Lo stesso schema del prodotto: orchestratore, sottoagenti con contesto mirato, memoria su file.
+The same pattern as the product: orchestrator, sub-agents with targeted context, memory in files.
 
-- **Orchestratore** (la sessione principale): pianifica dal ROADMAP, scrive il brief di ogni task, delega, verifica,
-  integra, aggiorna il registro di avanzamento interno e `DECISIONS.md`.
-- **Sottoagenti per area**: core, vault, provider, UI, mostri, test. Ognuno riceve: obiettivo, file e documenti da
-  leggere, vincoli, criterio di completamento. Restituisce: fatto, file toccati, decisioni, problemi aperti.
-- **Lavoro in parallelo** su worktree git separati quando i task non si toccano; mai due agenti sugli stessi file.
-- **Chi fa non giudica**: ogni milestone passa da un agente revisore diverso (correttezza, sicurezza) e dai test
-  automatici. La UI si verifica con screenshot reali (chrome-devtools) in tema chiaro e scuro.
-- **Definizione di finito** per ogni task: typecheck, lint e test verdi in CI; per le funzioni visibili, una demo
-  e2e registrata.
+- **Orchestrator** (the main session): plans from the ROADMAP, writes the brief for every task, delegates, verifies,
+  integrates, updates the internal progress record and `DECISIONS.md`.
+- **Sub-agents per area**: core, vault, provider, UI, monsters, tests. Each receives: goal, files and documents to
+  read, constraints, completion criterion. It returns: done, files touched, decisions, open problems.
+- **Parallel work** on separate git worktrees when tasks don't touch each other; never two agents on the same files.
+- **Whoever does doesn't judge**: every milestone goes through a different reviewer agent (correctness, security) and
+  the automated tests. The UI is checked with real screenshots (chrome-devtools) in light and dark themes.
+- **Definition of done** for every task: typecheck, lint and tests green in CI; for visible features, a recorded
+  e2e demo.
