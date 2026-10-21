@@ -57,7 +57,7 @@ describe('language API', () => {
     });
     expect(res.status).toBe(201);
     expect(settingsOf(home)['language']).toBe('it');
-    expect((await (await fetch(`${url}/api/setup-status`)).json())).toMatchObject({
+    expect(await (await fetch(`${url}/api/setup-status`)).json()).toMatchObject({
       language: 'it',
     });
 
