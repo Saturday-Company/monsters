@@ -95,14 +95,18 @@ describe('a new English vault', () => {
     expect(again.layout.id).toBe('en');
   });
 
-  it('keeps Private/ from the sub-agents, and Privato/ is an ordinary folder', async () => {
+  it('keeps Private/ from the sub-agents, and Privato/ too (review of 21/10, S2)', async () => {
     const vault = await newVault({ layout: 'en' });
     const t = titan();
     await vault.write(t, { path: 'Private/Passwords', content: 'secret, also this one\n' });
     await vault.write(t, { path: 'Privato/Appunti', content: 'secret word in Italian\n' });
     const rhea = actor('rhea');
     await expectToolError(vault.read(rhea, { path: 'Private/Passwords' }), 'BLOCKED_BY_POLICY');
-    expect((await vault.search(rhea, { query: 'secret' })).map((h) => h.path)).toEqual([
+    // The other layout's private folder is private too: a vault with traces of both, or a
+    // rewritten record, never opens it to a sub-agent.
+    expect(await vault.search(rhea, { query: 'secret' })).toEqual([]);
+    expect((await vault.search(t, { query: 'secret' })).map((h) => h.path).sort()).toEqual([
+      'Private/Passwords.md',
       'Privato/Appunti.md',
     ]);
     expect((await vault.list(rhea, { folder: '' })).folders).not.toContain('Private');

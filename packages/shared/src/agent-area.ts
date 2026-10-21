@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { agentAreaStrings } from './agent-area.strings.ts';
-import { vaultLayout, type VaultLayout } from './vault-layout.ts';
+import { VAULT_LAYOUT_IDS, VAULT_LAYOUTS, vaultLayout, type VaultLayout } from './vault-layout.ts';
 
 /*
  * The vault area of a generated agent: the folder where it saves its results.
@@ -12,10 +12,17 @@ import { vaultLayout, type VaultLayout } from './vault-layout.ts';
 
 /**
  * First-level folders an agent area can never be in (compared case-insensitively): the agents'
- * memories, the templates and the private notes of the vault's layout (D-154).
+ * memories, the templates and the private notes of the vault's layout (D-154), and the agents'
+ * folder and private folder of the other layout, which the guards treat as theirs in any vault.
  */
 export function reservedAreaFolders(layout: VaultLayout = vaultLayout()): readonly string[] {
-  return [layout.agents, layout.templates, layout.private];
+  const others = VAULT_LAYOUT_IDS.filter((id) => id !== layout.id).map((id) => VAULT_LAYOUTS[id]);
+  return [
+    layout.agents,
+    layout.templates,
+    layout.private,
+    ...others.flatMap((o) => [o.agents, o.private]),
+  ];
 }
 
 export const MAX_AREA_LENGTH = 80;

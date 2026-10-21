@@ -295,12 +295,13 @@ export interface FileStoreOptions {
 
 export class FileStore {
   readonly #db: Db;
-  readonly root: string;
+  // Not readonly: an untouched vault recreated in the other layout moves them (`relocate`).
+  root: string;
   /** Name of the files folder in the notes folder (`File`, or `File di Monsters`; `Files`… in English). */
-  readonly dirName: string;
+  dirName: string;
   /** The layout of the notes folder (D-154): the words of the marker and of the `.gitignore`. */
-  readonly #layout: VaultLayout;
-  readonly dir: string;
+  #layout: VaultLayout;
+  dir: string;
   readonly #now: () => number;
   readonly #extract: NonNullable<FileStoreOptions['extract']>;
   #onText: FileStoreOptions['onText'];
@@ -321,6 +322,24 @@ export class FileStore {
   /** Who hears that the text of a file is ready (the hub logs a `file` event). */
   set onText(fn: FileStoreOptions['onText']) {
     this.#onText = fn;
+  }
+
+  /** True while no file was ever kept (an untouched vault, D-154). */
+  isEmpty(): boolean {
+    return this.#db.get('SELECT 1 FROM files LIMIT 1') === undefined;
+  }
+
+  /**
+   * The files folder of a vault recreated in the other layout (D-154): only while no file
+   * was ever kept, so nothing points to the old folder. Creates the new one.
+   */
+  relocate(root: string, dirName: string, layout: VaultLayout): void {
+    if (!this.isEmpty()) throw new Error('the files folder holds files: it is not moved');
+    this.root = resolve(root);
+    this.#layout = layout;
+    this.dirName = dirName;
+    this.dir = join(this.root, dirName);
+    this.ensureDir();
   }
 
   /** `File/` with its `.gitignore`: created on the first file, rewritten if it went missing. */

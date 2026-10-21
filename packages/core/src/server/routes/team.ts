@@ -185,7 +185,11 @@ export function registerTeamRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: Hub)
   app.put('/api/settings/language', requireAuth, async (c) => {
     const body = await parseBody(c, LanguageRequestSchema);
     if (!body.ok) return body.res;
-    return c.json(hub.setLanguage(body.data.language));
+    hub.setLanguage(body.data.language);
+    // Before anything was made with the vault's names (no monster, no note): the vault takes
+    // the layout of the language too (D-154).
+    await hub.adoptVaultLayout();
+    return c.json(hub.settingsView());
   });
 
   app.put('/api/settings/openrouter-key', requireAuth, async (c) => {

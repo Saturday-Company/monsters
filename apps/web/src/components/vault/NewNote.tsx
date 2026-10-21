@@ -1,4 +1,4 @@
-import { vaultLayout } from '@monsters/shared';
+import { VAULT_LAYOUT_IDS, VAULT_LAYOUTS, vaultLayout } from '@monsters/shared';
 import { ArrowLeft } from '@phosphor-icons/react';
 import { useId, useState, type FormEvent } from 'react';
 import { playSound } from '../../lib/sound.ts';
@@ -29,8 +29,12 @@ export function folderProblem(folder: string): string | null {
   if (FORBIDDEN_FOLDER.test(f)) return s.forbiddenFolder;
   if (f.split('/').some((part) => part.trim() === '' || part.startsWith('.')))
     return s.folderInvalid;
-  // i18n-ignore: the vault's folder of the monsters, data
-  if (/^agenti(\/|$)/i.test(f)) return s.folderAgents;
+  // The monsters' folder of either layout (D-154): `Agenti/` or `Agents/`, in any case. A note
+  // of the user in the other layout's folder would leave the vault with traces of both.
+  const first = (f.split('/')[0] ?? '').trim().toLowerCase();
+  if (VAULT_LAYOUT_IDS.some((l) => VAULT_LAYOUTS[l].agents.toLowerCase() === first)) {
+    return s.folderAgents;
+  }
   return null;
 }
 

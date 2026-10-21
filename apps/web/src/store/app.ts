@@ -558,9 +558,19 @@ export interface EnterOptions {
   beforeEnter?: () => Promise<void>;
 }
 
+/** The names of the vault's folders as the core says them now (D-154). */
+async function refreshVaultLayout(): Promise<void> {
+  const status = await client()
+    .setupStatus()
+    .catch(() => null);
+  if (status?.vaultLayout) setVaultLayout(status.vaultLayout);
+}
+
 export async function setup(body: SetupBody, opts: EnterOptions = {}): Promise<void> {
   // The language of the first screen goes with the account (D-153).
   const res = await client().setup({ language: appLang(), ...body });
+  // The core may have made its new vault again in the language picked here (D-154).
+  await refreshVaultLayout();
   await opts.beforeEnter?.();
   useApp.setState({ email: res.email });
   await loadWorkspace();
@@ -578,8 +588,9 @@ export async function login(
   if (coreLang && appLang() !== coreLang) {
     await client()
       .setLanguage(appLang())
-      .then(() => {
+      .then((settings) => {
         coreLang = appLang();
+        if (settings.vaultLayout) setVaultLayout(settings.vaultLayout);
       })
       .catch(() => {});
   }

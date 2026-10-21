@@ -7,6 +7,7 @@ import {
   ToolError,
   VAULT_LAYOUT_RECORD,
   agentMemoryPath,
+  inAnyPrivateFolder,
   ulid,
   vaultLayoutOf,
   type ToolEmittedEvent,
@@ -58,6 +59,7 @@ import { findFrontmatter, findSection, scanMarkdown } from './markdown/scan.ts';
 import { KeyedMutex, SerialQueue } from './concurrency.ts';
 import {
   assertValidNewPath,
+  foldPath,
   hasExtension,
   isHidden,
   isInside,
@@ -323,12 +325,14 @@ async function makeVcs(root: string, kind: VcsKind): Promise<VaultVcs> {
  * through here. Tools are thin wrappers around these methods.
  */
 export class VaultService {
-  readonly root: string;
+  // `root`, `#realRoot`, `index`, `#vcs`, `#filesDir` and `layout` change only when an
+  // untouched vault is recreated in the other layout (`recreate`, D-154).
+  root: string;
   /** `root` with symbolic links resolved: every file the service touches is inside it. */
-  readonly #realRoot: string;
-  readonly index: VaultIndex;
+  #realRoot: string;
+  index: VaultIndex;
   permissions: VaultPermissions;
-  readonly #vcs: VaultVcs | null;
+  #vcs: VaultVcs | null;
   readonly #ownsDb: boolean;
   readonly #locks = new KeyedMutex();
   readonly #git = new SerialQueue();
@@ -344,9 +348,9 @@ export class VaultService {
   /** Notes with invalid frontmatter met by the current sync (indexed as text only). */
   #frontmatterErrors: string[] = [];
   /** Top-level folder of the files of Monsters, out of the notes (D-075). */
-  readonly #filesDir: string | null;
+  #filesDir: string | null;
   /** The names of the vault's folders and notes (D-154), decided when it was created. */
-  readonly layout: VaultLayout;
+  layout: VaultLayout;
 
   private constructor(opts: {
     root: string;
@@ -835,6 +839,116 @@ export class VaultService {
       this.index.resolveLinks(before ? this.index.get(path)?.nid : undefined);
       this.#onExternalChange?.({ kind: before ? 'change' : 'add', path });
     });
+  }
+
+  // --- recreation in the other layout (D-154) ----------------------------------
+
+  /**
+   * True only for a vault exactly as `create` left it: history on, a single commit
+   * (`vault_create`), every file on disk the one of that commit, byte for byte, no other file
+   * or folder but the scaffold's empty folders and the files folder holding only
+   * `filesFolderFiles` (its marker and `.gitignore`). Anything else (a symbolic link, a read
+   * that fails, a vault without history): false. A person or a monster that wrote anything,
+   * through Monsters or not, made it touched.
+   */
+  async isUntouched(filesFolderFiles: readonly string[] = []): Promise<boolean> {
+    const vcs = this.#vcs;
+    if (!vcs) return false;
+    try {
+      const commits = await vcs.log({ depth: 2 });
+      if (commits.length !== 1 || !commits[0]!.message.startsWith('vault_create:')) return false;
+      const commit = commits[0]!.oid;
+      const scaffold = new Set(vaultFolders(this.layout).map(foldPath));
+      const walk = async (folder: string): Promise<boolean> => {
+        const entries = await readdir(join(this.root, folder), { withFileTypes: true });
+        if (folder !== '' && entries.length === 0) return scaffold.has(foldPath(folder));
+        for (const e of entries) {
+          const rel = folder === '' ? e.name : `${folder}/${e.name}`;
+          if (rel === '.git' && e.isDirectory()) continue;
+          if (e.isDirectory()) {
+            if (folder === '' && isFilesPath(`${rel}/x`, this.#filesDir)) {
+              const inside = await readdir(join(this.root, rel), { withFileTypes: true });
+              if (!inside.every((f) => f.isFile() && filesFolderFiles.includes(f.name))) {
+                return false;
+              }
+              continue;
+            }
+            if (!(await walk(rel))) return false;
+          } else if (e.isFile()) {
+            const bytes = await readIfExists(join(this.root, rel));
+            if (!bytes || (await vcs.fileOid(commit, rel)) !== gitBlobOid(bytes)) return false;
+          } else {
+            return false;
+          }
+        }
+        return true;
+      };
+      return await walk('');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Makes an untouched vault again in another layout (D-154: the language picked on the first
+   * screen is not the one the vault was created in), in `root` (the same folder, or the new
+   * default one), and goes on as that vault: same service, same index database. Refused unless
+   * `isUntouched`; the folder it leaves held only what `create` wrote, and is removed.
+   */
+  async recreate(opts: {
+    root: string;
+    layout: VaultLayoutId;
+    filesDir: string | null;
+    filesFolderFiles?: readonly string[];
+    orchestratorName?: string;
+    agentNames?: string[];
+  }): Promise<void> {
+    if (!(await this.isUntouched(opts.filesFolderFiles))) {
+      throw new ToolError(
+        'EXISTS',
+        `the vault is in use: it keeps its folder names (${this.root})`,
+      );
+    }
+    const root = resolvePath(opts.root);
+    const same = root === this.root;
+    if (!same) {
+      const there = await readdir(root).catch(() => [] as string[]);
+      if (there.some((n) => n !== '.DS_Store')) {
+        throw new ToolError('EXISTS', `the folder is not empty: ${root}`);
+      }
+    }
+    const kind = this.#vcs?.kind ?? 'isomorphic';
+    await this.unwatch();
+    await this.#git.idle();
+    const old = this.root;
+    if (same) {
+      for (const name of await readdir(old)) {
+        await rm(join(old, name), { recursive: true, force: true });
+      }
+    }
+    const fresh = await VaultService.create({
+      root,
+      db: this.index.db,
+      git: kind,
+      layout: opts.layout,
+      filesDir: opts.filesDir,
+      permissions: this.permissions.config,
+      onWarning: this.#onWarning,
+      ...(opts.orchestratorName !== undefined ? { orchestratorName: opts.orchestratorName } : {}),
+      ...(opts.agentNames !== undefined ? { agentNames: opts.agentNames } : {}),
+    });
+    if (!same) await rm(old, { recursive: true, force: true });
+    this.root = fresh.root;
+    this.#realRoot = fresh.#realRoot;
+    this.#vcs = fresh.#vcs;
+    this.#filesDir = fresh.#filesDir;
+    this.layout = fresh.layout;
+    this.index = new VaultIndex(this.index.db, fresh.layout);
+    this.permissions = new VaultPermissions(this.permissions.config, fresh.layout);
+    this.#ownWrites.clear();
+    this.#contents.clear();
+    this.#warned.clear();
+    await this.reindex();
   }
 
   // --- resolution helpers ------------------------------------------------------
@@ -1338,7 +1452,7 @@ export class VaultService {
         .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
         .filter((e) => folder !== '' || !isFilesPath(`${e.name}/x`, this.#filesDir))
         .map((e) => (folder === '' ? e.name : `${folder}/${e.name}`))
-        .filter((f) => privileged || !isInside(f, this.layout.private))
+        .filter((f) => privileged || !(isInside(f, this.layout.private) || inAnyPrivateFolder(f)))
         // In a scope (D-114) only its folders and the ones that lead to them.
         .filter((f) => {
           const scope = currentVaultScope();
@@ -1485,7 +1599,8 @@ export class VaultService {
         type: r.type,
         author: r.author,
         updated: r.updated,
-        private: r.private === 1 || isInside(r.path, this.layout.private),
+        private:
+          r.private === 1 || isInside(r.path, this.layout.private) || inAnyPrivateFolder(r.path),
         tags: tags.get(r.nid) ?? [],
         summary: r.summary,
       })),
@@ -1512,10 +1627,12 @@ export class VaultService {
   ): Promise<WriteResult & { warning?: string }> {
     const path = normalizeNotePath(input.path);
     const mode = input.mode ?? 'create';
-    if (isSystemPath(path)) {
+    // In every mode, before the note is read (a CONFLICT would tell its hash): hidden files
+    // like `.monsters/vault.json` (the layout record, D-154) are no note to overwrite.
+    if (isSystemPath(path) || isHidden(path)) {
       throw new ToolError(
         'BLOCKED_BY_POLICY',
-        `${path}: .obsidian, .git and .trash are managed by the system`,
+        `${path}: hidden and system folders are managed by the system`,
       );
     }
     if (mode === 'create') assertValidNewPath(path, this.#filesDir);
@@ -2165,7 +2282,8 @@ export class VaultService {
       if (match) used.add(match.i);
       const original = match?.d.path ?? null;
       const isPrivate =
-        (original !== null && isInside(original, this.layout.private)) ||
+        (original !== null &&
+          (isInside(original, this.layout.private) || inAnyPrivateFolder(original))) ||
         (isMarkdown(f.name) && parseNote(f.name, f.bytes.toString('utf8')).private);
       if (!this.permissions.canRead(actor.agentId, original ?? f.name, isPrivate)) continue;
       out.push({
@@ -2220,7 +2338,7 @@ export class VaultService {
     if (input.trash_path !== undefined) return this.#restoreFromTrash(actor, input.trash_path);
     const vcs = this.#requireGit();
     const path = normalizeNotePath(input.path);
-    if (isSystemPath(path))
+    if (isSystemPath(path) || isHidden(path))
       throw new ToolError('BLOCKED_BY_POLICY', `${path} is managed by the system`);
     return this.#act(actor, 'vault_restore', input, [path], async () => {
       const current = await readIfExists(await this.#abs(path));

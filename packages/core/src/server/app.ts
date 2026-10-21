@@ -223,6 +223,11 @@ export interface AppDeps {
   /** Called once the local user has been created (e.g. to delete the setup code file). */
   onSetupCompleted?: () => void;
   /**
+   * The language of the first screen is saved (D-153), before the account: the core makes its
+   * untouched vault again in that language's layout (D-154, `Hub.adoptVaultLayout`).
+   */
+  onLanguageChosen?: () => Promise<unknown>;
+  /**
    * "Riprendi e continua" (D-072): the requests the latest global stop left
    * halfway, read before resuming, and how to start them again after.
    */
@@ -496,6 +501,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     if (body.data.language && body.data.language !== appLang()) {
       saveAppLanguage(deps.config.home, body.data.language, process.env);
     }
+    await deps.onLanguageChosen?.();
     try {
       const session = await auth.setup(body.data.email, body.data.password, 'ui', {
         partitioned: body.data.partitioned,
