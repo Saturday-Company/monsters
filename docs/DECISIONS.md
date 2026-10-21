@@ -4890,7 +4890,7 @@ resta il ripiego (GitHub giù, una prova su un sistema vero) e la sonda degli ha
 il `claude` installato.
 
 ### D-153 · English first: l'app in inglese, l'italiano come scelta
-**Stato:** in corso · 21/10/2026 (fondamenta fatte; testi spostati a onde)
+**Stato:** fatta · 21/10/2026 (UI, core, Telegram, CLI, desktop, prompt, vault D-154, guide di docs/)
 **Contesto:** fino alla alpha.19 ogni testo era italiano scritto nel codice (circa 3.000 testi nella UI, 2.000 nel core
 e nei pacchetti, i template dei prompt). Il progetto è open source e si rivolge anche a chi non parla italiano
 (decisione di Giulio del 20/10/2026, via del 21/10).
