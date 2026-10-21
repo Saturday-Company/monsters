@@ -1,3 +1,4 @@
+import { settingsPath, spendCapPath } from '@monsters/shared';
 import { fake } from '@monsters/providers/testing';
 import type { AutomationView, DraftConfirmResponse, LogEvent } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
@@ -125,7 +126,7 @@ describe('the stop at the project’s cap says where to raise it', () => {
       .events(sent.runId)
       .find((e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'spend_cap');
     expect(error?.data.message).toMatch(/raggiunto il tetto di spesa del progetto Saturday/);
-    expect(error?.data.message).toContain('nella pagina del progetto «Saturday», scheda Spesa');
-    expect(error?.data.message).not.toContain('Impostazioni → Modelli');
+    expect(error?.data.message).toContain(`nella ${spendCapPath('Saturday')}`);
+    expect(error?.data.message).not.toContain(settingsPath('modelli'));
   });
 });

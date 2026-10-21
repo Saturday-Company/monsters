@@ -212,7 +212,7 @@ describe('MCP catalog', () => {
       'git+https://projects.blender.org/lab/blender_mcp.git@2cea8d566dde07fbac28a61d698909d69724e853#subdirectory=mcp',
       'blender-mcp',
     ]);
-    expect(blender.note).toMatch(/Blender 5\.1\+.*add-on MCP.*codice Python/);
+    expect(blender.note).toMatch(/Blender 5\.1\+.*MCP add-on.*Python code/);
     expect(blender.soon).toBeUndefined();
     // Its moves of the view read, its renders write a file; code keeps the server's hints.
     expect(toolHintsOf(blender.toolHints, 'jump_to_tab_by_name')).toEqual({ readOnly: true });

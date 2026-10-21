@@ -26,8 +26,8 @@ const g = (
 export const ROSTER: Record<RosterName, RosterEntry> = {
   titan: {
     name: 'Titan',
-    role: 'orchestratore',
-    trait: 'la luna più grande, atmosfera arancione: il più grosso, ambra, corona di cornini',
+    role: 'orchestrator',
+    trait: 'the biggest moon, orange atmosphere: the largest, amber, a crown of little horns',
     variants: {
       A: g('titan', 'a', {
         body: { shape: 'blob', w: 1.3, h: 1.26 },
@@ -54,8 +54,8 @@ export const ROSTER: Record<RosterName, RosterEntry> = {
   },
   rhea: {
     name: 'Rhea',
-    role: 'agente',
-    trait: 'ghiacciata e piena di crateri: lilla, orecchie lunghe, macchie-cratere',
+    role: 'agent',
+    trait: 'icy and full of craters: lilac, long ears, crater spots',
     variants: {
       A: g('rhea', 'a', {
         body: { shape: 'egg', w: 0.98, h: 1.0 },
@@ -83,8 +83,8 @@ export const ROSTER: Record<RosterName, RosterEntry> = {
   },
   dione: {
     name: 'Dione',
-    role: 'agente',
-    trait: 'scogliere di ghiaccio "a fili": verde menta, coda a pennacchio con strisce',
+    role: 'agent',
+    trait: 'ice cliffs like threads: mint green, plume tail with stripes',
     variants: {
       A: g('dione', 'a', {
         body: { shape: 'pear', w: 0.95, h: 0.96 },
@@ -118,8 +118,8 @@ export const ROSTER: Record<RosterName, RosterEntry> = {
   },
   tethys: {
     name: 'Tethys',
-    role: 'agente',
-    trait: 'un canyon enorme (Ithaca Chasma): rosa corallo, bocca larghissima, due zanne',
+    role: 'agent',
+    trait: 'a huge canyon (Ithaca Chasma): coral pink, very wide mouth, two fangs',
     variants: {
       A: g('tethys', 'a', {
         body: { shape: 'dome', w: 1.05, h: 0.98 },
@@ -145,9 +145,8 @@ export const ROSTER: Record<RosterName, RosterEntry> = {
   },
   enceladus: {
     name: 'Enceladus',
-    role: 'agente',
-    trait:
-      'bianca brillante, geyser dal polo sud: azzurro ghiaccio, ciuffo-geyser, occhi su antenne',
+    role: 'agent',
+    trait: 'bright white, geysers at the south pole: ice blue, geyser tuft, eyes on antennae',
     variants: {
       A: g('enceladus', 'a', {
         body: { shape: 'egg', w: 0.96, h: 0.95 },
@@ -174,8 +173,8 @@ export const ROSTER: Record<RosterName, RosterEntry> = {
   },
   hyperion: {
     name: 'Hyperion',
-    role: 'agente',
-    trait: 'spugnosa e irregolare: giallo senape, macchie a spugna, sagoma asimmetrica',
+    role: 'agent',
+    trait: 'spongy and irregular: mustard yellow, sponge spots, asymmetric shape',
     variants: {
       A: g('hyperion', 'a', {
         body: { shape: 'lumpy', w: 1.02, h: 0.98, lean: 0.55 },
@@ -203,8 +202,8 @@ export const ROSTER: Record<RosterName, RosterEntry> = {
   },
   mimas: {
     name: 'Mimas',
-    role: 'agente',
-    trait: 'il cratere Herschel sembra un occhio gigante: il più piccolo, ciclope, viola scuro',
+    role: 'agent',
+    trait: 'the Herschel crater looks like a giant eye: the smallest, cyclops, dark purple',
     variants: {
       A: g('mimas', 'a', {
         body: { shape: 'blob', w: 0.82, h: 0.88 },

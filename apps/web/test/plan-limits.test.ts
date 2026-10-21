@@ -1,7 +1,13 @@
 import { planLimitsView, type PlanLimitsSnapshot } from '@monsters/shared';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+// The expectations are the Italian texts (the names of the windows): this file runs in Italian,
+// whatever the default language of the tests.
+beforeEach(() => setAppLang('it'));
+afterEach(() => setAppLang('en'));
 import { PlanLimitsBlock } from '../src/components/usage/PlanLimitsBlock.tsx';
 import {
   formatAgo,

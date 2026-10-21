@@ -2,7 +2,7 @@ import type { ChildProcess, SpawnOptions } from 'node:child_process';
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { NPM_MISSING, npmCommand as findNpm } from '@monsters/shared/node';
+import { npmMissing, npmCommand as findNpm } from '@monsters/shared/node';
 import { PROVIDER_CATALOG } from '../catalog.ts';
 import type { HarnessSpawn } from '../types.ts';
 
@@ -288,7 +288,7 @@ export async function installPackage(
   const name = spec.slice(0, spec.lastIndexOf('@'));
   const scope = m[2];
   const npm = options.npm ?? npmCommand(options.env ?? process.env);
-  if (!npm) throw new Error(NPM_MISSING);
+  if (!npm) throw new Error(npmMissing());
   const result = await runOnce(
     npm,
     [

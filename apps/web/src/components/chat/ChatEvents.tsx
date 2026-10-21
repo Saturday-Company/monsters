@@ -1,3 +1,4 @@
+import { findSettingsPlaces } from '@monsters/shared';
 import { CaretDown, CaretUp, NotePencil, WarningCircle } from '@phosphor-icons/react';
 import { useState, type ReactNode } from 'react';
 import { openTerminal } from '../../store/app.ts';
@@ -352,24 +353,22 @@ const PLAN_LIMIT = new Set([
   'harness_chatgpt_usage_limit',
 ]);
 
-const SETTINGS_PLACE = /Impostazioni → (Modelli|Permessi|Collegamenti|Aspetto|Account)/g;
-
-/** "… in Impostazioni → Modelli …" with the place as a link to that tab. */
+/** "… in Settings → Models …" (or "Impostazioni → Modelli": either language) with the place as a link to that tab. */
 export function withSettingsLinks(text: string): ReactNode[] {
   const out: ReactNode[] = [];
   let at = 0;
-  for (const m of text.matchAll(SETTINGS_PLACE)) {
+  for (const m of findSettingsPlaces(text)) {
     out.push(text.slice(at, m.index));
     out.push(
       <a
         key={m.index}
-        href={`${PATHS.settings}?sezione=${m[1]!.toLowerCase()}`}
+        href={`${PATHS.settings}?sezione=${m.tab}`}
         className="font-medium underline underline-offset-2"
       >
-        {m[0]}
+        {m.text}
       </a>,
     );
-    at = m.index + m[0].length;
+    at = m.index + m.text.length;
   }
   out.push(text.slice(at));
   return out;

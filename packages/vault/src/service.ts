@@ -83,6 +83,7 @@ import type { EmbedderLoader } from './semantic/embedder.ts';
 import { RELATED_LIMIT, pickRelated, relationBonus } from './semantic/related.ts';
 import { rrfFuse } from './semantic/rrf.ts';
 import { currentVaultScope } from './scope.ts';
+import { vaultStrings } from './vault.strings.ts';
 import {
   SemanticIndex,
   type SemanticIndexOptions,
@@ -632,7 +633,7 @@ export class VaultService {
     this.#warn({
       code: 'vault_unreadable',
       path,
-      message: `${path}: non leggibile (${errnoOf(err) ?? 'permessi'}), saltato`,
+      message: vaultStrings().unreadable(path, errnoOf(err) ?? vaultStrings().permissions),
     });
   }
 
@@ -731,7 +732,7 @@ export class VaultService {
         typeof path === 'string'
           ? path.slice(this.root.length).replace(/\\/g, '/').replace(/^\/+/, '')
           : '';
-      this.#warnUnreadable(rel || '(cartella del vault)', err);
+      this.#warnUnreadable(rel || vaultStrings().notesFolder, err);
       return;
     }
     const code = errnoOf(err);
@@ -739,9 +740,8 @@ export class VaultService {
       code: 'vault_watch_error',
       message:
         code === 'ENOSPC' || code === 'EMFILE'
-          ? `limite del sistema sui file osservati raggiunto (${code}): le modifiche fatte fuori da ` +
-            'Monsters in alcune cartelle si vedranno al prossimo avvio'
-          : `osservazione del vault: ${err instanceof Error ? err.message : String(err)}`,
+          ? vaultStrings().watchLimit(code)
+          : vaultStrings().watchError(err instanceof Error ? err.message : String(err)),
     });
   }
 

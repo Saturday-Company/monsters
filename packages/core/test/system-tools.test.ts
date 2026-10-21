@@ -271,7 +271,7 @@ describe('system tools in the hub', () => {
     expect(result.data.ok).toBe(false);
     expect(result.data.error).toContain('SETTING_OFF');
     expect(toolResultsSeen(t.provider.calls[1]!.options.prompt)).toContain(
-      'Impostazioni → Permessi',
+      'Settings → Permissions',
     );
   });
 

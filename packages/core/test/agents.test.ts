@@ -400,7 +400,7 @@ describe('runAgent', () => {
       providers: env.providers,
     });
     expect(result.status).toBe('failed');
-    expect(result.error).toMatch(/nessun modello disponibile/);
+    expect(result.error).toMatch(/no model available/);
     expect(
       events(env.log, run.id).some((e) => e.type === 'error' && e.data.code === 'agent_failed'),
     ).toBe(true);

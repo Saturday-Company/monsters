@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { formatNumber } from './i18n.ts';
+import { spendStrings } from './spend.strings.ts';
 
 /*
  * Tetto di spesa (D-070, research 07 §5.5): euros the monsters may spend per
@@ -155,16 +157,21 @@ export const SpendDataSchema = z.object({
 });
 export type SpendData = z.infer<typeof SpendDataSchema>;
 
-/** "10 €", "0,43 €", "1.250 €". */
+/** "€10", "€0.43", "€12,500" (Italian: "10 €", "0,43 €", "12.500 €"). */
 export function formatEur(eur: number): string {
   const digits = eur > 0 && eur < 10 && !Number.isInteger(eur) ? 2 : 0;
-  return `${eur.toLocaleString('it-IT', { minimumFractionDigits: digits, maximumFractionDigits: digits })} €`;
+  const n = formatNumber(eur, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return spendStrings().eur(n);
 }
 
-/** "oggi", "questo mese". */
+/** "for today", "for this month" (Italian: "di oggi", "di questo mese"): follows the language when read. */
 export const SPEND_PERIOD_WORDS: Record<SpendPeriod, string> = {
-  day: 'di oggi',
-  month: 'di questo mese',
+  get day() {
+    return spendStrings().periodDay;
+  },
+  get month() {
+    return spendStrings().periodMonth;
+  },
 };
 
 /** The sentence of a `spend` event, for the log, the app and Telegram. */
@@ -175,9 +182,10 @@ export function spendSentence(d: {
   spentEur: number;
   capEur: number;
 }): string {
-  const whose = d.scopeName ? ` di ${d.scopeName}` : ' della squadra';
-  const cap = `il tetto${whose} ${SPEND_PERIOD_WORDS[d.period]} (${formatEur(d.capEur)})`;
+  const t = spendStrings();
+  const whose = d.scopeName ? t.whose(d.scopeName) : t.squad;
+  const cap = t.capOf(whose, SPEND_PERIOD_WORDS[d.period], formatEur(d.capEur));
   return d.action === 'warning'
-    ? `Spesi ${formatEur(d.spentEur)}: è l’${Math.round((d.spentEur / d.capEur) * 100)}% del${cap.slice(2)}.`
-    : `Raggiunto ${cap}: i lavori con modelli a pagamento si fermano finché non alzi il tetto.`;
+    ? t.warning(formatEur(d.spentEur), Math.round((d.spentEur / d.capEur) * 100), cap)
+    : t.stopped(cap);
 }

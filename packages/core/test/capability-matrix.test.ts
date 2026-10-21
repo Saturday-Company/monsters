@@ -19,6 +19,7 @@ import {
   type LogEvent,
   type ProjectView,
   type TelegramPairing,
+  settingsPath,
 } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -408,7 +409,7 @@ describe.each(MODES)('visible == executable on %s (D1, D-136)', (mode) => {
     // Rhea was made with the web: without it, no web method in her instructions (A7).
     expect(off.text).not.toContain('## Come cerchi sul web');
     expect(off.text).toContain(
-      'web (spento per te: lo accende l’utente in Impostazioni → Permessi → Il web',
+      `web (spento per te: lo accende l’utente in ${settingsPath('ilWeb')}`,
     );
   });
 

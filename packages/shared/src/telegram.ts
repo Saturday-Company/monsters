@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { telegramStrings } from './telegram.strings.ts';
 
 /*
  * Telegram channel (M2.6). Same rules as the rest of the API (JSON body,
@@ -40,9 +41,10 @@ export const TELEGRAM_TOKEN_PATTERN = /^\d{5,16}:[A-Za-z0-9_-]{30,64}$/;
 /** A token inside a longer text (BotFather's whole message): not glued to other word characters. */
 const TOKEN_IN_TEXT = /(?<![A-Za-z0-9_])\d{5,16}:[A-Za-z0-9_-]{30,64}(?![A-Za-z0-9_-])/;
 
-/** The answer when nothing in the pasted text looks like a token. */
-export const TELEGRAM_TOKEN_SHAPE_MESSAGE =
-  'Questo non sembra un token di Telegram: è fatto come 123456789:AAE… e lo trovi nel messaggio di BotFather.';
+/** The answer when nothing in the pasted text looks like a token, in the app's language. */
+export function telegramTokenShapeMessage(): string {
+  return telegramStrings().tokenShape;
+}
 
 /**
  * The token in what the user pasted: the token alone, BotFather's whole message ("Use this

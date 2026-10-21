@@ -1,4 +1,4 @@
-import { ToolError } from '@monsters/shared';
+import { settingsPath, ToolError } from '@monsters/shared';
 import { z } from 'zod';
 import { fetchFailure, httpError, withTimeout } from '../http.ts';
 import type { SearchBackend, SearchOptions, SearchResult } from './types.ts';
@@ -66,7 +66,7 @@ export class BraveBackend implements SearchBackend {
     }
     if (res.status === 401 || res.status === 403) {
       throw new ToolError('NOT_LINKED', 'Brave Search rejected the API key', {
-        hint: 'Ask the user to check the Brave Search key in Impostazioni → Collegamenti → Ricerca sul web.',
+        hint: `Ask the user to check the Brave Search key in ${settingsPath('ricercaWeb')}.`,
       });
     }
     if (!res.ok) throw httpError(res.status, 'Brave search');

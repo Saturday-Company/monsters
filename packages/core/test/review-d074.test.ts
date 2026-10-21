@@ -452,7 +452,7 @@ describe('D-074 · 9: a resumed request fits the message', () => {
   });
   it('a longer request (another channel) is cut, and the cut is said', () => {
     const text = resumeText('y'.repeat(MESSAGE_MAX_CHARS + 500));
-    expect(text).toMatch(/tagliata qui\]»$/);
+    expect(text).toMatch(/was cut here\]”$/);
     expect(SendMessageRequestSchema.safeParse({ text, resumeOf: 'r1' }).success).toBe(true);
   });
 });

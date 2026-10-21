@@ -1,4 +1,6 @@
 import { APICallError } from '@ai-sdk/provider';
+import { settingsPath } from '@monsters/shared';
+import { providerTexts } from './providers.strings.ts';
 import { RateLimitedError } from './rate-budget.ts';
 import type { ModelRef } from './types.ts';
 
@@ -7,7 +9,7 @@ export class AllModelsFailedError extends Error {
   readonly attempts: { ref: ModelRef; error: string }[];
   constructor(attempts: { ref: ModelRef; error: string }[], cause?: unknown) {
     const tried = attempts.map((a) => `${a.ref.provider}:${a.ref.model} (${a.error})`).join('; ');
-    super(`nessun modello disponibile: ${tried || 'catena vuota'}`, { cause });
+    super(providerTexts().allFailed(tried), { cause });
     this.name = 'AllModelsFailedError';
     this.attempts = attempts;
   }
@@ -91,9 +93,7 @@ export class EmptyResponseError extends Error {
   /** Finish reason reported with the empty answer (`other`, `stop`, `length`…), when any. */
   readonly finishReason: string | undefined;
   constructor(finishReason?: string) {
-    super(
-      `il modello ha risposto senza testo né azioni (risposta vuota${finishReason ? `, fine: ${finishReason}` : ''})`,
-    );
+    super(providerTexts().emptyResponse(finishReason));
     this.name = 'EmptyResponseError';
     this.finishReason = finishReason;
   }
@@ -106,11 +106,7 @@ export class EmptyResponseError extends Error {
 export class PaidModelBlockedError extends Error {
   readonly model: string;
   constructor(model: string, provider = 'OpenRouter') {
-    super(
-      `${model} è un modello a pagamento e ${provider} è impostato sui soli modelli gratuiti: ` +
-        `attiva “Usa anche modelli a pagamento” in Impostazioni → Modelli (${provider}), ` +
-        'oppure scegli un modello gratuito (quelli che finiscono con :free)',
-    );
+    super(providerTexts().paidModelBlocked(model, provider, settingsPath('modelli')));
     this.name = 'PaidModelBlockedError';
     this.model = model;
   }
@@ -135,11 +131,9 @@ export class StreamTimeoutError extends Error {
   readonly ms: number;
   constructor(ref: ModelRef, phase: 'first' | 'idle', ms: number) {
     const seconds = Math.round(ms / 1000);
-    super(
-      phase === 'first'
-        ? `${ref.provider}:${ref.model} non ha cominciato a rispondere entro ${seconds} s`
-        : `${ref.provider}:${ref.model} si è fermato a metà risposta: nessun dato da ${seconds} s`,
-    );
+    const t = providerTexts();
+    const name = `${ref.provider}:${ref.model}`;
+    super(phase === 'first' ? t.streamFirst(name, seconds) : t.streamIdle(name, seconds));
     this.name = 'StreamTimeoutError';
     this.ref = ref;
     this.phase = phase;

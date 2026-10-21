@@ -4,8 +4,8 @@ import { delimiter, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   MACOS_GUI_PATH,
-  NODE_MISSING,
-  NPM_MISSING,
+  nodeMissing,
+  npmMissing,
   findChildNode,
   loginShellPath,
   mergePathLists,
@@ -78,8 +78,8 @@ describe('nodeRuntime', () => {
 
   it('inside the desktop app without a node on the PATH: none, and a clear error', () => {
     expect(nodeRuntime({ PATH: '' }, electron)).toBeNull();
-    expect(() => requireNodeRuntime({ PATH: '' }, electron)).toThrow(NODE_MISSING);
-    expect(NODE_MISSING).toMatch(/nodejs\.org.*MONSTERS_NODE_PATH/);
+    expect(() => requireNodeRuntime({ PATH: '' }, electron)).toThrow(nodeMissing());
+    expect(nodeMissing()).toMatch(/nodejs\.org.*MONSTERS_NODE_PATH/);
     // Never the Electron binary, whatever it is called.
     expect(nodeRuntime({ PATH: '' }, { ...electron, execPath: '/usr/bin/node' })).toBeNull();
   });
@@ -238,7 +238,7 @@ describe('npmCommand', () => {
     expect(npmCommand({ PATH: bin }, electron)).toBeNull();
     const npm = executable(join(bin, 'npm'));
     expect(npmCommand({ PATH: bin }, electron)).toEqual({ command: npm, args: [], env: {} });
-    expect(NPM_MISSING).toMatch(/MONSTERS_NODE_PATH/);
+    expect(npmMissing()).toMatch(/MONSTERS_NODE_PATH/);
   });
 });
 

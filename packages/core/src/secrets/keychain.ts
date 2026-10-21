@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { NODE_MISSING, nodeRuntime } from '@monsters/shared/node';
+import { nodeMissing, nodeRuntime } from '@monsters/shared/node';
 
 /*
  * The operating system's keychain (DECISIONS D-042): macOS Keychain, Windows
@@ -61,7 +61,7 @@ export interface KeychainRuntime {
 
 export function defaultKeychainRuntime(): KeychainRuntime {
   const runtime = nodeRuntime();
-  if (!runtime) throw new KeychainUnavailableError(NODE_MISSING);
+  if (!runtime) throw new KeychainUnavailableError(nodeMissing());
   return { command: runtime.command };
 }
 

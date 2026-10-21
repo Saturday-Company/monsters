@@ -1,6 +1,7 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { jsonSchema, streamText, tool } from 'ai';
 import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
 import {
   ChatGPTProvider,
   KeyedProvider,
@@ -108,6 +109,28 @@ describe('Sign in with ChatGPT', () => {
       email: 'giulia@example.com',
       clientId: 'oaiapp_fake123',
     });
+  });
+
+  it('shows the page of the callback in the language of the app', async () => {
+    try {
+      for (const [lang, page] of [
+        ['en', ['lang="en"', '<h1 style="font-size:1.4rem">Done</h1>', 'Signed in to ChatGPT.']],
+        [
+          'it',
+          ['lang="it"', '<h1 style="font-size:1.4rem">Fatto</h1>', 'Accesso a ChatGPT completato.'],
+        ],
+      ] as const) {
+        setAppLang(lang);
+        const fake = fakeSiwc();
+        const { siwc } = client(fake);
+        const login = await siwc.startLogin({ port: 0 });
+        const html = await (await fetch(fake.approve(login.url))).text();
+        for (const part of page) expect(html).toContain(part);
+        await login.done;
+      }
+    } finally {
+      setAppLang('en');
+    }
   });
 
   it('signs in again with the issued client id, hints and no agent name', async () => {
@@ -401,7 +424,7 @@ describe('Sign in with ChatGPT: OpenAI out of reach (after a wake, in a VPN)', (
     expect(store.record.credentials?.refresh_token).toBe('RT2');
   });
 
-  it('still no answer: the cause in the error, the sign-in kept, Italian for the user', async () => {
+  it('still no answer: the cause in the error, the sign-in kept, said in the language of the app', async () => {
     const now = 1_000_000;
     const store = memoryStore();
     store.record = { version: 1, credentials: storedCreds(now + 10_000), registration: null };
@@ -428,11 +451,22 @@ describe('Sign in with ChatGPT: OpenAI out of reach (after a wake, in a VPN)', (
     // Never a sign-out for the network.
     expect(store.record.credentials?.refresh_token).toBe('RT1');
     expect(chatgptUnreachableText(err, 'in_use')).toBe(
-      'Non riesco a raggiungere OpenAI (auth.openai.com): la connessione è intercettata da un programma della rete (VPN, proxy aziendale o antivirus) che Monsters non riconosce. L’accesso a ChatGPT resta valido: riprova tra poco. Se sei in VPN o dietro un proxy aziendale, prova senza o chiedi di consentire auth.openai.com.',
+      'I can’t reach OpenAI (auth.openai.com): the connection is intercepted by a program on the network (VPN, corporate proxy or antivirus) that Monsters doesn’t trust. Your ChatGPT sign-in is still valid: try again shortly. If you’re on a VPN or behind a corporate proxy, try without it or ask for auth.openai.com to be allowed.',
     );
     expect(chatgptUnreachableText(new Error('wrapped', { cause: err }), 'sign_in')).toContain(
-      'Riprova il collegamento tra poco.',
+      'Try connecting again shortly.',
     );
+    setAppLang('it');
+    try {
+      expect(chatgptUnreachableText(err, 'in_use')).toBe(
+        'Non riesco a raggiungere OpenAI (auth.openai.com): la connessione è intercettata da un programma della rete (VPN, proxy aziendale o antivirus) che Monsters non riconosce. L’accesso a ChatGPT resta valido: riprova tra poco. Se sei in VPN o dietro un proxy aziendale, prova senza o chiedi di consentire auth.openai.com.',
+      );
+      expect(chatgptUnreachableText(new Error('wrapped', { cause: err }), 'sign_in')).toContain(
+        'Riprova il collegamento tra poco.',
+      );
+    } finally {
+      setAppLang('en');
+    }
   });
 
   it('a reset after connecting is not sent again: the refresh token may be used already', async () => {

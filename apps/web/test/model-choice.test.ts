@@ -1,5 +1,11 @@
 import { AgentModelsRequestSchema, type ModelInfoView, type ReceiptData } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+// The expectations are the Italian texts (the words of the effort levels, the schedule, the instinct):
+// this file runs in Italian, whatever the default language of the tests.
+beforeEach(() => setAppLang('it'));
+afterEach(() => setAppLang('en'));
 import {
   modelName,
   optionText,

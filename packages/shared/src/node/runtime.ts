@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { accessSync, constants, existsSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, posix, win32 } from 'node:path';
 import { findOnPath } from './path.ts';
+import { runtimeStrings } from './runtime.strings.ts';
 
 /*
  * The Node that runs JavaScript in child processes (Playwright MCP, the gallery's MCP
@@ -34,11 +35,12 @@ export interface RuntimeProcess {
   platform: NodeJS.Platform;
 }
 
-/** Shown when a JavaScript child must start and there is no Node for it (in Italian: it reaches the user). */
-export const NODE_MISSING =
-  'Node.js non trovato: installa Node.js 20 o più recente da https://nodejs.org, oppure indica il Node da usare con la variabile MONSTERS_NODE_PATH';
+/** Shown when a JavaScript child must start and there is no Node for it (in the app's language: it reaches the user). */
+export function nodeMissing(): string {
+  return runtimeStrings().nodeMissing;
+}
 
-/** The oldest Node the children may run with (NODE_MISSING says so). */
+/** The oldest Node the children may run with (`nodeMissing()` says so). */
 export const MIN_NODE_MAJOR = 20;
 
 /** Where to look for the children's `node` (`findChildNode`). */
@@ -206,13 +208,13 @@ export function nodeRuntime(
   return pinned.runtime;
 }
 
-/** `nodeRuntime`, or an error saying `NODE_MISSING` when there is none. */
+/** `nodeRuntime`, or an error saying `nodeMissing()` when there is none. */
 export function requireNodeRuntime(
   env: NodeJS.ProcessEnv = process.env,
   proc: RuntimeProcess = process,
 ): NodeRuntime {
   const runtime = nodeRuntime(env, proc);
-  if (!runtime) throw new Error(NODE_MISSING);
+  if (!runtime) throw new Error(nodeMissing());
   return runtime;
 }
 
@@ -246,7 +248,7 @@ export interface NpmCommand {
  * npm, as `node npm-cli.js` when possible (no shell, no `npm.cmd`): the npm of
  * the runtime Node, else (outside Electron) of the `node` on the PATH (a
  * MONSTERS_NODE_PATH without npm next to it), else an `npm` on the PATH (not
- * on Windows, where it is a .cmd). Null when there is none: see `NPM_MISSING`.
+ * on Windows, where it is a .cmd). Null when there is none: see `npmMissing()`.
  */
 export function npmCommand(
   env: NodeJS.ProcessEnv = process.env,
@@ -270,6 +272,7 @@ export function npmCommand(
   return null;
 }
 
-/** Shown when npm is needed and not found (in Italian: it reaches the user). */
-export const NPM_MISSING =
-  'npm non trovato: installa Node.js (con npm) da https://nodejs.org, oppure indica il Node da usare con la variabile MONSTERS_NODE_PATH';
+/** Shown when npm is needed and not found (in the app's language: it reaches the user). */
+export function npmMissing(): string {
+  return runtimeStrings().npmMissing;
+}

@@ -239,7 +239,7 @@ describe('tunnel through a real sshd to a real core', { timeout: 60_000 }, () =>
     const t = tunnel(profile({ identityFile: join(dir, 'stranger') }));
     const err = await t.connected().catch((e: unknown) => e);
     expect(err).toMatchObject({ kind: 'auth-failed' });
-    expect((err as Error).message).toMatch(/solo chiavi SSH/);
+    expect((err as Error).message).toMatch(/only uses SSH keys/);
   });
 
   it('says when SSH works but no core answers on the remote port', async (ctx) => {

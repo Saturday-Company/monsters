@@ -1,4 +1,5 @@
 import type { PlanLimitsReading, PlanWindowReading } from '@monsters/shared';
+import { providerTexts } from '../providers.strings.ts';
 
 /*
  * Plan limits as the official programs print them while they work (D-111).
@@ -103,13 +104,10 @@ export function claudeRejection(raw: unknown): { resetsAt: number | null } | nul
   return { resetsAt: epochMs(info['resetsAt']) };
 }
 
-/** "alle 16:00" within the day, "mer 16:00" later: how a reset time reads in a message. */
+/** "at 4:00 PM" within the day, "Wed 4:00 PM" later ("alle 16:00", "mer 16:00"): how a reset time reads in a message. */
 export function resetPhrase(resetsAt: number, now: number): string {
-  const d = new Date(resetsAt);
-  const time = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-  if (resetsAt - now < 20 * 3_600_000) return `alle ${time}`;
-  const day = d.toLocaleDateString('it-IT', { weekday: 'short' }).replace('.', '');
-  return `${day} ${time}`;
+  const t = providerTexts();
+  return resetsAt - now < 20 * 3_600_000 ? t.resetToday(resetsAt) : t.resetLater(resetsAt);
 }
 
 function codexWindow(id: string, raw: unknown, now: number): PlanWindowReading | null {

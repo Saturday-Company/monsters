@@ -6,7 +6,13 @@ import {
   type LogEvent,
   type ReceiptData,
 } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+// The expectations are the Italian texts (the words of the effort levels, the schedule, the instinct):
+// this file runs in Italian, whatever the default language of the tests.
+beforeEach(() => setAppLang('it'));
+afterEach(() => setAppLang('en'));
 import { hasEffect } from '../src/components/log/activity.ts';
 import { buildTerminal } from '../src/components/terminal/entries.ts';
 import { mockReceipt } from '../src/lib/mock/instinct.ts';

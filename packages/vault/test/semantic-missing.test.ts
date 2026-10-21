@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
 import {
   SemanticUnavailableError,
   VaultService,
@@ -59,7 +60,10 @@ describe('transformers.js not installed', () => {
     expect(logged[0]).toBeInstanceOf(SemanticUnavailableError);
     const status = vault.semanticStatus();
     expect(status.state).toBe('unavailable');
-    expect(status.reason).toMatch(/non è disponibile in questa installazione/);
+    expect(status.reason).toMatch(/isn’t available in this installation/);
+    setAppLang('it');
+    expect(vault.semanticStatus().reason).toMatch(/non è disponibile in questa installazione/);
+    setAppLang('en');
     expect(JSON.stringify(status)).not.toMatch(/Cannot find|imported from/);
 
     for (const mode of ['hybrid', 'semantic', 'text'] as const) {

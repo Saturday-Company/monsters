@@ -196,7 +196,7 @@ describe('openTunnel with a fake ssh', () => {
     });
     const err = await tunnel.connected().catch((e: unknown) => e);
     expect(err).toMatchObject({ kind: 'core-outdated', retryable: false });
-    expect((err as Error).message).toMatch(/aggiornalo/);
+    expect((err as Error).message).toMatch(/update it and restart it/);
     expect(fake.tunnels()).toHaveLength(0);
   });
 
@@ -227,7 +227,7 @@ describe('openTunnel with a fake ssh', () => {
     tunnel.onState((s) => states.push(s.status));
     const err = await tunnel.connected().catch((e: unknown) => e);
     expect(err).toMatchObject({ kind: 'core-unverified' });
-    expect((err as Error).message).toMatch(/non dimostra/);
+    expect((err as Error).message).toMatch(/doesn’t prove/);
     expect(states).not.toContain('connected');
     expect(fake.tunnels().length).toBeGreaterThan(0);
   });
@@ -288,7 +288,7 @@ describe('openTunnel with a fake ssh', () => {
     });
     const err = await tunnel.connected().catch((e: unknown) => e);
     expect(err).toMatchObject({ kind: 'auth-failed', retryable: false });
-    expect((err as Error).message).toMatch(/solo chiavi SSH/);
+    expect((err as Error).message).toMatch(/only uses SSH keys/);
     expect((err as { detail: string }).detail).toMatch(/Permission denied/);
     expect(states.map((s) => s.status)).toEqual(['failed']);
     expect(fake.tunnels()).toHaveLength(0);

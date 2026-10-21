@@ -78,7 +78,7 @@ describe('ModelSession time limits (D-064)', () => {
       kind: 'unavailable',
     });
     expect(fallback?.type === 'fallback' && fallback.error).toMatch(
-      /non ha cominciato a rispondere entro/,
+      /didn’t start answering within/,
     );
   });
 
@@ -236,7 +236,7 @@ describe('ModelSession time limits (D-064)', () => {
     const error = seen.find((p) => p.type === 'error')?.error;
     expect(error).toBeInstanceOf(StreamInterruptedError);
     expect((error as StreamInterruptedError).cause).toBeInstanceOf(StreamTimeoutError);
-    expect((error as Error).message).toMatch(/si è fermato a metà risposta/);
+    expect((error as Error).message).toMatch(/stopped halfway through its answer/);
     expect(seen.filter((p) => p.type === 'text-delta').map((p) => p.text)).toEqual(['Ecco ']);
   });
 

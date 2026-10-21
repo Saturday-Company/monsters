@@ -2,9 +2,11 @@ import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
 import {
   TunnelError,
   classifySshFailure,
+  messageFor,
   parseProfile,
   rewriteTunnelHeaders,
   sshFingerprint,
@@ -194,9 +196,17 @@ describe('ssh failures', () => {
     expect(classifySshFailure(stderr)).toBe(kind);
   });
 
-  it('has a clear Italian message and knows what a retry can fix', () => {
+  it('has a clear message in the language of the app and knows what a retry can fix', () => {
     const auth = new TunnelError('auth-failed');
-    expect(auth.message).toMatch(/solo chiavi SSH/);
+    expect(auth.message).toMatch(/only uses SSH keys/);
+    setAppLang('it');
+    try {
+      expect(new TunnelError('auth-failed').message).toMatch(/solo chiavi SSH/);
+      expect(messageFor('host-key-unknown')).toMatch(/^È la prima connessione/);
+    } finally {
+      setAppLang('en');
+    }
+    expect(messageFor('host-key-unknown')).toMatch(/^This is the first connection/);
     expect(auth.retryable).toBe(false);
     expect(new TunnelError('host-key-changed').retryable).toBe(false);
     expect(new TunnelError('connection-lost').retryable).toBe(true);

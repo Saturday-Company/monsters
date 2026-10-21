@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AutomationViewSchema } from './automations.ts';
+import { draftStrings } from './drafts.strings.ts';
 import { PROJECT_DOC_PROPOSAL_FILES } from './events.ts';
 import { ProjectIdSchema } from './ids.ts';
 import { ProjectViewSchema } from './projects.ts';
@@ -131,17 +132,22 @@ export const DraftConfirmResponseSchema = z.object({
 });
 export type DraftConfirmResponse = z.infer<typeof DraftConfirmResponseSchema>;
 
+/** What a card says as the source of a text of third parties whose own name is unknown. */
+export function thirdPartySource(): string {
+  return draftStrings().thirdParty;
+}
+
 /**
  * Where a monster's draft comes from when it is not only the user's request: the third-party
  * text its run read, or the person of a Telegram group who asked for it (D-103, D-107; review of
  * 18/10, M5). Null: the user's own. The card says it, in the app and on Telegram.
  */
 export function draftTaint(d: DraftView): string | null {
-  if (d.kind === 'docs') return d.docs.tainted ? (d.docs.source ?? 'testo di terzi') : null;
+  if (d.kind === 'docs') return d.docs.tainted ? (d.docs.source ?? thirdPartySource()) : null;
   if (d.kind === 'project') return d.projectDraft.plan?.taint?.source ?? null;
   if (d.kind === 'automation') {
     const from = d.automation.objectiveFrom;
-    return from?.tainted ? (from.source ?? 'testo di terzi') : null;
+    return from?.tainted ? (from.source ?? thirdPartySource()) : null;
   }
   if (d.kind === 'memory') return d.memory.tainted ? d.memory.source : null;
   return null;

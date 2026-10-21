@@ -24,6 +24,7 @@ import {
 } from './instruction-files.ts';
 import { atParent, mkdirAt, PathChangedError } from './at-dir.ts';
 import { launchFileReason, packageJsonReason } from './launch-files.ts';
+import { permissionsPlace, terminalName } from './places.ts';
 import { entryPathOf, expandHome, isInside, mayBeInside, realPathOf } from './paths.ts';
 
 /*
@@ -155,7 +156,7 @@ async function guardPath<T>(work: () => Promise<T>): Promise<T> {
 }
 
 function grantHint(folder: string): string {
-  return `${FS_PERMISSION_HINT_PREFIX} "${folder}" to you in Impostazioni → Permessi, or work in a granted folder.`;
+  return `${FS_PERMISSION_HINT_PREFIX} "${folder}" to you in ${permissionsPlace()}, or work in a granted folder.`;
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -224,7 +225,7 @@ export function createFsTools(options: FsToolsOptions): MonstersTool[] {
     if (granted.length === 0) {
       throw denied(
         'No folder of the computer is granted to you.',
-        `${FS_PERMISSION_HINT_PREFIX} a folder to you in Impostazioni → Permessi.`,
+        `${FS_PERMISSION_HINT_PREFIX} a folder to you in ${permissionsPlace()}.`,
         'SETTING_OFF',
       );
     }
@@ -250,7 +251,7 @@ export function createFsTools(options: FsToolsOptions): MonstersTool[] {
     if (access === 'write' && !writable) {
       throw denied(
         `${matching[0]!.shown} is granted to you read only.`,
-        `Ask the user to allow changes in "${matching[0]!.shown}" in Impostazioni → Permessi, or write in another granted folder.`,
+        `Ask the user to allow changes in "${matching[0]!.shown}" in ${permissionsPlace()}, or write in another granted folder.`,
         'SETTING_OFF',
       );
     }
@@ -298,7 +299,7 @@ export function createFsTools(options: FsToolsOptions): MonstersTool[] {
     if (reason) {
       throw denied(
         `${path} is ${reason}: changing it can make the computer run commands, which needs the terminal permission.`,
-        'Ask the user to turn on "Terminale" for you in Impostazioni → Permessi, or to make this change himself.',
+        `Ask the user to turn on "${terminalName()}" for you in ${permissionsPlace()}, or to make this change himself.`,
         'SETTING_OFF',
       );
     }
@@ -672,7 +673,7 @@ export function createFsTools(options: FsToolsOptions): MonstersTool[] {
         if (why) {
           throw denied(
             `${path} would become ${why}: changing it can make the computer run commands, which needs the terminal permission.`,
-            'Write it without changing scripts or hooks, or ask the user to turn on "Terminale" for you in Impostazioni → Permessi.',
+            `Write it without changing scripts or hooks, or ask the user to turn on "${terminalName()}" for you in ${permissionsPlace()}.`,
             'SETTING_OFF',
           );
         }
@@ -774,7 +775,7 @@ export function createFsTools(options: FsToolsOptions): MonstersTool[] {
         if (why) {
           throw denied(
             `${to} would become ${why}: changing it can make the computer run commands, which needs the terminal permission.`,
-            'Ask the user to turn on "Terminale" for you in Impostazioni → Permessi, or to make this change himself.',
+            `Ask the user to turn on "${terminalName()}" for you in ${permissionsPlace()}, or to make this change himself.`,
             'SETTING_OFF',
           );
         }

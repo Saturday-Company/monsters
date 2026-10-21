@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   errorChainText,
   extractTelegramToken,
   netCause,
   netFailureOf,
   netFailureText,
+  setAppLang,
   TELEGRAM_TOKEN_PATTERN,
 } from '../src/index.ts';
 
@@ -22,6 +23,8 @@ function grammyHttp(inner: unknown): Error {
 }
 
 describe('why a request got no answer', () => {
+  afterEach(() => setAppLang('en'));
+
   it('reads the code under grammY, undici and AggregateError', () => {
     const fetchErr = Object.assign(
       new Error(
@@ -92,7 +95,21 @@ describe('why a request got no answer', () => {
     expect(netFailureOf('just a string')).toEqual({ kind: 'unknown' });
   });
 
+  it('says it in short English, with the host and what to try', () => {
+    expect(netFailureText({ kind: 'tls' }, 'api.telegram.org')).toBe(
+      'The connection to api.telegram.org is intercepted by a program on the network (VPN, corporate proxy or antivirus) that Monsters doesn’t trust. If you’re on a VPN or behind a corporate proxy, try without it or ask for api.telegram.org to be allowed.',
+    );
+    expect(netFailureText({ kind: 'dns' }, 'api.telegram.org')).toContain(
+      'can’t find api.telegram.org',
+    );
+    expect(netFailureText({ kind: 'unknown', code: 'EPROTO' }, 'x.org')).toBe(
+      'I can’t reach x.org (EPROTO). Check your connection and try again.',
+    );
+    expect(netCause({ kind: 'timeout' })).toBe('no answer in time');
+  });
+
   it('says it in short Italian, with the host and what to try', () => {
+    setAppLang('it');
     expect(netFailureText({ kind: 'tls' }, 'api.telegram.org')).toBe(
       'La connessione a api.telegram.org è intercettata da un programma della rete (VPN, proxy aziendale o antivirus) che Monsters non riconosce. Se sei in VPN o dietro un proxy aziendale, prova senza o chiedi di consentire api.telegram.org.',
     );

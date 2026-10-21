@@ -1,3 +1,5 @@
+import { netErrorStrings } from './net-errors.strings.ts';
+
 /*
  * Why a request never got an answer, in words the user can act on. The core's networking is
  * Node's, not the browser's: behind a VPN, a corporate proxy or an antivirus that inspects
@@ -116,47 +118,48 @@ export function netFailureOf(err: unknown): NetFailure {
   return code ? { kind: 'unknown', code } : { kind: 'unknown' };
 }
 
-/** The cause alone, to follow "Non riesco a raggiungere X:". */
+/** The cause alone, to follow "I can’t reach X:". */
 export function netCause(f: NetFailure): string {
+  const t = netErrorStrings();
   switch (f.kind) {
     case 'dns':
-      return 'il nome non si risolve (sei offline, o la rete lo blocca)';
+      return t.causeDns;
     case 'refused':
-      return 'la connessione è stata rifiutata o interrotta';
+      return t.causeRefused;
     case 'timeout':
-      return 'nessuna risposta in tempo';
+      return t.causeTimeout;
     case 'tls':
-      return 'la connessione è intercettata da un programma della rete (VPN, proxy aziendale o antivirus) che Monsters non riconosce';
+      return t.causeTls;
     case 'proxy':
-      return 'il proxy della rete non la lascia passare';
+      return t.causeProxy;
     case 'unknown':
-      return f.code ? `errore di rete (${f.code})` : 'errore di rete';
+      return t.causeUnknown(f.code);
   }
 }
 
 /** What to try, for the failures a VPN or a corporate network usually explains. */
 export function netHint(f: NetFailure, host: string): string {
-  return f.kind === 'unknown'
-    ? 'Controlla la connessione e riprova.'
-    : `Se sei in VPN o dietro un proxy aziendale, prova senza o chiedi di consentire ${host}.`;
+  const t = netErrorStrings();
+  return f.kind === 'unknown' ? t.hintUnknown : t.hintVpn(host);
 }
 
 /** One short sentence naming the host, plus what to try. */
 export function netFailureText(f: NetFailure, host: string): string {
+  const t = netErrorStrings();
   const sentence = (() => {
     switch (f.kind) {
       case 'dns':
-        return `Il computer non trova ${host}: sei offline, o la rete blocca il nome.`;
+        return t.dns(host);
       case 'refused':
-        return `La connessione a ${host} è stata rifiutata o interrotta.`;
+        return t.refused(host);
       case 'timeout':
-        return `${host} non ha risposto in tempo.`;
+        return t.timeout(host);
       case 'tls':
-        return `La connessione a ${host} è intercettata da un programma della rete (VPN, proxy aziendale o antivirus) che Monsters non riconosce.`;
+        return t.tls(host);
       case 'proxy':
-        return `Il proxy della rete non lascia passare la connessione a ${host}.`;
+        return t.proxy(host);
       case 'unknown':
-        return `Non riesco a raggiungere ${host}${f.code ? ` (${f.code})` : ''}.`;
+        return t.unknown(host, f.code);
     }
   })();
   return `${sentence} ${netHint(f, host)}`;

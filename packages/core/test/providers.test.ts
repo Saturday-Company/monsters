@@ -193,7 +193,7 @@ describe('providers API', () => {
     const end = await t.runEnded(sent.runId);
     expect(end.data.status).toBe('failed');
     expect(end.data.error).toMatch(
-      /^nessun modello disponibile: openrouter:google\/gemini-2\.5-flash-lite \(google\/gemini-2\.5-flash-lite è un modello a pagamento/,
+      /^no model available: openrouter:google\/gemini-2\.5-flash-lite \(google\/gemini-2\.5-flash-lite is a paid model/,
     );
     const fallback = t
       .events(sent.runId)

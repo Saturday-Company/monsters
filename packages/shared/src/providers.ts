@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PlanLimitsResponseSchema } from './plan-limits.ts';
+import { providerStrings } from './providers.strings.ts';
 
 /*
  * Providers API (M2.2): keys of the paid providers, local servers, model
@@ -72,9 +73,30 @@ export const AUTO_MODELS_PROVIDER = 'claude-agent';
  * 1M window), with one line on what each is. Order: lightest first.
  */
 export const CLAUDE_PLAN_MODELS = [
-  { id: 'haiku', name: 'Haiku', description: 'veloce', context: 1_000_000 },
-  { id: 'sonnet', name: 'Sonnet', description: 'equilibrato', context: 1_000_000 },
-  { id: 'opus', name: 'Opus', description: 'il più capace', context: 1_000_000 },
+  {
+    id: 'haiku',
+    name: 'Haiku',
+    get description() {
+      return providerStrings().claudeModels.haiku;
+    },
+    context: 1_000_000,
+  },
+  {
+    id: 'sonnet',
+    name: 'Sonnet',
+    get description() {
+      return providerStrings().claudeModels.sonnet;
+    },
+    context: 1_000_000,
+  },
+  {
+    id: 'opus',
+    name: 'Opus',
+    get description() {
+      return providerStrings().claudeModels.opus;
+    },
+    context: 1_000_000,
+  },
 ] as const;
 
 /** The automatic chain of a base level, on the Claude plan. */
@@ -104,13 +126,23 @@ export function autoChain(base: AutoBase): ModelRefView[] {
 export const EffortSchema = z.enum(['low', 'medium', 'high', 'xhigh', 'max']);
 export type Effort = z.infer<typeof EffortSchema>;
 
-/** The words of an effort level, as the receipt says it ("impegno Alto"). */
+/** The words of an effort level, as the receipt says it ("effort High", "impegno Alto"): they follow the language when read. */
 export const EFFORT_WORD: Record<Effort, string> = {
-  low: 'Basso',
-  medium: 'Medio',
-  high: 'Alto',
-  xhigh: 'Molto alto',
-  max: 'Massimo',
+  get low() {
+    return providerStrings().effort.low;
+  },
+  get medium() {
+    return providerStrings().effort.medium;
+  },
+  get high() {
+    return providerStrings().effort.high;
+  },
+  get xhigh() {
+    return providerStrings().effort.xhigh;
+  },
+  get max() {
+    return providerStrings().effort.max;
+  },
 };
 
 /**

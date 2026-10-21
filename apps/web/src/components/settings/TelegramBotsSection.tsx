@@ -2,7 +2,7 @@ import { Plus, Robot, UserPlus } from '@phosphor-icons/react';
 import {
   extractTelegramToken,
   TELEGRAM_BOT_DAILY_MAX,
-  TELEGRAM_TOKEN_SHAPE_MESSAGE,
+  telegramTokenShapeMessage,
   type TelegramBotChat,
   type TelegramBotPerson,
   type TelegramBotView,
@@ -227,7 +227,7 @@ function AddBotForm({
     setError(null);
     const pasted = extractTelegramToken(token);
     if (!pasted) {
-      setError(TELEGRAM_TOKEN_SHAPE_MESSAGE);
+      setError(telegramTokenShapeMessage());
       return;
     }
     if (!agent) {
@@ -534,7 +534,7 @@ function ChangeToken({
     e.preventDefault();
     const token = extractTelegramToken(value);
     if (!token) {
-      setError(TELEGRAM_TOKEN_SHAPE_MESSAGE);
+      setError(telegramTokenShapeMessage());
       return;
     }
     setError(null);
