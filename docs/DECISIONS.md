@@ -4842,3 +4842,45 @@ Test nuovo in `scripts/build-core.test.ts`: una sonda costruita con le opzioni d
 un redirect e poi viene fermata a metà richiesta (`ABORTED`); con il `fetch` globale fallisce.
 **Lezione:** un oggetto di undici (dispatcher, `Agent`) va usato con il `fetch` dello stesso pacchetto; mescolarlo con
 quello di Node lega il codice alla versione di Node.
+
+### D-152 · CI completa su GitHub Actions; firma e pubblicazione restano locali
+**Stato:** fatta · 21/10/2026
+**Contesto:** con il repo pubblico i runner di GitHub (Ubuntu, Windows, macOS) sono gratuiti. La CI completa sui tre
+sistemi girava solo in locale (`ci:local`, la VM Windows, il Mac via SSH, D-147): una release voleva il Mac acceso e la
+VM libera, e GitHub vedeva la verifica solo come commit status pubblicati a mano.
+**Scelte:**
+- `.github/workflows/ci.yml` ha due gruppi di job. Sulle PR quelli leggeri di prima (`linux`, `unit (windows-latest)`,
+  `unit (macos-latest)`: i nomi richiesti dal ruleset non cambiano). A ogni push su `main` e a mano
+  (`workflow_dispatch`) la CI completa, `full (linux)`, `full (windows)`, `full (macos)`, che è
+  `node scripts/ci-local.ts --github`: niente logica duplicata nel YAML. `--github` prova il checkout del runner così
+  com'è (niente worktree), fa girare gli e2e e il passo `package` su tutti e tre i sistemi, mette l'uscita di ogni
+  passo in un gruppo del log e copia i pacchetti in `MONSTERS_CI_ARTIFACTS`. Su Windows il pacchetto è l'installer NSIS
+  **non firmato** costruito e provato sul runner stesso (`install-test --win`, lo stesso `test-windows.ps1` della VM
+  senza certificato); su macOS il dmg arm64 ad-hoc, mai notarizzato; su Linux AppImage e deb (chroot con il sudo senza
+  password del runner) e l'e2e degli aggiornamenti. `ci-local.ts` guadagna anche `build-core` + `smoke-bundle` in
+  tutte le modalità piene, e il passo `test` su Linux con `TZ=Pacific/Kiritimati` come in D-148.
+- Il cancello (`scripts/release-gate.ts`) accetta, sistema per sistema, il verde di GitHub **oppure** quello locale
+  (predefinito `auto`; `--source` o `MONSTERS_CI_GATE` per tenerne uno). Per GitHub legge i check run del commit e
+  conta solo `full (<sistema>)` di GitHub Actions concluso `success` in una run di `.github/workflows/ci.yml` avviata
+  da un push o a mano in questo repo: mai una run di PR, perché la PR di un fork gira il workflow del fork e può
+  chiamare un job come vuole. `release:ci` segue o avvia la run di GitHub per il commit (`--local` fa la CI locale di
+  prima), poi lancia la sonda degli harness in locale. `ci:status` non pubblica stati locali se GitHub mostra già i tre
+  job verdi.
+- I pacchetti restano 3 giorni come artifact (build di prova non firmate, che `publish-update.ts` rifiuta), i risultati
+  14 giorni.
+- **Quello che i runner hanno trovato, corretto per la famiglia:** gli e2e contro un core vero ricevono la cartella
+  temporanea con la grafia reale (`realpathSync.native`: su Windows `RUNNER~1`, su macOS `/private/var`, la famiglia
+  (1) di D-148), e `start-core.ts` accetta le due grafie; ogni controllo «niente scorrimento laterale» degli e2e passa da
+  `expectNoSideScroll` (`e2e/fixtures.ts`), che aspetta che il layout si assesti invece di leggere `scrollWidth` una
+  volta sola subito dopo un ridimensionamento (sul runner macOS leggeva 728 px a 390); il chroot della prova del deb
+  parte con `env -i` (l'`XDG_CONFIG_HOME` del runner arrivava all'utente di prova ed Electron moriva con «Failed to
+  get userData path»); `package.ts` lancia `pnpm` con la shell su Windows (è uno shim `.cmd`); lo smoke del bundle su
+  Windows non pretende lo stop con SIGTERM, che lì non esiste; il lint ha 4 GB di heap (il runner macOS da 7 GB andava
+  in abort, come già nella CI cloud).
+**Motivazione:** la prova costosa gira su macchine pulite e uguali per tutti, a ogni push su `main`, senza dipendere
+dal Mac acceso o dalla VM; chi contribuisce la vede sul commit. Firma e pubblicazione restano in locale perché per ora
+su GitHub non mettiamo **nessun segreto**: né certificati, né la chiave del feed, né token di Cloudflare. Un workflow
+senza segreti non ha niente da far uscire, nemmeno se una PR o un'azione di terzi andasse storta.
+**Conseguenza:** una release non richiede più la VM e il Mac: basta che `full (…)` sia verde sul commit. La CI locale
+resta il ripiego (GitHub giù, una prova su un sistema vero) e la sonda degli harness gira solo in locale, perché vuole
+il `claude` installato.

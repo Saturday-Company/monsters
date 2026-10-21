@@ -173,7 +173,7 @@ describe('loadResults', () => {
 });
 
 describe('publish-update.ts and the gate', () => {
-  it('refuses to publish on the real feed when the gate is closed (before any key or network)', () => {
+  it('refuses to publish on the real feed when the gate is closed (before any key)', () => {
     const empty = mkdtempSync(join(tmpdir(), 'release-gate-'));
     try {
       const script = fileURLToPath(
@@ -181,7 +181,8 @@ describe('publish-update.ts and the gate', () => {
       );
       const r = spawnSync(process.execPath, [script], {
         encoding: 'utf8',
-        env: { ...process.env, MONSTERS_CI_RESULTS: empty },
+        // Local source only: no gh call, whatever GitHub says about HEAD.
+        env: { ...process.env, MONSTERS_CI_RESULTS: empty, MONSTERS_CI_GATE: 'local' },
       });
       expect(r.status).toBe(1);
       expect(r.stderr).toContain('Release gate for');

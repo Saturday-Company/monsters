@@ -1,5 +1,12 @@
 import type { Page } from '@playwright/test';
-import { expect, holdMock, releaseMock, stepMockUntil, test } from './fixtures.ts';
+import {
+  expect,
+  expectNoSideScroll,
+  holdMock,
+  releaseMock,
+  stepMockUntil,
+  test,
+} from './fixtures.ts';
 
 /*
  * The Automazioni section (plan of 17/10 §3 B3, D-094) on the mock core: the
@@ -254,8 +261,7 @@ test('Automazioni on a phone: each level full screen, the rail goes one level up
   await page.goto('/?mock=demo');
   await page.getByTestId('sidebar').getByRole('link', { name: 'Automazioni' }).click();
   await expect(page.getByTestId('automation-row')).toBeVisible();
-  const width = await page.evaluate(() => document.documentElement.scrollWidth);
-  expect(width).toBeLessThanOrEqual(390);
+  await expectNoSideScroll(page, 390);
   await page.getByTestId('automation-row').getByRole('link').click();
   const back = page.getByTestId('toolbar-back');
   await expect(back).toHaveText('Automazioni');
@@ -279,8 +285,7 @@ for (const scheme of ['dark', 'light'] as const) {
     await shot(page, `automazioni-dettaglio-${scheme === 'dark' ? 'scuro' : 'chiaro'}`);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByTestId('automation-detail')).toBeVisible();
-    const width = await page.evaluate(() => document.documentElement.scrollWidth);
-    expect(width).toBeLessThanOrEqual(390);
+    await expectNoSideScroll(page, 390);
     await shot(page, `automazioni-dettaglio-telefono-${scheme === 'dark' ? 'scuro' : 'chiaro'}`);
   });
 }

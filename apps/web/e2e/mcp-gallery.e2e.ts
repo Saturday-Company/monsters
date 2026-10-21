@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /*
  * Settings → Collegamenti → App e servizi (D-063), on the mock core: the gallery
@@ -194,10 +194,7 @@ test('gallery: on a phone, one column and the panel fits', async ({ page }) => {
   ]);
   expect(a!.x).toBe(b!.x);
   expect(b!.y).toBeGreaterThan(a!.y);
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(overflow).toBeLessThanOrEqual(0);
+  await expectNoSideScroll(page);
   await gallery.getByTestId('gallery-linear').click();
   const panel = page.getByTestId('gallery-panel-linear');
   const box = await panel.boundingBox();

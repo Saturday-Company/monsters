@@ -1,8 +1,15 @@
 name: CI
 
-# On every push to main and every pull request (D-143). Linux runs everything, Windows and macOS
-# the typecheck and the unit tests. The same steps run locally with `pnpm ci:local`
-# (scripts/ci-local.ts), see docs/ci.md.
+# Two sets of jobs (D-143, D-152), the same steps as `pnpm ci:local` (scripts/ci-local.ts, see
+# docs/ci.md):
+#
+# - pull requests: the light jobs, fast and required by the ruleset (`linux`, `unit (…)`): Linux
+#   runs everything but the packages, Windows and macOS the typecheck and the unit tests;
+# - every push to main, and by hand (workflow_dispatch): the full CI on the three systems,
+#   `full (linux|windows|macos)`, which is `ci-local.ts --github`: install, typecheck, lint,
+#   unit, e2e, packaged core, UNSIGNED packages installed from scratch and uninstalled. Its green
+#   on a commit opens the release gate (scripts/release-gate.ts). Signing and publishing stay
+#   on the maintainers' machines: this workflow uses no secret at all.
 on:
   push:
     branches: [main]
@@ -25,6 +32,7 @@ env:
 jobs:
   linux:
     name: linux
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -63,6 +71,7 @@ jobs:
 
   unit:
     name: unit (${{ matrix.os }})
+    if: github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:
@@ -87,3 +96,89 @@ jobs:
       # Windows runners are several times slower on tests that start a real core, git or child
       # processes: a longer per-test limit there, the same 5 s elsewhere.
       - run: pnpm test ${{ runner.os == 'Windows' && '--testTimeout=30000 --hookTimeout=30000' || '' }}
+
+  # The full CI (D-152). The job names are what scripts/release-gate.ts looks for in the check
+  # runs of a commit: keep `full (linux)`, `full (windows)` and `full (macos)` in sync with it.
+  full:
+    name: full (${{ matrix.system }})
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: linux
+            os: ubuntu-24.04
+          - system: windows
+            os: windows-latest
+          # arm64: the dmg tried is the arm64 one, as on the maintainers' Mac.
+          - system: macos
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      # Never a signature, never a notarization: the runners hold no signing material.
+      MONSTERS_WIN_SIGN: 'off'
+      MONSTERS_MAC_NOTARIZE: '0'
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # Electron and electron-builder downloads, Playwright's Chromium and (Linux) the Ubuntu
+      # base image of the deb test: all keyed on the lockfile, which pins their versions.
+      - name: Cache Electron, electron-builder, Playwright
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/.cache/ms-playwright
+            ~/.cache/monsters-test
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/Library/Caches/ms-playwright
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+            ~/AppData/Local/ms-playwright
+          key: tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: tools-${{ runner.os }}-${{ runner.arch }}-
+
+      # Xvfb for the windows of the packaged app (test-session.ts), FUSE 2 for the AppImage.
+      - name: System packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends xvfb libfuse2t64
+
+      # Results and packages outside the checkout: the lint and format steps see only the repo.
+      - name: Full CI (ci-local.ts --github)
+        run: node scripts/ci-local.ts --github
+        env:
+          MONSTERS_CI_RESULTS: ${{ runner.temp }}/ci-results
+          MONSTERS_CI_ARTIFACTS: ${{ runner.temp }}/ci-packages
+
+      - name: Results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-results-${{ matrix.system }}
+          path: ${{ runner.temp }}/ci-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      # Test builds (a feed nothing answers on, never publishable) and unsigned.
+      - name: Packages
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages-${{ matrix.system }}
+          path: ${{ runner.temp }}/ci-packages/
+          retention-days: 3
+          compression-level: 0
+          if-no-files-found: ignore

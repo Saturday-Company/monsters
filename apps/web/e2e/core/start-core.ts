@@ -7,7 +7,7 @@
  *
  *   MONSTERS_E2E=1 MONSTERS_HOME=/tmp/… MONSTERS_E2E_PORT=4797 node e2e/core/start-core.ts
  */
-import { rmSync } from 'node:fs';
+import { realpathSync, rmSync } from 'node:fs';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -28,7 +28,9 @@ const env = process.env;
 // Test cores never touch the system keychain (D-042).
 env['MONSTERS_SECRETS'] ??= 'file';
 const home = env['MONSTERS_HOME'] ? resolve(env['MONSTERS_HOME']) : '';
-if (env['MONSTERS_E2E'] !== '1' || !home || !home.startsWith(resolve(tmpdir()) + sep)) {
+// Under the temp folder in either spelling (the configs pass its real path, D-148).
+const temps = [resolve(tmpdir()), realpathSync.native(tmpdir())].map((t) => t + sep);
+if (env['MONSTERS_E2E'] !== '1' || !home || !temps.some((t) => home.startsWith(t))) {
   console.error(
     'start-core.ts is for the e2e tests: set MONSTERS_E2E=1 and a temporary MONSTERS_HOME',
   );

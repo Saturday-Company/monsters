@@ -4,21 +4,32 @@
  * own node_modules never affect the result.
  *
  *   pnpm ci:local [--quick] [--no-package] [--keep] [--commit <rev>]
+ *   node scripts/ci-local.ts --github     (the `full` jobs of .github/workflows/ci.yml, D-152)
  *
- *   --quick          skip the Playwright (e2e) steps and the package and update-e2e steps
+ *   --quick          skip the Playwright (e2e) steps, the bundle smoke test and the package and
+ *                    update-e2e steps
  *   --no-package     skip the package and update-e2e steps only
  *   --keep           keep the checkout folder afterwards (its path is printed)
  *   --commit <rev>   commit to test (default HEAD); uncommitted changes are never tested
+ *   --github         on a GitHub-hosted runner: runs in the checkout itself (the runner's clean
+ *                    checkout of the commit; no worktree), the e2e and the package step on every
+ *                    system (Windows: the unsigned NSIS installer built and tried on the runner
+ *                    itself), each step's output in a collapsible group of the job's log, and
+ *                    the packages copied to MONSTERS_CI_ARTIFACTS when set. Results in
+ *                    MONSTERS_CI_RESULTS (default `ci-results/` of the checkout).
  *
  * The same script is meant to run on Linux, macOS and Windows (`ci:windows`, `ci:mac`): steps
- * follow ci.yml per OS (longer test timeouts on Windows, e2e on Linux only).
+ * follow ci.yml per OS (longer test timeouts on Windows; locally e2e on Linux only, with
+ * --github on the three systems).
  *
- * Last steps, not in ci.yml: `package` (M3.5), `pnpm desktop:install-test`: builds the desktop
+ * Last steps (in ci.yml only in the `full` jobs): `build-core` + `smoke-bundle` (the packaged
+ * core under Node and under Electron as Node), `package` (M3.5), `pnpm desktop:install-test`: builds the desktop
  * packages of the commit (test builds with a feed: never publishable), installs them from
  * scratch, starts them up to the registration and uninstalls them (Linux: AppImage + deb in a
  * clean Ubuntu chroot, needs `sudo -n`; macOS: dmg). On Windows it is skipped here:
  * ci-windows.sh builds the installer on Linux and tries it in the VM, then fills in this step of
- * the Windows result. Then, on Linux, `update-e2e` (review of wave 5, item 5): `pnpm
+ * the Windows result (with --github the runner builds the unsigned installer and tries it itself,
+ * `install-test --win`). Then, on Linux, `update-e2e` (review of wave 5, item 5): `pnpm
  * desktop:update-e2e --scenario ok,badsig`, the AppImage updated 0.0.1 → 0.0.2 from a local feed
  * signed with a key of the run, and refused when the signature is by another key.
  *
@@ -53,7 +64,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 /** One step of a run, in ci.yml order. */
 export interface CiStep {
   /** Stable id: install, typecheck, check-public, lint, format, test, build-web, playwright-browsers,
-   *  e2e-mock, e2e-core, e2e-onboarding, package, update-e2e. */
+   *  e2e-mock, e2e-core, e2e-onboarding, build-core, smoke-bundle, package, update-e2e. */
   id: string;
   /** Command line as run in the checkout. */
   command: string;
@@ -79,6 +90,9 @@ export interface CiResult {
   /** True if HEAD was tested and its checkout had uncommitted changes (NOT tested). */
   dirty: boolean;
   mode: 'full' | 'quick';
+  /** Where it ran: `local` (ci:local, ci:mac, ci:windows) or `github` (--github on a hosted
+   *  runner). Absent in results written before D-152: local. */
+  runner?: 'local' | 'github';
   status: 'running' | 'passed' | 'failed' | 'interrupted';
   failedStep: string | null;
   startedAt: string;
@@ -92,7 +106,7 @@ export interface CiResult {
   steps: CiStep[];
 }
 
-const USAGE = 'usage: pnpm ci:local [--quick] [--no-package] [--keep] [--commit <rev>]';
+const USAGE = 'usage: pnpm ci:local [--quick] [--no-package] [--keep] [--commit <rev>] [--github]';
 
 // --- arguments -------------------------------------------------------------------------------
 
@@ -100,12 +114,14 @@ let quick = false;
 let noPackage = false;
 let keep = false;
 let rev = 'HEAD';
+let github = false;
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) {
   const arg = argv[i];
   if (arg === '--quick') quick = true;
   else if (arg === '--no-package') noPackage = true;
   else if (arg === '--keep') keep = true;
+  else if (arg === '--github') github = true;
   else if (arg === '--commit' && argv[i + 1]) rev = argv[++i] ?? 'HEAD';
   else if (arg === '--help' || arg === '-h') {
     console.warn(USAGE);
@@ -129,6 +145,13 @@ if (Number(process.versions.node.split('.')[0]) < 24) {
   console.error(`ci:local: Node 24 required, found ${process.version} (use the pnpm wrapper)`);
   process.exit(2);
 }
+
+if (github && rev !== 'HEAD') {
+  console.error('ci:local: --github tests the checkout it runs in, without --commit');
+  process.exit(2);
+}
+// Folder for the packages built by the package step (--github: uploaded as workflow artifacts).
+const artifactsDir = github ? process.env['MONSTERS_CI_ARTIFACTS'] : undefined;
 
 // Hooks run with GIT_DIR and friends set: they must not leak into the checkout or the tests.
 const cleanEnv: NodeJS.ProcessEnv = {};
@@ -208,7 +231,8 @@ if (rev === 'HEAD') {
 const dirty = rev === 'HEAD' && git(['status', '--porcelain']) !== '';
 
 const resultsDir = resolve(
-  process.env['MONSTERS_CI_RESULTS'] ?? join(dirname(commonDir), 'ci-results'),
+  process.env['MONSTERS_CI_RESULTS'] ??
+    (github ? join(sourceRoot, 'ci-results') : join(dirname(commonDir), 'ci-results')),
 );
 const workRoot = resolve(
   process.env['MONSTERS_CI_WORKDIR'] ??
@@ -218,7 +242,8 @@ const workRoot = resolve(
 );
 const started = new Date();
 const base = `${stamp(started)}-${shortCommit}-${platform}`;
-const checkout = join(workRoot, base);
+// --github: the runner's checkout is already clean and of the commit; it is the one tested.
+const checkout = github ? sourceRoot : join(workRoot, base);
 mkdirSync(resultsDir, { recursive: true });
 mkdirSync(workRoot, { recursive: true });
 const resultPath = join(resultsDir, `${base}.json`);
@@ -247,8 +272,10 @@ try {
 // --- steps (keep in sync with .github/workflows/ci.yml) --------------------------------------
 
 const web = ['--filter', '@monsters/web', 'exec', 'playwright'];
-const e2e = platform === 'linux' && !quick;
-const e2eNote = quick ? '--quick' : 'e2e runs on Linux only (as in ci.yml)';
+const e2e = (platform === 'linux' || github) && !quick;
+const e2eNote = quick ? '--quick' : 'locally e2e runs on Linux only (with --github everywhere)';
+const pkg = !quick && !noPackage && (platform !== 'windows' || github);
+const pkgNote = quick ? '--quick' : '--no-package';
 
 interface StepDef {
   id: string;
@@ -258,6 +285,8 @@ interface StepDef {
   note?: string;
   /** The onboarding suite uses fixed ports (4791, 5181): one run at a time on this machine. */
   fixedPorts?: number[];
+  /** Extra environment of this step only. */
+  env?: Record<string, string>;
 }
 
 const stepDefs: StepDef[] = [
@@ -265,17 +294,37 @@ const stepDefs: StepDef[] = [
   { id: 'typecheck', args: ['typecheck'], run: true },
   // The public-repo guard (D-143) on its own, so a red says why; `pnpm lint` runs it too.
   { id: 'check-public', args: ['check:public'], run: true },
-  { id: 'lint', args: ['lint'], run: true },
+  // The type-aware lint of the whole repo needs more than Node's default heap on a 7 GB runner
+  // (the macOS one aborted at 1m30s); ci-cloud.sh passes the same limit.
+  {
+    id: 'lint',
+    args: ['lint'],
+    run: true,
+    env: { NODE_OPTIONS: '--max-old-space-size=4096' },
+  },
   { id: 'format', args: ['format:check'], run: true },
   {
     id: 'test',
     args: isWindows ? ['test', '--testTimeout=30000', '--hookTimeout=30000'] : ['test'],
     run: true,
+    // A time zone far from UTC (the other runners) and from the maintainers' (Europe/Rome): a
+    // test that reads the local clock without fixing its zone fails here first (D-148).
+    ...(platform === 'linux' ? { env: { TZ: 'Pacific/Kiritimati' } } : {}),
   },
   { id: 'build-web', args: ['--filter', '@monsters/web', 'build'], run: true },
-  // ci.yml installs with --with-deps (needs root); here the browsers already installed in
-  // the shared Playwright cache are reused, and only a missing Chromium is downloaded.
-  { id: 'playwright-browsers', args: [...web, 'install', 'chromium'], run: e2e },
+  // Locally the browsers already installed in the shared Playwright cache are reused, and only a
+  // missing Chromium is downloaded; a Linux runner also needs Chromium's system libraries
+  // (--with-deps, through its passwordless sudo).
+  {
+    id: 'playwright-browsers',
+    args: [
+      ...web,
+      'install',
+      ...(github && platform === 'linux' ? ['--with-deps'] : []),
+      'chromium',
+    ],
+    run: e2e,
+  },
   { id: 'e2e-mock', args: [...web, 'test'], run: e2e },
   { id: 'e2e-core', args: [...web, 'test', '-c', 'playwright.core.config.ts'], run: e2e },
   {
@@ -284,23 +333,37 @@ const stepDefs: StepDef[] = [
     run: e2e,
     fixedPorts: [4791, 5181],
   },
+  // The packaged core (M3.0): the bundle under Node 24 and under Electron as Node (Node only
+  // where Electron's binary is not installed: the Windows VM and the cloud CI skip it).
+  { id: 'build-core', args: ['build:core'], run: !quick, note: '--quick' },
+  {
+    id: 'smoke-bundle',
+    args: [
+      'smoke:bundle',
+      '--no-build',
+      ...(process.env['ELECTRON_SKIP_BINARY_DOWNLOAD'] === '1' ? ['--runtime', 'node'] : []),
+    ],
+    run: !quick,
+    note: '--quick',
+  },
   {
     id: 'package',
-    args: ['desktop:install-test', platform === 'macos' ? '--mac' : '--linux'],
-    run: !quick && !noPackage && platform !== 'windows',
+    args: [
+      'desktop:install-test',
+      platform === 'macos' ? '--mac' : platform === 'windows' ? '--win' : '--linux',
+    ],
+    run: pkg,
     note:
-      platform === 'windows'
+      platform === 'windows' && !github && !quick && !noPackage
         ? 'built on Linux and tried in the VM by ci-windows.sh'
-        : quick
-          ? '--quick'
-          : '--no-package',
+        : pkgNote,
   },
   {
     // The only end-to-end test of the feed's signature (S-A4): a key of the run, removed after.
     id: 'update-e2e',
     args: ['desktop:update-e2e', '--scenario', 'ok,badsig'],
-    run: !quick && !noPackage && platform === 'linux',
-    note: platform !== 'linux' ? 'AppImage: Linux only' : quick ? '--quick' : '--no-package',
+    run: pkg && platform === 'linux',
+    note: platform !== 'linux' ? 'AppImage: Linux only' : pkgNote,
   },
 ];
 
@@ -314,6 +377,7 @@ const result: CiResult = {
   ref,
   dirty,
   mode: quick ? 'quick' : 'full',
+  runner: github ? 'github' : 'local',
   status: 'running',
   failedStep: null,
   startedAt: started.toISOString(),
@@ -360,7 +424,7 @@ function cleanup(): void {
   if (cleaned) return;
   cleaned = true;
   releaseLock();
-  if (keep || !existsSync(checkout)) return;
+  if (github || keep || !existsSync(checkout)) return;
   try {
     git(['worktree', 'remove', '--force', checkout], sourceRoot);
   } catch {
@@ -453,6 +517,8 @@ function runStep(args: string[], env: NodeJS.ProcessEnv, tail: string[]): Promis
     let partial = '';
     const collect = (chunk: Buffer): void => {
       log.write(chunk);
+      // On a runner the job's log is where a red is read: the step's output goes there too.
+      if (github) process.stdout.write(chunk);
       const lines = (partial + chunk.toString('utf8')).split('\n');
       partial = lines.pop() ?? '';
       tail.push(...lines);
@@ -480,12 +546,14 @@ async function main(): Promise<void> {
   if (dirty) out('note: uncommitted changes in this checkout are not tested');
 
   log.write(`# ci:local ${platform} ${commit} ${result.mode}\n# checkout ${checkout}\n`);
-  try {
-    git(['worktree', 'add', '--detach', checkout, commit], sourceRoot);
-  } catch (error) {
-    console.error(`ci:local: cannot create the checkout: ${String(error)}`);
-    result.failedStep = 'checkout';
-    finish('failed');
+  if (!github) {
+    try {
+      git(['worktree', 'add', '--detach', checkout, commit], sourceRoot);
+    } catch (error) {
+      console.error(`ci:local: cannot create the checkout: ${String(error)}`);
+      result.failedStep = 'checkout';
+      finish('failed');
+    }
   }
 
   // Same variables as the CI runner (GitHub sets CI=true), free ports for the e2e servers.
@@ -496,6 +564,7 @@ async function main(): Promise<void> {
     MONSTERS_SECRETS: 'file',
     E2E_PORT: String(await freePort()),
     MONSTERS_E2E_PORT: String(await freePort()),
+    ...(artifactsDir ? { MONSTERS_CI_ARTIFACTS: resolve(artifactsDir) } : {}),
   };
   log.write(`# E2E_PORT=${env['E2E_PORT']} MONSTERS_E2E_PORT=${env['MONSTERS_E2E_PORT']}\n`);
 
@@ -510,13 +579,15 @@ async function main(): Promise<void> {
     let code: number;
     try {
       if (def.fixedPorts) await acquireLock(def.id, def.fixedPorts);
-      code = await runStep(def.args, env, tail);
+      if (github) out(`::group::${def.id}: ${step.command}`);
+      code = await runStep(def.args, def.env ? { ...env, ...def.env } : env, tail);
     } catch (error) {
       tail.push(String(error));
       log.write(`${String(error)}\n`);
       code = 2;
     } finally {
       if (def.fixedPorts) releaseLock();
+      if (github) out('::endgroup::');
     }
     step.durationMs = Date.now() - t0;
     step.exitCode = code;
@@ -530,7 +601,7 @@ async function main(): Promise<void> {
     );
     if (code !== 0) {
       result.failedStep = def.id;
-      out(tail.slice(-40).join('\n'));
+      if (!github) out(tail.slice(-40).join('\n'));
       out(`full log: ${logPath}`);
       finish('failed');
     }

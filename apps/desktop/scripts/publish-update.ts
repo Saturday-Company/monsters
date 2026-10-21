@@ -21,10 +21,12 @@
  *                     they cannot update on someone else's computer
  *   --force           publish again a version equal to the one on the feed (never a lower one)
  *   --dry-run         check and print the plan, upload nothing
- *   --skip-ci-gate    publish although the release gate (D-147, scripts/release-gate.ts) is closed.
- *                     Without a full local CI of HEAD on linux, windows and macos the script refuses
- *                     (the real feed and its GitHub Release); this flag overrides it with a loud
- *                     warning. Test prefixes (`desktop/e2e-<run>`) are not gated.
+ *   --skip-ci-gate    publish although the release gate (D-147, D-152, scripts/release-gate.ts) is
+ *                     closed. Without a full CI of HEAD on linux, windows and macos (the
+ *                     `full (…)` jobs green on GitHub Actions, or the local results) the script
+ *                     refuses (the real feed and its GitHub Release); this flag overrides it with
+ *                     a loud warning. Test prefixes (`desktop/e2e-<run>`) are not gated.
+ *                     MONSTERS_CI_GATE=github|local keeps one source of the gate.
  *
  * What it checks before uploading: every channel file (`alpha*.yml`) lists files that exist in the
  * folder with the size and sha512 it says (they are what electron-updater verifies the download
@@ -68,12 +70,7 @@ import {
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { parse as parseYaml } from 'yaml';
-import {
-  checkReleaseGate,
-  gateDecision,
-  resolveCommit,
-  resultsDir,
-} from '../../../scripts/release-gate.ts';
+import { checkGate, gateDecision, resolveCommit } from '../../../scripts/release-gate.ts';
 import {
   keyId,
   parseChannel,
@@ -779,11 +776,12 @@ async function main(): Promise<void> {
     throw new Error(`--prefix ${values.prefix}: lowercase folder names only`);
   }
   const log = (line: string) => process.stderr.write(`publish: ${line}\n`);
-  // The release gate (D-147): the real feed and its GitHub Release go out only for a commit whose
-  // full local CI passed on all three systems. Test prefixes are not releases.
+  // The release gate (D-147, D-152): the real feed and its GitHub Release go out only for a commit
+  // whose full CI passed on all three systems (GitHub Actions or local). Test prefixes are not
+  // releases.
   if (values.prefix === 'desktop') {
     const decision = gateDecision({
-      verdict: checkReleaseGate(resolveCommit('HEAD'), resultsDir()),
+      verdict: checkGate(resolveCommit('HEAD')),
       skip: values['skip-ci-gate'],
       dryRun: values['dry-run'],
     });

@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /* Settings in tabs: links to one tab (old names too), keyboard, screen-reader wiring, phones. */
 
@@ -166,10 +166,7 @@ test.describe('narrow screen', () => {
       await expect(page.getByRole('tab', { name })).toBeInViewport({ ratio: 1 });
     }
     // No sideways scroll of the page itself.
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    expect(overflow).toBeLessThanOrEqual(0);
+    await expectNoSideScroll(page);
     await page.getByRole('tab', { name: 'Collegamenti' }).click();
     await expect(page.getByRole('heading', { name: 'Telegram' })).toBeVisible();
   });

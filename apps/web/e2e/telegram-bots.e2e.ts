@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { expect, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /*
  * Bots dedicated to one monster (D-107) in Settings → Collegamenti → Telegram,
@@ -35,8 +35,7 @@ async function shot(page: Page, name: string, target?: Locator) {
 }
 
 async function noSideScroll(page: Page, width: number) {
-  const scroll = await page.evaluate(() => document.documentElement.scrollWidth);
-  expect(scroll).toBeLessThanOrEqual(width);
+  await expectNoSideScroll(page, width);
 }
 
 async function openBots(page: Page) {

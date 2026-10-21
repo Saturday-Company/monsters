@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
@@ -11,7 +11,12 @@ import { defineConfig, devices } from '@playwright/test';
  */
 
 // Workers load this file again: they inherit the folder chosen by the runner.
-process.env['MONSTERS_E2E_HOME'] ??= join(mkdtempSync(join(tmpdir(), 'monsters-e2e-')), 'home');
+// The real spelling of the folder (D-148): the core shows the paths it resolves, and the temp
+// folder of a Windows runner carries the 8.3 short name (RUNNER~1); on macOS /var is /private/var.
+process.env['MONSTERS_E2E_HOME'] ??= join(
+  realpathSync.native(mkdtempSync(join(tmpdir(), 'monsters-e2e-'))),
+  'home',
+);
 process.env['MONSTERS_E2E_PORT'] ??= '4797';
 const HOME = process.env['MONSTERS_E2E_HOME'];
 const PORT = Number(process.env['MONSTERS_E2E_PORT']);

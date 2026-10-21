@@ -1,6 +1,6 @@
 import { crc32, deflateSync } from 'node:zlib';
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /*
  * Files in the chat and the File section (D-075), on the mock core: the clip,
@@ -270,8 +270,7 @@ test.describe('phone', () => {
   test('File and the composer fit a phone', async ({ page }) => {
     await page.goto('/?mock=demo#/file');
     await expect(page.getByTestId('file-tile')).toHaveCount(9);
-    const width = await page.evaluate(() => document.documentElement.scrollWidth);
-    expect(width).toBeLessThanOrEqual(390);
+    await expectNoSideScroll(page, 390);
     await shot(page, 'file-telefono');
     await page.goto('/?mock=demo#/?chat=dione');
     await page.getByTestId('composer-file-input').setInputFiles([
@@ -282,9 +281,7 @@ test.describe('phone', () => {
       },
     ]);
     await expect(chips(page).first()).toHaveAttribute('data-state', 'ready');
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-      390,
-    );
+    await expectNoSideScroll(page, 390);
     await shot(page, 'composer-telefono');
   });
 });

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /*
  * Utilizzo del piano (D-111) on the mock core: the block under the Claude and
@@ -144,10 +144,7 @@ test.describe('phone', () => {
     const card = await connectClaude(page);
     const block = card.getByTestId('plan-limits-claude');
     await expect(block).toBeVisible();
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    expect(overflow).toBeLessThanOrEqual(0);
+    await expectNoSideScroll(page);
     const box = (await block.boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(390);

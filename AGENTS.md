@@ -35,16 +35,23 @@ in `docs/security-model.md`. Most of `docs/` is in Italian.
   `MONSTERS_HOME` (or `--home`) to `status`, `kill`, `answer` and `automations`; without it they talk to the core in
   `~/.monsters`. Ports 4791 and 5181 are fixed for the onboarding e2e tests (and CI): start a hand-run test core on
   another port (e.g. `--port 4810`). New project folders go in `<folder above MONSTERS_HOME>/Monsters Progetti`.
-- CI: `pnpm ci:local` runs the same steps as the CI workflow on a clean checkout of a commit, plus a `package` step
-  (installs the built package from scratch, registers from the window, uninstalls); `--quick` skips e2e and packaging.
-  `pnpm ci:mac` and `pnpm ci:windows` run it on a macOS machine and a Windows VM that you provide. Details, flags and
-  results format in `docs/ci.md`. Optional hook: `git config core.hooksPath scripts/git-hooks` (pre-push with `--quick`).
-  Day to day the checks are the GitHub Actions on push and PR. Before a release the full local CI on the three
-  systems is a gate (D-147): `pnpm release:ci` runs `ci:local`, `ci:windows` and `ci:mac` for HEAD (plus the harness
-  tools probe), `pnpm release:check` shows the gate, and `pnpm desktop:publish` refuses to publish while it is
-  closed (`--skip-ci-gate` overrides it, loudly). At the end `release:ci` also posts the result as GitHub commit
-  statuses (`local-ci/linux|windows|macos|release-gate`) with `pnpm ci:status [--commit <rev>] [--dry-run]`, only for
-  a commit that is on origin; `--no-status` skips it. Descriptions never carry paths, hosts or personal data.
+- CI: `pnpm ci:local` runs the CI steps on a clean checkout of a commit, plus the packaged-core smoke test and a
+  `package` step (installs the built package from scratch, registers from the window, uninstalls); `--quick` skips
+  e2e, smoke and packaging. `pnpm ci:mac` and `pnpm ci:windows` run it on a macOS machine and a Windows VM that you
+  provide. Details, flags and results format in `docs/ci.md`. Optional hook: `git config core.hooksPath
+  scripts/git-hooks` (pre-push with `--quick`).
+- GitHub Actions (`.github/workflows/ci.yml`, D-152): pull requests run the light jobs required by the ruleset
+  (`linux`, `unit (windows-latest)`, `unit (macos-latest)`); every push to `main`, and `gh workflow run ci.yml --ref
+  <branch>`, run the full CI on the three systems, `full (linux|windows|macos)` = `node scripts/ci-local.ts --github`
+  (e2e everywhere, unsigned packages installed and uninstalled on the runner, packages kept as artifacts for 3 days).
+  No secret is used there: signing and publishing stay local.
+- Release gate (D-147, D-152): the full CI must be green on the commit on the three systems. `pnpm release:check`
+  shows it, per system from the `full (…)` check runs of a push or manual run of this repo (never a PR) or from
+  local results (`--source auto|github|local`, `MONSTERS_CI_GATE`); `pnpm release:ci` follows or starts the
+  GitHub run for HEAD and then runs the harness tools probe locally (`--local`: `ci:local`, `ci:windows`, `ci:mac` in
+  sequence, then posts `local-ci/*` commit statuses with `pnpm ci:status`); `pnpm desktop:publish` refuses to publish
+  while the gate is closed (`--skip-ci-gate` overrides it, loudly). Status descriptions never carry paths, hosts or
+  personal data.
 - Packaging and signing (details in `docs/signing.md`): `pnpm desktop:pack` (unpacked folder for this system),
   `pnpm desktop:dist --linux|--win [--arch x64,arm64] [--version v] [--feed url] [--target AppImage]` (output in
   `apps/desktop/release/`), `pnpm desktop:dist:mac` (macOS only). A build with an update feed needs a public key in

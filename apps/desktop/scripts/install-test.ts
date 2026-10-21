@@ -4,12 +4,16 @@
  *
  *   pnpm desktop:install-test --linux       AppImage + deb (`ci:local`)
  *   pnpm desktop:install-test --mac         dmg, arm64 (`ci:mac`, on the Mac)
+ *   pnpm desktop:install-test --win         unsigned NSIS installer built and tried on this
+ *                                           Windows machine (a GitHub runner, `ci-local.ts
+ *                                           --github`, D-152): test-windows.ps1 without a cert
  *   pnpm desktop:install-test --win-build <dir>
  *                                           test-signed NSIS installer built here, copied into
  *                                           <dir> with what the VM needs (`ci:windows` installs
  *                                           and starts it in its VM: test-windows.sh/.ps1)
  *   options: --no-build (reuse the packages of a previous run in .package/install-test/release),
  *            --keep (keep .package/install-test)
+ *   MONSTERS_CI_ARTIFACTS=<dir>: the packages built are also copied there (workflow artifacts).
  *
  * Linux:
  *   - the AppImage is copied into a temporary folder and started there on its own Xvfb display
@@ -195,6 +199,15 @@ function checkUpdateKeys(home: string, what: string): void {
     );
   }
   log(`${what}: updates on, ${m[1]} update key(s) trusted (${built.testKey} among them)`);
+}
+
+/** Copies the packages just built to MONSTERS_CI_ARTIFACTS, when set (the CI uploads them). */
+function saveArtifacts(files: string[]): void {
+  const dir = process.env['MONSTERS_CI_ARTIFACTS'];
+  if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  for (const f of files) copyFileSync(f, join(dir, basename(f)));
+  log(`packages copied for the artifacts: ${files.map((f) => basename(f)).join(', ')}`);
 }
 
 function findPackage(suffix: string): string {
@@ -507,6 +520,7 @@ async function linux(build: boolean): Promise<void> {
   if (build) await timed('build AppImage + deb', () => buildPackages(['--linux']));
   const appImage = findPackage('.AppImage');
   const deb = findPackage('.deb');
+  saveArtifacts([appImage, deb]);
   await timed(`AppImage ${basename(appImage)}`, () => appImageTest(appImage, version));
   await timed(`deb ${basename(deb)} in a clean Ubuntu 24.04`, () => debTest(deb));
   ciNote(
@@ -548,6 +562,7 @@ async function mac(build: boolean): Promise<void> {
     );
   }
   const dmg = findPackage('.dmg');
+  saveArtifacts([dmg]);
   const dir = mkdtempSync(join(WORK, 'mac-'));
   const mnt = join(dir, 'mnt');
   const apps = join(dir, 'Applications');
@@ -704,6 +719,60 @@ async function coreWithNode(
   }
 }
 
+// --- Windows on Windows (a GitHub runner, D-152) ---------------------------------------------
+
+/** The environment minus PSModulePath (any case: Windows variable names are case-insensitive). */
+export function withoutPsModulePath(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(
+    Object.entries(env).filter(([k]) => k.toLowerCase() !== 'psmodulepath'),
+  );
+}
+
+/**
+ * Builds the NSIS installer UNSIGNED on this Windows machine and tries it here with
+ * test-windows.ps1 (per-user silent install, first start up to the registration from the
+ * window, uninstall with nothing left). No certificate, so the signature is only reported.
+ */
+async function win(build: boolean): Promise<void> {
+  if (process.platform !== 'win32') {
+    throw new Error('--win builds and installs on Windows; for the local VM use --win-build');
+  }
+  const version = appVersion();
+  if (build) {
+    await timed('build NSIS installer (unsigned)', () =>
+      buildPackages(['--win'], { ...process.env, MONSTERS_WIN_SIGN: 'off' }),
+    );
+  }
+  const installer = findPackage('.exe');
+  saveArtifacts([installer]);
+  await timed(`install, start and uninstall ${basename(installer)}`, () => {
+    execFileSync(
+      'powershell',
+      [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        join(APP, 'scripts', 'test-windows.ps1'),
+        '-Installer',
+        installer,
+        '-TestCert',
+        'none',
+        '-Version',
+        version,
+        '-Probe',
+        PROBE,
+      ],
+      // Without PSModulePath: inherited from a PowerShell 7 (a runner's shell), it points
+      // Windows PowerShell 5.1 at modules it cannot load (Get-AuthenticodeSignature is missing).
+      { stdio: ['ignore', 'inherit', 'inherit'], env: withoutPsModulePath(process.env) },
+    );
+  });
+  ciNote(
+    `NSIS ${version} non firmato: installato per utente, registrazione dalla finestra, disinstallato senza resti`,
+  );
+}
+
 // --- Windows (built here, tried in the VM by ci-windows.sh) -----------------------------------
 
 async function winBuild(out: string, build: boolean): Promise<void> {
@@ -740,15 +809,18 @@ async function main(): Promise<void> {
     options: {
       linux: { type: 'boolean', default: false },
       mac: { type: 'boolean', default: false },
+      win: { type: 'boolean', default: false },
       'win-build': { type: 'string' },
       'no-build': { type: 'boolean', default: false },
       keep: { type: 'boolean', default: false },
     },
   });
-  const modes = [values.linux, values.mac, values['win-build'] !== undefined].filter(Boolean);
+  const modes = [values.linux, values.mac, values.win, values['win-build'] !== undefined].filter(
+    Boolean,
+  );
   if (modes.length !== 1) {
     throw new Error(
-      'usage: install-test.ts --linux | --mac | --win-build <dir> [--no-build] [--keep]',
+      'usage: install-test.ts --linux | --mac | --win | --win-build <dir> [--no-build] [--keep]',
     );
   }
   const build = !values['no-build'];
@@ -759,6 +831,7 @@ async function main(): Promise<void> {
   try {
     if (values.linux) await linux(build);
     else if (values.mac) await mac(build);
+    else if (values.win) await win(build);
     else await winBuild(resolve(values['win-build'] ?? ''), build);
     log(`OK in ${seconds(Date.now() - t0)}`);
   } finally {

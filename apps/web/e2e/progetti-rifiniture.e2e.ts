@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import type * as AppStore from '../src/store/app.ts';
-import { expect, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /*
  * The finishing touches of the projects (D-102) on the mock core: the god's
@@ -32,8 +32,7 @@ async function shot(page: Page, name: string) {
 }
 
 async function noSideScroll(page: Page, width: number) {
-  const scroll = await page.evaluate(() => document.documentElement.scrollWidth);
-  expect(scroll).toBeLessThanOrEqual(width);
+  await expectNoSideScroll(page, width);
 }
 
 /** Feeds events to the store as the stream would, after everything in the log. */

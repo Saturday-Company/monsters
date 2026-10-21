@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /*
  * The god's bar (docs/design.md, "La barra del Dio", D-101): at the head of
@@ -148,7 +148,7 @@ test('phone: the bar is the head of the home, no horizontal scroll, it opens the
   const box = (await bar.boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(12);
   expect(box.x + box.width).toBeLessThanOrEqual(390 - 12);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await expectNoSideScroll(page, 390);
   // The canvas follows the width of the screen.
   const canvas = await page
     .getByTestId('god-marquee')

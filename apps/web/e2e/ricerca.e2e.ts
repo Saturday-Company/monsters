@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /* Settings → Collegamenti → Ricerca a pagamento (D-071): the paid search on OpenRouter. */
 
@@ -48,8 +48,5 @@ test('paid search fits a phone', async ({ page }) => {
   const row = page.getByTestId('paid-search-row');
   await row.getByRole('switch').click();
   await expect(row).toHaveAttribute('data-on', 'yes');
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(overflow).toBeLessThanOrEqual(0);
+  await expectNoSideScroll(page);
 });

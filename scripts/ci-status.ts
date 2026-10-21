@@ -11,19 +11,30 @@
  * descriptions carry no paths, host names or personal data: only system, mode, step and duration.
  * `pnpm release:ci` calls this at the end (also on failure); `--no-status` there skips it.
  * `--dry-run` prints the `gh` commands and posts nothing.
+ *
+ * Since D-152 the full CI also runs on GitHub Actions (`full (<platform>)` jobs), whose check runs
+ * GitHub already shows: when they are all green for the commit nothing is posted (`--force`
+ * posts anyway). `pnpm release:ci --local` still posts after a local run.
  */
-import { execFileSync, spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   checkReleaseGate,
+  evaluateGithub,
+  fetchGithub,
   type GateVerdict,
+  type GithubData,
+  originRepo,
   PLATFORMS,
   type PlatformVerdict,
+  realRunner,
   resolveCommit,
   resultsDir,
+  type Runner,
   whyNotCounted,
 } from './release-gate.ts';
+
+export { DEFAULT_REPO, originRepo, parseRepo, realRunner, type Runner } from './release-gate.ts';
 
 export type StatusState = 'success' | 'failure' | 'pending';
 
@@ -35,7 +46,6 @@ export interface CommitStatus {
 }
 
 export const MAX_DESCRIPTION = 140;
-export const DEFAULT_REPO = 'Saturday-Company/monsters';
 
 const RUN_COMMAND: Record<string, string> = {
   linux: 'ci:local',
@@ -109,12 +119,6 @@ export function gateStatuses(verdict: GateVerdict): CommitStatus[] {
   return [...per, gate];
 }
 
-/** Pure: `owner/repo` from a git remote URL (https or ssh), or the default. */
-export function parseRepo(remoteUrl: string): string {
-  const m = /github\.com[:/]+([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/.exec(remoteUrl.trim());
-  return m ? `${m[1]}/${m[2]}` : DEFAULT_REPO;
-}
-
 /** Pure: the `gh` arguments that post one status. */
 export function ghArgs(repo: string, sha: string, s: CommitStatus): string[] {
   return [
@@ -139,29 +143,9 @@ export function formatCommand(args: string[]): string {
   return ['gh', ...args].map(shellQuote).join(' ');
 }
 
-export interface Runner {
-  /** Runs a command, returns its exit code and stdout. */
-  run(cmd: string, args: string[]): { code: number | null; stdout: string };
-}
-
-export function realRunner(cwd: string): Runner {
-  return {
-    run(cmd, args) {
-      const r = spawnSync(cmd, args, { cwd, encoding: 'utf8' });
-      return { code: r.status, stdout: r.stdout ?? '' };
-    },
-  };
-}
-
-/** `owner/repo` of `origin` in the checkout at `cwd`. */
-export function originRepo(cwd: string): string {
-  try {
-    return parseRepo(
-      execFileSync('git', ['remote', 'get-url', 'origin'], { cwd, encoding: 'utf8' }),
-    );
-  } catch {
-    return DEFAULT_REPO;
-  }
+/** Pure: true when GitHub Actions already shows the full CI green on the three systems. */
+export function githubAlreadyGreen(commit: string, data: GithubData): boolean {
+  return evaluateGithub(commit, data).every((p) => p.ok);
 }
 
 /** True when the commit is known to origin: a remote branch contains it, or GitHub has it. */
@@ -212,24 +196,35 @@ function main(): number {
   let rev = 'HEAD';
   let dir = resultsDir();
   let dryRun = false;
+  let force = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--commit' && args[i + 1]) rev = args[++i] ?? rev;
     else if (args[i] === '--results' && args[i + 1]) dir = resolve(args[++i] ?? dir);
     else if (args[i] === '--dry-run') dryRun = true;
+    else if (args[i] === '--force') force = true;
     else {
       process.stderr.write(
-        'usage: pnpm ci:status [--commit <rev>] [--results <folder>] [--dry-run]\n',
+        'usage: pnpm ci:status [--commit <rev>] [--results <folder>] [--dry-run] [--force]\n',
       );
       return 2;
     }
   }
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  const verdict = checkReleaseGate(resolveCommit(rev, root), dir);
+  const commit = resolveCommit(rev, root);
+  const repo = originRepo(root);
+  const runner = realRunner(root);
+  if (!force && githubAlreadyGreen(commit, fetchGithub(repo, commit, runner))) {
+    process.stdout.write(
+      `ci:status: the full CI of ${commit.slice(0, 7)} is green on GitHub Actions on the three ` +
+        'systems: no local status needed (--force posts anyway).\n',
+    );
+    return 0;
+  }
   return publishStatuses({
-    verdict,
-    repo: originRepo(root),
+    verdict: checkReleaseGate(commit, dir),
+    repo,
     dryRun,
-    runner: realRunner(root),
+    runner,
     out: (l) => process.stdout.write(`${l}\n`),
   });
 }

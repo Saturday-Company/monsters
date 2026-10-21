@@ -10,7 +10,7 @@
  *   - a chat gets the fake model's answer;
  *   - kill switch from the bundled CLI during a run: run aborted, model request closed,
  *     messages refused, resume;
- *   - SIGTERM: clean stop;
+ *   - SIGTERM: clean stop (not on Windows, which has no SIGTERM: there the process is terminated);
  *   - packages/cli/test/mcp.test.ts with `monsters mcp` run from the bundle.
  *
  *   pnpm smoke:bundle [--no-build] [--runtime node|electron|all] [--keep]
@@ -434,8 +434,14 @@ async function smoke(rt: Runtime, keep: boolean): Promise<void> {
 
     core.kill('SIGTERM');
     const code = await exited;
-    check(code === 0 && output.includes('Stopped.'), `stop: exit ${code}\n${output}`);
-    step('stopped cleanly');
+    if (process.platform === 'win32') {
+      // Windows has no SIGTERM: kill() terminates the process, nothing can run a clean stop.
+      // The app stops its core with the utility process's "stop" message instead (D-045).
+      step(`stopped (Windows: no SIGTERM, the process was terminated, exit ${code})`);
+    } else {
+      check(code === 0 && output.includes('Stopped.'), `stop: exit ${code}\n${output}`);
+      step('stopped cleanly');
+    }
 
     // The MCP server of the vault (`monsters mcp`, spawned by Claude Desktop) from the bundle.
     const mcp = spawnSync('pnpm', ['exec', 'vitest', 'run', 'packages/cli/test/mcp.test.ts'], {

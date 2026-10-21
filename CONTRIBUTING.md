@@ -56,6 +56,10 @@ than silencing the check.
 
 Before opening a PR, `pnpm typecheck && pnpm lint && pnpm test` must pass.
 
+On a pull request GitHub Actions runs the light checks (`linux`, `unit (windows-latest)`,
+`unit (macos-latest)`); after a merge, the full CI runs on `main` on Linux, Windows and macOS,
+packages included (`docs/ci.md`).
+
 ## Tests
 
 - Tests are written with Vitest, next to each package in `test/`.

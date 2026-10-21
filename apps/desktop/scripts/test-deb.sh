@@ -206,7 +206,11 @@ sudo unshare --mount --pid --fork --propagation private bash -c '
     mount -o bind,remount,ro "$root/sys/kernel/security"
   fi
   mount -t tmpfs tmpfs "$root/dev/shm"
-  chroot "$root" /tmp/inner.sh "$2" "$3"
+  # A clean system gets a clean environment: nothing of the host reaches the chroot (D-152;
+  # a runner exports XDG_CONFIG_HOME=/home/runner/.config, and the app of the test user died
+  # with "Failed to get userData path").
+  chroot "$root" /usr/bin/env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    HOME=/root TERM=dumb /tmp/inner.sh "$2" "$3"
 ' _ "$root" "$version" "${MONSTERS_TEST_UPDATE_KEY:-}"
 if [[ $host_had_profile == yes ]] && ! host_profile; then
   echo "test-deb: the host's AppArmor profile 'monsters' is no longer loaded after the test" >&2

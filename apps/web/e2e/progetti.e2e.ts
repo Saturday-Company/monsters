@@ -1,6 +1,13 @@
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
-import { expect, holdMock, releaseMock, stepMockUntil, test } from './fixtures.ts';
+import {
+  expect,
+  expectNoSideScroll,
+  holdMock,
+  releaseMock,
+  stepMockUntil,
+  test,
+} from './fixtures.ts';
 
 /*
  * Projects in the UI (D-097, D-098, D-100) on the mock core: the demo has
@@ -28,8 +35,7 @@ async function shot(page: Page, name: string) {
 }
 
 async function noSideScroll(page: Page, width: number) {
-  const scroll = await page.evaluate(() => document.documentElement.scrollWidth);
-  expect(scroll).toBeLessThanOrEqual(width);
+  await expectNoSideScroll(page, width);
 }
 
 const squad = (page: Page, key: string) =>

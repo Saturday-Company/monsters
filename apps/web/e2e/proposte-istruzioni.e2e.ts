@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /*
  * Proposals for CLAUDE.md and AGENTS.md of a project's folder (D-113) on the
@@ -57,8 +57,7 @@ test('Proposte per le istruzioni: on the project page, under Cartella, and left 
   await expect(list.getByTestId('draft-card')).toHaveCount(2);
   await expect(list.getByTestId('docs-diff').first()).toBeVisible();
   // No side scroll on the phone, the diff scrolls inside its screen.
-  const scroll = await page.evaluate(() => document.documentElement.scrollWidth);
-  expect(scroll).toBeLessThanOrEqual(390);
+  await expectNoSideScroll(page, 390);
   if (SHOTS) {
     await list
       .getByTestId('draft-card')

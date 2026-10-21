@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /*
  * The defences of D-070 in the UI: the spending cap (Settings → Modelli, the
@@ -113,6 +113,5 @@ test('the paused card at phone width', async ({ page }) => {
   await expect(github).toBeVisible();
   const box = await github.boundingBox();
   expect(box!.width).toBeLessThanOrEqual(390);
-  const scroll = await page.evaluate(() => document.documentElement.scrollWidth);
-  expect(scroll).toBeLessThanOrEqual(390);
+  await expectNoSideScroll(page, 390);
 });

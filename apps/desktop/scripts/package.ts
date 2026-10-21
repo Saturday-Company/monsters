@@ -48,7 +48,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { Arch, build, Platform } from 'electron-builder';
 import { normalizeModes } from './after-pack.ts';
@@ -186,7 +186,9 @@ function parse(argv: string[]): Args {
 }
 
 function run(command: string, args: string[], cwd = ROOT): void {
-  execFileSync(command, args, { cwd, stdio: 'inherit' });
+  // On Windows `pnpm` is a .cmd shim: only a shell finds it (an absolute path needs none).
+  const shell = process.platform === 'win32' && !isAbsolute(command);
+  execFileSync(command, args, { cwd, stdio: 'inherit', shell });
 }
 
 /** What goes into app.asar: the esbuild output, the icons, a package.json with no dependencies. */

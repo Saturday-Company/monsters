@@ -50,3 +50,21 @@ export async function stepMockUntil(page: Page, ready: () => Promise<boolean>): 
     )
     .toBe(true);
 }
+
+/**
+ * The page has no sideways scroll: its width is at most `width` (default: the viewport's own).
+ * Polled, never read once: after a resize, a navigation or a new panel the layout settles a few
+ * frames later, and one early reading of `scrollWidth` is a coin toss on a slow runner (the
+ * macOS one read 728 px at a 390 px phone width). A real overflow stays, so it still fails.
+ */
+export async function expectNoSideScroll(page: Page, width?: number): Promise<void> {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (max) =>
+          document.documentElement.scrollWidth - (max ?? document.documentElement.clientWidth),
+        width ?? null,
+      ),
+    )
+    .toBeLessThanOrEqual(0);
+}
