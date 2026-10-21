@@ -14,6 +14,7 @@ import {
   type ProviderView,
 } from '@monsters/shared';
 import type { RawResponse } from '../transport.ts';
+import { tr } from './lang.ts';
 import { mockPlanLimits } from './plan-limits.ts';
 
 /*
@@ -149,34 +150,68 @@ const CATALOG: Base[] = [
   },
 ];
 
-const MODELS: Record<string, ModelInfoView[]> = {
+const models = (): Record<string, ModelInfoView[]> => ({
   openrouter: [
-    { id: 'openrouter/free', name: 'Router gratuito', tools: true, free: true },
+    { id: 'openrouter/free', name: tr('Free router', 'Router gratuito'), tools: true, free: true },
     { id: 'openai/gpt-oss-120b:free', tools: true, free: true },
     { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', tools: true, free: false },
   ],
   anthropic: [
-    { id: 'claude-sonnet-test', name: 'Claude Sonnet (prova)', tools: true, free: false },
-    { id: 'claude-haiku-test', name: 'Claude Haiku (prova)', tools: true, free: false },
+    {
+      id: 'claude-sonnet-test',
+      name: tr('Claude Sonnet (test)', 'Claude Sonnet (prova)'),
+      tools: true,
+      free: false,
+    },
+    {
+      id: 'claude-haiku-test',
+      name: tr('Claude Haiku (test)', 'Claude Haiku (prova)'),
+      tools: true,
+      free: false,
+    },
   ],
   openai: [{ id: 'gpt-test', tools: true, free: false }],
-  google: [{ id: 'gemini-test-flash', name: 'Gemini Flash (prova)', tools: true, free: false }],
+  google: [
+    {
+      id: 'gemini-test-flash',
+      name: tr('Gemini Flash (test)', 'Gemini Flash (prova)'),
+      tools: true,
+      free: false,
+    },
+  ],
   mistral: [{ id: 'mistral-small-latest', tools: true, free: false }],
   groq: [{ id: 'openai/gpt-oss-120b', tools: true, free: false }],
   ollama: [{ id: 'qwen3:8b', tools: true, free: true }],
   lmstudio: [{ id: 'qwen2.5-7b-instruct', tools: true, free: true }],
   chatgpt: [
-    { id: 'gpt-test', name: 'GPT (prova)', tools: true, free: false },
-    { id: 'gpt-mini-test', name: 'GPT mini (prova)', tools: true, free: false },
+    { id: 'gpt-test', name: tr('GPT (test)', 'GPT (prova)'), tools: true, free: false },
+    {
+      id: 'gpt-mini-test',
+      name: tr('GPT mini (test)', 'GPT mini (prova)'),
+      tools: true,
+      free: false,
+    },
   ],
-  codex: [{ id: 'gpt-test', name: 'GPT (prova)', tools: true, free: false }],
+  codex: [{ id: 'gpt-test', name: tr('GPT (test)', 'GPT (prova)'), tools: true, free: false }],
   // As the core lists them: the default first (D-093).
   'claude-agent': [
-    { id: 'sonnet', name: 'Sonnet', description: 'equilibrato', tools: true, free: false },
-    { id: 'haiku', name: 'Haiku', description: 'veloce', tools: true, free: false },
-    { id: 'opus', name: 'Opus', description: 'il più capace', tools: true, free: false },
+    {
+      id: 'sonnet',
+      name: 'Sonnet',
+      description: tr('balanced', 'equilibrato'),
+      tools: true,
+      free: false,
+    },
+    { id: 'haiku', name: 'Haiku', description: tr('fast', 'veloce'), tools: true, free: false },
+    {
+      id: 'opus',
+      name: 'Opus',
+      description: tr('the most capable', 'il più capace'),
+      tools: true,
+      free: false,
+    },
   ],
-};
+});
 
 /**
  * Pretend subscriptions: "Continue with ChatGPT" completes by itself after a
@@ -322,7 +357,9 @@ export class MockProviders {
       return ok(this.subscriptions());
     }
     const m = /^\/api\/subscriptions\/(claude-agent|codex)(\/activate)?$/.exec(path);
-    if (!m) return fail(404, 'unknown_provider', 'abbonamento sconosciuto');
+    if (!m) {
+      return fail(404, 'unknown_provider', tr('unknown subscription', 'abbonamento sconosciuto'));
+    }
     const id = m[1]!;
     if (method === 'POST' && m[2]) {
       const p = HarnessActivateRequestSchema.safeParse(body ?? {});
@@ -332,7 +369,10 @@ export class MockProviders {
           return fail(
             400,
             'invalid_request',
-            'Codex usa il tuo accesso a ChatGPT: collega prima ChatGPT.',
+            tr(
+              'Codex uses your ChatGPT sign-in: connect ChatGPT first.',
+              'Codex usa il tuo accesso a ChatGPT: collega prima ChatGPT.',
+            ),
           );
         }
         s.codex.enabled = true;
@@ -415,7 +455,10 @@ export class MockProviders {
         return fail(
           400,
           'not_configured',
-          `${missing.provider} non è configurato: aggiungi prima la chiave.`,
+          tr(
+            `${missing.provider} isn’t set up: add the key first.`,
+            `${missing.provider} non è configurato: aggiungi prima la chiave.`,
+          ),
         );
       }
       const paid = this.freeOnly
@@ -425,7 +468,10 @@ export class MockProviders {
         return fail(
           400,
           'paid_model_blocked',
-          `${paid.model} è a pagamento: attiva “Usa anche modelli a pagamento” in Impostazioni → Modelli, oppure scegli un modello gratuito.`,
+          tr(
+            `${paid.model} is paid: turn on “Also use paid models” in Settings → Models, or pick a free model.`,
+            `${paid.model} è a pagamento: attiva “Usa anche modelli a pagamento” in Impostazioni → Modelli, oppure scegli un modello gratuito.`,
+          ),
         );
       }
       this.chains.set(id, models);
@@ -437,18 +483,36 @@ export class MockProviders {
     if (!m) return undefined;
     const id = decodeURIComponent(m[1]!);
     const spec = CATALOG.find((p) => p.id === id);
-    if (!spec) return fail(404, 'unknown_provider', `provider ${id} sconosciuto`);
+    if (!spec) {
+      return fail(
+        404,
+        'unknown_provider',
+        tr(`unknown provider ${id}`, `provider ${id} sconosciuto`),
+      );
+    }
     const what = m[2]!;
     if (what === 'models' && method === 'GET') {
-      if (!this.active.has(id))
-        return fail(404, 'unknown_provider', `${spec.label} non è configurato`);
-      return ok({ models: MODELS[id] ?? [] });
+      if (!this.active.has(id)) {
+        return fail(
+          404,
+          'unknown_provider',
+          tr(`${spec.label} isn’t set up`, `${spec.label} non è configurato`),
+        );
+      }
+      return ok({ models: models()[id] ?? [] });
     }
     if (what === 'key' && method === 'PUT') {
       const p = ProviderKeyRequestSchema.safeParse(body);
       if (!p.success) return fail(400, 'invalid_request', p.error.issues[0]?.message);
       if (p.data.key.includes('wrong')) {
-        return fail(400, 'invalid_key', `${spec.label} non riconosce questa chiave.`);
+        return fail(
+          400,
+          'invalid_key',
+          tr(
+            `${spec.label} doesn’t recognise this key.`,
+            `${spec.label} non riconosce questa chiave.`,
+          ),
+        );
       }
       this.active.set(id, 'file');
       return ok(this.view(id));
@@ -460,13 +524,23 @@ export class MockProviders {
     if (what === 'url' && method === 'PUT') {
       const p = ProviderUrlRequestSchema.safeParse(body);
       if (!p.success)
-        return fail(400, 'invalid_request', 'Indirizzo non valido: usa http://host:porta');
+        return fail(
+          400,
+          'invalid_request',
+          tr(
+            'Invalid address: use http://host:port',
+            'Indirizzo non valido: usa http://host:porta',
+          ),
+        );
       const url = p.data.baseURL.replace(/\/+$/, '').replace(/\/v1$/, '');
       if (url !== spec.baseURL) {
         return fail(
           502,
           'verification_failed',
-          `Non trovo ${spec.label} a quell'indirizzo: è acceso?`,
+          tr(
+            `I can’t find ${spec.label} at that address: is it running?`,
+            `Non trovo ${spec.label} a quell'indirizzo: è acceso?`,
+          ),
         );
       }
       this.active.set(id, 'settings');

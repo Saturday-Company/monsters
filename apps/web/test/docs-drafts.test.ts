@@ -35,7 +35,7 @@ describe('the docs proposals of the mock core', () => {
     const core = new MockCore({ mode: 'demo', storage: null });
     const [iapetus, calypso] = docs(core);
     expect(iapetus).toMatchObject({
-      title: 'Istruzioni di Social di Saturday (CLAUDE.md)',
+      title: 'Instructions of Saturday Social (CLAUDE.md)',
       project: 'social-di-saturday',
       docs: { file: 'CLAUDE.md', stale: false },
     });

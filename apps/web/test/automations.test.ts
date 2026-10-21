@@ -199,7 +199,7 @@ describe('the automations of the mock core', () => {
     const giro = call(core, 'GET', `/api/automations/post-della-settimana/runs/${runs[0]!.id}`)
       .body as { messages: unknown[]; notes: string[]; finalAnswer?: string };
     expect(giro.notes).toHaveLength(1);
-    expect(giro.finalAnswer).toMatch(/^Fatto: i post della settimana/);
+    expect(giro.finalAnswer).toMatch(/^Done: the posts for the week/);
   });
 
   it('refuses "Esegui ora" while stopped, a bad rule, an unknown monster', () => {

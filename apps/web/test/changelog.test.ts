@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, describe, expect, it } from 'vitest';
 import { compareVersions, parseChangelog, unwrapMarkdown } from '../src/lib/changelog.ts';
+import { CHANGELOG, changelog } from '../src/lib/changelog-data.ts';
 
 const SAMPLE = `# Changelog
 
@@ -61,6 +63,48 @@ describe('parseChangelog', () => {
     const real = parseChangelog(raw);
     expect(real.length).toBeGreaterThan(0);
     expect(real[0]!.version).toMatch(/^\d+\.\d+\.\d+/);
+  });
+});
+
+describe('the changelog in two languages', () => {
+  afterEach(() => setAppLang('en'));
+
+  const en = changelog('en');
+  const it_ = changelog('it');
+  const bullets = (md: string) => md.split('\n').filter((l) => /^- /.test(l)).length;
+
+  it('has the same versions, sections and items in both', () => {
+    expect(en.length).toBeGreaterThan(0);
+    expect(en.map((v) => v.version)).toEqual(it_.map((v) => v.version));
+    expect(en.map((v) => v.sections.length)).toEqual(it_.map((v) => v.sections.length));
+    expect(en.map((v) => v.sections.map((s) => bullets(s.markdown)))).toEqual(
+      it_.map((v) => v.sections.map((s) => bullets(s.markdown))),
+    );
+    expect(en.map((v) => v.intro !== '')).toEqual(it_.map((v) => v.intro !== ''));
+  });
+
+  it('writes the dates and the headings in the language of the file', () => {
+    expect(en[0]!.date).toBe('21 October 2026');
+    expect(it_[0]!.date).toBe('21 ottobre 2026');
+    for (const v of en) expect(v.date).toMatch(/^\d{1,2} (September|October|November) 2026$/);
+    for (const v of it_) expect(v.date).toMatch(/^\d{1,2} (settembre|ottobre|novembre) 2026$/);
+    expect(en[0]!.sections.map((s) => s.title)).toEqual(['What you’ll see', 'More reliable']);
+    expect(it_[0]!.sections.map((s) => s.title)).toEqual(['Cosa si vede', 'Più affidabile']);
+  });
+
+  it('keeps the Italian file as it was and shows no Italian in the English one', () => {
+    const raw = readFileSync(new URL('../../../CHANGELOG.md', import.meta.url), 'utf8');
+    expect(raw).not.toMatch(/ottobre|Cosa si vede|Più affidabile|mostri|squadra/);
+    expect(raw).not.toMatch(/[àèéìòù]/);
+  });
+
+  it('follows the app language', () => {
+    setAppLang('it');
+    expect(CHANGELOG[0]!.date).toBe('21 ottobre 2026');
+    expect(CHANGELOG.length).toBe(it_.length);
+    setAppLang('en');
+    expect(CHANGELOG[0]!.date).toBe('21 October 2026');
+    expect(CHANGELOG.map((v) => v.version)).toEqual(en.map((v) => v.version));
   });
 });
 

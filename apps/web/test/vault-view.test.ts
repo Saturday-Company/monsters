@@ -225,10 +225,10 @@ describe('mock vault', () => {
 
   it('trashes and restores a note, logged as the user', () => {
     const { call, logged } = make();
-    expect(call('POST', '/api/vault/delete', { path: 'Persone/Sara.md' }).status).toBe(200);
+    expect(call('POST', '/api/vault/delete', { path: 'People/Sara.md' }).status).toBe(200);
     const trash = call('GET', '/api/vault/trash').body as { items: { originalPath: string }[] };
-    expect(trash.items.map((i) => i.originalPath)).toContain('Persone/Sara.md');
-    expect(call('POST', '/api/vault/restore', { path: 'Persone/Sara.md' }).status).toBe(200);
+    expect(trash.items.map((i) => i.originalPath)).toContain('People/Sara.md');
+    expect(call('POST', '/api/vault/restore', { path: 'People/Sara.md' }).status).toBe(200);
     expect(call('GET', '/api/vault/note?path=Sara').status).toBe(200);
     expect(logged).toHaveLength(2);
   });
@@ -243,7 +243,7 @@ describe('mock vault', () => {
 
   it('refuses a save on a stale hash', () => {
     const { call } = make();
-    const note = call('GET', '/api/vault/note?path=Corsa').body as { path: string; hash: string };
+    const note = call('GET', '/api/vault/note?path=Running').body as { path: string; hash: string };
     const ok = call('PUT', '/api/vault/note', {
       path: note.path,
       content: 'nuovo',

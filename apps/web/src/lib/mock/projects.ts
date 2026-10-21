@@ -22,6 +22,7 @@ import {
 import { copyName, freeCopyName } from '../projects.ts';
 import { colorOf, monsterFor } from '../monsters.ts';
 import type { RawResponse } from '../transport.ts';
+import { tr } from './lang.ts';
 
 /*
  * `/api/projects` of the mock core (D-097, D-098; contract in
@@ -41,6 +42,9 @@ const fail = (status: number, error: string, message?: string): RawResponse => (
 
 export const DEMO_PROJECT_ID = 'social-di-saturday';
 export const DEMO_DRAFT_ID = 'sito-di-saturday';
+
+/** The demo project's folder in the notes (the demo draft's is `Projects/Saturday website`). */
+export const DEMO_AREA = () => tr('Projects/Saturday Social', 'Progetti/Social di Saturday');
 
 export interface MockProjectsHost {
   agents: () => AgentSummary[];
@@ -88,6 +92,16 @@ const agentId = (name: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'mostro';
 
+const projectNameTaken = (name: string) =>
+  tr(`There’s already a project called ${name}.`, `C’è già un progetto che si chiama ${name}.`);
+const archivedMessage = (name: string) =>
+  tr(`The project ${name} is archived.`, `Il progetto ${name} è archiviato.`);
+const fullPath = () =>
+  tr(
+    'Write the full path of the project folder.',
+    'Scrivi il percorso completo della cartella del progetto.',
+  );
+
 const looksAbsolute = (p: string) => p.startsWith('/') || p.startsWith('~/') || p === '~';
 
 export class MockProjects {
@@ -108,16 +122,32 @@ export class MockProjects {
     const created = now - 21 * 86_400_000;
     const id = DEMO_PROJECT_ID;
     const team = [
-      this.monster('Iapetus', 'Guida i social di Saturday', id, true),
-      this.monster('Calypso', 'Gestisce i social: piano, testi e hashtag', id),
-      this.monster('Pandora', 'Fa le grafiche dei post', id),
+      this.monster(
+        'Iapetus',
+        tr('Leads Saturday’s social', 'Guida i social di Saturday'),
+        id,
+        true,
+      ),
+      this.monster(
+        'Calypso',
+        tr(
+          'Runs the social accounts: plan, copy and hashtags',
+          'Gestisce i social: piano, testi e hashtag',
+        ),
+        id,
+      ),
+      this.monster(
+        'Pandora',
+        tr('Makes the graphics for the posts', 'Fa le grafiche dei post'),
+        id,
+      ),
     ];
     this.h.setAgents([...this.h.agents(), ...team]);
     this.defs.set(id, {
       id,
-      name: 'Social di Saturday',
-      folder: '/home/andrea/Progetti/social-saturday',
-      vaultArea: 'Progetti/Social di Saturday',
+      name: tr('Saturday Social', 'Social di Saturday'),
+      folder: `/home/andrea/${tr('Projects', 'Progetti')}/social-saturday`,
+      vaultArea: DEMO_AREA(),
       lead: 'iapetus',
       status: 'active',
       spend: { monthlyEur: 20 },
@@ -133,22 +163,42 @@ export class MockProjects {
   seedDraft(ts = Date.now()): void {
     const p: Stored = {
       id: DEMO_DRAFT_ID,
-      name: 'Sito di Saturday',
-      folder: '/home/andrea/Monsters Progetti/Sito di Saturday',
-      vaultArea: 'Progetti/Sito di Saturday',
+      name: tr('Saturday website', 'Sito di Saturday'),
+      folder: tr(
+        '/home/andrea/Monsters Projects/Saturday website',
+        '/home/andrea/Monsters Progetti/Sito di Saturday',
+      ),
+      vaultArea: tr('Projects/Saturday website', 'Progetti/Sito di Saturday'),
       status: 'draft',
       plan: {
-        lead: { name: 'Atlas', goal: 'Rifare il sito di Saturday entro fine mese' },
+        lead: {
+          name: 'Atlas',
+          goal: tr(
+            'Redo the Saturday website by the end of the month',
+            'Rifare il sito di Saturday entro fine mese',
+          ),
+        },
         members: [
           {
             draft: {
               name: 'Telesto',
-              title: 'la copywriter',
-              role: 'scrive i testi delle pagine',
-              mission: 'scrivi i testi del sito, chiari e nel tono di Saturday',
-              context: 'Giulio ti ha affidato i testi del sito.',
-              duties: ['Una nota per pagina, con titolo e testo.'],
-              area: 'Progetti/Sito di Saturday/Testi',
+              title: tr('the copywriter', 'la copywriter'),
+              role: tr('writes the copy of the pages', 'scrive i testi delle pagine'),
+              mission: tr(
+                'you write the website copy, clear and in Saturday’s tone',
+                'scrivi i testi del sito, chiari e nel tono di Saturday',
+              ),
+              context: tr(
+                'Giulio has entrusted you with the website copy.',
+                'Giulio ti ha affidato i testi del sito.',
+              ),
+              duties: [
+                tr(
+                  'One note per page, with title and text.',
+                  'Una nota per pagina, con titolo e testo.',
+                ),
+              ],
+              area: tr('Projects/Saturday website/Copy', 'Progetti/Sito di Saturday/Testi'),
               web: false,
               genome: { ...monsterFor('Telesto'), id: 'telesto' },
               color: colorOf(monsterFor('Telesto')),
@@ -160,14 +210,20 @@ export class MockProjects {
         ],
         automations: [
           {
-            name: 'Controllo del sito',
+            name: tr('Website check', 'Controllo del sito'),
             schedule: { cron: '0 9 * * 1', timezone: 'Europe/Rome' },
-            objective: 'Controlla che le pagine del sito funzionino e riassumi cosa sistemare.',
+            objective: tr(
+              'Check that the website pages work and sum up what to fix.',
+              'Controlla che le pagine del sito funzionino e riassumi cosa sistemare.',
+            ),
             participants: ['Telesto'],
           },
         ],
         createFolder: true,
-        why: 'Mi hai chiesto di rifare il sito: una squadra sua tiene testi e ricerche in un posto solo.',
+        why: tr(
+          'You asked me to redo the website: a squad of its own keeps copy and research in one place.',
+          'Mi hai chiesto di rifare il sito: una squadra sua tiene testi e ricerche in un posto solo.',
+        ),
       },
       spend: { monthlyEur: 15 },
       connections: { mcp: [], claude: [] },
@@ -257,11 +313,18 @@ export class MockProjects {
           kind: 'project' as const,
           id: p.id,
           title: p.name,
-          summary: `${who ? `${who} propone il` : 'Bozza del'} progetto «${p.name}»: ${
-            p.plan?.lead.name ? `capo ${p.plan.lead.name}` : 'un capo'
-          }${names.length ? `, con ${names.join(', ')}` : ''}${
-            autos ? `; ${autos === 1 ? 'un’automazione' : `${autos} automazioni`}` : ''
-          }.`,
+          summary: tr(
+            `${who ? `${who} suggests the` : 'Draft of the'} project “${p.name}”: ${
+              p.plan?.lead.name ? `lead ${p.plan.lead.name}` : 'a lead'
+            }${names.length ? `, with ${names.join(', ')}` : ''}${
+              autos ? `; ${autos === 1 ? 'an automation' : `${autos} automations`}` : ''
+            }.`,
+            `${who ? `${who} propone il` : 'Bozza del'} progetto «${p.name}»: ${
+              p.plan?.lead.name ? `capo ${p.plan.lead.name}` : 'un capo'
+            }${names.length ? `, con ${names.join(', ')}` : ''}${
+              autos ? `; ${autos === 1 ? 'un’automazione' : `${autos} automazioni`}` : ''
+            }.`,
+          ),
           from: p.createdBy,
           ...(who ? { fromName: who } : {}),
           project: p.id,
@@ -274,8 +337,11 @@ export class MockProjects {
   /** Confirms or discards a project draft (`/api/drafts/project/:id/…`). */
   draftAction(id: string, action: 'confirm' | 'discard'): RawResponse {
     const p = this.defs.get(id);
-    if (!p) return fail(404, 'unknown_draft', 'Questa bozza non c’è.');
-    if (p.status !== 'draft') return fail(409, 'draft_closed', 'Bozza già chiusa.');
+    if (!p)
+      return fail(404, 'unknown_draft', tr('This draft doesn’t exist.', 'Questa bozza non c’è.'));
+    if (p.status !== 'draft') {
+      return fail(409, 'draft_closed', tr('Draft already closed.', 'Bozza già chiusa.'));
+    }
     if (action === 'discard') return this.discard(p);
     const res = this.confirm(p);
     if (res.status !== 200) return res;
@@ -332,11 +398,25 @@ export class MockProjects {
   ): AgentSummary | RawResponse {
     const source = this.h.agents().find((a) => a.id === from);
     if (!source)
-      return fail(404, 'unknown_agent', 'Non c’è nessun mostro da copiare con questo nome.');
+      return fail(
+        404,
+        'unknown_agent',
+        tr(
+          'There’s no monster to copy with this name.',
+          'Non c’è nessun mostro da copiare con questo nome.',
+        ),
+      );
     const taken = [...this.h.agents().map((a) => a.name), ...given];
     const name = wanted ?? freeCopyName(taken) ?? this.freeName();
     if (!name || this.taken(name)) {
-      return fail(400, 'invalid_name', `C’è già un mostro che si chiama ${name ?? source.name}.`);
+      return fail(
+        400,
+        'invalid_name',
+        tr(
+          `There’s already a monster called ${name ?? source.name}.`,
+          `C’è già un mostro che si chiama ${name ?? source.name}.`,
+        ),
+      );
     }
     const genome = { ...monsterFor(name), id: agentId(name) };
     return {
@@ -348,7 +428,12 @@ export class MockProjects {
       state: 'idle',
       isOrchestrator: false,
       project: p.id,
-      ...(lead ? { isLead: true, role: `Guida il progetto ${p.name}` } : { isLead: false }),
+      ...(lead
+        ? {
+            isLead: true,
+            role: tr(`Leads the project ${p.name}`, `Guida il progetto ${p.name}`),
+          }
+        : { isLead: false }),
     };
   }
 
@@ -356,9 +441,21 @@ export class MockProjects {
     if (plan.from) return this.copy(p, plan.from, plan.name, [], true);
     const name = plan.name ?? this.freeName();
     if (!name || this.taken(name)) {
-      return fail(400, 'invalid_name', `C’è già un mostro che si chiama ${name ?? 'così'}.`);
+      return fail(
+        400,
+        'invalid_name',
+        tr(
+          `There’s already a monster called ${name ?? 'that'}.`,
+          `C’è già un mostro che si chiama ${name ?? 'così'}.`,
+        ),
+      );
     }
-    return this.monster(name, `Guida il progetto ${p.name}`, p.id, true);
+    return this.monster(
+      name,
+      tr(`Leads the project ${p.name}`, `Guida il progetto ${p.name}`),
+      p.id,
+      true,
+    );
   }
 
   /* --------------------------------------------------------------- routes */
@@ -372,7 +469,13 @@ export class MockProjects {
       return null;
     }
     const p = this.defs.get(id);
-    if (!p) return fail(404, 'unknown_project', `Non c’è un progetto "${id}".`);
+    if (!p) {
+      return fail(
+        404,
+        'unknown_project',
+        tr(`There’s no project "${id}".`, `Non c’è un progetto "${id}".`),
+      );
+    }
     if (sub === undefined) {
       if (method === 'GET') return ok(this.view(p));
       if (method === 'PATCH') return this.update(p, body);
@@ -381,7 +484,10 @@ export class MockProjects {
           return fail(
             409,
             'not_draft',
-            `${p.name} non è una bozza: si archivia, non si lascia stare.`,
+            tr(
+              `${p.name} isn’t a draft: archive it, don’t discard it.`,
+              `${p.name} non è una bozza: si archivia, non si lascia stare.`,
+            ),
           );
         }
         return this.discard(p);
@@ -390,7 +496,14 @@ export class MockProjects {
     }
     if (method === 'POST' && sub === 'confirm') {
       if (p.status !== 'draft')
-        return fail(409, 'not_draft', `Il progetto ${p.name} è già confermato.`);
+        return fail(
+          409,
+          'not_draft',
+          tr(
+            `The project ${p.name} is already confirmed.`,
+            `Il progetto ${p.name} è già confermato.`,
+          ),
+        );
       return this.confirm(p);
     }
     if (method === 'POST' && sub === 'archive') return this.archive(p);
@@ -426,13 +539,9 @@ export class MockProjects {
     const other = [...this.defs.values()].find(
       (x) => x.name.toLowerCase() === req.name.toLowerCase(),
     );
-    if (other) return fail(409, 'name_taken', `C’è già un progetto che si chiama ${other.name}.`);
+    if (other) return fail(409, 'name_taken', projectNameTaken(other.name));
     if (req.folder && !looksAbsolute(req.folder.path)) {
-      return fail(
-        400,
-        'invalid_folder',
-        'Scrivi il percorso completo della cartella del progetto.',
-      );
+      return fail(400, 'invalid_folder', fullPath());
     }
     const now = Date.now();
     const p: Stored = {
@@ -464,23 +573,18 @@ export class MockProjects {
     const r = ProjectUpdateRequestSchema.safeParse(body);
     if (!r.success) return fail(400, 'invalid_request', r.error.issues[0]?.message);
     const u = r.data;
-    if (p.archivedAt !== undefined)
-      return fail(409, 'project_archived', `Il progetto ${p.name} è archiviato.`);
+    if (p.archivedAt !== undefined) return fail(409, 'project_archived', archivedMessage(p.name));
     if (u.name !== undefined) {
       const other = [...this.defs.values()].find(
         (x) => x.id !== p.id && x.name.toLowerCase() === u.name!.toLowerCase(),
       );
-      if (other) return fail(409, 'name_taken', `C’è già un progetto che si chiama ${other.name}.`);
+      if (other) return fail(409, 'name_taken', projectNameTaken(other.name));
       p.name = u.name;
     }
     if (u.folder === null) delete p.folder;
     else if (u.folder) {
       if (!looksAbsolute(u.folder.path)) {
-        return fail(
-          400,
-          'invalid_folder',
-          'Scrivi il percorso completo della cartella del progetto.',
-        );
+        return fail(400, 'invalid_folder', fullPath());
       }
       p.folder = u.folder.path.replace(/^~(?=\/|$)/, '/home/andrea');
       if (p.plan) p.plan = { ...p.plan, createFolder: u.folder.create === true };
@@ -518,7 +622,10 @@ export class MockProjects {
         return fail(
           409,
           'name_taken',
-          `C’è già un mostro che si chiama ${name}. Cambia il nome nella bozza e conferma di nuovo.`,
+          tr(
+            `There’s already a monster called ${name}. Change the name in the draft and confirm again.`,
+            `C’è già un mostro che si chiama ${name}. Cambia il nome nella bozza e conferma di nuovo.`,
+          ),
         );
       }
       const a: AgentSummary | RawResponse =
@@ -576,10 +683,12 @@ export class MockProjects {
       return fail(
         409,
         'project_draft',
-        `${p.name} è una bozza: lasciala stare invece di archiviarla.`,
+        tr(
+          `${p.name} is a draft: discard it instead of archiving it.`,
+          `${p.name} è una bozza: lasciala stare invece di archiviarla.`,
+        ),
       );
-    if (p.archivedAt !== undefined)
-      return fail(409, 'project_archived', `Il progetto ${p.name} è archiviato.`);
+    if (p.archivedAt !== undefined) return fail(409, 'project_archived', archivedMessage(p.name));
     const members = this.members(p.id);
     this.h.setAgents(this.h.agents().filter((a) => a.project !== p.id));
     p.archivedAgents = members;
@@ -598,7 +707,11 @@ export class MockProjects {
 
   private restore(p: Stored): RawResponse {
     if (p.archivedAt === undefined)
-      return fail(409, 'not_archived', `Il progetto ${p.name} non è archiviato.`);
+      return fail(
+        409,
+        'not_archived',
+        tr(`The project ${p.name} isn’t archived.`, `Il progetto ${p.name} non è archiviato.`),
+      );
     const back = (p.archivedAgents ?? []).map((a) =>
       this.taken(a.name)
         ? {
@@ -632,24 +745,36 @@ export class MockProjects {
       return fail(
         409,
         'project_draft',
-        `Il progetto ${p.name} è ancora una bozza: confermalo prima.`,
+        tr(
+          `The project ${p.name} is still a draft: confirm it first.`,
+          `Il progetto ${p.name} è ancora una bozza: confermalo prima.`,
+        ),
       );
-    if (p.archivedAt !== undefined)
-      return fail(409, 'project_archived', `Il progetto ${p.name} è archiviato.`);
+    if (p.archivedAt !== undefined) return fail(409, 'project_archived', archivedMessage(p.name));
     const r = ProjectMemberRequestSchema.safeParse(body);
     if (!r.success) return fail(400, 'invalid_request', r.error.issues[0]?.message);
     if (this.members(p.id).filter((a) => !a.isLead).length >= MAX_PROJECT_MEMBERS) {
       return fail(
         409,
         'team_full',
-        `Il progetto ha già ${MAX_PROJECT_MEMBERS} mostri oltre al capo.`,
+        tr(
+          `The project already has ${MAX_PROJECT_MEMBERS} monsters besides the lead.`,
+          `Il progetto ha già ${MAX_PROJECT_MEMBERS} mostri oltre al capo.`,
+        ),
       );
     }
     const req = r.data;
     let a: AgentSummary | RawResponse;
     if ('copyOf' in req) a = this.copy(p, req.copyOf, req.name);
     else if (this.taken(req.name))
-      a = fail(400, 'invalid_name', `C’è già un mostro che si chiama ${req.name}.`);
+      a = fail(
+        400,
+        'invalid_name',
+        tr(
+          `There’s already a monster called ${req.name}.`,
+          `C’è già un mostro che si chiama ${req.name}.`,
+        ),
+      );
     else {
       a = {
         ...this.monster(req.name, req.role, p.id),
@@ -665,9 +790,23 @@ export class MockProjects {
 
   private removeMember(p: Stored, agent: string): RawResponse {
     const a = this.members(p.id).find((x) => x.id === agent);
-    if (!a) return fail(404, 'unknown_agent', 'Non è un mostro di questo progetto.');
-    if (a.isLead)
-      return fail(400, 'orchestrator', 'Il capo non si toglie dal progetto: archivia il progetto.');
+    if (!a) {
+      return fail(
+        404,
+        'unknown_agent',
+        tr('That’s not a monster of this project.', 'Non è un mostro di questo progetto.'),
+      );
+    }
+    if (a.isLead) {
+      return fail(
+        400,
+        'orchestrator',
+        tr(
+          'The lead can’t be taken off the project: archive the project.',
+          'Il capo non si toglie dal progetto: archivia il progetto.',
+        ),
+      );
+    }
     this.h.setAgents(this.h.agents().filter((x) => x.id !== agent));
     this.h.log({
       agent: 'user',

@@ -24,6 +24,7 @@ import {
 } from '@monsters/shared';
 import { colorOf, monsterFor } from '../lib/monsters.ts';
 import type { RawResponse } from '../lib/transport.ts';
+import { tr } from '../lib/mock/lang.ts';
 
 /*
  * Onboarding of the mock core (`?mock=1`): same contract as the real one, with
@@ -141,7 +142,7 @@ export class MockOnboarding {
     area: string,
     hues: number[],
   ): ProposedAgent {
-    const user = cap(this.value('nomi', 'user') ?? 'tu');
+    const user = cap(this.value('nomi', 'user') ?? tr('you', 'tu'));
     const key = name.toLowerCase();
     let genome: MonsterGenome = monsterFor(name);
     if (!isRoster(key) || hues.some((h) => hueDistance(h, genome.palette.hue) < 30)) {
@@ -155,8 +156,16 @@ export class MockOnboarding {
       title,
       role,
       mission: role,
-      context: `${user} vuole lavorare meglio e con meno fatica.`,
-      duties: ['Lavori fino in fondo e lasci tutto nelle note.'],
+      context: tr(
+        `${user} wants to work better and with less effort.`,
+        `${user} vuole lavorare meglio e con meno fatica.`,
+      ),
+      duties: [
+        tr(
+          'You see the work through and leave everything in the notes.',
+          'Lavori fino in fondo e lasci tutto nelle note.',
+        ),
+      ],
       area,
       tools: [
         ...(web ? ['web_search', 'web_fetch'] : []),
@@ -181,17 +190,20 @@ export class MockOnboarding {
       this.member(
         okName('Rhea') ? 'Rhea' : free[0]!,
         'rhea',
-        'la ricercatrice',
-        'ricerche online e sintesi con fonti',
-        'Risorse/Ricerche',
+        tr('the researcher', 'la ricercatrice'),
+        tr('online research and summaries with sources', 'ricerche online e sintesi con fonti'),
+        tr('Resources/Research', 'Risorse/Ricerche'),
         hues,
       ),
       this.member(
         okName('Dione') ? 'Dione' : free[1]!,
         'dione',
-        'la scrittrice',
-        'testi pronti da usare: post, mail, riassunti',
-        'Inbox/Bozze',
+        tr('the writer', 'la scrittrice'),
+        tr(
+          'ready-to-use texts: posts, emails, summaries',
+          'testi pronti da usare: post, mail, riassunti',
+        ),
+        tr('Inbox/Drafts', 'Inbox/Bozze'),
         hues,
       ),
     ];
@@ -201,9 +213,12 @@ export class MockOnboarding {
         this.member(
           free.find((n) => !members.some((m) => m.name === n))!,
           null,
-          'il pianificatore',
-          'tiene il calendario dei contenuti e le scadenze',
-          'Progetti/Calendario',
+          tr('the planner', 'il pianificatore'),
+          tr(
+            'keeps the content calendar and the deadlines',
+            'tiene il calendario dei contenuti e le scadenze',
+          ),
+          tr('Projects/Calendar', 'Progetti/Calendario'),
           hues,
         ),
       );
@@ -284,7 +299,7 @@ export class MockOnboarding {
           {
             id: proposal.orchestrator.id,
             name: proposal.orchestrator.name,
-            role: 'coordina la squadra',
+            role: tr('coordinates the squad', 'coordina la squadra'),
             color: proposal.orchestrator.color,
             isOrchestrator: true,
             genome: proposal.orchestrator.genome,
@@ -315,12 +330,18 @@ export class MockOnboarding {
           .slice(1)
           .map((a) => a.name)
           .join(', ')
-          .replace(/, ([^,]*)$/, ' e $1');
+          .replace(/, ([^,]*)$/, tr(' and $1', ' e $1'));
         const welcome = ['openrouter', 'chatgpt', 'claude-agent', 'codex'].some((id) =>
           this.host.hasProvider(id),
         )
-          ? `Ciao ${user}! Sono ${agents[0]!.name} e coordino la tua squadra. Con me ci sono ${team}. Scrivimi quello che ti serve e ci pensiamo noi: per le cose che mi hai indicato, prima chiedo a te.`
-          : `Ciao ${user}! Sono ${agents[0]!.name} e coordino la tua squadra: con me ci sono ${team}. Per lavorare mi manca solo un modello: collegane uno e partiamo.`;
+          ? tr(
+              `Hi ${user}! I’m ${agents[0]!.name} and I coordinate your squad. With me there are ${team}. Write me what you need and we’ll take care of it: for the things you told me about, I’ll ask you first.`,
+              `Ciao ${user}! Sono ${agents[0]!.name} e coordino la tua squadra. Con me ci sono ${team}. Scrivimi quello che ti serve e ci pensiamo noi: per le cose che mi hai indicato, prima chiedo a te.`,
+            )
+          : tr(
+              `Hi ${user}! I’m ${agents[0]!.name} and I coordinate your squad: with me there are ${team}. To work I’m only missing a model: connect one and we’re off.`,
+              `Ciao ${user}! Sono ${agents[0]!.name} e coordino la tua squadra: con me ci sono ${team}. Per lavorare mi manca solo un modello: collegane uno e partiamo.`,
+            );
         this.host.welcome(agents[0]!.id, welcome);
         return ok({ ok: true, agents, welcome });
       }

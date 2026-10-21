@@ -17,6 +17,8 @@ import {
 import { createRng } from '@monsters/monster-kit';
 import { lineDiff } from '../line-diff.ts';
 import type { RawResponse } from '../transport.ts';
+import { tr } from './lang.ts';
+import { noteTitle, notePath } from './paths.ts';
 
 /*
  * The vault of the mock core (M2.8): notes with their versions in memory, so
@@ -544,8 +546,8 @@ export class MockVault {
     if (n && actionId && n.versions.some((v) => v.actionId === actionId)) return;
     const prev = n ? (this.current(n).text ?? '') : '';
     const text = n
-      ? `${prev.trimEnd()}\n\n- Aggiunto da ${e.agent}.\n`
-      : `---\nauthor: ${e.agent}\ntags: [spunti]\n---\n# ${titleOf(path)}\n\nNota scritta da ${e.agent} nella prova.\n`;
+      ? `${prev.trimEnd()}\n\n- ${tr(`Added by ${e.agent}.`, `Aggiunto da ${e.agent}.`)}\n`
+      : `---\nauthor: ${e.agent}\ntags: [${tr('tips', 'spunti')}]\n---\n# ${titleOf(path)}\n\n${tr(`Note written by ${e.agent} in the test run.`, `Nota scritta da ${e.agent} nella prova.`)}\n`;
     this.add(path, {
       ts: e.ts,
       author: e.agent,
@@ -580,154 +582,232 @@ export class MockVault {
         });
     };
 
-    put('LEGGIMI.md', [
+    put(notePath('readme'), [
       {
         min: 60 * 24 * 6,
         author: 'monsters',
-        text: '# Leggimi\n\nQuesto è il tuo vault: note in Markdown, apribili anche con Obsidian.\nI mostri scrivono qui quello che imparano. Ogni modifica si può annullare.\n',
+        text: tr(
+          '# Read me\n\nThis is your vault: notes in Markdown, which you can also open with Obsidian.\nThe monsters write here what they learn. Every change can be undone.\n',
+          '# Leggimi\n\nQuesto è il tuo vault: note in Markdown, apribili anche con Obsidian.\nI mostri scrivono qui quello che imparano. Ogni modifica si può annullare.\n',
+        ),
       },
     ]);
-    put('Diario/2026-10-14.md', [
+    const sara = noteTitle('sara');
+    const giulio = noteTitle('giulio');
+    const running = noteTitle('running');
+    const siteBrief = noteTitle('siteBrief');
+    const lisbonTitle = noteTitle('lisbonTips');
+    const tram = noteTitle('tram28');
+    const pasteis = noteTitle('pasteis');
+    const roadmap = noteTitle('roadmap');
+    const ideasTitle = noteTitle('ideas');
+    put(notePath('diary'), [
       {
         min: 60 * 5,
         author: 'user',
-        text: '---\ntype: diario\ntags: [diario]\n---\n# 14 ottobre\n\n- Corsa al parco, 6 km.\n- Chiamata con [[Sara]] per il sito.\n',
+        text: tr(
+          `---\ntype: journal\ntags: [journal]\n---\n# October 14\n\n- Run in the park, 6 km.\n- Call with [[${sara}]] about the website.\n`,
+          `---\ntype: diario\ntags: [diario]\n---\n# 14 ottobre\n\n- Corsa al parco, 6 km.\n- Chiamata con [[${sara}]] per il sito.\n`,
+        ),
       },
       {
         min: 42,
         author: 'enceladus',
         actionId: 'act_seed_diary',
         tool: 'vault_edit',
-        text: '---\ntype: diario\ntags: [diario]\n---\n# 14 ottobre\n\n- Corsa al parco, 6 km. Vedi [[Corsa]].\n- Chiamata con [[Sara]] per il sito: vedi [[Brief del sito]].\n\n## Agenti\n- Encelado ha riordinato il diario.\n',
+        text: tr(
+          `---\ntype: journal\ntags: [journal]\n---\n# October 14\n\n- Run in the park, 6 km. See [[${running}]].\n- Call with [[${sara}]] about the website: see [[${siteBrief}]].\n\n## Agents\n- Enceladus tidied up the journal.\n`,
+          `---\ntype: diario\ntags: [diario]\n---\n# 14 ottobre\n\n- Corsa al parco, 6 km. Vedi [[${running}]].\n- Chiamata con [[${sara}]] per il sito: vedi [[${siteBrief}]].\n\n## Agenti\n- Encelado ha riordinato il diario.\n`,
+        ),
       },
     ]);
     if (mode !== 'demo') return;
 
-    const lisbon =
-      '---\nauthor: rhea\ntags: [viaggi, spunti]\nsources: 3\n---\n# Lisbona, spunti per il weekend\n\n1. Giro sul [[Tram 28]] la mattina presto.\n2. [[Pastéis de nata]] a Belém, meglio alle 9.\n3. Tramonto al Miradouro da Senhora do Monte.\n\nFonti: [Visit Lisboa](https://www.visitlisboa.com) #viaggi\n';
-    put('Risorse/Lisbona, spunti per il weekend.md', [
+    const lisbon = tr(
+      `---\nauthor: rhea\ntags: [travel, tips]\nsources: 3\n---\n# ${lisbonTitle}\n\n1. Ride [[${tram}]] early in the morning.\n2. [[${pasteis}]] in Belém, best at 9.\n3. Sunset at the Miradouro da Senhora do Monte.\n\nSources: [Visit Lisboa](https://www.visitlisboa.com) #travel\n`,
+      `---\nauthor: rhea\ntags: [viaggi, spunti]\nsources: 3\n---\n# ${lisbonTitle}\n\n1. Giro sul [[${tram}]] la mattina presto.\n2. [[${pasteis}]] a Belém, meglio alle 9.\n3. Tramonto al Miradouro da Senhora do Monte.\n\nFonti: [Visit Lisboa](https://www.visitlisboa.com) #viaggi\n`,
+    );
+    put(notePath('lisbonTips'), [
       { min: 30, author: 'rhea', actionId: 'act_seed_lisbon', text: lisbon },
     ]);
-    put('Risorse/Pastéis de nata.md', [
+    put(notePath('pasteis'), [
       {
         min: 29,
         author: 'rhea',
-        text: '---\nauthor: rhea\ntags: [viaggi, cibo]\n---\n# Pastéis de nata\n\nDolci di pasta sfoglia e crema, nati a Belém. Collegati a [[Lisbona, spunti per il weekend]].\n',
+        text: tr(
+          `---\nauthor: rhea\ntags: [travel, food]\n---\n# ${pasteis}\n\nPuff-pastry and custard tarts, born in Belém. Linked to [[${lisbonTitle}]].\n`,
+          `---\nauthor: rhea\ntags: [viaggi, cibo]\n---\n# ${pasteis}\n\nDolci di pasta sfoglia e crema, nati a Belém. Collegati a [[${lisbonTitle}]].\n`,
+        ),
       },
     ]);
-    put('Risorse/Tram 28.md', [
+    put(notePath('tram28'), [
       {
         min: 29,
         author: 'rhea',
-        text: '---\nauthor: rhea\ntags: [viaggi]\n---\n# Tram 28\n\nLa linea storica che attraversa Alfama, Baixa e Graça. Vedi [[Lisbona, spunti per il weekend]].\n',
+        text: tr(
+          `---\nauthor: rhea\ntags: [travel]\n---\n# ${tram}\n\nThe historic line that runs through Alfama, Baixa and Graça. See [[${lisbonTitle}]].\n`,
+          `---\nauthor: rhea\ntags: [viaggi]\n---\n# ${tram}\n\nLa linea storica che attraversa Alfama, Baixa e Graça. Vedi [[${lisbonTitle}]].\n`,
+        ),
       },
     ]);
-    put('Risorse/Ricette/Carbonara.md', [
+    put(notePath('carbonara'), [
       {
         min: 60 * 30,
         author: 'user',
-        text: '---\ntags: [cibo, ricette]\n---\n# Carbonara\n\nGuanciale, tuorli, pecorino, pepe. Niente panna.\n\n```\n4 tuorli per 320 g di pasta\n```\n',
+        text: tr(
+          '---\ntags: [food, recipes]\n---\n# Carbonara\n\nGuanciale, egg yolks, pecorino, pepper. No cream.\n\n```\n4 yolks for 320 g of pasta\n```\n',
+          '---\ntags: [cibo, ricette]\n---\n# Carbonara\n\nGuanciale, tuorli, pecorino, pepe. Niente panna.\n\n```\n4 tuorli per 320 g di pasta\n```\n',
+        ),
       },
     ]);
-    put('Inbox/Bozze dei post.md', [
+    put(notePath('inboxPosts'), [
       {
         min: 20,
         author: 'dione',
-        text: '---\nauthor: dione\ntags: [social, spunti]\n---\n# Bozze dei post\n\n## Variante A\nTre giorni a Lisbona tra tram e pastéis.\n\n## Variante B\nLisbona in un weekend: cosa non perdere. Spunti da [[Lisbona, spunti per il weekend]].\n',
+        text: tr(
+          `---\nauthor: dione\ntags: [social, tips]\n---\n# Post drafts\n\n## Version A\nThree days in Lisbon between trams and pastéis.\n\n## Version B\nLisbon in a weekend: what not to miss. Tips from [[${lisbonTitle}]].\n`,
+          `---\nauthor: dione\ntags: [social, spunti]\n---\n# Bozze dei post\n\n## Variante A\nTre giorni a Lisbona tra tram e pastéis.\n\n## Variante B\nLisbona in un weekend: cosa non perdere. Spunti da [[${lisbonTitle}]].\n`,
+        ),
       },
     ]);
-    put('Inbox/Idea veloce.md', [
+    const toWrite = tr('Note to write', 'Nota da scrivere');
+    put(notePath('quickIdea'), [
       {
         min: 8,
         author: 'user',
-        text: '# Idea veloce\n\nRifare la mappa del viaggio. Da incorporare:\n\n![[Tram 28]]\n\nPoi scrivere [[Nota da scrivere]] e un link sbagliato <script>alert(1)</script> [clic](javascript:alert(1)).\n\n- [x] trovare il volo\n- [ ] prenotare #viaggi/lisbona\n',
+        text: tr(
+          `# Quick idea\n\nRedo the trip map. To embed:\n\n![[${tram}]]\n\nThen write [[${toWrite}]] and a bad link <script>alert(1)</script> [click](javascript:alert(1)).\n\n- [x] find the flight\n- [ ] book #travel/lisbon\n`,
+          `# Idea veloce\n\nRifare la mappa del viaggio. Da incorporare:\n\n![[${tram}]]\n\nPoi scrivere [[${toWrite}]] e un link sbagliato <script>alert(1)</script> [clic](javascript:alert(1)).\n\n- [x] trovare il volo\n- [ ] prenotare #viaggi/lisbona\n`,
+        ),
       },
     ]);
-    put('Progetti/Monsters/Roadmap.md', [
+    put(notePath('roadmap'), [
       {
         min: 60 * 50,
         author: 'titan',
-        text: '---\nauthor: titan\ntype: progetto\ntags: [monsters, lavoro]\n---\n# Roadmap\n\n| Fase | Cosa |\n| --- | --- |\n| 2 | Integrazioni e [[Idee per la piazzetta]] |\n| 3 | App desktop |\n\nPersone: [[Giulio]], [[Sara]].\n',
+        text: tr(
+          `---\nauthor: titan\ntype: project\ntags: [monsters, work]\n---\n# ${roadmap}\n\n| Phase | What |\n| --- | --- |\n| 2 | Integrations and [[${ideasTitle}]] |\n| 3 | Desktop app |\n\nPeople: [[${giulio}]], [[${sara}]].\n`,
+          `---\nauthor: titan\ntype: progetto\ntags: [monsters, lavoro]\n---\n# ${roadmap}\n\n| Fase | Cosa |\n| --- | --- |\n| 2 | Integrazioni e [[${ideasTitle}]] |\n| 3 | App desktop |\n\nPersone: [[${giulio}]], [[${sara}]].\n`,
+        ),
       },
     ]);
-    const ideas =
-      '---\nauthor: titan\ntags: [monsters, idee]\n---\n# Idee per la piazzetta\n\n- I mostri si salutano quando si incrociano.\n\nVedi [[Roadmap]].\n';
-    put('Progetti/Monsters/Idee per la piazzetta.md', [
+    const ideas = tr(
+      `---\nauthor: titan\ntags: [monsters, ideas]\n---\n# ${ideasTitle}\n\n- The monsters greet each other when they cross paths.\n\nSee [[${roadmap}]].\n`,
+      `---\nauthor: titan\ntags: [monsters, idee]\n---\n# ${ideasTitle}\n\n- I mostri si salutano quando si incrociano.\n\nVedi [[${roadmap}]].\n`,
+    );
+    put(notePath('ideas'), [
       { min: 60 * 26, author: 'titan', actionId: 'act_seed_ideas', text: ideas },
       {
         min: 60 * 2,
         author: 'user',
         actionId: 'act_seed_ideas_edit',
         tool: 'vault_write',
-        text: ideas.replace(
-          'incrociano.\n',
-          "incrociano.\n- Un mostro che dorme se non lavora da un'ora.\n",
+        text: tr(
+          ideas.replace(
+            'cross paths.\n',
+            'cross paths.\n- A monster that sleeps if it hasn’t worked for an hour.\n',
+          ),
+          ideas.replace(
+            'incrociano.\n',
+            "incrociano.\n- Un mostro che dorme se non lavora da un'ora.\n",
+          ),
         ),
       },
     ]);
-    put('Progetti/Sito Saturday/Brief del sito.md', [
+    put(notePath('siteBrief'), [
       {
         min: 60 * 8,
         author: 'user',
-        text: '---\ntags: [lavoro, clienti]\n---\n# Brief del sito\n\nPagine: home, servizi, contatti. Referente: [[Sara]].\n',
+        text: tr(
+          `---\ntags: [work, clients]\n---\n# ${siteBrief}\n\nPages: home, services, contact. Contact person: [[${sara}]].\n`,
+          `---\ntags: [lavoro, clienti]\n---\n# ${siteBrief}\n\nPagine: home, servizi, contatti. Referente: [[${sara}]].\n`,
+        ),
       },
     ]);
-    put('Aree/Salute/Corsa.md', [
+    put(notePath('running'), [
       {
         min: 60 * 72,
         author: 'user',
-        text: "---\ntags: [salute]\n---\n# Corsa\n\nObiettivo: 10 km sotto l'ora entro dicembre.\n",
+        text: tr(
+          `---\ntags: [health]\n---\n# ${running}\n\nGoal: 10 km under an hour by December.\n`,
+          `---\ntags: [salute]\n---\n# ${running}\n\nObiettivo: 10 km sotto l'ora entro dicembre.\n`,
+        ),
       },
     ]);
-    put('Aree/Finanze/Budget di ottobre.md', [
+    const budget = noteTitle('budget');
+    put(notePath('budget'), [
       {
         min: 60 * 48,
         author: 'user',
-        text: '---\nprivate: true\ntags: [finanze]\n---\n# Budget di ottobre\n\nAffitto, bollette e il viaggio a Lisbona.\n',
+        text: tr(
+          `---\nprivate: true\ntags: [finance]\n---\n# ${budget}\n\nRent, bills and the trip to Lisbon.\n`,
+          `---\nprivate: true\ntags: [finanze]\n---\n# ${budget}\n\nAffitto, bollette e il viaggio a Lisbona.\n`,
+        ),
       },
     ]);
-    put('Privato/Diario personale.md', [
+    const personal = noteTitle('personalDiary');
+    put(notePath('personalDiary'), [
       {
         min: 60 * 36,
         author: 'user',
-        text: '---\nprivate: true\n---\n# Diario personale\n\nSolo per me.\n',
+        text: tr(
+          `---\nprivate: true\n---\n# ${personal}\n\nJust for me.\n`,
+          `---\nprivate: true\n---\n# ${personal}\n\nSolo per me.\n`,
+        ),
       },
     ]);
-    put('Persone/Giulio.md', [
+    put(notePath('giulio'), [
       {
         min: 60 * 90,
         author: 'user',
-        text: '---\ntype: persona\ntags: [persone]\n---\n# Giulio\n\nCo-fondatore. Lavora con [[Sara]] al [[Brief del sito]].\n',
+        text: tr(
+          `---\ntype: person\ntags: [people]\n---\n# ${giulio}\n\nCo-founder. Works with [[${sara}]] on the [[${siteBrief}]].\n`,
+          `---\ntype: persona\ntags: [persone]\n---\n# ${giulio}\n\nCo-fondatore. Lavora con [[${sara}]] al [[${siteBrief}]].\n`,
+        ),
       },
     ]);
-    put('Persone/Sara.md', [
+    put(notePath('sara'), [
       {
         min: 60 * 90,
         author: 'user',
-        text: '---\ntype: persona\ntags: [persone]\n---\n# Sara\n\nDesigner. Vedi [[Giulio]].\n',
+        text: tr(
+          `---\ntype: person\ntags: [people]\n---\n# ${sara}\n\nDesigner. See [[${giulio}]].\n`,
+          `---\ntype: persona\ntags: [persone]\n---\n# ${sara}\n\nDesigner. Vedi [[${giulio}]].\n`,
+        ),
       },
     ]);
-    put('Agenti/Rhea/MEMORY.md', [
+    put(notePath('rheaMemory'), [
       {
         min: 29,
         author: 'rhea',
         actionId: 'act_seed_memory',
         tool: 'vault_edit',
-        text: '---\nauthor: rhea\n---\n# Memoria di Rhea\n\n- Giulio preferisce fonti in italiano.\n- Per Lisbona: [[Lisbona, spunti per il weekend]].\n',
+        text: tr(
+          `---\nauthor: rhea\n---\n# Rhea’s memory\n\n- Giulio prefers sources in Italian.\n- For Lisbon: [[${lisbonTitle}]].\n`,
+          `---\nauthor: rhea\n---\n# Memoria di Rhea\n\n- Giulio preferisce fonti in italiano.\n- Per Lisbona: [[${lisbonTitle}]].\n`,
+        ),
       },
     ]);
-    put('Archivio/Vecchio piano.md', [
+    const oldPlan = noteTitle('oldPlan');
+    put(notePath('oldPlan'), [
       {
         min: 60 * 24 * 20,
         author: 'user',
-        text: '# Vecchio piano\n\nSostituito dalla [[Roadmap]].\n',
+        text: tr(
+          `# ${oldPlan}\n\nReplaced by the [[${roadmap}]].\n`,
+          `# ${oldPlan}\n\nSostituito dalla [[${roadmap}]].\n`,
+        ),
       },
     ]);
-    put('Risorse/Lista della spesa.md', [
+    const shopping = noteTitle('shopping');
+    put(notePath('shopping'), [
       {
         min: 60 * 26,
         author: 'user',
-        text: '---\ntags: [casa]\n---\n# Lista della spesa\n\nUova, guanciale, pecorino.\n',
+        text: tr(
+          `---\ntags: [home]\n---\n# ${shopping}\n\nEggs, guanciale, pecorino.\n`,
+          `---\ntags: [casa]\n---\n# ${shopping}\n\nUova, guanciale, pecorino.\n`,
+        ),
       },
       { min: 60 * 3, author: 'dione', actionId: 'act_seed_trash', text: null },
     ]);
@@ -737,22 +817,16 @@ export class MockVault {
   private generate(count: number): void {
     const random = createRng(2026);
     const rng = () => random.next();
-    const folders = [
-      'Risorse',
-      'Progetti',
-      'Aree',
-      'Persone',
-      'Diario',
-      'Inbox',
-      'Archivio',
-      'Agenti/Rhea',
-    ];
+    const folders = tr(
+      ['Resources', 'Projects', 'Areas', 'People', 'Journal', 'Inbox', 'Archive', 'Agenti/Rhea'],
+      ['Risorse', 'Progetti', 'Aree', 'Persone', 'Diario', 'Inbox', 'Archivio', 'Agenti/Rhea'],
+    );
     const authors = ['user', 'rhea', 'dione', 'titan'];
     const paths: string[] = [];
     const now = Date.now();
     for (let i = 0; i < count; i++) {
       const folder = folders[Math.floor(rng() * folders.length)]!;
-      paths.push(`${folder}/Nota ${String(i + 1).padStart(4, '0')}.md`);
+      paths.push(`${folder}/${tr('Note', 'Nota')} ${String(i + 1).padStart(4, '0')}.md`);
     }
     paths.forEach((path, i) => {
       const links = Math.floor(rng() * 4);

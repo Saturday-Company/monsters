@@ -16,7 +16,8 @@ import {
 } from '@monsters/shared';
 import { Cron } from 'croner';
 import type { RawResponse } from '../transport.ts';
-import { DEMO_PROJECT_ID } from './projects.ts';
+import { mockLang, tr } from './lang.ts';
+import { DEMO_AREA, DEMO_PROJECT_ID } from './projects.ts';
 
 /*
  * `/api/automations` of the mock core (D-094; contract in
@@ -52,8 +53,14 @@ export const DEMO_AUTOMATION_ID = 'post-della-settimana';
 /** In a script: the id of the latest delegation started (a delegated monster's message points there). */
 const DELEGATION = '@delegation';
 
-const DEMO_OBJECTIVE =
-  'Prepara i post della pagina di Saturday per la settimana che arriva: tre post (lunedì, mercoledì, venerdì), ognuno con il testo, gli hashtag e un’immagine. Parti dalle note della settimana e dai temi che funzionano di più. Salva il piano in una nota sola, pronta da leggere lunedì mattina.';
+const demoObjective = () =>
+  tr(
+    'Prepare the posts of the Saturday page for the coming week: three posts (Monday, Wednesday, Friday), each with the copy, the hashtags and an image. Start from the week’s notes and the themes that work best. Save the plan in a single note, ready to read on Monday morning.',
+    'Prepara i post della pagina di Saturday per la settimana che arriva: tre post (lunedì, mercoledì, venerdì), ognuno con il testo, gli hashtag e un’immagine. Parti dalle note della settimana e dai temi che funzionano di più. Salva il piano in una nota sola, pronta da leggere lunedì mattina.',
+  );
+
+/** The locale of dates in the mock's language. */
+const locale = () => (mockLang() === 'it' ? 'it-IT' : 'en-US');
 
 function slug(name: string, taken: (id: string) => boolean): string {
   const base =
@@ -64,7 +71,7 @@ function slug(name: string, taken: (id: string) => boolean): string {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
       .slice(0, 48)
-      .replace(/-+$/g, '') || 'automazione';
+      .replace(/-+$/g, '') || tr('automation', 'automazione');
   if (!taken(base)) return base;
   for (let n = 2; ; n++) if (!taken(`${base}-${n}`)) return `${base}-${n}`;
 }
@@ -82,7 +89,7 @@ function nextSlot(a: Automation, after: number): number | null {
   }
 }
 
-const dayFmt = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long' });
+const dayFmt = () => new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long' });
 
 export class MockAutomations {
   private readonly defs = new Map<string, Automation>();
@@ -101,13 +108,13 @@ export class MockAutomations {
     const created = now - 20 * 86_400_000;
     const a: Automation = {
       id: DEMO_AUTOMATION_ID,
-      name: 'Post della settimana',
+      name: tr('Weekly posts', 'Post della settimana'),
       lead: 'iapetus',
       project: DEMO_PROJECT_ID,
       participants: ['calypso', 'pandora'],
       schedule: { cron: '0 23 * * 0', timezone: this.tz },
-      objective: DEMO_OBJECTIVE,
-      resultsFolder: 'Progetti/Social di Saturday/Post',
+      objective: demoObjective(),
+      resultsFolder: `${DEMO_AREA()}/${tr('Posts', 'Post')}`,
       limits: { maxSteps: 60, maxEur: 2 },
       notify: { app: true, telegram: true },
       status: 'active',
@@ -155,19 +162,26 @@ export class MockAutomations {
     const writer = helpers[0];
     const artist = helpers[1];
     const weekStart = (slot ?? Date.now()) + 86_400_000;
-    const week = `${dayFmt.format(weekStart)} – ${dayFmt.format(weekStart + 6 * 86_400_000)}`;
+    const week = `${dayFmt().format(weekStart)} – ${dayFmt().format(weekStart + 6 * 86_400_000)}`;
     const folder = a.resultsFolder ? `${a.resultsFolder}/` : '';
-    const note = `${folder}Post ${week}.md`;
-    const head =
+    const note = `${folder}${tr('Posts', 'Post')} ${week}.md`;
+    const when =
       slot !== undefined
-        ? `[Automazione «${a.name}» (giro di ${new Intl.DateTimeFormat('it-IT', {
+        ? new Intl.DateTimeFormat(locale(), {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
             hour: '2-digit',
             minute: '2-digit',
-          }).format(slot)})]`
-        : `[Automazione «${a.name}», eseguita ora]`;
+          }).format(slot)
+        : '';
+    const head =
+      slot !== undefined
+        ? tr(
+            `[Automation “${a.name}” (run of ${when})]`,
+            `[Automazione «${a.name}» (giro di ${when})]`,
+          )
+        : tr(`[Automation “${a.name}”, run now]`, `[Automazione «${a.name}», eseguita ora]`);
     const objective = [head, a.objective].join('\n\n');
     const out: [number, EventInput][] = [];
     const at = (ms: number, input: EventInput) => out.push([ms, input]);
@@ -201,7 +215,7 @@ export class MockAutomations {
       agent: lead,
       runId,
       type: 'run',
-      data: { status: 'started', goal: `Automazione «${a.name}»` },
+      data: { status: 'started', goal: tr(`Automation “${a.name}”`, `Automazione «${a.name}»`) },
     });
     at(20, {
       agent: 'user',
@@ -210,6 +224,11 @@ export class MockAutomations {
       data: { role: 'user', text: objective, to: lead, channel: 'automation', automationId: a.id },
     });
     at(1500, usage(lead, 0));
+    const planGoal = tr(
+      `Plan and copy for the posts of the week ${week}`,
+      `Piano e testi dei post della settimana ${week}`,
+    );
+    const imagesGoal = tr('The images of the three posts', 'Le immagini dei tre post');
     if (writer) {
       at(1600, {
         agent: lead,
@@ -219,7 +238,7 @@ export class MockAutomations {
           from: lead,
           to: writer,
           status: 'started',
-          goal: `Piano e testi dei post della settimana ${week}`,
+          goal: planGoal,
         },
       });
       at(1700, {
@@ -228,7 +247,10 @@ export class MockAutomations {
         type: 'message',
         data: {
           role: 'agent',
-          text: `Passo il piano e i testi a ${this.name(writer)}${artist ? `, poi le immagini a ${this.name(artist)}` : ''}.`,
+          text: tr(
+            `I’ll hand the plan and the copy to ${this.name(writer)}${artist ? `, then the images to ${this.name(artist)}` : ''}.`,
+            `Passo il piano e i testi a ${this.name(writer)}${artist ? `, poi le immagini a ${this.name(artist)}` : ''}.`,
+          ),
         },
       });
       at(5200, usage(writer, 1));
@@ -245,7 +267,10 @@ export class MockAutomations {
         type: 'message',
         data: {
           role: 'agent',
-          text: 'Ecco il piano: lunedì il dietro le quinte dello studio, mercoledì un caso cliente, venerdì un consiglio veloce con il carosello. Testi e hashtag sono nella nota.',
+          text: tr(
+            'Here’s the plan: Monday a behind-the-scenes look at the studio, Wednesday a client case, Friday a quick tip with the carousel. Copy and hashtags are in the note.',
+            'Ecco il piano: lunedì il dietro le quinte dello studio, mercoledì un caso cliente, venerdì un consiglio veloce con il carosello. Testi e hashtag sono nella nota.',
+          ),
         },
       });
       at(5600, {
@@ -256,8 +281,8 @@ export class MockAutomations {
           from: lead,
           to: writer,
           status: 'completed',
-          goal: `Piano e testi dei post della settimana ${week}`,
-          summary: '3 post con testi e hashtag',
+          goal: planGoal,
+          summary: tr('3 posts with copy and hashtags', '3 post con testi e hashtag'),
         },
       });
     }
@@ -266,7 +291,7 @@ export class MockAutomations {
         agent: lead,
         runId,
         type: 'delegation',
-        data: { from: lead, to: artist, status: 'started', goal: 'Le immagini dei tre post' },
+        data: { from: lead, to: artist, status: 'started', goal: imagesGoal },
       });
       at(9200, usage(artist, 2));
       at(9400, {
@@ -283,13 +308,17 @@ export class MockAutomations {
           from: lead,
           to: artist,
           status: 'completed',
-          goal: 'Le immagini dei tre post',
-          summary: '3 immagini descritte nella nota',
+          goal: imagesGoal,
+          summary: tr('3 images described in the note', '3 immagini descritte nella nota'),
         },
       });
     }
     at(10_800, usage(lead, 3));
-    const answer = `Fatto: i post della settimana ${week} sono pronti nella nota [[${note.replace(/\.md$/, '')}]]. Tre post (lunedì, mercoledì, venerdì) con testo, hashtag e l’idea dell’immagine. Da guardare: il caso cliente di mercoledì cita un nome, controlla che vada bene.`;
+    const noteLink = note.replace(/\.md$/, '');
+    const answer = tr(
+      `Done: the posts for the week ${week} are ready in the note [[${noteLink}]]. Three posts (Monday, Wednesday, Friday) with copy, hashtags and the image idea. To check: Wednesday’s client case mentions a name, make sure that’s okay.`,
+      `Fatto: i post della settimana ${week} sono pronti nella nota [[${noteLink}]]. Tre post (lunedì, mercoledì, venerdì) con testo, hashtag e l’idea dell’immagine. Da guardare: il caso cliente di mercoledì cita un nome, controlla che vada bene.`,
+    );
     at(11_000, { agent: lead, runId, type: 'message', data: { role: 'agent', text: answer } });
     at(11_100, { agent: lead, runId, type: 'run', data: { status: 'completed' } });
     at(11_200, {
@@ -496,18 +525,36 @@ export class MockAutomations {
       new Cron(cron, { timezone, mode: '5-part', paused: true }).nextRun();
       return null;
     } catch (err) {
-      return fail(400, 'invalid_schedule', `quando: ${(err as Error).message}`);
+      return fail(400, 'invalid_schedule', `${tr('when', 'quando')}: ${(err as Error).message}`);
     }
   }
 
   /** "Esegui ora": a short giro of the capo, step by step. */
   private runNow(a: Automation): RawResponse {
-    if (this.o.halted()) return fail(409, 'halted', 'Monsters è fermo: premi Riprendi.');
-    if (a.status === 'draft') return fail(409, 'draft', 'È una bozza: confermala prima.');
+    if (this.o.halted()) {
+      return fail(
+        409,
+        'halted',
+        tr('Monsters is stopped: press Resume.', 'Monsters è fermo: premi Riprendi.'),
+      );
+    }
+    if (a.status === 'draft') {
+      return fail(
+        409,
+        'draft',
+        tr('It’s a draft: confirm it first.', 'È una bozza: confermala prima.'),
+      );
+    }
     const open = (this.history().get(a.id) ?? []).some(
       (s) => s.state === 'running' || s.state === 'waiting_user',
     );
-    if (open) return fail(409, 'already_running', 'C’è già un giro in corso.');
+    if (open) {
+      return fail(
+        409,
+        'already_running',
+        tr('A run is already in progress.', 'C’è già un giro in corso.'),
+      );
+    }
     const runId = ulid();
     const play = this.player();
     let last = 0;
@@ -534,7 +581,10 @@ export class MockAutomations {
         kind: 'automation' as const,
         id: a.id,
         title: a.name,
-        summary: `${a.createdBy !== 'user' ? `${this.name(a.createdBy)} propone l’automazione` : 'Bozza dell’automazione'} «${a.name}»: ${describeSchedule(a.schedule.cron)}.`,
+        summary: tr(
+          `${a.createdBy !== 'user' ? `${this.name(a.createdBy)} suggests the automation` : 'Draft of the automation'} “${a.name}”: ${describeSchedule(a.schedule.cron)}.`,
+          `${a.createdBy !== 'user' ? `${this.name(a.createdBy)} propone l’automazione` : 'Bozza dell’automazione'} «${a.name}»: ${describeSchedule(a.schedule.cron)}.`,
+        ),
         from: a.createdBy,
         ...(a.createdBy !== 'user' ? { fromName: this.name(a.createdBy) } : {}),
         ...(a.project ? { project: a.project } : {}),
@@ -546,8 +596,10 @@ export class MockAutomations {
   /** "Conferma" or "Scarta" on an automation draft (`/api/drafts/automation/:id/…`). */
   draftAction(id: string, action: 'confirm' | 'discard'): RawResponse {
     const a = this.defs.get(id);
-    if (!a) return fail(404, 'unknown_draft', 'Bozza sconosciuta.');
-    if (a.status !== 'draft') return fail(409, 'draft_closed', 'Bozza già chiusa.');
+    if (!a) return fail(404, 'unknown_draft', tr('Unknown draft.', 'Bozza sconosciuta.'));
+    if (a.status !== 'draft') {
+      return fail(409, 'draft_closed', tr('Draft already closed.', 'Bozza già chiusa.'));
+    }
     const from = a.createdBy !== 'user' ? { from: a.createdBy } : {};
     if (action === 'discard') {
       this.defs.delete(a.id);
@@ -589,7 +641,13 @@ export class MockAutomations {
       return null;
     }
     const a = this.defs.get(id);
-    if (!a) return fail(404, 'unknown_automation', 'Questa automazione non c’è.');
+    if (!a) {
+      return fail(
+        404,
+        'unknown_automation',
+        tr('This automation doesn’t exist.', 'Questa automazione non c’è.'),
+      );
+    }
     const history = () => this.history().get(a.id) ?? [];
     if (sub === undefined) {
       if (method === 'GET') return ok(this.view(a, history()));
@@ -617,7 +675,9 @@ export class MockAutomations {
     if (method === 'GET' && sub === 'runs' && giro === undefined) return ok(history());
     if (method === 'GET' && sub === 'runs' && giro) {
       const d = this.detail(a, giro);
-      return d ? ok(d) : fail(404, 'unknown_run', 'Questo giro non c’è.');
+      return d
+        ? ok(d)
+        : fail(404, 'unknown_run', tr('This run doesn’t exist.', 'Questo giro non c’è.'));
     }
     return null;
   }
@@ -708,7 +768,10 @@ export class MockAutomations {
       id: slug(input.name, (x) => this.defs.has(x)),
       participants: [],
       schedule: { cron: '0 8 * * 1', timezone: this.tz },
-      objective: 'Fammi un riassunto delle note della settimana.',
+      objective: tr(
+        'Give me a summary of the week’s notes.',
+        'Fammi un riassunto delle note della settimana.',
+      ),
       limits: {},
       notify: { app: true, telegram: false },
       createdBy: input.lead,

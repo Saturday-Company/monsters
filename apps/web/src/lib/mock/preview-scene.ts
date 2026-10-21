@@ -1,4 +1,6 @@
 import type { EventInput, LogEvent } from '@monsters/shared';
+import { tr } from './lang.ts';
+import { noteTitle } from './paths.ts';
 
 /*
  * A turn of Titan with things to open in Anteprima (`?mock=demo&anteprima=1`,
@@ -18,7 +20,10 @@ export function seedPreviewScene(append: (event: EventInput, ts: number) => LogE
       type: 'message',
       data: {
         role: 'user',
-        text: 'Titan, mi fai vedere il menu nuovo e il preventivo di Lisbona?',
+        text: tr(
+          'Titan, can you show me the new menu and the Lisbon quote?',
+          'Titan, mi fai vedere il menu nuovo e il preventivo di Lisbona?',
+        ),
         channel: 'ui',
       },
     },
@@ -29,7 +34,7 @@ export function seedPreviewScene(append: (event: EventInput, ts: number) => LogE
       agent: 'titan',
       runId: run,
       type: 'run',
-      data: { status: 'started', goal: 'Menu e preventivo' },
+      data: { status: 'started', goal: tr('Menu and quote', 'Menu e preventivo') },
     },
     at(1),
   );
@@ -56,7 +61,13 @@ export function seedPreviewScene(append: (event: EventInput, ts: number) => LogE
         tool: 'mcp__browser__browser_take_screenshot',
         ok: true,
         durationMs: 1840,
-        output: { fileId: 'f-screenshot-tram', saved: 'File/2026-10/Schermata carris.pt.png' },
+        output: {
+          fileId: 'f-screenshot-tram',
+          saved: tr(
+            'File/2026-10/Screenshot carris.pt.png',
+            'File/2026-10/Schermata carris.pt.png',
+          ),
+        },
       },
     },
     at(2),
@@ -77,9 +88,12 @@ export function seedPreviewScene(append: (event: EventInput, ts: number) => LogE
       type: 'preview',
       data: {
         item: { kind: 'file', fileId: 'f-pagina-menu' },
-        name: 'Menu della settimana.html',
+        name: tr('Weekly menu.html', 'Menu della settimana.html'),
         fileKind: 'html',
-        caption: 'La pagina del menu, da mandare ai clienti',
+        caption: tr(
+          'The menu page, to send to the customers',
+          'La pagina del menu, da mandare ai clienti',
+        ),
       },
     },
     at(0.1),
@@ -100,11 +114,16 @@ export function seedPreviewScene(append: (event: EventInput, ts: number) => LogE
       type: 'message',
       data: {
         role: 'agent',
-        text:
+        text: tr(
+          'Here’s the menu Dione designed:\n\n![Autumn menu](/api/files/f-menu-autunno/content)\n\n' +
+            'The quote is here: [Lisbon quote](/api/files/f-preventivo/content). ' +
+            `For the tram times see the note [[${noteTitle('tram28')}]]; the photo of the Carris site is among the steps.\n\n` +
+            '![The view from Graça](https://upload.wikimedia.org/wikipedia/commons/a/a3/Lisboa_-_Miradouro_da_Gra%C3%A7a.jpg)',
           'Ecco il menu che ha disegnato Dione:\n\n![Menu autunno](/api/files/f-menu-autunno/content)\n\n' +
-          'Il preventivo è qui: [Preventivo Lisbona](/api/files/f-preventivo/content). ' +
-          'Per gli orari del tram guarda la nota [[Tram 28]]; la foto del sito di Carris è tra i passi.\n\n' +
-          '![La vista da Graça](https://upload.wikimedia.org/wikipedia/commons/a/a3/Lisboa_-_Miradouro_da_Gra%C3%A7a.jpg)',
+            'Il preventivo è qui: [Preventivo Lisbona](/api/files/f-preventivo/content). ' +
+            `Per gli orari del tram guarda la nota [[${noteTitle('tram28')}]]; la foto del sito di Carris è tra i passi.\n\n` +
+            '![La vista da Graça](https://upload.wikimedia.org/wikipedia/commons/a/a3/Lisboa_-_Miradouro_da_Gra%C3%A7a.jpg)',
+        ),
       },
     },
     at(2),

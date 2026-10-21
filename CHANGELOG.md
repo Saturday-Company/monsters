@@ -1,175 +1,178 @@
 # Changelog
 
-## 0.1.0-alpha.19 · 21 ottobre 2026
+The Italian version is in [`CHANGELOG.it.md`](CHANGELOG.it.md).
 
-### Cosa si vede
-- **Monsters è open source.** Il codice è su GitHub (github.com/Saturday-Company/monsters) con licenza Apache-2.0, e
-  il sito è getmonsters.dev. Da questa versione i pacchetti si scaricano anche dalle Release di GitHub.
+## 0.1.0-alpha.19 · 21 October 2026
 
-### Più affidabile
-- **Windows, file e terminale.** Se il percorso della tua cartella utente compariva nella forma corta di Windows (per
-  esempio `MARIOR~1`), i mostri potevano trovarsi bloccati la cartella di lavoro: file, comandi e Telegram si
-  fermavano. Ora la cartella si riconosce in tutte e due le forme, e un percorso senza lettera di unità resta sul disco
-  giusto.
-- **Chiavi al sicuro anche con cartelle collegate.** Se la cartella dei dati di Monsters sta dietro un collegamento,
-  la chiave nel portachiavi si ritrova sempre.
-- **Lettura delle pagine web** più solida, e aggiornamenti di Electron e delle altre librerie con le loro correzioni di
-  sicurezza.
+### What you’ll see
+- **Monsters is open source.** The code is on GitHub (github.com/Saturday-Company/monsters) under the Apache-2.0
+  license, and the website is getmonsters.dev. From this version the packages can also be downloaded from the GitHub
+  Releases.
 
-## 0.1.0-alpha.18 · 19 ottobre 2026
+### More reliable
+- **Windows, files and terminal.** If the path of your user folder showed up in Windows’ short form (for example
+  `MARIOR~1`), the monsters could find their working folder blocked: files, commands and Telegram stopped. Now the
+  folder is recognised in both forms, and a path without a drive letter stays on the right drive.
+- **Keys stay safe even with linked folders.** If Monsters’ data folder sits behind a link, the key in the keychain is
+  always found again.
+- **Reading web pages** is sturdier, and Electron and the other libraries are updated with their security fixes.
 
-### Cosa si vede
-- **I mostri chiedono un accesso con un tocco.** Se a un progetto manca qualcosa (il web per un mostro, un servizio
-  già collegato come Canva, il browser), il capo te lo chiede con una scheda «Sì, concedi / No», nell'app e su
-  Telegram. Risponde solo il proprietario.
-- **I progetti nuovi partono con i tuoi collegamenti.** I servizi dati a tutta la squadra (per esempio Canva) sono già
-  spuntati quando crei un progetto; li togli se non servono.
-- **Il web segue il permesso.** Con il web acceso in Permessi ogni mostro può cercare e leggere pagine, anche se non
-  fa ricerche di mestiere.
+## 0.1.0-alpha.18 · 19 October 2026
 
-### Più affidabile
-- **Niente più «il web mi è stato negato» falso.** I mostri vedono solo gli strumenti che possono usare davvero, e
-  quando qualcosa non va dicono la causa vera: un sito che rifiuta, un'impostazione spenta, un servizio non dato al
-  progetto. Un «no» lo attribuiscono a te solo se l'hai detto tu.
-- **Pubblicare chiede sempre conferma.** Con il browser, il clic su «Condividi» di Instagram ora si ferma e aspetta il
-  tuo sì, come gli altri modi di pubblicare.
-- **Memorie più pulite.** I mostri non si ricordano più conclusioni sbagliate sugli accessi, e quando cambi un permesso
-  lo sanno al lavoro dopo.
+### What you’ll see
+- **Monsters ask for access with one tap.** If a project is missing something (the web for a monster, an already
+  connected service like Canva, the browser), the squad lead asks you with a “Yes, allow / No” card, in the app and on
+  Telegram. Only the owner can answer.
+- **New projects start with your connections.** The services given to the whole squad (Canva, for example) are already
+  ticked when you create a project; untick them if you don’t need them.
+- **The web follows the permission.** With the web turned on in Permissions, every monster can search and read pages,
+  even if searching isn’t part of its job.
 
-## 0.1.0-alpha.17 · 19 ottobre 2026
+### More reliable
+- **No more false “the web was denied to me”.** Monsters only see the tools they can really use, and when something
+  goes wrong they tell you the real cause: a site that refuses, a setting that’s off, a service not given to the
+  project. They blame a “no” on you only if you said it.
+- **Publishing always asks for confirmation.** With the browser, clicking Instagram’s “Share” now stops and waits for
+  your yes, like the other ways of publishing.
+- **Cleaner memories.** Monsters no longer remember wrong conclusions about access, and when you change a permission
+  they know it from the next job.
 
-### Più affidabile
-- **Telegram, l'ultimo passo.** Dopo aver incollato il token la pagina restava su «Mi collego a Telegram…» anche
-  quando il bot era già collegato. Ora si aggiorna da sola e mostra subito il codice per collegare il tuo account:
-  finché non lo mandi al bot, il bot ignora tutti i messaggi, anche i tuoi.
+## 0.1.0-alpha.17 · 19 October 2026
 
-## 0.1.0-alpha.16 · 19 ottobre 2026
+### More reliable
+- **Telegram, the last step.** After pasting the token the page stayed on “Connecting to Telegram…” even when the bot
+  was already connected. Now it updates by itself and shows right away the code to link your account: until you send
+  it to the bot, the bot ignores all messages, yours included.
 
-### Cosa si vede
-- **I mostri dei progetti si modificano.** Nella scheda Squadra di un progetto ogni mostro ha le stesse possibilità
-  della Squadra personale: cambi nome, aspetto, ruolo e compiti. Il capo del progetto cambia nome e aspetto.
+## 0.1.0-alpha.16 · 19 October 2026
 
-### Più affidabile
-- **Telegram si collega dall'app.** Il collegamento del bot falliva sempre con «Non riesco a raggiungere
-  api.telegram.org», anche con la rete a posto: era un difetto di come è costruita l'app, ora corretto.
+### What you’ll see
+- **Project monsters can be edited.** In a project’s Squad tab every monster has the same options as in your personal
+  squad: you change name, look, role and tasks. The project’s lead changes name and look.
 
-## 0.1.0-alpha.15 · 19 ottobre 2026
+### More reliable
+- **Telegram connects from the app.** Linking the bot always failed with “I can’t reach api.telegram.org”, even with
+  the network fine: it was a flaw in how the app is built, now fixed.
 
-Correzioni dalle segnalazioni di chi prova Monsters, e le novità della versione dentro l'app.
+## 0.1.0-alpha.15 · 19 October 2026
 
-### Cosa si vede
-- **Novità.** Accanto a «Da rivedere» c'è una chiave che apre questo elenco: cosa è cambiato a ogni aggiornamento. Si
-  accende quando arriva una versione nuova.
-- **Ogni progetto ha i suoi mostri.** Quando chiedi al tuo capo di creare un progetto, propone mostri nuovi, con nomi
-  e aspetto loro. Se gli chiedi di portare un mostro che hai già, la copia ha il suo ruolo e le sue regole, ma un nome
-  e un aspetto nuovi: non trovi più lo stesso mostro in due progetti.
-- **Note.** Nei filtri le opzioni non escono più dal riquadro quando la finestra è stretta.
+Fixes from the reports of people trying Monsters, and the release notes inside the app.
 
-### Più affidabile
-- **VPN e proxy aziendali.** Monsters usa il proxy e i certificati del computer, come il browser: Telegram, OpenAI e
-  gli altri servizi funzionano anche dietro una VPN aziendale.
-- **Errori più chiari.** Se un servizio non si raggiunge, Monsters dice perché (indirizzo non trovato, connessione
-  intercettata, tempo scaduto…) e cosa provare.
-- **Token di Telegram.** Puoi incollare anche tutto il messaggio di BotFather: Monsters prende il token da solo.
-- **OpenAI dopo una pausa.** Alla riaccensione del computer Monsters riprova da solo per qualche secondo prima di
-  dare errore, e un problema di rete non ti scollega mai da ChatGPT.
+### What you’ll see
+- **What’s new.** Next to “To review” there’s a key that opens this list: what changed with every update. It lights up
+  when a new version arrives.
+- **Every project has its own monsters.** When you ask your squad lead to create a project, it suggests new monsters,
+  with their own names and looks. If you ask it to bring a monster you already have, the copy has its own role and
+  rules, but a new name and look: you no longer find the same monster in two projects.
+- **Notes.** In the filters the options no longer spill out of the box when the window is narrow.
 
-## 0.1.0-alpha.14 · 19 ottobre 2026
+### More reliable
+- **VPNs and company proxies.** Monsters uses the computer’s proxy and certificates, like the browser: Telegram,
+  OpenAI and the other services work even behind a company VPN.
+- **Clearer errors.** If a service can’t be reached, Monsters says why (address not found, connection intercepted,
+  timed out…) and what to try.
+- **Telegram token.** You can also paste the whole message from BotFather: Monsters picks out the token by itself.
+- **OpenAI after a pause.** When the computer wakes up, Monsters retries by itself for a few seconds before giving an
+  error, and a network problem never signs you out of ChatGPT.
 
-Una versione di consolidamento verso la beta: una review completa della piattaforma (funzionalità, connettori,
-interfaccia, sicurezza) e la correzione di quello che ha trovato.
+## 0.1.0-alpha.14 · 19 October 2026
 
-### Cosa si vede
-- **Nomi più chiari.** Titan è «il tuo capo», chi guida un progetto è il «capo del progetto». Al posto di «Istinto»
-  ci sono le «Decisioni dei mostri», e il tecnico (CLAUDE.md, regole cron, token, ID dei modelli) è sotto, come
-  dettaglio.
-- **Chat più pulita.** Il saluto della chat vuota è scritto bene, le righe di servizio hanno un solo stile e si
-  raggruppano, gli avvisi non coprono più il campo di scrittura né le risposte delle domande.
-- **Monsters non risponde?** Ora lo dice in un posto solo («Non collegato»), con «Riprova adesso», e non dà più per
-  tranquilla una situazione che non lo è.
-- **Barra laterale e finestre piccole.** A 1024 px i progetti restano visibili, le note si aprono con l'elenco in un
-  cassetto, "Da rivedere" è più larga e mostra le proposte di progetto per intero, con la cartella che concedono.
-- **Spesa.** In cima a ogni vista c'è la catena «Mostro ≤ Progetto ≤ Tutta la squadra», con un avviso se un tetto è
-  più alto di quello che lo contiene. Il costo è stimato anche dove il provider non lo dice, ed è scritto.
-- **Impostazioni.** Tutte le squadre in un posto, i modelli scelti per nome, la ricerca a pagamento in Collegamenti,
-  interruttori e schede scelte che si distinguono anche senza colori.
+A consolidation release on the way to the beta: a full review of the platform (features, connectors, interface,
+security) and the fixing of what it found.
 
-### Più affidabile
-- Le automazioni non restano più ferme dopo una pausa, e un giro interrotto da un aggiornamento riparte da solo.
-- I messaggi scritti mentre un mostro è occupato non si perdono con Ferma o con un riavvio.
-- I modelli che ragionano a lungo non vengono più interrotti dopo un minuto; le risposte tagliate lo dicono («Scrivi
-  "continua" per il resto»); un limite momentaneo del modello non fa fallire il lavoro.
-- Claude Code e Codex non restano più appesi in silenzio; su Windows, fermandoli, si chiudono anche i loro processi.
-- I servizi collegati con OAuth (Notion e gli altri) non si scollegano più da soli; se l'accesso scade, la galleria
-  dice «Serve l'accesso» e arriva un avviso.
-- La ricerca web passa al motore successivo quando uno risponde vuoto o rifiuta.
-- Telegram: rispetto dei limiti di Telegram, gruppi che diventano supergruppi, bot tolti dai gruppi, cambio del token
-  di un bot dedicato senza perdere gruppi e persone.
-- Il registro degli eventi non cresce più all'infinito: dopo 90 giorni le parti voluminose vanno in archivi mensili
-  compressi (`monsters log archive`).
+### What you’ll see
+- **Clearer names.** Titan is “your squad lead”, whoever leads a project is the “project lead”. In place of
+  “Instinct” there are the “Monsters’ decisions”, and the technical side (CLAUDE.md, cron rules, tokens, model IDs) is
+  below, as detail.
+- **Cleaner chat.** The greeting of the empty chat is written properly, service lines have a single style and group
+  together, and notices no longer cover the writing field or the answers to questions.
+- **Monsters not answering?** It now says so in one place (“Not connected”), with “Try again now”, and no longer
+  treats a situation as fine when it isn’t.
+- **Sidebar and small windows.** At 1024 px projects stay visible, notes open with the list in a drawer, “To review”
+  is wider and shows project proposals in full, with the folder they grant.
+- **Spending.** At the top of every view there’s the chain “Monster ≤ Project ≤ Whole squad”, with a warning if a cap
+  is higher than the one containing it. The cost is estimated even where the provider doesn’t report it, and it says
+  so.
+- **Settings.** All the squads in one place, models chosen by name, paid search in Connections, switches and chosen
+  tabs that can be told apart even without colors.
 
-### Più sicuro
-- Gli aggiornamenti dell'app sono firmati con una chiave nostra: l'app installa solo aggiornamenti veri, anche se
-  qualcuno mettesse le mani sul server degli aggiornamenti.
-- Nei gruppi Telegram, chi non è il proprietario non usa il terminale, non modifica file, non usa servizi collegati
-  senza conferma, e le risposte non portano fuori note private o chiavi.
-- Il controllo sui dati che escono dal computer vale per tutti i servizi collegati; la memoria dei mostri non può più
-  essere avvelenata da una pagina web o da un gruppo.
-- Il token della riga di comando non può più approvare il freno, cambiare permessi, tetti, password o Telegram.
-- Le cartelle dei progetti non possono essere la home o cartelle di sistema; le istruzioni (CLAUDE.md, AGENTS.md) sono
-  protette a ogni profondità; i file che lanciano comandi in un repo sono protetti.
-- Nel browser la sessione è legata a un segreto della scheda: un altro servizio locale non può usarla.
-- L'app controlla all'avvio che il proprio core non sia stato modificato; Shopify e Blender della galleria si
-  installano con dipendenze verificate.
+### More reliable
+- Automations no longer stay stuck after a pause, and a run interrupted by an update restarts by itself.
+- Messages written while a monster is busy are not lost with Stop or a restart.
+- Models that think for a long time are no longer cut off after a minute; truncated answers say so (“Write
+  "continue" for the rest”); a momentary model limit doesn’t make the job fail.
+- Claude Code and Codex no longer hang in silence; on Windows, stopping them also closes their processes.
+- Services connected with OAuth (Notion and the others) no longer disconnect by themselves; if access expires, the
+  gallery says “Access needed” and a notice arrives.
+- Web search moves on to the next engine when one answers empty or refuses.
+- Telegram: respects Telegram’s limits, groups that become supergroups, bots removed from groups, changing the token
+  of a dedicated bot without losing groups and people.
+- The event log no longer grows forever: after 90 days the bulky parts go into compressed monthly archives
+  (`monsters log archive`).
 
-### Da sapere
-- **macOS:** firmata e notarizzata come sempre. Al primo avvio dopo l'aggiornamento macOS chiede di nuovo l'accesso al
-  portachiavi per «Monsters Helper»: rispondere «Consenti sempre».
-- **Windows:** l'installer non è ancora firmato con un certificato (arriverà dopo la beta): al primo avvio Windows
-  mostra un avviso, si procede con «Ulteriori informazioni» → «Esegui comunque».
-- **Browser:** dopo l'aggiornamento serve accedere di nuovo; una scheda nuova senza altre schede aperte chiede la
+### Safer
+- App updates are signed with a key of ours: the app only installs genuine updates, even if someone got their hands on
+  the update server.
+- In Telegram groups, anyone who isn’t the owner can’t use the terminal, edit files, or use connected services
+  without confirmation, and replies don’t carry private notes or keys out.
+- The check on data leaving the computer applies to all connected services; the monsters’ memory can no longer be
+  poisoned by a web page or a group.
+- The command-line token can no longer approve the brake or change permissions, caps, passwords or Telegram.
+- Project folders can’t be the home folder or system folders; instructions (CLAUDE.md, AGENTS.md) are protected at
+  every depth; files that launch commands in a repo are protected.
+- In the browser the session is tied to a secret of the tab: another local service can’t use it.
+- The app checks at startup that its own core hasn’t been modified; the gallery’s Shopify and Blender install with
+  verified dependencies.
+
+### Good to know
+- **macOS:** signed and notarized as always. At the first start after the update macOS asks again for keychain access
+  for “Monsters Helper”: answer “Always allow”.
+- **Windows:** the installer isn’t signed with a certificate yet (it will come after the beta): at the first start
+  Windows shows a warning, go on with “More info” → “Run anyway”.
+- **Browser:** after the update you need to sign in again; a new tab with no other tabs open asks for the password.
+- **Sensitive actions:** in the browser, or with the app connected to another computer’s core, giving a monster the
+  terminal or pairing Telegram asks for the password if it wasn’t typed in the last 15 minutes. With the app running
+  locally nothing changes.
+
+## 0.1.0-alpha.13 · 18 October 2026
+
+### What you’ll see
+- **Monsters suggest the project’s instructions.** Whoever works in a project with a folder can suggest how to change
+  the folder’s CLAUDE.md or AGENTS.md: the suggestion arrives in “To review” with the differences, and the file
+  changes only if you confirm. Monsters still can’t write them on their own.
+- **“Choose…” for folders.** In the new project and in the Folder tab you pick the folder from the system window,
+  instead of typing the path by hand (in the desktop app).
+- **Touch-ups.** The brand is “monsters” in lowercase; in the spending cap “Per day” and “Per month” are aligned.
+
+## 0.1.0-alpha.12 · 17 October 2026
+
+### What you’ll see
+- **How much of your plan is left.** For monsters on the Claude or ChatGPT plan, Monsters shows the real limits
+  (session and weekly, with when they reset), like Claude Desktop’s “Usage” panel. The numbers update when a monster
+  works on that plan.
+- **A saner Automatic.** Ordinary work (posts, mail, research, short analyses) goes to Sonnet with Medium effort, hard
+  problems and planning to Opus with High effort. Every delegated task has its own level.
+- On the Claude plan, new monsters start in Automatic.
+
+## 0.1.0-alpha.11 · 17 October 2026
+
+### What you’ll see
+- **Telegram bots dedicated to a monster.** In Settings → Connections → Telegram you can give a monster a bot of its
+  own, to put in a group: whoever is in the group talks to that monster. The main bot stays yours and your squad
+  lead’s.
+- **On Linux the app installed from the .deb package updates itself** from the menu, asking for the computer’s
   password.
-- **Azioni delicate:** nel browser, o con l'app collegata al core di un altro computer, dare il terminale a un
-  mostro o abbinare Telegram chiede la password se non è stata scritta negli ultimi 15 minuti. Con l'app in locale
-  non cambia nulla.
 
-## 0.1.0-alpha.13 · 18 ottobre 2026
+### More reliable
+- A monster no longer answers just “OK” at the end of a job: the reply is always the real one.
 
-### Cosa si vede
-- **I mostri propongono le istruzioni del progetto.** Chi lavora in un progetto con una cartella può proporre come
-  cambiare il CLAUDE.md o l'AGENTS.md della cartella: la proposta arriva in «Da rivedere» con le differenze, e il file
-  cambia solo se la confermi. I mostri continuano a non poterli scrivere da soli.
-- **«Scegli…» per le cartelle.** Nel nuovo progetto e nella scheda Cartella si sceglie la cartella dalla finestra del
-  sistema, invece di scrivere il percorso a mano (nell'app desktop).
-- **Ritocchi.** Il marchio è «monsters» in minuscolo; nel tetto di spesa «Al giorno» e «Al mese» sono allineati.
+## 0.1.0-alpha.10 · 17 October 2026
 
-## 0.1.0-alpha.12 · 17 ottobre 2026
-
-### Cosa si vede
-- **Quanto resta del tuo piano.** Per i mostri sul piano Claude o ChatGPT, Monsters mostra i limiti veri (sessione e
-  settimanale, con quando si azzerano), come il pannello «Utilizzo» di Claude Desktop. I numeri si aggiornano quando un
-  mostro lavora su quel piano.
-- **Automatica più sensata.** Il lavoro ordinario (post, mail, ricerche, analisi brevi) va su Sonnet con impegno
-  Medio, i problemi difficili e la pianificazione su Opus con impegno Alto. Ogni incarico delegato ha il suo livello.
-- Sul piano Claude i mostri nuovi partono in Automatica.
-
-## 0.1.0-alpha.11 · 17 ottobre 2026
-
-### Cosa si vede
-- **Bot di Telegram dedicati a un mostro.** In Impostazioni → Collegamenti → Telegram puoi dare a un mostro un bot
-  suo, da mettere in un gruppo: chi è nel gruppo parla con quel mostro. Il bot principale resta tuo e del tuo capo.
-- **Su Linux l'app installata dal pacchetto .deb si aggiorna da sola** dal menu, chiedendo la password del computer.
-
-### Più affidabile
-- Un mostro non risponde più solo «OK» alla fine di un lavoro: la risposta è sempre quella vera.
-
-## 0.1.0-alpha.10 · 17 ottobre 2026
-
-### Cosa si vede
-- **Progetti.** Un progetto è una squadra sua: un capo del progetto, fino a quattro mostri, le sue note, la sua
-  cartella, i suoi collegamenti e un tetto di spesa. Nella barra laterale ogni progetto ha la sua squadra; la pagina
-  del progetto ha le schede.
-- **Il tuo capo propone, tu decidi.** Il tuo capo può proporre un progetto intero o un'automazione: la proposta arriva
-  in «Da rivedere» (e su Telegram) e diventa vera solo con la tua conferma.
-- **Automazioni.** I lavori che si ripetono (ogni lunedì, ogni sera…) hanno un menu loro, con le proposte e le bozze.
-- **La barra in alto** mostra i colori di tutti i mostri al lavoro.
+### What you’ll see
+- **Projects.** A project is a squad of its own: a project lead, up to four monsters, its own notes, its own folder,
+  its own connections and a spending cap. In the sidebar every project has its own squad; the project page has tabs.
+- **Your squad lead proposes, you decide.** Your squad lead can propose a whole project or an automation: the proposal
+  arrives in “To review” (and on Telegram) and becomes real only with your confirmation.
+- **Automations.** Jobs that repeat (every Monday, every evening…) have a menu of their own, with proposals and
+  drafts.
+- **The top bar** shows the colors of all the monsters at work.
