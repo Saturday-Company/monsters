@@ -16,6 +16,7 @@ import { hideDock, usePreview } from '../../store/preview.ts';
 import { closeByBack } from '../dock/back.ts';
 import { useMediaQuery } from '../../store/hooks.ts';
 import { KillSwitch } from './KillSwitch.tsx';
+import { shellStrings } from './shell.strings.ts';
 import { StatusDisplay } from './StatusDisplay.tsx';
 
 /*
@@ -132,7 +133,7 @@ function BackKey() {
       className="key-ghost flex h-10 items-center gap-0.5 pr-2.5 pl-1 text-body font-semibold text-signal-ink"
     >
       <CaretLeft size={20} weight="bold" aria-hidden />
-      {sheet || !target ? 'Indietro' : target.label}
+      {sheet || !target ? shellStrings().toolbar.back : target.label}
     </button>
   );
 }
@@ -160,11 +161,11 @@ function Wordmark({ mock }: { mock: boolean }) {
         aria-label="Monsters"
         role="img"
       >
-        monsters
+        {/* the wordmark is not translated */ 'monsters'}
       </span>
       {mock && (
         <span className="label rounded-[5px] px-1.5 text-signal-ink shadow-[inset_0_0_0_1px_currentColor]">
-          prova
+          {shellStrings().toolbar.demo}
         </span>
       )}
     </span>

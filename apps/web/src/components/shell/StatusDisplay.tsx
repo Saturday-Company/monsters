@@ -5,6 +5,7 @@ import { useApp } from '../../store/app.ts';
 import { useConnection, waitsForUser } from '../../store/hooks.ts';
 import { useChats } from '../chat/useChats.ts';
 import { Meter } from '../ui/Meter.tsx';
+import { shellStrings } from './shell.strings.ts';
 
 /*
  * The status display of the top rail (docs/design.md, "Display di stato"): a
@@ -42,18 +43,19 @@ export function displayState(input: {
   confused?: readonly string[];
 }): DisplayState {
   const { halted, connection, questions, nameOf, working, confused = [] } = input;
+  const s = shellStrings().status;
   const base = { count: null, blink: false, alsoWorking: 0 };
-  if (halted) return { ...base, kind: 'halted', text: 'Fermi', short: 'Fermi', tone: 'stop' };
+  if (halted) return { ...base, kind: 'halted', text: s.halted, short: s.halted, tone: 'stop' };
   if (connection === 'closed') {
-    return { ...base, kind: 'offline', text: 'Non collegato', short: 'Scollegato', tone: 'stop' };
+    return { ...base, kind: 'offline', text: s.offline, short: s.offlineShort, tone: 'stop' };
   }
   if (connection === 'reconnecting') {
     // A wait, not a call: the dashes run beside the words (only what waits for the user blinks).
     return {
       ...base,
       kind: 'reconnecting',
-      text: 'Mi ricollego…',
-      short: 'Ricollego…',
+      text: s.reconnecting,
+      short: s.reconnectingShort,
       tone: 'signal',
     };
   }
@@ -61,16 +63,13 @@ export function displayState(input: {
   if (n > 0) {
     const who = new Set(questions.map((q) => q.from));
     const name = who.size === 1 ? nameOf(questions[0]!.from) : null;
-    // The name is what matters, so it comes first and short: "Titan chiede".
-    const text =
-      n === 1 && name
-        ? `${name} chiede`
-        : `${n} ${n === 1 ? 'domanda' : 'domande'}${name ? ` · ${name}` : ''}`;
+    // The name is what matters, so it comes first and short: "Titan asks".
+    const text = n === 1 && name ? s.asks(name) : s.questions(n, name);
     return {
       ...base,
       kind: 'questions',
       text,
-      short: `${n} ${n === 1 ? 'domanda' : 'domande'}`,
+      short: s.questionsShort(n),
       count: n,
       tone: 'signal',
       blink: true,
@@ -78,23 +77,23 @@ export function displayState(input: {
     };
   }
   if (working > 0) {
-    // One monster changing its way is worth its name: "Rhea cambia strada".
+    // One monster changing its way is worth its name: "Rhea is changing course".
     const text =
       confused.length === 1
-        ? `${nameOf(confused[0]!)} cambia strada`
+        ? s.changingCourseOne(nameOf(confused[0]!))
         : confused.length > 1
-          ? `${confused.length} cambiano strada`
-          : `${working} al lavoro`;
+          ? s.changingCourseMany(confused.length)
+          : s.working(working);
     return {
       ...base,
       kind: 'working',
       text,
-      short: `${working} al lavoro`,
+      short: s.working(working),
       count: working,
       tone: 'ok',
     };
   }
-  return { ...base, kind: 'quiet', text: 'Tutto tranquillo', short: 'Tranquillo', tone: 'ok' };
+  return { ...base, kind: 'quiet', text: s.quiet, short: s.quietShort, tone: 'ok' };
 }
 
 /** "17:42", updated on the minute. */
@@ -122,6 +121,7 @@ function useClock(): string {
 }
 
 export function StatusDisplay({ size }: { size: 'full' | 'compact' | 'dot' }) {
+  const t = shellStrings().status;
   const halted = useApp((s) => s.halted);
   const connection = useConnection();
   const agents = useApp((s) => s.agents);
@@ -152,7 +152,7 @@ export function StatusDisplay({ size }: { size: 'full' | 'compact' | 'dot' }) {
   });
   // The chat that waits for an answer, in the team's order.
   const target = team.find((a) => (waiting.get(a.id)?.length ?? 0) > 0)?.id ?? null;
-  const also = state.alsoWorking > 0 ? ` · ${state.alsoWorking} al lavoro` : '';
+  const also = state.alsoWorking > 0 ? t.alsoWorking(state.alsoWorking) : '';
   const spoken = `${state.text}${also}`;
 
   return (
@@ -161,8 +161,8 @@ export function StatusDisplay({ size }: { size: 'full' | 'compact' | 'dot' }) {
       onClick={() => (target ? openChat(target) : openPage(PATHS.log))}
       data-testid="status-display"
       data-state={state.kind}
-      aria-label={`Stato della squadra: ${spoken}, ore ${clock}. ${target ? 'Apri la chat che aspetta' : 'Apri Attività'}`}
-      title={target ? 'Vai alla domanda' : 'Apri Attività'}
+      aria-label={t.label(spoken, clock, target !== null)}
+      title={target ? t.goToQuestion : t.openActivity}
       className={cn(
         'screen flex h-8 shrink-0 items-center gap-2.5 rounded-[8px] text-left select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink',
         size === 'full' && '@container w-[clamp(240px,24vw,340px)] pr-2 pl-3',

@@ -64,7 +64,7 @@ export function DeviceFrame({ children, testId }: { children: ReactNode; testId?
         className="titlebar-start titlebar-end flex h-[52px] shrink-0 items-center px-4 sm:px-5"
       >
         <span className="dots text-title3 leading-none text-ink" aria-hidden>
-          monsters
+          {/* the wordmark is not translated */ 'monsters'}
         </span>
       </header>
       <div aria-hidden className="seam-h" />

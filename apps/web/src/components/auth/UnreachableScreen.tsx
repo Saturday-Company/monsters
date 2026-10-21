@@ -4,6 +4,7 @@ import { desktop } from '../../lib/desktop.ts';
 import { domId } from '../../lib/utils.ts';
 import { boot } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
+import { authStrings } from './auth.strings.ts';
 import { DeviceFrame, DeviceScreen } from './Device.tsx';
 
 /*
@@ -14,6 +15,7 @@ import { DeviceFrame, DeviceScreen } from './Device.tsx';
  */
 
 function Details({ app }: { app: boolean }) {
+  const s = authStrings().unreachable;
   const id = domId(useId());
   const [open, setOpen] = useState(false);
   return (
@@ -26,7 +28,7 @@ function Details({ app }: { app: boolean }) {
         onClick={() => setOpen((v) => !v)}
         className="mx-auto text-footnote text-signal-ink hover:text-signal-ink"
       >
-        Dettagli
+        {s.details}
       </Button>
       {open && (
         <div
@@ -34,11 +36,13 @@ function Details({ app }: { app: boolean }) {
           data-testid="unreachable-details"
           className="well rise-in grid gap-2 rounded-[12px] px-4 py-3.5 text-body leading-snug text-ink-muted"
         >
-          <p className="label text-ink">Da terminale</p>
+          <p className="label text-ink">{s.terminalTitle}</p>
           <p>
-            Sul computer dove gira Monsters scrivi{' '}
+            {s.terminalBefore}
+            {/* i18n-ignore: a command */}
             <code className="font-mono text-ink">monsters start</code>
-            {app ? ' se l’app non riesce ad avviarlo da sola' : ''}, poi torna qui e riprova.
+            {app ? s.terminalApp : ''}
+            {s.terminalAfter}
           </p>
         </div>
       )}
@@ -47,6 +51,7 @@ function Details({ app }: { app: boolean }) {
 }
 
 export function UnreachableScreen() {
+  const s = authStrings().unreachable;
   const app = desktop() !== null;
   return (
     <DeviceFrame testId="unreachable-device">
@@ -54,27 +59,18 @@ export function UnreachableScreen() {
         <span className="label text-ink-muted">Monsters</span>
         <span className="label flex items-center gap-2 text-ink-muted" role="status">
           <span aria-hidden className="led" data-tone="stop" />
-          Non collegato
+          {s.notConnected}
         </span>
       </div>
-      <DeviceScreen
-        testId="unreachable-screen"
-        expression="sleep"
-        line="Non trovo Monsters"
-        tone="stop"
-      />
+      <DeviceScreen testId="unreachable-screen" expression="sleep" line={s.title} tone="stop" />
       <div className="mt-6 text-center">
         <h1 className="text-title1 leading-tight font-bold tracking-[-0.02em] text-ink">
-          Non trovo Monsters
+          {s.title}
         </h1>
-        <p className="mt-1.5 text-body text-balance text-ink-muted">
-          {app
-            ? 'Monsters non risponde su questo computer. Chiudi l’app e aprila di nuovo, poi riprova.'
-            : 'Monsters non risponde. Controlla che sia acceso sul computer dove l’hai installato, poi riprova.'}
-        </p>
+        <p className="mt-1.5 text-body text-balance text-ink-muted">{app ? s.app : s.browser}</p>
       </div>
       <Button size="lg" className="mt-6 w-full" onClick={() => void boot()}>
-        <ArrowClockwise size={18} weight="bold" aria-hidden /> Riprova
+        <ArrowClockwise size={18} weight="bold" aria-hidden /> {s.retry}
       </Button>
       <Details app={app} />
     </DeviceFrame>

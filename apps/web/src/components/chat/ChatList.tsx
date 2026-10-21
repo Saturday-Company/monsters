@@ -37,6 +37,7 @@ import { GodBar } from '../god/GodBar.tsx';
 import { KeyCap } from '../ui/button.tsx';
 import { Meter } from '../ui/Meter.tsx';
 import { openPalette } from '../shell/CommandPalette.tsx';
+import { chatStrings } from './chat.strings.ts';
 
 /*
  * The chat list: one strip per monster (docs/design.md, "Striscia del
@@ -130,6 +131,7 @@ export function ChatList({
   const moreBelow = useMoreBelow(scroller);
   const godBar = useRef<HTMLAnchorElement>(null);
   const hintId = `${domId(useId())}-hint`;
+  const s = chatStrings().list;
   const folded = usePrefs((p) => p.foldedSquads);
   const shown = [
     ...(god ? [god] : []),
@@ -203,13 +205,12 @@ export function ChatList({
             aria-hidden
             className="pointer-events-none absolute left-3 text-ink-muted"
           />
-          <span className="min-w-0 flex-1 truncate">Cerca mostri e note</span>
+          <span className="min-w-0 flex-1 truncate">{s.search}</span>
           <KeyCap className="pointer-events-none shrink-0 max-md:hidden">
             {isMac ? '⌘K' : 'Ctrl K'}
           </KeyCap>
           <span id={hintId} className="sr-only">
-            {isMac ? 'Comando K' : 'Control K'} da ovunque. Nella squadra, frecce su e giù per
-            passare da una chat all’altra.
+            {s.hint(isMac)}
           </span>
         </button>
       </div>
@@ -218,7 +219,7 @@ export function ChatList({
         <div ref={scroller} className="scroll-soft min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           <nav
             ref={nav}
-            aria-label="Chat dei mostri"
+            aria-label={s.nav}
             data-testid="chat-list-nav"
             onKeyDown={onListKey}
             className="grid grid-cols-[minmax(0,1fr)]"
@@ -278,6 +279,7 @@ function SquadGroup({
   const key = squad.key || PERSONAL_KEY;
   const listId = `squad-${domId(key)}`;
   const count = squad.members.length;
+  const s = chatStrings().list;
   return (
     <section
       aria-label={squad.label}
@@ -291,8 +293,8 @@ function SquadGroup({
           onClick={() => toggleFold(key)}
           aria-expanded={!folded}
           aria-controls={folded ? undefined : listId}
-          aria-label={`${folded ? 'Mostra' : 'Nascondi'} i mostri di ${squad.label}`}
-          title={folded ? 'Mostra i mostri' : 'Nascondi i mostri'}
+          aria-label={s.foldLabel(folded, squad.label)}
+          title={s.foldTitle(folded)}
           data-testid="squad-fold"
           className="key-ghost inline-flex size-8 shrink-0 items-center justify-center rounded-[8px] text-ink-muted hover:text-ink"
         >
@@ -324,9 +326,7 @@ function SquadGroup({
             <span aria-hidden className="shrink-0">
               · {count}
             </span>
-            <span className="sr-only">
-              , {count === 1 ? 'un mostro' : `${count} mostri`}: apri il progetto
-            </span>
+            <span className="sr-only">{s.squadSr(count)}</span>
           </a>
         ) : (
           <span className="label flex min-w-0 flex-1 items-center gap-2 px-2 text-ink-muted">
@@ -357,6 +357,7 @@ export const ChatRow = forwardRef<
     onOpen: () => void;
   }
 >(function ChatRow({ agent, thread, waiting, selected, tabbable, onOpen }, ref) {
+  const s = chatStrings().list;
   const live = useLive(agent.id);
   const nameOf = useNameOf();
   const theme = useResolvedTheme();
@@ -373,15 +374,15 @@ export const ChatRow = forwardRef<
 
   let line: ReactNode;
   if (question) {
-    line = <span className="font-medium text-ink">Ti chiede: {plainText(question.question)}</span>;
+    line = <span className="font-medium text-ink">{s.asks(plainText(question.question))}</span>;
   } else if (asks) {
     // Its question sits in the chat where the work started (e.g. the orchestrator's).
-    line = <span className="font-medium text-ink">Aspetta una tua risposta</span>;
+    line = <span className="font-medium text-ink">{s.waitingAnswer}</span>;
   } else if (live.mood === 'error') {
     line = (
       <span className="flex min-w-0 items-center gap-1 text-stop-ink">
         <WarningCircle size={15} weight="fill" aria-hidden className="shrink-0" />
-        <span className="truncate">{live.activity ?? 'Ha un problema'}</span>
+        <span className="truncate">{live.activity ?? s.problem}</span>
       </span>
     );
   } else if (busy) {
@@ -389,21 +390,21 @@ export const ChatRow = forwardRef<
       <span className="text-ink">
         {live.confused
           ? capitalize(CONFUSED_TEXT)
-          : (live.activity ?? (live.mood === 'talking' ? 'Sta scrivendo…' : 'Al lavoro…'))}
+          : (live.activity ?? (live.mood === 'talking' ? s.writing : s.atWork))}
       </span>
     );
   } else if (live.mood === 'stopped') {
-    line = 'Dorme';
+    line = s.sleeps;
   } else if (summary.last) {
     line = previewText(summary.last, nameOf);
   } else {
-    line = agent.role || 'Nessun messaggio';
+    line = agent.role || s.noMessages;
   }
 
   const label = [
     `${agent.name}, ${statusText(live)}`,
-    question ? `ti chiede: ${plainText(question.question)}` : null,
-    unread ? `${unread} da leggere` : null,
+    question ? s.asksLabel(plainText(question.question)) : null,
+    unread ? s.unreadLabel(unread) : null,
   ]
     .filter(Boolean)
     .join(', ');
@@ -473,7 +474,7 @@ export const ChatRow = forwardRef<
             >
               <span aria-hidden className="led" data-tone="signal" data-blink="" />
               {waiting.length}
-              <span className="sr-only">{waiting.length > 1 ? ' domande' : ' domanda'}</span>
+              <span className="sr-only">{s.questionsSr(waiting.length)}</span>
             </span>
           ) : unread > 0 ? (
             <span

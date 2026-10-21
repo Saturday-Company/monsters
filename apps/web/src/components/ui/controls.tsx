@@ -1,5 +1,6 @@
 import { useId, type ReactNode } from 'react';
 import { cn, domId } from '../../lib/utils.ts';
+import { uiStrings } from './ui.strings.ts';
 
 /*
  * Controls of the instrument (docs/design.md, "Interruttore"): a lever in a
@@ -22,7 +23,7 @@ export function Switch({
   label: string;
   id?: string;
   disabled?: boolean;
-  /** Says "Acceso" / "Spento" beside the lever (settings rows): the state is not told by a colour alone. */
+  /** Says "On" / "Off" beside the lever (settings rows): the state is not told by a colour alone. */
   words?: boolean;
 }) {
   return (
@@ -68,7 +69,7 @@ export function Switch({
             checked ? 'text-ink' : 'text-ink-muted',
           )}
         >
-          {checked ? 'Acceso' : 'Spento'}
+          {checked ? uiStrings().on : uiStrings().off}
         </span>
       )}
     </button>

@@ -18,6 +18,7 @@ import { noteIndex } from '../../store/derive.ts';
 import { openPreview } from '../../store/preview.ts';
 import { ChatImage, FileLink, RemoteImage } from '../preview/ChatMedia.tsx';
 import { fileIdOf } from '../preview/files.ts';
+import { uiStrings } from './ui.strings.ts';
 
 /* Minimal mdast shapes for the soft-break plugin (no extra type packages). */
 interface MdNode {
@@ -73,13 +74,13 @@ export function NoteChip({ target, children }: { target: string; children?: Reac
       href={trashed ? vaultPath(null, 'cestino') : notePath(path ?? target)}
       onClick={onClick}
       className={cn('md-note', trashed && 'md-note-trashed')}
-      title={trashed ? `“${name}” è nel cestino` : `Apri la nota “${name}”`}
+      title={trashed ? uiStrings().inTrash(name) : uiStrings().openNote(name)}
       data-testid="note-chip"
       data-trashed={trashed ? 'true' : undefined}
     >
       <FileText size={15} weight="fill" aria-hidden className="shrink-0" />
       <span>{children ?? name}</span>
-      {trashed && <span className="md-note-tag">(nel cestino)</span>}
+      {trashed && <span className="md-note-tag">{uiStrings().inTrashTag}</span>}
     </a>
   );
 }
@@ -92,7 +93,7 @@ const COMPONENTS: Components = {
         <a href={url} target="_blank" rel="noopener noreferrer" className="md-link">
           {children}
           <ArrowSquareOut size={13} weight="bold" aria-hidden className="md-ext" />
-          <span className="sr-only"> (si apre in una nuova scheda)</span>
+          <span className="sr-only">{uiStrings().newTab}</span>
         </a>
       );
     if (isAppLink(url))

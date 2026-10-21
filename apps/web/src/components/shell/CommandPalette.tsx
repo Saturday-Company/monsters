@@ -37,7 +37,7 @@ import {
   vaultPath,
   type SettingsTab,
 } from '../../lib/router.ts';
-import { cn, domId, toName } from '../../lib/utils.ts';
+import { cn, domId } from '../../lib/utils.ts';
 import { resumeAll, useApp } from '../../store/app.ts';
 import { useAgents, useOrchestrator, type AgentView } from '../../store/hooks.ts';
 import { setPrefs } from '../../store/prefs.ts';
@@ -49,6 +49,7 @@ import { isMac } from '../chat/ChatList.tsx';
 import { armKillSwitch } from './KillSwitch.tsx';
 import { showNews } from './NewsSheet.tsx';
 import { showReview } from './ReviewSheet.tsx';
+import { shellStrings } from './shell.strings.ts';
 
 /*
  * The palette of the instrument (docs/design.md, "La barra laterale" and
@@ -85,7 +86,7 @@ const keyOf = (k: string) => (isMac ? `⌘${k}` : `Ctrl ${k}`);
 
 interface Item {
   id: string;
-  group: 'Mostri' | 'Note' | 'Messaggi' | 'Comandi';
+  group: 'monsters' | 'notes' | 'messages' | 'commands';
   /** What the row says (and its accessible name). */
   label: string;
   /** A second line, quieter. */
@@ -97,7 +98,7 @@ interface Item {
   run: () => void;
 }
 
-const norm = (s: string) => s.toLocaleLowerCase('it-IT').normalize('NFD').replace(/\p{M}/gu, '');
+const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
 
 /** A piece of `text` around the first match of `q`, one line. */
 function snippet(text: string, q: string, n = 72): string {
@@ -116,76 +117,77 @@ function settings(tab: SettingsTab) {
 function useCommands(): Item[] {
   const halted = useApp((s) => s.halted);
   return useMemo(() => {
+    const c = shellStrings().palette.commands;
     const list: Item[] = [
       {
         id: 'cmd-new-note',
-        group: 'Comandi',
-        label: 'Nuova nota',
+        group: 'commands',
+        label: c.newNote.label,
         icon: NotePencil,
         run: () => openPage(vaultPath(null, 'nuova')),
       },
       {
         id: 'cmd-automations',
-        group: 'Comandi',
-        label: 'Automazioni',
-        detail: 'Il lavoro che la squadra fa da sola, a orari fissi',
+        group: 'commands',
+        label: c.automations.label,
+        detail: c.automations.detail,
         keys: keyOf('2'),
         icon: ClockCountdown,
         run: () => openPage(PATHS.automations),
       },
       {
         id: 'cmd-new-automation',
-        group: 'Comandi',
-        label: 'Nuova automazione',
+        group: 'commands',
+        label: c.newAutomation.label,
         icon: ClockCountdown,
         run: () => openPage(automationPath(null, { mode: 'nuova' })),
       },
       {
         id: 'cmd-notes',
-        group: 'Comandi',
-        label: 'Note',
+        group: 'commands',
+        label: c.notes.label,
         keys: keyOf('3'),
         icon: Notebook,
         run: () => openPage(PATHS.vault),
       },
       {
         id: 'cmd-files',
-        group: 'Comandi',
-        label: 'File',
-        detail: 'Allegati, screenshot e pagine dei mostri',
+        group: 'commands',
+        label: c.files.label,
+        detail: c.files.detail,
         keys: keyOf('4'),
         icon: Files,
         run: () => openPage(PATHS.files),
       },
       {
         id: 'cmd-log',
-        group: 'Comandi',
-        label: 'Attività',
+        group: 'commands',
+        label: c.log.label,
         keys: keyOf('5'),
         icon: ListBullets,
         run: () => openPage(PATHS.log),
       },
       {
         id: 'cmd-review',
-        group: 'Comandi',
-        label: 'Da rivedere',
-        detail: 'Le domande aperte e le note toccate',
+        group: 'commands',
+        label: c.review.label,
+        detail: c.review.detail,
         icon: Tray,
         run: showReview,
       },
       {
         id: 'cmd-news',
-        group: 'Comandi',
-        label: 'Novità',
-        detail: 'Cosa è cambiato con gli aggiornamenti',
+        group: 'commands',
+        label: c.news.label,
+        detail: c.news.detail,
         icon: Newspaper,
         run: showNews,
       },
       {
         id: 'cmd-dock',
-        group: 'Comandi',
-        label: 'Pannello a destra',
-        detail: 'Anteprima, Dietro le quinte, Consumi',
+        group: 'commands',
+        label: c.dock.label,
+        detail: c.dock.detail,
         keys: keyOf('J'),
         icon: SidebarSimple,
         run: () => usePreview.getState().toggle(),
@@ -193,68 +195,68 @@ function useCommands(): Item[] {
       halted
         ? {
             id: 'cmd-resume',
-            group: 'Comandi',
-            label: 'Riprendi i mostri',
+            group: 'commands',
+            label: c.resume.label,
             icon: Play,
             run: () => void resumeAll(),
           }
         : {
             id: 'cmd-stop',
-            group: 'Comandi',
-            label: 'Ferma tutti i mostri',
-            detail: 'Alza la copertura di Ferma: premi di nuovo per fermare',
+            group: 'commands',
+            label: c.stop.label,
+            detail: c.stop.detail,
             keys: keyOf('.'),
             icon: Power,
             run: armKillSwitch,
           },
       {
         id: 'cmd-settings',
-        group: 'Comandi',
-        label: 'Impostazioni',
+        group: 'commands',
+        label: c.settings.label,
         keys: keyOf(','),
         icon: GearSix,
         run: settings('squadra'),
       },
       {
         id: 'cmd-models',
-        group: 'Comandi',
-        label: 'Impostazioni › Modelli',
+        group: 'commands',
+        label: c.models.label,
         icon: GearSix,
         run: settings('modelli'),
       },
       {
         id: 'cmd-permissions',
-        group: 'Comandi',
-        label: 'Impostazioni › Permessi',
+        group: 'commands',
+        label: c.permissions.label,
         icon: GearSix,
         run: settings('permessi'),
       },
       {
         id: 'cmd-links',
-        group: 'Comandi',
-        label: 'Impostazioni › Collegamenti',
-        detail: 'Telegram, ricerca sul web, altri programmi',
+        group: 'commands',
+        label: c.links.label,
+        detail: c.links.detail,
         icon: GearSix,
         run: settings('collegamenti'),
       },
       {
         id: 'cmd-light',
-        group: 'Comandi',
-        label: 'Tema chiaro',
+        group: 'commands',
+        label: c.light.label,
         icon: Sun,
         run: () => setPrefs({ theme: 'light' }),
       },
       {
         id: 'cmd-dark',
-        group: 'Comandi',
-        label: 'Tema scuro',
+        group: 'commands',
+        label: c.dark.label,
         icon: Moon,
         run: () => setPrefs({ theme: 'dark' }),
       },
       {
         id: 'cmd-system',
-        group: 'Comandi',
-        label: 'Tema come il computer',
+        group: 'commands',
+        label: c.system.label,
         icon: Sun,
         run: () => setPrefs({ theme: 'system' }),
       },
@@ -278,7 +280,7 @@ function useNoteHits(q: string): Item[] | null {
             q,
             items: r.hits.map((h) => ({
               id: `note-${h.path}`,
-              group: 'Note',
+              group: 'notes',
               label: h.title,
               detail: h.snippet ? snippet(h.snippet, norm(q)) : undefined,
               icon: Notebook,
@@ -312,9 +314,9 @@ function useMessageHits(q: string, agents: readonly AgentView[], lead: string | 
       if (!agent) continue;
       out.push({
         id: `msg-${e.id}`,
-        group: 'Messaggi',
+        group: 'messages',
         label: snippet(e.data.text, q),
-        detail: e.data.role === 'user' ? `Tu, ${toName(agent.name)}` : agent.name,
+        detail: e.data.role === 'user' ? shellStrings().palette.youTo(agent.name) : agent.name,
         icon: ChatCircleText,
         run: () => openChat(agent.id),
       });
@@ -324,6 +326,7 @@ function useMessageHits(q: string, agents: readonly AgentView[], lead: string | 
 }
 
 function PaletteBody() {
+  const s = shellStrings().palette;
   const agents = useAgents();
   const lead = useOrchestrator()?.id ?? null;
   const commands = useCommands();
@@ -340,9 +343,9 @@ function PaletteBody() {
       .filter((a) => !q || norm(a.name).includes(q) || norm(a.role).includes(q))
       .map((a) => ({
         id: `agent-${a.id}`,
-        group: 'Mostri',
+        group: 'monsters',
         label: a.name,
-        detail: a.isOrchestrator ? 'Il tuo capo' : a.role,
+        detail: a.isOrchestrator ? shellStrings().palette.lead : a.role,
         agent: a,
         run: () => openChat(a.id),
       }));
@@ -398,13 +401,13 @@ function PaletteBody() {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Cerca e comandi"
+        aria-label={s.dialog}
         data-testid="palette"
         className="popover drop-in fixed top-[60px] left-1/2 z-40 flex max-h-[min(560px,calc(100dvh-80px))] w-[min(640px,calc(100vw-24px))] -translate-x-1/2 flex-col overflow-hidden rounded-[14px]"
       >
         <div className="p-2">
           <label className="well relative flex h-11 items-center rounded-[10px] focus-within:outline-2 focus-within:outline-signal-ink">
-            <span className="sr-only">Cerca mostri, note, messaggi e comandi</span>
+            <span className="sr-only">{s.label}</span>
             <MagnifyingGlass
               size={18}
               aria-hidden
@@ -423,28 +426,28 @@ function PaletteBody() {
                 setActive(0);
               }}
               onKeyDown={onKey}
-              placeholder="Cerca un mostro, una nota, un comando…"
+              placeholder={s.placeholder}
               autoComplete="off"
               spellCheck={false}
               data-testid="palette-input"
               className="h-11 w-full rounded-[10px] bg-transparent pr-14 pl-10 text-large text-ink placeholder:text-ink-muted focus:outline-none"
             />
-            <KeyCap className="pointer-events-none absolute right-2.5">esc</KeyCap>
+            <KeyCap className="pointer-events-none absolute right-2.5">{s.esc}</KeyCap>
           </label>
         </div>
         <div aria-hidden className="seam-h" />
         <ul
           id={listId}
           role="listbox"
-          aria-label="Risultati"
+          aria-label={s.results}
           className="scroll-soft min-h-0 flex-1 overflow-y-auto p-1.5"
         >
           {groups.map((g) => (
             <li key={g.name} role="presentation" className="pb-1">
               <p role="presentation" className="label px-2.5 pt-2 pb-1 text-ink-muted">
-                {g.name}
+                {s.groups[g.name]}
               </p>
-              <ul role="group" aria-label={g.name}>
+              <ul role="group" aria-label={s.groups[g.name]}>
                 {g.rows.map(({ item, index }) => (
                   <Row
                     key={item.id}
@@ -460,20 +463,20 @@ function PaletteBody() {
           ))}
           {searchingNotes && (
             <li role="presentation" className="label px-2.5 py-2 text-ink-muted">
-              Cerco nelle note…
+              {s.searchingNotes}
             </li>
           )}
           {items.length === 0 && !searchingNotes && (
             <li role="presentation" className="px-2.5 py-4 text-body text-ink-muted">
-              Niente con «{text.trim()}»: né mostri, né note, né messaggi.
+              {s.nothing(text.trim())}
             </li>
           )}
         </ul>
         <div aria-hidden className="seam-h" />
         <p className="label flex items-center gap-3 px-3.5 py-2 text-ink-muted max-sm:hidden">
-          <span>↑↓ scegli</span>
-          <span>↵ apri</span>
-          <span>esc chiudi</span>
+          <span>{s.hintChoose}</span>
+          <span>{s.hintOpen}</span>
+          <span>{s.hintClose}</span>
         </p>
       </div>
     </>

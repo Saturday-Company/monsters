@@ -6,6 +6,7 @@ import { useOrchestrator } from '../../store/hooks.ts';
 import { useReviewColumn } from '../shell/ReviewSheet.tsx';
 import { initBaseline } from '../../store/reads.ts';
 import { ActivityPanel } from '../log/ActivityPanel.tsx';
+import { chatStrings } from './chat.strings.ts';
 import { ChatPanel } from './ChatPanel.tsx';
 import { useChats } from './useChats.ts';
 import { checkModel } from './useModel.ts';
@@ -51,7 +52,7 @@ export default function ChatsView() {
         {selected ? (
           <ChatPanel key={selected} agentId={selected} thread={thread} />
         ) : (
-          <p className="px-5 py-8 text-body text-ink-muted">La squadra non c’è ancora.</p>
+          <p className="px-5 py-8 text-body text-ink-muted">{chatStrings().view.noSquad}</p>
         )}
         {activity && <ActivityPanel className="border-l border-separator" />}
       </div>

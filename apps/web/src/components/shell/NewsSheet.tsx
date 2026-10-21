@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils.ts';
 import { setNewsOpen, useApp } from '../../store/app.ts';
 import { hasNews, markNewsSeen, useNews } from '../../store/news.ts';
 import { Markdown } from '../ui/Markdown.tsx';
+import { shellStrings } from './shell.strings.ts';
 
 /*
  * "Novità" (docs/design.md, "La chat"): what changed from one update to the
@@ -20,12 +21,13 @@ export function NewsKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' }) {
   const version = useApp((s) => s.version);
   const seen = useNews((s) => s.seen);
   const fresh = hasNews(version, seen);
+  const s = shellStrings().news;
   // A TV news bug ("NEWS" on a solid block) instead of an icon and a name: it says what it is.
   return (
     <button
       type="button"
-      aria-label={fresh ? 'Novità, ci sono novità non viste' : 'Novità'}
-      title="Novità della versione"
+      aria-label={fresh ? s.labelFresh : s.label}
+      title={s.title}
       aria-pressed={open}
       data-testid="news-toggle"
       onClick={() => setNewsOpen(!open)}
@@ -65,6 +67,7 @@ function VersionRow({
   onToggle: () => void;
 }) {
   const id = `news-${entry.version.replace(/[^\w-]/g, '-')}`;
+  const s = shellStrings().news;
   return (
     <li data-testid="news-version" data-version={entry.version} data-current={current || undefined}>
       <h3 className="m-0">
@@ -90,7 +93,7 @@ function VersionRow({
           {current && (
             <span className="label inline-flex shrink-0 items-center gap-1.5 text-ink">
               <span aria-hidden className="led" data-tone="signal" />
-              In uso
+              {s.inUse}
             </span>
           )}
         </button>
@@ -117,6 +120,7 @@ export function showNews(): void {
 
 /** The sheet: mounted by the shell, shown while `newsOpen`. */
 export function NewsSheet() {
+  const s = shellStrings().news;
   const open = useApp((s) => s.newsOpen);
   const version = useApp((s) => s.version);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -147,7 +151,7 @@ export function NewsSheet() {
     <aside
       role="dialog"
       aria-modal="false"
-      aria-label="Novità"
+      aria-label={s.label}
       data-testid="news-sheet"
       className={cn(
         'review-sheet slide-in raised fixed inset-x-0 top-[52px] bottom-0 z-30 flex flex-col overflow-hidden rounded-none',
@@ -158,21 +162,21 @@ export function NewsSheet() {
         ref={closeRef}
         type="button"
         onClick={() => setNewsOpen(false)}
-        aria-label="Chiudi “Novità”"
-        title="Chiudi (Esc)"
+        aria-label={s.close}
+        title={s.closeTitle}
         className="key-ghost absolute top-3 right-3 z-[1] inline-flex size-9 items-center justify-center rounded-[9px] text-ink-muted hover:text-ink"
       >
         <X size={18} weight="bold" aria-hidden />
       </button>
       <div className="scroll-soft min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <h2 className="px-1 pr-12 text-title3 font-semibold text-ink">Novità</h2>
+        <h2 className="px-1 pr-12 text-title3 font-semibold text-ink">{s.label}</h2>
         {version && (
           <p className="px-1 pb-4 text-footnote text-ink-muted" data-testid="news-using">
-            Stai usando la {version}
+            {s.using(version)}
           </p>
         )}
         {CHANGELOG.length === 0 ? (
-          <p className="px-1 text-body text-ink-muted">Non ci sono ancora novità da mostrare.</p>
+          <p className="px-1 text-body text-ink-muted">{s.none}</p>
         ) : (
           <ul className="tape">
             {CHANGELOG.map((entry) => (

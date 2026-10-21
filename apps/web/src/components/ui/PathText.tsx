@@ -2,6 +2,7 @@ import { Check, Copy } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 import { notify } from '../../store/app.ts';
 import { cn } from '../../lib/utils.ts';
+import { uiStrings } from './ui.strings.ts';
 
 /**
  * A path shortened in the middle: "/home/andrea/…/Sito di Saturday" keeps the start (where it
@@ -48,7 +49,7 @@ export function PathText({
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), 1500);
     } catch {
-      notify('Non riesco a copiarlo: selezionalo e copialo a mano.', 'error');
+      notify(uiStrings().copyFailed, 'error');
     }
   };
   return (
@@ -60,8 +61,8 @@ export function PathText({
       <button
         type="button"
         onClick={() => void copy()}
-        aria-label={copied ? 'Percorso copiato' : 'Copia il percorso'}
-        title={copied ? 'Copiato' : 'Copia il percorso'}
+        aria-label={copied ? uiStrings().pathCopied : uiStrings().copyPath}
+        title={copied ? uiStrings().copied : uiStrings().copyPath}
         data-testid="path-copy"
         className="key-ghost inline-flex size-6 shrink-0 items-center justify-center rounded-[6px] text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-signal-ink"
       >

@@ -6,6 +6,7 @@ import { useConnection, useNameOf } from '../../store/hooks.ts';
 import { Button } from '../ui/button.tsx';
 import { cn } from '../../lib/utils.ts';
 import { ResumeButton } from './KillSwitch.tsx';
+import { shellStrings } from './shell.strings.ts';
 
 /**
  * The halt band under the top rail (docs/design.md, "Ferma"): while every
@@ -18,6 +19,7 @@ export function HaltBanner() {
   const reason = useApp((s) => s.haltedReason);
   const events = useApp((s) => s.events);
   const nameOf = useNameOf();
+  const t = shellStrings().halt;
   const work = useMemo(() => (halted ? haltedWork(events) : null), [halted, events]);
   if (!halted) return null;
   const left = work ? haltedWorkText(work, nameOf) : null;
@@ -31,17 +33,16 @@ export function HaltBanner() {
     >
       <span aria-hidden className="led" data-tone="stop" />
       <span aria-hidden className="label shrink-0 text-stop-ink max-sm:hidden">
-        Fermi
+        {t.stopped}
       </span>
       <p className="min-w-0 flex-1 basis-[240px] text-body leading-snug">
-        <strong className="font-semibold">I mostri sono fermi.</strong>{' '}
-        {reason ? `Motivo: ${reason}. ` : ''}
-        {left && <span data-testid="halt-left">In sospeso: {left}. </span>}
-        <span className="text-ink-muted">Puoi scrivere: i messaggi partono quando riprendi.</span>
+        <strong className="font-semibold">{t.allStopped}</strong> {reason ? t.reason(reason) : ''}
+        {left && <span data-testid="halt-left">{t.pending(left)}</span>}
+        <span className="text-ink-muted">{t.canWrite}</span>
         {again && (
           <span className="text-ink-muted" data-testid="halt-again">
             {' '}
-            Con «Riprendi e continua» ripartono {again}.
+            {t.again(again)}
           </span>
         )}
       </p>
@@ -67,6 +68,7 @@ export function HaltBanner() {
 export function LinkBand() {
   const lost = useConnection() === 'closed';
   const phase = useApp((s) => s.phase);
+  const t = shellStrings().link;
   if (!lost || phase !== 'ready') return null;
   return (
     <div
@@ -76,15 +78,15 @@ export function LinkBand() {
     >
       <span aria-hidden className="led" data-tone="stop" />
       <span aria-hidden className="label shrink-0 text-stop-ink max-sm:hidden">
-        Non collegato
+        {t.notConnected}
       </span>
       <p className="min-w-0 flex-1 basis-[240px] text-body leading-snug">
-        <strong className="font-semibold">Monsters sul computer non risponde.</strong>{' '}
-        <span className="text-ink-muted">Riprovo da solo.</span>
+        <strong className="font-semibold">{t.silent}</strong>{' '}
+        <span className="text-ink-muted">{t.retrying}</span>
       </p>
       <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:justify-end">
         <Button variant="secondary" size="sm" data-testid="link-retry" onClick={retryLinkNow}>
-          Riprova adesso
+          {t.retryNow}
         </Button>
       </div>
     </div>
@@ -141,7 +143,7 @@ function NoticeCard({ notice }: { notice: Notice }) {
       <button
         type="button"
         onClick={() => dismissNotice(notice.id)}
-        aria-label="Chiudi"
+        aria-label={shellStrings().close}
         className="inline-flex size-7 shrink-0 items-center justify-center rounded-full opacity-80 hover:opacity-100"
       >
         <X size={14} weight="bold" aria-hidden />

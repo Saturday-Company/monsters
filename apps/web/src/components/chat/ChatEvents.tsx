@@ -16,9 +16,10 @@ import { useAgent, useNameOf } from '../../store/hooks.ts';
 import { useProject } from '../../store/projects.ts';
 import { clipText, plainText } from '../../lib/markdown.ts';
 import { openPage, PATHS, projectPath } from '../../lib/router.ts';
-import { cn, formatTime, toName as aName } from '../../lib/utils.ts';
+import { cn, formatTime } from '../../lib/utils.ts';
 import { NoteChip } from '../ui/MarkdownRenderer.tsx';
 import { FileById } from '../files/FileChip.tsx';
+import { chatStrings } from './chat.strings.ts';
 import { CHATGPT_USAGE_URL } from './Composer.tsx';
 
 /*
@@ -27,8 +28,8 @@ import { CHATGPT_USAGE_URL } from './Composer.tsx';
  * of a new conversation (docs/design.md, audit 3.1 and 3.4).
  */
 
-/** «Task», clipped: the task of a delegation in the lines of the chat. */
-const quoted = (goal: string, n = 90) => `«${taskText(goal, n)}»`;
+/** “Task”, clipped: the task of a delegation in the lines of the chat. */
+const quoted = (goal: string, n = 90) => chatStrings().events.quote(taskText(goal, n));
 
 /** A short piece of a task or result for a label: one line, clipped. */
 const brief = (s: string, n = 54) => taskText(s, n).replace(/[.!]$/, '');
@@ -130,11 +131,12 @@ const asHead = (text: string): string | null => (text.length <= HEAD_MAX ? text 
 
 /**
  * A delegation seen from who gave it (or from the orchestrator's chat): a
- * `.label` centred between two seams, "RHEA HA FINITO · 5 SPUNTI SALVATI". The
+ * `.label` centred between two seams, "RHEA FINISHED · 5 IDEAS SAVED". The
  * whole sentence is its name and tooltip; a click opens the terminal of who did
  * the work.
  */
 function DelegationLine({ item }: { item: Extract<ChatItem, { kind: 'delegation' }> }) {
+  const s = chatStrings().events;
   const from = useAgent(item.from);
   const to = useAgent(item.to);
   const toName = to?.name ?? capitalize(item.to);
@@ -145,23 +147,23 @@ function DelegationLine({ item }: { item: Extract<ChatItem, { kind: 'delegation'
   let tone: LineTone;
   if (item.status === 'completed') {
     const extra = doneSummary(item.goal, item.summary);
-    head = `${toName} ha finito`;
+    head = s.finishedHead(toName);
     body = extra ?? brief(item.goal, 90);
     tone = 'ok';
-    sentence = `${toName} ha finito ${quoted(item.goal)}${extra ? `: ${extra}` : ''}`;
+    sentence = s.finishedSentence(toName, quoted(item.goal), extra);
   } else if (item.status === 'aborted') {
-    head = `${toName} si è fermato`;
+    head = s.stoppedHead(toName);
     body = brief(item.goal, 90);
-    sentence = `Il lavoro di ${toName} si è fermato: ${quoted(item.goal)}`;
+    sentence = s.stoppedSentence(toName, quoted(item.goal));
   } else if (item.status === 'failed') {
-    head = `${toName} non ce l’ha fatta`;
+    head = s.failedHead(toName);
     body = brief(item.goal, 90);
     tone = 'stop';
-    sentence = `${toName} non ce l’ha fatta: ${quoted(item.goal)}`;
+    sentence = s.failedSentence(toName, quoted(item.goal));
   } else {
     head = `${fromName} → ${toName}`;
     body = brief(item.goal, 90);
-    sentence = `${fromName} ha passato un compito ${aName(toName)}: ${quoted(item.goal)}`;
+    sentence = s.handedSentence(fromName, toName, quoted(item.goal));
   }
   return (
     <div className="flex flex-col items-center">
@@ -170,7 +172,7 @@ function DelegationLine({ item }: { item: Extract<ChatItem, { kind: 'delegation'
         time={item.ts}
         tone={tone}
         onOpen={() => openTerminal(item.to)}
-        title={`${sentence} · Dietro le quinte di ${toName} (terminale)`}
+        title={s.behindTitle(sentence, toName)}
         sr={sentence}
         testId="delegation"
         status={item.status}
@@ -182,7 +184,7 @@ function DelegationLine({ item }: { item: Extract<ChatItem, { kind: 'delegation'
   );
 }
 
-/** What the instinct said of a task, under it: "◇ Dione non aveva finito il lavoro…". */
+/** What the instinct said of a task, under it: "◇ Dione hadn’t finished the job…". */
 function TaskChecks({
   checks,
   className,
@@ -190,6 +192,7 @@ function TaskChecks({
   checks: NonNullable<Extract<ChatItem, { kind: 'delegation' }>['checks']>;
   className?: string;
 }) {
+  const s = chatStrings().events;
   return (
     <ul className={cn('flex flex-col items-center gap-0.5', className)}>
       {checks.map((c, i) => (
@@ -199,7 +202,7 @@ function TaskChecks({
             className="led mr-2 align-middle"
             data-tone={c.tone === 'warn' ? 'signal' : c.tone === 'stop' ? 'stop' : undefined}
           />
-          <span className="sr-only">Decisione dei mostri: </span>
+          <span className="sr-only">{s.decision}</span>
           {c.text}
         </li>
       ))}
@@ -212,12 +215,13 @@ function TaskChecks({
  * asked what, and below the result, with the notes it wrote.
  */
 function ReceivedTask({ item }: { item: Extract<ChatItem, { kind: 'delegation' }> }) {
+  const s = chatStrings().events;
   const from = useAgent(item.from);
   const to = useAgent(item.to);
   const fromName = from?.name ?? capitalize(item.from);
   const toName = to?.name ?? capitalize(item.to);
   const done = item.status === 'completed';
-  const result = done ? (doneSummary(item.goal, item.summary) ?? 'Fatto') : null;
+  const result = done ? (doneSummary(item.goal, item.summary) ?? s.done) : null;
   return (
     <div
       className="flex flex-col items-center gap-2 px-2 text-center"
@@ -228,13 +232,11 @@ function ReceivedTask({ item }: { item: Extract<ChatItem, { kind: 'delegation' }
         <span className="shrink-0" aria-hidden>
           {fromName} → {toName} · {formatTime(item.ts)}
         </span>
-        <span className="sr-only normal-case">
-          Compito da {fromName} a {toName}
-        </span>
+        <span className="sr-only normal-case">{s.taskFrom(fromName, toName)}</span>
       </p>
       <p className={SERVICE_BODY}>
-        <span className="font-medium text-ink">{fromName}</span> ha chiesto a {toName}:{' '}
-        {quoted(item.goal, 160)}
+        <span className="font-medium text-ink">{fromName}</span>{' '}
+        {s.asked(toName, quoted(item.goal, 160))}
       </p>
       {done ? (
         <div className="flex max-w-[600px] flex-col items-center gap-1.5">
@@ -255,10 +257,10 @@ function ReceivedTask({ item }: { item: Extract<ChatItem, { kind: 'delegation' }
       {done ? null : (
         <p className="label text-ink-muted">
           {item.status === 'started'
-            ? 'Al lavoro…'
+            ? s.working
             : item.status === 'failed'
-              ? 'Non ce l’ha fatta'
-              : 'Si è fermato'}
+              ? s.failedShort
+              : s.stoppedShort}
         </p>
       )}
     </div>
@@ -281,7 +283,7 @@ export function DelegationRow({
 
 /**
  * Several events among monsters in a row (tasks, and what the instinct said): one line that opens
- * ("4 compiti completati"), closed until the user opens it.
+ * ("4 tasks completed"), closed until the user opens it.
  */
 export function DelegationGroup({ items, chat }: { items: ChatItem[]; chat: string }) {
   const [open, setOpen] = useState(false);
@@ -324,21 +326,22 @@ export function DelegationGroup({ items, chat }: { items: ChatItem[]; chat: stri
 
 /**
  * Something the instinct did during a job (D-068): a line between seams like
- * the events among monsters, "CI PENSA RHEA", "DIONE NON AVEVA FINITO IL
- * LAVORO: HO CHIESTO DI COMPLETARLO". A doubt is in the signal ink, an order
- * removed or an action refused in red. A click opens Dietro le quinte there.
+ * the events among monsters, "RHEA IS THINKING", "DIONE HADN'T FINISHED THE
+ * JOB: I ASKED TO COMPLETE IT". A doubt is in the signal ink, an order
+ * removed or an action refused in red. A click opens Behind the scenes there.
  */
 export function InstinctRow({ item }: { item: Extract<ChatItem, { kind: 'instinct' }> }) {
   const agent = useAgent(item.agent);
   const name = agent?.name ?? capitalize(item.agent);
+  const s = chatStrings().events;
   return (
     <ServiceLine
       head={name}
       time={item.ts}
       tone={item.tone === 'stop' ? 'stop' : item.tone === 'warn' ? 'signal' : undefined}
       onOpen={() => openTerminalAt(item.agent, item.runId)}
-      title={`${item.text} · Dietro le quinte (terminale)`}
-      sr={`${item.about === 'defense' ? 'Difesa' : item.about === 'spend' ? 'Spesa' : 'Decisione dei mostri'}: ${item.text}`}
+      title={s.instinctTitle(item.text)}
+      sr={`${item.about === 'defense' ? s.about.defense : item.about === 'spend' ? s.about.spend : s.about.other}: ${item.text}`}
       testId="instinct-line"
     >
       {item.text}
@@ -352,9 +355,25 @@ const PLAN_LIMIT = new Set([
   'harness_chatgpt_usage_limit',
 ]);
 
-const SETTINGS_PLACE = /Impostazioni → (Modelli|Permessi|Collegamenti|Aspetto|Account)/g;
+// i18n-ignore: the words of the texts to match (Italian today, English with the core's messages)
+const SETTINGS_PLACE =
+  /(?:Impostazioni|Settings) → (Modelli|Models|Permessi|Permissions|Collegamenti|Connections|Aspetto|Appearance|Account)/g;
 
-/** "… in Impostazioni → Modelli …" with the place as a link to that tab. */
+/** The tab id (route params stay Italian) of a place named in a text, in either language. */
+const SETTINGS_TAB: Readonly<Record<string, string>> = {
+  // i18n-ignore: names of the tabs as the core writes them
+  modelli: 'modelli',
+  models: 'modelli',
+  permessi: 'permessi',
+  permissions: 'permessi',
+  collegamenti: 'collegamenti',
+  connections: 'collegamenti',
+  aspetto: 'aspetto',
+  appearance: 'aspetto',
+  account: 'account',
+};
+
+/** "… in Settings → Models …" with the place as a link to that tab. */
 export function withSettingsLinks(text: string): ReactNode[] {
   const out: ReactNode[] = [];
   let at = 0;
@@ -363,7 +382,7 @@ export function withSettingsLinks(text: string): ReactNode[] {
     out.push(
       <a
         key={m.index}
-        href={`${PATHS.settings}?sezione=${m[1]!.toLowerCase()}`}
+        href={`${PATHS.settings}?sezione=${SETTINGS_TAB[m[1]!.toLowerCase()]}`}
         className="font-medium underline underline-offset-2"
       >
         {m[0]}
@@ -376,6 +395,7 @@ export function withSettingsLinks(text: string): ReactNode[] {
 }
 
 export function ErrorRow({ item }: { item: Extract<ChatItem, { kind: 'error' }> }) {
+  const s = chatStrings().events;
   const nameOf = useNameOf();
   if (item.code && PLAN_LIMIT.has(item.code)) {
     // OpenAI's usage-limit state: "Manage usage" is the primary action.
@@ -387,9 +407,9 @@ export function ErrorRow({ item }: { item: Extract<ChatItem, { kind: 'error' }> 
         >
           <p className="flex items-center gap-2 font-semibold">
             <WarningCircle size={20} weight="fill" className="shrink-0" aria-hidden />
-            Usage limit reached
+            {s.usageLimit}
           </p>
-          <p>Review your plan or this app&rsquo;s limit in ChatGPT settings.</p>
+          <p>{s.usageLimitHint}</p>
           <p className="text-footnote opacity-80">{item.text}</p>
           <a
             href={CHATGPT_USAGE_URL}
@@ -397,7 +417,7 @@ export function ErrorRow({ item }: { item: Extract<ChatItem, { kind: 'error' }> 
             rel="noreferrer"
             className="key key-primary mt-1 inline-flex h-9 items-center justify-self-start rounded-[9px] px-3.5 text-footnote font-semibold"
           >
-            Manage usage
+            {s.manageUsage}
           </a>
         </div>
       </div>
@@ -424,6 +444,7 @@ export function ErrorRow({ item }: { item: Extract<ChatItem, { kind: 'error' }> 
 }
 
 export function SystemRow({ item }: { item: Extract<ChatItem, { kind: 'system' }> }) {
+  const s = chatStrings().events;
   const tone = item.tone === 'stop' ? 'stop' : 'ok';
   const head = asHead(item.text);
   return (
@@ -431,7 +452,7 @@ export function SystemRow({ item }: { item: Extract<ChatItem, { kind: 'system' }
       head={head}
       time={item.ts}
       tone={tone}
-      sr={`${item.text}, alle ${formatTime(item.ts)}`}
+      sr={s.timed(item.text, formatTime(item.ts))}
       testId="system-row"
     >
       {head === null ? item.text : undefined}
@@ -440,16 +461,17 @@ export function SystemRow({ item }: { item: Extract<ChatItem, { kind: 'system' }
 }
 
 /**
- * A file a monster or its tool saved (D-075): "RHEA HA SALVATO UNO SCREENSHOT"
+ * A file a monster or its tool saved (D-075): "RHEA SAVED A SCREENSHOT"
  * between the seams, and under it the file itself, which opens the preview.
  */
 export function FileRow({ item }: { item: Extract<ChatItem, { kind: 'file' }> }) {
+  const s = chatStrings().events;
   const agent = useAgent(item.agent);
   const sentence = fileSentence(item.file, agent?.name ?? capitalize(item.agent));
   const head = asHead(sentence);
   return (
     <div className="flex flex-col items-center gap-2" data-testid="file-row">
-      <ServiceLine head={head} time={item.ts} sr={`${sentence}, alle ${formatTime(item.ts)}`}>
+      <ServiceLine head={head} time={item.ts} sr={s.timed(sentence, formatTime(item.ts))}>
         {head === null ? sentence : undefined}
       </ServiceLine>
       <FileById id={item.file.id} image={item.file.kind === 'image'} />
@@ -459,11 +481,12 @@ export function FileRow({ item }: { item: Extract<ChatItem, { kind: 'file' }> })
 
 /**
  * A lead's report in the chat of who sent it the work (`project_report`,
- * D-102): "RAPPORTO DI IAPETUS · SOCIAL DI SATURDAY" between the seams, the
+ * D-102): "REPORT FROM IAPETUS · SATURDAY SOCIAL" between the seams, the
  * outcome with its light and a short summary, and the way to the project's
  * chat, where the whole answer is.
  */
 export function ReportRow({ item }: { item: Extract<ChatItem, { kind: 'report' }> }) {
+  const s = chatStrings().events;
   const lead = useAgent(item.lead);
   const project = useProject(item.project);
   const leadName = lead?.name ?? capitalize(item.lead);
@@ -473,8 +496,8 @@ export function ReportRow({ item }: { item: Extract<ChatItem, { kind: 'report' }
   const said = item.reason ? null : clipText(plainText(item.summary), 280);
   const href = projectPath(item.project);
   // The project goes in the head when it fits; else under it, with the words of the report.
-  const full = `Rapporto di ${leadName} · ${projectName}`;
-  const reportHead = full.length <= HEAD_MAX ? full : `Rapporto di ${leadName}`;
+  const full = s.report(leadName, projectName);
+  const reportHead = full.length <= HEAD_MAX ? full : s.reportShort(leadName);
   return (
     <div
       className="flex flex-col items-center gap-2 px-2 text-center"
@@ -485,7 +508,7 @@ export function ReportRow({ item }: { item: Extract<ChatItem, { kind: 'report' }
       <ServiceLine
         head={reportHead}
         time={item.ts}
-        sr={`Rapporto di ${leadName}, capo di ${projectName}, alle ${formatTime(item.ts)}`}
+        sr={s.reportSr(leadName, projectName, formatTime(item.ts))}
       />
       <p className="flex max-w-[600px] items-start gap-2 text-caption leading-snug text-ink">
         <span
@@ -511,7 +534,7 @@ export function ReportRow({ item }: { item: Extract<ChatItem, { kind: 'report' }
         data-testid="report-open"
         className="label inline-flex h-8 items-center gap-1 rounded-[8px] px-2 text-signal-ink hover:underline focus-visible:outline-2 focus-visible:outline-signal-ink"
       >
-        Apri la chat del progetto
+        {s.openProjectChat}
         <span aria-hidden>→</span>
       </a>
     </div>
@@ -520,16 +543,17 @@ export function ReportRow({ item }: { item: Extract<ChatItem, { kind: 'report' }
 
 /** Where a new conversation starts (for everyone, or for this monster only). */
 export function ResetRow({ item }: { item: Extract<ChatItem, { kind: 'reset' }> }) {
+  const s = chatStrings().events;
   return (
     <div
       role="separator"
-      aria-label="Nuova conversazione"
+      aria-label={s.newConversation}
       data-testid="conversation-divider"
       className="event-line label px-2 pt-1 text-ink-muted"
     >
       <span className="flex shrink-0 items-center gap-2">
         <NotePencil size={14} aria-hidden />
-        Nuova conversazione
+        {s.newConversation}
         <span className="text-ink-faint">· {formatTime(item.ts)}</span>
       </span>
     </div>

@@ -20,6 +20,7 @@ import { hideDock, usePreview, type DockTab } from '../../store/preview.ts';
 import { ErrorBoundary } from '../shell/ErrorBoundary.tsx';
 import { useUsageSheet } from '../usage/state.ts';
 import { closeByBack, useBackCloses } from './back.ts';
+import { dockStrings } from './dock.strings.ts';
 import { chatAgentOf } from './follow.ts';
 import { clampDockWidth, DOCK_GUTTER, dockMaxWidth, dockMode, type DockMode } from './layout.ts';
 import '../chat/chat.css';
@@ -44,11 +45,7 @@ const UsagePanel = lazy(() =>
   import('../usage/UsagePanel.tsx').then((m) => ({ default: m.UsagePanel })),
 );
 
-const TABS: { value: DockTab; label: string }[] = [
-  { value: 'preview', label: 'Anteprima' },
-  { value: 'terminal', label: 'Dietro le quinte' },
-  { value: 'usage', label: 'Consumi' },
-];
+const TABS: readonly DockTab[] = ['preview', 'terminal', 'usage'];
 
 function subscribeResize(cb: () => void) {
   window.addEventListener('resize', cb);
@@ -76,6 +73,7 @@ function Grip({
   const start = useRef<{ x: number; w: number } | null>(null);
   const last = useRef(width);
   const [dragging, setDragging] = useState(false);
+  const s = dockStrings();
   const move = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!start.current) return;
     // The pane grows to the left: moving the grip left widens it.
@@ -105,12 +103,12 @@ function Grip({
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Larghezza del pannello"
+      aria-label={s.grip}
       aria-valuemin={DOCK_WIDTH_MIN}
       aria-valuemax={max}
       aria-valuenow={width}
       tabIndex={0}
-      title="Trascina per cambiare la larghezza (doppio clic: torna com’era)"
+      title={s.gripTitle}
       data-testid="dock-grip"
       data-dragging={dragging ? '' : undefined}
       className="dock-grip"
@@ -138,7 +136,7 @@ function TabPanel({ tab, agentId }: { tab: DockTab; agentId: string | null }) {
   if (!agentId) {
     return (
       <p className="px-5 py-10 text-center text-screen-muted">
-        Apri la chat di un mostro per vedere {tab === 'terminal' ? 'cosa fa' : 'i suoi consumi'}.
+        {dockStrings().openChat(tab === 'terminal')}
       </p>
     );
   }
@@ -168,6 +166,7 @@ export default function RightDock({ leaving }: { leaving: boolean }) {
   const max = dockMaxWidth(viewport, mode);
   const panel = useRef<HTMLElement>(null);
   const ids = useId();
+  const s = dockStrings();
 
   // One thing on the right: "Da rivedere" as a sheet makes room for the pane.
   useEffect(() => {
@@ -205,13 +204,13 @@ export default function RightDock({ leaving }: { leaving: boolean }) {
   };
 
   const onTabKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
-    const at = TABS.findIndex((t) => t.value === tab);
+    const at = TABS.indexOf(tab);
     const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
     if (!d) return;
     e.preventDefault();
     const next = TABS[(at + d + TABS.length) % TABS.length]!;
-    select(next.value);
-    document.getElementById(`${ids}-tab-${next.value}`)?.focus();
+    select(next);
+    document.getElementById(`${ids}-tab-${next}`)?.focus();
   };
 
   const style: CSSProperties =
@@ -239,7 +238,7 @@ export default function RightDock({ leaving }: { leaving: boolean }) {
       <aside
         ref={panel}
         tabIndex={-1}
-        aria-label="Pannello a destra"
+        aria-label={s.panel}
         data-testid="right-dock"
         data-tab={tab}
         className="dock screen flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none"
@@ -247,32 +246,32 @@ export default function RightDock({ leaving }: { leaving: boolean }) {
         <header className="dock-head flex shrink-0 items-center gap-2 pr-2 pl-3">
           <div
             role="tablist"
-            aria-label="Cosa mostra il pannello"
+            aria-label={s.tabsLabel}
             className="scroll-screen flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-2"
             onKeyDown={onTabKey}
           >
-            {TABS.map((t) => (
+            {TABS.map((value) => (
               <button
-                key={t.value}
-                id={`${ids}-tab-${t.value}`}
+                key={value}
+                id={`${ids}-tab-${value}`}
                 type="button"
                 role="tab"
-                aria-selected={tab === t.value}
+                aria-selected={tab === value}
                 aria-controls={`${ids}-panel`}
-                tabIndex={tab === t.value ? 0 : -1}
-                onClick={() => select(t.value)}
+                tabIndex={tab === value ? 0 : -1}
+                onClick={() => select(value)}
                 className="dock-tab label shrink-0"
-                data-testid={`dock-tab-${t.value}`}
+                data-testid={`dock-tab-${value}`}
               >
-                {t.label}
+                {s.tabs[value]}
               </button>
             ))}
           </div>
           <button
             type="button"
             onClick={() => closeByBack(hideDock)}
-            aria-label="Chiudi il pannello"
-            title="Chiudi (Esc)"
+            aria-label={s.close}
+            title={s.closeTitle}
             data-testid="dock-close"
             className="screen-key size-9 shrink-0 px-0"
           >
@@ -291,7 +290,7 @@ export default function RightDock({ leaving }: { leaving: boolean }) {
         >
           {/* The tab's own boundary: a renderer that fails leaves the tabs and ✕ working. */}
           <ErrorBoundary key={tab}>
-            <Suspense fallback={<p className="sr-only">Carico…</p>}>
+            <Suspense fallback={<p className="sr-only">{s.loading}</p>}>
               <TabPanel
                 tab={tab}
                 agentId={tab === 'terminal' ? terminalAgent : tab === 'usage' ? usageAgent : null}

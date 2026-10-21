@@ -73,7 +73,7 @@ describe('StreamClient.retryNow', () => {
 });
 
 describe('the words of a lost link', () => {
-  it('say "non collegato" on the display and in the field', () => {
+  it('say "not connected" on the display and in the field', () => {
     const d = displayState({
       halted: false,
       connection: 'closed',
@@ -81,7 +81,7 @@ describe('the words of a lost link', () => {
       nameOf: (id) => id,
       working: 0,
     });
-    expect(d.text).toBe('Non collegato');
+    expect(d.text).toBe('Not connected');
     expect(
       composerPlaceholder({
         name: 'Titan',
@@ -91,6 +91,6 @@ describe('the words of a lost link', () => {
         question: null,
         wide: true,
       }),
-    ).toBe('Non collegato: scrivi pure, il messaggio resta qui');
+    ).toBe('Not connected: go ahead and write, the message stays here');
   });
 });

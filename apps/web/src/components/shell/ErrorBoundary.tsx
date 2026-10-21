@@ -2,6 +2,7 @@ import { ArrowClockwise, WarningCircle } from '@phosphor-icons/react';
 import { Component, useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { cn } from '../../lib/utils.ts';
 import { Button } from '../ui/button.tsx';
+import { shellStrings } from './shell.strings.ts';
 
 /*
  * When a part of the app does not load or breaks (M2.8 review, D-034).
@@ -84,6 +85,7 @@ function OnScreen() {
  */
 export function UpdatePrompt() {
   const { failed, dismissed, onScreen } = useChunks();
+  const s = shellStrings().errors;
   if (!failed || dismissed || onScreen > 0) return null;
   const again = reloadedRecently();
   return (
@@ -93,17 +95,13 @@ export function UpdatePrompt() {
         data-testid="update-prompt"
         className="raised pointer-events-auto flex max-w-[520px] flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] px-4 py-3 text-body text-ink"
       >
-        <span className="min-w-0 flex-1">
-          {again
-            ? 'Una parte di Monsters non si carica nemmeno dopo aver ricaricato: controlla che il core sia acceso e aggiornato.'
-            : 'C’è una versione nuova di Monsters: ricarica la pagina per usarla.'}
-        </span>
+        <span className="min-w-0 flex-1">{again ? s.stillBroken : s.newVersion}</span>
         <span className="flex gap-1.5">
           <Button size="sm" variant="ghost" onClick={() => update({ dismissed: true })}>
-            Più tardi
+            {s.later}
           </Button>
           <Button size="sm" onClick={reloadPage}>
-            <ArrowClockwise size={15} weight="bold" aria-hidden /> Ricarica
+            <ArrowClockwise size={15} weight="bold" aria-hidden /> {s.reload}
           </Button>
         </span>
       </div>
@@ -112,18 +110,11 @@ export function UpdatePrompt() {
 }
 
 function Fallback({ error, full }: { error: unknown; full: boolean }) {
+  const s = shellStrings().errors;
   const chunk = isChunkError(error);
   const again = chunk && reloadedRecently();
-  const title = again
-    ? 'Questa parte non si carica'
-    : chunk
-      ? 'C’è una versione nuova di Monsters'
-      : 'Qualcosa si è rotto qui';
-  const text = again
-    ? 'Ho già ricaricato la pagina, ma non va ancora. Controlla che il core sia acceso e aggiornato, poi riprova.'
-    : chunk
-      ? 'Questa parte della pagina non si è caricata: succede dopo un aggiornamento. Ricarica la pagina per continuare.'
-      : 'Questa parte di Monsters ha avuto un problema. Di solito basta ricaricare la pagina; i mostri intanto continuano il loro lavoro.';
+  const title = again ? s.titleAgain : chunk ? s.titleChunk : s.titleBroken;
+  const text = again ? s.textAgain : chunk ? s.textChunk : s.textBroken;
   return (
     <div
       role="alert"
@@ -138,8 +129,7 @@ function Fallback({ error, full }: { error: unknown; full: boolean }) {
       <h2 className="text-title2 font-semibold tracking-[-0.02em] text-ink">{title}</h2>
       <p className="max-w-[440px] text-large text-ink-muted">{text}</p>
       <Button onClick={reloadPage}>
-        <ArrowClockwise size={17} weight="bold" aria-hidden />{' '}
-        {again ? 'Riprova' : 'Ricarica la pagina'}
+        <ArrowClockwise size={17} weight="bold" aria-hidden /> {again ? s.tryAgain : s.reloadPage}
       </Button>
     </div>
   );

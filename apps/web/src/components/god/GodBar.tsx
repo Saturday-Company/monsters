@@ -35,6 +35,7 @@ import {
   marqueeSpeed,
   squadCount,
 } from './god.ts';
+import { godStrings } from './god.strings.ts';
 import { Marquee } from './marquee.ts';
 import './god.css';
 
@@ -134,7 +135,7 @@ export const GodBar = forwardRef<HTMLAnchorElement, GodBarProps>(function GodBar
   const busyLine = state.kind === 'working' || state.kind === 'asking';
   const size = fitDots(CREATURE_W, CREATURE_H, 0);
   const motion = still ? 'still' : speed > 0 ? 'running' : 'still';
-  const squadsText = squads === 1 ? 'della squadra' : `delle ${squads} squadre`;
+  const s = godStrings();
 
   const seen = useReads((r) => seenOf(r, god.id));
   const summary = useMemo(() => chatSummary(thread, seen), [thread, seen]);
@@ -143,8 +144,8 @@ export const GodBar = forwardRef<HTMLAnchorElement, GodBarProps>(function GodBar
   const question = waiting.at(-1);
   const name = [
     `${god.name}, ${statusText(godLive)}`,
-    question ? `ti chiede: ${plainText(question.question)}` : null,
-    unread ? `${unread} da leggere` : null,
+    question ? s.asksLabel(plainText(question.question)) : null,
+    unread ? s.unreadLabel(unread) : null,
   ]
     .filter(Boolean)
     .join(', ');
@@ -171,8 +172,8 @@ export const GodBar = forwardRef<HTMLAnchorElement, GodBarProps>(function GodBar
         data-motion={motion}
         data-waiting={question ? 'true' : undefined}
         // It starts with the name and the state, as every chat row; then what the house does.
-        aria-label={`${name}. A capo ${squadsText}: ${line}. ${label.text}`}
-        title={`Apri la chat di ${god.name}${shortcut ? ` (${shortcut.shown})` : ''}`}
+        aria-label={s.aria(name, squads, line, label.text)}
+        title={s.open(god.name, shortcut?.shown ?? null)}
         className="god-bar screen screen-lines px-3 pt-2.5 pb-2"
         style={{ '--lit': lit } as CSSProperties}
       >
