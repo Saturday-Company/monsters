@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { setAppLang, setVaultLayout } from '@monsters/shared';
+import { setAppLang, setVaultLayout, vaultLayoutOf } from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 /*
@@ -66,6 +66,8 @@ const HELPERS: Record<string, (fn: (...a: unknown[]) => unknown) => unknown> = {
   listIn: (fn) => [fn(['uno'], 'it'), fn(['uno', 'due'], 'it'), fn(['uno', 'due', 'tre'], 'it')],
   listWords: (fn) => [fn(['uno'], 'it'), fn(['uno', 'due'], 'it'), fn(['uno', 'due', 'tre'], 'it')],
   toolGroupName: (fn) => ['web', 'vault', 'team', 'files', 'other'].map((g) => fn(g, 'it')),
+  // The vault tools' examples take the layout (D-154): the Italian one.
+  toolPrompts: (fn) => fn(vaultLayoutOf('it')),
 };
 
 function promptFiles(): string[] {
