@@ -1,13 +1,14 @@
 import { dotPalette } from '@monsters/monster-kit';
-import type { ScorecardView } from '@monsters/shared';
+import { formatNumber, type ScorecardView } from '@monsters/shared';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { getApi } from '../../store/app.ts';
 import { useAgent, useNameOf } from '../../store/hooks.ts';
 import { reorderedLines, scoreLines, type ScoreLine } from '../../store/instinct.ts';
 import { AgentMark, Group, Row, RowBody, Status } from './parts.tsx';
+import { teamStrings } from './team.strings.ts';
 
 /*
- * Settings → Squadra → Pagella dei mostri (D-067, D-068): for each monster and
+ * Settings → Squad → Monster scorecard (D-067, D-068): for each monster and
  * model, how many jobs, how many really finished, what a job that worked
  * costs; when the scorecard moved a model first in a chain, it says so in
  * words. The numbers sit on a small screen with a bar in the monster's light.
@@ -41,17 +42,17 @@ function ScoreDisplay({ line }: { line: ScoreLine }) {
 }
 
 function lineDescription(line: ScoreLine): string {
-  const parts = [`${line.delegations} ${line.delegations === 1 ? 'lavoro' : 'lavori'}`];
-  parts.push(`${line.verified} ${line.verified === 1 ? 'finito' : 'finiti'} davvero`);
-  if (line.costPerJob) parts.push(`${line.costPerJob} a lavoro riuscito`);
+  const s = teamStrings().score;
+  const parts = [s.jobs(line.delegations)];
+  parts.push(s.finished(line.verified));
+  if (line.costPerJob) parts.push(s.perJob(line.costPerJob));
   if (line.avgSteps !== null)
-    parts.push(
-      `${line.avgSteps.toLocaleString('it-IT', { maximumFractionDigits: 1 })} passi in media`,
-    );
+    parts.push(s.steps(formatNumber(line.avgSteps, { maximumFractionDigits: 1 })));
   return parts.join(' · ');
 }
 
 export function ScorecardSection() {
+  const s = teamStrings().score;
   const nameOf = useNameOf();
   const [view, setView] = useState<ScorecardView | null>(null);
   const [failed, setFailed] = useState(false);
@@ -70,7 +71,7 @@ export function ScorecardSection() {
   if (failed)
     return (
       <p className="px-1 text-footnote text-ink-muted" role="status">
-        Non riesco a leggere la pagella dei mostri adesso. Riprova tra poco.
+        {s.failed}
       </p>
     );
   if (!view) return null;
@@ -82,22 +83,19 @@ export function ScorecardSection() {
   const closest = [...lines].sort((a, b) => a.missing - b.missing)[0];
 
   let footer: string;
-  if (!view.enabled)
-    footer = `La pagella resta solo da leggere: «Impara quale modello lavora meglio» è spento in Decisioni dei mostri.`;
-  else if (lines.length === 0)
-    footer = `Servono almeno ${min} lavori controllati per modello prima che la squadra cambi l’ordine dei modelli.`;
+  if (!view.enabled) footer = s.footerOff;
+  else if (lines.length === 0) footer = s.footerNone(min);
   else if (ready.length === 0 && closest)
-    footer = `Servono almeno ${min} lavori controllati per modello prima di cambiare l’ordine: ${closest.agentName} è a ${closest.checked}.`;
-  else
-    footer = `Dopo ${min} lavori controllati un modello può passare primo, tra quelli che il mostro ha già. Non usa mai modelli a pagamento se li hai spenti.`;
+    footer = s.footerClosest(min, closest.agentName, closest.checked);
+  else footer = s.footerReady(min);
 
   return (
     <Group
-      title="Pagella dei mostri"
+      title={s.title}
       id="settings-pagella"
       testId="scorecard"
       as={lines.length > 0 ? 'ul' : 'div'}
-      description="Per ogni mostro e modello: quanti lavori, quanti finiti davvero e quanto costa un lavoro riuscito."
+      description={s.description}
       footer={footer}
     >
       {moved.length > 0 &&
@@ -123,8 +121,7 @@ export function ScorecardSection() {
       {lines.length === 0 ? (
         <RowBody>
           <p className="text-footnote leading-snug text-ink-muted" data-testid="scorecard-empty">
-            Ancora nessun lavoro controllato: la pagella si riempie man mano che i mostri finiscono
-            i compiti.
+            {s.empty}
           </p>
         </RowBody>
       ) : (
@@ -152,9 +149,7 @@ export function ScorecardSection() {
               <span className="max-sm:hidden">
                 <ScoreDisplay line={l} />
               </span>
-              <span className="sr-only">
-                {l.verified} su {l.checked} controllati finiti davvero
-              </span>
+              <span className="sr-only">{s.checkedOf(l.verified, l.checked)}</span>
             </Row>
           </li>
         ))

@@ -5,10 +5,12 @@ import { cn, domId } from '../../lib/utils.ts';
 import { errorText, getApi, notify } from '../../store/app.ts';
 import { Button, buttonVariants } from '../ui/button.tsx';
 import { Input } from '../ui/field.tsx';
+import { partsStrings } from './parts.strings.ts';
 import { fieldOnGroup, FormField, Group, Row, RowBody } from './parts.tsx';
+import { searchStrings } from './search.strings.ts';
 
 /*
- * Settings → Collegamenti → Ricerca sul web: without a key the
+ * Settings → Connections → Web search: without a key the
  * monsters search with DuckDuckGo (Wikipedia as a fallback); a Brave Search
  * key searches the whole web. The paid search on OpenRouter (D-071) is turned
  * on just below (PaidSearchSection), in the same tab.
@@ -20,6 +22,8 @@ export function WebSearchSection({
   settings: SettingsResponse | null;
   onSaved: () => void;
 }) {
+  const s = searchStrings().web;
+  const common = partsStrings();
   const id = domId(useId());
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState('');
@@ -33,7 +37,7 @@ export function WebSearchSection({
     setError(null);
     const parsed = BraveKeyRequestSchema.safeParse({ key });
     if (!parsed.success) {
-      setError('Incolla la chiave completa, senza spazi.');
+      setError(s.keyInvalid);
       return;
     }
     setSaving(true);
@@ -42,7 +46,7 @@ export function WebSearchSection({
       setKey('');
       setOpen(false);
       onSaved();
-      notify('Chiave di Brave salvata: le ricerche partono da lì.', 'success');
+      notify(s.saved, 'success');
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -53,21 +57,17 @@ export function WebSearchSection({
   return (
     <Group title={SETTINGS_SECTIONS.ricercaWeb.label} testId="web-search">
       <Row
-        label={paid ? 'Ricerca a pagamento' : isSet ? 'Brave Search' : 'Ricerca gratuita'}
+        label={paid ? s.paidLabel : isSet ? s.braveLabel : s.freeLabel}
         description={
           <span data-testid="brave-key-status" data-set={isSet ? 'yes' : 'no'}>
-            {paid
-              ? `Ora i mostri cercano con OpenRouter (la ricerca a pagamento, qui sotto); ${isSet ? 'Brave Search' : 'DuckDuckGo e Wikipedia'} restano di riserva.`
-              : isSet
-                ? 'Con la tua chiave di Brave Search i mostri cercano su tutto il web.'
-                : 'I mostri cercano con DuckDuckGo e, quando non risponde, su Wikipedia. Con una chiave di Brave Search (ha un piano gratuito) o la ricerca a pagamento (qui sotto) cercano su tutto il web.'}
+            {paid ? s.paidText(isSet) : isSet ? s.braveText : s.freeText}
           </span>
         }
         wrap
       >
         {!open && (
           <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-            {isSet ? 'Cambia chiave' : 'Aggiungi la chiave di Brave'}
+            {isSet ? s.changeKey : s.addKey}
           </Button>
         )}
       </Row>
@@ -76,15 +76,16 @@ export function WebSearchSection({
           <RowBody>
             <FormField
               id={id}
-              label={isSet ? 'Nuova chiave di Brave Search' : 'Chiave di Brave Search'}
+              label={isSet ? s.newKeyLabel : s.keyLabel}
               error={error}
-              hint="Resta su questo computer e non la mostriamo più dopo il salvataggio."
+              hint={s.keyHint}
             >
               <Input
                 id={id}
                 type="password"
                 autoComplete="off"
                 spellCheck={false}
+                // i18n-ignore: an example value, not copy
                 placeholder="BSA…"
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
@@ -95,10 +96,10 @@ export function WebSearchSection({
             </FormField>
             <div className="flex flex-wrap items-center gap-2">
               <Button type="submit" size="sm" disabled={saving || !key.trim()}>
-                {saving ? 'Salvo…' : 'Salva la chiave di Brave'}
+                {saving ? common.saving : s.saveKey}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-                Annulla
+                {common.cancel}
               </Button>
               <a
                 href="https://api-dashboard.search.brave.com/app/keys"
@@ -106,7 +107,7 @@ export function WebSearchSection({
                 rel="noreferrer"
                 className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'sm:ml-auto')}
               >
-                Crea la chiave
+                {s.createKey}
                 <ArrowSquareOut size={16} aria-hidden />
               </a>
             </div>

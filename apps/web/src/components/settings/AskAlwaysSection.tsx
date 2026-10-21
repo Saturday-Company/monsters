@@ -6,6 +6,7 @@ import { getApi, notify } from '../../store/app.ts';
 import { Switch } from '../ui/controls.tsx';
 import { plainly, teamError } from './data.ts';
 import { Group, Row, TextSetting } from './parts.tsx';
+import { settingsStrings } from './settings.strings.ts';
 
 /*
  * Settings → Permessi, first group (D-066): what the monsters always ask
@@ -18,6 +19,7 @@ import { Group, Row, TextSetting } from './parts.tsx';
 const complain = (err: unknown) => notify(teamError(err), 'error');
 
 export function AskAlwaysSection() {
+  const s = settingsStrings().askAlways;
   const [profile, setProfile] = useState<ProfileView | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -40,7 +42,7 @@ export function AskAlwaysSection() {
   if (failed)
     return (
       <p className="px-1 text-footnote text-ink-muted" role="status">
-        Non riesco a leggere cosa ti chiedono sempre. Riprova tra poco.
+        {s.failed}
       </p>
     );
   if (!profile) return null;
@@ -56,19 +58,19 @@ export function AskAlwaysSection() {
       id="settings-chiedono"
       footer={
         <>
-          Per tutto il resto decidono i mostri: chi decide lo scegli in{' '}
+          {s.footerBefore}
           <a
             href={`${PATHS.settings}?sezione=istinto`}
             className="font-medium text-ink underline underline-offset-2"
             data-testid="ask-always-instinct-link"
           >
-            Squadra → Decisioni dei mostri
+            {s.footerLink}
           </a>
-          .
+          {s.footerAfter}
         </>
       }
     >
-      <Row label={fixed} description="Sempre: non si può spegnere." />
+      <Row label={fixed} description={s.fixed} />
       {profile.options.extras.map((o) => (
         <Row key={o.id} label={o.label}>
           <Switch
@@ -85,18 +87,18 @@ export function AskAlwaysSection() {
                     text: profile.askAlways.text,
                   },
                 },
-                on ? `Da ora ti chiedono prima di: ${o.label.toLowerCase()}.` : 'Fatto.',
+                on ? s.turnedOn(o.label) : s.turnedOff,
               ).catch(complain)
             }
           />
         </Row>
       ))}
       <TextSetting
-        label="Altro da chiederti sempre"
+        label={s.other}
         value={profile.askAlways.text}
-        empty="Niente altro."
-        placeholder="Per esempio: prima di toccare i file del lavoro."
-        onSave={(text) => plainly(() => save({ askAlways: { extras, text } }, 'Salvato.'))}
+        empty={s.otherEmpty}
+        placeholder={s.otherPlaceholder}
+        onSave={(text) => plainly(() => save({ askAlways: { extras, text } }, s.saved))}
       />
     </Group>
   );

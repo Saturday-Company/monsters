@@ -28,7 +28,7 @@ import {
 } from '@monsters/shared';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { cn, domId, toName } from '../../lib/utils.ts';
+import { cn, domId } from '../../lib/utils.ts';
 import { getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Segmented } from '../ui/controls.tsx';
@@ -39,15 +39,17 @@ import { SATURDAY_ICONS } from './saturday-icons.ts';
 import { ClaudeConnectBody } from './ClaudeConnect.tsx';
 import { AgentPicker, Details, errorOf, TestButton, ToolsResult, useTest } from './mcp-parts.tsx';
 import { OAuthPaste } from './McpOAuthPaste.tsx';
+import { mcpStrings } from './mcp.strings.ts';
+import { partsStrings } from './parts.strings.ts';
 import { SecretChange } from './McpSecretChange.tsx';
 import { ConfirmButton, FormField, Group } from './parts.tsx';
 
 /*
- * Settings → Collegamenti → App e servizi (D-063): the services of
+ * Settings → Connections → Apps and services (D-063): the services of
  * `MCP_CATALOG` as keys with their mark on a small screen, the name, one
  * sentence and the state. A key opens a panel that asks only what is needed
  * (nothing, a sign-in in the browser, or a token with the link to create it),
- * then "Prova" and who uses it. Servers added here are normal MCP servers of
+ * then "Test" and who uses it. Servers added here are normal MCP servers of
  * the core, tagged with `catalog`.
  */
 
@@ -61,22 +63,11 @@ export const GENERIC_ICONS: Record<string, Icon> = {
   monday: Kanban,
 };
 
-/** Keys shown before "Mostra tutti". */
+/** Keys shown before "Show all". */
 const FIRST = 8;
 
 export type GalleryState =
   'soon' | 'claude' | 'off' | 'login' | 'signin' | 'waiting' | 'connected' | 'error';
-
-const STATE_TEXT: Record<GalleryState, string> = {
-  soon: 'Presto',
-  claude: 'Collega tramite Claude',
-  off: 'Da collegare',
-  login: 'Da collegare',
-  signin: 'Serve l’accesso',
-  waiting: 'In attesa',
-  connected: 'Collegato',
-  error: 'Problema',
-};
 
 /** The server added from an entry: tagged with it, or (older) with its name and address. */
 export function serverOf(
@@ -97,9 +88,9 @@ export function galleryState(
 ): GalleryState {
   if (!server) return entry.soon ? 'soon' : 'off';
   if (server.oauth?.pending) return 'waiting';
-  // The service refused a sign-in that worked (connettori 1): "Collega" again.
+  // The service refused a sign-in that worked (connettori 1): "Connect" again.
   if (server.oauth?.needsSignIn) return 'signin';
-  // A call was refused for a permission the access lacks: "Collega" asks for it.
+  // A call was refused for a permission the access lacks: "Connect" asks for it.
   if (server.oauth?.moreScope) return 'signin';
   if (server.oauth && !server.oauth.connected) return 'login';
   if (server.status === 'error') return 'error';
@@ -108,7 +99,7 @@ export function galleryState(
 
 /**
  * A service reached through Claude (D-069): its own states once the Claude
- * plan is connected; "Collega tramite Claude" until the user chooses it.
+ * plan is connected; "Connect through Claude" until the user chooses it.
  */
 export function claudeGalleryState(view: ClaudeConnectionView): GalleryState {
   if (!view.added) return 'claude';
@@ -199,15 +190,16 @@ function StateLabel({ state }: { state: GalleryState }) {
       data-testid="gallery-state"
     >
       {tone && <span aria-hidden className="led" data-tone={tone} />}
-      {STATE_TEXT[state]}
+      {mcpStrings().gallery.state[state]}
     </span>
   );
 }
 
 function authLabel(entry: McpCatalogEntry, a: McpCatalogAuth): string {
-  if (a.kind === 'oauth') return `Accedi ${toName(entry.name)}`;
+  const s = mcpStrings().gallery;
+  if (a.kind === 'oauth') return s.signIn(entry.name);
   if (a.kind === 'token') return a.label;
-  return 'Senza accesso';
+  return s.noSignIn;
 }
 
 /** What follows the company in the address: `.anteiku.it`. */
@@ -253,6 +245,8 @@ function ConnectPanel({
   via?: ClaudeConnectionView | undefined;
   onClaude: (d: ClaudeConnectionsResponse) => void;
 }) {
+  const s = mcpStrings().gallery;
+  const common = partsStrings();
   const server = serverOf(entry, data.servers);
   const state = via ? claudeGalleryState(via) : galleryState(entry, server);
   const titleId = `${domId(useId())}-title`;
@@ -310,14 +304,12 @@ function ConnectPanel({
     setTenantError(null);
     if (perCompany && !tenant) {
       setTenantError(
-        tenantInput.trim()
-          ? `Non è il nome di un’azienda: scrivi solo la parte prima di ${tenantSuffix(entry)}.`
-          : `Scrivi il nome della tua azienda su ${entry.name}.`,
+        tenantInput.trim() ? s.tenantInvalid(tenantSuffix(entry)) : s.tenantMissing(entry.name),
       );
       return;
     }
     if (method.kind === 'token' && !token.trim()) {
-      setError(`Incolla qui il codice che hai creato su ${entry.name}.`);
+      setError(s.tokenMissing(entry.name));
       return;
     }
     const url = catalogUrl(entry, method, tenant);
@@ -361,7 +353,7 @@ function ConnectPanel({
         onData(await getApi().mcpServers());
       } else {
         setToken('');
-        notify(`${entry.name} collegato.`, 'success');
+        notify(s.connected(entry.name), 'success');
         tested.current = true;
         void runTest();
       }
@@ -377,7 +369,7 @@ function ConnectPanel({
     setBusy(true);
     try {
       onData(await getApi().removeMcpServer(server.name));
-      notify(`${entry.name} scollegato.`, 'success');
+      notify(s.disconnected(entry.name), 'success');
       tested.current = false;
       setAuthUrl(null);
     } catch (err) {
@@ -399,7 +391,7 @@ function ConnectPanel({
   };
 
   const connected = state === 'connected' || state === 'error';
-  // "Cambia il token" (D-072): the token way of the service, when it has one.
+  // "Change the token" (D-072): the token way of the service, when it has one.
   const tokenAuth = methods.find((m) => m.kind === 'token');
   const tokenWay = tokenAuth?.kind === 'token' ? tokenAuth : undefined;
   const tools = server?.knownTools?.filter((t) => !t.skipped).length;
@@ -430,7 +422,7 @@ function ConnectPanel({
               <StateLabel state={state} />
             </div>
           </div>
-          <Button variant="ghost" size="iconSm" aria-label="Chiudi" onClick={onClose} autoFocus>
+          <Button variant="ghost" size="iconSm" aria-label={s.close} onClick={onClose} autoFocus>
             <X size={18} aria-hidden />
           </Button>
         </div>
@@ -442,10 +434,7 @@ function ConnectPanel({
         {!via && state === 'soon' && (
           <div className="grid gap-2 text-footnote leading-snug text-ink-muted">
             <p data-testid="gallery-soon">{entry.soon}</p>
-            <p>
-              Se hai già l’indirizzo e la chiave del programma (un “server MCP”), puoi aggiungerlo
-              da “Aggiungi un programma”.
-            </p>
+            <p>{s.soonAdd}</p>
           </div>
         )}
 
@@ -458,7 +447,7 @@ function ConnectPanel({
                   setMethodIndex(Number(v));
                   setError(null);
                 }}
-                label="Come collegarlo"
+                label={s.howToConnect}
                 size="sm"
                 className="justify-self-start"
                 options={methods.map((m, i) => ({ value: String(i), label: authLabel(entry, m) }))}
@@ -467,12 +456,12 @@ function ConnectPanel({
             {perCompany && state !== 'waiting' && (
               <FormField
                 id={tenantId}
-                label={entry.tenantLabel ?? 'La tua azienda'}
+                label={entry.tenantLabel ?? s.yourCompany}
                 error={tenantError}
                 hint={
                   tenant ? (
                     <>
-                      Indirizzo:{' '}
+                      {s.address}{' '}
                       <span className="font-mono" data-testid="gallery-tenant-url">
                         {catalogUrl(entry, method, tenant)}
                       </span>
@@ -507,32 +496,28 @@ function ConnectPanel({
             )}
             {method.kind === 'oauth' && state !== 'waiting' && server?.oauth?.moreScope && (
               <p className="text-footnote leading-snug text-ink" data-testid="gallery-more-scope">
-                {entry.name} chiede un permesso in più per quello che i mostri gli hanno chiesto. Il
-                resto funziona già: con Collega lo confermi sulla sua pagina.
+                {s.moreScope(entry.name)}
               </p>
             )}
             {method.kind === 'oauth' && state !== 'waiting' && (
-              <p className="text-footnote leading-snug text-ink-muted">
-                Si apre la pagina di {entry.name}: accedi e conferma, poi torna qui. Monsters non
-                vede la tua password.
-              </p>
+              <p className="text-footnote leading-snug text-ink-muted">{s.oauthInfo(entry.name)}</p>
             )}
             {method.kind === 'none' && (
               <p className="text-footnote leading-snug text-ink-muted">
-                Non serve nessun accesso: basta collegarlo.
+                {s.noneNeeded}
                 {launcher && (
                   <span data-testid="gallery-launcher">
                     {' '}
-                    Si avvia con {entry.command}, che fa parte di {launcher.needs}: se non ce l’hai,{' '}
+                    {s.launcher.before(entry.command ?? '', launcher.needs)}
                     <a
                       href={launcher.url}
                       target="_blank"
                       rel="noreferrer"
                       className="font-medium text-signal-ink underline underline-offset-2"
                     >
-                      installa {launcher.needs}
+                      {s.launcher.link(launcher.needs)}
                     </a>
-                    .
+                    {s.launcher.after}
                   </span>
                 )}
               </p>
@@ -542,7 +527,7 @@ function ConnectPanel({
                 id={tokenId}
                 label={method.label}
                 error={error ?? undefined}
-                hint={method.hint ?? 'Resta su questo computer e non lo mostriamo più.'}
+                hint={method.hint ?? s.tokenHint}
               >
                 <div className="grid gap-2">
                   <Input
@@ -561,13 +546,13 @@ function ConnectPanel({
                     onClick={(e) => {
                       if (catalogCreateUrl(method, tenant)) return;
                       e.preventDefault();
-                      setTenantError(`Scrivi prima la tua azienda su ${entry.name}.`);
+                      setTenantError(s.tenantFirst(entry.name));
                     }}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 justify-self-start text-footnote font-medium text-signal-ink underline underline-offset-2"
                   >
-                    Crea il token
+                    {s.createToken}
                     <ArrowSquareOut size={14} aria-hidden />
                   </a>
                 </div>
@@ -580,10 +565,8 @@ function ConnectPanel({
               >
                 <Meter active className="mt-1.5 shrink-0 text-signal-ink" />
                 <span>
-                  <strong className="font-semibold text-ink">
-                    Completa l’accesso nel browser.
-                  </strong>{' '}
-                  Questa finestra si aggiorna da sola.
+                  <strong className="font-semibold text-ink">{s.finishInBrowser}</strong>{' '}
+                  {s.updatesItself}
                   {authUrl && (
                     <>
                       {' '}
@@ -593,7 +576,7 @@ function ConnectPanel({
                         rel="noreferrer"
                         className="text-ink underline"
                       >
-                        Riapri la pagina di accesso
+                        {s.reopen}
                       </a>
                       .
                     </>
@@ -612,11 +595,11 @@ function ConnectPanel({
             )}
             <div className="flex flex-wrap items-center gap-2">
               <Button type="submit" size="sm" disabled={busy}>
-                {busy ? 'Collego…' : state === 'waiting' ? 'Ricomincia' : 'Collega'}
+                {busy ? s.connecting : state === 'waiting' ? s.startOver : s.connect}
               </Button>
               {server && (
                 <Button variant="ghost" size="sm" disabled={busy} onClick={() => void disconnect()}>
-                  Annulla
+                  {common.cancel}
                 </Button>
               )}
             </div>
@@ -638,15 +621,15 @@ function ConnectPanel({
               </p>
             )}
             {tools !== undefined && !test.result && (
-              <p className="text-footnote text-ink-muted">{tools} strumenti pronti per i mostri.</p>
+              <p className="text-footnote text-ink-muted">{s.toolsReady(tools)}</p>
             )}
             <AgentPicker agents={data.agents} value={server.agents} onChange={saveAgents} />
             <div className="flex flex-wrap items-center gap-2">
               <TestButton testing={test.testing} onClick={() => void test.run()} />
               <ConfirmButton
-                label="Scollega"
-                question={`Scollego ${entry.name}?`}
-                confirm="Sì, scollega"
+                label={s.disconnect}
+                question={s.disconnectQuestion(entry.name)}
+                confirm={s.disconnectConfirm}
                 busy={busy}
                 onConfirm={() => void disconnect()}
               />
@@ -667,11 +650,11 @@ function ConnectPanel({
                 {server.url ?? [server.command, ...(server.args ?? [])].join(' ')}
               </span>
               {server.headerKeys.length > 0 && (
-                <span>{server.headerKeys.join(', ')} (valore nascosto)</span>
+                <span>{s.valueHidden(server.headerKeys.join(', '))}</span>
               )}
-              {server.oauth && <span>Accesso con OAuth: i token restano su questo computer.</span>}
+              {server.oauth && <span>{s.oauthTokens}</span>}
               <a href={entry.docs} target="_blank" rel="noreferrer" className="underline">
-                Documentazione di {entry.name}
+                {s.docs(entry.name)}
               </a>
             </Details>
           </div>
@@ -682,7 +665,7 @@ function ConnectPanel({
   );
 }
 
-/** The gallery: a grid of keys, connected ones first, "Presto" last. */
+/** The gallery: a grid of keys, connected ones first, "Soon" last. */
 export function McpGallery({
   data,
   onData,
@@ -692,6 +675,7 @@ export function McpGallery({
   onData: (d: McpServersResponse) => void;
   reload: () => void;
 }) {
+  const s = mcpStrings().gallery;
   const [open, setOpen] = useState<string | null>(null);
   const [all, setAll] = useState(false);
   const [claude, setClaude] = useState<ClaudeConnectionsResponse | null>(null);
@@ -739,16 +723,11 @@ export function McpGallery({
   }, []);
 
   return (
-    <Group
-      title="App e servizi"
-      level={3}
-      testId="mcp-gallery"
-      description="Collega i servizi che usi e i mostri potranno leggerli e usarli. Ogni uso finisce in Attività e “Ferma” li ferma subito."
-    >
+    <Group title={s.title} level={3} testId="mcp-gallery" description={s.description}>
       <div className="grid gap-3 p-3 sm:p-4">
         <ul
           className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,264px),1fr))] gap-2.5"
-          aria-label="App e servizi"
+          aria-label={s.title}
         >
           {shown.map(({ entry, state }) => (
             <li key={entry.id}>
@@ -786,7 +765,7 @@ export function McpGallery({
             className="justify-self-start"
             onClick={() => setAll(true)}
           >
-            Mostra tutti ({entries.length})
+            {s.showAll(entries.length)}
           </Button>
         )}
       </div>

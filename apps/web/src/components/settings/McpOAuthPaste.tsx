@@ -5,6 +5,7 @@ import { getApi } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Input } from '../ui/field.tsx';
 import { errorOf } from './mcp-parts.tsx';
+import { mcpStrings } from './mcp.strings.ts';
 import { FormField } from './parts.tsx';
 
 /*
@@ -22,6 +23,7 @@ export function OAuthPaste({
   /** The sign-in ended well: reload the servers. */
   onDone: () => void;
 }) {
+  const s = mcpStrings().paste;
   const id = domId(useId());
   const [open, setOpen] = useState(openAtStart);
   const [url, setUrl] = useState('');
@@ -31,7 +33,7 @@ export function OAuthPaste({
   const send = async (e: FormEvent) => {
     e.preventDefault();
     if (!url.trim()) {
-      setError('Incolla qui l’indirizzo della pagina.');
+      setError(s.empty);
       return;
     }
     setBusy(true);
@@ -58,23 +60,19 @@ export function OAuthPaste({
           className="inline-flex items-center gap-1 justify-self-start rounded text-footnote font-medium text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
         >
           <CaretRight size={12} aria-hidden className={cn('turn', open && 'rotate-90')} />
-          La pagina di ritorno non si apre?
+          {s.toggle}
         </button>
       )}
       {open && (
         <form className="grid gap-2" onSubmit={(e) => void send(e)} noValidate>
-          <FormField
-            id={id}
-            label="Indirizzo della pagina di ritorno"
-            error={error}
-            hint="Dopo l’accesso il browser va su una pagina che non si carica: copia il suo indirizzo dalla barra in alto e incollalo qui."
-          >
+          <FormField id={id} label={s.label} error={error} hint={s.hint}>
             <Input
               id={id}
               value={url}
               autoComplete="off"
               spellCheck={false}
               inputMode="url"
+              // i18n-ignore: an example value, not copy
               placeholder="http://127.0.0.1:…/api/mcp-oauth/callback?code=…"
               onChange={(e) => setUrl(e.target.value)}
               aria-invalid={error ? true : undefined}
@@ -88,7 +86,7 @@ export function OAuthPaste({
             disabled={busy}
             className="justify-self-start"
           >
-            {busy ? 'Controllo…' : 'Completa l’accesso'}
+            {busy ? s.checking : s.finish}
           </Button>
         </form>
       )}

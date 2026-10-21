@@ -1,5 +1,5 @@
-import type { LogEvent } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { setAppLang, type LogEvent } from '@monsters/shared';
+import { afterEach, describe, expect, it } from 'vitest';
 import { detailsOf } from '../src/components/log/details.ts';
 import {
   estimatedNotice,
@@ -7,6 +7,8 @@ import {
   unpricedNotice,
 } from '../src/components/settings/SpendSection.tsx';
 import { eurFirst, formatShortDay, formatUsd, parseAmount } from '../src/lib/utils.ts';
+
+afterEach(() => setAppLang('en'));
 
 describe('formatUsd', () => {
   it('shows small costs with their significant digits, never "0 $"', () => {
@@ -76,6 +78,13 @@ describe('parseAmount and the spending caps (collaudo of 17/10)', () => {
   it('a paid key without a price is said plainly on the cap’s card (D-114)', () => {
     expect(unpricedNotice([])).toBeNull();
     expect(unpricedNotice(['Anthropic', 'Anthropic'])).toBe(
+      'The cap doesn’t count what you spend with Anthropic: Monsters doesn’t know the price of those models, so it stops nothing there. Check your spending on the provider’s site.',
+    );
+    expect(unpricedNotice(['Anthropic', 'OpenAI', 'Google'], 'The project’s cap')).toMatch(
+      /^The project’s cap doesn’t count what you spend with Anthropic, OpenAI, and Google:/,
+    );
+    setAppLang('it');
+    expect(unpricedNotice(['Anthropic', 'Anthropic'])).toBe(
       'Il tetto non conta quello che spendi con Anthropic: Monsters non conosce il prezzo di quei modelli, quindi lì non ferma niente. Controlla la spesa sul sito del fornitore.',
     );
     expect(unpricedNotice(['Anthropic', 'OpenAI', 'Google'], 'Il tetto del progetto')).toMatch(
@@ -86,8 +95,12 @@ describe('parseAmount and the spending caps (collaudo of 17/10)', () => {
   it('a direct key priced by OpenRouter’s list says its cost is estimated, and that it stops', () => {
     expect(estimatedNotice([])).toBeNull();
     const said = estimatedNotice(['Anthropic', 'OpenAI'])!;
-    expect(said).toMatch(/^Con Anthropic e OpenAI il costo è stimato/);
-    expect(said).toContain('ferma i lavori');
+    expect(said).toMatch(/^With Anthropic and OpenAI the cost is estimated/);
+    expect(said).toContain('stops jobs');
+    setAppLang('it');
+    const detto = estimatedNotice(['Anthropic', 'OpenAI'])!;
+    expect(detto).toMatch(/^Con Anthropic e OpenAI il costo è stimato/);
+    expect(detto).toContain('ferma i lavori');
   });
 });
 

@@ -7,17 +7,18 @@ import { Button } from '../ui/button.tsx';
 import { Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { fieldOnGroup } from './parts.tsx';
+import { permissionsStrings } from './permissions.strings.ts';
 
 /**
  * Folders of the computer an agent may use, outside the vault: a list with
- * "può modificare" and remove, plus a field to add one by path. `onChange`
+ * "can edit" and remove, plus a field to add one by path. `onChange`
  * may reject (e.g. the core refuses a folder): the error shows under the field.
  */
 export function FolderGrants({
   folders,
   onChange,
   placeholder,
-  label = 'Cartelle concesse',
+  label,
   home,
   disabled = false,
 }: {
@@ -29,6 +30,8 @@ export function FolderGrants({
   home?: string;
   disabled?: boolean;
 }) {
+  const s = permissionsStrings().folders;
+  const shownLabel = label ?? s.granted;
   const id = domId(useId());
   const [path, setPath] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -53,11 +56,11 @@ export function FolderGrants({
     const p = path.trim();
     if (!p) return;
     if (!p.startsWith('/') && !p.startsWith('~') && !/^[A-Za-z]:[\\/]/.test(p)) {
-      setError('Scrivi il percorso completo della cartella, che inizia con / (o C:\\ su Windows).');
+      setError(s.needFullPath);
       return;
     }
     if (folders.some((f) => folderKey(f.path, home) === folderKey(p, home))) {
-      setError('Questa cartella c’è già.');
+      setError(s.alreadyThere);
       return;
     }
     if (await apply([...folders, { path: p, write: false }])) setPath('');
@@ -66,7 +69,7 @@ export function FolderGrants({
   return (
     <div className="grid gap-2" data-testid="folder-grants">
       <p id={`${id}-label`} className="text-footnote font-medium text-ink">
-        {label}
+        {shownLabel}
       </p>
       {folders.length > 0 ? (
         <ul className="set-rows" aria-labelledby={`${id}-label`}>
@@ -82,7 +85,7 @@ export function FolderGrants({
                 {f.path}
               </span>
               <span className="hidden text-caption text-ink-muted sm:inline">
-                {f.write ? 'può modificare' : 'solo lettura'}
+                {f.write ? s.canEdit : s.readOnly}
               </span>
               <Switch
                 words
@@ -90,13 +93,13 @@ export function FolderGrants({
                 onCheckedChange={(v) =>
                   void apply(folders.map((x) => (x.path === f.path ? { ...x, write: v } : x)))
                 }
-                label={`Può modificare i file in ${f.path}`}
+                label={s.canEditFiles(f.path)}
                 disabled={disabled || busy}
               />
               <Button
                 variant="ghost"
                 size="iconSm"
-                aria-label={`Togli ${f.path}`}
+                aria-label={s.remove(f.path)}
                 disabled={disabled || busy}
                 onClick={() => void apply(folders.filter((x) => x.path !== f.path))}
               >
@@ -106,14 +109,11 @@ export function FolderGrants({
           ))}
         </ul>
       ) : (
-        <p className="text-footnote text-ink-muted">
-          Nessuna cartella: i file del computer restano chiusi.
-        </p>
+        <p className="text-footnote text-ink-muted">{s.none}</p>
       )}
       {folders.some((f) => f.write) && (
         <p className="text-footnote leading-snug text-ink-muted" data-testid="launch-files-note">
-          Senza il terminale un mostro non cambia comunque le cartelle .git né i file che avviano
-          programmi (.bashrc, .profile, avvio automatico).
+          {s.launchFiles}
         </p>
       )}
       <form onSubmit={(e) => void add(e)} className="flex gap-2" noValidate>
@@ -124,7 +124,7 @@ export function FolderGrants({
           placeholder={placeholder}
           spellCheck={false}
           autoComplete="off"
-          aria-label={`Aggiungi una cartella a ${label.toLowerCase()}`}
+          aria-label={s.addTo(shownLabel)}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
           className={`h-10 font-mono text-footnote ${fieldOnGroup}`}
@@ -137,7 +137,7 @@ export function FolderGrants({
           className="h-9"
           disabled={disabled || busy || !path.trim()}
         >
-          <Plus size={16} aria-hidden /> Aggiungi
+          <Plus size={16} aria-hidden /> {s.add}
         </Button>
       </form>
       {error && (

@@ -10,32 +10,16 @@ import { useState } from 'react';
 import { getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { AgentPicker, Details, errorOf } from './mcp-parts.tsx';
+import { mcpStrings } from './mcp.strings.ts';
 import { ConfirmButton } from './parts.tsx';
 
 /*
- * A gallery service connected "tramite Claude" (D-069): Claude is an approved
+ * A gallery service connected "through Claude" (D-069): Claude is an approved
  * app of the service, so the user connects it on their Claude account (or,
  * for Claude Design, with `/design-login` in Claude Code), and the monsters
  * that work with the Claude plan get it in their runs. Monsters keeps only
  * the choice and asks Claude Code how it stands: it never sees a token.
  */
-
-const STATE_SENTENCE: Record<ClaudeConnectionView['state'], string> = {
-  connected: 'Pronto: lo usano i mostri che lavorano con Claude.',
-  needs_login: 'Claude chiede di accedere di nuovo.',
-  missing: 'Non lo trovo sul tuo account Claude.',
-  unknown: 'Non l’ho ancora controllato.',
-  error: 'Claude non riesce a raggiungerlo.',
-};
-
-/** One part of a service (Gmail, Drive, Calendar) in the details. */
-const PART_STATE: Record<ClaudeConnectionView['state'], string> = {
-  connected: 'pronto',
-  needs_login: 'da ricollegare',
-  missing: 'non è sul tuo account Claude',
-  unknown: 'da controllare',
-  error: 'problema',
-};
 
 function Code({ children }: { children: string }) {
   return (
@@ -53,7 +37,7 @@ function ConnectorsLink() {
       rel="noreferrer"
       className="inline-flex items-center gap-1 justify-self-start text-footnote font-medium text-signal-ink underline underline-offset-2"
     >
-      Apri i connettori di Claude
+      {mcpStrings().claude.openConnectors}
       <ArrowSquareOut size={14} aria-hidden />
     </a>
   );
@@ -61,30 +45,32 @@ function ConnectorsLink() {
 
 /** How to connect it, in two steps. */
 function Steps({ entry }: { entry: McpCatalogEntry }) {
+  const s = mcpStrings().claude;
   const via = entry.viaClaude!;
   return (
     <ol className="grid list-decimal gap-1.5 pl-5 text-footnote leading-snug text-ink-muted">
       {via.login === 'design-login' ? (
         <li>
-          In un terminale di questo computer scrivi <Code>claude</Code>, poi{' '}
-          <Code>/design-login</Code> e accedi con il tuo account Claude.
+          {s.designLogin.before}
+          <Code>{'claude'}</Code>
+          {s.designLogin.then}
+          <Code>{'/design-login'}</Code>
+          {s.designLogin.after}
         </li>
       ) : (
         <li className="grid gap-1">
-          <span>
-            Collega {entry.name} al tuo account Claude, se non l’hai già fatto (Impostazioni →
-            Connettori).
-          </span>
+          <span>{s.connectOnClaude(entry.name)}</span>
           <ConnectorsLink />
         </li>
       )}
-      <li>Premi “Collega”: Monsters controlla che Claude lo veda.</li>
+      <li>{s.pressConnect}</li>
     </ol>
   );
 }
 
 /** What to do when it is not ready, with the way that fits its state. */
 function NotReady({ entry, view }: { entry: McpCatalogEntry; view: ClaudeConnectionView }) {
+  const s = mcpStrings().claude;
   const via = entry.viaClaude!;
   if (view.state === 'connected') return null;
   const names = via.connectors.map((c) => `claude.ai ${c.name}`);
@@ -94,18 +80,15 @@ function NotReady({ entry, view }: { entry: McpCatalogEntry; view: ClaudeConnect
       data-testid="claude-todo"
     >
       <p className={view.state === 'error' ? 'text-stop-ink' : undefined}>
-        {view.message ?? STATE_SENTENCE[view.state]}
+        {view.message ?? s.state[view.state]}
       </p>
       {via.login === 'claude-ai' && view.state !== 'unknown' && (
         <>
-          <p>
-            {view.state === 'needs_login' ? 'Ricollegalo' : 'Collegalo'} dai connettori di Claude,
-            poi premi “Ricontrolla”.
-          </p>
+          <p>{s.reconnect(view.state === 'needs_login')}</p>
           <ConnectorsLink />
           {view.state === 'needs_login' && (
             <p>
-              Oppure, in un terminale di questo computer:{' '}
+              {s.orTerminal}{' '}
               {names.map((n, i) => (
                 <span key={n}>
                   {i > 0 && ', '}
@@ -118,7 +101,11 @@ function NotReady({ entry, view }: { entry: McpCatalogEntry; view: ClaudeConnect
       )}
       {via.login === 'design-login' && view.state !== 'unknown' && !view.message && (
         <p>
-          In un terminale scrivi <Code>claude</Code>, poi <Code>/design-login</Code>.
+          {s.designTerminal.before}
+          <Code>{'claude'}</Code>
+          {s.designTerminal.then}
+          <Code>{'/design-login'}</Code>
+          {s.designTerminal.after}
         </p>
       )}
     </div>
@@ -137,6 +124,7 @@ export function ClaudeConnectBody({
   agents: McpServersResponse['agents'];
   onData: (d: ClaudeConnectionsResponse) => void;
 }) {
+  const s = mcpStrings().claude;
   const [busy, setBusy] = useState<'add' | 'check' | 'remove' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string[]>(['*']);
@@ -152,9 +140,9 @@ export function ClaudeConnectBody({
       onData(d);
       const after = d.connections.find((c) => c.id === entry.id);
       if (kind === 'add' && after?.state === 'connected') {
-        notify(`${entry.name} collegato tramite Claude.`, 'success');
+        notify(s.connectedVia(entry.name), 'success');
       }
-      if (kind === 'remove') notify(`${entry.name} scollegato da Monsters.`, 'success');
+      if (kind === 'remove') notify(s.removed(entry.name), 'success');
     } catch (err) {
       setError(errorOf(err));
     } finally {
@@ -175,10 +163,7 @@ export function ClaudeConnectBody({
 
   return (
     <div className="grid gap-3.5" data-testid="claude-connect">
-      <p className="text-footnote leading-snug text-ink-muted">
-        Si collega tramite il tuo abbonamento Claude: lo usano i mostri che lavorano con Claude.
-        L’accesso lo fai su Claude, Monsters non vede password né token.
-      </p>
+      <p className="text-footnote leading-snug text-ink-muted">{s.intro}</p>
       {!view.added && <Steps entry={entry} />}
       {view.added && <NotReady entry={entry} view={view} />}
       <AgentPicker
@@ -200,7 +185,7 @@ export function ClaudeConnectBody({
               void act('add', () => getApi().setClaudeConnection(entry.id, { agents: chosen }))
             }
           >
-            {busy === 'add' ? 'Controllo…' : 'Collega'}
+            {busy === 'add' ? s.checking : s.connect}
           </Button>
         ) : (
           <>
@@ -210,12 +195,12 @@ export function ClaudeConnectBody({
               disabled={busy !== null}
               onClick={() => void act('check', () => getApi().checkClaudeConnection(entry.id))}
             >
-              {busy === 'check' ? 'Controllo…' : 'Ricontrolla'}
+              {busy === 'check' ? s.checking : s.checkAgain}
             </Button>
             <ConfirmButton
-              label="Scollega"
-              question={`Scollego ${entry.name} da Monsters? Resta collegato al tuo account Claude.`}
-              confirm="Sì, scollega"
+              label={s.disconnect}
+              question={s.disconnectQuestion(entry.name)}
+              confirm={s.disconnectConfirm}
               busy={busy !== null}
               onConfirm={() => void act('remove', () => getApi().removeClaudeConnection(entry.id))}
             />
@@ -227,12 +212,12 @@ export function ClaudeConnectBody({
           {view.parts.length > 1 &&
             view.parts.map((p) => (
               <span key={p.name}>
-                {p.name}: {PART_STATE[p.state]}
+                {p.name}: {s.partState[p.state]}
               </span>
             ))}
-          <span>Tramite Claude Code e il tuo abbonamento Claude.</span>
+          <span>{s.through}</span>
           <a href={entry.docs} target="_blank" rel="noreferrer" className="underline">
-            Documentazione di {entry.name}
+            {s.docs(entry.name)}
           </a>
         </Details>
       )}

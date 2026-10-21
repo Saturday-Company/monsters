@@ -14,9 +14,11 @@ import { Button } from '../ui/button.tsx';
 import { Switch } from '../ui/controls.tsx';
 import { serviceLabel, useSettings } from './data.ts';
 import { SpendSection } from './SpendSection.tsx';
+import { modelsStrings } from './models.strings.ts';
+import { partsStrings } from './parts.strings.ts';
 import { ConfirmButton, Group, Row, RowBody, ServiceRow } from './parts.tsx';
 import {
-  ABOUT,
+  aboutOf,
   ChainsGroup,
   errorOf,
   PaidNotice,
@@ -36,13 +38,13 @@ import {
 
 /*
  * Settings → Modelli (audit 6.2, 6.3): first what the monsters think with
- * ("Abbonamento Claude · OpenRouter…"), each with Cambia or Scollega; "Collega
- * un altro modello" opens the rest; then the model of each monster, saved by
+ * ("Claude subscription · OpenRouter…"), each with Change or Disconnect; "Connect
+ * another model" opens the rest; then the model of each monster, saved by
  * itself.
  */
 
 /**
- * "Usa anche modelli a pagamento" (OpenRouter): off by default, only `:free`
+ * "Also use paid models" (OpenRouter): off by default, only `:free`
  * models and the free router. Turning it on shows the cost note first and asks
  * to confirm; the core applies it at once, no restart.
  */
@@ -53,6 +55,8 @@ function OpenRouterPaidModels({
   freeOnly: boolean;
   onChanged: () => void;
 }) {
+  const s = modelsStrings().tab.paid;
+  const common = partsStrings();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,12 +69,7 @@ function OpenRouterPaidModels({
       await getApi().setOpenRouterFreeOnly(!allowPaid);
       setConfirming(false);
       onChanged();
-      notify(
-        allowPaid
-          ? 'Modelli a pagamento di OpenRouter attivi, da subito.'
-          : 'Di nuovo solo modelli gratuiti, da subito.',
-        'success',
-      );
+      notify(allowPaid ? s.enabled : s.disabled, 'success');
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -80,14 +79,7 @@ function OpenRouterPaidModels({
 
   return (
     <div data-testid="openrouter-paid" data-on={on ? 'yes' : 'no'}>
-      <Row
-        label="Usa anche modelli a pagamento"
-        description={
-          on
-            ? 'I mostri possono usare tutti i modelli di OpenRouter. Quelli a pagamento li paghi tu.'
-            : 'Spento: solo i modelli gratuiti (quelli che finiscono con “:free”), senza costi.'
-        }
-      >
+      <Row label={s.label} description={on ? s.on : s.off}>
         <Switch
           words
           checked={on || confirming}
@@ -97,7 +89,7 @@ function OpenRouterPaidModels({
             else if (confirming) setConfirming(false);
             else void apply(false);
           }}
-          label="Usa anche modelli a pagamento"
+          label={s.label}
         />
       </Row>
       {(on || confirming || error) && (
@@ -106,7 +98,7 @@ function OpenRouterPaidModels({
           {confirming && !on && (
             <div className="flex flex-wrap gap-2">
               <Button size="sm" disabled={busy} onClick={() => void apply(true)}>
-                {busy ? 'Attivo…' : 'Attiva i modelli a pagamento'}
+                {busy ? s.turningOn : s.turnOn}
               </Button>
               <Button
                 variant="ghost"
@@ -114,7 +106,7 @@ function OpenRouterPaidModels({
                 disabled={busy}
                 onClick={() => setConfirming(false)}
               >
-                Annulla
+                {common.cancel}
               </Button>
             </div>
           )}
@@ -131,6 +123,7 @@ function OpenRouterPaidModels({
 
 /** Removes a key or disconnects a local server, after a confirmation in place. */
 function Disconnect({ p, onChanged }: { p: ProviderView; onChanged: () => void }) {
+  const s = modelsStrings().tab;
   const [busy, setBusy] = useState(false);
   const label = serviceLabel(p.id, p.label);
   const remove = async () => {
@@ -138,7 +131,7 @@ function Disconnect({ p, onChanged }: { p: ProviderView; onChanged: () => void }
     try {
       if (p.local) await getApi().removeProviderUrl(p.id);
       else await getApi().removeProviderKey(p.id);
-      notify(p.local ? `${label} scollegato.` : `Chiave di ${label} tolta.`, 'success');
+      notify(p.local ? s.disconnected(label) : s.keyRemoved(label), 'success');
       onChanged();
     } catch (err) {
       notify(errorOf(err), 'error');
@@ -149,9 +142,9 @@ function Disconnect({ p, onChanged }: { p: ProviderView; onChanged: () => void }
   if (p.source === 'env') return null;
   return (
     <ConfirmButton
-      label="Scollega"
-      question={`Scollego ${label}?`}
-      confirm="Sì, scollega"
+      label={s.disconnect}
+      question={s.disconnectQuestion(label)}
+      confirm={s.disconnectConfirm}
       busy={busy}
       onConfirm={() => void remove()}
     />
@@ -167,6 +160,7 @@ function OpenRouterConnected({
   settings: SettingsResponse | null;
   onChanged: () => void;
 }) {
+  const s = modelsStrings().tab;
   const [open, setOpen] = useState(false);
   const [changingKey, setChangingKey] = useState(false);
   const freeOnly = p.freeOnly ?? settings?.openrouterKey.freeOnly ?? true;
@@ -177,11 +171,10 @@ function OpenRouterConnected({
       testId="provider-row-openrouter"
       configured
       title="OpenRouter"
-      tag={freeOnly ? 'Solo gratuiti' : 'Anche a pagamento'}
+      tag={freeOnly ? s.freeOnly : s.alsoPaid}
       status={
         <span data-testid="key-status" data-set="yes">
-          Chiave attiva{keyName ? ` (“${keyName}”)` : ''}
-          {fromEnv ? `, dalla variabile ${p.envVar ?? ''}` : ''}.
+          {s.keyActive(keyName, fromEnv ? (p.envVar ?? '') : undefined)}
         </span>
       }
       actions={
@@ -195,7 +188,7 @@ function OpenRouterConnected({
               setChangingKey(false);
             }}
           >
-            {open ? 'Chiudi' : 'Cambia'}
+            {open ? s.close : s.change}
           </Button>
           <Disconnect p={p} onChanged={onChanged} />
         </>
@@ -215,9 +208,9 @@ function OpenRouterConnected({
                 }}
               />
             ) : (
-              <Row label="Chiave" description="La chiave salvata non si mostra più.">
+              <Row label={s.key} description={s.savedKeyHidden}>
                 <Button variant="secondary" size="sm" onClick={() => setChangingKey(true)}>
-                  Cambia chiave
+                  {s.changeKey}
                 </Button>
               </Row>
             ))}
@@ -228,13 +221,12 @@ function OpenRouterConnected({
 }
 
 function ProviderConnected({ p, onChanged }: { p: ProviderView; onChanged: () => void }) {
+  const s = modelsStrings().tab;
   const [open, setOpen] = useState(false);
   const fromEnv = p.source === 'env';
   const status = p.local
-    ? `Collegato a ${p.baseURL ?? ''}.`
-    : fromEnv
-      ? `Chiave attiva, dalla variabile ${p.envVar ?? ''}.`
-      : 'Chiave attiva.';
+    ? s.connectedTo(p.baseURL ?? '')
+    : s.keyActive(undefined, fromEnv ? (p.envVar ?? '') : undefined);
   return (
     <ServiceRow
       testId={`provider-row-${p.id}`}
@@ -251,7 +243,7 @@ function ProviderConnected({ p, onChanged }: { p: ProviderView; onChanged: () =>
               aria-expanded={open}
               onClick={() => setOpen((o) => !o)}
             >
-              {open ? 'Chiudi' : p.local ? 'Cambia indirizzo' : 'Cambia chiave'}
+              {open ? s.close : p.local ? s.changeAddress : s.changeKey}
             </Button>
           )}
           <Disconnect p={p} onChanged={onChanged} />
@@ -281,6 +273,7 @@ function ProviderAdd({
   status?: ReactNode;
   onChanged: () => void;
 }) {
+  const s = modelsStrings().tab;
   const [open, setOpen] = useState(false);
   return (
     <ServiceRow
@@ -288,11 +281,11 @@ function ProviderAdd({
       configured={false}
       title={serviceLabel(p.id, p.label)}
       tag={tagOf(p)}
-      status={status ?? ABOUT[p.id]}
+      status={status ?? aboutOf(p.id)}
       actions={
         !open && (
           <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-            {p.local ? 'Collega' : 'Aggiungi la chiave'}
+            {p.local ? s.connect : s.addKey}
           </Button>
         )
       }
@@ -312,6 +305,7 @@ function ProviderAdd({
 }
 
 export function ModelsTab() {
+  const t = modelsStrings().tab;
   const [settings, reloadSettings] = useSettings();
   const [data, setData] = useState<ProvidersResponse | null>(null);
   const [failed, setFailed] = useState(false);
@@ -350,7 +344,7 @@ export function ModelsTab() {
   if (failed || subs.failed) {
     return (
       <p className="px-1 text-footnote text-ink-muted" role="status">
-        Non riesco a leggere i modelli adesso. Riprova tra poco.
+        {t.failed}
       </p>
     );
   }
@@ -408,9 +402,7 @@ export function ModelsTab() {
         onChanged={changed}
         status={
           <span data-testid="key-status" data-set="no">
-            {none
-              ? 'Tanti modelli con una chiave sola, anche gratis: il modo più semplice per cominciare.'
-              : 'Nessuna chiave OpenRouter (facoltativa se hai già un altro modello).'}
+            {none ? t.openrouterFirst : t.openrouterNone}
           </span>
         }
       />,
@@ -423,15 +415,9 @@ export function ModelsTab() {
 
   return (
     <>
-      <Group title="Con cosa pensano i mostri" as="ul" testId="models-connected">
+      <Group title={t.thinkWith} as="ul" testId="models-connected">
         {connected}
-        {none && (
-          <Row
-            as="li"
-            label="Nessun modello collegato"
-            description="Senza un modello i mostri non possono pensare: collegane uno qui sotto."
-          />
-        )}
+        {none && <Row as="li" label={t.noModel} description={t.noModelText} />}
         {!none && (
           <li>
             <button
@@ -441,7 +427,7 @@ export function ModelsTab() {
               className="row-key flex min-h-[52px] w-full items-center gap-2.5 px-4 text-left text-body font-medium text-ink [&_svg]:text-signal-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
             >
               <Plus size={16} aria-hidden className={cn('turn', adding && 'rotate-45')} />
-              Collega un altro modello
+              {t.connectAnother}
             </button>
           </li>
         )}
@@ -452,7 +438,7 @@ export function ModelsTab() {
           {subsToAdd.length > 0 && (
             <Group
               title={SETTINGS_SECTIONS.abbonamenti.label}
-              description="I mostri usano il tuo piano, nei modi che OpenAI e Anthropic permettono."
+              description={t.subscriptionsText}
               as="ul"
               level={3}
             >
@@ -460,24 +446,21 @@ export function ModelsTab() {
             </Group>
           )}
           {keysToAdd.length > 0 && (
-            <Group title="Con una chiave o sul tuo computer" as="ul" level={3} testId="providers">
+            <Group title={t.keysOrLocal} as="ul" level={3} testId="providers">
               {keysToAdd}
             </Group>
           )}
         </div>
       )}
 
-      <Group title="Ricerca sul web" testId="search-link">
-        <Row
-          label="La ricerca a pagamento"
-          description="Si accende in Collegamenti, insieme alla ricerca gratuita e alla chiave di Brave."
-        >
+      <Group title={t.search} testId="search-link">
+        <Row label={t.paidSearch} description={t.paidSearchText}>
           <a
             href={`${PATHS.settings}?sezione=collegamenti`}
             className="text-footnote font-medium text-ink underline underline-offset-2"
             data-testid="search-link-go"
           >
-            Vai a Collegamenti
+            {t.goToLinks}
           </a>
         </Row>
       </Group>

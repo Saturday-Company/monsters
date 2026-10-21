@@ -4,41 +4,41 @@ import { errorText, getApi, notify } from '../../store/app.ts';
 import { eurFirst } from '../../lib/utils.ts';
 import { Segmented, Switch } from '../ui/controls.tsx';
 import { Group, Row, RowBody } from './parts.tsx';
+import { searchStrings } from './search.strings.ts';
 
 /*
- * Settings → Collegamenti → Ricerca a pagamento (D-071; one place, U-12): the paid search on OpenRouter.
+ * Settings → Connections → Paid search (D-071; one place, U-12): the paid search on OpenRouter.
  * One lever: on, the monsters search through OpenRouter with the key's credit
  * (~1 $ every 1,000 searches); off, the free chain (DuckDuckGo, then
- * Wikipedia). Untouched, it follows "Usa anche modelli a pagamento". With the
- * lever on, the engine: Economica (Parallel) or Precisa (Exa).
+ * Wikipedia). Untouched, it follows "Also use paid models". With the
+ * lever on, the engine: Cheap (Parallel) or Precise (Exa).
  */
 
-/** "0,9 € (1,1 $)": the cost of 1,000 searches, euros first as the caps are. */
+/** "0.9 € (1.1 $)": the cost of 1,000 searches, euros first as the caps are. */
 export function per1000(usd: number): string {
   return eurFirst(usd);
 }
 
 /** The sentence under the lever: what happens now, and why when it is not on. */
 export function paidSearchText(ws: WebSearchSettings): string {
-  const cost = `circa ${per1000(ws.usdPer1000[ws.engine])} ogni 1.000 ricerche`;
-  if (ws.active) {
-    return `I mostri cercano con OpenRouter: risultati più affidabili, ${cost} dal credito della tua chiave. Se il credito finisce, tornano alla ricerca gratuita da soli.`;
-  }
+  const s = searchStrings().paid;
+  const cost = s.cost(per1000(ws.usdPer1000[ws.engine]));
+  if (ws.active) return s.active(cost);
   switch (ws.reason) {
     case 'no_key':
-      return 'Serve una chiave OpenRouter con credito. Intanto i mostri cercano gratis con DuckDuckGo e Wikipedia, che dopo qualche decina di ricerche si bloccano.';
+      return s.noKey;
     case 'spend_cap':
-      return 'Il tetto di spesa è raggiunto: fino a quando non lo alzi, o finisce il periodo, i mostri cercano gratis con DuckDuckGo e Wikipedia.';
+      return s.spendCap;
     case 'no_credit':
-      return 'La chiave OpenRouter non ha credito: per ora i mostri cercano gratis con DuckDuckGo e Wikipedia.';
+      return s.noCredit;
     case 'key_rejected':
-      return 'OpenRouter ha rifiutato la chiave: controllala nelle impostazioni. Intanto i mostri cercano gratis con DuckDuckGo e Wikipedia.';
+      return s.keyRejected;
     case 'paused':
-      return 'La ricerca a pagamento è in pausa perché non ha dato risultati: per ora i mostri cercano gratis con DuckDuckGo e Wikipedia, poi riprova da sola.';
+      return s.paused;
     case 'free_only':
-      return `Spenta come i modelli a pagamento: i mostri cercano gratis con DuckDuckGo e Wikipedia, che dopo qualche decina di ricerche si bloccano. Accesa costa ${cost}.`;
+      return s.freeOnly(cost);
     default:
-      return `Spenta: i mostri cercano gratis con DuckDuckGo e Wikipedia. Accesa costa ${cost}.`;
+      return s.off(cost);
   }
 }
 
@@ -54,6 +54,7 @@ export function PaidSearchSection({
   settings: SettingsResponse | null;
   onChanged: () => void;
 }) {
+  const s = searchStrings().paid;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ws = settings?.webSearch;
@@ -69,12 +70,7 @@ export function PaidSearchSection({
       await getApi().setWebSearch(change);
       onChanged();
       if (change.mode) {
-        notify(
-          change.mode === 'on'
-            ? 'Ricerca a pagamento accesa, da subito.'
-            : 'Di nuovo ricerca gratuita, da subito.',
-          'success',
-        );
+        notify(change.mode === 'on' ? s.turnedOn : s.turnedOff, 'success');
       }
     } catch (err) {
       setError(errorText(err));
@@ -84,14 +80,14 @@ export function PaidSearchSection({
   };
 
   return (
-    <Group title="Ricerca a pagamento" testId="paid-search">
+    <Group title={s.title} testId="paid-search">
       <div
         data-testid="paid-search-row"
         data-on={on ? 'yes' : 'no'}
         data-active={ws.active ? 'yes' : 'no'}
       >
         <Row
-          label="Ricerca a pagamento"
+          label={s.title}
           description={<span data-testid="paid-search-status">{paidSearchText(ws)}</span>}
         >
           <Switch
@@ -99,7 +95,7 @@ export function PaidSearchSection({
             checked={on}
             disabled={busy || (noKey && !on)}
             onCheckedChange={(v) => void apply({ mode: v ? 'on' : 'off' })}
-            label="Ricerca a pagamento"
+            label={s.title}
           />
         </Row>
         {(on || error) && (
@@ -108,7 +104,7 @@ export function PaidSearchSection({
               <div className="flex flex-wrap items-center gap-3">
                 <Segmented
                   size="sm"
-                  label="Motore della ricerca a pagamento"
+                  label={s.engine}
                   value={ws.engine}
                   onChange={(engine) => {
                     if (engine !== ws.engine) void apply({ engine });
@@ -116,12 +112,12 @@ export function PaidSearchSection({
                   options={[
                     {
                       value: 'parallel',
-                      label: `Economica · ${per1000(ws.usdPer1000.parallel)}`,
+                      label: s.cheap(per1000(ws.usdPer1000.parallel)),
                     },
-                    { value: 'exa', label: `Precisa · ${per1000(ws.usdPer1000.exa)}` },
+                    { value: 'exa', label: s.precise(per1000(ws.usdPer1000.exa)) },
                   ]}
                 />
-                <span className="text-footnote text-ink-muted">ogni 1.000 ricerche</span>
+                <span className="text-footnote text-ink-muted">{s.per1000}</span>
               </div>
             )}
             {error && (

@@ -10,22 +10,25 @@ import {
 } from '@monsters/shared';
 import { useCallback, useEffect, useId, useState, type FormEvent } from 'react';
 import { ApiError, describeError } from '../../lib/api.ts';
+import { formatDate } from '@monsters/shared';
 import { domId } from '../../lib/utils.ts';
 import { getApi, notify } from '../../store/app.ts';
 import { Button, buttonVariants } from '../ui/button.tsx';
 import { Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
+import { partsStrings } from './parts.strings.ts';
 import { ConfirmButton, fieldOnGroup, FormField, Group, Row, RowBody } from './parts.tsx';
-import { pasteTelegramToken, TelegramBotsSection } from './TelegramBotsSection.tsx';
+import { telegramStrings } from './telegram.strings.ts';
+import { CommandList, pasteTelegramToken, TelegramBotsSection } from './TelegramBotsSection.tsx';
 
 /*
- * Settings → Telegram (M2.6): the bot token (verified with Telegram, never
+ * Settings → Connections → Telegram (M2.6): the bot token (verified with Telegram, never
  * shown again), the accounts allowed to command the monsters (added only with
  * a one-time code), and which notifications arrive, with a quiet night.
  * Below, the bots dedicated to one monster (D-107), independent of this one.
  */
 
-/** The message of the core when it has one in Italian, the generic one otherwise. */
+/** The message of the core when it has a specific one, the generic one otherwise. */
 function errorOf(err: unknown): string {
   if (
     err instanceof ApiError &&
@@ -47,14 +50,8 @@ function errorOf(err: unknown): string {
   return describeError(err);
 }
 
-const STATUS_TEXT: Record<TelegramView['status'], string> = {
-  off: 'Non collegato.',
-  connecting: 'Mi collego a Telegram…',
-  online: 'Collegato: ti ascolta.',
-  retrying: 'Telegram non risponde: riprovo da solo.',
-  conflict: 'Un altro programma usa questo bot: fermalo, o creane uno nuovo.',
-  error: 'Fermo: serve il tuo intervento.',
-};
+// i18n-ignore: the commands the main bot understands are identifiers, not copy
+const PHONE_COMMANDS = ['/ferma', '/riprendi', '/nuova', '/stato'];
 
 function useTelegram(): [TelegramView | null, (v: TelegramView) => void, () => void] {
   const [view, setView] = useState<TelegramView | null>(null);
@@ -85,6 +82,8 @@ function TokenForm({
   onSaved: (v: TelegramView) => void;
   onCancel: () => void;
 }) {
+  const s = telegramStrings();
+  const common = partsStrings();
   const id = domId(useId());
   const [token, setToken] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +102,7 @@ function TokenForm({
       const view = await getApi().setTelegramToken(pasted);
       setToken('');
       onSaved(view);
-      notify(`Bot ${view.bot ? `@${view.bot.username} ` : ''}collegato.`, 'success');
+      notify(s.botConnected(view.bot?.username), 'success');
     } catch (err) {
       setError(errorOf(err));
     } finally {
@@ -116,35 +115,31 @@ function TokenForm({
       <RowBody>
         <ol className="grid list-decimal gap-1 pl-5 text-footnote leading-snug text-ink-muted">
           <li>
-            Su Telegram apri{' '}
+            {s.step1.before}
             <a
               href="https://t.me/BotFather"
               target="_blank"
               rel="noreferrer"
               className="font-medium text-ink underline underline-offset-2"
             >
-              @BotFather
-            </a>{' '}
-            e scrivi{' '}
+              {'@BotFather'}
+            </a>
+            {s.step1.mid}
             <code className="rounded-[5px] bg-well px-1 font-mono text-[0.9em] text-ink">
-              /newbot
+              {'/newbot'}
             </code>
-            .
+            {s.step1.after}
           </li>
-          <li>Scegli un nome: BotFather ti dà un codice (il token).</li>
-          <li>Incollalo qui: Monsters controlla con Telegram che funzioni.</li>
+          <li>{s.step2}</li>
+          <li>{s.step3}</li>
         </ol>
-        <FormField
-          id={id}
-          label="Codice del bot (token)"
-          error={error}
-          hint="Resta su questo computer, protetto: lo legge solo Monsters. Non lo mostriamo più."
-        >
+        <FormField id={id} label={s.tokenLabel} error={error} hint={s.tokenHint}>
           <Input
             id={id}
             type="password"
             autoComplete="off"
             spellCheck={false}
+            // i18n-ignore: an example value, not copy
             placeholder="123456789:AAH…"
             value={token}
             onChange={(e) => setToken(e.target.value)}
@@ -156,10 +151,10 @@ function TokenForm({
         </FormField>
         <div className="flex gap-2">
           <Button type="submit" size="sm" disabled={saving || !token.trim()}>
-            {saving ? 'Controllo…' : 'Collega il bot'}
+            {saving ? s.checking : s.connectBot}
           </Button>
           <Button variant="ghost" size="sm" onClick={onCancel}>
-            Annulla
+            {common.cancel}
           </Button>
         </div>
       </RowBody>
@@ -176,6 +171,8 @@ function PairingPanel({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const s = telegramStrings().pairing;
+  const common = partsStrings();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -193,14 +190,12 @@ function PairingPanel({
       role="status"
       aria-live="polite"
     >
-      <p className="text-footnote leading-snug text-ink-muted">
-        Dal telefono, scrivi al bot questo messaggio (vale una volta sola):
-      </p>
+      <p className="text-footnote leading-snug text-ink-muted">{s.intro}</p>
       <p
         className="font-mono text-title1 font-semibold tracking-[0.12em] text-ink select-all"
         data-testid="telegram-pairing-code"
       >
-        /start {pairing.code}
+        {`/start ${pairing.code}`}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         {pairing.link && (
@@ -211,15 +206,13 @@ function PairingPanel({
             className={buttonVariants({ variant: 'primary', size: 'sm' })}
           >
             <ArrowSquareOut size={17} weight="bold" aria-hidden />
-            Apri in Telegram
+            {s.open}
           </a>
         )}
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          Annulla
+          {common.cancel}
         </Button>
-        <span className="text-footnote text-ink-muted">
-          Scade tra {remaining(left)} · aspetto il messaggio…
-        </span>
+        <span className="text-footnote text-ink-muted">{s.expires(remaining(left))}</span>
       </div>
     </div>
   );
@@ -258,13 +251,14 @@ function Notifications({
   prefs: TelegramPrefs;
   onChange: (update: TelegramPrefsUpdate) => void;
 }) {
+  const s = telegramStrings();
   const rows: { key: keyof TelegramPrefs['notify']; title: string; text: string }[] = [
-    { key: 'questions', title: 'Domande in attesa', text: 'Con i pulsanti per rispondere.' },
-    { key: 'done', title: 'Lavoro finito', text: 'Quando lo hai chiesto da qui o dal browser.' },
-    { key: 'errors', title: 'Errori', text: 'Quando un lavoro non va a buon fine.' },
+    { key: 'questions', title: s.notify.questions, text: s.notify.questionsText },
+    { key: 'done', title: s.notify.done, text: s.notify.doneText },
+    { key: 'errors', title: s.notify.errors, text: s.notify.errorsText },
   ];
   return (
-    <Group title="Notifiche su Telegram" level={3} testId="telegram-notifications">
+    <Group title={s.notify.title} level={3} testId="telegram-notifications">
       {rows.map((r) => (
         <Row key={r.key} label={r.title} description={r.text}>
           <Switch
@@ -276,26 +270,23 @@ function Notifications({
         </Row>
       ))}
       <div>
-        <Row
-          label="Silenzioso di notte"
-          description="Le notifiche aspettano il mattino; una domanda che blocca il lavoro arriva lo stesso, ma senza suono."
-        >
+        <Row label={s.notify.quietNight} description={s.notify.quietNightText}>
           <Switch
             words
             checked={prefs.quietHours.enabled}
             onCheckedChange={(v) => onChange({ quietHours: { enabled: v } })}
-            label="Silenzioso di notte"
+            label={s.notify.quietNight}
           />
         </Row>
         {prefs.quietHours.enabled && (
           <div className="flex flex-wrap gap-4 px-4 pb-3">
             <TimeInput
-              label="Dalle"
+              label={s.quiet.from}
               value={prefs.quietHours.from}
               onChange={(v) => onChange({ quietHours: { from: v } })}
             />
             <TimeInput
-              label="fino alle"
+              label={s.quiet.to}
               value={prefs.quietHours.to}
               onChange={(v) => onChange({ quietHours: { to: v } })}
             />
@@ -307,6 +298,7 @@ function Notifications({
 }
 
 export function TelegramSection() {
+  const s = telegramStrings();
   const [view, setView, reload] = useTelegram();
   const [pairing, setPairing] = useState<TelegramPairing | null>(null);
   const [busy, setBusy] = useState(false);
@@ -338,10 +330,7 @@ export function TelegramSection() {
           const added = next.users.find((u) => !known.has(u.id));
           if (added) {
             setPairing(null);
-            notify(
-              `Account collegato: ${added.name}. Può comandare i mostri da Telegram.`,
-              'success',
-            );
+            notify(s.paired(added.name), 'success');
           } else if (!next.pairing) {
             setPairing(null);
           }
@@ -388,7 +377,7 @@ export function TelegramSection() {
       />
       <span>
         {view.bot ? `@${view.bot.username}. ` : ''}
-        {view.error ?? STATUS_TEXT[view.status]}
+        {view.error ?? s.status[view.status]}
       </span>
     </span>
   );
@@ -400,42 +389,41 @@ export function TelegramSection() {
         level={3}
         description={
           <>
-            Parla con i mostri dal telefono, rispondi alle loro domande e fermali con{' '}
-            <code className="text-ink">/ferma</code>. Il bot è tuo: solo gli account che colleghi
-            qui possono comandarlo.
+            {s.section.descriptionBefore}
+            <code className="text-ink">{PHONE_COMMANDS[0]}</code>
+            {s.section.descriptionAfter}
           </>
         }
         footer={
           connected ? (
             <>
-              Dal telefono: <code>/ferma</code>, <code>/riprendi</code>, <code>/nuova</code>,{' '}
-              <code>/stato</code>.
-              {fromEnv ? ' Il codice del bot arriva dalla variabile TELEGRAM_BOT_TOKEN.' : ''}
+              {s.section.fromPhone}
+              <CommandList commands={PHONE_COMMANDS} />.{fromEnv ? s.section.fromEnv : ''}
             </>
           ) : undefined
         }
       >
         <Row
-          label="Bot"
+          label={s.section.bot}
           description={status}
           leading={<TelegramLogo size={20} aria-hidden className="text-ink-muted" />}
         >
           {view && !connected && !connecting && (
             <Button variant="secondary" size="sm" onClick={() => setConnecting(true)}>
-              Collega un bot
+              {s.section.connect}
             </Button>
           )}
           {connected && !fromEnv && (
             <ConfirmButton
-              label="Scollega il bot"
-              question="Scollego il bot?"
-              confirm="Sì, scollega"
+              label={s.section.disconnect}
+              question={s.section.disconnectQuestion}
+              confirm={s.section.disconnectConfirm}
               busy={busy}
               onConfirm={() =>
                 void act(async () => {
                   setPairing(null);
                   return getApi().removeTelegramToken();
-                }, 'Bot scollegato.')
+                }, s.section.disconnected)
               }
             />
           )}
@@ -456,18 +444,14 @@ export function TelegramSection() {
       {view && connected && (
         <>
           <Group
-            title="Chi può comandare i mostri"
+            title={s.section.usersTitle}
             level={3}
             as="ul"
             testId="telegram-users"
-            footer="Gli altri messaggi al bot vengono ignorati e finiscono in Attività."
+            footer={s.section.usersFooter}
           >
             {view.users.length === 0 && (
-              <Row
-                as="li"
-                label="Nessun account ancora"
-                description="Collega il tuo: finché non lo fai, il bot ignora tutti i messaggi, anche i tuoi."
-              />
+              <Row as="li" label={s.section.noAccount} description={s.section.noAccountText} />
             )}
             {view.users.map((u) => (
               <Row
@@ -480,21 +464,20 @@ export function TelegramSection() {
                     {u.username ? <span className="text-ink-muted"> · @{u.username}</span> : null}
                   </>
                 }
-                description={`Collegato il ${new Date(u.addedAt).toLocaleDateString('it-IT')}`}
+                description={s.section.connectedOn(
+                  formatDate(u.addedAt, { day: 'numeric', month: 'numeric', year: 'numeric' }),
+                )}
               >
                 <Button
                   variant="ghost"
                   size="sm"
                   disabled={busy}
                   onClick={() =>
-                    void act(
-                      () => getApi().removeTelegramUser(u.id),
-                      `${u.name} non può più comandare i mostri.`,
-                    )
+                    void act(() => getApi().removeTelegramUser(u.id), s.section.removed(u.name))
                   }
-                  aria-label={`Togli ${u.name}`}
+                  aria-label={s.section.removeLabel(u.name)}
                 >
-                  Togli
+                  {s.section.remove}
                 </Button>
               </Row>
             ))}
@@ -518,7 +501,7 @@ export function TelegramSection() {
                   className="row-key flex min-h-[52px] w-full items-center gap-2.5 px-4 text-left text-body font-medium text-ink [&_svg]:text-signal-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
                 >
                   <UserPlus size={18} aria-hidden />
-                  Collega un account
+                  {s.section.connectAccount}
                 </button>
               )}
             </li>

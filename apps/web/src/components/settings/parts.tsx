@@ -6,6 +6,7 @@ import { useAgent } from '../../store/hooks.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { Button } from '../ui/button.tsx';
 import { Label } from '../ui/field.tsx';
+import { partsStrings } from './parts.strings.ts';
 import './settings.css';
 
 /*
@@ -302,8 +303,8 @@ export function FormField({
 export const fieldOnGroup = 'well';
 
 /**
- * "Scollega" with a confirmation in place: the first press asks, the second
- * does it; "Annulla" goes back.
+ * A button with a confirmation in place ("Disconnect"): the first press asks, the
+ * second does it; "Cancel" goes back.
  */
 export function ConfirmButton({
   label,
@@ -318,6 +319,7 @@ export function ConfirmButton({
   onConfirm: () => void;
   busy?: boolean;
 }) {
+  const s = partsStrings();
   const [asking, setAsking] = useState(false);
   if (!asking) {
     return (
@@ -341,7 +343,7 @@ export function ConfirmButton({
         {confirm}
       </Button>
       <Button variant="ghost" size="sm" onClick={() => setAsking(false)}>
-        Annulla
+        {s.cancel}
       </Button>
     </span>
   );
@@ -429,7 +431,7 @@ export function InlineEdit({
   before,
 }: {
   value: string;
-  /** What is edited, lower case after "Cambia" (e.g. "il tuo nome"). */
+  /** What is edited, lower case after the verb (e.g. "your name"). */
   label: string;
   onSave: (next: string) => Promise<void>;
   /** A problem with the new value, or null. */
@@ -439,6 +441,7 @@ export function InlineEdit({
   /** Shown before the value (an avatar). */
   before?: ReactNode;
 }) {
+  const s = partsStrings();
   const id = domId(useId());
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -474,13 +477,13 @@ export function InlineEdit({
         <Button
           variant="secondary"
           size="sm"
-          aria-label={`Cambia ${label}`}
+          aria-label={s.changeWhat(label)}
           onClick={() => {
             setDraft(value);
             setEditing(true);
           }}
         >
-          Cambia
+          {s.change}
         </Button>
       </span>
     );
@@ -511,10 +514,10 @@ export function InlineEdit({
           className="well h-10 w-44 rounded-[10px] px-3.5 text-body text-ink focus:outline-2 focus:outline-offset-0 focus:outline-signal-ink aria-[invalid=true]:outline-2 aria-[invalid=true]:outline-stop"
         />
         <Button type="submit" size="sm" disabled={busy} onClick={() => playSound('click')}>
-          {busy ? 'Salvo…' : 'Salva'}
+          {busy ? s.saving : s.save}
         </Button>
         <Button variant="ghost" size="sm" onClick={close}>
-          Annulla
+          {s.cancel}
         </Button>
       </span>
       {problem && (
@@ -547,7 +550,7 @@ export function AgentMark({
   return <span aria-hidden className="led" style={{ '--led': color } as CSSProperties} />;
 }
 
-/** A text setting: its value as a line, "Cambia" opens a text box with Salva. */
+/** A text setting: its value as a line, "Change" opens a text box with Save. */
 export function TextSetting({
   label,
   value,
@@ -561,6 +564,7 @@ export function TextSetting({
   placeholder: string;
   onSave: (v: string) => Promise<void>;
 }) {
+  const s = partsStrings();
   const id = domId(useId());
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -589,13 +593,13 @@ export function TextSetting({
           <Button
             variant="secondary"
             size="sm"
-            aria-label={`Cambia: ${label}`}
+            aria-label={s.changeLabel(label)}
             onClick={() => {
               setDraft(value);
               setOpen(true);
             }}
           >
-            Cambia
+            {s.change}
           </Button>
         )}
       </Row>
@@ -622,10 +626,10 @@ export function TextSetting({
             )}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={busy}>
-                {busy ? 'Salvo…' : 'Salva'}
+                {busy ? s.saving : s.save}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-                Annulla
+                {s.cancel}
               </Button>
             </div>
           </RowBody>

@@ -15,6 +15,7 @@ import { GeneralTab } from './GeneralTab.tsx';
 import { LinksTab } from './LinksTab.tsx';
 import { ModelsTab } from './ModelsTab.tsx';
 import { PermissionsTab } from './PermissionsTab.tsx';
+import { settingsStrings } from './settings.strings.ts';
 import { TeamTab } from './TeamTab.tsx';
 
 /**
@@ -25,38 +26,41 @@ import { TeamTab } from './TeamTab.tsx';
  * Collegamenti = the ways in from outside (Telegram, the web, other
  * programs); Generale = how the app looks, your access, where things are.
  */
-const TABS: readonly (TabItem<SettingsTab> & { hint: string })[] = [
-  {
-    value: 'squadra',
-    label: SETTINGS_TABS.squadra,
-    icon: <UsersThree size={18} aria-hidden />,
-    hint: 'Chi c’è nella tua squadra, e chi sei tu per i mostri.',
-  },
-  {
-    value: 'modelli',
-    label: SETTINGS_TABS.modelli,
-    icon: <Brain size={18} aria-hidden />,
-    hint: 'Con cosa pensano i mostri: chiavi e abbonamenti, e il modello di ognuno.',
-  },
-  {
-    value: 'permessi',
-    label: SETTINGS_TABS.permessi,
-    icon: <ShieldCheck size={18} aria-hidden />,
-    hint: 'Cosa possono fare i mostri da soli, e cosa ti chiedono sempre prima.',
-  },
-  {
-    value: 'collegamenti',
-    label: SETTINGS_TABS.collegamenti,
-    icon: <Plugs size={18} aria-hidden />,
-    hint: 'Come raggiungi i mostri da fuori e cosa possono usare oltre alle note: Telegram, la ricerca sul web, altri programmi.',
-  },
-  {
-    value: 'generale',
-    label: SETTINGS_TABS.generale,
-    icon: <Gear size={18} aria-hidden />,
-    hint: 'Aspetto, il tuo accesso e dove stanno le note e le chiavi.',
-  },
-];
+const tabs = (): readonly (TabItem<SettingsTab> & { hint: string })[] => {
+  const hints = settingsStrings().view.hints;
+  return [
+    {
+      value: 'squadra',
+      label: SETTINGS_TABS.squadra,
+      icon: <UsersThree size={18} aria-hidden />,
+      hint: hints.squadra,
+    },
+    {
+      value: 'modelli',
+      label: SETTINGS_TABS.modelli,
+      icon: <Brain size={18} aria-hidden />,
+      hint: hints.modelli,
+    },
+    {
+      value: 'permessi',
+      label: SETTINGS_TABS.permessi,
+      icon: <ShieldCheck size={18} aria-hidden />,
+      hint: hints.permessi,
+    },
+    {
+      value: 'collegamenti',
+      label: SETTINGS_TABS.collegamenti,
+      icon: <Plugs size={18} aria-hidden />,
+      hint: hints.collegamenti,
+    },
+    {
+      value: 'generale',
+      label: SETTINGS_TABS.generale,
+      icon: <Gear size={18} aria-hidden />,
+      hint: hints.generale,
+    },
+  ];
+};
 
 function panel(t: SettingsTab): ReactNode {
   switch (t) {
@@ -81,6 +85,8 @@ function panel(t: SettingsTab): ReactNode {
  * it now, at that part.
  */
 export function SettingsView() {
+  const s = settingsStrings().view;
+  const TABS = tabs();
   const param = useHashParam('sezione');
   const tab = settingsTabOf(param);
   const part = settingsPartOf(param);
@@ -122,7 +128,7 @@ export function SettingsView() {
       className="flex w-full min-h-0 flex-1 flex-col overflow-hidden"
     >
       <ToolbarContent>
-        <ToolbarTitle id="settings-title">Impostazioni</ToolbarTitle>
+        <ToolbarTitle id="settings-title">{s.title}</ToolbarTitle>
       </ToolbarContent>
       <header className="seam-b flex shrink-0 justify-center px-4 pt-3 pb-3.5 sm:px-8">
         <Tabs
@@ -130,7 +136,7 @@ export function SettingsView() {
           items={TABS}
           value={tab}
           onChange={(t) => replaceHash(settingsPath(t))}
-          label="Sezioni delle impostazioni"
+          label={s.tabsLabel}
           fit
         />
       </header>

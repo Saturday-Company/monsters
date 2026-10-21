@@ -2,6 +2,7 @@ import { AGENT_NAME_PATTERN, type SettingsResponse } from '@monsters/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, describeError } from '../../lib/api.ts';
 import { getApi } from '../../store/app.ts';
+import { dataStrings } from './data.strings.ts';
 
 /** `GET /api/settings`, with a reload: null while loading or when the core does not answer. */
 export function useSettings(): [SettingsResponse | null, () => void] {
@@ -25,17 +26,21 @@ export function useSettings(): [SettingsResponse | null, () => void] {
  * What the user reads for a model service (docs/design.md, glossary): the
  * subscriptions by the name of the plan, "Codex" with what it is for.
  */
-const LABELS: Record<string, string> = {
-  'claude-agent': 'Abbonamento Claude',
-  chatgpt: 'ChatGPT',
-  codex: 'Codex (per programmare)',
-};
-
 export function serviceLabel(id: string, label?: string): string {
-  return LABELS[id] ?? label ?? id;
+  const s = dataStrings().services;
+  switch (id) {
+    case 'claude-agent':
+      return s.claudeAgent;
+    case 'chatgpt':
+      return 'ChatGPT';
+    case 'codex':
+      return s.codex;
+    default:
+      return label ?? id;
+  }
 }
 
-/** Codes whose message from the core is already the sentence to show (Italian, specific). */
+/** Codes whose message from the core is already the sentence to show (specific). */
 const OWN_MESSAGE = new Set([
   'invalid_name',
   'name_taken',
@@ -49,16 +54,17 @@ const OWN_MESSAGE = new Set([
 
 /** Errors of the team, profile and password calls, in plain words. */
 export function teamError(err: unknown): string {
+  const e = dataStrings().errors;
   if (err instanceof ApiError) {
     switch (err.code) {
       case 'busy':
-        return 'Un mostro sta lavorando: aspetta che finiscano o premi Ferma, poi riprova.';
+        return e.busy;
       case 'wrong_password':
-        return 'La password attuale non è giusta.';
+        return e.wrongPassword;
       case 'same_password':
-        return 'La nuova password è uguale a quella di adesso.';
+        return e.samePassword;
       case 'halted':
-        return 'I mostri sono fermi: premi “Riprendi”, poi riprova.';
+        return e.halted;
       default:
         if (OWN_MESSAGE.has(err.code) && err.message && err.message !== err.code) {
           return err.message;
@@ -70,7 +76,7 @@ export function teamError(err: unknown): string {
 
 /** A name as the core takes it, checked here first. */
 export function nameProblem(name: string): string | null {
-  return AGENT_NAME_PATTERN.test(name) ? null : 'Solo lettere, al massimo 24.';
+  return AGENT_NAME_PATTERN.test(name) ? null : dataStrings().nameProblem;
 }
 
 /** Runs a call of the core and turns its refusal into the sentence to show. */

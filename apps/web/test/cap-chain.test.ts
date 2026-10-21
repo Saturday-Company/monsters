@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, describe, expect, it } from 'vitest';
 import { capWarnings, type CapLink } from '../src/components/settings/SpendSection.tsx';
 
 const link = (
@@ -8,17 +9,31 @@ const link = (
   who?: string,
 ): CapLink => ({
   id,
-  label: { monster: 'Mostro', project: 'Progetto', team: 'Tutta la squadra' }[id],
+  label: { monster: 'Monster', project: 'Project', team: 'Whole squad' }[id],
   who,
   period,
   meter: capEur === null ? null : { spentEur: 0, capEur, ratio: 0 },
 });
 
+afterEach(() => setAppLang('en'));
+
 describe('caps higher than the one that holds them', () => {
   it('says so for a monster above the team', () => {
     expect(
       capWarnings([link('monster', 9, 'oggi', 'Rhea'), link('project', null), link('team', 3)]),
-    ).toEqual(['Mostro (Rhea): più alto del tetto della squadra: scatta prima quello.']);
+    ).toEqual(['Monster (Rhea): higher than the squad’s cap: that one kicks in first.']);
+  });
+
+  it('says it in Italian with the right article', () => {
+    setAppLang('it');
+    const it = (outer: 'project' | 'team') =>
+      capWarnings([link('monster', 9, 'oggi', 'Rhea'), link(outer, 3)]);
+    expect(it('team')).toEqual([
+      'Monster (Rhea): più alto del tetto della squadra: scatta prima quello.',
+    ]);
+    expect(it('project')).toEqual([
+      'Monster (Rhea): più alto del tetto del progetto: scatta prima quello.',
+    ]);
   });
 
   it('says so for a project above the team, not for a consistent chain', () => {

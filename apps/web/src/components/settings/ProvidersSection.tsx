@@ -23,6 +23,8 @@ import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { ModelPicker, modelName, type ModelList } from './ModelPicker.tsx';
 import { serviceLabel } from './data.ts';
+import { modelsStrings } from './models.strings.ts';
+import { partsStrings } from './parts.strings.ts';
 import { AgentMark, fieldOnGroup, FormField, Group, RowBody, selectClass } from './parts.tsx';
 
 /*
@@ -31,20 +33,11 @@ import { AgentMark, fieldOnGroup, FormField, Group, RowBody, selectClass } from 
  */
 
 /** One line on what each service is, in plain words. */
-export const ABOUT: Record<string, string> = {
-  openrouter: 'Tanti modelli con una chiave sola, anche gratis.',
-  anthropic: 'I modelli Claude, con la tua chiave API.',
-  openai: 'I modelli GPT, con la tua chiave API.',
-  google: 'I modelli Gemini, con una chiave di Google AI Studio.',
-  mistral: 'I modelli di Mistral, un’azienda europea.',
-  groq: 'Modelli aperti, molto veloci.',
-  ollama:
-    'Modelli sul tuo computer: gratis e privati, ma più lenti e meno bravi con gli strumenti.',
-  lmstudio:
-    'Modelli sul tuo computer: gratis e privati, ma più lenti e meno bravi con gli strumenti.',
-};
+export function aboutOf(id: string): string | undefined {
+  return modelsStrings().providers.about[id];
+}
 
-/** The message of the core when it has one in Italian, the generic one otherwise. */
+/** The message of the core when it has a specific one, the generic one otherwise. */
 export function errorOf(err: unknown): string {
   if (err instanceof ApiError && err.message && err.message !== err.code) {
     if (
@@ -72,10 +65,11 @@ function hostOf(url: string): string {
 }
 
 export function tagOf(p: ProviderView): string {
-  if (p.local) return 'Sul tuo computer';
-  if (p.paid && p.freeTier) return 'A consumo, con piano gratuito';
-  if (p.paid) return 'A consumo';
-  return 'Gratis con limiti';
+  const s = modelsStrings().providers.tag;
+  if (p.local) return s.local;
+  if (p.paid && p.freeTier) return s.payAsYouGoFree;
+  if (p.paid) return s.payAsYouGo;
+  return s.free;
 }
 
 /** A small neutral label next to a name. */
@@ -95,6 +89,7 @@ export function PaidNotice({
   provider: Pick<ProviderView, 'label' | 'freeTier'>;
   className?: string;
 }) {
+  const s = modelsStrings().providers;
   return (
     <div
       className={cn(
@@ -105,12 +100,8 @@ export function PaidNotice({
     >
       <CurrencyCircleDollar size={20} className="mt-px shrink-0 text-ink" aria-hidden />
       <p>
-        <strong className="font-semibold text-ink">A pagamento.</strong> Ogni richiesta dei mostri
-        costa qualcosa e la paghi tu, sul tuo account di {provider.label}. Monsters non aggiunge
-        nulla e non vede i tuoi costi.
-        {provider.freeTier
-          ? ' Il piano gratuito ha limiti stretti e, su alcuni servizi, può usare quello che scrivi per addestrare i modelli.'
-          : ''}
+        <strong className="font-semibold text-ink">{s.paidTitle}</strong>{' '}
+        {s.paidText(provider.label, !!provider.freeTier)}
       </p>
     </div>
   );
@@ -126,6 +117,8 @@ export function ProviderForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const s = modelsStrings().providers.form;
+  const common = partsStrings();
   const id = domId(useId());
   const [value, setValue] = useState(p.local ? (p.baseURL ?? '') : '');
   const [error, setError] = useState<string | null>(null);
@@ -141,26 +134,26 @@ export function ProviderForm({
       if (p.local) {
         const parsed = ProviderUrlRequestSchema.safeParse({ baseURL: value });
         if (!parsed.success) {
-          setError('Scrivi l’indirizzo completo, per esempio http://127.0.0.1:11434.');
+          setError(s.urlInvalid);
           return;
         }
         await getApi().setProviderUrl(p.id, parsed.data.baseURL);
-        notify(`${label} collegato.`, 'success');
+        notify(s.connected(label), 'success');
       } else if (p.id === 'openrouter') {
         if (!value.trim().startsWith('sk-or-')) {
-          setError('Incolla la chiave completa: inizia con “sk-or-”.');
+          setError(s.openrouterPrefix);
           return;
         }
         await getApi().setOpenRouterKey(value.trim());
-        notify('Chiave salvata. I mostri la useranno da subito.', 'success');
+        notify(s.saved, 'success');
       } else {
         const parsed = ProviderKeyRequestSchema.safeParse({ key: value });
         if (!parsed.success) {
-          setError('Incolla la chiave completa, senza spazi.');
+          setError(s.keyInvalid);
           return;
         }
         await getApi().setProviderKey(p.id, parsed.data.key);
-        notify(`Chiave di ${label} verificata e salvata.`, 'success');
+        notify(s.verified(label), 'success');
       }
       setValue(p.local ? value : '');
       onDone();
@@ -177,13 +170,9 @@ export function ProviderForm({
         {p.paid && <PaidNotice provider={p} />}
         <FormField
           id={id}
-          label={p.local ? `Indirizzo di ${label}` : change ? 'Nuova chiave' : `Chiave di ${label}`}
+          label={p.local ? s.addressOf(label) : change ? s.newKey : s.keyOf(label)}
           error={error}
-          hint={
-            p.local
-              ? `${label} deve essere acceso. Di solito l’indirizzo è quello già scritto.`
-              : 'La controllo prima di salvarla. Resta su questo computer e non la mostriamo più.'
-          }
+          hint={p.local ? s.localHint(label) : s.keyHint}
         >
           <Input
             id={id}
@@ -200,10 +189,10 @@ export function ProviderForm({
         </FormField>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" size="sm" disabled={busy || !value.trim()}>
-            {busy ? 'Controllo…' : p.local ? 'Collega' : 'Verifica e salva'}
+            {busy ? s.checking : p.local ? s.connect : s.verifyAndSave}
           </Button>
           <Button variant="ghost" size="sm" onClick={onCancel}>
-            Annulla
+            {common.cancel}
           </Button>
           {p.keyUrl && !p.local && (
             <a
@@ -212,7 +201,7 @@ export function ProviderForm({
               rel="noreferrer"
               className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'sm:ml-auto')}
             >
-              Crea la chiave su {hostOf(p.keyUrl)}
+              {s.createKey(hostOf(p.keyUrl))}
               <ArrowSquareOut size={16} aria-hidden />
             </a>
           )}
@@ -244,6 +233,7 @@ function isPaidOpenRouter(link: ModelRefView): boolean {
  * after reading what they cost.
  */
 function PaidBlocked({ models, onEnabled }: { models: string[]; onEnabled: () => void }) {
+  const s = modelsStrings().providers.blocked;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const enable = async () => {
@@ -251,7 +241,7 @@ function PaidBlocked({ models, onEnabled }: { models: string[]; onEnabled: () =>
     setError(null);
     try {
       await getApi().setOpenRouterFreeOnly(false);
-      notify('Modelli a pagamento di OpenRouter attivi.', 'success');
+      notify(s.enabled, 'success');
       onEnabled();
     } catch (err) {
       setError(errorOf(err));
@@ -262,10 +252,7 @@ function PaidBlocked({ models, onEnabled }: { models: string[]; onEnabled: () =>
   return (
     <div className="grid gap-2.5" data-testid="paid-blocked">
       <p className="text-footnote leading-snug text-ink" role="status">
-        <strong className="font-semibold">{models.join(', ')}</strong>{' '}
-        {models.length > 1 ? 'sono modelli' : 'è un modello'} a pagamento, ma OpenRouter ora usa
-        solo i modelli gratuiti. Attiva i modelli a pagamento, oppure scegli un modello che finisce
-        con “:free”.
+        <strong className="font-semibold">{models.join(', ')}</strong> {s.text(models.length)}
       </p>
       <PaidNotice provider={OPENROUTER_PAID} />
       {error && (
@@ -279,7 +266,7 @@ function PaidBlocked({ models, onEnabled }: { models: string[]; onEnabled: () =>
         disabled={busy}
         onClick={() => void enable()}
       >
-        {busy ? 'Attivo…' : 'Usa anche modelli a pagamento'}
+        {busy ? s.turningOn : s.button}
       </Button>
     </div>
   );
@@ -291,35 +278,34 @@ const same = (a: readonly ModelRefView[], b: readonly ModelRefView[]) =>
 /** Time after the last change before a chain saves itself (typing a model name). */
 const SAVE_AFTER_MS = 700;
 
-/** The words of a base level of "Automatica". */
-export const AUTO_BASE_LABEL: Record<AutoBase, string> = {
-  light: 'Leggera',
-  medium: 'Media',
-  strong: 'Forte',
-};
+/** The words of a base level of "Automatic". */
+export function autoBaseLabel(base: AutoBase): string {
+  return modelsStrings().providers.base[base];
+}
 
-/** What an automatic chain does, in one line: "Di solito Sonnet (impegno Medio) · difficili → Opus (impegno Alto)". */
+/** What an automatic chain does, in one line: "Usually Sonnet (medium effort) · hard → Opus (high effort)". */
 export function autoLine(base: AutoBase): string {
+  const s = modelsStrings().providers.autoLine;
   const chain = autoChain(base);
   const base_ = (id: string) => CLAUDE_PLAN_MODELS.find((m) => m.id === id)?.name ?? id;
-  // "Sonnet (impegno Medio)": the effort of the model in "Automatica" (D-110).
+  // "Sonnet (medium effort)": the effort of the model in "Automatic" (D-110).
   const name = (id: string) => {
     const effort = autoEffort(id);
-    return effort ? `${base_(id)} (impegno ${EFFORT_WORD[effort]})` : base_(id);
+    return effort ? s.withEffort(base_(id), EFFORT_WORD[effort]) : base_(id);
   };
   const usual = chain[0]!;
   const light = chain.find((m) => m.tier === 'light');
   const strong = chain.find((m) => m.tier === 'strong');
   return [
-    `Di solito ${name(usual.model)}`,
-    light && light !== usual ? `semplici → ${name(light.model)}` : null,
-    strong && strong !== usual ? `difficili → ${name(strong.model)}` : null,
+    s.usually(name(usual.model)),
+    light && light !== usual ? s.simple(name(light.model)) : null,
+    strong && strong !== usual ? s.hard(name(strong.model)) : null,
   ]
     .filter(Boolean)
     .join(' · ');
 }
 
-/** The base of a monster in "Automatica": its own, or the one of its archetype. */
+/** The base of a monster in "Automatic": its own, or the one of its archetype. */
 export const baseOf = (a: AgentModels): AutoBase => a.auto?.base ?? a.suggestedBase ?? 'medium';
 
 /** The editor's state: the chain, and the base when it is "Automatica". */
@@ -353,7 +339,7 @@ function ChainEditor({
   /** The chain the core saved: the page keeps it, so the editor is not reset. */
   onSaved: (saved: AgentModels) => void;
 }) {
-  // The team editor in "Automatica" stands for every base: it shows the mode, not one base.
+  // The team editor in "Automatic" stands for every base: it shows the mode, not one base.
   const fromCore = stateOf(agent);
   /** What the core has: a change of it from outside replaces an untouched editor. */
   const [base, setBase] = useState<ChainState>(fromCore);
@@ -382,7 +368,8 @@ function ChainEditor({
   const blocked = freeOnly ? paidOpenRouter : [];
   const incomplete = manual && links.some((l) => !l.model.trim());
   const saving = useRef(0);
-  const who = team ? 'tutti i mostri' : agent.name;
+  const s = modelsStrings().providers.chain;
+  const who = team ? s.everyone : agent.name;
   // A single model is not a chain: no order to change, nothing to take away.
   const chain = links.length > 1;
 
@@ -410,7 +397,7 @@ function ChainEditor({
       Promise.all(
         targets.map((a) => {
           if (sent.auto === null) return getApi().setAgentModels(a.id, sent.links);
-          // "Uguale per tutti" with Automatica: each monster on its own base (D-093).
+          // "Same for everyone" with Automatic: each monster on its own base (D-093).
           const b = team ? baseOf(a) : sent.auto;
           return getApi().setAgentModels(a.id, autoChain(b), { base: b });
         }),
@@ -422,10 +409,7 @@ function ChainEditor({
           setSeen(saved);
           setEdit((now) => (sameState(now, sent) ? saved : now));
           for (const one of all) onSaved(one);
-          notify(
-            team ? 'Modelli della squadra salvati.' : `Modelli di ${agent.name} salvati.`,
-            'success',
-          );
+          notify(s.saved(team ? null : agent.name), 'success');
           // The composer shows which plan an agent uses (M2.7).
           void refreshAgents().catch(() => {});
         })
@@ -483,28 +467,23 @@ function ChainEditor({
         ) : (
           <AgentMark id={agent.id} color={agent.color} width={36} height={30} />
         )}
-        <h3 className="text-body font-semibold text-ink">{team ? 'Tutti i mostri' : agent.name}</h3>
-        {!team && agent.isOrchestrator && (
-          <span className="label text-signal-ink">il tuo capo</span>
-        )}
+        <h3 className="text-body font-semibold text-ink">{team ? s.allMonsters : agent.name}</h3>
+        {!team && agent.isOrchestrator && <span className="label text-signal-ink">{s.lead}</span>}
         <span className="ml-auto label text-ink-muted" aria-live="polite">
-          {dirty && !incomplete && blocked.length === 0 ? 'Salvo…' : ''}
+          {dirty && !incomplete && blocked.length === 0 ? s.saving : ''}
         </span>
       </div>
       {(claude || !manual) && (
         <div className="flex min-h-11 items-center gap-3" data-testid="auto-models">
           <div className="min-w-0 flex-1">
-            <p className="text-body font-medium text-ink">Automatica</p>
-            <p className="text-footnote leading-snug text-ink-muted">
-              A ogni richiesta e a ogni incarico il modello esperto (TypeSafe) sceglie tra Sonnet
-              (impegno Medio) e Opus (impegno Alto) del piano Claude; Haiku con la base Leggera.
-            </p>
+            <p className="text-body font-medium text-ink">{s.automatic}</p>
+            <p className="text-footnote leading-snug text-ink-muted">{s.automaticText}</p>
           </div>
           <Switch
             words
             checked={!manual}
             onCheckedChange={setAuto}
-            label={`Scelta automatica del modello per ${who}`}
+            label={s.automaticLabel(who)}
             disabled={!claude && manual}
           />
         </div>
@@ -513,21 +492,20 @@ function ChainEditor({
         <div className="grid gap-2.5">
           {team ? (
             <p className="text-footnote leading-snug text-ink-muted" data-testid="auto-team">
-              Ogni mostro parte dalla sua base: il tuo capo e chi lavora sul computer da Forte, gli
-              altri da Media. La cambi con “Scegli per ogni mostro”.
+              {s.teamAuto}
             </p>
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <span className="text-footnote font-medium text-ink">Base</span>
+                <span className="text-footnote font-medium text-ink">{s.baseWord}</span>
                 <Segmented
                   size="sm"
-                  label={`Base di ${who}`}
+                  label={s.baseOf(who)}
                   value={auto}
                   onChange={setAutoBase}
                   options={(['light', 'medium', 'strong'] as const).map((b) => ({
                     value: b,
-                    label: AUTO_BASE_LABEL[b],
+                    label: autoBaseLabel(b),
                   }))}
                 />
               </div>
@@ -539,10 +517,7 @@ function ChainEditor({
               </p>
             </>
           )}
-          <p className="text-footnote leading-snug text-ink-muted">
-            Senza il modello esperto (Squadra → Decisioni dei mostri) resta la base. Se Opus arriva
-            al limite del piano, la stessa richiesta passa a Sonnet.
-          </p>
+          <p className="text-footnote leading-snug text-ink-muted">{s.withoutExpert}</p>
         </div>
       ) : (
         <ol className="grid gap-1.5">
@@ -561,12 +536,12 @@ function ChainEditor({
                 </span>
                 <select
                   className={cn(selectClass, 'h-10 w-full')}
-                  aria-label={`Servizio ${i + 1} di ${who}`}
+                  aria-label={s.serviceOf(i + 1, who)}
                   value={l.provider}
                   onChange={(e) => pickProvider(i, e.target.value)}
                 >
                   {!known && (
-                    <option value={l.provider}>{label(l.provider)} (non collegato)</option>
+                    <option value={l.provider}>{s.notConnected(label(l.provider))}</option>
                   )}
                   {configured.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -580,15 +555,13 @@ function ChainEditor({
                     provider={l.provider}
                     value={l.model}
                     list={list}
-                    label={`Modello ${i + 1} di ${who}`}
+                    label={s.modelOf(i + 1, who)}
                     freeOnly={freeOnly}
                     onChange={(model) => update(i, { model })}
                   />
                   {l.tier && (
                     <p className="mt-1 px-1 label text-ink-muted" data-testid="link-tier">
-                      {l.tier === 'light'
-                        ? 'Per le richieste semplici'
-                        : 'Per le richieste difficili'}
+                      {l.tier === 'light' ? s.tierLight : s.tierStrong}
                     </p>
                   )}
                 </div>
@@ -598,7 +571,7 @@ function ChainEditor({
                   <Button
                     variant="ghost"
                     size="iconSm"
-                    aria-label={`Sposta su il modello ${i + 1} di ${who}`}
+                    aria-label={s.moveUp(i + 1, who)}
                     disabled={i === 0}
                     onClick={() =>
                       setLinks((ls) => {
@@ -613,7 +586,7 @@ function ChainEditor({
                   <Button
                     variant="ghost"
                     size="iconSm"
-                    aria-label={`Togli il modello ${i + 1} di ${who}`}
+                    aria-label={s.remove(i + 1, who)}
                     disabled={links.length <= 1}
                     onClick={() => setLinks((ls) => ls.filter((_, j) => j !== i))}
                   >
@@ -651,7 +624,7 @@ function ChainEditor({
               ]);
             }}
           >
-            <Plus size={16} aria-hidden /> Aggiungi un’alternativa
+            <Plus size={16} aria-hidden /> {s.addAlternative}
           </Button>
         </div>
       )}
@@ -666,7 +639,7 @@ function firstModel(provider: string, list: ModelList): string {
   return list[0]?.id ?? '';
 }
 
-/** "Il modello di ogni mostro": one chain per monster, each saved by itself. */
+/** "Each monster's model": one chain per monster, each saved by itself. */
 export function ChainsGroup({
   providers,
   agents,
@@ -678,6 +651,7 @@ export function ChainsGroup({
   onPaidEnabled: () => void;
   onSaved: (saved: AgentModels) => void;
 }) {
+  const s = modelsStrings().providers.group;
   const configuredKey = providers
     .filter((p) => p.configured)
     .map((p) => `${p.id}:${p.freeOnly ?? ''}:${p.baseURL ?? ''}`)
@@ -746,17 +720,17 @@ export function ChainsGroup({
         data-testid="chains-per-monster"
         onClick={() => setPerMonster(!each)}
         disabled={each && !alike}
-        title={each && !alike ? 'I mostri usano modelli diversi' : undefined}
+        title={each && !alike ? s.different : undefined}
       >
-        {each ? 'Uguale per tutti' : 'Scegli per ogni mostro'}
+        {each ? s.same : s.each}
       </Button>
     </li>
   );
 
   return (
     <Group
-      title={each ? 'Il modello di ogni mostro' : 'Il modello dei mostri'}
-      description="Il primo è quello preferito: se non risponde o ha finito le richieste, il mostro passa al successivo. Ogni cambio si salva da solo."
+      title={each ? s.titleEach : s.titleAll}
+      description={s.description}
       as="ul"
       testId="chains"
     >

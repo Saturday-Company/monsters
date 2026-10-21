@@ -14,6 +14,8 @@ import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { McpPausedCard } from './McpPaused.tsx';
 import { McpGallery } from './McpGallery.tsx';
+import { mcpStrings } from './mcp.strings.ts';
+import { partsStrings } from './parts.strings.ts';
 import { SecretChange } from './McpSecretChange.tsx';
 import {
   AgentPicker,
@@ -37,7 +39,7 @@ import {
 } from './parts.tsx';
 
 /*
- * Settings → Permessi → Altri programmi (MCP, M2.5): servers the monsters can use, who
+ * Settings → Connections → other apps (MCP, M2.5): servers the monsters can use, who
  * may use each one, a test that lists its tools, and the browser preset
  * (Playwright with a profile of its own), off until the user turns it on.
  */
@@ -69,15 +71,14 @@ export function splitCommand(line: string): string[] {
 
 const quoteArg = (a: string) => (/[\s"']/.test(a) || a === '' ? JSON.stringify(a) : a);
 
-/** `NOME=valore` lines → record; empty values keep what is saved. */
+/** `NAME=value` lines → record; empty values keep what is saved. */
 export function parsePairs(text: string, sep: '=' | ':'): Record<string, string> | string {
   const out: Record<string, string> = {};
   for (const raw of text.split('\n')) {
     const line = raw.trim();
     if (!line) continue;
     const i = line.indexOf(sep);
-    if (i <= 0)
-      return `Scrivi una riga per volta nella forma NOME${sep === '=' ? '=' : ': '}valore.`;
+    if (i <= 0) return mcpStrings().servers.pairsFormat(sep === '=' ? '=' : ': ');
     out[line.slice(0, i).trim()] = line.slice(i + 1).trim();
   }
   return out;
@@ -94,6 +95,7 @@ function BrowserRow({
   onSave: (name: string, body: McpServerRequest, done: string) => Promise<void>;
   reload: () => void;
 }) {
+  const s = mcpStrings().servers;
   const on = server?.enabled ?? false;
   const [busy, setBusy] = useState(false);
   const test = useTest('browser', reload);
@@ -112,21 +114,21 @@ function BrowserRow({
         leading={<Browser size={20} aria-hidden className="text-ink-muted" />}
         label={
           <span className="flex flex-wrap items-center gap-2">
-            Browser
+            {s.browser.name}
             {server && on && <StatusPill status={server.status} error={server.error} />}
           </span>
         }
-        description="Un browser tutto loro, separato dal tuo: aprono pagine, cliccano e compilano moduli. Non vede le tue password né la tua cronologia."
+        description={s.browser.description}
       >
         <span className={cn(busy && 'pointer-events-none opacity-60')}>
           <Switch
             words
             checked={on}
-            label="Browser"
+            label={s.browser.name}
             onCheckedChange={(v) =>
               void save(
                 v && !server ? { enabled: true, agents: defaultAgents } : { enabled: v },
-                v ? 'Browser acceso.' : 'Browser spento.',
+                v ? s.browser.on : s.browser.off,
               ).catch((err: unknown) => notify(errorOf(err), 'error'))
             }
           />
@@ -140,22 +142,22 @@ function BrowserRow({
             needsWeb
             disabled={busy}
             onChange={(agents) =>
-              void save({ agents }, 'Fatto.').catch((err: unknown) => notify(errorOf(err), 'error'))
+              void save({ agents }, s.browser.done).catch((err: unknown) =>
+                notify(errorOf(err), 'error'),
+              )
             }
           />
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-footnote font-medium text-ink">Mostra la finestra</p>
-              <p className="text-footnote text-ink-muted">
-                Per guardare cosa fanno. Spenta, il browser lavora nascosto.
-              </p>
+              <p className="text-footnote font-medium text-ink">{s.browser.showWindow}</p>
+              <p className="text-footnote text-ink-muted">{s.browser.showWindowHint}</p>
             </div>
             <Switch
               words
               checked={server.showWindow ?? false}
-              label="Mostra la finestra del browser"
+              label={s.browser.showWindowLabel}
               onCheckedChange={(v) =>
-                void save({ showWindow: v }, 'Fatto.').catch((err: unknown) =>
+                void save({ showWindow: v }, s.browser.done).catch((err: unknown) =>
                   notify(errorOf(err), 'error'),
                 )
               }
@@ -167,10 +169,11 @@ function BrowserRow({
           <ToolsResult result={test.result} />
           <Details>
             <span>
-              Profilo in <span className="font-mono">{data.browser.profileDir}</span>
+              {s.browser.profileIn}
+              <span className="font-mono">{data.browser.profileDir}</span>
             </span>
             <span className="font-mono">{data.browser.package}</span>
-            <span>La prima volta il browser si scarica da solo.</span>
+            <span>{s.browser.downloads}</span>
           </Details>
         </RowBody>
       )}
@@ -191,6 +194,7 @@ function ServerRow({
   onRemove: (name: string) => Promise<void>;
   reload: () => void;
 }) {
+  const s = mcpStrings().servers;
   const [busy, setBusy] = useState(false);
   const test = useTest(server.name, reload);
   const where =
@@ -211,17 +215,15 @@ function ServerRow({
       testId={`mcp-server-${server.name}`}
       leading={<Plugs size={20} aria-hidden className="text-ink-muted" />}
       label={server.label}
-      description={`${server.transport === 'http' ? 'Servizio sul web' : 'Programma sul computer'}${
-        known !== undefined ? ` · ${known} strumenti` : ''
-      }`}
+      description={s.kind(server.transport === 'http', known)}
       trailing={<StatusPill status={server.status} error={server.error} enabled={server.enabled} />}
     >
-      <Row label="Acceso">
+      <Row label={s.on}>
         <Switch
           words
           checked={server.enabled}
-          label={`Accendi ${server.label}`}
-          onCheckedChange={(v) => void save({ enabled: v }, v ? 'Acceso.' : 'Spento.')}
+          label={s.turnOn(server.label)}
+          onCheckedChange={(v) => void save({ enabled: v }, v ? s.turnedOn : s.turnedOff)}
         />
       </Row>
       <RowBody className="set-seam-t">
@@ -234,14 +236,14 @@ function ServerRow({
           agents={agents}
           value={server.agents}
           disabled={busy}
-          onChange={(next) => void save({ agents: next }, 'Fatto.')}
+          onChange={(next) => void save({ agents: next }, s.done)}
         />
         <div className="flex flex-wrap items-center gap-2">
           <TestButton testing={test.testing} onClick={() => void test.run()} />
           <ConfirmButton
-            label="Togli"
-            question="Lo tolgo?"
-            confirm="Sì, togli"
+            label={s.remove}
+            question={s.removeQuestion}
+            confirm={s.removeConfirm}
             busy={busy}
             onConfirm={() => {
               setBusy(true);
@@ -261,8 +263,8 @@ function ServerRow({
         <ToolsResult result={test.result} />
         <Details>
           <span className="font-mono">{where}</span>
-          {secrets.length > 0 && <span>{secrets.join(', ')} (valori nascosti)</span>}
-          <span>Nome: {server.name}</span>
+          {secrets.length > 0 && <span>{s.hidden(secrets.join(', '))}</span>}
+          <span>{s.nameIs(server.name)}</span>
         </Details>
       </RowBody>
     </DisclosureRow>
@@ -280,6 +282,8 @@ function AddServerForm({
   onDone: (data: McpServersResponse, name: string) => void;
   onCancel: () => void;
 }) {
+  const s = mcpStrings().servers.add;
+  const common = partsStrings();
   const ids = {
     name: domId(useId()),
     command: domId(useId()),
@@ -302,15 +306,14 @@ function AddServerForm({
     const next: Record<string, string> = {};
     const id = name.trim();
     if (!/^[a-z][a-z0-9-]{0,23}$/.test(id)) {
-      next['name'] =
-        'Lettere minuscole, cifre e trattini (al massimo 24), iniziando con una lettera.';
+      next['name'] = s.nameInvalid;
     } else if (taken.includes(id)) {
-      next['name'] = 'C’è già un programma con questo nome.';
+      next['name'] = s.nameTaken;
     }
     const parts = splitCommand(command);
-    if (transport === 'stdio' && parts.length === 0) next['command'] = 'Scrivi il comando.';
+    if (transport === 'stdio' && parts.length === 0) next['command'] = s.commandMissing;
     if (transport === 'http' && !/^https?:\/\/\S+$/.test(url.trim())) {
-      next['url'] = 'Scrivi l’indirizzo completo, per esempio https://esempio.it/mcp.';
+      next['url'] = s.urlInvalid;
     }
     const pairs = parsePairs(secrets, transport === 'stdio' ? '=' : ':');
     if (typeof pairs === 'string') next['secrets'] = pairs;
@@ -339,18 +342,14 @@ function AddServerForm({
   return (
     <form onSubmit={(e) => void submit(e)} noValidate data-testid="mcp-add-form">
       <RowBody>
-        <p className="text-body font-medium text-ink">Nuovo programma</p>
-        <FormField
-          id={ids.name}
-          label="Nome"
-          error={errors['name']}
-          hint="Breve, per riconoscerlo: per esempio github o calendario."
-        >
+        <p className="text-body font-medium text-ink">{s.title}</p>
+        <FormField id={ids.name} label={s.name} error={errors['name']} hint={s.nameHint}>
           <Input
             id={ids.name}
             value={name}
             autoComplete="off"
             spellCheck={false}
+            // i18n-ignore: an example value, not copy
             placeholder="github"
             onChange={(e) => setName(e.target.value.toLowerCase())}
             className={fieldOnGroup}
@@ -360,20 +359,20 @@ function AddServerForm({
         <Segmented<'stdio' | 'http'>
           value={transport}
           onChange={setTransport}
-          label="Dove sta"
+          label={s.where}
           size="sm"
           className="justify-self-start"
           options={[
-            { value: 'stdio', label: 'Programma sul computer' },
-            { value: 'http', label: 'Servizio sul web' },
+            { value: 'stdio', label: s.local },
+            { value: 'http', label: s.web },
           ]}
         />
         {transport === 'stdio' ? (
           <FormField
             id={ids.command}
-            label="Comando"
+            label={s.command}
             error={errors['command']}
-            hint="Quello che trovi nelle sue istruzioni, per esempio npx -y nome-del-pacchetto."
+            hint={s.commandHint}
           >
             <Input
               id={ids.command}
@@ -381,20 +380,21 @@ function AddServerForm({
               autoComplete="off"
               spellCheck={false}
               className={cn(fieldOnGroup, 'font-mono text-footnote')}
+              // i18n-ignore: an example value, not copy
               placeholder="npx -y @modelcontextprotocol/server-everything"
               onChange={(e) => setCommand(e.target.value)}
               aria-invalid={errors['command'] ? true : undefined}
             />
           </FormField>
         ) : (
-          <FormField id={ids.url} label="Indirizzo" error={errors['url']}>
+          <FormField id={ids.url} label={s.address} error={errors['url']}>
             <Input
               id={ids.url}
               value={url}
               type="url"
               autoComplete="off"
               spellCheck={false}
-              placeholder="https://esempio.it/mcp"
+              placeholder={s.addressExample}
               onChange={(e) => setUrl(e.target.value)}
               className={fieldOnGroup}
               aria-invalid={errors['url'] ? true : undefined}
@@ -403,9 +403,9 @@ function AddServerForm({
         )}
         <FormField
           id={ids.secrets}
-          label={transport === 'stdio' ? 'Variabili (facoltative)' : 'Intestazioni (facoltative)'}
+          label={transport === 'stdio' ? s.variables : s.headers}
           error={errors['secrets']}
-          hint="Una per riga. Restano su questo computer e dopo il salvataggio non le mostriamo più."
+          hint={s.secretsHint}
         >
           <textarea
             id={ids.secrets}
@@ -426,10 +426,10 @@ function AddServerForm({
         )}
         <div className="flex gap-2">
           <Button type="submit" size="sm" disabled={busy}>
-            {busy ? 'Aggiungo…' : 'Aggiungi'}
+            {busy ? s.adding : s.submit}
           </Button>
           <Button variant="ghost" size="sm" onClick={onCancel}>
-            Annulla
+            {common.cancel}
           </Button>
         </div>
       </RowBody>
@@ -438,6 +438,7 @@ function AddServerForm({
 }
 
 export function McpServersSection() {
+  const s = mcpStrings().servers;
   const [data, setData] = useState<McpServersResponse | null>(null);
   const [failed, setFailed] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -465,7 +466,7 @@ export function McpServersSection() {
   };
   const onRemove = async (name: string) => {
     setData(await getApi().removeMcpServer(name));
-    notify('Programma tolto.', 'success');
+    notify(s.removed, 'success');
   };
 
   const browser = data?.servers.find((s) => s.preset === 'browser');
@@ -483,9 +484,9 @@ export function McpServersSection() {
         title={SETTINGS_SECTIONS.altriProgrammi.label}
         level={3}
         as="ul"
-        description="Il browser dei mostri e i programmi che non sono in elenco: qualunque programma esterno che i mostri possano usare, sul computer o sul web (un “server MCP”)."
+        description={s.description}
       >
-        {failed && <Row as="li" label="Non riesco a leggere gli altri programmi adesso." />}
+        {failed && <Row as="li" label={s.failed} />}
         {data && (
           <>
             <BrowserRow data={data} server={browser} onSave={onSave} reload={reload} />
@@ -508,10 +509,7 @@ export function McpServersSection() {
                   onDone={(d, name) => {
                     setData(d);
                     setAdding(false);
-                    notify(
-                      `Programma “${name}” aggiunto. Premi “Prova” per vedere i suoi strumenti.`,
-                      'success',
-                    );
+                    notify(s.add.added(name), 'success');
                   }}
                 />
               ) : (
@@ -521,7 +519,7 @@ export function McpServersSection() {
                   className="row-key flex min-h-[52px] w-full items-center gap-2.5 px-4 text-left text-body font-medium text-ink [&_svg]:text-signal-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
                 >
                   <Plus size={18} aria-hidden />
-                  Aggiungi un programma
+                  {s.add.button}
                 </button>
               )}
             </li>

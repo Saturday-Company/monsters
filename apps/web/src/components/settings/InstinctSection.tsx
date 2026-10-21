@@ -12,17 +12,19 @@ import { isTrial, modeWord, onMode, needsOf, titleOfUse } from '../../store/inst
 import { Button } from '../ui/button.tsx';
 import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
+import { instinctStrings } from './instinct.strings.ts';
 import { DisclosureRow, fieldOnGroup, FormField, Group, Row, RowBody, Status } from './parts.tsx';
+import { partsStrings } from './parts.strings.ts';
 
 /*
- * Settings → Squadra → Istinto (D-067, D-068): the quick decisions of the team,
+ * Settings → Squad → Monsters’ decisions, the instinct (D-067, D-068): the quick decisions of the team,
  * who takes them (only the rules, a small model of yours, or Jev of TypeSafe)
  * and, in a drawer, what each of them does, with a lever. Small at the bottom,
  * what leaves the computer. The words come from shared/src/instinct.ts; none
  * of "System 1", "gate", "shadow" or thresholds reaches the screen.
  */
 
-/** A short tag after a use's name: "In prova", "Solo annota", "Serve Jev". */
+/** A short tag after a use's name: "On trial", "Notes only", "Needs Jev". */
 function Tag({ children, tone }: { children: ReactNode; tone?: 'signal' }) {
   return (
     <span
@@ -37,19 +39,14 @@ function Tag({ children, tone }: { children: ReactNode; tone?: 'signal' }) {
 }
 
 function keyError(err: unknown): string {
+  const s = instinctStrings();
   if (err instanceof ApiError) {
-    if (err.code === 'invalid_key') return 'TypeSafe non riconosce questa chiave.';
-    if (err.code === 'verification_failed')
-      return 'Non riesco a verificare la chiave con TypeSafe. Controlla la connessione e riprova.';
-    if (err.code === 'key_from_env')
-      return 'La chiave viene da TYPESAFE_API_KEY sul computer: si cambia lì.';
+    if (err.code === 'invalid_key') return s.invalidKey;
+    if (err.code === 'verification_failed') return s.verificationFailed;
+    if (err.code === 'key_from_env') return s.keyFromEnv;
   }
   return errorText(err);
 }
-
-/** What the module says when the core refuses Jev without a key (409 `no_key`). */
-export const NO_KEY_TEXT =
-  'Per usare il modello esperto serve prima la chiave di TypeSafe. Incollala qui sotto: appena è salvata, decide lui.';
 
 function UseRow({
   use,
@@ -63,6 +60,7 @@ function UseRow({
   onChange: (use: InstinctUseView, on: boolean) => void;
 }) {
   const trial = isTrial(use);
+  const s = instinctStrings();
   const needs = needsOf(use, view);
   const mode = modeWord(use);
   return (
@@ -71,7 +69,7 @@ function UseRow({
         label={
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>{titleOfUse(use)}</span>
-            {trial && <Tag>In prova</Tag>}
+            {trial && <Tag>{s.trial}</Tag>}
             {mode && !trial && <Tag>{mode}</Tag>}
             {needs && <Tag tone="signal">{needs}</Tag>}
           </span>
@@ -92,6 +90,8 @@ function UseRow({
 }
 
 export function InstinctSection() {
+  const s = instinctStrings();
+  const common = partsStrings();
   const id = domId(useId());
   const [view, setView] = useState<InstinctView | null>(null);
   const [failed, setFailed] = useState(false);
@@ -127,7 +127,7 @@ export function InstinctSection() {
   if (failed)
     return (
       <p className="px-1 text-footnote text-ink-muted" role="status">
-        Non riesco a leggere le decisioni dei mostri adesso. Riprova tra poco.
+        {s.failed}
       </p>
     );
   if (!view) return null;
@@ -163,7 +163,7 @@ export function InstinctSection() {
     setError(null);
     const parsed = TypeSafeKeyRequestSchema.safeParse({ key });
     if (!parsed.success) {
-      setError('Incolla la chiave completa, senza spazi.');
+      setError(s.keyIncomplete);
       return;
     }
     setSaving(true);
@@ -174,7 +174,7 @@ export function InstinctSection() {
       setWantJev(false);
       setNoKey(false);
       setChangingKey(false);
-      notify('Chiave di TypeSafe salvata: decide il modello esperto.', 'success');
+      notify(s.keySaved, 'success');
     } catch (err) {
       setError(keyError(err));
     } finally {
@@ -197,8 +197,8 @@ export function InstinctSection() {
   const on = view.uses.filter((u) => u.mode !== 'off');
   const waiting = on.filter((u) => needsOf(u, view) !== null).length;
   const usesLine = [
-    `${on.length} su ${view.uses.length} accese`,
-    waiting > 0 ? `${waiting} in attesa di un modello` : null,
+    s.usesOn(on.length, view.uses.length),
+    waiting > 0 ? s.usesWaiting(waiting) : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -212,14 +212,14 @@ export function InstinctSection() {
       footer={<PrivacyNote view={view} />}
     >
       <Row
-        label="Chi decide"
+        label={s.whoDecides}
         description={<span data-testid="instinct-engine-about">{about?.description}</span>}
         wrap
       >
         <Segmented<DecisionEngine>
           value={engine}
           onChange={(v) => void onEngine(v)}
-          label="Chi decide"
+          label={s.whoDecides}
           size="sm"
           options={view.engines.map((e) => ({ value: e.id, label: e.label }))}
         />
@@ -227,21 +227,21 @@ export function InstinctSection() {
 
       {engine === 'jev' && view.jev.keySet && !changingKey && (
         <Row
-          label="Chiave di TypeSafe"
+          label={s.keyLabel}
           description={
             view.jev.keySource === 'env'
-              ? `Presa da TYPESAFE_API_KEY sul computer · ${view.jev.model}`
-              : `Salvata su questo computer · ${view.jev.model}`
+              ? s.keyFromEnvStatus(view.jev.model)
+              : s.keySavedStatus(view.jev.model)
           }
           testId="typesafe-key-status"
         >
           <span className="label inline-flex items-center gap-1.5 text-ink">
             <span aria-hidden className="led" data-tone="ok" />
-            Attiva
+            {s.active}
           </span>
           {view.jev.keySource !== 'env' && (
             <Button variant="secondary" size="sm" onClick={() => setChangingKey(true)}>
-              Cambia chiave
+              {s.changeKey}
             </Button>
           )}
         </Row>
@@ -252,21 +252,16 @@ export function InstinctSection() {
           <RowBody>
             {noKey ? (
               <p className="text-footnote leading-snug text-ink" role="alert" data-testid="no-key">
-                {NO_KEY_TEXT}
+                {s.noKey}
               </p>
             ) : (
-              !view.jev.keySet && (
-                <Status>
-                  Per usare il modello esperto serve una chiave di TypeSafe: la crei su
-                  console.typesafe.ai.
-                </Status>
-              )
+              !view.jev.keySet && <Status>{s.needKey}</Status>
             )}
             <FormField
               id={id}
-              label={view.jev.keySet ? 'Nuova chiave di TypeSafe' : 'Chiave di TypeSafe'}
+              label={view.jev.keySet ? s.newKeyLabel : s.keyLabel}
               error={error}
-              hint="Resta su questo computer e non la mostriamo più dopo il salvataggio."
+              hint={s.keyHint}
             >
               <Input
                 id={id}
@@ -274,7 +269,7 @@ export function InstinctSection() {
                 type="password"
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="Incolla qui la chiave"
+                placeholder={s.keyPlaceholder}
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
                 className={fieldOnGroup}
@@ -284,7 +279,7 @@ export function InstinctSection() {
             </FormField>
             <div className="flex flex-wrap gap-2">
               <Button type="submit" size="sm" disabled={saving || !key.trim()}>
-                {saving ? 'Verifico…' : 'Salva la chiave'}
+                {saving ? s.verifying : s.saveKey}
               </Button>
               <Button
                 variant="ghost"
@@ -296,7 +291,7 @@ export function InstinctSection() {
                   setError(null);
                 }}
               >
-                Annulla
+                {common.cancel}
               </Button>
             </div>
           </RowBody>
@@ -311,8 +306,8 @@ export function InstinctSection() {
         </RowBody>
       )}
 
-      <DisclosureRow as="div" testId="instinct-uses" label="Cosa fa" description={usesLine}>
-        <ul className="set-rows" aria-label="Cosa decidono i mostri">
+      <DisclosureRow as="div" testId="instinct-uses" label={s.whatItDoes} description={usesLine}>
+        <ul className="set-rows" aria-label={s.whatTheyDecide}>
           {view.uses.map((u) => (
             <UseRow
               key={u.id}
@@ -328,25 +323,19 @@ export function InstinctSection() {
   );
 }
 
-const PRIVACY: Record<DecisionEngine, string> = {
-  jev: 'Con il modello esperto, per ogni decisione va a TypeSafe solo quello che serve, già ripulito dalle chiavi; mai il contenuto delle tue note:',
-  rules:
-    'Adesso decide il computer da solo: non esce niente. Con il modello esperto uscirebbe solo questo, mai il contenuto delle tue note:',
-  llm: 'Adesso decide uno dei tuoi modelli, come per il resto del lavoro. Con il modello esperto uscirebbe solo questo, mai il contenuto delle tue note:',
-};
-
-/** "Cosa esce dal computer": small, under the module, what each use sends with Jev. */
+/** "What leaves the computer": small, under the module, what each use sends with Jev. */
 function PrivacyNote({ view }: { view: InstinctView }) {
+  const s = instinctStrings();
   return (
     <details className="group" data-testid="instinct-privacy">
       <summary className="cursor-pointer list-none font-medium text-ink-muted select-none hover:text-ink [&::-webkit-details-marker]:hidden">
         <span aria-hidden className="mr-1 inline-block turn group-open:rotate-90">
           ›
         </span>
-        Cosa esce dal computer
+        {s.whatLeaves}
       </summary>
       <div className="mt-2 grid gap-2">
-        <p>{PRIVACY[view.engine]}</p>
+        <p>{s.privacy[view.engine]}</p>
         <dl className="grid gap-1.5">
           {view.uses.map((u) => (
             <div key={u.id} className="grid gap-0.5">

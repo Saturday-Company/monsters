@@ -1,5 +1,10 @@
-import { AgentModelsRequestSchema, type ModelInfoView, type ReceiptData } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import {
+  AgentModelsRequestSchema,
+  setAppLang,
+  type ModelInfoView,
+  type ReceiptData,
+} from '@monsters/shared';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   modelName,
   optionText,
@@ -28,6 +33,8 @@ const claude: ModelInfoView[] = [
   { id: 'opus', name: 'Opus', description: 'il più capace', tools: true, free: false },
 ];
 
+afterEach(() => setAppLang('en'));
+
 describe('model picker', () => {
   it('shows the Claude plan from the lightest, with one line on each model', () => {
     expect(
@@ -39,6 +46,9 @@ describe('model picker', () => {
 
   it('marks paid OpenRouter models, not usable while only free ones are on', () => {
     const paid: ModelInfoView = { id: 'google/gemini', name: 'Gemini', tools: true, free: false };
+    expect(optionText('openrouter', paid, true)).toBe('Gemini · paid, not enabled');
+    expect(optionText('openrouter', paid, false)).toBe('Gemini · paid');
+    setAppLang('it');
     expect(optionText('openrouter', paid, true)).toBe('Gemini · a pagamento, non attivo');
     expect(optionText('openrouter', paid, false)).toBe('Gemini · a pagamento');
   });
@@ -50,10 +60,10 @@ describe('model picker', () => {
     ];
     // The readable name with a letter less (a Backspace in the field): nothing changes.
     expect(typedModel('Claude Sonnet 4.', list)).toBeNull();
-    expect(typedModel('Gratuito, scelto da OpenRouter!', list)).toBeNull();
+    expect(typedModel('Free, picked by OpenRouter!', list)).toBeNull();
     // The name as it is, in any case: that model's id.
     expect(typedModel('claude sonnet 4.5', list)).toBe('anthropic/claude-sonnet-4.5');
-    expect(typedModel('Gratuito, scelto da OpenRouter', list)).toBe('openrouter/free');
+    expect(typedModel('Free, picked by OpenRouter', list)).toBe('openrouter/free');
     // An id, of the list or written by hand.
     expect(typedModel(' anthropic/claude-sonnet-4.5 ', list)).toBe('anthropic/claude-sonnet-4.5');
     expect(typedModel('qwen/qwen3-coder:free', list)).toBe('qwen/qwen3-coder:free');
@@ -78,12 +88,25 @@ describe('model picker', () => {
       'meta-llama/llama-3.3-70b-instruct:free',
     ]);
     expect(searchModels(list, '  ')).toHaveLength(3);
+    expect(modelName('openrouter/free', list)).toBe('Free, picked by OpenRouter');
+    setAppLang('it');
     expect(modelName('openrouter/free', list)).toBe('Gratuito, scelto da OpenRouter');
   });
 });
 
-describe('"Automatica"', () => {
+describe('"Automatic"', () => {
   it('says each base in one line', () => {
+    expect(autoLine('light')).toMatch(/^Usually Haiku · hard → Sonnet \(.+ effort\)$/);
+    expect(autoLine('medium')).toMatch(
+      /^Usually Sonnet \(.+ effort\) · hard → Opus \(.+ effort\)$/,
+    );
+    expect(autoLine('strong')).toMatch(
+      /^Usually Opus \(.+ effort\) · simple → Sonnet \(.+ effort\)$/,
+    );
+  });
+
+  it('says them in Italian too', () => {
+    setAppLang('it');
     expect(autoLine('medium')).toBe(
       'Di solito Sonnet (impegno Medio) · difficili → Opus (impegno Alto)',
     );
