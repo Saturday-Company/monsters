@@ -2,6 +2,23 @@
 
 The Italian version is in [`CHANGELOG.it.md`](CHANGELOG.it.md).
 
+## 0.1.0-alpha.20 · 21 October 2026
+
+### What you’ll see
+- **Monsters speaks English.** The whole app is now in English, with Italian as a choice: the screens, the messages,
+  Telegram, the terminal chat and the desktop app’s menus. Pick the language in Settings → General or on the first
+  screen. If you already use Monsters, nothing changes: your app stays in Italian.
+- **Your monsters write in your language.** When you set up a new squad, the language the monsters write in starts
+  from the app’s, and you can still pick another one.
+- **English notes for a new install.** A new install in English gets its notes folders in English (`Agents`,
+  `Private`, `profile.md`, the `Monsters Notes` folder). Existing notes keep their names: nothing is renamed.
+- **Telegram commands in English** (`/stop`, `/resume`, `/new`, `/status`, `/help`); the Italian ones keep working.
+- **The Windows installer** speaks English and Italian.
+
+### More reliable
+- **Safer notes.** A monster’s memory and the private folder are protected the same way whatever language your notes
+  folder is in, and the hidden settings of the notes folder can no longer be changed by the notes tools.
+
 ## 0.1.0-alpha.19 · 21 October 2026
 
 ### What you’ll see

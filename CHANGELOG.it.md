@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.0-alpha.20 · 21 ottobre 2026
+
+### Cosa si vede
+- **Monsters parla inglese.** Tutta l’app ora è in inglese, con l’italiano come scelta: schermate, messaggi, Telegram,
+  la chat da terminale e i menu dell’app desktop. La lingua si sceglie in Impostazioni → Generale o sulla prima
+  schermata. Se usi già Monsters non cambia niente: la tua app resta in italiano.
+- **I mostri scrivono nella tua lingua.** Quando crei una squadra nuova, la lingua in cui scrivono i mostri parte da
+  quella dell’app, e puoi sempre sceglierne un’altra.
+- **Note in inglese per un’installazione nuova.** Un’installazione nuova in inglese ha le cartelle delle note in
+  inglese (`Agents`, `Private`, `profile.md`, la cartella `Monsters Notes`). Le note che hai già tengono i loro nomi:
+  non si rinomina niente.
+- **Comandi di Telegram in inglese** (`/stop`, `/resume`, `/new`, `/status`, `/help`); quelli italiani funzionano
+  ancora.
+- **L’installer di Windows** parla inglese e italiano.
+
+### Più affidabile
+- **Note più protette.** La memoria di un mostro e la cartella privata sono protette allo stesso modo in qualunque
+  lingua sia la tua cartella delle note, e le impostazioni nascoste della cartella delle note non si possono più
+  cambiare con gli strumenti delle note.
+
 ## 0.1.0-alpha.19 · 21 ottobre 2026
 
 ### Cosa si vede

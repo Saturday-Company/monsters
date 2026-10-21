@@ -173,8 +173,12 @@ su tester -s /bin/bash -c '
   for i in $(seq 1 20); do pgrep -u tester -x monsters >/dev/null || break; sleep 0.5; done
   pkill -KILL -u tester -x monsters || true
   pkill -KILL -u tester -x Xvfb || true
+  # xvfb-run cleans up after its server (xauth, xkbcomp): wait for it, not only for the app.
+  wait
   [ $ok = 0 ]
 '
+# A few seconds for what the wrapper leaves to exit on its own; then anything left is a leak.
+for i in $(seq 1 20); do pgrep -u tester >/dev/null || break; sleep 0.5; done
 if pgrep -u tester >/dev/null; then echo "processes of the app still running:"; pgrep -a -u tester; exit 1; fi
 echo "app stopped, no process left"
 
