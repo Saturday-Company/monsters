@@ -9,6 +9,7 @@ import {
 import { isBrakeEvent } from '../../store/instinct.ts';
 import { noteKey } from '../../lib/markdown.ts';
 import { PATHS } from '../../lib/router.ts';
+import { logStrings } from './log.strings.ts';
 
 /*
  * Attività: what is shown by default, the filters, and the state of an undo
@@ -16,34 +17,32 @@ import { PATHS } from '../../lib/router.ts';
  * without a browser.
  */
 
-/** The three types of the filter row; the others are under "Altri filtri". */
-export const MAIN_TYPES = [
-  { value: 'vault', label: 'Modifiche alle note' },
-  { value: 'questions', label: 'Domande' },
-  { value: 'errors', label: 'Errori' },
-] as const satisfies readonly { value: EventCategory; label: string }[];
+/** The three types of the filter row; the others are under "More filters". */
+export function mainTypes(): { value: EventCategory; label: string }[] {
+  const t = logStrings().types.main;
+  return [
+    { value: 'vault', label: t.vault },
+    { value: 'questions', label: t.questions },
+    { value: 'errors', label: t.errors },
+  ];
+}
 
-export const OTHER_TYPES = [
-  { value: 'messages', label: 'Messaggi' },
-  { value: 'runs', label: 'Lavori dei mostri' },
-  { value: 'delegations', label: 'Compiti passati' },
-  { value: 'tools', label: 'Strumenti' },
-  { value: 'instinct', label: 'Decisioni dei mostri' },
-  { value: 'system', label: 'Sistema' },
-] as const satisfies readonly { value: EventCategory; label: string }[];
+export function otherTypes(): { value: EventCategory; label: string }[] {
+  const t = logStrings().types.other;
+  return [
+    { value: 'messages', label: t.messages },
+    { value: 'runs', label: t.runs },
+    { value: 'delegations', label: t.delegations },
+    { value: 'tools', label: t.tools },
+    { value: 'instinct', label: t.instinct },
+    { value: 'system', label: t.system },
+  ];
+}
 
 /** Short name of a category, next to the time of a row. */
-export const TYPE_LABEL: Record<EventCategory, string> = {
-  vault: 'Note',
-  questions: 'Domande',
-  errors: 'Errori',
-  messages: 'Messaggi',
-  runs: 'Lavori',
-  delegations: 'Compiti',
-  tools: 'Strumenti',
-  instinct: 'Decisioni dei mostri',
-  system: 'Sistema',
-};
+export function typeLabel(category: EventCategory): string {
+  return logStrings().types.label[category];
+}
 
 /** Tools whose call changes something outside the notes: files, commands. */
 const EFFECT_TOOLS = new Set(['shell', 'fs_write', 'fs_move', 'fs_delete']);
@@ -72,8 +71,8 @@ export function isFailedTool(e: LogEvent): boolean {
 /**
  * Events with an effect, shown by default: changes to the notes (not the
  * monsters' own notes), files and commands, questions, errors, external tools,
- * changes to the setup, the orders removed from external texts and the brake. "Titan ha risposto", "ha iniziato un lavoro" and
- * reading tools are under "Tutto".
+ * changes to the setup, the orders removed from external texts and the brake. "Titan replied", "started a job" and
+ * reading tools are under "Everything".
  */
 export function hasEffect(e: LogEvent): boolean {
   switch (e.type) {
@@ -93,10 +92,10 @@ export function hasEffect(e: LogEvent): boolean {
     case 'error':
       return !isQuietError(e) && categoryOf(e) === 'errors';
     // The instinct (D-068): texts that gave orders to the monsters, and the brake on the
-    // actions that leave the computer, are effects; its other lines are under "Tutto".
+    // actions that leave the computer, are effects; its other lines are under "Everything".
     case 'security':
       // Only what was removed or paused: a warning (old logs, the core no longer sends it) is in
-      // "Tutto", and so is the user's own "Accetta".
+      // "Everything", and so is the user's own "Accept".
       return (
         e.data.action === 'injection_removed' ||
         e.data.action === 'invisible_removed' ||
@@ -218,11 +217,11 @@ export function undoIds(events: readonly LogEvent[]): Map<string, string> {
 }
 
 export interface UndoState {
-  /** The change is undone now (undone once, or undone again after "Rifai"). */
+  /** The change is undone now (undone once, or undone again after "Redo"). */
   undone: boolean;
   /**
    * The action to undo to flip the state: the change itself, or the last undo
-   * ("Rifai" undoes the undo). Null while the event of the last undo is on its way.
+   * ("Redo" undoes the undo). Null while the event of the last undo is on its way.
    */
   next: string | null;
 }

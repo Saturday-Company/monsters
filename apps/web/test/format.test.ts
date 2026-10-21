@@ -1,5 +1,6 @@
 import type { LogEvent } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
 import { detailsOf } from '../src/components/log/details.ts';
 import {
   estimatedNotice,
@@ -7,6 +8,10 @@ import {
   unpricedNotice,
 } from '../src/components/settings/SpendSection.tsx';
 import { eurFirst, formatShortDay, formatUsd, parseAmount } from '../src/lib/utils.ts';
+
+// The Italian copy is pinned in this file; the English one is in log-strings.test.ts.
+beforeAll(() => setAppLang('it'));
+afterAll(() => setAppLang('en'));
 
 describe('formatUsd', () => {
   it('shows small costs with their significant digits, never "0 $"', () => {

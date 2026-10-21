@@ -1,5 +1,5 @@
-import { ulid, type EventInput, type LogEvent } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { setAppLang, ulid, type EventInput, type LogEvent } from '@monsters/shared';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   fileTag,
   formatSize,
@@ -17,6 +17,10 @@ import {
   threadsOf,
   type ChatItem,
 } from '../src/store/derive.ts';
+
+// The Italian copy is pinned in this file; the English one is in log-strings.test.ts.
+beforeAll(() => setAppLang('it'));
+afterAll(() => setAppLang('en'));
 
 /* Files in the web app (D-075): the composer's checks, the chips of the chat. */
 

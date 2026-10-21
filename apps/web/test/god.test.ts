@@ -1,5 +1,6 @@
 import { dotPalette } from '@monsters/monster-kit';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
 import {
   BAND_COLS,
   GAP_COLS,
@@ -18,6 +19,10 @@ import {
 } from '../src/components/god/god.ts';
 import { monsterFor } from '../src/lib/monsters.ts';
 import { ASKED_ACTIVITY, type LiveState } from '../src/store/derive.ts';
+
+// The Italian copy is pinned in this file; the English one is in log-strings.test.ts.
+beforeAll(() => setAppLang('it'));
+afterAll(() => setAppLang('en'));
 
 const NOW = 1_800_000_000_000;
 const ids = ['titan', 'rhea', 'dione', 'mimas'];

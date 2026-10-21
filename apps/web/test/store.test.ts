@@ -1,11 +1,12 @@
 import {
+  setAppLang,
   ulid,
   type AgentSummary,
   type EventInput,
   type LogEvent,
   type Question,
 } from '@monsters/shared';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SocketLike, Transport } from '../src/lib/transport.ts';
 import {
   boot,
@@ -19,6 +20,10 @@ import {
   useApp,
 } from '../src/store/app.ts';
 import { buildChat, chatThread, runOwners, undoConflictText } from '../src/store/derive.ts';
+
+// The Italian copy is pinned in this file; the English one is in log-strings.test.ts.
+beforeAll(() => setAppLang('it'));
+afterAll(() => setAppLang('en'));
 
 let clock = 1_760_000_000_000;
 function ev<T extends EventInput>(input: T): LogEvent {

@@ -1,5 +1,5 @@
-import { ulid, type EventInput, type LogEvent } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { setAppLang, ulid, type EventInput, type LogEvent } from '@monsters/shared';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   buildChat,
   conversationLine,
@@ -11,6 +11,10 @@ import {
   sumRuns,
   toolShort,
 } from '../src/store/derive.ts';
+
+// The Italian copy is pinned in this file; the English one is in log-strings.test.ts.
+beforeAll(() => setAppLang('it'));
+afterAll(() => setAppLang('en'));
 
 /* The instrumentation of the chat (docs/design.md, "Strumentazione"): one line per turn. */
 

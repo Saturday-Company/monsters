@@ -19,8 +19,9 @@ import {
   runOwners,
   undoConflictText,
 } from '../../store/derive.ts';
-import { canUndo, TYPE_LABEL, undoState } from './activity.ts';
+import { canUndo, typeLabel, undoState } from './activity.ts';
 import { detailsOf } from './details.ts';
+import { logStrings } from './log.strings.ts';
 import { useAgent, useNameOf } from '../../store/hooks.ts';
 import { cn, domId, formatTime, prettyJson } from '../../lib/utils.ts';
 import { Button } from '../ui/button.tsx';
@@ -68,7 +69,7 @@ export function ActorLight({ id, error = false }: { id: string; error?: boolean 
 }
 
 /**
- * Undoes a change (or the undo of it: "Rifai"), with a toast that offers the
+ * Undoes a change (or the undo of it: "Redo"), with a toast that offers the
  * opposite for 8 seconds. Exported for the other places with an undo.
  */
 export async function toggleUndo(actionId: string, force = false): Promise<void> {
@@ -77,17 +78,18 @@ export async function toggleUndo(actionId: string, force = false): Promise<void>
   const ok = await undoAction(before.next, force, true);
   if (!ok) return;
   const nowUndone = !before.undone;
-  notify(nowUndone ? 'Modifica annullata' : 'Modifica rifatta', 'success', {
+  const s = logStrings().row;
+  notify(nowUndone ? s.undone : s.redone, 'success', {
     // The toast offers the opposite: the change back, or undone again.
-    action: { label: nowUndone ? 'Rifai' : 'Annulla', run: () => void toggleUndo(actionId) },
+    action: { label: nowUndone ? s.redo : s.undo, run: () => void toggleUndo(actionId) },
     ms: 8000,
   });
 }
 
 /**
- * Annulla / Annullata · Rifai for one vault action. The state follows the
+ * Undo / Undone · Redo for one vault action. The state follows the
  * chain of undos (an undo of the undo brings the change back), so it is right
- * after a "Rifai" and after a reload.
+ * after a "Redo" and after a reload.
  */
 export function UndoButton({
   actionId,
@@ -104,6 +106,7 @@ export function UndoButton({
   const conflicted = state.next ?? actionId;
   const conflict = useApp((s) => s.undoConflicts[conflicted]);
   const [busy, setBusy] = useState(false);
+  const s = logStrings().row;
   const run = (force = false) => {
     setBusy(true);
     void toggleUndo(actionId, force).finally(() => setBusy(false));
@@ -118,7 +121,7 @@ export function UndoButton({
         <p className="text-footnote leading-snug text-ink-muted">{undoConflictText(conflict)}</p>
         <div className="flex gap-1.5">
           <Button size="sm" variant="ghost" onClick={() => dismissUndoConflict(conflicted)}>
-            Lascia stare
+            {s.leaveIt}
           </Button>
           <Button
             size="sm"
@@ -127,7 +130,7 @@ export function UndoButton({
             onClick={() => run(true)}
             data-testid="undo-force"
           >
-            {state.undone ? 'Rifai comunque' : 'Annulla comunque'}
+            {state.undone ? s.redoAnyway : s.undoAnyway}
           </Button>
         </div>
       </div>
@@ -135,19 +138,19 @@ export function UndoButton({
   if (state.undone)
     return (
       <span className="inline-flex shrink-0 items-center gap-2" data-testid="undo-done">
-        <span className="label px-1 text-ink-faint">Annullata</span>
+        <span className="label px-1 text-ink-faint">{s.wasUndone}</span>
         <Button
           size="sm"
           variant="secondary"
           disabled={busy || !state.next}
           onClick={() => run()}
           data-testid="redo"
-          aria-label={compact ? 'Rifai' : undefined}
-          title={compact ? 'Rifai la modifica' : undefined}
+          aria-label={compact ? s.redo : undefined}
+          title={compact ? s.redoChange : undefined}
           className={cn(compact && 'size-8 rounded-[8px] px-0')}
         >
           <ArrowArcRight size={16} aria-hidden />
-          {!compact && 'Rifai'}
+          {!compact && s.redo}
         </Button>
       </span>
     );
@@ -158,12 +161,12 @@ export function UndoButton({
       disabled={busy || !state.next}
       onClick={() => run()}
       data-testid="undo"
-      aria-label={compact ? 'Annulla' : undefined}
-      title={compact ? 'Annulla la modifica' : undefined}
+      aria-label={compact ? s.undo : undefined}
+      title={compact ? s.undoChange : undefined}
       className={cn(compact && 'size-8 rounded-[8px] px-0')}
     >
       <ArrowCounterClockwise size={16} aria-hidden />
-      {!compact && 'Annulla'}
+      {!compact && s.undo}
     </Button>
   );
 }
@@ -184,13 +187,14 @@ export function unbroken(text: string): ReactNode[] {
   );
 }
 
-/** "Rispondi" on a question still open: to the chat where it waits (where its run started). */
+/** "Answer" on a question still open: to the chat where it waits (where its run started). */
 function AnswerKey({ e }: { e: LogEvent<'question'> }) {
   // Only an open question looks for its chat (the owners of the runs cost a pass on the log).
   const home = useApp((s) => {
     if (s.questions[e.data.questionId]?.status !== 'open') return null;
     return (e.runId && runOwners(s.events).get(e.runId)) || e.agent;
   });
+  const s = logStrings().row;
   if (!home) return null;
   return (
     <Button
@@ -200,13 +204,14 @@ function AnswerKey({ e }: { e: LogEvent<'question'> }) {
       data-testid="answer-question"
     >
       <ArrowBendUpLeft size={16} weight="bold" aria-hidden />
-      Rispondi
+      {s.answer}
     </Button>
   );
 }
 
 function EventDetails({ id, e }: { id: string; e: LogEvent }) {
   const fields = detailsOf(e);
+  const s = logStrings().row;
   return (
     <div id={id} className="screen tape-screen mt-2.5 mb-1 rounded-[10px] px-4 py-3 text-footnote">
       {fields.length > 0 && (
@@ -226,7 +231,7 @@ function EventDetails({ id, e }: { id: string; e: LogEvent }) {
       )}
       <details className={cn(fields.length > 0 && 'mt-2.5')}>
         <summary className="label cursor-pointer text-screen-muted select-none hover:text-screen-ink">
-          Dati tecnici
+          {s.technicalData}
         </summary>
         <pre className="mt-2 max-h-72 overflow-auto font-mono text-caption leading-[1.6] break-words whitespace-pre-wrap text-screen-ink [scrollbar-color:var(--screen-muted)_transparent] [scrollbar-width:thin]">
           {prettyJson({ type: e.type, agent: e.agent, runId: e.runId, ...e.data })}
@@ -247,7 +252,7 @@ function heldReplyOf(e: LogEvent): boolean {
   );
 }
 
-/** «Manda comunque» (review of the waves 3 and 4); «Mandata» once it went. */
+/** "Send anyway" (review of the waves 3 and 4); "Sent" once it went. */
 export function SendHeldButton({ e }: { e: LogEvent }) {
   const sent = useApp((s) =>
     s.events.some(
@@ -258,12 +263,13 @@ export function SendHeldButton({ e }: { e: LogEvent }) {
     ),
   );
   const [busy, setBusy] = useState(false);
-  if (sent) return <span className="label px-1 text-ink-faint">Mandata</span>;
+  const s = logStrings().row;
+  if (sent) return <span className="label px-1 text-ink-faint">{s.sent}</span>;
   const send = async () => {
     setBusy(true);
     try {
       await getApi().sendHeldReply(e.id);
-      notify('Fatto: la risposta è partita.', 'success');
+      notify(s.replySent, 'success');
     } catch (err) {
       notify(describeError(err), 'error');
     } finally {
@@ -272,7 +278,7 @@ export function SendHeldButton({ e }: { e: LogEvent }) {
   };
   return (
     <Button size="sm" variant="secondary" disabled={busy} onClick={() => void send()}>
-      Manda comunque
+      {s.sendAnyway}
     </Button>
   );
 }
@@ -332,7 +338,7 @@ export const EventRow = memo(function EventRow({
           {unbroken(describeEvent(e, nameOf))}
         </p>
         <p className="mt-1 flex flex-wrap items-center gap-x-3 text-ink-faint">
-          <span className="label">{TYPE_LABEL[cat]}</span>
+          <span className="label">{typeLabel(cat)}</span>
           {!compact && (
             <button
               type="button"
@@ -341,7 +347,7 @@ export const EventRow = memo(function EventRow({
               onClick={() => setOpen((v) => !v)}
               className="hit-24 inline-flex items-center gap-1 rounded-[4px] text-caption font-medium text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
             >
-              Dettagli
+              {logStrings().row.details}
               <CaretRight
                 size={10}
                 weight="bold"

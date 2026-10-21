@@ -18,15 +18,7 @@ import { cn, formatAgo } from '../../lib/utils.ts';
 import { DraftsSection } from '../projects/DraftCards.tsx';
 import { canUndo, pausedToolEvents } from './activity.ts';
 import { ActorAvatar, ActorLight, UndoButton } from './EventRow.tsx';
-
-const VERB: Record<string, string> = {
-  create: 'creata',
-  edit: 'modificata',
-  move: 'spostata',
-  delete: 'cestinata',
-  restore: 'ripristinata',
-  undo: 'modifica annullata',
-};
+import { logStrings } from './log.strings.ts';
 
 /** How many notes "Note toccate" lists. */
 const NOTES_SHOWN = 5;
@@ -44,7 +36,7 @@ export function latestNoteChanges(
   for (let i = events.length - 1; i >= 0 && out.length < max; i--) {
     const e = events[i]!;
     if (e.type !== 'vault_change' || !isUserNoteChange(e)) continue;
-    const key = e.data.path.toLocaleLowerCase('it-IT');
+    const key = e.data.path.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(e);
@@ -63,7 +55,7 @@ export function latestMemoryChange(events: readonly LogEvent[]): LogEvent<'vault
 }
 
 /**
- * The change a row is about: an undo (or the undo of an undo, "Rifai") stands
+ * The change a row is about: an undo (or the undo of an undo, "Redo") stands
  * for the change at the start of the chain, shown with its state.
  */
 export function rootChange(
@@ -82,7 +74,7 @@ export function rootChange(
 }
 
 /**
- * "Da rivedere", the optional column next to the chat on wide windows: the
+ * "To review", the optional column next to the chat on wide windows: the
  * drafts of the monsters to confirm (D-098, D-100), the questions waiting for
  * you and the notes touched lately, each with its undo.
  * Everything else is in Attività.
@@ -100,15 +92,16 @@ export function ActivityPanel({ className }: { className?: string }) {
   );
   const owners = useMemo(() => runOwners(events), [events]);
   const paused = useMemo(() => pausedToolEvents(events), [events]);
+  const s = logStrings().panel;
 
   return (
     <aside
-      aria-label="Da rivedere"
+      aria-label={s.title}
       data-testid="activity-panel"
       className={cn('flex min-h-0 flex-col overflow-hidden', className)}
     >
       <div className="scroll-soft min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <h2 className="px-1 pb-4 text-title3 font-semibold text-ink">Da rivedere</h2>
+        <h2 className="px-1 pb-4 text-title3 font-semibold text-ink">{s.title}</h2>
         <DraftsSection />
         {paused.length > 0 && (
           <section aria-labelledby="paused-title" className="mb-6" data-testid="paused-tools">
@@ -117,19 +110,19 @@ export function ActivityPanel({ className }: { className?: string }) {
               className="label flex items-center gap-2 px-1 pb-2 text-ink-muted"
             >
               <span aria-hidden className="led" data-tone="signal" />
-              Strumenti fermi
+              {s.pausedTools}
             </h3>
             <ul className="tape">
               {paused.map((e) => (
                 <li key={e.id} className="px-1.5 py-2.5">
                   <p className="text-body leading-snug text-ink">
-                    {e.data.message ?? 'Uno strumento è cambiato.'}
+                    {e.data.message ?? s.toolChanged}
                   </p>
                   <a
                     href={MCP_PAUSED_PATH}
                     className="label mt-1 inline-flex min-h-6 items-center gap-1 text-signal-ink hover:underline"
                   >
-                    Decidi nelle impostazioni <ArrowRight size={12} weight="bold" aria-hidden />
+                    {s.decide} <ArrowRight size={12} weight="bold" aria-hidden />
                   </a>
                 </li>
               ))}
@@ -144,10 +137,10 @@ export function ActivityPanel({ className }: { className?: string }) {
               data-tone={open.length > 0 ? 'signal' : undefined}
               data-blink={open.length > 0 ? '' : undefined}
             />
-            Aspettano una tua risposta
+            {s.waiting}
           </h3>
           {open.length === 0 ? (
-            <p className="px-1 py-1.5 text-body text-ink-muted">Nessuna domanda aperta.</p>
+            <p className="px-1 py-1.5 text-body text-ink-muted">{s.noQuestions}</p>
           ) : (
             <ul className="tape">
               {open.map((q) => (
@@ -171,7 +164,9 @@ export function ActivityPanel({ className }: { className?: string }) {
                   >
                     <ActorAvatar id={q.from} size={36} />
                     <span className="min-w-0">
-                      <span className="label block text-ink-faint">{nameOf(q.from)} ti chiede</span>
+                      <span className="label block text-ink-faint">
+                        {s.asksYou(nameOf(q.from))}
+                      </span>
                       <span className="mt-0.5 line-clamp-3 block text-body leading-snug font-medium text-ink">
                         {plainText(q.question)}
                       </span>
@@ -185,12 +180,10 @@ export function ActivityPanel({ className }: { className?: string }) {
 
         <section aria-labelledby="notes-title">
           <h3 id="notes-title" className="label px-1 pb-2 text-ink-muted">
-            Note toccate
+            {s.notesTouched}
           </h3>
           {notes.length === 0 ? (
-            <p className="px-1 py-1.5 text-body text-ink-muted">
-              Nessuna nota modificata, per ora.
-            </p>
+            <p className="px-1 py-1.5 text-body text-ink-muted">{s.noNotes}</p>
           ) : (
             <ul className="tape">
               {notes.map((latest) => {
@@ -223,10 +216,9 @@ export function ActivityPanel({ className }: { className?: string }) {
                       {/* Who may be cut, never when: the time keeps its place. */}
                       <p className="mt-0.5 flex min-w-0 gap-1 text-caption text-ink-muted">
                         <span className="min-w-0 truncate">
-                          {VERB[e.data.action] ?? 'toccata'} da{' '}
-                          {e.agent === 'user' ? 'te' : nameOf(e.agent)}
+                          {s.noteLine(e.data.action, e.agent === 'user', nameOf(e.agent))}
                         </span>
-                        <span className="shrink-0 tabular-nums">·&nbsp;{formatAgo(e.ts)}</span>
+                        <span className="shrink-0 tabular-nums">{`·\u00a0${formatAgo(e.ts)}`}</span>
                       </p>
                     </div>
                     {root?.data.actionId && <UndoButton actionId={root.data.actionId} compact />}
@@ -240,12 +232,9 @@ export function ActivityPanel({ className }: { className?: string }) {
                   </span>
                   <p className="flex min-w-0 flex-1 gap-1 text-caption text-ink-muted">
                     <span className="min-w-0">
-                      {listText(memories)}{' '}
-                      {memories.length === 1
-                        ? 'ha aggiornato i suoi appunti'
-                        : 'hanno aggiornato i loro appunti'}
+                      {s.memoryLine(listText(memories), memories.length)}
                     </span>
-                    <span className="shrink-0 tabular-nums">·&nbsp;{formatAgo(memory.ts)}</span>
+                    <span className="shrink-0 tabular-nums">{`·\u00a0${formatAgo(memory.ts)}`}</span>
                   </p>
                 </li>
               )}
@@ -257,7 +246,7 @@ export function ActivityPanel({ className }: { className?: string }) {
           href={PATHS.log}
           className="key mt-6 inline-flex h-10 items-center gap-2 rounded-[10px] px-4 text-footnote font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
         >
-          Tutta l’attività <ArrowRight size={15} weight="bold" aria-hidden />
+          {s.all} <ArrowRight size={15} weight="bold" aria-hidden />
         </a>
       </div>
     </aside>

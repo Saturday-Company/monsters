@@ -151,6 +151,7 @@ import {
   type TeamView,
 } from '@monsters/shared';
 import { z } from 'zod';
+import { apiStrings } from './api.strings.ts';
 import { desktop } from './desktop.ts';
 import { adoptSessionSecret, forgetSessionSecret } from './session-secret.ts';
 import { NetworkError, type RawResponse, type Transport } from './transport.ts';
@@ -198,115 +199,96 @@ export class ApiError extends Error {
   }
 }
 
-/** Friendly Italian text for an error, ready to show in the UI. */
+/** Friendly text for an error, in the app's language, ready to show in the UI. */
 export function describeError(err: unknown): string {
-  if (err instanceof NetworkError) return 'Non riesco a raggiungere Monsters. È acceso?';
+  const s = apiStrings();
+  if (err instanceof NetworkError) return s.network;
   if (err instanceof ApiError) {
+    // The core's own words, when it gave some (they are more precise than ours).
+    const own = err.message && err.message !== err.code ? err.message : null;
     switch (err.code) {
       case 'invalid_credentials':
-        return 'Email o password non corrette.';
+        return s.invalidCredentials;
       case 'too_many_attempts':
-        return 'Troppi tentativi. Aspetta un minuto e riprova.';
+        return s.tooManyAttempts;
       case 'already_configured':
-        return 'Monsters è già configurato: accedi con il tuo account.';
+        return s.alreadyConfigured;
       case 'invalid_setup_code':
-        return 'Il codice non è giusto. Lo trovi nel terminale dove hai avviato Monsters.';
+        return s.invalidSetupCode;
       case 'unauthorized':
-        return 'La sessione è scaduta. Accedi di nuovo.';
+        return s.unauthorized;
       case 'owner_required':
-        return 'Questa la decidi solo tu: serve la tua password (o rispondi dal tuo Telegram).';
+        return s.ownerRequired;
       case 'confirm_required':
-        return 'Per questa serve di nuovo la tua password.';
+        return s.confirmRequired;
       case 'session_secret_required':
-        return 'Questa scheda non ha la chiave della sessione: accedi di nuovo.';
+        return s.sessionSecretRequired;
       case 'wrong_password':
-        return err.message && err.message !== err.code ? err.message : 'La password non è giusta.';
+        return own ?? s.wrongPassword;
       case 'halted':
-        return 'I mostri sono fermi. Premi “Riprendi” per farli ripartire.';
+        return s.halted;
       case 'no_provider':
-        return 'Manca un modello: aggiungi una chiave in Impostazioni → Modelli e scegli il modello del mostro.';
+        return s.noProvider;
       case 'key_from_env':
       case 'not_configured':
       case 'unknown_provider':
-        return err.message && err.message !== err.code
-          ? err.message
-          : 'Questo provider non è collegato.';
+        return own ?? s.providerNotConnected;
       case 'invalid_key':
-        return 'OpenRouter non riconosce questa chiave. Controlla di averla copiata tutta.';
+        return s.invalidKey;
       case 'invalid_token':
-        return 'Telegram non riconosce questo token. Copialo di nuovo da @BotFather.';
+        return s.invalidToken;
       case 'token_from_env':
       case 'no_token':
-        return err.message && err.message !== err.code
-          ? err.message
-          : 'Collega prima il bot con il suo token.';
+        return own ?? s.noToken;
       case 'bot_in_use':
-        return err.message && err.message !== err.code
-          ? err.message
-          : 'Questo bot è già collegato a Monsters: per un altro mostro crea un bot nuovo con @BotFather.';
+        return own ?? s.botInUse;
       case 'invalid_agent':
-        return err.message && err.message !== err.code
-          ? err.message
-          : 'Scegli un mostro della squadra: il tuo capo parla già con il bot principale.';
+        return own ?? s.invalidAgent;
       case 'owner':
-        return err.message && err.message !== err.code
-          ? err.message
-          : 'Il tuo account resta sempre: è quello che approva.';
+        return own ?? s.owner;
       case 'verification_failed':
-        return 'Non riesco a verificare la chiave con OpenRouter. Controlla la connessione e riprova.';
+        return s.verificationFailed;
       case 'busy':
-        return err.message && err.message !== err.code
-          ? err.message
-          : 'Qualcuno sta ancora lavorando: aspetta che finisca o fermalo, poi riprova.';
+        return own ?? s.busy;
       case 'unknown_agent':
-        return 'Non c’è nessun mostro con questo nome nella squadra.';
+        return s.unknownAgent;
       case 'not_open':
-        return 'Questa domanda non aspetta più una risposta.';
+        return s.notOpen;
       case 'conflict':
-        return 'La nota è cambiata dopo questa modifica: annullarla cancellerebbe il lavoro fatto dopo.';
+        return s.conflict;
       case 'invalid_input':
-        return err.message && /already undone/.test(err.message)
-          ? 'Questa modifica è già stata annullata.'
-          : 'Non posso farlo con questi dati.';
+        return err.message && /already undone/.test(err.message) ? s.alreadyUndone : s.invalidInput;
       case 'not_found':
-        return 'Non lo trovo: forse non esiste più.';
+        return s.notFound;
       case 'invalid_server':
       case 'unknown_server':
-        return err.message && err.message !== err.code
-          ? err.message
-          : 'Questo server non si può salvare così.';
+        return own ?? s.invalidServer;
       case 'invalid_folder':
-        return err.message && err.message !== err.code
-          ? err.message
-          : 'Questa cartella non si può concedere.';
+        return own ?? s.invalidFolder;
       case 'invalid_request':
-        return err.message && err.message !== err.code
-          ? `Qualcosa non va nei dati: ${err.message}`
-          : 'Qualcosa non va nei dati inviati.';
+        return own ? s.invalidRequestWith(own) : s.invalidRequest;
       case 'invalid_response':
-        return 'Il core ha risposto in un modo che non capisco.';
+        return s.invalidResponse;
       case 'file_too_large':
-        return 'Il file è troppo grande: al massimo 25 MB.';
+        return s.fileTooLarge;
       case 'unsupported_type':
-        return err.message && err.message !== err.code
-          ? err.message
-          : 'Questo tipo di file non si può allegare.';
+        return own ?? s.unsupportedType;
       case 'unknown_file':
-        return 'Il file non c’è più.';
+        return s.unknownFile;
       case 'unknown_automation':
-        return 'Questa automazione non c’è più.';
+        return s.unknownAutomation;
       case 'unknown_run':
-        return 'Questo giro non c’è più.';
+        return s.unknownRun;
       case 'already_running':
-        return 'C’è già un giro in corso: aspetta che finisca.';
+        return s.alreadyRunning;
       case 'draft':
-        return 'È ancora una bozza: confermala prima di farla girare.';
+        return s.draft;
       case 'unknown_draft':
-        return 'Questa bozza non c’è più.';
+        return s.unknownDraft;
       case 'draft_closed':
-        return 'Questa bozza è già stata confermata o lasciata stare.';
+        return s.draftClosed;
       case 'unknown_project':
-        return 'Questo progetto non c’è più.';
+        return s.unknownProject;
       case 'name_taken':
       case 'invalid_name':
       case 'project_draft':
@@ -315,18 +297,17 @@ export function describeError(err: unknown): string {
       case 'not_draft':
       case 'team_full':
       case 'color_too_close':
-        return err.message && err.message !== err.code
-          ? err.message
-          : 'Non posso farlo con questo progetto, adesso.';
+        return own ?? s.projectRefused;
       case 'invalid_schedule':
-        return err.message && err.message !== err.code
-          ? `Non capisco quando: ${err.message.replace(/^quando:\s*/, '')}`
-          : 'Non capisco quando deve girare.';
+        // i18n-ignore: "quando:" / "when:", the prefix of the core's message
+        return own
+          ? s.invalidScheduleWith(own.replace(/^(?:quando|when):\s*/, ''))
+          : s.invalidSchedule;
       default:
-        return 'Qualcosa è andato storto. Riprova tra poco.';
+        return s.generic;
     }
   }
-  return 'Qualcosa è andato storto. Riprova tra poco.';
+  return s.generic;
 }
 
 /** Keeps the events that match the schema; unknown or newer event types are skipped. */

@@ -6,6 +6,7 @@ import type { ConnectionState } from '../lib/stream.ts';
 import type { ThemeName } from '../theme/tokens.ts';
 import { useApp } from './app.ts';
 import { ASKED_ACTIVITY, CONFUSED_TEXT, DONE_MS, makeNameOf, type LiveState } from './derive.ts';
+import { appStrings } from './app.strings.ts';
 import { usePrefs } from './prefs.ts';
 
 export interface AgentView extends AgentSummary {
@@ -70,18 +71,8 @@ export function useLive(id: string): LiveState {
 }
 
 /** Neutral forms: they read well whatever the monster's name and gender. */
-const MOOD_TEXT: Record<LiveState['mood'], string> = {
-  idle: 'disponibile',
-  working: 'al lavoro',
-  talking: 'sta scrivendo',
-  waiting: 'in attesa',
-  done: 'ha finito',
-  error: 'ha un problema',
-  stopped: 'in pausa',
-};
-
 export function moodText(mood: LiveState['mood']): string {
-  return MOOD_TEXT[mood];
+  return appStrings().mood[mood];
 }
 
 /** True when the monster waits for the user's answer to its question (see `applyLive`). */
@@ -89,12 +80,13 @@ export function waitsForUser(live: LiveState): boolean {
   return live.mood === 'waiting' && live.activity === ASKED_ACTIVITY;
 }
 
-/** The state of a monster in a few words: "al lavoro: Cerco “Lisbona”", "aspetta una tua risposta". */
+/** The state of a monster in a few words: "working: Searching “Lisbon”", "waiting for your answer". */
 export function statusText(live: LiveState): string {
-  if (waitsForUser(live)) return 'aspetta una tua risposta';
+  const s = appStrings();
+  if (waitsForUser(live)) return s.waitsForAnswer;
   const busy = live.mood === 'working' || live.mood === 'talking' || live.mood === 'waiting';
   if (busy && live.confused) return CONFUSED_TEXT;
-  return busy && live.activity ? `${MOOD_TEXT[live.mood]}: ${live.activity}` : MOOD_TEXT[live.mood];
+  return busy && live.activity ? `${s.mood[live.mood]}: ${live.activity}` : s.mood[live.mood];
 }
 
 function subscribeDark(cb: () => void) {
@@ -105,7 +97,7 @@ function subscribeDark(cb: () => void) {
 
 /**
  * The state of the link to the core for the places that show it: a stream that keeps failing
- * (3 attempts or 10 s) reads as `closed`, "non collegato", everywhere at once.
+ * (3 attempts or 10 s) reads as `closed`, "not connected", everywhere at once.
  */
 export function useConnection(): ConnectionState {
   return useApp((s) => (s.linkLost && s.connection === 'reconnecting' ? 'closed' : s.connection));
