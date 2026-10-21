@@ -2,6 +2,7 @@ import {
   AutomationCreateSchema,
   AutomationUpdateSchema,
   describeSchedule,
+  formatDate,
   isUserChannel,
   localTimeZone,
   ulid,
@@ -16,6 +17,7 @@ import {
   type AutomationUpdate,
   type AutomationView,
   type Channel,
+  type Lang,
   type LogEvent,
   type Question,
 } from '@monsters/shared';
@@ -28,6 +30,7 @@ import type { QuestionStore } from '../team/questions.ts';
 import type { RunLimits } from '../team/run-limits.ts';
 import { OBJECTIVE_TEXT_TAIL, proposalText } from '../team/proposal-text.ts';
 import type { TeamService } from '../team/team-service.ts';
+import { automationStrings } from './automations.strings.ts';
 import { automationRunOf, runsOfGiro } from './run-index.ts';
 import { checkSchedule, missedSlot, nextSlot, ScheduleError } from './schedule.ts';
 import { AutomationStore, automationIdFor } from './store.ts';
@@ -271,7 +274,7 @@ export class AutomationService {
         type: 'error',
         data: {
           code: 'automation_invalid',
-          message: `automazione non letta (${e.file}): ${e.message}`,
+          message: automationStrings().unreadable(e.file, e.message),
         },
       });
     }
@@ -295,13 +298,13 @@ export class AutomationService {
         const missed = missedSlot(a.schedule, since, now);
         if (missed?.catchUp) this.#fire(a, 'catchup', missed.slot);
         else if (missed) {
-          const when = this.#slotText(a, missed.slot);
+          const when = this.#slotWhen(a, missed.slot);
           this.#skip(
             a,
             'catchup',
             missed.slot,
             'missed',
-            `Il computer era spento (o il core chiuso) ${when}: è passato troppo tempo, il giro è saltato.`,
+            automationStrings().skippedAtStart(when),
             missed.missed,
           );
         }
@@ -348,7 +351,7 @@ export class AutomationService {
         type: 'error',
         data: {
           code: 'automation_unconfirmed',
-          message: `automazione «${a.name}» (${a.id}): attiva senza una conferma dell'utente, torna una bozza da confermare`,
+          message: automationStrings().unconfirmed(a.name, a.id),
         },
       });
     }
@@ -450,10 +453,7 @@ export class AutomationService {
   discard(id: string, by: Channel): void {
     const a = this.#require(id);
     if (a.status !== 'draft') {
-      throw new AutomationError(
-        'not_draft',
-        'Solo una bozza si lascia stare: questa è già attiva.',
-      );
+      throw new AutomationError('not_draft', automationStrings().notDraft);
     }
     this.remove(id, by);
   }
@@ -619,7 +619,7 @@ export class AutomationService {
   runNow(id: string, _by: Channel): AutomationRunNowResponse {
     const a = this.#require(id);
     if (a.status === 'draft') {
-      throw new AutomationError('draft', 'È una bozza: confermala prima di eseguirla.');
+      throw new AutomationError('draft', automationStrings().draftRun);
     }
     const out = this.#fire(a, 'manual', undefined, undefined, true);
     return out ?? { state: 'waiting_lead' };
@@ -639,7 +639,7 @@ export class AutomationService {
     const a = this.#require(id);
     const indexed = this.#refresh().giri.get(giro);
     if (!indexed || indexed.automationId !== a.id) {
-      throw new AutomationError('unknown_run', 'Questo giro non c’è.');
+      throw new AutomationError('unknown_run', automationStrings().unknownRun);
     }
     const run = this.#withStats(this.#live(indexed));
     const messages: AutomationRunDetail['messages'] = [];
@@ -697,12 +697,7 @@ export class AutomationService {
   #continueGiro(a: Automation, giro: string, item: InboxItem): void {
     // Paused (or back to a draft) since the question: the giro does not go on by itself (B4).
     if (a.status !== 'active') {
-      this.#closeGiro(
-        giro,
-        a,
-        'aborted',
-        "l'automazione è in pausa: il giro non riprende con la risposta",
-      );
+      this.#closeGiro(giro, a, 'aborted', automationStrings().pausedNoResume);
       return;
     }
     // Another giro of the automation is open (a later slot, B4): this one goes on after it.
@@ -720,7 +715,7 @@ export class AutomationService {
   #goOn(a: Automation, continuation: { giro: string; item: InboxItem }): void {
     const lead = this.#o.team.byId(a.lead);
     if (!lead || !this.#o.canRun(lead)) {
-      this.#closeGiro(continuation.giro, a, 'failed', `${a.lead} non può continuare il giro`);
+      this.#closeGiro(continuation.giro, a, 'failed', automationStrings().cantContinue(a.lead));
       return;
     }
     this.#giri.set(continuation.giro, {
@@ -743,12 +738,7 @@ export class AutomationService {
     const a = this.#store.get(id);
     if (!a || this.#o.runs.halted) return;
     if (a.status !== 'active') {
-      this.#closeGiro(
-        next.giro,
-        a,
-        'aborted',
-        "l'automazione è in pausa: il giro non riprende con la risposta",
-      );
+      this.#closeGiro(next.giro, a, 'aborted', automationStrings().pausedNoResume);
       return;
     }
     this.#goOn(a, next);
@@ -812,7 +802,7 @@ export class AutomationService {
           'schedule',
           late.slot,
           'missed',
-          `Il computer dormiva (o Monsters era fermo) ${this.#slotText(a, late.slot)}: è passato troppo tempo, il giro è saltato.`,
+          automationStrings().skippedAsleep(this.#slotWhen(a, late.slot)),
           late.missed,
         );
       } else if (late && late.slot !== at) this.#fire(a, 'catchup', late.slot, late.missed);
@@ -847,27 +837,19 @@ export class AutomationService {
       return null;
     };
     if (this.#o.runs.halted) {
-      return fail('halted', 'Monsters è fermo: il giro non è partito.', 'halted');
+      return fail('halted', automationStrings().halted, 'halted');
     }
     const lead = this.#o.team.byId(a.lead);
-    if (!lead) return fail('no_lead', `${a.lead} non è più nella squadra.`, 'unknown_agent');
+    if (!lead) return fail('no_lead', automationStrings().leadGone(a.lead), 'unknown_agent');
     if (!this.#o.canRun(lead)) {
-      return fail(
-        'no_provider',
-        `${lead.config.name} non ha un modello: collegane uno in Impostazioni → Modelli.`,
-        'no_provider',
-      );
+      return fail('no_provider', automationStrings().noModel(lead.config.name), 'no_provider');
     }
     const active = this.#activeGiro(a.id);
     if (active?.state === 'waiting_user') {
-      return fail(
-        'waiting_user',
-        'Il giro precedente aspetta ancora una tua risposta.',
-        'already_running',
-      );
+      return fail('waiting_user', automationStrings().waitingUser, 'already_running');
     }
     if (active || this.#pending.has(a.id)) {
-      return fail('running', 'Il giro precedente non è ancora finito.', 'already_running');
+      return fail('running', automationStrings().stillRunning, 'already_running');
     }
     if (this.#o.dispatcher.busy(lead.config.id)) {
       this.#wait(a, trigger, slot);
@@ -904,13 +886,13 @@ export class AutomationService {
         // A resumed giro must end here, or it stays open and blocks every later one.
         if (current && continuation) {
           const why = this.#o.runs.halted
-            ? 'Monsters è fermo: il giro non è ripreso.'
-            : `${current.lead} non è più nella squadra.`;
+            ? automationStrings().haltedResume
+            : automationStrings().leadGone(current.lead);
           this.#closeGiro(continuation.giro, current, 'aborted', why);
         } else if (current && this.#o.runs.halted) {
-          this.#skip(current, trigger, slot, 'halted', 'Monsters è fermo: il giro non è partito.');
+          this.#skip(current, trigger, slot, 'halted', automationStrings().halted);
         } else if (current)
-          this.#skip(current, trigger, slot, 'no_lead', `${current.lead} non è più nella squadra.`);
+          this.#skip(current, trigger, slot, 'no_lead', automationStrings().leadGone(current.lead));
         else if (continuation) this.#giri.delete(continuation.giro);
         return;
       }
@@ -922,7 +904,7 @@ export class AutomationService {
       if (this.#clock.now() >= p.deadline) {
         this.#pending.delete(a.id);
         const minutes = Math.round(this.#maxWaitMs / 60_000);
-        const message = `${lead.config.name} era occupato con un altro lavoro da più di ${minutes} minuti: il giro è saltato.`;
+        const message = automationStrings().busyTooLong(lead.config.name, minutes);
         if (continuation) this.#closeGiro(continuation.giro, current, 'failed', message);
         else this.#skip(current, trigger, slot, 'busy', message);
         return;
@@ -934,7 +916,7 @@ export class AutomationService {
   }
 
   #dropPending(id: string): void {
-    this.#dropQueued(id, "l'automazione è stata fermata");
+    this.#dropQueued(id, automationStrings().automationStopped);
     const p = this.#pending.get(id);
     if (!p) return;
     this.#clock.clearTimer(p.timer);
@@ -942,8 +924,9 @@ export class AutomationService {
     // The giro waiting to resume ends with its timer (paused, archived or deleted).
     if (p.continuation) {
       const a = this.#store.get(id);
-      if (a) this.#closeGiro(p.continuation.giro, a, 'aborted', "l'automazione è stata fermata");
-      else this.#giri.delete(p.continuation.giro);
+      if (a) {
+        this.#closeGiro(p.continuation.giro, a, 'aborted', automationStrings().automationStopped);
+      } else this.#giri.delete(p.continuation.giro);
     }
   }
 
@@ -1007,16 +990,25 @@ export class AutomationService {
     return Object.keys(out).length > 0 ? out : undefined;
   }
 
+  /** The day and time of a slot in the automation's time zone, in the app's language. */
+  #slotWhen(a: Automation, slot: number, lang?: Lang): string {
+    return formatDate(
+      slot,
+      {
+        timeZone: a.schedule.timezone,
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+      },
+      lang,
+    );
+  }
+
+  /** The slot as the lead reads it (for the model: Italian until the prompts move). */
   #slotText(a: Automation, slot: number): string {
-    const when = new Intl.DateTimeFormat('it-IT', {
-      timeZone: a.schedule.timezone,
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(slot));
-    return `(giro di ${when})`;
+    return `(giro di ${this.#slotWhen(a, slot, 'it')})`;
   }
 
   /** What the capo reads: the objective and what goes around it. */
@@ -1120,21 +1112,16 @@ export class AutomationService {
       const who = this.#o.team.byId(lead)?.config.name ?? lead;
       const body = answer ? `\n\n${clip(answer, 1500)}` : '';
       const notes = notesMade.slice(0, 10).map((p) => `• ${p}`);
-      this.#announce(
-        a,
-        'done',
-        runId,
-        `✅ Automazione «${a.name}»: ${who} ha finito.${body}${notes.length > 0 ? `\n\n📝 Note:\n${notes.join('\n')}` : ''}`,
-      );
+      this.#announce(a, 'done', runId, automationStrings().done(a.name, who, body, notes));
     } else if (status === 'failed') {
       this.#announce(
         a,
         'error',
         runId,
-        `⚠️ Automazione «${a.name}»: il giro non è andato a buon fine${error ? ` (${clip(error, 400)})` : ''}.`,
+        automationStrings().failed(a.name, error ? clip(error, 400) : undefined),
       );
     } else if (!this.#o.runs.halted) {
-      this.#announce(a, 'error', runId, `■ Automazione «${a.name}»: il giro si è fermato.`);
+      this.#announce(a, 'error', runId, automationStrings().stopped(a.name));
     }
   }
 
@@ -1167,7 +1154,7 @@ export class AutomationService {
     });
     // Stopped by the user, or the giro before still going: nothing to tell.
     if (reason !== 'halted' && reason !== 'running') {
-      this.#announce(a, 'error', null, `⏭ Automazione «${a.name}»: giro saltato. ${message}`);
+      this.#announce(a, 'error', null, automationStrings().skipped(a.name, message));
     }
   }
 
@@ -1209,26 +1196,29 @@ export class AutomationService {
     this.#o.log.append({
       agent: 'system',
       type: 'error',
-      data: { code: 'automation', message: `automazione «${a.name}»: ${(err as Error).message}` },
+      data: {
+        code: 'automation',
+        message: automationStrings().errorOf(a.name, (err as Error).message),
+      },
     });
   }
 
   /** The kill switch: the giri that wait (for the capo, for an answer) end here. */
   #onKill(): void {
-    for (const id of [...this.#queued.keys()]) this.#dropQueued(id, 'Monsters è stato fermato');
+    for (const id of [...this.#queued.keys()]) this.#dropQueued(id, automationStrings().killed);
     for (const [id, p] of [...this.#pending]) {
       this.#clock.clearTimer(p.timer);
       this.#pending.delete(id);
       const a = this.#store.get(id);
       if (!a) continue;
       if (p.continuation)
-        this.#closeGiro(p.continuation.giro, a, 'aborted', 'Monsters è stato fermato');
-      else this.#skip(a, p.trigger, p.slot, 'halted', 'Monsters è fermo: il giro non è partito.');
+        this.#closeGiro(p.continuation.giro, a, 'aborted', automationStrings().killed);
+      else this.#skip(a, p.trigger, p.slot, 'halted', automationStrings().halted);
     }
     for (const g of [...this.#giri.values()]) {
       if (g.state !== 'waiting_user') continue;
       const a = this.#store.get(g.automationId);
-      if (a) this.#closeGiro(g.giro, a, 'aborted', 'Monsters è stato fermato');
+      if (a) this.#closeGiro(g.giro, a, 'aborted', automationStrings().killed);
       else this.#giri.delete(g.giro);
     }
   }
@@ -1291,7 +1281,7 @@ export class AutomationService {
           s.runIds.at(-1) ?? giro,
           a,
           'aborted',
-          'la domanda non aspetta più una risposta',
+          automationStrings().questionClosed,
           s.automationId,
         );
       }
@@ -1367,7 +1357,7 @@ export class AutomationService {
     }
     const lead = this.#o.team.byId(a.lead);
     if (!lead || !this.#o.canRun(lead)) {
-      this.#closeGiro(giro, a, 'aborted', `${a.lead} non può continuare il giro`);
+      this.#closeGiro(giro, a, 'aborted', automationStrings().cantContinue(a.lead));
       return;
     }
     const continuation = { giro, text: RECOVER_TEXT };
@@ -1389,14 +1379,14 @@ export class AutomationService {
         this.#pending.get(id)?.continuation?.giro === g.giro;
       if (alive) return g;
       const a = this.#store.get(id);
-      if (a) this.#closeGiro(g.giro, a, 'aborted', 'il giro non ha più nulla in corso');
+      if (a) this.#closeGiro(g.giro, a, 'aborted', automationStrings().nothingRunning);
       else this.#giri.delete(g.giro);
       return undefined;
     }
     if (!g || g.state !== 'waiting_user') return g;
     if (this.#openQuestions(runsOfGiro(this.#o.log, g.giro)) > 0) return g;
     const a = this.#store.get(id);
-    if (a) this.#closeGiro(g.giro, a, 'aborted', 'la domanda non aspetta più una risposta');
+    if (a) this.#closeGiro(g.giro, a, 'aborted', automationStrings().questionClosed);
     else this.#giri.delete(g.giro);
     return undefined;
   }
@@ -1412,7 +1402,7 @@ export class AutomationService {
 
   #require(id: string): Automation {
     const a = this.#store.get(id);
-    if (!a) throw new AutomationError('unknown_automation', 'Questa automazione non c’è.');
+    if (!a) throw new AutomationError('unknown_automation', automationStrings().unknownAutomation);
     return a;
   }
 
@@ -1433,35 +1423,34 @@ export class AutomationService {
     if (lead) return lead;
     if (project !== undefined) {
       const p = this.#o.team.project(project);
-      if (!p) throw new AutomationError('unknown_project', `Non c’è un progetto "${project}".`);
+      if (!p)
+        throw new AutomationError('unknown_project', automationStrings().unknownProject(project));
       const capo = this.#o.team.lead(p.id);
       if (!capo) {
-        throw new AutomationError(
-          'unknown_agent',
-          `Il progetto ${p.name} non ha ancora un capo: confermalo prima.`,
-        );
+        throw new AutomationError('unknown_agent', automationStrings().projectNoLead(p.name));
       }
       return capo.config.id;
     }
     const orchestrator = this.#o.team.orchestrator();
-    if (!orchestrator) throw new AutomationError('unknown_agent', 'La squadra non ha un capo.');
+    if (!orchestrator) throw new AutomationError('unknown_agent', automationStrings().squadNoLead);
     return orchestrator.config.id;
   }
 
   #checkAgents(lead: string, participants: readonly string[], project?: string): void {
     for (const id of [lead, ...participants]) {
       if (!this.#o.team.byId(id)) {
-        throw new AutomationError('unknown_agent', `Nella squadra non c’è un mostro "${id}".`);
+        throw new AutomationError('unknown_agent', automationStrings().noMonster(id));
       }
     }
     if (project === undefined) return;
     const p = this.#o.team.project(project);
-    if (!p) throw new AutomationError('unknown_project', `Non c’è un progetto "${project}".`);
+    if (!p)
+      throw new AutomationError('unknown_project', automationStrings().unknownProject(project));
     // The monsters of a project's automation are its own (D-097).
     const outside = [lead, ...participants].find((id) => this.#o.team.projectOf(id)?.id !== p.id);
     if (outside) {
       const name = this.#o.team.byId(outside)?.config.name ?? outside;
-      throw new AutomationError('unknown_agent', `${name} non fa parte del progetto ${p.name}.`);
+      throw new AutomationError('unknown_agent', automationStrings().notInProject(name, p.name));
     }
   }
 

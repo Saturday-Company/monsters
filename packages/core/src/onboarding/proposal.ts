@@ -27,6 +27,7 @@ import {
   orchestratorMonster,
 } from './monsters.ts';
 import { contextSentence, type Profile } from './profile.ts';
+import { onboardingStrings } from './onboarding.strings.ts';
 
 /*
  * Team proposal (ARCHITECTURE §7.5-6, research 03 §5): a model fills a small
@@ -413,8 +414,6 @@ export async function proposeTeam(
       prompt = `${proposalPrompt(ctx)}\n\nLa tua risposta precedente non era valida: ${reason.slice(0, 600)}\nRispondi di nuovo con il solo JSON corretto.`;
     }
   }
-  options.onError?.(
-    'Non sono riuscito a preparare una squadra su misura per te: ti propongo quella di base, che puoi cambiare.',
-  );
+  options.onError?.(onboardingStrings().basicSquad);
   return fallbackProposal(ctx, requests);
 }

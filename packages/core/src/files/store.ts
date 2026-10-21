@@ -21,6 +21,7 @@ import {
   type DetectedType,
 } from './detect.ts';
 import { extractTextIsolated, type ExtractedText, type ExtractOptions } from './extract-run.ts';
+import { fileStrings } from './files.strings.ts';
 
 /*
  * The files of the user and of the monsters (D-075). The bytes live in the
@@ -377,9 +378,9 @@ export class FileStore {
   // eslint-disable-next-line @typescript-eslint/require-await
   async save(input: SaveFileInput): Promise<FileMeta> {
     if (input.bytes.byteLength > input.maxBytes) {
-      throw new FileError('file_too_large', 'Il file è troppo grande.');
+      throw new FileError('file_too_large', fileStrings().tooLarge);
     }
-    if (input.bytes.byteLength === 0) throw new FileError('unsupported_type', 'Il file è vuoto.');
+    if (input.bytes.byteLength === 0) throw new FileError('unsupported_type', fileStrings().empty);
     const type = this.detect(input.bytes, input.name, input.allowHtml === true);
     const meta = this.#write(input, type);
     // Text for the models that cannot read the original: after the file is safe on disk, in a
@@ -445,7 +446,7 @@ export class FileStore {
   /** Synchronous save of an image a tool returned (no text to extract). */
   saveImageSync(input: SaveFileInput): FileMeta {
     if (input.bytes.byteLength > input.maxBytes) {
-      throw new FileError('file_too_large', 'Il file è troppo grande.');
+      throw new FileError('file_too_large', fileStrings().tooLarge);
     }
     const type = this.detect(input.bytes, input.name);
     if (type.kind !== 'image') throw new FileError('unsupported_type', 'not an image');

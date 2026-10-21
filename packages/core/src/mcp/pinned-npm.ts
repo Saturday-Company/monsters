@@ -6,6 +6,7 @@ import { findOnPath } from '@monsters/shared/node';
 import { prepareNpmCi, runNpmCi, type InstallCommand } from './browser-package.ts';
 import { SHOPIFY_DEV_MCP_LOCK, type NpmLock } from './pinned-npm-locks.ts';
 import type { McpServerSetting } from './config.ts';
+import { mcpStrings } from './mcp.strings.ts';
 
 /*
  * Gallery servers that run from an npm package installed once, like the
@@ -116,7 +117,7 @@ export function checkPinnedInstall(home: string, server: PinnedNpmServer): void 
   };
   const integrity = recorded.packages?.[`node_modules/${server.package}`]?.integrity;
   if (pkg.version !== server.version || integrity !== pinnedIntegrity(server)) {
-    throw new Error(`il pacchetto ${server.package} installato non è quello atteso`);
+    throw new Error(mcpStrings().notExpected(server.package));
   }
   writeFileSync(
     join(dir, MARKER),
@@ -135,7 +136,7 @@ export async function installPinnedPackage(
 ): Promise<void> {
   if (pinnedInstalled(home, server)) return;
   const step = preparePinnedInstall(home, server, env, process.platform, hasNpm);
-  await runNpmCi(step, spawn, signal, `di ${server.package}`);
+  await runNpmCi(step, spawn, signal, mcpStrings().installOf(server.package));
   checkPinnedInstall(home, server);
 }
 

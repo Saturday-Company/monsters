@@ -94,7 +94,7 @@ describe('gallery npm servers with a pinned install', () => {
     const npm = () => true;
     await expect(
       installPinnedPackage(home, shopify, {}, fake('0.0.1'), signal, npm),
-    ).rejects.toThrow(/non è quello atteso/);
+    ).rejects.toThrow(/isn’t the expected one/);
     expect(pinnedInstalled(home, shopify)).toBe(false);
     await installPinnedPackage(home, shopify, {}, fake(shopify.version), signal, npm);
     expect(pinnedInstalled(home, shopify)).toBe(true);

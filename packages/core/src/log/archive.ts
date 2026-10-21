@@ -29,6 +29,7 @@ import type { Db } from '../db/sqlite.ts';
 import type { StateStore } from '../db/state-store.ts';
 import { readsThirdParty } from '../team/compaction.ts';
 import type { EventLog } from './event-log.ts';
+import { coreStrings } from '../core.strings.ts';
 
 /*
  * Archive of the event log (approved by the maintainer on 19/10). The log is append-only and grows
@@ -816,7 +817,7 @@ export class LogArchiver {
           type: 'error',
           data: {
             code: 'log_vacuum_failed',
-            message: `archivio fatto, ma il VACUUM del database non è riuscito (riprovo più avanti): ${message}`,
+            message: coreStrings().vacuumFailed(message),
           },
         });
       }
@@ -843,9 +844,11 @@ export class LogArchiver {
         type: 'error',
         data: {
           code: 'log_archive_damaged',
-          message: `l'archivio ${month} non si legge (${
-            err instanceof Error ? err.message : String(err)
-          }): messo da parte in ${aside}, il mese riparte da un file nuovo`,
+          message: coreStrings().archiveDamaged(
+            month,
+            err instanceof Error ? err.message : String(err),
+            aside,
+          ),
         },
       });
       return new Set();

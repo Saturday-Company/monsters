@@ -97,6 +97,7 @@ import {
   splitAgentToolName,
   type SchemaCheck,
 } from './convert.ts';
+import { mcpStrings } from './mcp.strings.ts';
 import { ChildStdioTransport } from './stdio-transport.ts';
 
 /*
@@ -153,11 +154,7 @@ const MAX_CONSECUTIVE_TIMEOUTS = 2;
 /** Wait before the one new try of a read-only call that got a 5xx. */
 export const RETRY_5XX_MS = 1_000;
 /** What the card of a server says when its sign-in is gone. */
-export const SIGN_IN_NEEDED = 'Serve l’accesso: premi “Collega” e conferma nel browser.';
-const OAUTH_UNREACHABLE =
-  'Servizio non raggiungibile: non riesco a rinnovare l’accesso (l’accesso resta valido). Riprovo alla prossima chiamata.';
-const HEADERS_REFUSED =
-  'Il server ha rifiutato l’accesso: controlla le intestazioni (per esempio il token).';
+export const signInNeeded = (): string => mcpStrings().signInNeeded;
 /** After a timeout, how long a ping may take before the process counts as stuck. */
 const STUCK_PING_MS = 5_000;
 /**
@@ -741,13 +738,13 @@ class Connection {
   #signInLost(): void {
     this.needsSignIn = true;
     if (this.setting.oauth) {
-      this.error = SIGN_IN_NEEDED;
+      this.error = signInNeeded();
       this.#m.logConnection(this, 'needs_signin', {
-        message: `${this.label} chiede di nuovo l’accesso: premi «Collega» in ${settingsPath('altriProgrammi')}.`,
+        message: mcpStrings().signInAskedAgain(this.label, settingsPath('altriProgrammi')),
       });
     } else {
-      this.error = HEADERS_REFUSED;
-      this.#m.logConnection(this, 'failed', { message: HEADERS_REFUSED });
+      this.error = mcpStrings().headersRefused;
+      this.#m.logConnection(this, 'failed', { message: mcpStrings().headersRefused });
     }
   }
 
@@ -761,7 +758,7 @@ class Connection {
     if (scope === undefined || scope === this.#toldScope) return;
     this.#toldScope = scope;
     this.#m.logConnection(this, 'needs_signin', {
-      message: `${this.label} chiede un permesso in più per quello che i mostri gli chiedono: premi «Collega» in ${settingsPath('altriProgrammi')} e conferma nel browser.`,
+      message: mcpStrings().moreScope(this.label, settingsPath('altriProgrammi')),
     });
   }
   #toldScope: string | undefined;
@@ -927,8 +924,8 @@ class Connection {
         if (this.setting.transport === 'http') {
           // Checked before the refusals: a sign-in that could not be renewed is still good.
           if (this.setting.oauth && isAuthUnreachable(err)) {
-            if (this.#failLive(generation, OAUTH_UNREACHABLE)) {
-              this.#m.logConnection(this, 'failed', { message: OAUTH_UNREACHABLE });
+            if (this.#failLive(generation, mcpStrings().oauthUnreachable)) {
+              this.#m.logConnection(this, 'failed', { message: mcpStrings().oauthUnreachable });
             }
             throw new ToolError(
               'UNAVAILABLE',
@@ -963,7 +960,7 @@ class Connection {
             );
           }
           if (isAuthRefused(err)) {
-            if (this.#failLive(generation, SIGN_IN_NEEDED)) this.#signInLost();
+            if (this.#failLive(generation, signInNeeded())) this.#signInLost();
             throw this.signInError();
           }
         }
@@ -1291,16 +1288,12 @@ export class McpManager {
           action: 'tools_updated',
           transport: c.setting.transport,
           tools: updated.length,
-          message: `${label} ha aggiornato ${updated.length === 1 ? `lo strumento «${updated[0]}»` : `${updated.length} strumenti`}: sono già attivi.`,
+          message: mcpStrings().toolsUpdated(label, updated.length, updated[0] ?? ''),
         },
       });
     }
     if (newlyPaused.length > 0) {
       const n = newlyPaused.length;
-      const what =
-        n === 1
-          ? `${newlyPaused[0]!.change === 'new' ? 'uno strumento nuovo' : 'cambiato lo strumento'} «${newlyPaused[0]!.name}»`
-          : `${n} strumenti nuovi o cambiati`;
       this.#o.log.append({
         agent: 'system',
         type: 'security',
@@ -1310,7 +1303,7 @@ export class McpManager {
           tool: `mcp__${c.name}`,
           server: c.name,
           tools: newlyPaused,
-          message: `${label} ha ${what}: ${n === 1 ? 'resta' : 'restano'} in pausa finché non ${n === 1 ? 'lo' : 'li'} accetti.`,
+          message: mcpStrings().toolsPaused(label, n, newlyPaused[0]!.change, newlyPaused[0]!.name),
         },
       });
     }
@@ -1328,7 +1321,7 @@ export class McpManager {
     seen?: Readonly<Record<string, string>>,
   ): McpServersResponse {
     const c = this.#connections.get(name);
-    if (!c) throw new McpError('unknown_server', `Non c’è nessun server “${name}”.`);
+    if (!c) throw new McpError('unknown_server', mcpStrings().unknownServer(name));
     const pins = this.#pins(c);
     if (pins && pins.launch === this.#hash(c)) {
       const accepted = Object.values(pins.paused).filter(
@@ -1351,7 +1344,12 @@ export class McpManager {
             tool: `mcp__${name}`,
             server: name,
             tools: accepted.map((p) => ({ name: p.name, change: p.change })),
-            message: `Hai accettato ${accepted.length === 1 ? `«${accepted[0]!.name}»` : `${accepted.length} strumenti`} di ${c.setting.label ?? name}${by === 'telegram' ? ' (da Telegram)' : ''}.`,
+            message: mcpStrings().toolsAccepted(
+              accepted.length,
+              accepted[0]!.name,
+              c.setting.label ?? name,
+              by === 'telegram',
+            ),
           },
         });
       }
@@ -1389,9 +1387,7 @@ export class McpManager {
     const s = c.setting;
     const { secrets, unreadable } = inspectMcpSecrets(this.#o.secretsDir, c.name);
     if (unreadable) {
-      throw new Error(
-        `I segreti del server “${c.name}” non si leggono (portachiavi non raggiungibile o file rovinato): il server resta spento. Reinseriscili dal pannello.`,
-      );
+      throw new Error(mcpStrings().secretsUnreadable(c.name));
     }
     this.#trustSecrets(secrets);
     if (s.transport === 'http') {
@@ -1497,38 +1493,38 @@ export class McpManager {
 
   describeStartError(c: Connection, launch: Launch, err: unknown, stderr: string): string {
     const tail = lastLine(this.redact(stderr));
-    if (err instanceof HaltedError) return 'I mostri sono fermi: premi “Riprendi” e riprova.';
+    if (err instanceof HaltedError) return mcpStrings().halted;
     const code = errorCode(err);
     if (launch.transport === 'stdio') {
       if (code === 'ENOENT') {
         // `uvx` or `npx` of a server of the gallery: what to install, not only what is missing.
         const launcher = launcherOf(launch.command);
         if (launcher) {
-          return `Non trovo il programma “${launch.command}”: fa parte di ${launcher.needs}, che va installato sul computer (${launcher.url}). Poi riprova.`;
+          return mcpStrings().programMissingNeeds(launch.command, launcher.needs, launcher.url);
         }
-        return `Non trovo il programma “${launch.command}”: controlla che sia installato e scritto bene.`;
+        return mcpStrings().programMissing(launch.command);
       }
-      if (code === 'EACCES') return `Non posso avviare “${launch.command}”: mancano i permessi.`;
+      if (code === 'EACCES') return mcpStrings().noPermission(launch.command);
     } else {
-      if (launch.oauth && isAuthUnreachable(err)) return OAUTH_UNREACHABLE;
-      if (launch.oauth && isAuthRefused(err)) return SIGN_IN_NEEDED;
+      if (launch.oauth && isAuthUnreachable(err)) return mcpStrings().oauthUnreachable;
+      if (launch.oauth && isAuthRefused(err)) return signInNeeded();
       if (err instanceof SdkHttpError) {
-        if (err.status === 401 || err.status === 403) return HEADERS_REFUSED;
-        if (err.status === 404) return 'A questo indirizzo non c’è un server MCP (risposta 404).';
-        return `Il server ha risposto con un errore (${err.status}).`;
+        if (err.status === 401 || err.status === 403) return mcpStrings().headersRefused;
+        if (err.status === 404) return mcpStrings().noMcpHere;
+        return mcpStrings().serverError(err.status);
       }
       if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ECONNRESET') {
-        return `Nessun server risponde a ${launch.url}.`;
+        return mcpStrings().noServerAt(launch.url ?? '');
       }
     }
     if (isTimeout(err)) {
-      return `Il server non ha risposto in tempo${tail ? `: ${tail}` : '.'}`;
+      return mcpStrings().timedOut(tail);
     }
     if (isConnectionLost(err) || (err as Error | null)?.message?.includes('closed')) {
-      return `Il server si è chiuso subito${tail ? `: ${tail}` : '.'}`;
+      return mcpStrings().closedAtOnce(tail);
     }
     const message = this.redact(err instanceof Error ? err.message : String(err)).slice(0, 300);
-    return `Non riesco a collegarmi a “${c.name}”: ${message}${tail ? ` (${tail})` : ''}`;
+    return mcpStrings().cantConnect(c.name, message, tail);
   }
 
   logConnection(
@@ -1677,7 +1673,7 @@ export class McpManager {
           type: 'error',
           data: {
             code: 'mcp_tools_limited',
-            message: `${agent.config.name} riceve ${max} strumenti di altri programmi su ${tools.length} (il massimo per il suo modello): gli altri restano fuori dai suoi lavori, e lui lo sa.`,
+            message: mcpStrings().toolsLimited(agent.config.name, max, tools.length),
           },
         });
       }
@@ -1836,11 +1832,11 @@ export class McpManager {
       agentName: e.agentName,
       description: (e.tool.description ?? '').slice(0, 300),
       ...(blocked(c, e)
-        ? { skipped: 'esegue codice sul computer senza limiti: escluso dal browser di Monsters' }
+        ? { skipped: mcpStrings().skippedUnsafe }
         : !e.check.ok
           ? { skipped: e.check.reason }
           : paused.has(e.tool.name)
-            ? { skipped: 'nuovo o cambiato: in pausa finché non lo accetti' }
+            ? { skipped: mcpStrings().skippedPaused }
             : {}),
     }));
   }
@@ -1914,10 +1910,7 @@ export class McpManager {
   async upsert(rawName: string, req: McpServerRequest, by: Channel): Promise<McpServersResponse> {
     const nameCheck = McpServerNameSchema.safeParse(rawName);
     if (!nameCheck.success) {
-      throw new McpError(
-        'invalid_server',
-        'Il nome può avere solo lettere minuscole, cifre e trattini (al massimo 24), e deve iniziare con una lettera.',
-      );
+      throw new McpError('invalid_server', mcpStrings().invalidName);
     }
     const name = nameCheck.data;
     const existing = this.#connections.get(name);
@@ -1926,14 +1919,12 @@ export class McpManager {
     if ((preset === 'browser') !== (name === BROWSER_SERVER)) {
       throw new McpError(
         'invalid_server',
-        name === BROWSER_SERVER
-          ? '“browser” è il nome del browser di Monsters: scegline un altro.'
-          : 'Il browser si attiva solo con il nome “browser”.',
+        name === BROWSER_SERVER ? mcpStrings().browserNameTaken : mcpStrings().browserNameOnly,
       );
     }
     for (const id of req.agents ?? []) {
       if (id !== '*' && this.#o.team.get(id)?.config.id !== id) {
-        throw new McpError('unknown_agent', `Non c’è nessun mostro “${id}” nella squadra.`);
+        throw new McpError('unknown_agent', mcpStrings().unknownAgent(id));
       }
     }
     const transport =
@@ -1958,7 +1949,7 @@ export class McpManager {
       ...(prev ? {} : { enabled: req.enabled ?? true }),
     });
     if (next.oauth && transport !== 'http') {
-      throw new McpError('invalid_server', 'L’accesso con OAuth vale solo per i servizi sul web.');
+      throw new McpError('invalid_server', mcpStrings().oauthWebOnly);
     }
     if (preset === 'browser') {
       delete next.command;
@@ -1966,7 +1957,7 @@ export class McpManager {
       delete next.url;
     } else if (transport === 'stdio') {
       if (!next.command?.trim()) {
-        throw new McpError('invalid_server', 'Scrivi il comando che avvia il server.');
+        throw new McpError('invalid_server', mcpStrings().commandMissing);
       }
       delete next.url;
     } else {
@@ -1974,19 +1965,13 @@ export class McpManager {
       try {
         url = new URL(next.url ?? '');
       } catch {
-        throw new McpError(
-          'invalid_server',
-          'Scrivi l’indirizzo completo, per esempio https://esempio.it/mcp.',
-        );
+        throw new McpError('invalid_server', mcpStrings().urlFull);
       }
       if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-        throw new McpError('invalid_server', 'L’indirizzo deve iniziare con https:// o http://.');
+        throw new McpError('invalid_server', mcpStrings().urlScheme);
       }
       if (url.username || url.password) {
-        throw new McpError(
-          'invalid_server',
-          'Metti nome utente e password nelle intestazioni, non nell’indirizzo.',
-        );
+        throw new McpError('invalid_server', mcpStrings().urlCredentials);
       }
       delete next.command;
       next.args = [];
@@ -1997,20 +1982,20 @@ export class McpManager {
     const merge = (
       incoming: Record<string, string> | undefined,
       saved: Record<string, string>,
-      label: string,
+      kind: 'variable' | 'header',
     ) => {
       if (incoming === undefined) return saved;
       const out: Record<string, string> = {};
       for (const [k, v] of Object.entries(incoming)) {
         if (v !== '') out[k] = v;
         else if (saved[k] !== undefined) out[k] = saved[k];
-        else throw new McpError('invalid_server', `Manca il valore di ${label} ${k}.`);
+        else throw new McpError('invalid_server', mcpStrings().missingValue(kind, k));
       }
       return out;
     };
     const secrets: McpSecrets = {
-      env: transport === 'stdio' ? merge(req.env, stored.env, 'la variabile') : {},
-      headers: transport === 'http' ? merge(req.headers, stored.headers, 'l’intestazione') : {},
+      env: transport === 'stdio' ? merge(req.env, stored.env, 'variable') : {},
+      headers: transport === 'http' ? merge(req.headers, stored.headers, 'header') : {},
     };
     this.#trustSecrets(secrets);
     // Unreadable secrets that the request does not replace stay as they are,
@@ -2067,7 +2052,7 @@ export class McpManager {
 
   async remove(name: string, by: Channel): Promise<McpServersResponse> {
     const c = this.#connections.get(name);
-    if (!c) throw new McpError('unknown_server', `Non c’è nessun server “${name}”.`);
+    if (!c) throw new McpError('unknown_server', mcpStrings().unknownServer(name));
     // Out of the list before stopping: no call can start it again meanwhile.
     this.#connections.delete(name);
     await c.dispose();
@@ -2088,7 +2073,7 @@ export class McpManager {
   /** Starts the server (if needed) and lists its tools again. */
   async test(name: string): Promise<McpTestResponse> {
     const c = this.#connections.get(name);
-    if (!c) throw new McpError('unknown_server', `Non c’è nessun server “${name}”.`);
+    if (!c) throw new McpError('unknown_server', mcpStrings().unknownServer(name));
     if (this.runs.halted) throw new HaltedError();
     try {
       const entries = await c.catalog(undefined, true);
@@ -2106,9 +2091,9 @@ export class McpManager {
 
   #oauthServer(name: string): Connection {
     const c = this.#connections.get(name);
-    if (!c) throw new McpError('unknown_server', `Non c’è nessun server “${name}”.`);
+    if (!c) throw new McpError('unknown_server', mcpStrings().unknownServer(name));
     if (c.setting.transport !== 'http' || !c.setting.oauth) {
-      throw new McpError('invalid_server', 'Questo programma non usa l’accesso con OAuth.');
+      throw new McpError('invalid_server', mcpStrings().notOauth);
     }
     return c;
   }
@@ -2144,15 +2129,14 @@ export class McpManager {
     try {
       name = await this.oauth.finish(params);
     } catch (err) {
-      const message =
-        err instanceof OAuthFlowError ? err.message : 'Qualcosa è andato storto: riprova.';
+      const message = err instanceof OAuthFlowError ? err.message : mcpStrings().wentWrong;
       return { ok: false, message: this.redact(message) };
     }
     const c = this.#connections.get(name);
     if (!c) {
       // Removed while the browser was away: nothing to keep.
       await this.oauth.signOut(name);
-      return { ok: false, message: 'Il programma è stato tolto nel frattempo.' };
+      return { ok: false, message: mcpStrings().removedMeanwhile };
     }
     // The next use connects with the new tokens.
     await c.stop();
@@ -2161,7 +2145,7 @@ export class McpManager {
       type: 'mcp_server',
       data: { server: name, action: 'signed_in', transport: 'http', by: 'ui' },
     });
-    return { ok: true, message: `${c.setting.label ?? name} è collegato.` };
+    return { ok: true, message: mcpStrings().connected(c.setting.label ?? name) };
   }
 
   /** Revokes and forgets the tokens; the server stays, to sign in again. */

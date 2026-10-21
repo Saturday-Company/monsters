@@ -555,7 +555,7 @@ describe('visible == executable where only one harness goes (D1, D-136)', () => 
     const instinct = t
       .events(runId)
       .find((e): e is LogEvent<'instinct'> => e.type === 'instinct' && e.data.action === 'tools');
-    expect(instinct?.data.message).toContain('aspettano');
+    expect(instinct?.data.message).toContain('on hold');
   });
 
   it('Opus at the plan’s limit goes on Sonnet with the same tools (D-093)', async () => {

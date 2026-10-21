@@ -12,6 +12,7 @@ import { DispatchError } from '../../team/dispatcher.ts';
 import { TeamError } from '../../team/team-manager.ts';
 import type { AppEnv, RouteHelpers } from '../app.ts';
 import { TEAM_ERROR_STATUS } from './squad.ts';
+import { serverStrings } from '../server.strings.ts';
 
 /*
  * Projects (D-097; contract in shared/src/projects.ts), with the same access
@@ -19,8 +20,6 @@ import { TEAM_ERROR_STATUS } from './squad.ts';
  * header, JSON body). Changing a project is allowed while Monsters is stopped
  * (it starts no work); a message to a project is refused then (409 `halted`).
  */
-
-const ONBOARDING_PENDING = 'Completa prima il primo avvio: la squadra non esiste ancora.';
 
 export function registerProjectRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: Hub): void {
   const { requireAuth, parseBody, channelOf } = h;
@@ -50,7 +49,10 @@ export function registerProjectRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: H
   const ready = (c: Context<AppEnv>) =>
     hub.onboarding.done
       ? null
-      : c.json({ error: 'onboarding_pending', message: ONBOARDING_PENDING }, 409);
+      : c.json(
+          { error: 'onboarding_pending', message: serverStrings().onboardingPendingProject },
+          409,
+        );
 
   app.get('/api/projects', requireAuth, (c) => guard(c, () => projects.list()));
 
@@ -132,10 +134,7 @@ export function registerProjectRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: H
     if (!body.ok) return body.res;
     const unknownFile = body.data.attachments?.find((id) => !hub.files.get(id));
     if (unknownFile) {
-      return c.json(
-        { error: 'unknown_file', message: 'Un allegato non c’è più: toglilo e riprova.' },
-        404,
-      );
+      return c.json({ error: 'unknown_file', message: serverStrings().attachmentGone }, 404);
     }
     return guard(
       c,

@@ -10,6 +10,7 @@ import {
 } from '@monsters/shared';
 import type { StateStore } from '../db/state-store.ts';
 import type { EventLog } from '../log/event-log.ts';
+import { providerStrings } from './providers.strings.ts';
 
 /*
  * Services connected "tramite Claude" (D-069, contract in
@@ -104,12 +105,15 @@ function fromInit(status: string, firstParty: boolean): PartStatus {
     // Claude Design answers 403 to a /login token without its scopes.
     return {
       state: 'needs_login',
-      message:
-        'Serve l’accesso a Claude Design: in un terminale apri `claude` e scrivi `/design-login`.',
+      message: providerStrings().designLogin,
       checkedAt,
     };
   }
-  return { state: 'error', message: `Claude non riesce a collegarlo (${status}).`, checkedAt };
+  return {
+    state: 'error',
+    message: providerStrings().claudeCantConnect(status),
+    checkedAt,
+  };
 }
 
 export class ClaudeConnectionService {
@@ -143,7 +147,7 @@ export class ClaudeConnectionService {
   #entry(id: string): McpCatalogEntry {
     const entry = viaClaudeEntries().find((e) => e.id === id);
     if (!entry) {
-      throw new ClaudeConnectionError('unknown_service', `${id} non si collega tramite Claude.`);
+      throw new ClaudeConnectionError('unknown_service', providerStrings().notViaClaude(id));
     }
     return entry;
   }
@@ -218,7 +222,7 @@ export class ClaudeConnectionService {
             ? fromInit(found[s.name]!, true)
             : {
                 state: 'error',
-                message: 'Claude Code non ha risposto: riprova tra poco.',
+                message: providerStrings().claudeNoAnswer,
                 checkedAt: Date.now(),
               };
         }
@@ -231,7 +235,7 @@ export class ClaudeConnectionService {
   set(id: string, agents: string[] | undefined, by: Channel): ClaudeConnectionsResponse {
     const entry = this.#entry(id);
     const bad = agents?.find((a) => a !== '*' && !this.#o.agentExists(a));
-    if (bad) throw new ClaudeConnectionError('unknown_agent', `nessun mostro ${bad}`);
+    if (bad) throw new ClaudeConnectionError('unknown_agent', providerStrings().noMonster(bad));
     const list = this.#stored();
     const existing = list.find((s) => s.id === id);
     if (existing) {
@@ -249,8 +253,8 @@ export class ClaudeConnectionService {
         transport: 'http',
         by,
         message: existing
-          ? `${entry.name} tramite Claude: cambiato chi lo usa.`
-          : `${entry.name} tramite Claude: lo usano i mostri che lavorano con Claude.`,
+          ? providerStrings().viaClaudeChanged(entry.name)
+          : providerStrings().viaClaudeAdded(entry.name),
       },
     });
     return this.view();
@@ -269,7 +273,7 @@ export class ClaudeConnectionService {
         action: 'removed',
         transport: 'http',
         by,
-        message: `${entry.name} non arriva più ai mostri tramite Claude. Resta collegato al tuo account Claude.`,
+        message: providerStrings().viaClaudeRemoved(entry.name),
       },
     });
     return this.view();

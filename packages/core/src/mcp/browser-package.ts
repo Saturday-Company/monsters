@@ -9,6 +9,7 @@ import {
   browserCli,
   browserPackageDir,
 } from './config.ts';
+import { mcpStrings } from './mcp.strings.ts';
 
 /*
  * One-time install of the browser preset (Playwright MCP) in
@@ -86,10 +87,6 @@ export function browserInstalled(home: string): boolean {
   }
 }
 
-/** In Italian: it reaches the user. */
-export const NPM_NEEDED =
-  'per installare il browser serve npm: installa Node.js (con npm) da https://nodejs.org e riprova';
-
 /** Exit code of `cmd.exe /c <command>` when the command does not exist. */
 const CMD_NOT_FOUND = 9009;
 
@@ -125,7 +122,7 @@ export function prepareNpmCi(
   platform: NodeJS.Platform = process.platform,
   hasNpm: (env: NodeJS.ProcessEnv) => boolean = (e) => findOnPath('npm', e) !== null,
 ): InstallCommand {
-  if (platform === 'win32' && !hasNpm(env)) throw new Error(NPM_NEEDED);
+  if (platform === 'win32' && !hasNpm(env)) throw new Error(mcpStrings().npmNeeded);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true, mode: DIR_MODE });
   writeFileSync(
@@ -176,7 +173,7 @@ export function checkBrowserInstall(home: string): void {
   };
   const integrity = recorded.packages?.['node_modules/@playwright/mcp']?.integrity;
   if (pkg.version !== PLAYWRIGHT_MCP_VERSION || integrity !== PLAYWRIGHT_MCP_INTEGRITY) {
-    throw new Error(`il pacchetto ${PLAYWRIGHT_MCP_PACKAGE} installato non è quello atteso`);
+    throw new Error(mcpStrings().notExpected(PLAYWRIGHT_MCP_PACKAGE));
   }
   writeFileSync(
     join(dir, MARKER),
@@ -218,8 +215,8 @@ export async function runNpmCi(
       reject(
         new Error(
           (err as NodeJS.ErrnoException).code === 'ENOENT'
-            ? NPM_NEEDED
-            : `installazione ${what} non riuscita: ${err.message}`,
+            ? mcpStrings().npmNeeded
+            : mcpStrings().installFailed(what, err.message),
         ),
       );
     });
@@ -230,10 +227,10 @@ export async function runNpmCi(
   });
   if (signal.aborted) throw signal.reason;
   // npm vanished between the check and the start (Windows, through cmd.exe).
-  if (code === CMD_NOT_FOUND && step.command === 'cmd.exe') throw new Error(NPM_NEEDED);
+  if (code === CMD_NOT_FOUND && step.command === 'cmd.exe') throw new Error(mcpStrings().npmNeeded);
   if (code !== 0) {
     const tail = output.trim().split('\n').at(-1) ?? '';
-    throw new Error(`installazione ${what} non riuscita (npm ${code})${tail ? `: ${tail}` : ''}`);
+    throw new Error(mcpStrings().installFailedCode(what, 'npm', code, tail));
   }
 }
 
@@ -250,6 +247,6 @@ export async function installBrowserPackage(
 ): Promise<void> {
   if (browserInstalled(home)) return;
   const step = prepareBrowserInstall(home, env, process.platform, hasNpm);
-  await runNpmCi(step, spawn, signal, 'del browser');
+  await runNpmCi(step, spawn, signal, mcpStrings().installOfBrowser);
   checkBrowserInstall(home);
 }

@@ -127,7 +127,7 @@ describe('OAuth with the core on another computer (D-072)', () => {
     expect(back.startsWith(start.redirectUri)).toBe(true);
     const page = await fetch(back);
     expect(page.status).toBe(200);
-    expect(await page.text()).toContain('è collegato');
+    expect(await page.text()).toContain('is connected');
     expect((await t.json<McpTestResponse>('POST', '/api/mcp-servers/notes/test')).ok).toBe(true);
   });
 
@@ -170,12 +170,12 @@ describe('OAuth with the core on another computer (D-072)', () => {
       url: 'codice a caso',
     });
     expect(notUrl.ok).toBe(false);
-    expect(notUrl.message).toContain('indirizzo');
+    expect(notUrl.message).toContain('address');
 
     const done = await t.json<McpOAuthFinishResponse>('POST', '/api/mcp-oauth/finish', {
       url: back,
     });
-    expect(done).toEqual({ ok: true, message: 'notes è collegato.' });
+    expect(done).toEqual({ ok: true, message: 'notes is connected.' });
     const view = await t.json<McpServersResponse>('GET', '/api/mcp-servers');
     expect(view.servers[0]!.oauth).toEqual({ connected: true, pending: false });
     // One use: the same address again is refused.

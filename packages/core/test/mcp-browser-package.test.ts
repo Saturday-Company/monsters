@@ -74,7 +74,7 @@ describe('browser preset: package installed once', () => {
   it('on Windows without npm: says to install Node.js, not what cmd.exe would say', async () => {
     const home = tempHome();
     expect(() => prepareBrowserInstall(home, { PATH: '' }, 'win32', () => false)).toThrow(
-      /installa Node\.js \(con npm\) da https:\/\/nodejs\.org/,
+      /install Node\.js \(with npm\) from https:\/\/nodejs\.org/,
     );
     // The real check: npm (npm.cmd on Windows) on the PATH.
     if (process.platform === 'win32') {
@@ -97,7 +97,7 @@ describe('browser preset: package installed once', () => {
     const npm = () => true;
 
     await expect(installBrowserPackage(home, {}, fake('0.0.1'), signal, npm)).rejects.toThrow(
-      /non è quello atteso/,
+      /isn’t the expected one/,
     );
     expect(browserInstalled(home)).toBe(false);
 

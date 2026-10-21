@@ -41,6 +41,7 @@ import { secretStoreFor } from '../secrets/store.ts';
 import type { EventLog } from '../log/event-log.ts';
 import { ProviderSetupError } from './manager.ts';
 import type { PlanLimits } from './plan-limits.ts';
+import { providerStrings } from './providers.strings.ts';
 
 /*
  * The subscriptions (M2.7, D-005, D-035), set up by the user from the UI:
@@ -263,7 +264,7 @@ export class SubscriptionService {
     } catch (err) {
       throw new ProviderSetupError(
         'verification_failed',
-        `Non riesco ad aprire la porta del rientro dal browser: ${(err as Error).message}`,
+        providerStrings().portFailed((err as Error).message),
       );
     }
     this.#login = login;
@@ -276,7 +277,7 @@ export class SubscriptionService {
         this.#o.log.append({
           agent: 'system',
           type: 'message',
-          data: { role: 'system', text: 'ChatGPT collegato: i mostri possono usare il tuo piano.' },
+          data: { role: 'system', text: providerStrings().chatgptConnected },
         });
         this.#o.onReady?.('chatgpt');
       },
@@ -285,9 +286,9 @@ export class SubscriptionService {
         if (err instanceof SiwcError && err.code === 'cancelled') return;
         this.#chatgptMessage =
           err instanceof SiwcError && err.code === 'access_denied'
-            ? 'Accesso annullato nel browser.'
+            ? providerStrings().signInCancelled
             : (chatgptUnreachableText(err, 'sign_in') ??
-              `Accesso a ChatGPT non completato (${(err as Error).message}).`);
+              providerStrings().chatgptIncomplete((err as Error).message));
       },
     );
     return { authorizeUrl: login.url, redirectUri: login.redirectUri };
@@ -296,9 +297,7 @@ export class SubscriptionService {
   async signOutChatGPT(): Promise<void> {
     this.#login?.cancel();
     const { confirmed } = await this.#siwc.signOut();
-    this.#chatgptMessage = confirmed
-      ? undefined
-      : 'Non ho potuto confermare la revoca con OpenAI: scollega Monsters anche dalle impostazioni di ChatGPT.';
+    this.#chatgptMessage = confirmed ? undefined : providerStrings().revokeUnconfirmed;
     // The numbers were the account's that signed out.
     this.#o.planLimits.clear('chatgpt');
     this.configure();
@@ -313,20 +312,17 @@ export class SubscriptionService {
   /** Turns a harness on; installs its official package first when allowed and needed. */
   async activate(id: string, install: boolean): Promise<void> {
     if (id !== 'claude-agent' && id !== 'codex') {
-      throw new ProviderSetupError('unknown_provider', `abbonamento ${id} sconosciuto`);
+      throw new ProviderSetupError('unknown_provider', providerStrings().unknownSubscription(id));
     }
     if (id === 'codex' && !this.#siwc.signedIn()) {
-      throw new ProviderSetupError(
-        'invalid_request',
-        'Codex usa il tuo accesso a ChatGPT: collega prima ChatGPT.',
-      );
+      throw new ProviderSetupError('invalid_request', providerStrings().codexNeedsChatgpt);
     }
     this.#o.state.set(ENABLED_KEY(id), true);
     const found = id === 'claude-agent' ? this.#claudeBinary() : this.#codexBinary();
     if (!found && install) {
       void this.#install(id);
     } else if (!found) {
-      this.#setMessage(id, 'Non trovo il programma: installalo da qui o sul tuo computer.');
+      this.#setMessage(id, providerStrings().programMissing);
     }
     this.configure();
     if (id === 'claude-agent' && found) await this.checkClaude();
@@ -334,7 +330,7 @@ export class SubscriptionService {
 
   deactivate(id: string): void {
     if (id !== 'claude-agent' && id !== 'codex') {
-      throw new ProviderSetupError('unknown_provider', `abbonamento ${id} sconosciuto`);
+      throw new ProviderSetupError('unknown_provider', providerStrings().unknownSubscription(id));
     }
     this.#o.state.set(ENABLED_KEY(id), false);
     this.configure();
@@ -374,13 +370,13 @@ export class SubscriptionService {
         type: 'message',
         data: {
           role: 'system',
-          text: `Installato ${spec} per ${id === 'codex' ? 'Codex' : 'Claude Agent'}.`,
+          text: providerStrings().installed(spec, id === 'codex' ? 'Codex' : 'Claude Agent'),
         },
       });
       this.configure();
       if (id === 'claude-agent') await this.checkClaude();
     } catch (err) {
-      this.#setMessage(id, `Installazione non riuscita: ${(err as Error).message}`);
+      this.#setMessage(id, providerStrings().installFailed((err as Error).message));
       this.#o.log.append({
         agent: 'system',
         type: 'error',

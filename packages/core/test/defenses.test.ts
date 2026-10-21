@@ -1116,9 +1116,8 @@ describe('spending caps', () => {
     const error = t
       .events(sent.runId)
       .find((e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'spend_cap');
-    expect(error?.data.message).toMatch(
-      /Titan si ferma: raggiunto il tetto di spesa della squadra/,
-    );
+    expect(error?.data.message).toMatch(/^Titan stops: /);
+    expect(error?.data.message).toMatch(/raggiunto il tetto di spesa della squadra/);
     expect(t.provider.callsTo('titan')).toHaveLength(0);
     const view = await t.json<{ status: string; day: { spentEur: number } }>(
       'GET',

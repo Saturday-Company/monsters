@@ -2,6 +2,7 @@ import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FILE_MODE } from './config.ts';
 import { selfStartTime, startTimeOf, START_TOLERANCE } from './kill/proc.ts';
+import { coreStrings } from './core.strings.ts';
 
 /*
  * One core per data directory: `MONSTERS_HOME/core.lock` holds the pid of the
@@ -24,10 +25,7 @@ export class HomeLockedError extends Error {
   readonly code = 'home_locked';
   readonly pid: number;
   constructor(home: string, pid: number, url?: string) {
-    super(
-      `Monsters è già in esecuzione su ${home}${url ? ` (${url})` : ''}, processo ${pid}: ` +
-        'fermalo prima di avviarne un altro, oppure usa un’altra MONSTERS_HOME.',
-    );
+    super(coreStrings().homeLocked(home, url, pid));
     this.name = 'HomeLockedError';
     this.pid = pid;
   }

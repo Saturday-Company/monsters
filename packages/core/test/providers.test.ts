@@ -138,7 +138,7 @@ describe('providers API', () => {
     expect(e.data.message).not.toContain(OPENAI_KEY);
   });
 
-  it('paid OpenRouter models: refused in Italian until the switch is on, applied without a restart', async () => {
+  it('paid OpenRouter models: refused in words until the switch is on, applied without a restart', async () => {
     const http = fakeHttp((req) =>
       new URL(req.url).pathname === '/api/v1/key'
         ? json({ data: { label: 'prova', free_model_daily_requests: { used: 0, limit: 50 } } })
@@ -167,7 +167,7 @@ describe('providers API', () => {
     expect(refused.status).toBe(400);
     expect(await refused.json()).toMatchObject({
       error: 'paid_model_blocked',
-      message: expect.stringContaining('Usa anche modelli a pagamento') as unknown,
+      message: expect.stringContaining('Also use paid models') as unknown,
     });
 
     // Switch on: saved in settings.json, the same provider accepts paid models at once.

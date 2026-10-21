@@ -109,7 +109,7 @@ describe('MCP OAuth: sign-in, use, refresh, sign-out', () => {
     });
     const before = await t.json<McpTestResponse>('POST', '/api/mcp-servers/notes/test');
     expect(before.ok).toBe(false);
-    expect(before.error).toContain('Collega');
+    expect(before.error).toContain('Connect');
 
     // Start: registration with our callback, then the page of the service.
     const start = await t.json<McpOAuthStartResponse>('POST', '/api/mcp-servers/notes/oauth');
@@ -131,14 +131,14 @@ describe('MCP OAuth: sign-in, use, refresh, sign-out', () => {
     // A callback with another state is refused, and does not spend the real one.
     const forged = await fetch(`${start.redirectUri}?code=x&state=not-the-state`);
     expect(forged.status).toBe(400);
-    expect(await forged.text()).toContain('non è più valido');
+    expect(await forged.text()).toContain('no longer valid');
 
     const page = await fetch(start.authorizationUrl!, { redirect: 'manual' });
     const back = page.headers.get('location')!;
     const done = await fetch(back);
     expect(done.status).toBe(200);
     expect(done.headers.get('content-security-policy')).toContain("default-src 'none'");
-    expect(await done.text()).toContain('Note remote è collegato');
+    expect(await done.text()).toContain('Note remote is connected');
     // The same code and state again: refused (one use).
     expect((await fetch(back)).status).toBe(400);
 
@@ -202,7 +202,7 @@ describe('MCP OAuth: sign-in, use, refresh, sign-out', () => {
     as.deny = true;
     const denied = await signIn(t, as);
     expect(denied.status).toBe(400);
-    expect(await denied.text()).toContain('Hai rifiutato l’accesso');
+    expect(await denied.text()).toContain('You refused the sign-in');
     let view = await t.json<McpServersResponse>('GET', '/api/mcp-servers');
     expect(view.servers[0]!.oauth).toEqual({ connected: false, pending: false });
 
@@ -250,7 +250,7 @@ describe('MCP OAuth: sign-in, use, refresh, sign-out', () => {
     expect(res.status).toBe(502);
     const body = (await res.json()) as { error: string; message: string };
     expect(body.error).toBe('oauth_failed');
-    expect(body.message).toContain('Non riesco a preparare l’accesso');
+    expect(body.message).toContain('I couldn’t set up the sign-in');
   });
 });
 
@@ -318,7 +318,7 @@ describe('OAuth requests have a time limit', () => {
       const started = Date.now();
       await expect(
         oauth.start('silent', `http://127.0.0.1:${port}/mcp`, 'http://127.0.0.1:1/cb'),
-      ).rejects.toThrow('Non riesco a preparare l’accesso');
+      ).rejects.toThrow('I couldn’t set up the sign-in');
       expect(Date.now() - started).toBeLessThan(5_000);
     } finally {
       silent.closeAllConnections();

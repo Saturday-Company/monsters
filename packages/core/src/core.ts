@@ -50,6 +50,7 @@ import { registerProjectRoutes } from './server/routes/projects.ts';
 import { CORE_VERSION, createApp } from './server/app.ts';
 import { attachStream, type StreamHandle } from './server/stream.ts';
 import { DEFAULT_WEB_DIST, webUiAvailable } from './server/web-ui.ts';
+import { coreStrings } from './core.strings.ts';
 
 export { CSRF_HEADER, CSRF_HEADER_VALUE, DEVICE_COOKIE } from './server/guards.ts';
 export {
@@ -225,9 +226,7 @@ export async function startCore(options: StartCoreOptions = {}): Promise<CoreSer
         agent: 'system',
         type: 'error',
         data: {
-          message: `archivio del registro non riuscito, nessun evento perso: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
+          message: coreStrings().archiveFailed(err instanceof Error ? err.message : String(err)),
           code: 'log_archive_failed',
         },
       });

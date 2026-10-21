@@ -391,7 +391,7 @@ describe('automations in the core', () => {
     time.advance(6000);
     const skipped = await t.waitEvent(isType('automation_run_skipped'));
     expect(skipped.data).toMatchObject({ reason: 'busy', trigger: 'schedule' });
-    expect(skipped.data.message).toContain('occupato');
+    expect(skipped.data.message).toContain('was busy');
     gate.resolve();
     await t.runEnded(user.runId);
     expect(t.events().filter(isType('automation_run_started'))).toHaveLength(0);

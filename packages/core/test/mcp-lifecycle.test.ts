@@ -310,7 +310,9 @@ describe.skipIf(!POSIX)('MCP connections under concurrent use', () => {
     expect(await names()).not.toContain('mcp__fake__added');
     const view = t.core.hub.mcp.view().servers[0]!;
     expect(view.pausedTools).toMatchObject([{ name: 'added', change: 'new' }]);
-    expect(view.knownTools?.find((x) => x.name === 'added')?.skipped).toMatch(/in pausa/);
+    expect(view.knownTools?.find((x) => x.name === 'added')?.skipped).toMatch(
+      /paused until you accept it/,
+    );
     const security = t.core.log.query({ type: 'security' });
     expect(security.map((e) => e.type === 'security' && e.data.action)).toEqual([
       'mcp_tools_changed',

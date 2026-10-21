@@ -5,6 +5,7 @@ import {
   type JsonSchemaType,
 } from '@modelcontextprotocol/client';
 import { z } from 'zod';
+import { mcpStrings } from './mcp.strings.ts';
 
 /*
  * From MCP to what the agents use: tool names every provider accepts, JSON
@@ -95,27 +96,27 @@ function refs(value: unknown, out: string[] = []): string[] {
  */
 export function checkInputSchema(raw: unknown): SchemaCheck {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    return { ok: false, reason: 'lo schema degli argomenti non è un oggetto JSON' };
+    return { ok: false, reason: mcpStrings().schemaNotObject };
   }
   let json: string;
   try {
     json = JSON.stringify(raw);
   } catch {
-    return { ok: false, reason: 'lo schema degli argomenti non è JSON' };
+    return { ok: false, reason: mcpStrings().schemaNotJson };
   }
   if (json.length > MAX_SCHEMA_CHARS) {
-    return { ok: false, reason: 'lo schema degli argomenti è troppo grande' };
+    return { ok: false, reason: mcpStrings().schemaTooLarge };
   }
   const schema = JSON.parse(json) as Record<string, unknown>;
   if (depthOf(schema) > MAX_SCHEMA_DEPTH) {
-    return { ok: false, reason: 'lo schema degli argomenti è troppo annidato' };
+    return { ok: false, reason: mcpStrings().schemaTooDeep };
   }
   if (schema['type'] === undefined) schema['type'] = 'object';
   if (schema['type'] !== 'object') {
-    return { ok: false, reason: 'gli argomenti non sono un oggetto' };
+    return { ok: false, reason: mcpStrings().argsNotObject };
   }
   if (refs(schema).some((r) => !r.startsWith('#'))) {
-    return { ok: false, reason: 'lo schema rimanda a file esterni' };
+    return { ok: false, reason: mcpStrings().schemaExternalRefs };
   }
   // Some providers refuse these at the top level of a tool schema.
   delete schema['$schema'];
@@ -135,7 +136,7 @@ export function checkInputSchema(raw: unknown): SchemaCheck {
   } catch (err) {
     return {
       ok: false,
-      reason: `lo schema degli argomenti non è valido (${(err as Error).message.slice(0, 200)})`,
+      reason: mcpStrings().schemaInvalid((err as Error).message.slice(0, 200)),
     };
   }
   const input = z

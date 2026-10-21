@@ -16,6 +16,7 @@ import {
 import { McpServerNameSchema } from '@monsters/shared';
 import { isLoopbackHost } from '../config.ts';
 import { secretStoreFor } from '../secrets/store.ts';
+import { mcpStrings } from './mcp.strings.ts';
 
 /*
  * OAuth sign-in for remote MCP servers (D-063), driven by the SDK's `auth()`:
@@ -627,15 +628,12 @@ export class McpOAuth {
         }),
       );
     } catch (err) {
-      throw new OAuthFlowError(
-        `Non riesco a preparare l’accesso: il servizio non accetta l’accesso da altre app o non risponde (${plainError(err)}).`,
-        { cause: err },
-      );
+      throw new OAuthFlowError(mcpStrings().oauthPrepare(plainError(err)), { cause: err });
     }
     if (result === 'AUTHORIZED') return { status: 'connected' };
     const url = flow.authorizationUrl;
     if (!url || !isSafeBrowserUrl(url)) {
-      throw new OAuthFlowError('Il servizio ha dato una pagina di accesso non sicura: mi fermo.');
+      throw new OAuthFlowError(mcpStrings().oauthUnsafePage);
     }
     this.#pending.set(flow.state, flow);
     return { status: 'redirect', authorizationUrl: url.href };
@@ -650,22 +648,18 @@ export class McpOAuth {
     const state = params.get('state') ?? '';
     const flow = this.#pending.get(state);
     if (!state || !flow) {
-      throw new OAuthFlowError(
-        'Questo accesso non è più valido (scaduto o già usato): riprova da Monsters.',
-      );
+      throw new OAuthFlowError(mcpStrings().oauthExpired);
     }
     this.#pending.delete(state);
     const error = params.get('error');
     if (error) {
       const code = error.replace(/[^a-z0-9_.-]/gi, '').slice(0, 60);
       throw new OAuthFlowError(
-        code === 'access_denied'
-          ? 'Hai rifiutato l’accesso: niente di collegato.'
-          : `Il servizio ha rifiutato l’accesso (${code}).`,
+        code === 'access_denied' ? mcpStrings().oauthDenied : mcpStrings().oauthRefused(code),
       );
     }
     const code = params.get('code');
-    if (!code) throw new OAuthFlowError('Il servizio non ha mandato il codice di accesso.');
+    if (!code) throw new OAuthFlowError(mcpStrings().oauthNoCode);
     const provider = new StoredOAuthProvider({
       secretsDir: this.#secretsDir,
       name: flow.name,
@@ -686,10 +680,7 @@ export class McpOAuth {
       );
       if (result !== 'AUTHORIZED') throw new Error('no tokens');
     } catch (err) {
-      throw new OAuthFlowError(
-        `Il servizio non ha accettato l’accesso (${plainError(err)}): riprova da Monsters.`,
-        { cause: err },
-      );
+      throw new OAuthFlowError(mcpStrings().oauthNotAccepted(plainError(err)), { cause: err });
     }
     return flow.name;
   }

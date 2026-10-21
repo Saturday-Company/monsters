@@ -627,8 +627,8 @@ describe('dedicated bots: a person of the group asks for a draft (review 18/10, 
         tg.waitMessage(
           (m) => m.token === FAKE_TOKEN && m.chat_id === GIULIO.id && m.text.includes(needle),
         );
-      const card = await toGiulio('le istruzioni di «Saturday» (CLAUDE.md)');
-      expect(card.text).toContain('richiesta di Livio su Telegram');
+      const card = await toGiulio('the instructions of “Saturday” (CLAUDE.md)');
+      expect(card.text).toContain('request from Livio on Telegram');
       expect(card.text).toContain('The diff is long');
       const buttons = card.reply_markup!.inline_keyboard!.flat();
       expect(buttons.map((b) => b.text)).toEqual(['Open in the app', 'Leave it']);
@@ -644,12 +644,12 @@ describe('dedicated bots: a person of the group asks for a draft (review 18/10, 
 
       // The automation: tainted by the request, and the card says so.
       const auto = await toGiulio('Giro di Livio');
-      expect(auto.text).toContain('richiesta di Livio su Telegram');
+      expect(auto.text).toContain('request from Livio on Telegram');
       const drafts = await t.json<DraftView[]>('GET', '/api/drafts');
       const draft = drafts.find((d) => d.kind === 'automation');
       expect(draft?.kind === 'automation' && draft.automation.objectiveFrom).toMatchObject({
         tainted: true,
-        source: expect.stringContaining('richiesta di Livio su Telegram') as unknown,
+        source: expect.stringContaining('request from Livio on Telegram') as unknown,
       });
       const docs = drafts.find((d) => d.kind === 'docs');
       expect(docs?.kind === 'docs' && docs.docs.tainted).toBe(true);

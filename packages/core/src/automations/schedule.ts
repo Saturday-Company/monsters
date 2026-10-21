@@ -1,5 +1,6 @@
 import { Cron } from 'croner';
 import type { AutomationSchedule } from '@monsters/shared';
+import { automationStrings } from './automations.strings.ts';
 
 /*
  * When an automation runs (D-094): five-field cron expressions in an IANA
@@ -32,14 +33,14 @@ function cronOf(schedule: AutomationSchedule): Cron {
     cron.nextRun(new Date(0));
     return cron;
   } catch (err) {
-    throw new ScheduleError(`quando: ${(err as Error).message}`);
+    throw new ScheduleError(automationStrings().scheduleWhen((err as Error).message));
   }
 }
 
 /** Throws `ScheduleError` when the expression or the zone is not valid, or never matches. */
 export function checkSchedule(schedule: AutomationSchedule): void {
   if (nextSlot(schedule, Date.now()) === null) {
-    throw new ScheduleError('quando: questa regola non scatta mai');
+    throw new ScheduleError(automationStrings().scheduleNever);
   }
 }
 

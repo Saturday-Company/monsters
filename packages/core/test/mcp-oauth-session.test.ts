@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fake } from '@monsters/providers/testing';
 import type { LogEvent, McpOAuthStartResponse, McpServersResponse } from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
-import { SIGN_IN_NEEDED } from '../src/mcp/manager.ts';
+import { signInNeeded } from '../src/mcp/manager.ts';
 import { readOAuthRecord } from '../src/mcp/oauth.ts';
 import { startFakeOAuthServer, type FakeOAuthServer } from './fixtures/fake-oauth-server.ts';
 import { startTestHub, type TestHub } from './hub-helpers.ts';
@@ -82,7 +82,7 @@ describe('MCP OAuth: the grant dies while the session is open', () => {
     // The gallery says what to do, and the server is not "running" any more.
     const view = await notes(t);
     expect(view.status).toBe('error');
-    expect(view.error).toBe(SIGN_IN_NEEDED);
+    expect(view.error).toBe(signInNeeded());
     expect(view.oauth).toMatchObject({ connected: false, needsSignIn: true });
 
     // One event for the phone and the app.
@@ -161,7 +161,7 @@ describe('MCP OAuth: the grant dies while the session is open', () => {
 
     const view = await notes(t);
     expect(view.status).toBe('error');
-    expect(view.error).toContain('non raggiungibile');
+    expect(view.error).toContain('can’t be reached');
     expect(view.oauth).toEqual({ connected: true, pending: false });
     expect(
       t.events().some((e) => e.type === 'mcp_server' && e.data.action === 'needs_signin'),
@@ -202,7 +202,7 @@ describe('MCP OAuth: a call refused for its scope (403 insufficient_scope)', () 
           e.type === 'mcp_server' && e.data.action === 'needs_signin',
       );
     expect(told).toHaveLength(1);
-    expect(told[0]!.data.message).toContain('permesso in più');
+    expect(told[0]!.data.message).toContain('one more permission');
 
     // «Collega»: the service's page asks for the wider scope, not a refresh of the old grant.
     const again = await t.json<McpOAuthStartResponse>('POST', '/api/mcp-servers/notes/oauth');

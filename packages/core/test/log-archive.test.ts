@@ -885,7 +885,7 @@ describe('the archive in the core', () => {
     // One pass by hand an hour, whoever asks; a dry run is not one.
     const again = await hub.api('POST', '/api/log/archive', {});
     expect(again.status).toBe(429);
-    expect(((await again.json()) as { message: string }).message).toContain('ogni ora');
+    expect(((await again.json()) as { message: string }).message).toContain('per hour');
     expect((await hub.api('POST', '/api/log/archive', { dryRun: true })).status).toBe(200);
 
     const status = await hub.json<LogArchiveStatus>('GET', '/api/log/archive');

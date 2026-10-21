@@ -509,7 +509,7 @@ describe('secret store: declared file fallback', () => {
     keychain.mode = 'fail';
     await expect(
       openSecretStore({ home: tempHome(), mode: 'keychain', keychain, service: SERVICE }),
-    ).rejects.toThrow(/portachiavi richiesto/);
+    ).rejects.toThrow(/keychain required/);
   });
 
   it('a locked keychain that never answers does not block the start', async () => {

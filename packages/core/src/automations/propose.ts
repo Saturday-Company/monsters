@@ -1,4 +1,4 @@
-import { defineTool, ToolError, type MonstersTool } from '@monsters/shared';
+import { defineTool, formatDate, ToolError, type MonstersTool } from '@monsters/shared';
 import { z } from 'zod';
 import type { AgentDefinition } from '../agents/definition.ts';
 import type { RunHandle } from '../kill/run-controller.ts';
@@ -39,14 +39,14 @@ export function onceAYear(cron: string): boolean {
 
 function when(at: number | null, timezone: string): string | null {
   if (at === null) return null;
-  return new Intl.DateTimeFormat('it-IT', {
+  return formatDate(at, {
     timeZone: timezone,
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date(at));
+  });
 }
 
 export function automationProposeTool(ctx: {

@@ -14,6 +14,7 @@ import type { Context, Hono } from 'hono';
 import type { Hub } from '../../hub.ts';
 import { ProviderSetupError } from '../../providers/manager.ts';
 import type { AppEnv, RouteHelpers } from '../app.ts';
+import { serverStrings } from '../server.strings.ts';
 
 /*
  * Providers API (contract in shared/src/providers.ts): keys and local servers
@@ -119,7 +120,7 @@ export function registerProviderRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: 
       return c.json(
         {
           error: 'not_configured',
-          message: 'La scelta automatica usa il piano Claude: collega prima Claude Agent.',
+          message: serverStrings().autoNeedsClaude,
         },
         400,
       );
@@ -130,7 +131,7 @@ export function registerProviderRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: 
       return c.json(
         {
           error: 'not_configured',
-          message: `${missing.provider} non è configurato: aggiungi prima la chiave.`,
+          message: serverStrings().providerNotConfigured(missing.provider),
         },
         400,
       );
@@ -143,7 +144,7 @@ export function registerProviderRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: 
       return c.json(
         {
           error: 'paid_model_blocked',
-          message: `${paid.model} è a pagamento: attiva “Usa anche modelli a pagamento” in Impostazioni → Modelli, oppure scegli un modello gratuito.`,
+          message: serverStrings().paidModelBlocked(paid.model),
         },
         400,
       );

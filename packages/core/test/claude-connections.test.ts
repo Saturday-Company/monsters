@@ -160,9 +160,9 @@ describe('services through Claude', () => {
       order: 'desc',
       limit: 10,
     })[0] as LogEvent<'mcp_server'>;
-    expect(removed.data.message).toContain('Resta collegato al tuo account Claude');
+    expect(removed.data.message).toContain('It stays connected to your Claude account');
     expect(() => svc.set('github', undefined, 'ui')).toThrow(ClaudeConnectionError);
-    expect(() => svc.set('figma', ['nessuno'], 'ui')).toThrow(/nessun mostro/);
+    expect(() => svc.set('figma', ['nessuno'], 'ui')).toThrow(/no monster/);
   });
 });
 

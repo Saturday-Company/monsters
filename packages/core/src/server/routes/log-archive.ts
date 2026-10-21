@@ -2,6 +2,7 @@ import { LogArchiveRequestSchema } from '@monsters/shared';
 import type { Hono } from 'hono';
 import { ArchivePostponed, ArchiveRefused, type LogArchiver } from '../../log/archive.ts';
 import type { AppEnv, RouteHelpers } from '../app.ts';
+import { serverStrings } from '../server.strings.ts';
 
 /*
  * Archive of the event log (contract in shared/src/log-archive.ts): where the monthly files are
@@ -42,20 +43,18 @@ export function registerLogArchiveRoutes(
           return c.json(
             {
               error: 'archive_too_soon',
-              message: `Un archivio a mano al massimo ogni ora: riprova tra ${Math.ceil(
-                err.retryAfterMs / 60_000,
-              )} minuti.`,
+              message: serverStrings().archiveTooSoon(Math.ceil(err.retryAfterMs / 60_000)),
             },
             429,
           );
         }
-        return c.json({ error: 'stopping', message: 'Monsters si sta fermando.' }, 503);
+        return c.json({ error: 'stopping', message: serverStrings().stopping }, 503);
       }
       if (err instanceof ArchivePostponed) {
         return c.json(
           {
             error: 'archive_postponed',
-            message: `Archivio rimandato, niente è cambiato: ${err.message}.`,
+            message: serverStrings().archivePostponed(err.message),
           },
           409,
         );
@@ -63,9 +62,7 @@ export function registerLogArchiveRoutes(
       return c.json(
         {
           error: 'archive_failed',
-          message: `Archivio non riuscito (nessun evento perso: quelli non scritti nel file restano nel registro): ${
-            err instanceof Error ? err.message : String(err)
-          }`,
+          message: serverStrings().archiveFailed(err instanceof Error ? err.message : String(err)),
         },
         500,
       );

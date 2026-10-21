@@ -1,4 +1,5 @@
 import {
+  appLang,
   McpAcceptRequestSchema,
   McpOAuthFinishRequestSchema,
   McpServerRequestSchema,
@@ -8,6 +9,7 @@ import { HaltedError } from '../../kill/run-controller.ts';
 import { McpError, type McpManager } from '../../mcp/manager.ts';
 import { OAUTH_CALLBACK_PATH, oauthCallbackOrigin } from '../../mcp/oauth.ts';
 import type { AppEnv, RouteHelpers } from '../app.ts';
+import { serverStrings } from '../server.strings.ts';
 
 /*
  * External MCP servers (contract in shared/src/mcp.ts). Values of variables
@@ -30,10 +32,11 @@ const escapeHtml = (text: string) =>
 
 /** The page the browser shows after a sign-in: static, no script, nothing from the service. */
 export function oauthResultPage(ok: boolean, message: string): string {
-  const title = ok ? 'Collegato' : 'Accesso non riuscito';
+  const s = serverStrings();
+  const title = ok ? s.oauthTitleOk : s.oauthTitleFailed;
   const led = ok ? ['#1f8f4e', '#4fd98a'] : ['#d8231a', '#ff3b2f'];
   return `<!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="${appLang()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title} · Monsters</title>
 <style>
 :root{color-scheme:light dark;--chassis:#e3e1db;--raised:#fbfaf7;--ink:#1a1a18;--muted:#5c5a54;--led:${led[0]}}
@@ -45,7 +48,7 @@ p.k::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--l
 h1{font-size:22px;margin:0 0 8px}p{margin:0;color:var(--muted)}
 </style></head>
 <body><main><p class="k">Monsters</p><h1>${title}</h1><p>${escapeHtml(message)}</p>
-<p style="margin-top:12px">${ok ? 'Puoi chiudere questa scheda e tornare a Monsters.' : 'Chiudi questa scheda e riprova da Monsters.'}</p></main></body></html>`;
+<p style="margin-top:12px">${ok ? s.oauthCloseOk : s.oauthCloseFailed}</p></main></body></html>`;
 }
 
 export function registerMcpRoutes(app: Hono<AppEnv>, h: RouteHelpers, mcp: McpManager): void {
@@ -117,14 +120,13 @@ export function registerMcpRoutes(app: Hono<AppEnv>, h: RouteHelpers, mcp: McpMa
     } catch {
       return c.json({
         ok: false,
-        message: 'Incolla l’indirizzo intero della pagina, da “http” in poi.',
+        message: serverStrings().oauthPasteFull,
       });
     }
     if (url.pathname !== OAUTH_CALLBACK_PATH || !url.searchParams.has('state')) {
       return c.json({
         ok: false,
-        message:
-          'Non è l’indirizzo della pagina di ritorno: copialo dalla barra del browser dopo l’accesso.',
+        message: serverStrings().oauthNotReturnPage,
       });
     }
     return c.json(await mcp.oauthCallback(url.searchParams));

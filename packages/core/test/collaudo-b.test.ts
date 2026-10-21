@@ -1,5 +1,10 @@
 import { fake } from '@monsters/providers/testing';
-import type { AutomationView, DraftConfirmResponse, LogEvent } from '@monsters/shared';
+import {
+  spendCapPath,
+  type AutomationView,
+  type DraftConfirmResponse,
+  type LogEvent,
+} from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
 import { startTestHub, type TestHub } from './hub-helpers.ts';
 
@@ -100,7 +105,7 @@ describe('project_propose: the participants may name the monster a copy comes fr
       .events(runId)
       .find(isType('tool_result', (e) => e.data.tool === 'project_propose'))!;
     expect(result.data.ok).toBe(false);
-    expect(result.data.error).toMatch(/"Dione" non è tra i mostri del progetto/);
+    expect(result.data.error).toMatch(/“Dione” isn’t one of the project’s monsters/);
   });
 });
 
@@ -125,7 +130,7 @@ describe('the stop at the project’s cap says where to raise it', () => {
       .events(sent.runId)
       .find((e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'spend_cap');
     expect(error?.data.message).toMatch(/raggiunto il tetto di spesa del progetto Saturday/);
-    expect(error?.data.message).toContain('nella pagina del progetto «Saturday», scheda Spesa');
-    expect(error?.data.message).not.toContain('Impostazioni → Modelli');
+    expect(error?.data.message).toContain(spendCapPath('Saturday'));
+    expect(error?.data.message).not.toContain(spendCapPath());
   });
 });

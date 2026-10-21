@@ -17,7 +17,8 @@ import type { Hub } from '../../hub.ts';
 import { HaltedError } from '../../kill/run-controller.ts';
 import { DispatchError } from '../../team/dispatcher.ts';
 import { QuestionError } from '../../team/questions.ts';
-import { OWNER_REQUIRED, type AppEnv, type RouteHelpers } from '../app.ts';
+import { ownerRequired, type AppEnv, type RouteHelpers } from '../app.ts';
+import { serverStrings } from '../server.strings.ts';
 
 /*
  * Team and conversation API (contract at the bottom of shared/src/api.ts):
@@ -36,9 +37,6 @@ import { OWNER_REQUIRED, type AppEnv, type RouteHelpers } from '../app.ts';
  *   PUT  /api/settings/brave-key        → saves the web search key; it never comes back
  *   PUT  /api/settings/web-search       → { mode?, engine? }: the paid web search (D-071)
  */
-
-export const ONBOARDING_PENDING_MESSAGE =
-  'Completa prima il primo avvio nell’interfaccia: apri Monsters nel browser e crea la tua squadra.';
 
 const QuestionsQuerySchema = z.object({
   status: z.enum(['open', 'answered', 'expired']).optional(),
@@ -66,14 +64,14 @@ export function registerTeamRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: Hub)
     if (!body.ok) return body.res;
     // No team until the first start is completed in the UI: no default team behind its back.
     if (!hub.onboarding.done) {
-      return c.json({ error: 'onboarding_pending', message: ONBOARDING_PENDING_MESSAGE }, 409);
+      return c.json(
+        { error: 'onboarding_pending', message: serverStrings().onboardingPendingTeam },
+        409,
+      );
     }
     const unknownFile = body.data.attachments?.find((id) => !hub.files.get(id));
     if (unknownFile) {
-      return c.json(
-        { error: 'unknown_file', message: 'Un allegato non c’è più: toglilo e riprova.' },
-        404,
-      );
+      return c.json({ error: 'unknown_file', message: serverStrings().attachmentGone }, 404);
     }
     try {
       const sent = hub.send({
@@ -102,7 +100,10 @@ export function registerTeamRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: Hub)
     const body = await parseBody(c, NewConversationRequestSchema);
     if (!body.ok) return body.res;
     if (!hub.onboarding.done) {
-      return c.json({ error: 'onboarding_pending', message: ONBOARDING_PENDING_MESSAGE }, 409);
+      return c.json(
+        { error: 'onboarding_pending', message: serverStrings().onboardingPendingTeam },
+        409,
+      );
     }
     try {
       const event = hub.newConversation({ ...body.data, channel: channelOf(c.get('auth')) });
@@ -135,7 +136,7 @@ export function registerTeamRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: Hub)
     // the CLI token, which a monster with the terminal can read (review of 18/10, M1). Its
     // other questions stay open to the CLI.
     if (hub.questions.ownerOnly(c.req.param('id')) && !isOwner(c.get('auth'))) {
-      return c.json(OWNER_REQUIRED, 403);
+      return c.json(ownerRequired(), 403);
     }
     try {
       return c.json(hub.answer(c.req.param('id'), body.data, channelOf(c.get('auth'))));
