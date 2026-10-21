@@ -22,6 +22,7 @@ import type { EventLog } from '../log/event-log.ts';
 import { readSettingsFile } from '../onboarding/settings-file.ts';
 import { SETTINGS_FILE, type HubSettings } from '../team/settings.ts';
 import { readProviderKey, removeProviderKey, saveProviderKey, type StoredKey } from './keys.ts';
+import { providerStrings } from './providers.strings.ts';
 
 /*
  * The providers besides OpenRouter (M2.2): keys of Anthropic, OpenAI, Google,
@@ -116,7 +117,7 @@ export class ProviderManager {
             type: 'error',
             data: {
               code: 'provider_config',
-              message: `${spec.label}: indirizzo non valido (${(err as Error).message})`,
+              message: providerStrings().badLocalAddress(spec.label, (err as Error).message),
             },
           });
         }
@@ -146,7 +147,7 @@ export class ProviderManager {
 
   viewOf(id: string): ProviderView {
     const v = this.view().find((p) => p.id === id);
-    if (!v) throw new ProviderSetupError('unknown_provider', `provider ${id} sconosciuto`);
+    if (!v) throw new ProviderSetupError('unknown_provider', providerStrings().unknownProvider(id));
     return v;
   }
 
@@ -156,12 +157,12 @@ export class ProviderManager {
     const trimmed = key.trim();
     if (spec.id === 'openrouter') {
       if (!this.#o.openRouter)
-        throw new ProviderSetupError('unknown_provider', 'OpenRouter non disponibile');
+        throw new ProviderSetupError('unknown_provider', providerStrings().openRouterUnavailable);
       await this.#o.openRouter.setKey(trimmed);
       return this.viewOf(id);
     }
     if (!isKeyedProviderType(spec.id)) {
-      throw new ProviderSetupError('invalid_request', `${spec.label} non usa una chiave`);
+      throw new ProviderSetupError('invalid_request', providerStrings().noKey(spec.label));
     }
     const candidate = this.#keyed(spec, trimmed);
     await this.#verify(spec, candidate);
@@ -185,7 +186,7 @@ export class ProviderManager {
     if (stored?.source === 'env') {
       throw new ProviderSetupError(
         'key_from_env',
-        `La chiave arriva dalla variabile d'ambiente ${stored.envVar ?? spec.envVars[0] ?? ''}: toglila da lì.`,
+        providerStrings().keyFromEnv(stored.envVar ?? spec.envVars[0] ?? ''),
       );
     }
     if (spec.id === 'openrouter') {
@@ -193,7 +194,7 @@ export class ProviderManager {
       return this.viewOf(id);
     }
     if (!isKeyedProviderType(spec.id)) {
-      throw new ProviderSetupError('invalid_request', `${spec.label} non usa una chiave`);
+      throw new ProviderSetupError('invalid_request', providerStrings().noKey(spec.label));
     }
     removeProviderKey(this.#o.secretsDir, spec.id);
     this.#keys.delete(spec.id);
@@ -208,16 +209,13 @@ export class ProviderManager {
   async setLocal(id: string, rawURL: string): Promise<ProviderView> {
     const spec = this.#spec(id);
     if (!isLocalProviderType(spec.id)) {
-      throw new ProviderSetupError('invalid_request', `${spec.label} non è un server locale`);
+      throw new ProviderSetupError('invalid_request', providerStrings().notLocal(spec.label));
     }
     let baseURL: string;
     try {
       baseURL = normalizeLocalBaseURL(rawURL);
     } catch {
-      throw new ProviderSetupError(
-        'invalid_request',
-        'Indirizzo non valido: usa http://host:porta',
-      );
+      throw new ProviderSetupError('invalid_request', providerStrings().badAddress);
     }
     const candidate = this.#local(spec, baseURL);
     await this.#verify(spec, candidate);
@@ -230,7 +228,7 @@ export class ProviderManager {
   removeLocal(id: string): ProviderView {
     const spec = this.#spec(id);
     if (!isLocalProviderType(spec.id)) {
-      throw new ProviderSetupError('invalid_request', `${spec.label} non è un server locale`);
+      throw new ProviderSetupError('invalid_request', providerStrings().notLocal(spec.label));
     }
     const current = { ...this.#settings[spec.id] };
     delete current.baseURL;
@@ -246,7 +244,10 @@ export class ProviderManager {
     options: { tools?: boolean; refresh?: boolean } = {},
   ): Promise<ModelInfo[]> {
     if (!this.#o.registry.has(id)) {
-      throw new ProviderSetupError('unknown_provider', `${LABELS[id] ?? id} non è configurato`);
+      throw new ProviderSetupError(
+        'unknown_provider',
+        providerStrings().notConfigured(LABELS[id] ?? id),
+      );
     }
     try {
       return await this.#o.registry.get(id).listModels({
@@ -263,7 +264,9 @@ export class ProviderManager {
 
   #spec(id: string): ProviderSpec {
     const spec = providerSpec(id);
-    if (!spec) throw new ProviderSetupError('unknown_provider', `provider ${id} sconosciuto`);
+    if (!spec) {
+      throw new ProviderSetupError('unknown_provider', providerStrings().unknownProvider(id));
+    }
     return spec;
   }
 
@@ -308,26 +311,17 @@ export class ProviderManager {
 
   /** A fixed message per kind: the provider's own text may echo the key. */
   #failure(spec: ProviderSpec | undefined, err: unknown): ProviderSetupError {
-    const label = spec?.label ?? 'Il provider';
+    const label = spec?.label ?? providerStrings().genericProvider;
     const kind = classifyProviderError(err);
     if (kind === 'auth')
-      return new ProviderSetupError('invalid_key', `${label} non riconosce questa chiave.`);
+      return new ProviderSetupError('invalid_key', providerStrings().keyRefused(label));
     if (kind === 'quota') {
-      return new ProviderSetupError(
-        'verification_failed',
-        `${label}: credito esaurito sull'account.`,
-      );
+      return new ProviderSetupError('verification_failed', providerStrings().creditOut(label));
     }
     if (spec?.local) {
-      return new ProviderSetupError(
-        'verification_failed',
-        `Non trovo ${label} a quell'indirizzo: è acceso?`,
-      );
+      return new ProviderSetupError('verification_failed', providerStrings().localNotFound(label));
     }
-    return new ProviderSetupError(
-      'verification_failed',
-      `Non riesco a verificare con ${label}. Controlla la connessione e riprova.`,
-    );
+    return new ProviderSetupError('verification_failed', providerStrings().cantVerify(label));
   }
 
   #view(spec: ProviderSpec): ProviderView {

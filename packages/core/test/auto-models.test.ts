@@ -296,7 +296,7 @@ describe('"Automatica" on the Claude plan (D-093)', () => {
         delegation: started!.id,
         from: 'subtask',
       });
-      expect(rhea[0]!.data.message).toBe('Incarico semplice: Rhea usa haiku.');
+      expect(rhea[0]!.data.message).toBe('Simple task: Rhea uses haiku.');
       // The question was asked on the subtask, without the user's request (`why` of the brief).
       const asked = events.filter(
         (e): e is LogEvent<'decision'> =>
@@ -354,7 +354,7 @@ describe('"Automatica" on the Claude plan (D-093)', () => {
       expect(harness.tasks.map((x) => x.model)).toEqual(['opus']);
       const rhea = tierEvents(t.events(sent.runId)).find((e) => e.data.subject === 'rhea')!;
       expect(rhea.data.details).toMatchObject({ level: 'hard', from: 'request' });
-      expect(rhea.data.message).toBe('Richiesta difficile: Rhea usa opus.');
+      expect(rhea.data.message).toBe('Hard request: Rhea uses opus.');
     });
 
     it('parallel delegations: each with its own level, the questions asked together', async () => {

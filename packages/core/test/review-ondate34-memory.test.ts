@@ -167,7 +167,7 @@ describe('«È mia» takes the mark away (no ratchet)', () => {
     );
     fresh(t);
     const tainted = await ask(t, 'ciao');
-    expect(tainted.data).toMatchObject({ taintSource: 'memoria scritta dopo testo di terzi' });
+    expect(tainted.data).toMatchObject({ taintSource: 'memory written after third-party text' });
 
     const res = await t.ownerJson<{ changed: number }>('POST', '/api/team/agents/rhea/memory/own', {
       line: `- Giulio vuole i rapporti brevi ${MEMORY_TAINT_MARK}`,

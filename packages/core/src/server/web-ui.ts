@@ -3,6 +3,8 @@ import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Context, Hono } from 'hono';
 import type { AppEnv } from './app.ts';
+import { serverStrings } from './server.strings.ts';
+import { appLang } from '@monsters/shared';
 
 /*
  * The web UI (apps/web) served by the core on its own origin: the API, the
@@ -85,22 +87,23 @@ export function webUiAvailable(dir: string): boolean {
 
 function missingBuildPage(dir: string): string {
   const escaped = dir.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+  const s = serverStrings();
   return `<!doctype html>
-<html lang="it">
+<html lang="${appLang()}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Monsters: manca l'interfaccia</title>
+<title>${s.noUiTitle}</title>
 <style>
 body{font:16px/1.5 system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1rem}
 code{font-family:ui-monospace,monospace;background:rgba(127,127,127,.15);padding:.1em .35em;border-radius:.3em}
 </style>
 </head>
 <body>
-<h1>Monsters è acceso, ma manca l'interfaccia</h1>
-<p>Il core non trova la build della UI web in <code>${escaped}</code>.</p>
-<p>Lanciala dalla cartella del progetto, poi ricarica questa pagina:</p>
+<h1>${s.noUiHeading}</h1>
+<p>${s.noUiBody(escaped)}</p>
+<p>${s.noUiHow}</p>
 <p><code>pnpm --filter @monsters/web build</code></p>
 </body>
 </html>

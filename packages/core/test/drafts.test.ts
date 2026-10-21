@@ -104,7 +104,7 @@ describe('project_propose: a whole project as a draft', () => {
     });
     expect(drafts[0]!.summary).toContain('Sofia, Grafo');
     // The folder its monsters get, and what they may do there (review of ondate 3-4, n. 6).
-    expect(drafts[0]!.summary).toContain(`i mostri leggono e scrivono in ${draft.folder}`);
+    expect(drafts[0]!.summary).toContain(`the monsters read and write in ${draft.folder}`);
 
     const confirmed = await t.json<DraftConfirmResponse>(
       'POST',
@@ -232,7 +232,7 @@ describe('project_propose: a whole project as a draft', () => {
       .events(runId)
       .filter(isType('tool_result', (e) => e.data.tool === 'project_propose'));
     expect(results.map((r) => r.data.ok)).toEqual([false, true]);
-    expect(results[0]!.data.error).toMatch(/non esiste/);
+    expect(results[0]!.data.error).toMatch(/doesn’t exist/);
     const out = results[1]!.data.output as { monsters: string[]; renamed: string[] };
     // Rhea exists already and "lino" repeats Lino: both get a free name, and the result says so.
     expect(out.monsters[1]).toBe('Lino');
@@ -450,7 +450,7 @@ describe('project_send: never inside the lead’s work (D-097 → D-098)', () =>
     const first = reports.find((r) => r.data.request === sends[0]!.id)!;
     const second = reports.find((r) => r.data.request === sends[1]!.id)!;
     expect(first.data).toMatchObject({ status: 'aborted', reason: 'restart' });
-    expect(first.data.summary).toMatch(/Monsters si è chiuso/);
+    expect(first.data.summary).toMatch(/Monsters closed while it was working/);
     expect(second.data).toMatchObject({ status: 'completed', summary: 'Secondo fatto.' });
     expect(second.runId).toBe(sends[1]!.runId);
   });

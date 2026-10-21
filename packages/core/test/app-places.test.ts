@@ -63,8 +63,11 @@ describe('the places of the app in the texts (D-133)', () => {
             wrong.push(`${at}: «${under}» is not under ${section}`);
           }
         }
-        // The English names of the settings are not the app's (B2 of the review of 19/10).
-        if (/Settings → |\(External tools\)/.test(line)) wrong.push(`${at}: English place`);
+        // The English names of the settings are not the app's (B2 of the review of 19/10), except in
+        // the English dictionaries (`*.strings.ts`, D-153), which write them in English.
+        if (!file.endsWith('.strings.ts') && /Settings → |\(External tools\)/.test(line)) {
+          wrong.push(`${at}: English place`);
+        }
       }
     }
     expect(seen).toBeGreaterThan(10);

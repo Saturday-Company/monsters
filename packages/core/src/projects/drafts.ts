@@ -11,6 +11,7 @@ import { MemoryProposalError, type MemoryProposals } from '../team/memory-propos
 import { createRequestOf, TeamError, type TeamManager } from '../team/team-manager.ts';
 import type { TeamService } from '../team/team-service.ts';
 import { DocsError, type DocsProposals } from './docs-proposals.ts';
+import { projectStrings } from './projects.strings.ts';
 import { ProjectError, type ProjectService } from './service.ts';
 
 /*
@@ -48,8 +49,6 @@ export interface DraftServiceOptions {
   memory?: MemoryProposals;
 }
 
-const CLOSED = 'Questa bozza è già stata confermata o lasciata stare.';
-
 export class DraftService {
   readonly #o: DraftServiceOptions;
 
@@ -69,14 +68,15 @@ export class DraftService {
         ? m.draft.name
         : (m.name ?? this.#o.team.byId(m.copyOf)?.config.name ?? m.copyOf),
     );
-    const lead = plan?.lead.name ? `capo ${plan.lead.name}` : 'un capo';
-    const with_ = names.length > 0 ? `, con ${names.join(', ')}` : '';
-    const autos = plan?.automations.length
-      ? `; ${plan.automations.length === 1 ? 'un’automazione' : `${plan.automations.length} automazioni`}`
-      : '';
     // The folder its monsters get, read and write (review of ondate 3-4, n. 6).
-    const folder = p.folder ? `; i mostri leggono e scrivono in ${p.folder}` : '';
-    return `${who ? `${who} propone il` : 'Bozza del'} progetto «${p.name}»: ${lead}${with_}${autos}${folder}.`;
+    return projectStrings().projectDraftSummary({
+      who,
+      name: p.name,
+      lead: plan?.lead.name,
+      members: names,
+      automations: plan?.automations.length ?? 0,
+      folder: p.folder,
+    });
   }
 
   /** Every open draft, newest first. */
@@ -91,7 +91,7 @@ export class DraftService {
         kind: 'monster',
         id: e.id,
         title: draft.name,
-        summary: `${who ?? 'Un mostro'} propone un nuovo mostro, ${draft.name}: ${draft.role}.`,
+        summary: projectStrings().monsterDraftSummary(who, draft.name, draft.role),
         from: e.data.from,
         ...(who ? { fromName: who } : {}),
         ...(e.data.project ? { project: e.data.project } : {}),
@@ -121,7 +121,7 @@ export class DraftService {
         kind: 'automation',
         id: a.id,
         title: a.name,
-        summary: `${who ? `${who} propone l’automazione` : 'Bozza dell’automazione'} «${a.name}»: ${a.scheduleText}.`,
+        summary: projectStrings().automationDraftSummary(who, a.name, a.scheduleText),
         from: a.createdBy,
         ...(who ? { fromName: who } : {}),
         ...(a.project ? { project: a.project } : {}),
@@ -198,7 +198,7 @@ export class DraftService {
       }
     }
     const automations = this.#o.automations();
-    if (!automations) throw new DraftError('unknown_draft', 'Le automazioni non ci sono.');
+    if (!automations) throw new DraftError('unknown_draft', projectStrings().automationsMissing);
     const a = automations.update(d.id, { status: 'active' }, by);
     return { kind, id, automation: a.id };
   }
@@ -244,28 +244,32 @@ export class DraftService {
       kind === 'monster';
     throw new DraftError(
       known && kind !== 'monster' ? 'draft_closed' : 'unknown_draft',
-      known && kind !== 'monster' ? CLOSED : 'Questa bozza non c’è (o è già stata usata).',
+      known && kind !== 'monster'
+        ? projectStrings().draftClosed
+        : projectStrings().draftUnknownUsed,
     );
   }
 
   #closed(err: unknown): unknown {
     if (err instanceof TeamError && err.code === 'proposal_closed') {
-      return new DraftError('draft_closed', CLOSED);
+      return new DraftError('draft_closed', projectStrings().draftClosed);
     }
     if (err instanceof TeamError && err.code === 'unknown_proposal') {
-      return new DraftError('unknown_draft', 'Questa bozza non c’è.');
+      return new DraftError('unknown_draft', projectStrings().draftUnknown);
     }
     if (err instanceof ProjectError && err.code === 'not_draft') {
-      return new DraftError('draft_closed', CLOSED);
+      return new DraftError('draft_closed', projectStrings().draftClosed);
     }
     if (err instanceof MemoryProposalError) {
       if (err.code === 'unknown_proposal') return new DraftError('unknown_draft', err.message);
-      if (err.code === 'proposal_closed') return new DraftError('draft_closed', CLOSED);
+      if (err.code === 'proposal_closed')
+        return new DraftError('draft_closed', projectStrings().draftClosed);
       return err;
     }
     if (err instanceof DocsError) {
       if (err.code === 'unknown_proposal') return new DraftError('unknown_draft', err.message);
-      if (err.code === 'proposal_closed') return new DraftError('draft_closed', CLOSED);
+      if (err.code === 'proposal_closed')
+        return new DraftError('draft_closed', projectStrings().draftClosed);
       if (err.code === 'docs_changed') return new DraftError('docs_changed', err.message);
       return new ProjectError('invalid_folder', err.message);
     }

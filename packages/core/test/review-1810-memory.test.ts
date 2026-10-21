@@ -220,7 +220,7 @@ describe('A2 · memory of a tainted run', () => {
     const next = await ask(t, 'ciao');
     expect(next.data).toMatchObject({
       tainted: true,
-      taintSource: 'memoria scritta dopo testo di terzi',
+      taintSource: 'memory written after third-party text',
     });
   });
 
@@ -408,7 +408,7 @@ describe('A2 · the profile written by a tainted run', () => {
     const next = await ask(t, 'ciao', 'titan');
     expect(next.data).toMatchObject({
       tainted: true,
-      taintSource: 'profilo scritto dopo testo di terzi',
+      taintSource: 'profile written after third-party text',
     });
   });
 });

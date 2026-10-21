@@ -383,7 +383,7 @@ describe.skipIf(!POSIX)('MCP servers in the hub', () => {
     });
     const test = await t.json<McpTestResponse>('POST', '/api/mcp-servers/missing/test');
     expect(test).toMatchObject({ ok: false });
-    expect(test.error).toContain('Non trovo il programma');
+    expect(test.error).toContain('I can’t find the program');
 
     // A launcher of the gallery (D-092): what to install, with the link.
     await t.json('PUT', '/api/mcp-servers/blender', {
@@ -393,7 +393,7 @@ describe.skipIf(!POSIX)('MCP servers in the hub', () => {
       agents: ['titan'],
     });
     const uv = await t.json<McpTestResponse>('POST', '/api/mcp-servers/blender/test');
-    expect(uv.error).toContain('fa parte di uv, che va installato sul computer');
+    expect(uv.error).toContain('it’s part of uv, which has to be installed on the computer');
     expect(uv.error).toContain('https://docs.astral.sh/uv/getting-started/installation/');
 
     await t.json('PUT', '/api/mcp-servers/exits', stdioServer({}, ['--exit-at-start']));
@@ -493,7 +493,7 @@ describe.skipIf(!POSIX)('MCP servers in the hub', () => {
       });
       const refused = await t.json<McpTestResponse>('POST', '/api/mcp-servers/remote/test');
       expect(refused.ok).toBe(false);
-      expect(refused.error).toContain('rifiutato l’accesso');
+      expect(refused.error).toContain('refused the sign-in');
 
       const view = await t.json<McpServersResponse>('PUT', '/api/mcp-servers/remote', {
         headers: { Authorization: `Bearer ${httpToken}` },
@@ -827,6 +827,6 @@ describe('MCP: secrets that cannot be read', () => {
     // The server stays off, with a sentence that says why.
     const test = await t.json<McpTestResponse>('POST', '/api/mcp-servers/fake/test');
     expect(test.ok).toBe(false);
-    expect(test.error).toContain('non si leggono');
+    expect(test.error).toContain('can’t be read');
   });
 });

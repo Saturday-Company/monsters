@@ -8,6 +8,7 @@ import { ProjectError } from '../../projects/service.ts';
 import { TeamError } from '../../team/team-manager.ts';
 import type { AppEnv, RouteHelpers } from '../app.ts';
 import { TEAM_ERROR_STATUS } from './squad.ts';
+import { serverStrings } from '../server.strings.ts';
 
 /*
  * Drafts (D-098; contract in shared/src/drafts.ts): what the monsters proposed
@@ -45,7 +46,7 @@ export function registerDraftRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: Hub
   app.post('/api/drafts/:kind/:id/confirm', requireAuth, (c) => {
     const kind = kindOf(c);
     if (!kind.success)
-      return c.json({ error: 'unknown_draft', message: 'Bozza sconosciuta.' }, 404);
+      return c.json({ error: 'unknown_draft', message: serverStrings().unknownDraft }, 404);
     return guard(c, () =>
       hub.drafts.confirm(kind.data, c.req.param('id'), channelOf(c.get('auth'))),
     );
@@ -54,7 +55,7 @@ export function registerDraftRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: Hub
   app.post('/api/drafts/:kind/:id/discard', requireAuth, (c) => {
     const kind = kindOf(c);
     if (!kind.success)
-      return c.json({ error: 'unknown_draft', message: 'Bozza sconosciuta.' }, 404);
+      return c.json({ error: 'unknown_draft', message: serverStrings().unknownDraft }, 404);
     return guard(c, () =>
       hub.drafts.discard(kind.data, c.req.param('id'), channelOf(c.get('auth'))),
     );

@@ -311,7 +311,7 @@ describe('the instructions of the project folder (D-103)', () => {
     });
     expect((await t.runEnded(after.runId)).data).toMatchObject({
       tainted: true,
-      taintSource: 'istruzioni della cartella del progetto cambiate',
+      taintSource: 'project folder instructions changed',
     });
 
     const approved = await t.json<ProjectView>(

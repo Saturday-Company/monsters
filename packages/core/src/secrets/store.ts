@@ -19,6 +19,7 @@ import {
   withKeychainTimeout,
   type Keychain,
 } from './keychain.ts';
+import { secretStrings } from './secrets.strings.ts';
 
 /*
  * Secrets of the core (API keys, bot tokens, MCP variables, ChatGPT tokens),
@@ -126,7 +127,7 @@ export function secretsMode(env: NodeJS.ProcessEnv = process.env): SecretsMode {
     .filter((v): v is string => !!v);
   for (const v of values) {
     if (v !== 'auto' && v !== 'keychain' && v !== 'file') {
-      throw new Error(`MONSTERS_SECRETS non valido: ${v} (auto, keychain o file)`);
+      throw new Error(secretStrings().badMode(v));
     }
   }
   if (values.includes('file')) return 'file';
@@ -203,7 +204,7 @@ function removeStaleTemp(dir: string): void {
 /** An encrypted secret that cannot be opened: wrong key, damaged or tampered file. */
 export class SecretDecryptError extends Error {
   constructor(name: string) {
-    super(`il segreto ${name} non si può decifrare (chiave diversa o file danneggiato)`);
+    super(secretStrings().cantDecrypt(name));
     this.name = 'SecretDecryptError';
   }
 }
@@ -527,9 +528,7 @@ function failure(reason: FileStatus['reason'], keychain: string, err: unknown): 
 
 function fileFallback(dir: string, mode: SecretsMode, status: FileStatus): OpenedSecretStore {
   if (mode === 'keychain') {
-    throw new Error(
-      `portachiavi richiesto (MONSTERS_SECRETS=keychain) ma non usabile: ${status.detail ?? status.reason}`,
-    );
+    throw new Error(secretStrings().keychainRequired(status.detail ?? status.reason));
   }
   return { store: new FileSecretStore(dir, status), migrated: [] };
 }
@@ -570,7 +569,7 @@ export async function openSecretStore(options: OpenSecretStoreOptions): Promise<
       return fileFallback(dir, mode, {
         reason: 'error',
         keychain: p.name,
-        detail: 'la chiave nel portachiavi non è valida',
+        detail: secretStrings().keyInvalid,
       });
     }
   } else {
@@ -585,7 +584,7 @@ export async function openSecretStore(options: OpenSecretStoreOptions): Promise<
       return fileFallback(dir, mode, {
         reason: 'missing-key',
         keychain: p.name,
-        detail: `il portachiavi non ha la chiave di questa cartella; cifrate: ${locked.join(', ')}`,
+        detail: secretStrings().keyMissing(locked.join(', ')),
       });
     }
     const freshKey = randomBytes(32);
@@ -601,8 +600,7 @@ export async function openSecretStore(options: OpenSecretStoreOptions): Promise<
         p.ms,
         options.signal,
       );
-      if (back !== fresh)
-        throw new Error('il portachiavi non restituisce la chiave appena salvata');
+      if (back !== fresh) throw new Error(secretStrings().keyNotReturned);
     } catch (err) {
       if (err instanceof KeychainAbortedError) throw err;
       // Nothing was moved: the encrypted files are where they were.
@@ -653,7 +651,7 @@ export async function inspectSecrets(options: OpenSecretStoreOptions): Promise<S
         backend: 'file',
         reason: 'missing-key',
         keychain: p.name,
-        detail: `il portachiavi non ha la chiave di questa cartella; cifrate: ${locked.join(', ')}`,
+        detail: secretStrings().keyMissing(locked.join(', ')),
         unreadable: locked,
       },
       plain,
@@ -667,7 +665,7 @@ export async function inspectSecrets(options: OpenSecretStoreOptions): Promise<S
         backend: 'keychain',
         reason: p.stored === null ? 'keychain' : 'error',
         keychain: p.name,
-        ...(p.stored !== null ? { detail: 'la chiave nel portachiavi non è valida' } : {}),
+        ...(p.stored !== null ? { detail: secretStrings().keyInvalid } : {}),
         // Without the key nothing encrypted can be opened.
         unreadable: locked,
       },

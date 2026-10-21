@@ -4,6 +4,7 @@ import type { Hub } from '../../hub.ts';
 import type { EventLog } from '../../log/event-log.ts';
 import { DecisionEngineError } from '../../team/decision-engine.ts';
 import type { AppEnv, RouteHelpers } from '../app.ts';
+import { serverStrings } from '../server.strings.ts';
 
 /*
  * The instinct (D-067; contract in shared/src/instinct.ts): engine and modes
@@ -60,7 +61,7 @@ export function registerInstinctRoutes(
   app.post('/api/runs/:runId/undo', requireAuth, async (c) => {
     const runId = c.req.param('runId');
     if (!RUN_ID.test(runId) || log.query({ runId, limit: 1 }).length === 0) {
-      return c.json({ error: 'not_found', message: 'Nessun lavoro con questo id.' }, 404);
+      return c.json({ error: 'not_found', message: serverStrings().unknownTask }, 404);
     }
     return c.json(await hub.undoRun(runId));
   });

@@ -67,7 +67,7 @@ describe('lock on MONSTERS_HOME', CORE_TIMEOUT, () => {
 
     const second = startCore({ home, port: 0, env: {}, webDist: false });
     await expect(second).rejects.toThrow(HomeLockedError);
-    await expect(second).rejects.toThrow(/Monsters è già in esecuzione su .*home/);
+    await expect(second).rejects.toThrow(/Monsters is already running on .*home/);
     expect(() => createCoreServices({ home })).toThrow(HomeLockedError);
 
     expect(core.hub.questions.get(q.id)?.status).toBe('open');
@@ -116,7 +116,7 @@ describe('lock on MONSTERS_HOME', CORE_TIMEOUT, () => {
         join(home, LOCK_FILE),
         JSON.stringify({ pid: other.pid, start: null, acquiredAt: 1 }),
       );
-      await expect(start(home)).rejects.toThrow(new RegExp(`processo ${other.pid}`));
+      await expect(start(home)).rejects.toThrow(new RegExp(`process ${other.pid}`));
       expect(existsSync(join(home, 'monsters.db'))).toBe(false);
     } finally {
       other.kill('SIGKILL');

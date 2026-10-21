@@ -1014,7 +1014,7 @@ describe('telegram: drafts of the monsters (D-098)', () => {
       ],
     });
     tg.text(GIULIO, 'apri un progetto per i social');
-    const card = await tg.waitMessage((m) => m.text.includes('progetto «Social»'));
+    const card = await tg.waitMessage((m) => m.text.includes('project “Social”'));
     // Every field that becomes real (D-103): the monster's rules, tools and model, folder, web, cap.
     for (const field of [
       '🧩 <b>Sofia</b>',
@@ -1041,7 +1041,7 @@ describe('telegram: drafts of the monsters (D-098)', () => {
     expect(t.core.hub.team.byId('sofia')?.config.project).toBe('social');
 
     tg.text(GIULIO, 'ogni mattina feriale alle 8 la rassegna');
-    const auto = await tg.waitMessage((m) => m.text.includes('«Rassegna»'));
+    const auto = await tg.waitMessage((m) => m.text.includes('“Rassegna”'));
     expect(auto.text).toContain('dal lunedì al venerdì alle 8:00');
     const [conferma, scarta] = auto.reply_markup!.inline_keyboard!.flat();
     tg.press(GIULIO, auto, scarta!.callback_data);
@@ -1055,7 +1055,7 @@ describe('telegram: drafts of the monsters (D-098)', () => {
       (c) =>
         c.method === 'answerCallbackQuery' &&
         typeof c.payload['text'] === 'string' &&
-        c.payload['text'].includes('bozza'),
+        /bozza|draft/i.test(c.payload['text']),
     );
   });
 
@@ -1075,7 +1075,7 @@ describe('telegram: drafts of the monsters (D-098)', () => {
         ],
       });
       tg.text(GIULIO, 'apri un progetto per il sito');
-      const card = await tg.waitMessage((m) => m.text.includes('progetto «Sito»'));
+      const card = await tg.waitMessage((m) => m.text.includes('project “Sito”'));
       expect(card.text).toContain('Tutti i mostri del progetto potranno leggere e scrivere');
       expect(card.text).toContain('fuori da Monsters Progetti');
       const buttons = card.reply_markup!.inline_keyboard!.flat();
@@ -1120,7 +1120,7 @@ describe('telegram: the draft card shows what becomes real (D-103)', () => {
       ],
     });
     tg.text(GIULIO, 'una rassegna ogni mattina');
-    const card = await tg.waitMessage((m) => m.text.includes('«Rassegna»'));
+    const card = await tg.waitMessage((m) => m.text.includes('“Rassegna”'));
     for (const field of [
       'Partecipano: Rhea',
       'Avvisi: app sì, Telegram sì',
@@ -1135,7 +1135,7 @@ describe('telegram: the draft card shows what becomes real (D-103)', () => {
     ]);
 
     tg.text(GIULIO, 'e una lunga il lunedì');
-    const long = await tg.waitMessage((m) => m.text.includes('«Lunga»'));
+    const long = await tg.waitMessage((m) => m.text.includes('“Lunga”'));
     expect(long.text).toContain('troppo lunga per un messaggio');
     const buttons = long.reply_markup!.inline_keyboard!.flat();
     expect(buttons.map((b) => b.text)).toEqual(['Apri nell’app', 'Scarta']);
@@ -1199,7 +1199,7 @@ describe('telegram: a proposal for CLAUDE.md or AGENTS.md (D-113)', () => {
       });
       tg.text(GIULIO, 'scrivi come si lanciano i test');
       const card = await tg.waitMessage((m) =>
-        m.text.includes('le istruzioni di «Saturday» (CLAUDE.md)'),
+        m.text.includes('the instructions of “Saturday” (CLAUDE.md)'),
       );
       expect(card.text).toContain('📄 File: <b>CLAUDE.md</b> · progetto Saturday');
       expect(card.text).toContain('<pre>');
@@ -1218,7 +1218,7 @@ describe('telegram: a proposal for CLAUDE.md or AGENTS.md (D-113)', () => {
 
       tg.text(GIULIO, 'e le regole');
       const other = await tg.waitMessage((m) =>
-        m.text.includes('le istruzioni di «Saturday» (AGENTS.md)'),
+        m.text.includes('the instructions of “Saturday” (AGENTS.md)'),
       );
       expect(other.text).toContain('(nuovo)');
       expect(other.text).toContain('La differenza è lunga: la trovi anche nell’app.');

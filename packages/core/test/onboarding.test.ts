@@ -237,10 +237,10 @@ describe('team proposal', () => {
     const proposal = await proposeTeam(ctx(), gen, { onError: (m) => errors.push(m) });
     expect(proposal.source).toBe('fallback');
     expect(proposal.requests).toBe(2);
-    // One error, in plain Italian, only because every attempt failed.
+    // One error, in plain words, only because every attempt failed.
     expect(errors).toHaveLength(1);
-    expect(errors[0]).toMatch(/^Non sono riuscito a preparare una squadra su misura/);
-    expect(errors[0]).not.toMatch(/JSON|tentativo/);
+    expect(errors[0]).toMatch(/^I couldn’t put together a squad made for you/);
+    expect(errors[0]).not.toMatch(/JSON|attempt/);
     expect(proposal.members.map((m) => m.name)).toEqual(['Rhea', 'Dione']);
     expect(proposal.members[0]!.context).toBe(
       'Giulio si occupa di social e contenuti e di consulenza o freelance (in parole sue: «Seguo tre clienti nel food»); nelle prossime settimane vuole pubblicare con costanza.',
@@ -623,7 +623,7 @@ describe('onboarding API', () => {
     const last = await startTestHub({}, { withoutTeam: true, home, hub: { teamModels: planner } });
     const said = failures(last);
     expect(said).toHaveLength(3);
-    expect(said[2]).toMatch(/dopo 3 tentativi.*Mancano: il profilo, il benvenuto/);
+    expect(said[2]).toMatch(/after 3 attempts.*Missing: the profile, the welcome/);
   });
 
   it('validates edited duties and area at the confirmation, and refuses an id taken by the orchestrator', async () => {
@@ -778,7 +778,7 @@ describe('onboarding API', () => {
     expect(res.status).toBe(409);
     const body = (await res.json()) as { error: string; message: string };
     expect(body.error).toBe('onboarding_pending');
-    expect(body.message).toMatch(/Completa prima il primo avvio nell’interfaccia/);
+    expect(body.message).toMatch(/Finish the first start in the interface/);
     expect(await t.json('GET', '/api/agents')).toEqual([]);
     const state = await t.json<OnboardingState>('GET', '/api/onboarding');
     expect(state.status).toBe('pending');

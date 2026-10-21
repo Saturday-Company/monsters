@@ -221,6 +221,7 @@ import {
   type TierLevel,
   type TriageOutcome,
 } from './team/instinct/triage.ts';
+import { hubStrings } from './hub.strings.ts';
 
 /*
  * Composition of the agentic side of the core (M1.3): vault, providers, team,
@@ -474,20 +475,13 @@ function logSecretsStatus(log: EventLog, status: SecretsStatus): void {
   const error = (code: string, message: string) =>
     log.append({ agent: 'system', type: 'error', data: { code, message } });
   if (status.backend === 'file' && status.reason !== 'forced') {
-    error(
-      'secrets_fallback',
-      `portachiavi non usato (${status.reason}${status.detail ? `: ${status.detail}` : ''}): ` +
-        'chiavi salvate in file protetti',
-    );
+    error('secrets_fallback', hubStrings().secretsFallback(status.reason, status.detail));
   }
   if (status.quarantined?.length) {
-    error(
-      'secrets_quarantined',
-      `il portachiavi non ha più la chiave di: ${status.quarantined.join(', ')}; messe da parte, vanno reinserite`,
-    );
+    error('secrets_quarantined', hubStrings().secretsQuarantined(status.quarantined.join(', ')));
   }
   if (status.unreadable.length > 0) {
-    error('secrets_unreadable', `chiavi salvate ma non leggibili: ${status.unreadable.join(', ')}`);
+    error('secrets_unreadable', hubStrings().secretsUnreadable(status.unreadable.join(', ')));
   }
 }
 const PROFILE_NOTE = 'profilo.md';
@@ -723,8 +717,8 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
               ? 'invalid_key'
               : 'verification_failed',
             verified.status === 401 || verified.status === 403
-              ? 'OpenRouter non riconosce questa chiave.'
-              : 'Non riesco a verificare la chiave con OpenRouter. Controlla la connessione e riprova.',
+              ? hubStrings().openRouterRefused
+              : hubStrings().openRouterUnverified,
           );
         }
       },
@@ -805,13 +799,12 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     }
     if (moved.length === 0) return;
     const plan = id === 'claude-agent' ? 'Claude' : 'ChatGPT';
-    const who = moved.length === agents.length ? 'tutti i mostri' : moved.join(', ');
     log.append({
       agent: 'system',
       type: 'message',
       data: {
         role: 'system',
-        text: `Ora ${who} ${moved.length === 1 ? 'lavora' : 'lavorano'} con il tuo abbonamento ${plan}. Lo cambi in Impostazioni → Modelli.`,
+        text: hubStrings().movedToPlan(moved, moved.length === agents.length, plan),
       },
     });
   };
@@ -1037,10 +1030,12 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     const capped = harness ? null : spend.stopReason(o.agent.config.id);
     if (capped) {
       // The project's cap is raised on the project's page, not in the settings (collaudo of 17/10).
-      const where = capped.includes(' del progetto ')
-        ? `nella ${spendCapPath(team.projectOf(o.agent.config.id)?.name ?? true)}`
-        : `in ${spendCapPath()}`;
-      const message = `${o.agent.config.name} si ferma: ${capped}. Per farlo continuare alza il tetto ${where}.`;
+      // (the reason is the spend meter's sentence: a project's says "del progetto" / "project")
+      const inProject = capped.includes(' del progetto ') || /\bproject\b/i.test(capped);
+      const path = inProject
+        ? spendCapPath(team.projectOf(o.agent.config.id)?.name ?? true)
+        : spendCapPath();
+      const message = hubStrings().spendStop(o.agent.config.name, capped, path, inProject);
       o.log.append({
         agent: o.agent.config.id,
         runId: o.runId,
@@ -1533,7 +1528,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     vault,
     thirdParty: (runId: string) => {
       const t = liveTaint(runId);
-      return t?.tainted ? (t.source ?? 'testo di terzi') : t?.guarded;
+      return t?.tainted ? (t.source ?? hubStrings().thirdPartyText) : t?.guarded;
     },
     memoryHeld: (runId: string) => {
       const run = runs.getRun(runId);
@@ -1574,9 +1569,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
   };
 
   const noProvider = (err: unknown): string | undefined =>
-    err instanceof UnknownProviderError
-      ? 'Questo mostro non ha ancora un modello: collegane uno in Impostazioni → Modelli.'
-      : undefined;
+    err instanceof UnknownProviderError ? hubStrings().noModel : undefined;
 
   /** Model that last served each agent in a run: the next turn or delegation starts there (AG-25). */
   const servedIn = new WeakMap<object, Map<string, ModelRef>>();
@@ -1616,10 +1609,12 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     if (t.guarded) return { kind: 'draft', source: t.guarded, tainted: true };
     if (isGroupThread(threadOfRun(log, runId))) {
       return t.tainted
-        ? { kind: 'draft', source: t.source ?? 'testo di terzi', tainted: true }
-        : { kind: 'draft', source: 'scritte in un gruppo di Telegram', tainted: false };
+        ? { kind: 'draft', source: t.source ?? hubStrings().thirdPartyText, tainted: true }
+        : { kind: 'draft', source: hubStrings().telegramGroup, tainted: false };
     }
-    if (t.tainted) return { kind: 'marked', source: t.source ?? 'testo di terzi', tainted: true };
+    if (t.tainted) {
+      return { kind: 'marked', source: t.source ?? hubStrings().thirdPartyText, tainted: true };
+    }
     return null;
   };
   /**
@@ -1642,7 +1637,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       data: {
         use: 'memory',
         action: 'memory_skipped',
-        message: `Non ho aggiunto alla memoria di ${agent.config.name} ${dropped.length === 1 ? 'una riga sui suoi accessi' : `${dropped.length} righe sui suoi accessi`}: permessi e collegamenti glieli dice Monsters a ogni lavoro.`,
+        message: hubStrings().accessLinesSkipped(agent.config.name, dropped.length),
         subject: agent.config.id,
         details: { lines: dropped, reason: 'access_claim' },
       },
@@ -1818,13 +1813,13 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
    */
   const draftTaintOf = (run: object): string | undefined => {
     const t = taintOf(run);
-    return t.tainted ? (t.source ?? 'testo di terzi') : t.guarded;
+    return t.tainted ? (t.source ?? hubStrings().thirdPartyText) : t.guarded;
   };
   // The end event of a run says whether it was tainted, inherited taint too (D-103).
   runs.setEndFacts((r) => {
     const t = taints.get(r);
     if (!t?.tainted) return undefined;
-    return { tainted: true, taintSource: (t.source ?? 'testo di terzi').slice(0, 200) };
+    return { tainted: true, taintSource: (t.source ?? hubStrings().thirdPartyText).slice(0, 200) };
   });
   /** Any of these runs is tainted: a run still at work by its live taint, the others by the log. */
   const tainted = (runIds: Iterable<string>): boolean => {
@@ -1859,11 +1854,6 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       return a ? { name: a.config.name, role: a.config.role } : undefined;
     }),
   );
-  const LEVEL_WORD: Record<TierLevel, string> = {
-    simple: 'semplice',
-    medium: 'media',
-    hard: 'difficile',
-  };
   /**
    * Model tier the radiografia chose for the request of a run: the coordinator's own turns
    * follow it, and a delegation whose subtask got no level of its own (D-109).
@@ -1921,7 +1911,6 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       );
       const chain = moved ?? ranked.config.models;
       const first = chain[0]!;
-      const what = subtask?.own ? 'Incarico' : 'Richiesta';
       // Logged for every level (also when the base already fits): the receipt says why (D-093).
       log.append({
         agent: 'system',
@@ -1931,7 +1920,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         data: {
           use: 'tier',
           action: 'tier',
-          message: `${what} ${LEVEL_WORD[level]}: ${agent.config.name} usa ${first.model}.`,
+          message: hubStrings().tier(!!subtask?.own, level, agent.config.name, first.model),
           subject: agent.config.id,
           details: {
             level,
@@ -2043,7 +2032,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     // user's profile, `Privato/` or the God's rights (the bot's monster is never the God).
     const thread = c.thread;
     if (thread && isOrchestrator) {
-      return { status: 'failed', error: `${c.agent.config.name} parla solo dal bot principale.` };
+      return { status: 'failed', error: hubStrings().onlyMainBot(c.agent.config.name) };
     }
     const ownRuns = auto
       ? new Set(auto.runs)
@@ -2139,10 +2128,10 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     // user's words; changed since the user approved them, they may carry anything (D-103).
     const squadProject = squadId ? team.project(squadId) : undefined;
     if (squadProject && projectDocsChanged(squadProject)) {
-      taint.taint('istruzioni della cartella del progetto cambiate');
+      taint.taint(hubStrings().projectDocsChanged);
     }
     if (objectiveFrom?.tainted) {
-      taint.taint(`automazione proposta da ${nameOf(objectiveFrom.agent)} dopo testo di terzi`);
+      taint.taint(hubStrings().automationAfter(nameOf(objectiveFrom.agent)));
     }
     taint.known(
       [
@@ -2163,7 +2152,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         .replace(/[\p{C}\p{Zl}\p{Zp}[\]()<>`*_]/gu, '')
         .trim()
         .slice(0, 40);
-      return `richiesta di ${name || 'una persona'} su Telegram, non dell’utente`;
+      return hubStrings().strangerRequest(name);
     };
     for (const id of [...batch.map((b) => b.eventId), ...turns.map((t) => t.id)]) {
       const reason = stranger(id);
@@ -2178,27 +2167,27 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       if (known) taint.absorb(known);
       // After a restart the snapshot is gone: tainted unless its run surely read nothing.
       else if (!e.data.fromRun || tainted([e.data.fromRun])) {
-        taint.taint(`messaggio di ${nameOf(e.data.from)}`);
+        taint.taint(hubStrings().messageFrom(nameOf(e.data.from)));
       }
     }
     // A lead's report written after third-party text may carry it (as a summary, D-082).
     const reportRuns = turns
       .filter((t) => t.runId && log.get(t.id)?.type === 'project_report')
       .map((t) => t.runId!);
-    if (reportRuns.length > 0 && tainted(reportRuns)) taint.taint('rapporto di un progetto');
+    if (reportRuns.length > 0 && tainted(reportRuns)) taint.taint(hubStrings().projectReport);
     // The monster's own recent answers written after third-party text may carry an instruction
     // of it (as a summary does, D-082): the run that reads them starts tainted (D-103).
     const answerRuns = turns
       .filter((t) => t.role === 'assistant' && t.runId && t.runId !== run.id)
       .map((t) => t.runId!);
-    if (answerRuns.length > 0 && tainted(answerRuns)) taint.taint('conversazione recente');
+    if (answerRuns.length > 0 && tainted(answerRuns)) taint.taint(hubStrings().recentConversation);
     // A summary of runs that read third-party text may carry an instruction of theirs (D-082).
-    if (compacted.tainted) taint.taint('riassunto della conversazione');
+    if (compacted.tainted) taint.taint(hubStrings().conversationSummary);
     if (profile) {
       // A profile a run wrote after third-party text (review of 18/10, A2): data, not the user's
       // words, and the run starts tainted.
       if (vault.index.pathsWithProp([PROFILE_NOTE], THIRD_PARTY_PROP).length > 0) {
-        taint.taint('profilo scritto dopo testo di terzi');
+        taint.taint(hubStrings().profileAfter);
       } else taint.known(profile);
       taint.sensitive(profile, 'profile');
     }
@@ -2207,7 +2196,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     // text makes the run start tainted, as the turns written after a page do (D-103).
     if (memory) {
       taint.sensitive(memory, 'profile');
-      if (memoryTainted(memory)) taint.taint('memoria scritta dopo testo di terzi');
+      if (memoryTainted(memory)) taint.taint(hubStrings().memoryAfter);
     }
     // The user's files are the user's data, like the notes: their text must not leave in a
     // query. A file a monster or a tool made carries third-party text: it taints the run.
@@ -2236,7 +2225,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         data: {
           use: 'tools',
           action: 'tools',
-          message: `Per questa richiesta gli strumenti del web di ${agent.config.name} aspettano: li carica con tools_search se servono.`,
+          message: hubStrings().webToolsWait(agent.config.name),
           subject: agent.config.id,
           confidence: xray.needsWeb,
         },
@@ -2256,7 +2245,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
                 budget,
                 // A report read now carries what the lead's run had read (D-103).
                 onReports: (ids) => {
-                  if (tainted(ids)) taintOf(run).taint('rapporto di un progetto');
+                  if (tainted(ids)) taintOf(run).taint(hubStrings().projectReport);
                 },
                 onSent: (id) => {
                   inheritedTaint.set(id, taintOf(run).clone());
@@ -2375,9 +2364,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
               const memory = await team.memory(p.agent.config.id, p.scope.signal);
               // The delegated monster's own memory: a marked line taints the run (A2).
               if (memoryTainted(memory)) {
-                taintOf(p.run).taint(
-                  `memoria di ${p.agent.config.name} scritta dopo testo di terzi`,
-                );
+                taintOf(p.run).taint(hubStrings().memoryOfAfter(p.agent.config.name));
               }
               // A fallback served it (the first model failed): later delegations start there.
               const offFallback = log.subscribe((e) => {
@@ -2586,7 +2573,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         agent: 'system',
         runId: c.run.id,
         type: 'error',
-        data: { code: 'receipt', message: `ricevuta non scritta: ${(err as Error).message}` },
+        data: { code: 'receipt', message: hubStrings().receiptFailed((err as Error).message) },
       });
     }
   };
@@ -2879,11 +2866,9 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         area !== undefined && area !== '' && path.toLowerCase().startsWith(`${area}/`);
       const leak = run ? taints.get(run)?.replyLeak(text, shared) : null;
       if (!leak) return null;
-      if (leak.kind === 'private') return 'ripete una nota privata';
+      if (leak.kind === 'private') return hubStrings().replyPrivate;
       if (leak.chars < NOTE_LEAK_CHARS) return null;
-      return leak.kind === 'profile'
-        ? 'ripete la memoria del mostro o il tuo profilo'
-        : 'ripete pezzi lunghi delle note';
+      return leak.kind === 'profile' ? hubStrings().replyProfile : hubStrings().replyNotes;
     },
     ...telegramOptions,
   });

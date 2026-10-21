@@ -360,7 +360,7 @@ describe('Claude Agent', () => {
       .filter((e) => e.type === 'message' && e.data.role === 'system')
       .map((e) => (e as LogEvent<'message'>).data.text);
     expect(said).toContain(
-      'Ora Dione lavora con il tuo abbonamento Claude. Lo cambi in Impostazioni → Modelli.',
+      'Now Dione works with your Claude subscription. You can change it in Settings → Models.',
     );
     // Once per plan: a chain the user puts back later stays.
     await t.core.hub.team.setModels('dione', DEFAULT_FREE_CHAIN);

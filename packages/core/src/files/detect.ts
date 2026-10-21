@@ -1,4 +1,5 @@
 import type { FileKind } from '@monsters/shared';
+import { fileStrings } from './files.strings.ts';
 import { zipEntryNames } from './zip.ts';
 
 /*
@@ -197,9 +198,10 @@ export function isWebp(bytes: Uint8Array): boolean {
 
 /** Why a type is refused, in the words of the composer. */
 export function unsupportedMessage(what: string): string {
-  if (what === 'heic') return 'Le foto HEIC non si leggono ancora: esportala in JPEG e riprova.';
-  if (what === 'avif') return 'Le immagini AVIF non si leggono ancora: usa PNG, JPEG o WebP.';
-  if (what === 'html') return 'Le pagine HTML non si allegano: le creano solo i mostri.';
-  if (what === 'svg') return 'Le immagini SVG non si allegano: usa PNG, JPEG o WebP.';
-  return 'Questo tipo di file non si può allegare: immagini, PDF, testo e documenti Office sì.';
+  const s = fileStrings();
+  if (what === 'heic') return s.heic;
+  if (what === 'avif') return s.avif;
+  if (what === 'html') return s.html;
+  if (what === 'svg') return s.svg;
+  return s.other;
 }

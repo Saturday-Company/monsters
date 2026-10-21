@@ -4,15 +4,18 @@ import { hashString, type MonsterGenome } from '@monsters/monster-kit';
 import { errorMessage, type ModelRef, type ProviderRegistry } from '@monsters/providers';
 import {
   AGENT_NAME_PATTERN,
+  appLang,
   AgentAreaSchema,
   autoChain,
   DEFAULT_AGENT_PERMISSIONS,
   EventInputSchema,
+  formatList,
   ONBOARDING_QUESTIONS,
   checkOnboardingAnswer,
   isClaudePlanChain,
   isReservedActor,
   type AgentPermissions,
+  type Lang,
   type FolderGrant,
   type AgentSummary,
   type OnboardingAccess,
@@ -53,6 +56,7 @@ import {
   type ProposalContext,
 } from './proposal.ts';
 import { patchSettingsFile } from './settings-file.ts';
+import { onboardingStrings } from './onboarding.strings.ts';
 
 /*
  * The first start (ARCHITECTURE §7): key, questions, permissions, team
@@ -127,16 +131,9 @@ const CONFIRM_STEPS: readonly ConfirmStep[] = [
   'welcome',
 ];
 
-/** The steps a confirmation has still to do, in Italian for the log. */
+/** The steps a confirmation has still to do, in the app's language for the log. */
 function pendingSteps(done: readonly ConfirmStep[]): string[] {
-  const names: Record<ConfirmStep, string> = {
-    folders: 'le cartelle dei mostri',
-    models: 'i modelli',
-    vault: 'le aree del vault',
-    settings: 'le impostazioni',
-    profile: 'il profilo',
-    welcome: 'il benvenuto',
-  };
+  const names: Record<ConfirmStep, string> = onboardingStrings().steps;
   return CONFIRM_STEPS.filter((x) => !done.includes(x)).map((x) => names[x]);
 }
 
@@ -242,19 +239,15 @@ export function welcomeText(p: Profile, members: ProposedAgent[], hasModel: bool
     lower(role)
       .replace(/\.$/, '')
       .replace(/\s*\(([^()]*)\)/g, ': $1');
+  // The monster's own voice: the language it writes in (the `lingua` answer) when the app has
+  // it, else the app's language (Spanish, French and German monsters greet in the app's).
+  const lang: Lang = p.languageId === 'en' || p.languageId === 'it' ? p.languageId : appLang();
   const names = members.map((m) => `${m.name} (${inline(m.role)})`);
-  const team =
-    names.length === 1
-      ? names[0]!
-      : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
-  if (p.languageId === 'en') {
-    if (!hasModel)
-      return `Hi ${p.userName}! I'm ${p.orchestratorName}, I coordinate your team: with me there are ${team}. To get to work I only need a model: connect one and we start.`;
-    return `Hi ${p.userName}! I'm ${p.orchestratorName}, I coordinate your team. With me there are ${team}. Tell me what you need and I'll take it from there: before anything you asked me to check with you, I'll ask first.`;
-  }
-  if (!hasModel)
-    return `Ciao ${p.userName}! Sono ${p.orchestratorName} e coordino la tua squadra: con me ci sono ${team}. Per lavorare mi manca solo un modello: collegane uno e partiamo.`;
-  return `Ciao ${p.userName}! Sono ${p.orchestratorName} e coordino la tua squadra. Con me ci sono ${team}. Scrivimi quello che ti serve e ci pensiamo noi: per le cose che mi hai indicato, prima chiedo a te.`;
+  const team = formatList(names, lang);
+  const s = onboardingStrings(lang);
+  return hasModel
+    ? s.welcome(p.userName, p.orchestratorName, team)
+    : s.welcomeNoModel(p.userName, p.orchestratorName, team);
 }
 
 export class OnboardingService {
@@ -531,14 +524,14 @@ export class OnboardingService {
       type: 'decision',
       data: {
         kind: 'team_proposal',
-        question: 'Quale squadra serve?',
+        question: onboardingStrings().teamQuestion,
         options: proposal.members.map((m) => m.name),
         choice: proposal.members.map((m) => m.name).join(', '),
         decidedBy: proposal.source === 'model' ? 'model' : 'rules',
         reason:
           proposal.source === 'model'
-            ? `proposta del modello ${proposal.model ?? ''}`.trim()
-            : 'squadra di partenza (Rhea e Dione)',
+            ? onboardingStrings().teamFromModel(proposal.model ?? '')
+            : onboardingStrings().teamStarter,
       },
     });
     const fresh = this.#load();
@@ -608,7 +601,7 @@ export class OnboardingService {
         type: 'error',
         data: {
           code: 'onboarding',
-          message: `la squadra non è stata completata dopo ${MAX_CONFIRM_ATTEMPTS} tentativi: non riprovo più. Mancano: ${left.join(', ')}. Controlla Impostazioni.`,
+          message: onboardingStrings().incompleteGaveUp(MAX_CONFIRM_ATTEMPTS, left.join(', ')),
         },
       });
       return false;
@@ -622,7 +615,7 @@ export class OnboardingService {
         type: 'error',
         data: {
           code: 'onboarding',
-          message: `la squadra non è stata completata: ${(err as Error).message}`,
+          message: onboardingStrings().incomplete((err as Error).message),
         },
       });
       return false;
@@ -795,7 +788,7 @@ export class OnboardingService {
       if (pristine)
         await vault.delete(this.#actor(), {
           path,
-          reason: 'onboarding: altro nome del coordinatore',
+          reason: onboardingStrings().coordinatorRenamed,
         });
     } catch {
       // not there, or already changed by the user: leave it

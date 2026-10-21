@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { NODE_MISSING, nodeRuntime } from '@monsters/shared/node';
+import { secretStrings } from './secrets.strings.ts';
 
 /*
  * The operating system's keychain (DECISIONS D-042): macOS Keychain, Windows
@@ -38,14 +39,14 @@ export class KeychainUnavailableError extends Error {
 /** The keychain did not answer in time (locked and waiting for a prompt, hung daemon). */
 export class KeychainTimeoutError extends Error {
   constructor(ms: number) {
-    super(`il portachiavi non ha risposto entro ${Math.round(ms / 1000)} s`);
+    super(secretStrings().keychainTimeout(Math.round(ms / 1000)));
     this.name = 'KeychainTimeoutError';
   }
 }
 
 export function keychainName(platform: NodeJS.Platform = process.platform): string {
-  if (platform === 'darwin') return 'Portachiavi di macOS';
-  if (platform === 'win32') return 'Gestione credenziali di Windows';
+  if (platform === 'darwin') return secretStrings().keychainMac;
+  if (platform === 'win32') return secretStrings().keychainWindows;
   return 'Secret Service';
 }
 
@@ -131,7 +132,7 @@ function runHelper(
         reply = JSON.parse(stdout) as HelperReply;
       } catch {
         const why = stderr.trim().split('\n').at(-1) ?? `exit ${code}`;
-        return reject(new KeychainUnavailableError(`portachiavi non raggiungibile: ${why}`));
+        return reject(new KeychainUnavailableError(secretStrings().keychainUnreachable(why)));
       }
       if (reply.ok) return resolve(reply.value);
       reject(new KeychainUnavailableError(reply.message));
@@ -150,10 +151,9 @@ export function loadNativeKeychain(options: { runtime?: KeychainRuntime } = {}):
     modulePath = createRequire(import.meta.url).resolve('@napi-rs/keyring');
   } catch (err) {
     return Promise.reject(
-      new KeychainUnavailableError(
-        `modulo del portachiavi non disponibile: ${(err as Error).message}`,
-        { cause: err },
-      ),
+      new KeychainUnavailableError(secretStrings().keychainModule((err as Error).message), {
+        cause: err,
+      }),
     );
   }
   let runtime: KeychainRuntime;
@@ -187,7 +187,7 @@ export function loadNativeKeychain(options: { runtime?: KeychainRuntime } = {}):
 /** The start of the core was stopped while waiting for the keychain. */
 export class KeychainAbortedError extends Error {
   constructor() {
-    super('attesa del portachiavi interrotta: il core si sta fermando');
+    super(secretStrings().keychainAborted);
     this.name = 'KeychainAbortedError';
   }
 }

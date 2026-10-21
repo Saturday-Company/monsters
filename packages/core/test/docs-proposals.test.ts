@@ -176,9 +176,9 @@ describe('project_docs_propose: the proposal and its draft (D-113)', () => {
     const [d] = await docsDrafts(t);
     expect(d).toMatchObject({
       kind: 'docs',
-      title: 'Istruzioni di Saturday (CLAUDE.md)',
+      title: 'Instructions of Saturday (CLAUDE.md)',
       summary:
-        'Leda propone di cambiare le istruzioni di «Saturday» (CLAUDE.md): Scrivo come si lanciano i test.',
+        'Leda proposes to change the instructions of “Saturday” (CLAUDE.md): Scrivo come si lanciano i test.',
       from: 'leda',
       project: 'saturday',
       docs: { file: 'CLAUDE.md', current: CLAUDE, proposed: NEW_CLAUDE, stale: false },
@@ -286,9 +286,9 @@ describe('project_docs_propose: the proposal and its draft (D-113)', () => {
       .events(runId)
       .filter(isType('tool_result', (e) => e.data.tool === DOCS_PROPOSE));
     expect(results.map((r) => r.data.ok)).toEqual([false, false]);
-    expect(JSON.stringify(results[0]!.data)).toContain('già esattamente così');
+    expect(JSON.stringify(results[0]!.data)).toContain('already exactly like this');
     expect(JSON.stringify(results[0]!.data)).toContain('Nothing changes');
-    expect(JSON.stringify(results[1]!.data)).toContain('al massimo 32 KB');
+    expect(JSON.stringify(results[1]!.data)).toContain('the limit is 32 KB');
 
     const asked = async (text: string) => {
       const sent = await t.json<{ runId: string }>('POST', '/api/messages', { text });
@@ -305,7 +305,7 @@ describe('project_docs_propose: the proposal and its draft (D-113)', () => {
     expect(drafts[0]).toMatchObject({
       from: 'titan',
       summary: expect.stringContaining(
-        'propone di creare le istruzioni di «Saturday» (AGENTS.md)',
+        'proposes to create the instructions of “Saturday” (AGENTS.md)',
       ) as unknown,
       docs: { current: null, stale: false },
     });
@@ -345,7 +345,7 @@ describe('project_docs_propose: the proposal and its draft (D-113)', () => {
     propose(t, 'AGENTS.md', '# b\n', 'titan');
     propose(t, 'CLAUDE.md', `${CLAUDE}quattro\n`, 'rhea');
     expect(t.core.hub.docsProposals.open()).toHaveLength(MAX_OPEN_DOCS_PROPOSALS);
-    expect(() => propose(t, 'AGENTS.md', '# c\n', 'rhea')).toThrow(/già 5 proposte/);
+    expect(() => propose(t, 'AGENTS.md', '# c\n', 'rhea')).toThrow(/already has 5 proposals/);
     // Replacing one of them is still possible.
     expect(propose(t, 'AGENTS.md', '# b2\n', 'titan').replaced).toBeDefined();
 
@@ -398,7 +398,7 @@ describe('Applica: the checks before writing (D-113)', () => {
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({
       error: 'docs_changed',
-      message: 'Il file è cambiato dopo la proposta: chiedi al mostro di riproporla.',
+      message: 'The file changed after the proposal: ask the monster to propose it again.',
     });
     expect(readFileSync(join(folder, 'CLAUDE.md'), 'utf8')).toBe(`${CLAUDE}cambiato a mano\n`);
     // A file created meanwhile where there was none: changed too.
@@ -420,13 +420,13 @@ describe('Applica: the checks before writing (D-113)', () => {
 
       // AGENTS.md a link to a file elsewhere: no proposal, and none applied through it.
       symlinkSync(join(outside, 'target.md'), join(folder, 'AGENTS.md'));
-      expect(() => propose(t, 'AGENTS.md', '# x\n')).toThrow(/collegamento/);
+      expect(() => propose(t, 'AGENTS.md', '# x\n')).toThrow(/is a link/);
       rmSync(join(folder, 'AGENTS.md'));
       const q = propose(t, 'AGENTS.md', '# x\n');
       symlinkSync(join(outside, 'target.md'), join(folder, 'AGENTS.md'));
       const res = await t.api('POST', `/api/drafts/docs/${q.id}/confirm`);
       expect(res.status).toBe(400);
-      expect(((await res.json()) as { message: string }).message).toContain('collegamento');
+      expect(((await res.json()) as { message: string }).message).toContain('is a link');
       expect(readFileSync(join(outside, 'target.md'), 'utf8')).toBe('fuori\n');
     },
   );
@@ -489,7 +489,9 @@ describe('corrections from the review (D-113)', () => {
     const folder = repo({ 'CLAUDE.md': 'a\u200Bb\n' });
     const t = await withProject({}, folder);
     for (const hidden of ['\u200B', '\u{E0041}\u{E0042}', '\u202E', '\u0007', '\u00AD']) {
-      expect(() => propose(t, 'AGENTS.md', `# Regole${hidden}\n`)).toThrow(/non si vede/);
+      expect(() => propose(t, 'AGENTS.md', `# Regole${hidden}\n`)).toThrow(
+        /character you can’t see/,
+      );
     }
     expect(propose(t, 'AGENTS.md', '# Regole\tcon tab\r\n')).toBeDefined();
     propose(t, 'CLAUDE.md', 'ab\n');
@@ -501,7 +503,7 @@ describe('corrections from the review (D-113)', () => {
     const lines = Array.from({ length: 2000 }, (_, i) => `riga ${i} del file delle istruzioni`);
     const folder = repo({ 'CLAUDE.md': CLAUDE.trimEnd(), 'AGENTS.md': `${lines.join('\n')}\n` });
     const t = await withProject({}, folder);
-    expect(() => propose(t, 'CLAUDE.md', CLAUDE)).toThrow(/già esattamente così/);
+    expect(() => propose(t, 'CLAUDE.md', CLAUDE)).toThrow(/already exactly like this/);
     propose(t, 'AGENTS.md', `${lines.slice(0, 500).join('\n')}\n`);
     const [d] = await docsDrafts(t);
     expect(d!.docs.currentClipped).toBe(true);
@@ -519,7 +521,7 @@ describe('corrections from the review (D-113)', () => {
     expect(d!.docs).toMatchObject({ folderMoved: true, stale: false });
     const res = await t.api('POST', `/api/drafts/docs/${p.id}/confirm`);
     expect(res.status).toBe(409);
-    expect(((await res.json()) as { message: string }).message).toContain('cartella del progetto');
+    expect(((await res.json()) as { message: string }).message).toContain('project’s folder');
     expect(readFileSync(join(other, 'CLAUDE.md'), 'utf8')).toBe(CLAUDE);
   });
 
@@ -567,7 +569,7 @@ describe('corrections from the review (D-113)', () => {
     const big = 'x'.repeat(1024 * 1024 + 10);
     const folder = repo({ 'CLAUDE.md': CLAUDE, 'AGENTS.md': big });
     const t = await withProject({}, folder);
-    expect(() => propose(t, 'AGENTS.md', '# Regole\n')).toThrow(/più grande di 1 MB/);
+    expect(() => propose(t, 'AGENTS.md', '# Regole\n')).toThrow(/larger than 1 MB/);
     const p = propose(t, 'CLAUDE.md', NEW_CLAUDE);
     writeFileSync(join(folder, 'CLAUDE.md'), big);
     const [d] = await docsDrafts(t);

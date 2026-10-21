@@ -180,7 +180,7 @@ describe('gallery Python servers with a pinned install', () => {
     const signal = new AbortController().signal;
     await expect(
       installPinnedPython(home, blender, {}, fakeUv(home, 'a'.repeat(64), log), signal),
-    ).rejects.toThrow(/installazione di blender-mcp non riuscita \(uv 2\).*Hash mismatch/);
+    ).rejects.toThrow(/installing blender-mcp failed \(uv 2\).*Hash mismatch/);
     expect(pinnedPythonInstalled(home, blender)).toBe(false);
     // The next start tries again from scratch.
     await installPinnedPython(home, blender, {}, fakeUv(home, blender.archiveSha256, log), signal);
@@ -192,7 +192,7 @@ describe('gallery Python servers with a pinned install', () => {
     const missing = () => spawn('/percorso-che-non-esiste-xyz/uv', []);
     await expect(
       installPinnedPython(home, blender, {}, missing, new AbortController().signal),
-    ).rejects.toThrow(/serve uv: installalo da https:\/\/docs\.astral\.sh/);
+    ).rejects.toThrow(/needs uv: install it from https:\/\/docs\.astral\.sh/);
     expect(pinnedPythonInstalled(home, blender)).toBe(false);
   });
 

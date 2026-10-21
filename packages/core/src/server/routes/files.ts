@@ -10,6 +10,7 @@ import type { EventLog } from '../../log/event-log.ts';
 import type { TeamService } from '../../team/team-service.ts';
 import type { AppEnv, RouteHelpers } from '../app.ts';
 import { fileContentBody, fileContentHeaders, INERT_FILE_CSP } from '../file-headers.ts';
+import { serverStrings } from '../server.strings.ts';
 
 /*
  * Files of the user and of the monsters (contract in shared/src/files.ts,
@@ -53,7 +54,7 @@ export class Turns {
 }
 
 const tooLarge = (c: Context) =>
-  c.json({ error: 'file_too_large', message: 'Il file è troppo grande: al massimo 25 MB.' }, 413);
+  c.json({ error: 'file_too_large', message: serverStrings().fileTooLarge }, 413);
 
 /** The request body, or null as soon as it passes `max` bytes (the rest is never read). */
 export async function readBodyCapped(
@@ -86,7 +87,7 @@ export function registerFileRoutes(
 ): void {
   const { requireAuth } = h;
   const unknown = (c: Context) =>
-    c.json({ error: 'unknown_file', message: 'File non trovato.' }, 404);
+    c.json({ error: 'unknown_file', message: serverStrings().fileNotFound }, 404);
   const find = (c: Context): FileMeta | undefined => deps.files().get(c.req.param('id') ?? '');
   const uploads = new Turns(UPLOADS_AT_ONCE);
 
@@ -104,11 +105,11 @@ export function registerFileRoutes(
       // The body as it is, not through a Blob: one copy less of up to 25 MB.
       form = await new Response(body, { headers: { 'content-type': type } }).formData();
     } catch {
-      return c.json({ error: 'invalid_request', message: 'Upload non leggibile.' }, 400);
+      return c.json({ error: 'invalid_request', message: serverStrings().uploadUnreadable }, 400);
     }
     const file = form.get('file');
     if (!(file instanceof Blob)) {
-      return c.json({ error: 'invalid_request', message: 'Manca il file.' }, 400);
+      return c.json({ error: 'invalid_request', message: serverStrings().fileMissing }, 400);
     }
     if (file.size > FILE_MAX_BYTES) return tooLarge(c);
     const agentField = form.get('agent');

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { MCP_CATALOG, STDIO_LAUNCHERS } from '@monsters/shared';
 import { DIR_MODE } from '../config.ts';
 import type { McpServerSetting } from './config.ts';
+import { mcpStrings } from './mcp.strings.ts';
 import { BLENDER_MCP_REQUIREMENTS } from './pinned-python-locks.ts';
 
 /*
@@ -163,9 +164,6 @@ export interface PythonStep {
   env: Record<string, string>;
 }
 
-/** In Italian: it reaches the user. */
-export const UV_NEEDED = `per installare il server serve uv: installalo da ${STDIO_LAUNCHERS['uv']!.url} e riprova`;
-
 /**
  * uv and pip read their options from `UV_*` and `PIP_*` variables (indexes,
  * extra indexes, trusted hosts…); `PYTHON*` and `VIRTUAL_ENV` would steer the
@@ -276,8 +274,8 @@ async function runStep(
       reject(
         new Error(
           (err as NodeJS.ErrnoException).code === 'ENOENT'
-            ? UV_NEEDED
-            : `installazione ${what} non riuscita: ${err.message}`,
+            ? mcpStrings().uvNeeded(STDIO_LAUNCHERS['uv']!.url)
+            : mcpStrings().installFailed(what, err.message),
         ),
       );
     });
@@ -295,7 +293,7 @@ async function runStep(
       .slice(-3)
       .join(' ')
       .replace(/\s+/g, ' ');
-    throw new Error(`installazione ${what} non riuscita (uv ${code})${tail ? `: ${tail}` : ''}`);
+    throw new Error(mcpStrings().installFailedCode(what, 'uv', code, tail));
   }
 }
 
@@ -309,10 +307,10 @@ export async function installPinnedPython(
 ): Promise<void> {
   if (pinnedPythonInstalled(home, server)) return;
   const steps = preparePythonInstall(home, server, env);
-  const what = `di ${server.package}`;
+  const what = mcpStrings().installOf(server.package);
   for (const step of steps) await runStep(step, spawn, signal, what);
   if (!statSync(pinnedPythonExe(home, server), { throwIfNoEntry: false })?.isFile()) {
-    throw new Error(`il pacchetto ${server.package} installato non è quello atteso`);
+    throw new Error(mcpStrings().notExpected(server.package));
   }
   writeFileSync(
     join(pinnedPythonDir(home, server.id), MARKER),

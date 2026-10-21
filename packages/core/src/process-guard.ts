@@ -1,4 +1,5 @@
 import type { EventLog } from './log/event-log.ts';
+import { coreStrings } from './core.strings.ts';
 
 /** More than this many failures in `WINDOW_MS` mean the process is not healthy: it stops. */
 const MAX_IN_WINDOW = 25;
@@ -58,7 +59,7 @@ export function installProcessGuard(options: ProcessGuardOptions): ProcessGuard 
     while (recent.length > 0 && recent[0]! < t - WINDOW_MS) recent.shift();
     if (recent.length > MAX_IN_WINDOW && !stopped) {
       stopped = true;
-      options.onStorm(`${code}: troppi errori non gestiti di seguito (${message})`);
+      options.onStorm(coreStrings().unhandledStorm(code, message));
     }
   };
   const onRejection = (reason: unknown) => handle('unhandled_rejection', reason);

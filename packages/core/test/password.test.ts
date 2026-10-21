@@ -152,7 +152,7 @@ describe('password reset on this computer', () => {
     expect((await login(again, NEW)).status).toBe(200);
     expect(authEvents(again)).toContain('password_reset');
     // A running core holds the lock: stop it first.
-    await expect(resetPasswordOffline(home, NEW)).rejects.toThrow(/già in esecuzione/);
+    await expect(resetPasswordOffline(home, NEW)).rejects.toThrow(/already running/);
     await expect(resetPasswordOffline(tempHome(), NEW)).rejects.toThrow(/no local user/);
   });
 });

@@ -20,8 +20,9 @@ import type { Context, Hono } from 'hono';
 import { z } from 'zod';
 import type { Hub } from '../../hub.ts';
 import type { EventLog } from '../../log/event-log.ts';
-import { OWNER_REQUIRED, type AppEnv, type RouteHelpers } from '../app.ts';
+import { ownerRequired, type AppEnv, type RouteHelpers } from '../app.ts';
 import { protectedNote } from '../protected-notes.ts';
+import { serverStrings } from '../server.strings.ts';
 
 /*
  * Vault view of the UI (M2.8, contract in shared/src/vault.ts). The caller is
@@ -121,7 +122,7 @@ export function registerVaultRoutes(
    * Privato/ (review of ondate 3-4, n. 7): the answer that refuses it, or null.
    */
   const notForToken = (c: Context<AppEnv>, ...paths: string[]) =>
-    !h.isOwner(c.get('auth')) && paths.some(protectedNote) ? c.json(OWNER_REQUIRED, 403) : null;
+    !h.isOwner(c.get('auth')) && paths.some(protectedNote) ? c.json(ownerRequired(), 403) : null;
 
   /** The search really done: full-text while the vectors are not there. */
   const effectiveMode = (requested: VaultSearchMode | undefined): VaultSearchMode => {
@@ -274,7 +275,7 @@ export function registerVaultRoutes(
       writeResponse(
         await vault().delete(user, {
           path: body.data.path,
-          reason: body.data.reason?.trim() || 'Cestinata dall’interfaccia',
+          reason: body.data.reason?.trim() || serverStrings().trashedFromUi,
         }),
       ),
     );

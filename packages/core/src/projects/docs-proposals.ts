@@ -34,6 +34,7 @@ import type { RunHandle } from '../kill/run-controller.ts';
 import type { EventLog } from '../log/event-log.ts';
 import type { TeamService } from '../team/team-service.ts';
 import { hashOf, projectDocsOf } from './context.ts';
+import { projectStrings } from './projects.strings.ts';
 import type { ProjectService } from './service.ts';
 
 /*
@@ -78,10 +79,9 @@ export class DocsError extends Error {
   }
 }
 
-export const DOCS_CHANGED_MESSAGE =
-  'Il file è cambiato dopo la proposta: chiedi al mostro di riproporla.';
-export const DOCS_FOLDER_MOVED_MESSAGE =
-  'La cartella del progetto è cambiata dopo la proposta: chiedi al mostro di riproporla.';
+/** The messages of a proposal that went stale (picked when they are needed). */
+export const docsChangedMessage = (): string => projectStrings().docsChanged;
+export const docsFolderMovedMessage = (): string => projectStrings().docsFolderMoved;
 
 // --- the file in the folder -------------------------------------------------------------
 
@@ -228,11 +228,8 @@ function oneLine(text: string, max: number): string {
 
 /** Why a file is not changed with a proposal. */
 function unwritable(state: 'link' | 'not_file' | 'too_large'): string {
-  return state === 'link'
-    ? 'un collegamento'
-    : state === 'too_large'
-      ? 'più grande di 1 MB'
-      : 'una cartella o un file speciale';
+  const s = projectStrings();
+  return state === 'link' ? s.docsLink : state === 'too_large' ? s.docsTooLarge : s.docsSpecial;
 }
 
 /**
@@ -343,35 +340,36 @@ export class DocsProposals {
   propose(input: DocsProposalInput, origin: DocsProposalOrigin): DocsProposal {
     const { project, file, content } = input;
     if (!project.folder) {
-      throw new DocsError('no_folder', `Il progetto ${project.name} non ha una cartella.`);
+      throw new DocsError('no_folder', projectStrings().docsNoFolder(project.name));
     }
-    if (!content.trim()) throw new DocsError('empty', `${file} vuoto non si propone.`);
+    if (!content.trim()) throw new DocsError('empty', projectStrings().docsEmpty(file));
     const unseen = invisibleIn(content);
     if (unseen) {
-      throw new DocsError(
-        'invisible',
-        `Il testo ha un carattere che non si vede (${unseen}): in ${file} non si propone.`,
-      );
+      throw new DocsError('invisible', projectStrings().docsInvisible(file, unseen));
     }
     const bytes = Buffer.from(content, 'utf8');
     if (bytes.length > MAX_PROJECT_DOC_BYTES) {
       throw new DocsError(
         'too_large',
-        `${file} di ${Math.ceil(bytes.length / 1024)} KB: al massimo ${MAX_PROJECT_DOC_BYTES / 1024} KB.`,
+        projectStrings().docsTooBig(
+          file,
+          Math.ceil(bytes.length / 1024),
+          MAX_PROJECT_DOC_BYTES / 1024,
+        ),
       );
     }
     const doc = readFolderDoc(project.folder, file);
     if (doc.state === 'no_folder') {
-      throw new DocsError('no_folder', `La cartella ${project.folder} non c’è più.`);
+      throw new DocsError('no_folder', projectStrings().docsFolderGone(project.folder));
     }
     if (doc.state === 'link' || doc.state === 'not_file' || doc.state === 'too_large') {
       throw new DocsError(
         'not_file',
-        `${file} nella cartella è ${unwritable(doc.state)}: non si cambia con una proposta.`,
+        projectStrings().docsNotFileProposal(file, unwritable(doc.state)),
       );
     }
     if (doc.state === 'file' && sameButFinalNewline(doc.bytes.toString('utf8'), content)) {
-      throw new DocsError('unchanged', `${file} è già esattamente così.`);
+      throw new DocsError('unchanged', projectStrings().docsUnchanged(file));
     }
     const baseHash = docHash(doc);
     const open = this.open().filter((e) => e.data.project === project.id);
@@ -382,7 +380,7 @@ export class DocsProposals {
     if (open.filter((e) => e !== previous).length >= MAX_OPEN_DOCS_PROPOSALS) {
       throw new DocsError(
         'too_many',
-        `Il progetto ${project.name} ha già ${MAX_OPEN_DOCS_PROPOSALS} proposte per le istruzioni che aspettano l’utente.`,
+        projectStrings().docsTooMany(project.name, MAX_OPEN_DOCS_PROPOSALS),
       );
     }
     const envelope = {
@@ -421,13 +419,11 @@ export class DocsProposals {
 
   /** An open proposal by id (`unknown_proposal`, `proposal_closed`). */
   #proposal(id: string): ProposalEvent {
-    if (!this.known(id)) throw new DocsError('unknown_proposal', 'Questa proposta non c’è.');
+    if (!this.known(id))
+      throw new DocsError('unknown_proposal', projectStrings().docsUnknownProposal);
     const e = this.open().find((o) => o.id === id);
     if (!e) {
-      throw new DocsError(
-        'proposal_closed',
-        'Questa proposta è già stata applicata, lasciata stare o sostituita.',
-      );
+      throw new DocsError('proposal_closed', projectStrings().docsProposalClosed);
     }
     return e;
   }
@@ -446,20 +442,20 @@ export class DocsProposals {
         project,
         (p) => {
           if (e.data.folder !== undefined && e.data.folder !== p.folder) {
-            throw new DocsError('docs_changed', DOCS_FOLDER_MOVED_MESSAGE);
+            throw new DocsError('docs_changed', docsFolderMovedMessage());
           }
           const doc = readFolderDoc(p.folder, file);
           if (doc.state === 'no_folder') {
-            throw new DocsError('no_folder', 'La cartella del progetto non c’è più.');
+            throw new DocsError('no_folder', projectStrings().docsProjectFolderGone);
           }
           if (doc.state === 'link' || doc.state === 'not_file' || doc.state === 'too_large') {
             throw new DocsError(
               'not_file',
-              `${file} nella cartella è ${unwritable(doc.state)}: non lo scrivo.`,
+              projectStrings().docsNotFileWrite(file, unwritable(doc.state)),
             );
           }
           if (docHash(doc) !== (baseHash ?? null)) {
-            throw new DocsError('docs_changed', DOCS_CHANGED_MESSAGE);
+            throw new DocsError('docs_changed', docsChangedMessage());
           }
           const other = readFolderDoc(p.folder, file === 'CLAUDE.md' ? 'AGENTS.md' : 'CLAUDE.md');
           const text = content ?? '';
@@ -499,8 +495,14 @@ export class DocsProposals {
     return {
       kind: 'docs',
       id: e.id,
-      title: `Istruzioni di ${p.name} (${d.file})`,
-      summary: `${who ?? 'Un mostro'} propone di ${doc.state === 'missing' ? 'creare' : 'cambiare'} le istruzioni di «${p.name}» (${d.file})${reason ? `: ${reason.replace(/[.!]$/, '')}` : ''}.`,
+      title: projectStrings().docsTitle(p.name, d.file),
+      summary: projectStrings().docsSummary(
+        who,
+        doc.state === 'missing',
+        p.name,
+        d.file,
+        reason.replace(/[.!]$/, ''),
+      ),
       from: d.from,
       ...(who ? { fromName: who } : {}),
       project: p.id,

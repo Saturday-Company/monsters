@@ -50,6 +50,7 @@ import {
 import { registerWebUi, type WebUiOptions } from './web-ui.ts';
 
 import { CORE_VERSION } from '../version.ts';
+import { serverStrings } from './server.strings.ts';
 
 /** The product version (see version.ts), re-exported here for the existing imports. */
 export { CORE_VERSION };
@@ -181,10 +182,8 @@ export function recentOnly(method: string, path: string): boolean {
 }
 
 /** The answer to a request `RECENT_ONLY` refuses: the UI asks the password and tries again. */
-export const CONFIRM_REQUIRED = {
-  error: 'confirm_required',
-  message: 'Per questa serve di nuovo la tua password: conferma che sei tu.',
-} as const;
+export const confirmRequired = () =>
+  ({ error: 'confirm_required', message: serverStrings().confirmRequired }) as const;
 
 /** The bytes of a file the browser loads without headers (`<img>`, `<iframe>`, a download). */
 const FILE_BYTES_PATH = /^\/api\/files\/([A-Za-z0-9_-]{1,100})\/(content|thumb)\/?$/;
@@ -202,11 +201,8 @@ export function ownerOnly(method: string, path: string): boolean {
 }
 
 /** The answer to a request `OWNER_ONLY` refuses: the UI asks the password and tries again. */
-export const OWNER_REQUIRED = {
-  error: 'owner_required',
-  message:
-    'Questa la decidi solo tu: dall’app con la tua password, o dal tuo Telegram. Il token del terminale non basta.',
-} as const;
+export const ownerRequired = () =>
+  ({ error: 'owner_required', message: serverStrings().ownerRequired }) as const;
 /** `GET /api/files/:id/content`: the only answer the core's own pages may frame. */
 export const FILE_CONTENT_PATH = /^\/api\/files\/[^/]+\/content\/?$/;
 
@@ -313,10 +309,8 @@ function proofOf(c: RequestOf): SessionProof {
 }
 
 /** 401 for a cookie presented without its secret: the UI looks for it, or asks the password. */
-const SECRET_REQUIRED = {
-  error: 'session_secret_required',
-  message: 'Questa scheda non ha la chiave della sessione: accedi di nuovo.',
-} as const;
+const secretRequired = () =>
+  ({ error: 'session_secret_required', message: serverStrings().secretRequired }) as const;
 
 function channelOf(ctx: AuthContext | undefined): Channel {
   return ctx?.via === 'token' ? 'cli' : 'ui';
@@ -447,7 +441,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
 
   const requireAuth: MiddlewareHandler<Env> = async (c, next) => {
     const ctx = checkAuth(auth, credentialsOf(c), proofOf(c));
-    if (ctx === 'secret_required') return c.json(SECRET_REQUIRED, 401);
+    if (ctx === 'secret_required') return c.json(secretRequired(), 401);
     if (!ctx) return c.json({ error: 'unauthorized' }, 401);
     c.set('auth', ctx);
     await next();
@@ -459,17 +453,17 @@ export function createApp(deps: AppDeps): Hono<Env> {
   app.use('/api/*', async (c, next) => {
     if (!ownerOnly(c.req.method, c.req.path)) return next();
     const ctx = authenticate(auth, credentialsOf(c), proofOf(c));
-    if (ctx && !ctx.owner) return c.json(OWNER_REQUIRED, 403);
+    if (ctx && !ctx.owner) return c.json(ownerRequired(), 403);
     if (ctx && !ctx.recent && recentOnly(c.req.method, c.req.path)) {
-      return c.json(CONFIRM_REQUIRED, 403);
+      return c.json(confirmRequired(), 403);
     }
     return next();
   });
 
   const requireRecent = (c: Context<Env>): Response | null => {
     const ctx = c.get('auth');
-    if (!ctx.owner) return c.json(OWNER_REQUIRED, 403);
-    return ctx.recent ? null : c.json(CONFIRM_REQUIRED, 403);
+    if (!ctx.owner) return c.json(ownerRequired(), 403);
+    return ctx.recent ? null : c.json(confirmRequired(), 403);
   };
 
   app.get('/api/health', (c) => {
@@ -604,16 +598,13 @@ export function createApp(deps: AppDeps): Hono<Env> {
   app.post('/api/auth/confirm', requireAuth, async (c) => {
     const ctx = c.get('auth');
     if (ctx.via !== 'session' || !ctx.sessionId) {
-      return c.json(
-        { error: 'session_required', message: 'Si conferma dall’app, con la tua password.' },
-        403,
-      );
+      return c.json({ error: 'session_required', message: serverStrings().confirmFromApp }, 403);
     }
     const body = await parseBody(c, ConfirmRequestSchema);
     if (!body.ok) return body.res;
     try {
       if (!(await auth.confirm(ctx.sessionId, body.data.password, 'ui'))) {
-        return c.json({ error: 'wrong_password', message: 'La password non è giusta.' }, 400);
+        return c.json({ error: 'wrong_password', message: serverStrings().wrongPassword }, 400);
       }
       return c.json({ ok: true });
     } catch (err) {
@@ -646,8 +637,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
       return c.json(
         {
           error: 'session_required',
-          message:
-            'La password si cambia dalle impostazioni; dal terminale usa "monsters password".',
+          message: serverStrings().passwordFromSettings,
         },
         403,
       );
@@ -655,10 +645,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const body = await parseBody(c, PasswordChangeRequestSchema);
     if (!body.ok) return body.res;
     if (body.data.currentPassword === body.data.newPassword) {
-      return c.json(
-        { error: 'same_password', message: 'La nuova password è uguale a quella di adesso.' },
-        400,
-      );
+      return c.json({ error: 'same_password', message: serverStrings().samePassword }, 400);
     }
     try {
       const closed = await auth.changePassword(body.data.currentPassword, body.data.newPassword, {
@@ -667,7 +654,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
       });
       if (!closed) {
         return c.json(
-          { error: 'wrong_password', message: 'La password attuale non è giusta.' },
+          { error: 'wrong_password', message: serverStrings().wrongCurrentPassword },
           400,
         );
       }
@@ -688,8 +675,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     c.json(
       {
         error: 'core_running',
-        message:
-          'Con Monsters acceso la password si cambia dalle impostazioni. Dal terminale: ferma Monsters, poi "monsters password".',
+        message: serverStrings().coreRunning,
       },
       409,
     ),

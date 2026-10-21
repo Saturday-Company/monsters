@@ -45,6 +45,7 @@ import { createRequestOf, TeamError, type TeamManager } from '../team/team-manag
 import type { TeamService } from '../team/team-service.ts';
 import { projectDocs, projectDocsChanged, projectDocsHash } from './context.ts';
 import { fromLine } from './lines.ts';
+import { projectStrings } from './projects.strings.ts';
 import { projectIdFor } from './store.ts';
 
 /*
@@ -328,7 +329,7 @@ export class ProjectService {
         type: 'error',
         data: {
           code: 'project_unconfirmed',
-          message: `progetto «${p.name}» (${p.id}): attivo senza una conferma dell'utente, torna una bozza da confermare`,
+          message: projectStrings().unconfirmed(p.name, p.id),
         },
       });
       demoted = true;
@@ -352,14 +353,14 @@ export class ProjectService {
 
   #require(id: string): Project {
     const p = this.#o.team.project(id);
-    if (!p) throw new ProjectError('unknown_project', `Non c’è un progetto "${id}".`);
+    if (!p) throw new ProjectError('unknown_project', projectStrings().unknownProject(id));
     return p;
   }
 
   #active(id: string): Project {
     const p = this.#require(id);
     if (p.archivedAt !== undefined) {
-      throw new ProjectError('project_archived', `Il progetto ${p.name} è archiviato.`);
+      throw new ProjectError('project_archived', projectStrings().archived(p.name));
     }
     return p;
   }
@@ -470,14 +471,10 @@ export class ProjectService {
     const other = this.#o.team
       .projects()
       .find((p) => p.id !== self && (p.name.toLowerCase() === key || p.id === key));
-    if (other)
-      throw new ProjectError('name_taken', `C’è già un progetto che si chiama ${other.name}.`);
+    if (other) throw new ProjectError('name_taken', projectStrings().nameTakenProject(other.name));
     const monster = this.#o.team.get(key) ?? this.#o.team.byId(agentId(name));
     if (monster) {
-      throw new ProjectError(
-        'name_taken',
-        `C’è già un mostro che si chiama ${monster.config.name}: scegli un altro nome per il progetto.`,
-      );
+      throw new ProjectError('name_taken', projectStrings().nameTakenMonster(monster.config.name));
     }
   }
 
@@ -500,7 +497,7 @@ export class ProjectService {
     if (other) {
       throw new ProjectError(
         'invalid_request',
-        `Le note di ${other.name} stanno già in ${other.vaultArea}: scegli un’altra cartella.`,
+        projectStrings().areaTaken(other.name, other.vaultArea),
       );
     }
   }
@@ -521,10 +518,7 @@ export class ProjectService {
         for (const root of new Set([resolve(f.path), fr])) {
           if (mayBeInside(root, candidate)) throw new ProjectError('invalid_folder', f.why);
           if (mayBeInside(candidate, root)) {
-            throw new ProjectError(
-              'invalid_folder',
-              'Questa cartella contiene le note o i dati di Monsters: i mostri del progetto ci leggerebbero e scriverebbero tutto. Scegline una che non li contenga.',
-            );
+            throw new ProjectError('invalid_folder', projectStrings().folderHoldsData);
           }
         }
       }
@@ -535,10 +529,7 @@ export class ProjectService {
   async #folder(req: { path: string; create?: boolean | undefined }): Promise<string> {
     const expanded = expandHome(req.path.trim());
     if (!isAbsolute(expanded)) {
-      throw new ProjectError(
-        'invalid_folder',
-        'Scrivi il percorso completo della cartella del progetto.',
-      );
+      throw new ProjectError('invalid_folder', projectStrings().folderAbsolute);
     }
     const path = resolve(expanded);
     const forbidden = this.#o.forbiddenFolders();
@@ -546,10 +537,7 @@ export class ProjectService {
     await this.#assertProjectFolder(path, forbidden);
     if (!existsSync(path)) {
       if (!req.create) {
-        throw new ProjectError(
-          'invalid_folder',
-          `La cartella ${path} non esiste: scegline una che c’è, o chiedi di crearla.`,
-        );
+        throw new ProjectError('invalid_folder', projectStrings().folderMissing(path));
       }
       await mkdir(path, { recursive: true });
     }
@@ -644,10 +632,7 @@ export class ProjectService {
     if (u.name !== undefined) this.#checkName(u.name, current.id);
     if (u.vaultArea !== undefined) this.#checkArea(u.vaultArea, current.id);
     if (u.lead !== undefined && current.status !== 'draft') {
-      throw new ProjectError(
-        'invalid_request',
-        'Il capo di un progetto attivo non si cambia da qui: cambiagli nome dalla sua scheda.',
-      );
+      throw new ProjectError('invalid_request', projectStrings().leadFixed);
     }
     const folder =
       u.folder === null ? undefined : u.folder ? await this.#folder(u.folder) : current.folder;
@@ -698,10 +683,7 @@ export class ProjectService {
   async #archive(id: string, by: Channel): Promise<ProjectView> {
     const current = this.#active(id);
     if (current.status === 'draft') {
-      throw new ProjectError(
-        'project_draft',
-        `${current.name} è una bozza: lasciala stare invece di archiviarla.`,
-      );
+      throw new ProjectError('project_draft', projectStrings().draftNotArchivable(current.name));
     }
     const agents = await this.#o.squad.archiveSquad(current.id, by);
     // Its automations would find no lead at every slot: paused with it (D-103).
@@ -744,7 +726,7 @@ export class ProjectService {
   async #restore(id: string, by: Channel): Promise<ProjectView> {
     const current = this.#require(id);
     if (current.archivedAt === undefined) {
-      throw new ProjectError('not_archived', `Il progetto ${current.name} non è archiviato.`);
+      throw new ProjectError('not_archived', projectStrings().notArchived(current.name));
     }
     this.#checkName(current.name, current.id);
     this.#checkArea(current.vaultArea, current.id);
@@ -765,10 +747,7 @@ export class ProjectService {
     if (!this.#o.team.lead(current.id)) {
       this.#o.team.projectStore.save({ ...current, updatedAt: this.#now() });
       await this.#reload();
-      throw new ProjectError(
-        'invalid_request',
-        `Il capo di ${current.name} non è più nell'archivio: il progetto resta archiviato.`,
-      );
+      throw new ProjectError('invalid_request', projectStrings().leadGone(current.name));
     }
     // The automations paused with the archive run again (D-103).
     this.#o.automations?.()?.resumeProject(archived?.data.automations ?? [], by);
@@ -785,10 +764,7 @@ export class ProjectService {
   async #discard(id: string, by: Channel): Promise<{ ok: true }> {
     const p = this.#require(id);
     if (p.status !== 'draft') {
-      throw new ProjectError(
-        'not_draft',
-        `${p.name} non è una bozza: si archivia, non si lascia stare.`,
-      );
+      throw new ProjectError('not_draft', projectStrings().notDraft(p.name));
     }
     rmSync(join(this.#o.team.projectStore.dir, p.id), { recursive: true, force: true });
     await this.#reload();
@@ -802,10 +778,7 @@ export class ProjectService {
   #newFolderPath(name: string): string {
     const base = this.#o.projectsDir?.();
     if (!base) {
-      throw new ProjectError(
-        'invalid_folder',
-        'Non so dove creare la cartella: indicane una esistente.',
-      );
+      throw new ProjectError('invalid_folder', projectStrings().newFolderUnknown);
     }
     return join(base, name.replace(/[\\/:*?"<>|]/g, '').trim() || 'Progetto');
   }
@@ -817,21 +790,16 @@ export class ProjectService {
       input.folder && input.folder.trim().toLowerCase() !== 'new' ? input.folder : undefined;
     const path = raw ? resolve(expandHome(raw.trim())) : this.#newFolderPath(input.name);
     if (raw && !isAbsolute(expandHome(raw.trim()))) {
-      throw new ProjectError(
-        'invalid_folder',
-        'folder: scrivi il percorso completo della cartella.',
-      );
+      throw new ProjectError('invalid_folder', projectStrings().folderPathAbsolute);
     }
     await this.#assertProjectFolder(path, this.#o.forbiddenFolders());
     if (existsSync(path)) {
-      if (!isFolder(path)) throw new ProjectError('invalid_folder', `${path} non è una cartella.`);
+      if (!isFolder(path))
+        throw new ProjectError('invalid_folder', projectStrings().notAFolder(path));
       return { path };
     }
     if (raw) {
-      throw new ProjectError(
-        'invalid_folder',
-        `La cartella ${path} non esiste: scegline una che c’è, o "new" per una nuova.`,
-      );
+      throw new ProjectError('invalid_folder', projectStrings().folderMissingOrNew(path));
     }
     return { path, create: true };
   }
@@ -866,7 +834,7 @@ export class ProjectService {
         const all = [...have.mcp, ...have.claude.map((c) => c.name)];
         throw new ProjectError(
           'invalid_request',
-          `connections: "${raw}" non è collegato (collegati: ${all.join(', ') || 'nessuno'}). Si collega da Impostazioni → Collegamenti.`,
+          projectStrings().connectionUnknown(raw, all.join(', ') || projectStrings().none),
         );
       }
     }
@@ -895,7 +863,7 @@ export class ProjectService {
     if (!parsed.success) {
       throw new ProjectError(
         'invalid_request',
-        `name: ${parsed.error.issues[0]?.message ?? 'non va bene'}`,
+        `name: ${parsed.error.issues[0]?.message ?? projectStrings().nameInvalid}`,
       );
     }
     const name = parsed.data;
@@ -916,13 +884,13 @@ export class ProjectService {
     if (input.monsters.length < 1 || input.monsters.length > MAX_PROPOSED_MEMBERS) {
       throw new ProjectError(
         'invalid_request',
-        `monsters: da 1 a ${MAX_PROPOSED_MEMBERS} mostri oltre al capo.`,
+        projectStrings().monstersCount(MAX_PROPOSED_MEMBERS),
       );
     }
     if ((input.automations?.length ?? 0) > MAX_PROPOSED_AUTOMATIONS) {
       throw new ProjectError(
         'invalid_request',
-        `automations: al massimo ${MAX_PROPOSED_AUTOMATIONS}.`,
+        projectStrings().automationsMax(MAX_PROPOSED_AUTOMATIONS),
       );
     }
     try {
@@ -931,7 +899,7 @@ export class ProjectService {
       if (input.lead?.copyOf && !leadSource) {
         throw new ProjectError(
           'invalid_request',
-          `lead.copy_of: non c’è un mostro "${input.lead.copyOf}".`,
+          projectStrings().leadCopyUnknown(input.lead.copyOf),
         );
       }
       const named = input.lead?.name ? squad.checkName(input.lead.name) : undefined;
@@ -964,15 +932,14 @@ export class ProjectService {
           if (!source || source.config.kind !== 'subagent') {
             throw new ProjectError(
               'invalid_request',
-              `monsters[${i}].copy_of: ${source ? `${source.config.name} è un capo, non si copia` : `non c’è un mostro "${m.copyOf}"`}.`,
+              source
+                ? projectStrings().copyOfLead(i, source.config.name)
+                : projectStrings().copyOfUnknown(i, m.copyOf),
             );
           }
           const copyName = squad.checkName(m.name ? free(m.name) : squad.freeName(names));
           if (names.some((n) => n.toLowerCase() === copyName.toLowerCase())) {
-            throw new ProjectError(
-              'invalid_request',
-              `monsters[${i}]: ${copyName} c’è già nella proposta.`,
-            );
+            throw new ProjectError('invalid_request', projectStrings().copyNameTwice(i, copyName));
           }
           names.push(copyName);
           alias(source, copyName);
@@ -1000,14 +967,15 @@ export class ProjectService {
       const schedules: { name: string; when: string }[] = [];
       for (const [i, a] of (input.automations ?? []).entries()) {
         const svc = this.#o.automations?.();
-        if (!svc) throw new ProjectError('invalid_request', 'automations: non disponibili.');
+        if (!svc)
+          throw new ProjectError('invalid_request', projectStrings().automationsUnavailable);
         const preview = svc.preview({ cron: a.cron, timezone: a.timezone });
         const wanted = a.participants ?? [];
         const unknown = wanted.find((w) => !participant(w));
         if (unknown) {
           throw new ProjectError(
             'invalid_request',
-            `automations[${i}].participants: "${unknown}" non è tra i mostri del progetto (${names.join(', ')}).`,
+            projectStrings().participantUnknown(i, unknown, names.join(', ')),
           );
         }
         automations.push({
@@ -1106,7 +1074,7 @@ export class ProjectService {
     const { team, squad } = this.#o;
     const draft = this.#active(id);
     if (draft.status !== 'draft') {
-      throw new ProjectError('not_draft', `Il progetto ${draft.name} è già confermato.`);
+      throw new ProjectError('not_draft', projectStrings().alreadyConfirmed(draft.name));
     }
     const plan: ProjectPlan = draft.plan ?? { lead: {}, members: [], automations: [] };
     // Every name checked before anything is written.
@@ -1120,10 +1088,7 @@ export class ProjectService {
       for (const n of planned) squad.checkName(n);
     } catch (err) {
       if (err instanceof TeamError) {
-        throw new ProjectError(
-          'name_taken',
-          `${err.message} Cambia il nome nella bozza e conferma di nuovo.`,
-        );
+        throw new ProjectError('name_taken', projectStrings().renameInDraft(err.message));
       }
       throw err;
     }
@@ -1251,7 +1216,7 @@ export class ProjectService {
     return this.#serial(id, async () => {
       const p = this.#confirmed(id);
       if (!p.folder) {
-        throw new ProjectError('invalid_request', `Il progetto ${p.name} non ha una cartella.`);
+        throw new ProjectError('invalid_request', projectStrings().noFolder(p.name));
       }
       this.#o.team.projectStore.save({
         ...p,
@@ -1280,10 +1245,7 @@ export class ProjectService {
     return this.#serial(id, async () => {
       const p = this.#confirmed(id);
       if (!p.folder || !isFolder(p.folder)) {
-        throw new ProjectError(
-          'invalid_folder',
-          `La cartella del progetto ${p.name} non c’è più: non posso scriverci.`,
-        );
+        throw new ProjectError('invalid_folder', projectStrings().folderGone(p.name));
       }
       const hash = write({ ...p, folder: p.folder });
       if (hash === null) return this.view(this.#require(p.id));
@@ -1310,7 +1272,7 @@ export class ProjectService {
     const p = this.#active(id);
     const agents = new Set(this.#o.team.members(p.id).map((a) => a.config.id));
     const runs = this.#o.runs.activeRuns().filter((r) => agents.has(r.agent));
-    const reason = `Hai fermato il progetto ${p.name}`;
+    const reason = projectStrings().stoppedReason(p.name);
     for (const r of runs) await this.#o.runs.killRun(r.id, { by, reason });
     const dropped = this.#o.dispatcher.dropOwnDeferred(agents);
     for (const runId of dropped) {
@@ -1318,7 +1280,7 @@ export class ProjectService {
       this.#sends.delete(runId);
     }
     const giri =
-      this.#o.automations?.()?.cancelWaiting(agents, `${reason}: il giro non è partito.`) ?? 0;
+      this.#o.automations?.()?.cancelWaiting(agents, projectStrings().giroNotStarted(reason)) ?? 0;
     this.#event('stopped', p, by, { runs: runs.length });
     return { runsStopped: runs.length, sendsDropped: dropped.length, giriSkipped: giri };
   }
@@ -1326,10 +1288,7 @@ export class ProjectService {
   #confirmed(id: string): Project {
     const p = this.#active(id);
     if (p.status === 'draft') {
-      throw new ProjectError(
-        'project_draft',
-        `Il progetto ${p.name} è ancora una bozza: confermalo prima.`,
-      );
+      throw new ProjectError('project_draft', projectStrings().stillDraftConfirm(p.name));
     }
     return p;
   }
@@ -1355,7 +1314,7 @@ export class ProjectService {
   ): SendResult {
     const p = this.#confirmed(id);
     const lead = this.#o.team.lead(p.id);
-    if (!lead) throw new ProjectError('project_draft', `Il progetto ${p.name} non ha un capo.`);
+    if (!lead) throw new ProjectError('project_draft', projectStrings().noLead(p.name));
     return this.#o.dispatcher.send({
       text: params.text,
       to: lead.config.id,
@@ -1385,13 +1344,13 @@ export class ProjectService {
   ): SendResult & { project: Project } {
     const p = this.#o.team.project(project);
     if (!p || p.archivedAt !== undefined) {
-      throw new ProjectError('unknown_project', `Non c’è un progetto "${project}".`);
+      throw new ProjectError('unknown_project', projectStrings().unknownProject(project));
     }
     if (p.status === 'draft') {
-      throw new ProjectError('project_draft', `Il progetto ${p.name} è ancora una bozza.`);
+      throw new ProjectError('project_draft', projectStrings().stillDraft(p.name));
     }
     const lead = this.#o.team.lead(p.id);
-    if (!lead) throw new ProjectError('project_draft', `Il progetto ${p.name} non ha un capo.`);
+    if (!lead) throw new ProjectError('project_draft', projectStrings().noLead(p.name));
     const sent = this.#o.dispatcher.send({
       text,
       to: lead.config.id,
@@ -1455,10 +1414,10 @@ export class ProjectService {
     const text = answer?.data.text.trim() ?? '';
     const empty =
       reason === 'restart'
-        ? 'Monsters si è chiuso mentre ci lavorava: il lavoro si è interrotto. Se serve ancora, rimandalo con project_send.'
+        ? projectStrings().reportRestart
         : reason === 'stopped'
-          ? 'Fermato prima di cominciare (hai fermato il progetto o Monsters).'
-          : '(nessuna risposta)';
+          ? projectStrings().reportStopped
+          : projectStrings().reportNoAnswer;
     // Written by the system (the lead is in `data`): the orchestrator's chat reads it.
     this.#o.log.append({
       agent: 'system',
@@ -1564,11 +1523,11 @@ export function projectFolderRefusal(
   const p = platform === 'win32' ? win32 : posix;
   const abs = p.resolve(path);
   if (p.dirname(abs) === abs) {
-    return 'È la radice del disco: i mostri del progetto ci leggerebbero e scriverebbero tutto. Scegli la cartella del progetto.';
+    return projectStrings().rootFolder;
   }
   const h = p.resolve(home);
   if (mayBeInside(abs, h, platform)) {
-    return 'È la tua cartella personale (o una che la contiene): i mostri del progetto ci leggerebbero e scriverebbero tutto, chiavi comprese. Scegli la cartella del progetto.';
+    return projectStrings().homeFolder;
   }
   if (mayBeInside(h, abs, platform)) {
     const tmp = p.resolve(opts.tmp ?? tmpdir());
@@ -1583,7 +1542,7 @@ export function projectFolderRefusal(
       return null;
     }
     if (first.startsWith('.') || first === 'library' || first === 'appdata') {
-      return `Dentro ${first.startsWith('.') ? 'una cartella nascosta' : 'le impostazioni'} della tua cartella personale ci sono chiavi e impostazioni dei tuoi programmi (per esempio ~/.ssh): i mostri del progetto non devono leggerle né scriverle. Scegli un’altra cartella.`;
+      return projectStrings().insideHome(first.startsWith('.'));
     }
   }
   return null;
