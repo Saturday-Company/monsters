@@ -230,6 +230,23 @@ describe('a file keeps its family', () => {
     }
   });
 
+  it('an English file of the wave-3 templates gets the reviewed English ones, in either app', async () => {
+    for (const app of LANGS) {
+      inApp(app);
+      for (const [who, bp] of Object.entries(blueprints('en'))) {
+        const legacy = renderAgentsMd(bp, TEMPLATE_FAMILIES.en.legacy[0]);
+        const files = renderAgentFiles(bp, 'en');
+        expect(legacy, who).not.toBe(files['AGENTS.md']);
+        const dir = join(tempHome(), who);
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, 'AGENTS.md'), legacy);
+        const config = parseYaml(files['agent.yaml']) as AgentConfig;
+        expect(await upgradeInstructions(dir, config), `${who} in ${app}`).toBe(files['AGENTS.md']);
+        expect(await upgradeInstructions(dir, config)).toBeNull();
+      }
+    }
+  });
+
   it('an English file is never upgraded nor turned Italian by an Italian app', async () => {
     const bp = rheaBlueprint({ ...user, lang: 'en' });
     const { text, config } = rendered(bp, 'en');

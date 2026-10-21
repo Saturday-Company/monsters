@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import type { LogEvent } from '@monsters/shared';
 import { extractUrls, startCore } from '../src/index.ts';
-import { CASES, MENU, PROFILE_ANSWERS, PROFILE_WITHOUT_MENU, type EvalCase } from './cases.ts';
+import { CASES, MENU, profileFor, requestFor, type EvalCase, type EvalUser } from './cases.ts';
 import { evaluateRun, loopFromStored, type LoopMetrics, type RunMetrics } from './metrics.ts';
 
 /*
@@ -25,8 +25,15 @@ import { evaluateRun, loopFromStored, type LoopMetrics, type RunMetrics } from '
  *
  *   pnpm --filter @monsters/core eval --label baseline --case post --times 3
  *
- * `--lang en` runs the app in English (the English prompts, D-153); the profile and the request
- * stay the same, so the monsters still write in Italian. Default `it`.
+ * `--lang en` runs the app in English (the English prompts, D-153). `--user` is who uses it: by
+ * default the user of the same language, so `--lang en` is the realistic English user (profile,
+ * request and writing language in English, cases.ts); `--lang en --user it` keeps the Italian
+ * profile and request with the English prompts. Default `it`.
+ *
+ * `--models paid` (D-153): the team runs on the paid twins of the free chain (the same models,
+ * `OPENROUTER_PAID_API_KEY`), so the fallbacks of the free tier do not drown the signal; the
+ * dollars of each run are printed and the series stops past `--max-usd`. A paid chain is not a
+ * free one for the core: the monsters get the full toolset (isFreeChain), as for any paid model.
  *
  * `--rescore <path>` scores again without any request: a folder of runs kept
  * with --keep (events and vault on disk), or saved results (a results JSON, or
@@ -67,8 +74,24 @@ const { values: args } = parseArgs({
     engine: { type: 'string', default: 'parallel' },
     /** The app's language of the runs (D-153): the family of the prompts. Default: Italian, as before. */
     lang: { type: 'string', default: 'it' },
+    /** Who uses the app: the profile, the request and the writing language. Default: `--lang`. */
+    user: { type: 'string' },
+    /** `paid`: the paid twins of the free chain on OPENROUTER_PAID_API_KEY; default: the free chain. */
+    models: { type: 'string', default: 'free' },
+    /** With --models paid: no new run once the series spent this many dollars. */
+    'max-usd': { type: 'string', default: '0.5' },
   },
 });
+
+/**
+ * The free chain's models without `:free` (archetypes.ts), served for pay. Laguna first: in the
+ * runs of 21/10 the free Nemotron answered 404 at every first request, so Laguna served them
+ * (D-153, docs/eval/2026-10-21-english-first.md).
+ */
+const PAID_CHAIN = [
+  { provider: 'openrouter', model: 'poolside/laguna-s-2.1' },
+  { provider: 'openrouter', model: 'nvidia/nemotron-3-super-120b-a12b' },
+];
 
 const out = (s = '') => process.stdout.write(`${s}\n`);
 
@@ -102,6 +125,15 @@ if (args.engine !== 'parallel' && args.engine !== 'exa') {
 if (args.lang !== 'it' && args.lang !== 'en') {
   throw new Error(`--lang must be it or en, not ${args.lang}`);
 }
+const userArg = args.user ?? args.lang;
+if (userArg !== 'it' && userArg !== 'en') {
+  throw new Error(`--user must be it or en, not ${userArg}`);
+}
+const user: EvalUser = userArg;
+if (args.models !== 'free' && args.models !== 'paid') {
+  throw new Error(`--models must be free or paid, not ${args.models}`);
+}
+const paidModels = args.models === 'paid';
 /** Only with --search paid: the key of the paid search, never of the models. */
 const searchKey = args.search === 'paid' ? loadKey('OPENROUTER_PAID_API_KEY') : undefined;
 
@@ -230,7 +262,7 @@ async function runOnce(c: EvalCase, index: number, key: string, cap: number): Pr
   try {
     // The real onboarding, with the fixed team proposal (no model call).
     await hub.onboarding.submit({
-      answers: c.menuInProfile === false ? PROFILE_WITHOUT_MENU : PROFILE_ANSWERS,
+      answers: profileFor(c, user),
       permissions: { vault: true, web: true },
     });
     const state = await hub.onboarding.propose();
@@ -239,9 +271,14 @@ async function runOnce(c: EvalCase, index: number, key: string, cap: number): Pr
     });
     const orchestrator = hub.team.orchestrator()!;
     const idOf = (name: string) => hub.team.get(name)?.config.id ?? name.toLowerCase();
+    if (paidModels) {
+      hub.setOpenRouterFreeOnly(false);
+      for (const a of hub.team.list()) await hub.team.setModels(a.config.id, PAID_CHAIN);
+    }
+    const request = requestFor(c, user);
 
     const started = Date.now();
-    const sent = hub.send({ text: c.text, channel: 'cli' });
+    const sent = hub.send({ text: request.text, channel: 'cli' });
     const runId = sent.runId;
     const ended = new Promise<void>((resolveEnd) => {
       const timer = setTimeout(
@@ -293,7 +330,7 @@ async function runOnce(c: EvalCase, index: number, key: string, cap: number): Pr
     if (created.length > 0) {
       const hits = await hub.vault.search(
         { agentId: orchestrator.config.id },
-        { query: c.searchQuery, limit: 20 },
+        { query: request.searchQuery, limit: 20 },
       );
       searchFound = hits.some((h) => created.includes(h.path));
     }
@@ -306,6 +343,7 @@ async function runOnce(c: EvalCase, index: number, key: string, cap: number): Pr
       requests,
       durationS,
       searchFound,
+      writingLanguage: user,
     };
     if (args.keep) {
       // Raw material to score the run again offline (--rescore).
@@ -343,7 +381,7 @@ export function table(results: RunResult[]): string {
     'testo senza ask',
     'piatti inventati',
     'chiuso',
-    'note IT',
+    'note nella lingua',
     'wikilink rotti',
     'link MD/wiki/nudi',
     'link Rhea MD/nudi',
@@ -354,6 +392,7 @@ export function table(results: RunResult[]): string {
     'avvisi link',
     'URL 200',
     'richieste',
+    '$',
   ];
   const rows = results.map((r) => {
     const m = r.metrics;
@@ -377,7 +416,7 @@ export function table(results: RunResult[]): string {
       String(m.textQuestionsUnfollowed),
       m.inventedDishes.join(', ') || '–',
       m.answeredAndClosed ? 'sì' : m.status,
-      `${yn(m.notesItalian)} (${m.notes.filter((n) => n.language === 'it').length}/${m.notes.length})`,
+      `${yn(m.notesInLanguage ?? m.notesItalian)} (${m.notes.filter((n) => n.language === (m.writingLanguage ?? 'it')).length}/${m.notes.length})`,
       String(m.brokenWikilinks),
       `${m.externalLinks.markdown}/${m.externalLinks.wikilink}/${m.externalLinks.bare}`,
       `${m.researcherLinks.markdown}/${m.researcherLinks.bare}`,
@@ -388,6 +427,7 @@ export function table(results: RunResult[]): string {
       String(m.unverifiedLinkWarnings),
       r.links ? `${r.links.ok}/${r.links.total}` : '–',
       String(m.requests),
+      m.costUsd === undefined ? '–' : m.costUsd.toFixed(4),
     ];
   });
   return markdownTable(head, rows);
@@ -566,7 +606,9 @@ async function main(): Promise<void> {
     }
     return;
   }
-  const key = loadKey();
+  const key = paidModels ? loadKey('OPENROUTER_PAID_API_KEY') : loadKey();
+  const maxUsd = Number(args['max-usd']);
+  let usd = 0;
   const ids = args.case?.length ? args.case : ['post'];
   const cases = ids.map((id) => {
     const c = CASES.find((x) => x.id === id);
@@ -577,7 +619,10 @@ async function main(): Promise<void> {
   const budget = Number(args.budget);
   const cap = Number(args['max-requests']);
   const results: RunResult[] = [];
-  out(`Eval "${args.label}" (${args.lang}): ${cases.map((c) => c.id).join(', ')} × ${times}`);
+  out(
+    `Eval "${args.label}" (app ${args.lang}, user ${user}, models ${args.models}): ` +
+      `${cases.map((c) => c.id).join(', ')} × ${times}`,
+  );
   out(`Richieste già usate: ${spent()} su ${budget}`);
   for (const c of cases) {
     for (let i = 1; i <= times; i++) {
@@ -586,13 +631,19 @@ async function main(): Promise<void> {
         out(`Budget quasi finito (${spent()}/${budget}): mi fermo.`);
         break;
       }
+      if (paidModels && usd >= maxUsd) {
+        out(`Spesa a ${usd.toFixed(4)} $ (tetto ${maxUsd} $): mi fermo.`);
+        break;
+      }
       out(`→ ${c.id}#${i}…`);
       const r = await runOnce(c, i, key, Math.min(cap, room));
       results.push(r);
       const m = r.metrics;
       const paid = m.loop?.paidSearches;
+      usd += (m.costUsd ?? 0) + (paid?.costUsd ?? 0);
       out(
-        `  ${m.status}, ${m.requests} richieste, ${m.durationS} s; strumenti: ${m.orchestratorTools.join(', ')}` +
+        `  ${m.status}, ${m.requests} richieste, ${m.durationS} s, ${(m.costUsd ?? 0).toFixed(4)} $ ` +
+          `(serie ${usd.toFixed(4)} $); strumenti: ${m.orchestratorTools.join(', ')}` +
           (paid?.count
             ? `; ricerche a pagamento ${paid.count} (${paid.costUsd.toFixed(4)} $)`
             : ''),
@@ -604,7 +655,7 @@ async function main(): Promise<void> {
   const file = join(RESULTS, `${args.label}-${stamp}.json`);
   writeFileSync(
     file,
-    `${JSON.stringify({ label: args.label, lang: args.lang, results }, null, 2)}\n`,
+    `${JSON.stringify({ label: args.label, lang: args.lang, user, models: args.models, costUsd: usd, results }, null, 2)}\n`,
   );
   out();
   out(table(results));
@@ -613,6 +664,7 @@ async function main(): Promise<void> {
   out();
   out(`Risultati: ${file}`);
   out(`Richieste usate in tutto: ${spent()} su ${budget}`);
+  if (paidModels) out(`Spesa dei modelli: ${usd.toFixed(4)} $`);
 }
 
 if (import.meta.main) {

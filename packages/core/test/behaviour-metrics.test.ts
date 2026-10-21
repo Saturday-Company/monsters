@@ -3,6 +3,7 @@ import {
   checkExternalLinks,
   checkWikilinks,
   detectLanguage,
+  inventedDishesOf,
   isNaturalFileName,
 } from '../eval/metrics.ts';
 
@@ -45,5 +46,21 @@ describe('eval metrics', () => {
     expect(isNaturalFileName('Inbox/Bozze/Post 1 - Castagnaccio.md')).toBe(true);
     expect(isNaturalFileName('Risorse/Ricerche/Autumn_Tuscan_Menu.md')).toBe(false);
     expect(isNaturalFileName('Inbox/Bozze/post-instagram-1.md')).toBe(false);
+  });
+
+  it('counts a dish nobody gave, not a gloss of a given one nor a word inside another', () => {
+    const given = 'il menu: pappardelle al cinghiale, peposo, tortelli di zucca, castagnaccio';
+    expect(inventedDishesOf('tortelli di zucca — pumpkin-filled ravioli', given)).toEqual([]);
+    expect(inventedDishesOf('our tortelli di zucca, pillowy ravioli with pumpkin', given)).toEqual(
+      [],
+    );
+    expect(inventedDishesOf('#toscanatradizionale #peposoallafiorentina', given)).toEqual([]);
+    expect(inventedDishesOf('anche la bistecca e i pici, e #porcinitime', given)).toEqual([
+      'porcin',
+      'pici',
+      'bistecca',
+    ]);
+    // Ravioli that gloss no given dish are a dish of their own.
+    expect(inventedDishesOf('pumpkin ravioli', 'ribollita')).toEqual(['ravioli']);
   });
 });

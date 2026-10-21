@@ -6,6 +6,7 @@ import {
   ASK_ALWAYS_FIXED,
   ONBOARDING_QUESTIONS,
   checkOnboardingAnswer,
+  defaultWritingLanguage,
   type OnboardingAnswer,
   type OnboardingGroup,
   type OnboardingQuestion,
@@ -107,17 +108,6 @@ function delegateOptions(work: string[], chosen: string[]): Set<string> {
   return new Set([...(ids.length ? ids : DELEGATE_DEFAULT), ...chosen]);
 }
 
-/**
- * The language of the system, when it is one of the options (audit 2.12); else
- * the app's own language, so a screen in Italian starts on Italian.
- */
-function systemLanguage(options: string[]): string | undefined {
-  const tag = typeof navigator === 'undefined' ? '' : (navigator.language ?? '');
-  const code = tag.slice(0, 2).toLowerCase();
-  if (options.includes(code)) return code;
-  return options.includes(appLang()) ? appLang() : undefined;
-}
-
 const answered = (answers: OnboardingState['answers'], id: string): boolean => {
   const a = answers[id];
   return !!a && checkOnboardingAnswer(question(id), a).length === 0;
@@ -134,7 +124,15 @@ function draftFor(q: OnboardingQuestion, saved: OnboardingAnswer | undefined): O
   if (saved) return { values: { ...saved.values }, text: saved.text ?? '' };
   const values: Record<string, string[]> = {};
   for (const g of q.groups) {
-    const lang = g.id === 'lingua' ? systemLanguage(g.options.map((o) => o.id)) : undefined;
+    // The writing language starts on the app's language (D-153; the browser's when the app has no words for it).
+    const lang =
+      g.id === 'lingua'
+        ? defaultWritingLanguage(
+            g.options.map((o) => o.id),
+            appLang(),
+            typeof navigator === 'undefined' ? '' : (navigator.language ?? ''),
+          )
+        : undefined;
     values[g.id] = lang ? [lang] : [...g.defaults];
   }
   return { values, text: '' };

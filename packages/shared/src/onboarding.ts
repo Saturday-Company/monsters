@@ -1,4 +1,4 @@
-import type { Lang } from './i18n.ts';
+import { appLang, isLang, type Lang } from './i18n.ts';
 import { onboardingStrings, onboardingStringsOf } from './onboarding.strings.ts';
 
 /*
@@ -53,7 +53,8 @@ interface GroupShape {
   id: string;
   kind: OnboardingGroup['kind'];
   options: OptionShape[];
-  defaults: string[];
+  /** Preselected ids; a function for defaults that follow the language of the words (D-153). */
+  defaults: string[] | ((lang: Lang) => string[]);
   required: boolean;
   /** The group has a label / a placeholder in the dictionary. */
   label?: boolean;
@@ -68,7 +69,7 @@ interface QuestionShape {
 }
 
 /** Adds to `target` properties that read their value from the dictionary each time. */
-function words<T extends object>(target: T, getters: Record<string, () => string>): T {
+function words<T extends object>(target: T, getters: Record<string, () => unknown>): T {
   const descriptors: PropertyDescriptorMap = {};
   for (const [key, get] of Object.entries(getters)) {
     descriptors[key] = { enumerable: true, configurable: true, get };
@@ -93,10 +94,13 @@ function buildQuestion(shape: QuestionShape, lang?: Lang): OnboardingQuestion {
         id: g.id,
         kind: g.kind,
         options,
-        defaults: g.defaults,
+        ...(typeof g.defaults === 'function' ? {} : { defaults: g.defaults }),
         required: g.required,
-      },
+      } as OnboardingGroup,
       {
+        ...(typeof g.defaults === 'function'
+          ? { defaults: () => (g.defaults as (l: Lang) => string[])(lang ?? appLang()) }
+          : {}),
         ...(g.label ? { label: () => texts().groups?.[g.id]?.label ?? '' } : {}),
         ...(g.placeholder ? { placeholder: () => texts().groups?.[g.id]?.placeholder ?? '' } : {}),
       },
@@ -267,7 +271,8 @@ const QUESTION_SHAPES: readonly QuestionShape[] = [
           { id: 'fr', label: 'Français' },
           { id: 'de', label: 'Deutsch' },
         ],
-        defaults: ['it'],
+        // The monsters write in the app's language unless the user picks another (D-153).
+        defaults: (lang) => [lang],
         required: true,
       },
     ],
@@ -286,6 +291,22 @@ export const ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = QUESTION_SHAP
  */
 export function onboardingQuestionsIn(lang: Lang): readonly OnboardingQuestion[] {
   return QUESTION_SHAPES.map((q) => buildQuestion(q, lang));
+}
+
+/**
+ * The writing language the onboarding starts on (D-153): the app's language, which the user
+ * picked or confirmed on the first screen. A system language the app has no words for (Spanish,
+ * French, German: the app falls back to English) goes first instead (audit 2.12). `systemTag`:
+ * the browser's or the system's language tag ("es-ES").
+ */
+export function defaultWritingLanguage(
+  options: readonly string[],
+  app: Lang = appLang(),
+  systemTag = '',
+): string | undefined {
+  const code = systemTag.slice(0, 2).toLowerCase();
+  if (app === 'en' && code !== '' && !isLang(code) && options.includes(code)) return code;
+  return options.includes(app) ? app : undefined;
 }
 
 /** Answer to one question: values per group (option ids, or the typed name) plus free text. */
