@@ -43,10 +43,18 @@ export const useLang = create<{ lang: Lang }>()(() => ({ lang: appLang() }));
 
 let sent: Lang | null = null;
 
-/** Applies a language: texts, `<html lang>`, this browser's memory and the desktop app. */
-export function applyLang(lang: Lang): void {
+/**
+ * Applies a language: texts, `<html lang>`, this browser's memory and the desktop app. A guess
+ * (`initLang`, before the core answers) stays in the page: the desktop app keeps its own
+ * language until the core's or the user's choice arrives, so its menus never flip for a moment.
+ */
+export function applyLang(lang: Lang, guess = false): void {
   setAppLang(lang, region());
   if (typeof document !== 'undefined') document.documentElement.lang = lang;
+  if (guess) {
+    if (useLang.getState().lang !== lang) useLang.setState({ lang });
+    return;
+  }
   try {
     window.localStorage.setItem(KEY, lang);
   } catch {
@@ -66,7 +74,7 @@ export function applyLang(lang: Lang): void {
 
 /** At start, before the first paint. */
 export function initLang(): void {
-  applyLang(initial());
+  applyLang(initial(), true);
 }
 
 /** A dictionary per language; the function returns the one of the language in use. */
