@@ -1,5 +1,6 @@
 import type { AutomationView, EventInput, LogEvent } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
 import {
   cronOfForm,
   formOfCron,
@@ -14,6 +15,10 @@ import {
 import { automationPath, routeOf } from '../src/lib/router.ts';
 import { MockCore } from '../src/lib/mock/core.ts';
 import { automationBusyText, automationWork, withoutAutomationRuns } from '../src/store/derive.ts';
+
+// The Italian copy is pinned in this file; the English one is in log-strings.test.ts.
+beforeAll(() => setAppLang('it'));
+afterAll(() => setAppLang('en'));
 
 const form = (patch: Partial<ScheduleForm>): ScheduleForm => ({
   preset: 'daily',

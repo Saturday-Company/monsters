@@ -1,5 +1,8 @@
 import {
+  appLang,
   CONFUSED_MIN_MS,
+  formatNumber,
+  onAppLang,
   WEB_SEARCH_USAGE_PROVIDER,
   haltedWork,
   originalRequest,
@@ -17,7 +20,8 @@ import {
   type TeamDraft,
 } from '@monsters/shared';
 import { clipText, noteKey, plainText } from '../lib/markdown.ts';
-import { formatUsd, modelWords, toName } from '../lib/utils.ts';
+import { formatUsd, modelWords } from '../lib/utils.ts';
+import { deriveStrings } from './derive.strings.ts';
 import {
   instinctInChat,
   instinctSentence,
@@ -31,7 +35,7 @@ import {
 
 /*
  * Pure functions that turn the event log into what the UI shows: the live mood
- * of each monster, the chat timeline and plain-Italian descriptions of events.
+ * of each monster, the chat timeline and plain-language descriptions of events.
  */
 
 /** What a monster is doing right now, as seen by the UI. */
@@ -44,21 +48,29 @@ export interface LiveState {
   since: number;
   /**
    * The instinct saw it going round in circles (`stuck_*`, D-067): the
-   * confused face and "sta cambiando strada" until it moves on.
+   * confused face and "is changing course" until it moves on.
    */
   confused?: boolean | undefined;
 }
 
 export const DONE_MS = 4500;
 
-/** The activity of a monster that waits for the user's answer (see `waitsForUser`). */
-export const ASKED_ACTIVITY = 'Ti ho fatto una domanda';
+/**
+ * The activity of a monster that waits for the user's answer (see `waitsForUser`). A live binding:
+ * it follows the app's language (the components compare `live.activity` with it).
+ */
+export let ASKED_ACTIVITY = deriveStrings().live.asked;
 
 /** A confused monster keeps its face at least this long, even if it calls a tool at once (as the core, D-072). */
 export const CONFUSED_MS = CONFUSED_MIN_MS;
 
-/** What the monitor and the strips say of a confused monster. */
-export const CONFUSED_TEXT = 'sta cambiando strada';
+/** What the monitor and the strips say of a confused monster (a live binding, like `ASKED_ACTIVITY`). */
+export let CONFUSED_TEXT = deriveStrings().live.confused;
+
+onAppLang(() => {
+  ASKED_ACTIVITY = deriveStrings().live.asked;
+  CONFUSED_TEXT = deriveStrings().live.confused;
+});
 
 export function moodFromState(state: AgentState): LiveMood {
   switch (state) {
@@ -87,74 +99,71 @@ function str(v: unknown): string | undefined {
 /** Short "what I'm doing" line for a tool call. */
 export function describeTool(tool: string, input: unknown): string {
   const i = (input ?? {}) as Record<string, unknown>;
+  const t = deriveStrings().tool;
   switch (tool) {
-    case 'preview_show': {
-      const what = str(i['note']) ?? str(i['file']);
+    case 'preview_show':
       return str(i['note'])
-        ? `Ti mostro la nota “${clip(String(what).split('/').pop()!.replace(/\.md$/i, ''), 34)}”`
-        : 'Ti mostro un file';
-    }
+        ? t.previewNote(clip(String(str(i['note'])).split('/').pop()!.replace(/\.md$/i, ''), 34))
+        : t.previewFile;
     case 'web_search':
-      return str(i['query']) ? `Cerco “${clip(String(i['query']), 34)}”` : 'Cerco sul web';
+      return str(i['query']) ? t.searchWeb(clip(String(i['query']), 34)) : t.searchWebAny;
     case 'web_fetch': {
       const url = str(i['url']);
-      if (!url) return 'Leggo una pagina web';
+      if (!url) return t.fetchAny;
       try {
-        return `Leggo ${new URL(url).hostname.replace(/^www\./, '')}`;
+        return t.fetchHost(new URL(url).hostname.replace(/^www\./, ''));
       } catch {
-        return 'Leggo una pagina web';
+        return t.fetchAny;
       }
     }
     case 'vault_search':
-      return str(i['query'])
-        ? `Cerco nelle note “${clip(String(i['query']), 26)}”`
-        : 'Cerco nelle note';
+      return str(i['query']) ? t.searchNotes(clip(String(i['query']), 26)) : t.searchNotesAny;
     case 'vault_read':
-      return str(i['path']) ? `Leggo ${baseName(String(i['path']))}` : 'Leggo una nota';
+      return str(i['path']) ? t.readNote(baseName(String(i['path']))) : t.readNoteAny;
     case 'vault_write':
     case 'vault_create':
-      return str(i['path']) ? `Scrivo ${baseName(String(i['path']))}` : 'Scrivo una nota';
+      return str(i['path']) ? t.writeNote(baseName(String(i['path']))) : t.writeNoteAny;
     case 'vault_edit':
-      return str(i['path']) ? `Sistemo ${baseName(String(i['path']))}` : 'Sistemo una nota';
+      return str(i['path']) ? t.editNote(baseName(String(i['path']))) : t.editNoteAny;
     case 'vault_delete':
-      return 'Butto una nota nel cestino';
+      return t.trashNote;
     case 'vault_move':
-      return str(i['path']) ? `Sposto ${baseName(String(i['path']))}` : 'Sposto una nota';
+      return str(i['path']) ? t.moveNote(baseName(String(i['path']))) : t.moveNoteAny;
     case 'vault_list':
-      return 'Guardo quali note ci sono';
+      return t.listNotes;
     case 'vault_links':
-      return 'Guardo i collegamenti tra le note';
+      return t.links;
     case 'vault_tags':
-      return 'Guardo i tag delle note';
+      return t.tags;
     case 'vault_history':
-      return 'Guardo la storia di una nota';
+      return t.history;
     case 'vault_restore':
     case 'vault_undo':
-      return 'Rimetto a posto una nota';
+      return t.restore;
     case 'vault_propose':
-      return 'Ti propongo una modifica';
+      return t.propose;
     case 'vault_apply_proposal':
-      return 'Applico una modifica proposta';
+      return t.applyProposal;
     case 'delegate': {
       const to = str(i['to']);
-      return to ? `Passo il lavoro ${toName(capitalize(to))}` : 'Passo il lavoro a un collega';
+      return to ? t.delegate(capitalize(to)) : t.delegateAny;
     }
     case 'ask_user':
-      return 'Ti faccio una domanda';
+      return t.ask;
     case 'shell':
-      return str(i['command']) ? `Eseguo ${clip(String(i['command']), 34)}` : 'Eseguo un comando';
+      return str(i['command']) ? t.shell(clip(String(i['command']), 34)) : t.shellAny;
     case 'fs_list':
-      return 'Guardo i file in una cartella';
+      return t.fsList;
     case 'fs_read':
-      return str(i['path']) ? `Leggo ${baseName(String(i['path']))}` : 'Leggo un file';
+      return str(i['path']) ? t.fsRead(baseName(String(i['path']))) : t.fsReadAny;
     case 'fs_write':
-      return str(i['path']) ? `Scrivo ${baseName(String(i['path']))}` : 'Scrivo un file';
+      return str(i['path']) ? t.fsWrite(baseName(String(i['path']))) : t.fsWriteAny;
     case 'fs_move':
-      return str(i['from']) ? `Sposto ${baseName(String(i['from']))}` : 'Sposto un file';
+      return str(i['from']) ? t.fsMove(baseName(String(i['from']))) : t.fsMoveAny;
     case 'fs_delete':
-      return 'Butto un file nel cestino';
+      return t.fsTrash;
     default:
-      return describeExternalTool(tool, i) ?? 'Uso uno strumento';
+      return describeExternalTool(tool, i) ?? t.other;
   }
 }
 
@@ -163,78 +172,57 @@ function describeExternalTool(tool: string, i: Record<string, unknown>): string 
   const m = /^mcp__([a-z0-9-]+)__(.+)$/.exec(tool);
   if (!m) return null;
   const [, server = '', name = ''] = m;
+  const t = deriveStrings().tool;
   if (server === 'browser') {
     const url = str(i['url']);
     if (name === 'browser_navigate' && url) {
       try {
-        return `Apro ${new URL(url).hostname.replace(/^www\./, '')} nel browser`;
+        return t.browserOpen(new URL(url).hostname.replace(/^www\./, ''));
       } catch {
-        return 'Apro una pagina nel browser';
+        return t.browserOpenAny;
       }
     }
-    return 'Uso il browser';
+    return t.browser;
   }
-  return `Uso ${server}: ${clip(name.replace(/_/g, ' '), 30)}`;
+  return t.mcp(server, clip(name.replace(/_/g, ' '), 30));
 }
 
 /**
- * What a tool does, with its article, for sentences that need no gender
- * agreement: "Rhea ha finito la ricerca sul web".
+ * What a tool does, as a phrase for sentences that need no gender agreement:
+ * "Rhea finished searching the web" ("Rhea ha finito la ricerca sul web").
  */
-const TOOL_ACTION: Record<string, string> = {
-  web_search: 'la ricerca sul web',
-  web_fetch: 'la lettura di una pagina',
-  vault_search: 'la ricerca nelle note',
-  vault_read: 'la lettura di una nota',
-  vault_list: 'l’elenco delle note',
-  vault_write: 'la scrittura di una nota',
-  vault_create: 'la scrittura di una nota',
-  vault_edit: 'la modifica di una nota',
-  vault_move: 'lo spostamento di una nota',
-  vault_delete: 'lo spostamento nel cestino',
-  vault_links: 'il controllo dei collegamenti',
-  vault_tags: 'il controllo dei tag',
-  vault_history: 'il controllo della storia di una nota',
-  vault_restore: 'il ripristino di una nota',
-  vault_undo: 'l’annullamento di una modifica',
-  vault_propose: 'la proposta di modifica',
-  vault_apply_proposal: 'la modifica proposta',
-  delegate: 'la delega',
-  ask_user: 'la domanda',
-  team_propose_monster: 'la proposta di un nuovo mostro',
-  project_send: 'il lavoro passato a un progetto',
-  project_status: 'il controllo dei progetti',
-  project_propose: 'la proposta di un progetto',
-  automation_propose: 'la proposta di un’automazione',
-  shell: 'il comando',
-  fs_list: 'l’elenco dei file',
-  fs_read: 'la lettura di un file',
-  fs_write: 'la scrittura di un file',
-  fs_move: 'lo spostamento di un file',
-  fs_delete: 'lo spostamento di un file nel cestino',
-};
-
 export function toolAction(tool: string): string {
-  if (tool.startsWith('mcp__browser__')) return 'l’uso del browser';
-  if (tool.startsWith('mcp__')) return 'l’uso di un altro programma';
-  return TOOL_ACTION[tool] ?? 'un’operazione';
+  const s = deriveStrings();
+  if (tool.startsWith('mcp__browser__')) return s.browserAction;
+  if (tool.startsWith('mcp__')) return s.mcpAction;
+  return s.toolAction[tool] ?? s.otherAction;
 }
 
-/** Short name of a tool for the terminal: "Ricerca sul web". */
+/** Short name of a tool for the terminal: "Web search". */
 export function toolLabel(tool: string): string {
-  return capitalize(toolAction(tool).replace(/^(la |il |lo |l’|un’)/, ''));
+  const s = deriveStrings();
+  if (tool.startsWith('mcp__browser__')) return s.browserLabel;
+  if (tool.startsWith('mcp__')) return s.mcpLabel;
+  return s.toolLabel[tool] ?? s.otherLabel;
 }
 
 /** An error text that only says the work was stopped (kill switch, stop of a run). */
 export function isStopText(text: string | undefined): boolean {
-  return !!text && /^stopped\b|\babort|\bABORTED\b|interrott|si è fermat/i.test(text);
+  // i18n-ignore: words matched in the core's texts, old ones in Italian and new ones in English
+  return (
+    !!text &&
+    /^stopped\b|\babort|\bABORTED\b|interrott|interrupted|si è fermat|\b(?:was|were|been) stopped\b/i.test(
+      text,
+    )
+  );
 }
 
-/** Display name of a model id: no provider prefix, "(gratis)" for free variants. */
+/** Display name of a model id: no provider prefix, "(free)" for free variants. */
 export function modelLabel(model: string): string {
-  if (model === 'openrouter/free') return 'gratuito scelto da OpenRouter';
+  const s = deriveStrings().model;
+  if (model === 'openrouter/free') return s.freeRouter;
   const name = model.split('/').pop() ?? model;
-  return name.endsWith(':free') ? `${name.slice(0, -5)} (gratis)` : name;
+  return name.endsWith(':free') ? s.free(name.slice(0, -5)) : name;
 }
 
 /** Files the agents keep for themselves in `Agenti/<Nome>/` (memory, work state). */
@@ -292,7 +280,7 @@ export function applyLive(
   switch (e.type) {
     case 'run':
       if (e.data.status === 'started')
-        set(e.agent, 'working', e.data.goal ? 'Ci penso…' : undefined);
+        set(e.agent, 'working', e.data.goal ? deriveStrings().live.thinking : undefined);
       else if (e.data.status === 'completed') set(e.agent, 'done');
       // The turn ended on a parked question (D-078): the monster waits for the user.
       else if (e.data.status === 'waiting_user') set(e.agent, 'waiting', ASKED_ACTIVITY);
@@ -300,7 +288,9 @@ export function applyLive(
         set(
           e.agent,
           'error',
-          next[e.agent]?.mood === 'error' ? next[e.agent]?.activity : 'Qualcosa è andato storto',
+          next[e.agent]?.mood === 'error'
+            ? next[e.agent]?.activity
+            : deriveStrings().live.wentWrong,
         );
       else set(e.agent, 'stopped');
       break;
@@ -332,15 +322,15 @@ export function applyLive(
     case 'delegation':
       if (e.data.status === 'started') {
         set(e.data.to, 'working', taskText(e.data.goal, 48));
-        set(e.data.from, 'waiting', `Aspetto ${capitalize(e.data.to)}`);
+        set(e.data.from, 'waiting', deriveStrings().live.waitingFor(capitalize(e.data.to)));
       } else if (e.data.status === 'completed') {
         set(e.data.to, 'done');
-        set(e.data.from, 'working', 'Riprendo il filo');
+        set(e.data.from, 'working', deriveStrings().live.pickingUp);
       } else if (e.data.status === 'failed') {
         set(
           e.data.to,
           'error',
-          e.data.error ? clipText(plainText(e.data.error), 48) : 'Non ce l’ho fatta',
+          e.data.error ? clipText(plainText(e.data.error), 48) : deriveStrings().live.couldNot,
         );
       } else {
         set(e.data.to, 'stopped');
@@ -356,7 +346,7 @@ export function applyLive(
     case 'answer':
       for (const id of agentIds) {
         if (next[id]?.mood === 'waiting' && next[id]?.activity === ASKED_ACTIVITY) {
-          set(id, 'working', 'Ci penso…');
+          set(id, 'working', deriveStrings().live.thinking);
         }
       }
       break;
@@ -402,7 +392,7 @@ export type ChatItem =
       text: string;
       to?: string | undefined;
       pending?: boolean;
-      /** Written while the monsters were stopped: it goes when the user presses "Riprendi". */
+      /** Written while the monsters were stopped: it goes when the user presses "Resume". */
       held?: boolean;
       /** Ids of the files attached (shared/src/files.ts). */
       attachments?: string[] | undefined;
@@ -416,7 +406,7 @@ export type ChatItem =
       streaming: boolean;
       /** The run of the turn: its instrumentation (`runStats`) and its place in the terminal. */
       runId?: string | undefined;
-      /** Said in a Telegram chat of the monster's own bot (D-107): "su Telegram · Saturday Team". */
+      /** Said in a Telegram chat of the monster's own bot (D-107): "on Telegram · Saturday Team". */
       via?: string | undefined;
     }
   | {
@@ -430,7 +420,7 @@ export type ChatItem =
       summary?: string | undefined;
       /** Notes the delegated monster wrote for this task (paths, oldest first). */
       notes?: string[] | undefined;
-      /** What the instinct said of this task ("non aveva finito…", "in dubbio"), D-068. */
+      /** What the instinct said of this task ("hadn’t finished…", "in doubt"), D-068. */
       checks?: { text: string; tone: 'warn' | 'stop' | null }[] | undefined;
     }
   | {
@@ -448,7 +438,7 @@ export type ChatItem =
       agent: string;
       text: string;
       code?: string | undefined;
-      /** The run that failed: "Riprova" sends its request again, "Dietro le quinte" opens it. */
+      /** The run that failed: "Try again" sends its request again, "Behind the scenes" opens it. */
       runId?: string | undefined;
     }
   | {
@@ -473,7 +463,7 @@ export type ChatItem =
       /** Not a decision: a defense (text removed from a page) or the spending cap. */
       about?: 'defense' | 'spend' | undefined;
     }
-  /** The receipt of a turn (D-067): what was asked, done and checked, with "Annulla tutto". */
+  /** The receipt of a turn (D-067): what was asked, done and checked, with "Undo everything". */
   | {
       kind: 'receipt';
       id: string;
@@ -528,7 +518,7 @@ export type ChatItem =
   /**
    * A message written to a bot dedicated to a monster (D-107): by someone in a
    * Telegram group (or in private), in that monster's chat, with the sender's
-   * name and "da Telegram · <gruppo>". Not the user's bubble, even when the
+   * name and "from Telegram · <group>". Not the user's bubble, even when the
    * sender is the user (`owner`): they wrote it there, not here.
    */
   | {
@@ -634,7 +624,7 @@ export function buildChat(
   const telegramRuns = new Map<string, string>();
   const via = (runId: string | null) => {
     const where = runId ? telegramRuns.get(runId) : undefined;
-    return where ? { via: where.replace(/^da /, 'su ') } : {};
+    return where ? { via: where } : {};
   };
 
   for (const e of events) {
@@ -651,7 +641,7 @@ export function buildChat(
             kind: 'system',
             id: e.id,
             ts: e.ts,
-            text: `Ripreso il lavoro fermato: «${clip(originalRequest(d.text), 80)}»`,
+            text: deriveStrings().chat.resumed(clip(originalRequest(d.text), 80)),
             tone: 'go',
             to: d.to,
           });
@@ -660,7 +650,8 @@ export function buildChat(
         if (d.role === 'user' && d.telegram && d.to) {
           // Written to a monster's own bot on Telegram (D-107): who wrote it, and where.
           const o = d.telegram;
-          if (e.runId) telegramRuns.set(e.runId, telegramWhere(o));
+          if (e.runId)
+            telegramRuns.set(e.runId, deriveStrings().chat.telegramVia(telegramTitle(o)));
           items.push({
             kind: 'telegram',
             id: e.id,
@@ -832,7 +823,7 @@ export function buildChat(
             kind: 'system',
             id: e.id,
             ts: e.ts,
-            text: 'Hai fermato tutti i mostri',
+            text: deriveStrings().chat.stoppedAll,
             tone: 'stop',
           });
         break;
@@ -841,7 +832,7 @@ export function buildChat(
           kind: 'system',
           id: e.id,
           ts: e.ts,
-          text: 'Si riparte: i mostri sono di nuovo liberi',
+          text: deriveStrings().chat.resumedAll,
           tone: 'go',
         });
         break;
@@ -1136,9 +1127,10 @@ export function chatSummary(thread: readonly ChatItem[], seen: string): ChatSumm
 
 /** One line of preview for the chat list, in plain text. */
 export function previewText(item: ChatItem, nameOf: (id: string) => string): string {
+  const c = deriveStrings().chat;
   switch (item.kind) {
     case 'user':
-      return `Tu: ${clipText(item.text.replace(/\s+/g, ' ').trim(), 90)}`;
+      return c.previewYou(clipText(item.text.replace(/\s+/g, ' ').trim(), 90));
     case 'agent':
       return clipText(plainText(item.text), 90) || '…';
     case 'relayed':
@@ -1149,12 +1141,12 @@ export function previewText(item: ChatItem, nameOf: (id: string) => string): str
       return reportSentence(item, nameOf);
     case 'delegation':
       if (item.status === 'completed')
-        return `${nameOf(item.to)} ha finito «${taskText(item.goal, 70)}»`;
+        return c.delegationDone(nameOf(item.to), taskText(item.goal, 70));
       if (item.status === 'started')
-        return `Compito per ${nameOf(item.to)}: ${taskText(item.goal, 70)}`;
-      return `Il compito di ${nameOf(item.to)} si è fermato`;
+        return c.delegationStarted(nameOf(item.to), taskText(item.goal, 70));
+      return c.delegationStopped(nameOf(item.to));
     case 'question':
-      return `${nameOf(item.agent)} ti ha fatto una domanda`;
+      return c.askedYou(nameOf(item.agent));
     case 'error':
       return errorSentence(
         { agent: item.agent, data: { code: item.code, message: item.text } },
@@ -1163,27 +1155,32 @@ export function previewText(item: ChatItem, nameOf: (id: string) => string): str
     case 'system':
       return item.text;
     case 'reset':
-      return 'Nuova conversazione';
+      return c.newConversation;
     case 'instinct':
       return item.text;
     case 'receipt':
-      return `Ricevuta: ${receiptSummary(item.data)}`;
+      return c.receipt(receiptSummary(item.data));
     case 'proposal':
-      return `${nameOf(item.agent)} propone un nuovo mostro: ${item.draft.name}`;
+      return c.proposes(nameOf(item.agent), item.draft.name);
     case 'preview':
-      return `${nameOf(item.from)} ti mostra «${clipText(item.data.name, 70)}»`;
+      return c.showsYou(nameOf(item.from), clipText(item.data.name, 70));
     case 'file':
       return fileSentence(item.file, nameOf(item.agent));
   }
 }
 
-/** "da Telegram · Saturday Team", or "da Telegram · in privato" (D-107). */
+/** The group a Telegram message came from, or undefined for a private chat (D-107). */
+function telegramTitle(
+  item: Pick<Extract<ChatItem, { kind: 'telegram' }>, 'chatType' | 'chatTitle'>,
+): string | undefined {
+  return item.chatType === 'private' || !item.chatTitle ? undefined : item.chatTitle;
+}
+
+/** "from Telegram · Saturday Team", or "from Telegram · in private" (D-107). */
 export function telegramWhere(
   item: Pick<Extract<ChatItem, { kind: 'telegram' }>, 'chatType' | 'chatTitle'>,
 ): string {
-  return item.chatType === 'private' || !item.chatTitle
-    ? 'da Telegram · in privato'
-    : `da Telegram · ${item.chatTitle}`;
+  return deriveStrings().chat.telegramWhere(telegramTitle(item));
 }
 
 /** One chat split at its latest new conversation. */
@@ -1240,7 +1237,7 @@ export function questionsClosedAt(events: readonly LogEvent[]): Map<string, stri
   return out;
 }
 
-/** Messages (bubbles) in a list of chat items: "12 messaggi". */
+/** Messages (bubbles) in a list of chat items. */
 export function countMessages(items: readonly ChatItem[]): number {
   return items.filter(
     (it) =>
@@ -1249,8 +1246,8 @@ export function countMessages(items: readonly ChatItem[]): number {
 }
 
 /**
- * How a lead's report went, in words (D-102): "ha finito", "si è interrotto:
- * Monsters si è chiuso", "fermato prima di cominciare". `tone` is the light.
+ * How a lead's report went, in words (D-102): "finished", "was interrupted:
+ * Monsters closed", "was stopped before starting". `tone` is the light.
  */
 export function reportOutcome(
   item: Pick<Extract<ChatItem, { kind: 'report' }>, 'status' | 'reason'>,
@@ -1258,39 +1255,40 @@ export function reportOutcome(
   text: string;
   tone: 'ok' | 'signal' | 'stop' | 'off';
 } {
-  if (item.reason === 'restart')
-    return { text: 'si è interrotto: Monsters si è chiuso mentre ci lavorava', tone: 'stop' };
-  if (item.reason === 'stopped') return { text: 'fermato prima di cominciare', tone: 'off' };
+  const r = deriveStrings().report;
+  if (item.reason === 'restart') return { text: r.restart, tone: 'stop' };
+  if (item.reason === 'stopped') return { text: r.stopped, tone: 'off' };
   switch (item.status) {
     case 'completed':
-      return { text: 'ha finito', tone: 'ok' };
+      return { text: r.completed, tone: 'ok' };
     case 'waiting_user':
-      return { text: 'aspetta una tua risposta', tone: 'signal' };
+      return { text: r.waiting, tone: 'signal' };
     case 'failed':
-      return { text: 'non ce l’ha fatta', tone: 'stop' };
+      return { text: r.failed, tone: 'stop' };
     case 'aborted':
-      return { text: 'si è fermato', tone: 'off' };
+      return { text: r.aborted, tone: 'off' };
   }
 }
 
-/** "Social di Saturday: Iapetus ha finito", the report as one line (previews, names). */
+/** "Social: Iapetus finished", the report as one line (previews, names). */
 export function reportSentence(
   item: Pick<Extract<ChatItem, { kind: 'report' }>, 'lead' | 'project' | 'status' | 'reason'>,
   nameOf: (id: string) => string,
   projectName: string = item.project,
 ): string {
-  return `${projectName}: ${nameOf(item.lead)} ${reportOutcome(item).text}`;
+  return deriveStrings().report.sentence(projectName, nameOf(item.lead), reportOutcome(item).text);
 }
 
 /* ---------------------------------------------------- events among monsters */
 
-/** Summaries that say nothing more than "finished": "Fatto", "Done", "Ok.". */
+/** Summaries that say nothing more than "finished": "Fatto", "Done", "Ok." (in either language). */
+// i18n-ignore: words matched in the monsters' summaries
 const EMPTY_SUMMARY =
   /^(fatto|fatta|fatti|finito|finita|completato|completata|eseguito|ok|okay|done|completed|finished|ecco|pronto|pronta)$/;
 
 function comparable(s: string): string {
   return plainText(s)
-    .toLocaleLowerCase('it-IT')
+    .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
 }
@@ -1302,6 +1300,7 @@ function comparable(s: string): string {
  */
 export function doneSummary(goal: string, summary: string | undefined): string | null {
   if (!summary) return null;
+  // i18n-ignore: the opening words of a summary, in the languages the monsters write in
   const rest = summary
     .trim()
     .replace(/^(fatto|fatta|done|ok|okay|ecco|finito|pronto)\s*[:!.,—–-]+\s*/i, '');
@@ -1350,8 +1349,9 @@ export function groupDelegations<T>(
   return out;
 }
 
-/** The line of a group of delegations: "4 compiti completati", "3 compiti · 1 in corso". */
+/** The line of a group of delegations: "4 tasks completed", "3 tasks: 2 completed and 1 in progress". */
 export function delegationGroupLabel(items: readonly ChatItem[]): string {
+  const g = deriveStrings().group;
   let done = 0;
   let open = 0;
   let other = 0;
@@ -1363,15 +1363,15 @@ export function delegationGroupLabel(items: readonly ChatItem[]): string {
   }
   const total = done + open + other;
   // Lines of the instinct among the tasks: said as events, not counted as tasks.
-  if (items.some((it) => it.kind === 'instinct')) return `${items.length} eventi tra i mostri`;
-  if (done === total) return `${total} compiti completati`;
-  if (open === total) return `${total} compiti passati alla squadra`;
+  if (items.some((it) => it.kind === 'instinct')) return g.events(items.length);
+  if (done === total) return g.done(total);
+  if (open === total) return g.open(total);
   const parts = [
-    done > 0 ? `${done} ${done === 1 ? 'completato' : 'completati'}` : '',
-    open > 0 ? `${open} in corso` : '',
-    other > 0 ? `${other} ${other === 1 ? 'fermato' : 'fermati'}` : '',
+    done > 0 ? g.partDone(done) : '',
+    open > 0 ? g.partOpen(open) : '',
+    other > 0 ? g.partOther(other) : '',
   ].filter(Boolean);
-  return `${total} compiti: ${listText(parts)}`;
+  return g.mixed(total, listText(parts));
 }
 
 /* ------------------------------------------------------------------ notes */
@@ -1478,121 +1478,80 @@ export function categoryOf(e: LogEvent): EventCategory {
   }
 }
 
-export const CATEGORY_LABEL: Record<EventCategory, string> = {
-  messages: 'Messaggi',
-  runs: 'Lavori',
-  delegations: 'Deleghe',
-  tools: 'Strumenti',
-  questions: 'Domande',
-  vault: 'Note',
-  errors: 'Errori',
-  instinct: 'Decisioni dei mostri',
-  system: 'Sistema',
-};
-
-/** Vault verbs for "Rhea ha creato la nota X" and "Hai creato la nota X". */
-const VAULT_VERB: Record<string, { third: string; you: string }> = {
-  create: { third: 'ha creato la nota', you: 'Hai creato la nota' },
-  edit: { third: 'ha modificato la nota', you: 'Hai modificato la nota' },
-  move: { third: 'ha spostato la nota', you: 'Hai spostato la nota' },
-  delete: { third: 'ha cestinato la nota', you: 'Hai cestinato la nota' },
-  restore: { third: 'ha ripristinato la nota', you: 'Hai ripristinato la nota' },
-  undo: { third: 'ha annullato una modifica a', you: 'Hai annullato una modifica a' },
-  propose: { third: 'ha proposto una modifica a', you: 'Hai proposto una modifica a' },
-};
-
-/** Past participles agreeing with "nota" (feminine). */
-const VAULT_PARTICIPLE: Record<string, string> = {
-  create: 'creata',
-  edit: 'aggiornata',
-  move: 'spostata',
-  delete: 'cestinata',
-  restore: 'ripristinata',
-  undo: 'riportata indietro',
-  propose: 'con una modifica proposta',
-};
-
-/** Past participles agreeing with "appunti" (masculine plural). */
-const NOTES_PARTICIPLE: Record<string, string> = {
-  create: 'creati',
-  edit: 'aggiornati',
-  move: 'spostati',
-  delete: 'nel cestino',
-  restore: 'ripristinati',
-  undo: 'riportati indietro',
-  propose: 'con una modifica proposta',
-};
+/** The name of an event category. */
+export function categoryLabel(category: EventCategory): string {
+  return deriveStrings().category[category];
+}
 
 /**
- * "Rhea ha aggiornato i suoi appunti": changes to the files agents keep for
+ * "Rhea updated their notes": changes to the files agents keep for
  * themselves (their memory, the state of their work), never called notes.
  */
 export function agentFileText(path: string, action: string): string | null {
   const f = agentFileOf(path);
   if (!f) return null;
+  const s = deriveStrings();
   const writes = action === 'create' || action === 'edit';
   if (f.kind === 'memory')
     return writes
-      ? `${f.owner} ha aggiornato i suoi appunti`
-      : `Appunti di ${f.owner} ${NOTES_PARTICIPLE[action] ?? 'toccati'}`;
+      ? s.agentFile.memoryUpdated(f.owner)
+      : s.agentFile.memoryOther(f.owner, s.vault.notesParticiple(action));
   if (f.kind === 'state')
     return writes
-      ? `${f.owner} ha aggiornato lo stato dei suoi lavori`
-      : `Stato dei lavori di ${f.owner}: nota ${VAULT_PARTICIPLE[action] ?? 'toccata'}`;
+      ? s.agentFile.stateUpdated(f.owner)
+      : s.agentFile.stateOther(f.owner, s.vault.noteParticiple(action));
   return writes
-    ? `${f.owner} ha aggiornato una nota di lavoro (${baseName(path)})`
-    : `Nota di lavoro di ${f.owner} (${baseName(path)}) ${VAULT_PARTICIPLE[action] ?? 'toccata'}`;
+    ? s.agentFile.workUpdated(f.owner, baseName(path))
+    : s.agentFile.workOther(f.owner, baseName(path), s.vault.noteParticiple(action));
 }
 
-/** Plain-Italian sentence for an `error` event (codes from the core and the tools). */
+/** Plain sentence for an `error` event (codes from the core and the tools). */
 export function errorSentence(
   e: { agent: string; data: { code?: string | undefined; message: string } },
   nameOf: (id: string) => string,
 ): string {
+  const s = deriveStrings().error;
   const who = nameOf(e.agent);
   const msg = e.data.message;
   switch (e.data.code) {
     case 'aborted':
-      return `Il lavoro di ${who} si è fermato`;
+      return s.stopped(who);
     case 'search_fallback': {
       const to = /→\s*(\w+)\s*$/.exec(msg)?.[1]?.toLowerCase();
-      const name =
-        to === 'wikipedia'
-          ? 'Wikipedia'
-          : to === 'duckduckgo'
-            ? 'DuckDuckGo'
-            : to === 'brave'
-              ? 'Brave'
-              : 'un altro motore';
-      return `La ricerca sul web non rispondeva: ${who} cerca su ${name}`;
+      return s.searchFallback(
+        who,
+        to === 'wikipedia' || to === 'duckduckgo' || to === 'brave' ? to : null,
+      );
     }
     case 'provider_fallback':
-      return /→ nessuno\b/.test(msg)
-        ? `Il modello di ${who} non risponde e non ci sono alternative: ${lowerFirst(msg)}`
-        : `Il modello non rispondeva: ${who} passa a un altro`;
+      // i18n-ignore: "→ nessuno" / "→ none", the end of the core's fallback line
+      return /→ (?:nessuno|none)\b/.test(msg)
+        ? s.noAlternative(who, lowerFirst(msg))
+        : s.switchModel(who);
     case 'orphan_processes':
-      return 'Chiusi dei programmi rimasti aperti dall’avvio precedente';
+      return s.orphans;
     case 'kill_hook':
-      return 'Lo stop non è riuscito a chiudere tutto subito';
+      return s.killHook;
     case 'http_500':
-      return 'Errore interno di Monsters';
+      return s.internal;
     case 'run_limit':
       // The spending cap (D-070) stops a job in the middle with the same code: its words say so.
-      if (/tetto di spesa/.test(msg)) return msg.replace(/\.$/, '');
-      return `${who} si ferma qui: questo lavoro ha raggiunto il suo limite`;
+      // i18n-ignore: "tetto di spesa" / "spending cap", in the core's message
+      if (/tetto di spesa|spending cap/i.test(msg)) return msg.replace(/\.$/, '');
+      return s.runLimit(who);
     case 'spend_cap':
       return msg.replace(/\.$/, '');
     case 'context_guard':
-      return `Il contesto di ${who} era quasi pieno: ha fatto spazio`;
+      return s.contextGuard(who);
     case 'answer_truncated':
-      return `La risposta di ${who} è stata tagliata: il modello è arrivato alla lunghezza massima`;
+      return s.truncated(who);
     case 'context_rescue':
-      return `Il modello ha trovato troppo lunga la richiesta di ${who}: fa spazio e riprova`;
+      return s.contextRescue(who);
     case 'compaction_failed':
-      return `Il riassunto dei messaggi più vecchi di ${who} non è riuscito: vede solo gli ultimi`;
+      return s.compactionFailed(who);
     default:
-      if (isStopText(msg)) return `Il lavoro di ${who} si è fermato`;
-      return e.agent === 'system' ? msg : `${who} ha avuto un problema: ${lowerFirst(msg)}`;
+      if (isStopText(msg)) return s.stopped(who);
+      return e.agent === 'system' ? msg : s.problem(who, lowerFirst(msg));
   }
 }
 
@@ -1607,8 +1566,8 @@ export function isEmptyClosing(e: LogEvent): boolean {
 
 /**
  * Drops the `aborted` error of an agent whose run also logged `run: aborted`
- * (both would read "Il lavoro di Bruno si è fermato") and the empty message
- * closing a turn that did not finish (it would read "Bruno ha risposto"). The
+ * (both would read "Bruno’s work stopped") and the empty message
+ * closing a turn that did not finish (it would read "Bruno replied"). The
  * full events stay in the log's data; this is only for the lists the user reads.
  */
 export function withoutRepeatedStops(events: readonly LogEvent[]): LogEvent[] {
@@ -1627,14 +1586,23 @@ export function withoutRepeatedStops(events: readonly LogEvent[]): LogEvent[] {
 }
 
 /**
- * A message after a colon starts in lower case ("ha avuto un problema: il
- * foglio…"). Only when it opens with a common Italian word: names and
- * acronyms ("Telegram", "API") keep their capital.
+ * A message after a colon starts in lower case ("had a problem: the
+ * sheet…"). Only when it opens with a common word: names and acronyms
+ * ("Telegram", "API") keep their capital.
  */
-const COMMON_OPENERS =
-  /^(Il|Lo|La|Le|Gli|I|L’|L'|Un|Uno|Una|Non|Nessun|Nessuna|Questo|Questa|Troppi|Troppe|Manca|Mancano|Impossibile|Errore|C’è|Ci)(?=[\s’'])/;
+// i18n-ignore: opening words of the core's messages, old ones in Italian and new ones in English
+const ITALIAN_OPENERS =
+  /^(Il|Lo|La|Le|Gli|L’|L'|Un|Uno|Una|Non|Nessun|Nessuna|Questo|Questa|Troppi|Troppe|Manca|Mancano|Impossibile|Errore|C’è|Ci)(?=[\s’'])/;
+// i18n-ignore: the Italian article "I" opens "I file…"; the English pronoun keeps its capital
+const ITALIAN_ARTICLE = /^I(?=[\s’'])/;
+// i18n-ignore: opening words of the core's English messages
+const ENGLISH_OPENERS =
+  /^(The|A|An|This|That|There|No|Not|Too|Missing|Unable|Invalid|Error|Could|Couldn’t|Can’t|Cannot)(?=[\s’'])/;
 export function lowerFirst(text: string): string {
-  return COMMON_OPENERS.test(text) ? text.charAt(0).toLowerCase() + text.slice(1) : text;
+  const common =
+    ITALIAN_OPENERS.test(text) ||
+    (appLang() === 'it' ? ITALIAN_ARTICLE.test(text) : ENGLISH_OPENERS.test(text));
+  return common ? text.charAt(0).toLowerCase() + text.slice(1) : text;
 }
 
 /** True for `error` events that are not problems: a stop or an automatic fallback. */
@@ -1663,13 +1631,7 @@ export function taskText(goal: string, n = 140): string {
 
 /** One sentence on what changed after an action whose undo was refused. */
 export function undoConflictText(files: readonly string[]): string {
-  const names = files.map((f) => `“${baseName(f)}”`);
-  if (names.length === 0)
-    return 'La nota è cambiata dopo questa modifica: annullandola perdi anche quei cambiamenti.';
-  if (names.length === 1)
-    return `${names[0]} è cambiata dopo questa modifica: annullandola perdi anche quei cambiamenti.`;
-  const list = names.length > 3 ? `${names.slice(0, 3).join(', ')} e altre` : names.join(', ');
-  return `${list} sono cambiate dopo questa modifica: annullandola perdi anche quei cambiamenti.`;
+  return deriveStrings().error.undoConflict(files.map((f) => `“${baseName(f)}”`));
 }
 
 /**
@@ -1680,10 +1642,9 @@ export function isUserNoteChange(e: LogEvent): boolean {
   return e.type === 'vault_change' && e.agent !== 'system' && !agentFileOf(e.data.path);
 }
 
-/** "Bruno", "Bruno e Rhea", "Bruno, Rhea e Dione". */
+/** "Bruno", "Bruno and Rhea", "Bruno, Rhea and Dione". */
 export function listText(items: readonly string[]): string {
-  if (items.length <= 1) return items[0] ?? '';
-  return `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`;
+  return deriveStrings().list(items);
 }
 
 /** Owners of the memories updated most recently (newest first, no repeats). */
@@ -1710,302 +1671,247 @@ export function isUndoable(e: LogEvent): boolean {
 
 /** A remote channel (Telegram) in words: connection, pairing, ignored messages. */
 function channelSentence(d: EventDataMap['channel']): string {
-  const who = d.name ?? (d.userId ? `l’account ${d.userId}` : 'qualcuno');
+  const s = deriveStrings().channel;
+  const who = d.name ?? (d.userId ? s.account(String(d.userId)) : s.someone);
   switch (d.action) {
     case 'connected':
-      return `Telegram collegato${d.name ? ` (${d.name})` : ''}`;
+      return s.telegramConnected(d.name);
     case 'disconnected': {
       // A dedicated bot says which one it is (the event carries `bot`).
-      const bot = d.bot ? `Il bot ${d.name ?? 'dedicato'}` : 'Telegram';
+      const bot = s.bot(!!d.bot, d.name);
       return d.reason === 'conflict'
-        ? `${bot} è usato da un altro programma (o ha un webhook): Monsters riprova`
+        ? s.conflict(bot)
         : d.reason === 'error'
-          ? `${bot} si è fermato: serve il tuo intervento`
-          : d.bot
-            ? `${bot} non risponde: Monsters riprova`
-            : 'Telegram non risponde: Monsters riprova';
+          ? s.stoppedBot(bot)
+          : s.noAnswer(bot);
     }
     case 'ignored':
-      return `Messaggio su Telegram ignorato: ${who} (${IGNORED_REASON[d.reason ?? ''] ?? d.reason ?? 'non ammesso'})`;
+      return s.ignored(who, s.ignoredReason[d.reason ?? ''] ?? d.reason ?? s.notAllowed);
     case 'paired':
-      return `${who} ora può comandare i mostri da Telegram`;
+      return s.paired(who);
     case 'pairing_failed':
-      return `Codice di collegamento rifiutato per ${who}`;
+      return s.pairingFailed(who);
     case 'pairing_started':
-      return 'Hai chiesto un codice per collegare un account Telegram';
+      return s.pairingStarted;
     case 'user_removed':
-      return `${who} non può più comandare i mostri da Telegram`;
+      return s.userRemoved(who);
     case 'token_set':
-      return `Bot Telegram collegato${d.name ? `: ${d.name}` : ''}`;
+      return s.tokenSet(d.name);
     case 'token_removed':
-      return 'Bot Telegram scollegato';
+      return s.tokenRemoved;
     case 'token_check_failed':
-      return d.reason === 'refused_token'
-        ? 'Telegram non ha riconosciuto il token incollato'
-        : 'Non sono riuscito a verificare il token di Telegram';
+      return d.reason === 'refused_token' ? s.tokenRefused : s.tokenUnchecked;
     // Bots dedicated to one monster (D-107).
     case 'bot_added':
-      return `Bot dedicato collegato${d.name ? `: ${d.name}` : ''}`;
+      return s.botAdded(d.name);
     case 'bot_removed':
-      return `Bot dedicato tolto${d.name ? `: ${d.name}` : ''}`;
+      return s.botRemoved(d.name);
     case 'bot_changed':
-      return 'Bot dedicato cambiato';
+      return s.botChanged;
     case 'chat_pending':
-      return `Un bot dedicato è stato aggiunto al gruppo ${d.name ?? 'senza nome'}: aspetta la tua approvazione`;
+      return s.chatPending(d.name);
     case 'chat_approved':
-      return `Gruppo approvato per un bot dedicato${d.name ? `: ${d.name}` : ''}`;
+      return s.chatApproved(d.name);
     case 'chat_removed':
-      return `Gruppo tolto da un bot dedicato${d.name ? `: ${d.name}` : ''}`;
+      return s.chatRemoved(d.name);
     case 'person_pending':
-      return `${who} chiede di parlare con un bot dedicato: aspetta la tua approvazione`;
+      return s.personPending(who);
     case 'person_approved':
-      return `${who} può parlare con un bot dedicato`;
+      return s.personApproved(who);
     case 'person_removed':
-      return `${who} non può più parlare con un bot dedicato`;
+      return s.personRemoved(who);
     case 'limit_reached':
-      return 'Un bot dedicato ha raggiunto i messaggi di oggi';
+      return s.limitReached;
     case 'chat_migrated':
-      return `Il gruppo${d.name ? ` ${d.name}` : ''} è diventato un supergruppo: resta approvato`;
+      return s.chatMigrated(d.name);
     case 'chat_left':
-      return d.chatId
-        ? `Un bot dedicato non è più nel gruppo${d.name ? ` ${d.name}` : ''}: le risposte lì non partono`
-        : `${who} ha bloccato il bot: le risposte a quell’account non partono`;
+      return d.chatId ? s.chatLeft(d.name) : s.blocked(who);
   }
 }
-
-const IGNORED_REASON: Record<string, string> = {
-  not_whitelisted: 'non è tra gli account collegati',
-  not_private: 'scritto in un gruppo',
-  forwarded: 'messaggio inoltrato',
-  not_text: 'non è testo',
-  bot_or_anonymous: 'mittente sconosciuto',
-  // Bots dedicated to one monster (D-107).
-  chat_not_approved: 'gruppo non ancora approvato',
-  not_allowed: 'non è tra le persone ammesse',
-  rate_limited: 'troppi messaggi in un’ora',
-  forged_button: 'pulsante non valido',
-};
 
 /** A choice logged by the DecisionGate, the onboarding or an answer, in words. */
 function describeDecision(d: EventDataMap['decision'], who: string): string {
+  const s = deriveStrings().decision;
   if (d.use) {
     // The instinct asked itself something (its dataset): what about, not the raw answer.
     const label = labelOfUse(d.use);
-    const what = label ? label.charAt(0).toLowerCase() + label.slice(1) : 'una decisione al volo';
-    return `Decisione${who !== 'Monsters' ? ` per ${who}` : ''}: ${what}${d.mode === 'shadow' ? ' (solo annotato)' : ''}`;
+    const what = label ? label.charAt(0).toLowerCase() + label.slice(1) : s.quick;
+    return s.instinct(who !== 'Monsters' ? s.forWho(who) : '', what, d.mode === 'shadow');
   }
   switch (d.kind) {
     case 'user_choice':
-      return `Hai scelto: “${clipText(plainText(d.choice), 80)}”`;
+      return s.userChoice(clipText(plainText(d.choice), 80));
     case 'team_proposal':
-      return `Squadra proposta: ${d.choice}`;
+      return s.teamProposal(d.choice);
     case 'notify':
       return d.choice === 'now'
-        ? 'Notifica su Telegram mandata subito'
+        ? s.notifyNow
         : d.choice === 'silent'
-          ? 'Notifica su Telegram mandata senza suono'
+          ? s.notifySilent
           : d.choice === 'later'
-            ? 'Notifica su Telegram rimandata a dopo le ore di silenzio'
-            : 'Notifica su Telegram non mandata';
+            ? s.notifyLater
+            : s.notifyNone;
     case 'ask_or_proceed':
       return d.choice === 'ask_user'
-        ? `${who} ha deciso di chiedere a te`
-        : `${who} ha deciso senza chiederti: “${clipText(plainText(d.choice), 80)}”`;
+        ? s.askUser(who)
+        : s.proceed(who, clipText(plainText(d.choice), 80));
     default:
-      return `${who} ha scelto: “${clipText(plainText(d.choice), 80)}”`;
+      return s.chose(who, clipText(plainText(d.choice), 80));
   }
 }
 
-/** One plain-Italian sentence for an event, as in "Rhea ha creato la nota Idee". */
+/** One plain sentence for an event, as in "Rhea created the note Ideas". */
 export function describeEvent(e: LogEvent, nameOf: (id: string) => string): string {
+  const s = deriveStrings().event;
   const who = nameOf(e.agent);
   switch (e.type) {
     case 'message':
-      if (e.data.role === 'user')
-        return e.data.to ? `Hai scritto ${toName(nameOf(e.data.to))}` : 'Hai scritto un messaggio';
-      if (e.data.partial) return `${who} sta scrivendo`;
+      if (e.data.role === 'user') return e.data.to ? s.wroteTo(nameOf(e.data.to)) : s.wroteMessage;
+      if (e.data.partial) return s.writing(who);
       // The closing of a turn that did not finish is not an answer.
-      if (e.data.status === 'aborted') return `${who} si è fermato mentre scriveva`;
-      if (e.data.status === 'failed') return `${who} non ha finito di scrivere`;
-      return `${who} ha risposto`;
+      if (e.data.status === 'aborted') return s.stoppedWriting(who);
+      if (e.data.status === 'failed') return s.didNotFinishWriting(who);
+      return s.replied(who);
     case 'delegation': {
       const to = nameOf(e.data.to);
       const from = nameOf(e.data.from);
       switch (e.data.status) {
         case 'started':
-          return `${from} ha passato un compito ${toName(to)}: “${taskText(e.data.goal, 90)}”`;
+          return s.handedTask(from, to, taskText(e.data.goal, 90));
         case 'completed':
-          return `${to} ha finito il compito per ${from}`;
+          return s.taskDone(to, from);
         case 'failed':
-          return `Il compito di ${to} per ${from} non è andato a buon fine`;
+          return s.taskFailed(to, from);
         default:
-          return `Il compito di ${to} per ${from} si è fermato`;
+          return s.taskStopped(to, from);
       }
     }
     case 'tool_call':
-      return `${who}: ${describeTool(e.data.tool, e.data.input).replace(/…$/, '')}`;
+      return s.toolCall(who, describeTool(e.data.tool, e.data.input).replace(/…$/, ''));
     case 'tool_result':
-      if (e.data.ok) return `${who} ha finito ${toolAction(e.data.tool)}`;
+      if (e.data.ok) return s.toolDone(who, toolAction(e.data.tool));
       return isStopText(e.data.error)
-        ? `${who} ha lasciato a metà ${toolAction(e.data.tool)}`
-        : `${who} non ha completato ${toolAction(e.data.tool)}`;
+        ? s.toolHalf(who, toolAction(e.data.tool))
+        : s.toolFailed(who, toolAction(e.data.tool));
     case 'decision':
       return describeDecision(e.data, who);
     case 'question':
-      return `${who} ti ha fatto una domanda`;
+      return s.question(who);
     case 'answer':
-      return 'Hai risposto a una domanda';
+      return s.answer;
     case 'question_expired':
-      return `La domanda di ${who} è scaduta`;
+      return s.questionExpired(who);
     case 'question_parked':
-      return `${who} aspetta la tua risposta`;
+      return s.questionParked(who);
     case 'new_conversation':
-      return e.data.to
-        ? `Hai iniziato una nuova conversazione con ${nameOf(e.data.to)}`
-        : 'Hai iniziato una nuova conversazione';
+      return e.data.to ? s.newConversationWith(nameOf(e.data.to)) : s.newConversation;
     case 'conversation_summary':
-      return `Riassunti i messaggi più vecchi della conversazione con ${who} (${e.data.turns})`;
+      return s.summary(who, e.data.turns);
     case 'vault_change': {
       const own = agentFileText(e.data.path, e.data.action);
       if (own) {
-        const owner = agentFileOf(e.data.path)?.owner.toLocaleLowerCase('it-IT');
-        return e.agent === 'system' || who.toLocaleLowerCase('it-IT') === owner
-          ? own
-          : `${own} (${who})`;
+        const owner = agentFileOf(e.data.path)?.owner.toLowerCase();
+        return e.agent === 'system' || who.toLowerCase() === owner ? own : `${own} (${who})`;
       }
-      const verb = VAULT_VERB[e.data.action] ?? {
-        third: 'ha toccato la nota',
-        you: 'Hai toccato la nota',
-      };
-      const note = baseName(e.data.path);
-      return e.agent === 'user' ? `${verb.you} ${note}` : `${who} ${verb.third} ${note}`;
+      return deriveStrings().vault.change(
+        e.data.action,
+        e.agent === 'user' ? null : who,
+        baseName(e.data.path),
+      );
     }
     case 'provider_usage':
-      if (e.data.provider === 'typesafe')
-        return `Decisione per ${who}: una domanda al modello esperto (TypeSafe)`;
-      if (e.data.purpose === 'compaction')
-        return `Riassunto della conversazione di ${who} con ${modelLabel(e.data.model)}`;
-      if (e.data.provider === WEB_SEARCH_USAGE_PROVIDER)
-        return `${who} ha cercato sul web con OpenRouter`;
-      return `${who} ha usato il modello ${modelLabel(e.data.model)}`;
+      if (e.data.provider === 'typesafe') return s.typesafe(who);
+      if (e.data.purpose === 'compaction') return s.compaction(who, modelLabel(e.data.model));
+      if (e.data.provider === WEB_SEARCH_USAGE_PROVIDER) return s.webSearch(who);
+      return s.usedModel(who, modelLabel(e.data.model));
     case 'error':
       return errorSentence(e, nameOf);
     case 'kill':
       switch (e.data.scope) {
         case 'global':
-          return 'Tutti i mostri sono stati fermati';
+          return s.killAll;
         case 'agent':
-          return `Il lavoro di ${nameOf(e.data.target ?? e.agent)} è stato fermato`;
+          return s.killAgent(nameOf(e.data.target ?? e.agent));
         case 'run':
-          return 'Un lavoro è stato fermato';
+          return s.killRun;
         default:
-          return 'Uno strumento è stato fermato';
+          return s.killTool;
       }
     case 'resume':
-      return 'I mostri sono ripartiti';
+      return s.resumed;
     case 'run':
       switch (e.data.status) {
         case 'started':
-          return `${who} ha iniziato un lavoro`;
+          return s.runStarted(who);
         case 'completed':
-          return `${who} ha finito il lavoro`;
+          return s.runCompleted(who);
         case 'waiting_user':
-          return `${who} ha finito il turno: aspetta la tua risposta`;
+          return s.runWaiting(who);
         case 'failed':
-          return `Il lavoro di ${who} non è andato a buon fine`;
+          return s.runFailed(who);
         default:
           return e.data.reason === 'restart' || e.data.reason === 'shutdown'
-            ? `Il lavoro di ${who} si è fermato al riavvio di Monsters`
-            : `Il lavoro di ${who} si è fermato`;
+            ? s.runRestart(who)
+            : s.runStopped(who);
       }
     case 'auth':
-      switch (e.data.action) {
-        case 'setup':
-          return 'Account creato';
-        case 'login':
-          return 'Accesso eseguito';
-        case 'login_failed':
-          return 'Tentativo di accesso non riuscito';
-        case 'logout':
-          return 'Uscita dall’account';
-        case 'login_token_issued':
-          return 'Accesso automatico preparato per l’app';
-        case 'login_token':
-          return 'Accesso automatico dall’app desktop';
-        case 'login_token_failed':
-          return 'Accesso automatico non riuscito';
-        case 'password_changed':
-          return 'Hai cambiato la password';
-        case 'password_change_failed':
-          return 'Cambio della password non riuscito';
-        case 'password_reset':
-          return 'Password reimpostata dal computer';
-        case 'confirmed':
-          return 'Hai confermato che sei tu';
-        case 'confirm_failed':
-          return 'Conferma della password non riuscita';
-        default:
-          return 'Nuovo token per la riga di comando';
-      }
+      return s.auth[e.data.action] ?? s.auth['other']!;
     case 'team_change': {
-      const name = e.data.name ?? (e.data.agent ? nameOf(e.data.agent) : 'un mostro');
+      const name = e.data.name ?? (e.data.agent ? nameOf(e.data.agent) : s.aMonster);
       switch (e.data.action) {
         case 'add':
-          return `Hai aggiunto ${name} alla squadra`;
+          return s.teamAdd(name);
         case 'rename':
-          return `Hai cambiato nome ${e.data.from ? toName(e.data.from) : 'a un mostro'}: ora è ${name}`;
+          return s.teamRename(e.data.from, name);
         case 'edit':
-          return `Hai cambiato ruolo e compiti di ${name}`;
+          return s.teamEdit(name);
         case 'look':
-          return `Hai cambiato l’aspetto di ${name}`;
+          return s.teamLook(name);
         case 'archive':
-          return `Hai tolto ${name} dalla squadra`;
+          return s.teamArchive(name);
         case 'restore':
-          return `Hai riportato ${name} nella squadra`;
+          return s.teamRestore(name);
         default:
-          return 'Hai cambiato le tue preferenze';
+          return s.teamOther;
       }
     }
     case 'permissions':
       return e.data.target === 'defaults'
-        ? 'Hai cambiato i permessi della squadra'
-        : `Hai cambiato i permessi di ${nameOf(e.data.target)}`;
+        ? s.permissionsDefaults
+        : s.permissionsOf(nameOf(e.data.target));
     case 'channel':
       return channelSentence(e.data);
     case 'memory': {
-      if (e.data.action === 'over_limit') {
-        return `La memoria di ${who} è lunga: vede solo le righe più recenti`;
-      }
-      const n = e.data.lines?.length ?? 0;
-      const things = n === 1 ? 'una cosa nuova' : `${n} cose nuove`;
+      if (e.data.action === 'over_limit') return s.memoryOverLimit(who);
+      const things = s.memoryThings(e.data.lines?.length ?? 0);
       // Lines of a run that is not only the user's wait for a confirmation (review 18/10, A2).
-      if (e.data.action === 'proposed') return `${who} vuole ricordare ${things}: aspetta te`;
-      if (e.data.action === 'discarded') return `La memoria di ${who} resta com’era`;
-      return `${who} si ricorda ${things}`;
+      if (e.data.action === 'proposed') return s.memoryProposed(who, things);
+      if (e.data.action === 'discarded') return s.memoryDiscarded(who);
+      return s.memoryRemembers(who, things);
     }
     case 'mcp_server': {
-      const name = e.data.server === 'browser' ? 'il browser' : `il programma “${e.data.server}”`;
+      const name = e.data.server === 'browser' ? s.mcpBrowser : s.mcpApp(e.data.server);
       switch (e.data.action) {
         case 'added':
-          return e.data.server === 'browser' ? 'Hai attivato il browser' : `Hai aggiunto ${name}`;
+          return e.data.server === 'browser' ? s.mcpBrowserOn : s.mcpAdded(name);
         case 'changed':
-          return `Hai cambiato ${name}`;
+          return s.mcpChanged(name);
         case 'removed':
-          return `Hai tolto ${name}`;
+          return s.mcpRemoved(name);
         case 'connected':
-          return `Collegato ${name}`;
+          return s.mcpConnected(name);
         case 'disconnected':
-          return `Chiuso ${name}`;
+          return s.mcpDisconnected(name);
         case 'signed_in':
-          return `Hai fatto l’accesso per ${name}`;
+          return s.mcpSignedIn(name);
         case 'signed_out':
-          return `Hai scollegato l’accesso di ${name}`;
+          return s.mcpSignedOut(name);
         case 'tools_updated':
-          return e.data.message ?? `${name} ha aggiornato i suoi strumenti`;
+          return e.data.message ?? s.mcpToolsUpdated(name);
         case 'needs_signin':
-          return `Serve di nuovo l’accesso per ${name}`;
+          return s.mcpNeedsSignin(name);
         default:
-          return `Non riesco ad avviare ${name}`;
+          return s.mcpFailed(name);
       }
     }
     // The instinct (D-067): said again from its fields, in neutral forms (store/instinct.ts).
@@ -2014,94 +1920,73 @@ export function describeEvent(e: LogEvent, nameOf: (id: string) => string): stri
     case 'security':
       return securitySentence(e.data);
     case 'receipt':
-      return `Ricevuta del lavoro di ${nameOf(e.data.agent)}: ${receiptSummary(e.data)}`;
+      return s.receipt(nameOf(e.data.agent), receiptSummary(e.data));
     case 'spend':
       return e.data.message;
     case 'monster_proposal': {
-      const name = e.data.name ?? e.data.draft?.name ?? 'un mostro';
+      const name = e.data.name ?? e.data.draft?.name ?? s.aMonster;
       const from = nameOf(e.data.from);
-      if (e.data.action === 'proposed') return `${from} propone un nuovo mostro: ${name}`;
-      if (e.data.action === 'created') return `Hai creato ${name} dalla proposta di ${from}`;
-      return `Hai lasciato stare la proposta di ${from} (${name})`;
+      if (e.data.action === 'proposed') return s.monsterProposed(from, name);
+      if (e.data.action === 'created') return s.monsterCreated(name, from);
+      return s.monsterDropped(from, name);
     }
     case 'project_docs_proposal': {
-      const what = `le istruzioni di «${e.data.name}» (${e.data.file})`;
+      const what = s.docsWhat(e.data.name, e.data.file);
       const from = nameOf(e.data.from);
-      if (e.data.action === 'proposed') return `${from} propone di cambiare ${what}`;
-      if (e.data.action === 'applied') return `Hai applicato la proposta di ${from} per ${what}`;
-      if (e.data.action === 'superseded')
-        return `${from} ha sostituito la sua proposta per ${what}`;
-      return `Hai lasciato stare la proposta di ${from} per ${what}`;
+      if (e.data.action === 'proposed') return s.docsProposed(from, what);
+      if (e.data.action === 'applied') return s.docsApplied(from, what);
+      if (e.data.action === 'superseded') return s.docsSuperseded(from, what);
+      return s.docsDropped(from, what);
     }
     case 'preview':
-      return `${nameOf(e.agent)} ti mostra ${e.data.item.kind === 'note' ? 'la nota' : 'il file'} “${e.data.name}”`;
+      return e.data.item.kind === 'note'
+        ? s.previewNote(nameOf(e.agent), e.data.name)
+        : s.previewFile(nameOf(e.agent), e.data.name);
     case 'file':
       return fileSentence(e.data, who);
     // Automations (D-094): the menu of the next wave shows them in full.
     case 'automation_run_started':
-      return `Automazione «${e.data.name}»: ${who} ha iniziato un giro`;
+      return s.automationStarted(e.data.name, who);
     case 'automation_run_finished':
       return e.data.status === 'completed'
-        ? `Automazione «${e.data.name}»: giro finito`
+        ? s.automationDone(e.data.name)
         : e.data.status === 'waiting_user'
-          ? `Automazione «${e.data.name}»: aspetta una tua risposta`
-          : `Automazione «${e.data.name}»: il giro non è andato a buon fine`;
+          ? s.automationWaiting(e.data.name)
+          : s.automationFailed(e.data.name);
     case 'automation_run_skipped':
-      return `Automazione «${e.data.name}»: giro saltato. ${e.data.message}`;
+      return s.automationSkipped(e.data.name, e.data.message);
     case 'automation_change':
-      return `Automazione «${e.data.name}»: ${
-        {
-          created: 'creata',
-          updated: 'modificata',
-          deleted: 'eliminata',
-          paused: 'in pausa',
-          resumed: 'ripresa',
-          confirmed: 'confermata',
-          discarded: 'bozza lasciata stare',
-        }[e.data.action]
-      }`;
+      return s.automationChange(e.data.name, e.data.action);
     // Projects (D-097): the project pages of the next wave show them in full.
     case 'project_change':
-      return `Progetto «${e.data.name}»: ${
-        {
-          created: 'creato',
-          updated: 'modificato',
-          confirmed: 'confermato',
-          archived: 'archiviato',
-          member_added: `${nameOf(e.data.agent ?? '')} è entrato nel progetto`,
-          member_removed: `${nameOf(e.data.agent ?? '')} è uscito dal progetto`,
-          discarded: 'bozza lasciata stare',
-          restored: 'tornato dall’archivio',
-          stopped: 'fermato',
-          docs_approved: 'istruzioni della cartella approvate',
-        }[e.data.action]
-      }`;
+      return s.projectChange(e.data.name, e.data.action, nameOf(e.data.agent ?? ''));
     case 'project_report':
-      return `${nameOf(e.data.lead)} ha mandato il rapporto del progetto a ${nameOf(e.data.to)}`;
+      return s.projectReport(nameOf(e.data.lead), nameOf(e.data.to));
     case 'log_archive':
-      return `Monsters ha archiviato ${e.data.events} eventi vecchi (consumi, risultati degli strumenti, testo in arrivo) in ${e.data.dir}`;
+      return s.logArchive(e.data.events, e.data.dir);
     // An access a capo asked for (D-130): the user's tap, applied by the core.
     case 'access_grant':
       return e.data.outcome === 'granted'
-        ? `Hai concesso ${e.data.summary} (l’ha chiesto ${nameOf(e.data.from)})`
+        ? s.accessGranted(e.data.summary, nameOf(e.data.from))
         : e.data.outcome === 'denied'
-          ? `Non hai concesso ${e.data.summary} (l’aveva chiesto ${nameOf(e.data.from)})`
-          : `Non ho potuto concedere ${e.data.summary}: ${e.data.message ?? 'è cambiato qualcosa'}`;
+          ? s.accessDenied(e.data.summary, nameOf(e.data.from))
+          : s.accessFailed(e.data.summary, e.data.message);
   }
 }
 
-/** "Rhea ha salvato uno screenshot", "Dione ha creato una pagina: Prezzi". */
+/** "Rhea saved a screenshot", "Dione created a page: Prices". */
 export function fileSentence(f: FileEventData, who: string): string {
-  if (f.action === 'deleted') return `Hai eliminato il file ${f.name}`;
-  if (f.kind === 'html') return `${who} ha creato una pagina${f.title ? `: ${f.title}` : ''}`;
-  if (f.source === 'tool' && f.kind === 'image') return `${who} ha salvato uno screenshot`;
-  return `${who} ha salvato il file ${f.name}`;
+  const s = deriveStrings().event;
+  if (f.action === 'deleted') return s.fileDeleted(f.name);
+  if (f.kind === 'html') return s.fileHtml(who, f.title);
+  if (f.source === 'tool' && f.kind === 'image') return s.fileScreenshot(who);
+  return s.fileSaved(who, f.name);
 }
 
 /** Display name lookup with sensible fallbacks for reserved actors. */
 export function makeNameOf(agents: Record<string, AgentSummary>) {
   return (id: string) => {
-    if (id === 'user') return 'Tu';
+    if (id === 'user') return deriveStrings().chat.you;
     if (id === 'system') return 'Monsters';
     return agents[id]?.name ?? capitalize(id);
   };
@@ -2117,47 +2002,13 @@ export function makeNameOf(agents: Record<string, AgentSummary>) {
  * is left out, never guessed.
  */
 
-/** Short names of the tools for the instrumentation line ("Ricerca web ×3"). */
-const TOOL_SHORT: Record<string, string> = {
-  web_search: 'Ricerca web',
-  web_fetch: 'Pagina web',
-  vault_search: 'Ricerca note',
-  vault_read: 'Lettura nota',
-  vault_list: 'Elenco note',
-  vault_write: 'Nota scritta',
-  vault_create: 'Nota scritta',
-  vault_edit: 'Nota modificata',
-  vault_move: 'Nota spostata',
-  vault_delete: 'Nota nel cestino',
-  vault_links: 'Collegamenti',
-  vault_tags: 'Tag',
-  vault_history: 'Storia nota',
-  vault_restore: 'Nota ripristinata',
-  vault_undo: 'Annullamento',
-  vault_propose: 'Proposta',
-  vault_apply_proposal: 'Proposta applicata',
-  delegate: 'Delega',
-  ask_user: 'Domanda',
-  team_propose_monster: 'Nuovo mostro',
-  project_send: 'Al progetto',
-  project_status: 'Stato progetti',
-  project_propose: 'Nuovo progetto',
-  automation_propose: 'Nuova automazione',
-  preview_show: 'Anteprima',
-  shell: 'Comando',
-  fs_list: 'Elenco file',
-  fs_read: 'Lettura file',
-  fs_write: 'File scritto',
-  fs_move: 'File spostato',
-  fs_delete: 'File nel cestino',
-};
-
-/** "Ricerca web", "Browser", "Github" (an MCP server by its name). */
+/** "Web search", "Browser", "Github" (an MCP server by its name). */
 export function toolShort(tool: string): string {
-  if (tool.startsWith('mcp__browser__')) return 'Browser';
+  const s = deriveStrings();
+  if (tool.startsWith('mcp__browser__')) return s.browserShort;
   const mcp = /^mcp__(.+?)__/.exec(tool);
   if (mcp) return capitalize(mcp[1]!.replace(/[_-]+/g, ' '));
-  return TOOL_SHORT[tool] ?? toolLabel(tool);
+  return s.toolShort[tool] ?? toolLabel(tool);
 }
 
 /**
@@ -2166,18 +2017,17 @@ export function toolShort(tool: string): string {
  * sonnet 4.5", "meta-llama/llama-3.3-70b-instruct:free" → "llama 3.3 70b").
  */
 export function modelShort(model: string): string | null {
-  // The free router picks a model it does not name: "gratis" already says it all.
+  // The free router picks a model it does not name: "free" already says it all.
   if (model === 'openrouter/free') return null;
   const name = (model.split('/').pop() ?? model).replace(/:free$/, '');
   return modelWords(name);
 }
 
-/** "0,8 s", "4,1 s", "41 s", "2 min 05 s", "1 h 12 min". */
+/** "0.8 s", "4.1 s", "41 s", "2 min 05 s", "1 h 12 min" ("0,8 s" in Italian). */
 export function formatDuration(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return '';
   const s = ms / 1000;
-  if (s < 10)
-    return `${s.toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} s`;
+  if (s < 10) return `${formatNumber(s, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} s`;
   const total = Math.round(s);
   if (total < 60) return `${total} s`;
   const h = Math.floor(total / 3600);
@@ -2313,16 +2163,17 @@ export function runStatsIndex(events: readonly LogEvent[]): Map<string, RunStats
   return out;
 }
 
-/** The cost as the instrument says it: "gratis" on free models (or a reported 0), else dollars. */
+/** The cost as the instrument says it: "free" on free models (or a reported 0), else dollars. */
 export function costText(s: { costUsd?: number | undefined; free: boolean }): string | null {
-  if (s.free && !s.costUsd) return 'gratis';
+  const free = deriveStrings().instrumentation.free;
+  if (s.free && !s.costUsd) return free;
   if (s.costUsd === undefined) return null;
-  return s.costUsd === 0 ? 'gratis' : formatUsd(s.costUsd);
+  return s.costUsd === 0 ? free : formatUsd(s.costUsd);
 }
 
 /**
- * The instrumentation line of a turn: "Titan › Delega ×2 · Ricerca web ×3 ·
- * 4,1 s · gratis · llama 3.3 70b" (the UI shows it in upper case). Unknown
+ * The instrumentation line of a turn: "Titan › Delegation ×2 · Web search ×3 ·
+ * 4.1 s · free · llama 3.3 70b" (the UI shows it in upper case). Unknown
  * parts are left out; null when nothing is known beyond the name.
  */
 export function instrumentationLine(
@@ -2334,7 +2185,7 @@ export function instrumentationLine(
   const parts = stats.tools.map((t) => {
     const text = t.count > 1 ? `${t.name} ×${t.count}` : t.name;
     // Which engine answered the searches: a free one that got blocked shows here (D-071).
-    return t.name === TOOL_SHORT['web_search'] && stats.searchEngine
+    return t.name === toolShort('web_search') && stats.searchEngine
       ? `${text} (${stats.searchEngine})`
       : text;
   });
@@ -2374,10 +2225,10 @@ export function sumRuns(list: readonly RunStats[]): RunsSum {
   return { runs: list.length, toolCalls, durationMs, costUsd, free: priced > 0 && allFree };
 }
 
-/** "3 strumenti · 4,1 s · gratis" (shown in upper case); null for a conversation with no runs. */
+/** "3 tools · 4.1 s · free" (shown in upper case); null for a conversation with no runs. */
 export function conversationLine(sum: RunsSum): string | null {
   if (sum.runs === 0) return null;
-  const parts = [`${sum.toolCalls} ${sum.toolCalls === 1 ? 'strumento' : 'strumenti'}`];
+  const parts = [deriveStrings().instrumentation.tools(sum.toolCalls)];
   if (sum.durationMs > 0) parts.push(formatDuration(sum.durationMs));
   const cost = costText(sum);
   if (cost) parts.push(cost);
@@ -2399,37 +2250,40 @@ export function retryOf(
   runId: string,
 ): { agent: string; text: string } | null {
   const [request] = requestsOf(events, new Set([runId]));
-  if (request) return { agent: request.agent, text: `Riprova: «${clip(request.text, 600)}»` };
+  if (request)
+    return { agent: request.agent, text: deriveStrings().retry(clip(request.text, 600)) };
   const started = events.find(
     (e): e is LogEvent<'run'> =>
       e.type === 'run' && e.runId === runId && e.data.status === 'started',
   );
   const goal = started?.data.goal?.trim();
-  return started && goal ? { agent: started.agent, text: `Riprova: «${clip(goal, 600)}»` } : null;
+  return started && goal
+    ? { agent: started.agent, text: deriveStrings().retry(clip(goal, 600)) }
+    : null;
 }
 
-/** "la domanda di Titan e il lavoro di Rhea": what is left halfway, in words (null: nothing). */
+/** "Titan’s question and the work of Rhea": what is left halfway, in words (null: nothing). */
 export function haltedWorkText(w: HaltedWork, nameOf: (id: string) => string): string | null {
+  const s = deriveStrings().halted;
   const asked = [...new Set(w.questions.map((q) => q.from))];
   const parts: string[] = [];
-  if (w.questions.length === 1) parts.push(`la domanda di ${nameOf(asked[0]!)}`);
+  if (w.questions.length === 1) parts.push(s.question(nameOf(asked[0]!)));
   else if (w.questions.length > 1)
-    parts.push(`${w.questions.length} domande (${listText(asked.map(nameOf))})`);
+    parts.push(s.questions(w.questions.length, listText(asked.map(nameOf))));
   // Who asked was waiting for the answer: its "work" is the question.
   const workers = w.agents.filter((a) => !asked.includes(a));
-  if (workers.length > 0) parts.push(`il lavoro di ${listText(workers.map(nameOf))}`);
+  if (workers.length > 0) parts.push(s.work(listText(workers.map(nameOf))));
   return parts.length > 0 ? listText(parts) : null;
 }
 
 /**
- * "i messaggi per Rhea e Titan": the monsters whose request "Riprendi e continua" starts
+ * "the messages for Rhea and Titan": the monsters whose request "Resume and continue" starts
  * again (null: nothing to start again).
  */
 export function haltedResumeText(w: HaltedWork, nameOf: (id: string) => string): string | null {
   const who = [...new Set(w.requests.map((r) => r.agent))];
   if (who.length === 0) return null;
-  const n = w.requests.length;
-  return `${n === 1 ? 'il messaggio' : 'i messaggi'} per ${listText(who.map(nameOf))}`;
+  return deriveStrings().halted.messages(w.requests.length, listText(who.map(nameOf)));
 }
 
 /* ------------------------------------------------------ automations (D-094) */
@@ -2501,5 +2355,5 @@ export function withoutAutomationRuns(
 
 /** The status line of the chat of a capo busy with a giro. */
 export function automationBusyText(name: string): string {
-  return `Sta facendo l’automazione «${name}»: il tuo messaggio parte appena finisce`;
+  return deriveStrings().automation.busy(name);
 }

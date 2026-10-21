@@ -10,20 +10,24 @@ import { useAgents, useMediaQuery } from '../../store/hooks.ts';
 import { ToolbarContent, ToolbarTitle } from '../shell/Toolbar.tsx';
 import { Button } from '../ui/button.tsx';
 import { joinedKey, KeyLight, Segmented } from '../ui/controls.tsx';
-import { MAIN_TYPES, matchesActivity, OTHER_TYPES } from './activity.ts';
+import { mainTypes as mainTypeList, matchesActivity, otherTypes } from './activity.ts';
 import { ArchiveNote } from './ArchiveNote.tsx';
 import { EventRow } from './EventRow.tsx';
+import { logStrings } from './log.strings.ts';
 
 export { isLoggable, touchesNote } from './activity.ts';
 
 type Period = 'hour' | 'today' | 'week' | 'all';
 
-const PERIODS: { value: Period; label: string }[] = [
-  { value: 'all', label: 'Da sempre' },
-  { value: 'hour', label: 'Ultima ora' },
-  { value: 'today', label: 'Oggi' },
-  { value: 'week', label: 'Ultimi 7 giorni' },
-];
+function periods(): { value: Period; label: string }[] {
+  const p = logStrings().periods;
+  return [
+    { value: 'all', label: p.all },
+    { value: 'hour', label: p.hour },
+    { value: 'today', label: p.today },
+    { value: 'week', label: p.week },
+  ];
+}
 
 function periodStart(p: Period, now: number): number {
   switch (p) {
@@ -154,11 +158,11 @@ function Picker({
 }
 
 /**
- * Attività (`#/log`): what the monsters and you did, newest first. A segment
- * says what is shown: "Importanti" (what had an effect: notes, files, commands,
- * questions, errors, changes to the setup) or "Tutto" (replies, jobs and
+ * Activity (`#/log`): what the monsters and you did, newest first. A segment
+ * says what is shown: "Important" (what had an effect: notes, files, commands,
+ * questions, errors, changes to the setup) or "Everything" (replies, jobs and
  * reading tools too). The types narrow it; who and the rest sit beside them,
- * and on a phone every filter but the segment is in one "Filtri" drawer.
+ * and on a phone every filter but the segment is in one "Filters" drawer.
  */
 export function LogView() {
   const events = useApp((s) => s.events);
@@ -172,6 +176,7 @@ export function LogView() {
   const [period, setPeriod] = useState<Period>('all');
   const [loading, setLoading] = useState(false);
   const [now] = useState(() => Date.now());
+  const s = logStrings();
   const phone = useMediaQuery('(max-width: 767px)');
   const note = useHashParam('nota');
   const key = note ? noteKey(note) : null;
@@ -201,7 +206,7 @@ export function LogView() {
     else next.add(c);
     setTypes(next);
   };
-  const otherCount = OTHER_TYPES.filter((t) => types.has(t.value)).length;
+  const otherCount = otherTypes().filter((t) => types.has(t.value)).length;
   const filtering = who !== '' || types.size > 0 || period !== 'all';
   /** Filters on besides the segment: the count on the phone's "Filtri" key. */
   const active = (who !== '' ? 1 : 0) + types.size + (period !== 'all' ? 1 : 0);
@@ -223,27 +228,24 @@ export function LogView() {
   };
 
   const people = [
-    { value: '', label: 'Tutti' },
+    { value: '', label: s.who.everyone },
     ...agents.map((a) => ({ value: a.id, label: a.name })),
-    { value: 'user', label: 'Tu' },
-    { value: 'system', label: 'Sistema' },
+    { value: 'user', label: s.who.you },
+    { value: 'system', label: s.who.system },
   ];
   const whoPicker = (
     <Picker
-      label="Chi"
+      label={s.who.label}
       value={who}
       onChange={setWho}
-      options={people.map((p) => ({
-        value: p.value,
-        label: p.value ? p.label : 'Chi: tutti',
-      }))}
+      options={people}
       testId="activity-who"
     />
   );
   const mainTypes = (
     <KeyRow
-      label="Filtra per tipo"
-      items={MAIN_TYPES}
+      label={s.filterByType}
+      items={mainTypeList()}
       isOn={(v) => types.has(v)}
       onToggle={toggle}
       className={phone ? 'flex-wrap' : 'shrink-0'}
@@ -259,7 +261,7 @@ export function LogView() {
       data-testid="activity-view"
     >
       <ToolbarContent>
-        <ToolbarTitle id="log-title">Attività</ToolbarTitle>
+        <ToolbarTitle id="log-title">{s.title}</ToolbarTitle>
       </ToolbarContent>
       <div className="seam-b flex shrink-0 flex-col gap-3 px-4 pt-3 pb-3.5 sm:px-6">
         {/*
@@ -268,13 +270,13 @@ export function LogView() {
         */}
         <div className="flex flex-wrap items-start gap-2">
           <Segmented<'important' | 'all'>
-            label="Cosa mostrare"
+            label={s.whatToShow}
             size="sm"
             value={all ? 'all' : 'important'}
             onChange={(v) => setAll(v === 'all')}
             options={[
-              { value: 'important', label: 'Importanti' },
-              { value: 'all', label: 'Tutto' },
+              { value: 'important', label: s.important },
+              { value: 'all', label: s.everything },
             ]}
             className="shrink-0"
           />
@@ -288,7 +290,7 @@ export function LogView() {
             className={cn(phone && 'ml-auto')}
           >
             {phone && <Funnel size={15} aria-hidden />}
-            {phone ? 'Filtri' : 'Altri filtri'}
+            {phone ? s.filters : s.moreFilters}
             {(phone ? active : otherOn) > 0 && (
               <span className="font-mono text-caption text-ink-muted tabular-nums">
                 {phone ? active : otherOn}
@@ -315,22 +317,22 @@ export function LogView() {
             {phone && whoPicker}
             {phone && mainTypes}
             <KeyRow
-              label="Altri tipi"
-              items={OTHER_TYPES}
+              label={s.otherTypes}
+              items={otherTypes()}
               isOn={(v) => types.has(v)}
               onToggle={toggle}
               className="flex-wrap"
               separate={phone}
             />
             <Picker
-              label="Periodo"
+              label={s.period}
               value={period}
               onChange={(v) => setPeriod(v as Period)}
-              options={PERIODS}
+              options={periods()}
             />
             {phone && filtering && (
               <Button size="sm" variant="ghost" onClick={clear} className="-ml-2">
-                Togli i filtri
+                {s.clearFilters}
               </Button>
             )}
           </div>
@@ -342,10 +344,10 @@ export function LogView() {
           >
             <span className="well inline-flex h-10 items-center gap-2 rounded-[10px] pr-1.5 pl-3 font-medium">
               <FileText size={16} aria-hidden className="text-ink-muted" />
-              Solo la nota “{noteName(note)}”
+              {s.onlyNote(noteName(note))}
               <a
                 href={PATHS.log}
-                aria-label="Mostra tutta l’attività"
+                aria-label={s.showAll}
                 className="key inline-flex size-7 items-center justify-center rounded-[7px] text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
               >
                 <X size={12} weight="bold" aria-hidden />
@@ -355,7 +357,7 @@ export function LogView() {
               href={vaultPath(note)}
               className="font-medium text-signal-ink underline decoration-1 underline-offset-2 hover:decoration-2"
             >
-              Apri la nota
+              {s.openNote}
             </a>
           </p>
         )}
@@ -365,19 +367,19 @@ export function LogView() {
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <p className="text-large text-ink-muted">
               {note
-                ? `Niente da mostrare sulla nota “${noteName(note)}”.`
+                ? s.nothingForNote(noteName(note))
                 : filtering
-                  ? 'Niente da mostrare con questi filtri.'
-                  : 'Ancora nessuna azione con un effetto.'}
+                  ? s.nothingWithFilters
+                  : s.nothingYet}
             </p>
             {!all && types.size === 0 && (
               <Button size="sm" variant="secondary" onClick={() => setAll(true)}>
-                Mostra tutto
+                {s.showEverything}
               </Button>
             )}
             {filtering && (
               <Button size="sm" variant="ghost" onClick={clear}>
-                Togli i filtri
+                {s.clearFilters}
               </Button>
             )}
           </div>
@@ -404,7 +406,7 @@ export function LogView() {
               onClick={() => void loadMore()}
               disabled={loading}
             >
-              {loading ? 'Carico…' : 'Carica l’attività più vecchia'}
+              {loading ? s.loading : s.loadOlder}
             </Button>
           </div>
         )}

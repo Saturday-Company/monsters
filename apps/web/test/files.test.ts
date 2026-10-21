@@ -138,8 +138,8 @@ describe('files in the chat', () => {
       'titan',
       'rhea',
     ]);
-    expect(previewText(file, nameOf)).toBe('Rhea ha salvato uno screenshot');
-    expect(describeEvent(events[3]!, nameOf)).toBe('Hai eliminato il file s.png');
+    expect(previewText(file, nameOf)).toBe('Rhea saved a screenshot');
+    expect(describeEvent(events[3]!, nameOf)).toBe('You deleted the file s.png');
   });
 
   it('a page made by a monster says its title', () => {
@@ -155,6 +155,6 @@ describe('files in the chat', () => {
         },
         'Dione',
       ),
-    ).toBe('Dione ha creato una pagina: Prezzi');
+    ).toBe('Dione created a page: Prezzi');
   });
 });

@@ -1,11 +1,11 @@
-import { ulid, type EventInput, type LogEvent } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { setAppLang, ulid, type EventInput, type LogEvent } from '@monsters/shared';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   hasEffect,
-  OTHER_TYPES,
-  TYPE_LABEL,
   matchesActivity,
+  otherTypes,
   pausedToolEvents,
+  typeLabel,
   undoState,
   type ActivityFilter,
 } from '../src/components/log/activity.ts';
@@ -15,6 +15,10 @@ import {
   rootChange,
 } from '../src/components/log/ActivityPanel.tsx';
 import { trashedByUndo, trashedText } from '../src/components/vault/TrashView.tsx';
+
+// The Italian copy is pinned in this file; the English one is in log-strings.test.ts.
+beforeAll(() => setAppLang('it'));
+afterAll(() => setAppLang('en'));
 
 /* Attività (D-056, audit 5.1-5.4 and 4.2-4.3): default filter, undo and redo, trash wording. */
 
@@ -91,11 +95,11 @@ describe('what Attività shows by default', () => {
   });
 
   it('names the filters in plain words: "Sistema", not the product name (audit UI-20)', () => {
-    const labels = OTHER_TYPES.map((t) => t.label);
+    const labels = otherTypes().map((t) => t.label);
     expect(labels).toContain('Sistema');
     expect(labels).toContain('Lavori dei mostri');
     expect(labels).not.toContain('Monsters');
-    expect(TYPE_LABEL.system).toBe('Sistema');
+    expect(typeLabel('system')).toBe('Sistema');
   });
 
   it('the panel says when a monster last updated its own notes', () => {
@@ -136,6 +140,8 @@ describe('undo and redo', () => {
 });
 
 describe('trash wording', () => {
+  beforeAll(() => setAppLang('en'));
+  afterAll(() => setAppLang('it'));
   const nameOf = (id: string) => (id === 'dione' ? 'Dione' : id);
   it('says who deleted it, in words, and when an undo removed it', () => {
     expect(trashedText({ deletedBy: 'user' }, false, nameOf)).toBe('deleted by you');

@@ -1,5 +1,11 @@
-import { originalRequest, ulid, type EventInput, type LogEvent } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import {
+  originalRequest,
+  setAppLang,
+  ulid,
+  type EventInput,
+  type LogEvent,
+} from '@monsters/shared';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { newConversationCommand } from '../src/components/chat/Composer.tsx';
 import { buildTerminal } from '../src/components/terminal/entries.ts';
 import {
@@ -36,6 +42,10 @@ import {
   type ChatScope,
   type LiveState,
 } from '../src/store/derive.ts';
+
+// The Italian copy is pinned in this file; the English one is in log-strings.test.ts.
+beforeAll(() => setAppLang('it'));
+afterAll(() => setAppLang('en'));
 
 let clock = 1_760_000_000_000;
 function ev<T extends EventInput>(input: T): LogEvent {

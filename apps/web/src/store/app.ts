@@ -2,6 +2,7 @@ import { initNewsSeen } from './news.ts';
 import {
   appLang,
   DRAFT_EVENT_TYPES,
+  onAppLang,
   type AgentSummary,
   type Lang,
   type AnswerRequest,
@@ -18,6 +19,7 @@ import { applyLang } from '../lib/i18n.ts';
 import { joinTabs, recoverSessionSecret, sessionSecret } from '../lib/session-secret.ts';
 import type { Transport } from '../lib/transport.ts';
 import { automationPath, MCP_SIGN_IN_PATH, SPEND_CAP_PATH } from '../lib/router.ts';
+import { appStrings } from './app.strings.ts';
 import { usePreview } from './preview.ts';
 import { listsInUse, refreshDrafts, refreshProjects, resetLists } from './projects.ts';
 import {
@@ -246,7 +248,10 @@ export function ingest(batch: readonly LogEvent[]): void {
   );
   if (spend) {
     notify(spend.data.message, spend.data.action === 'stopped' ? 'error' : 'info', {
-      action: { label: 'Alza il tetto', run: () => (window.location.hash = SPEND_CAP_PATH) },
+      action: {
+        label: appStrings().notices.raiseCap,
+        run: () => (window.location.hash = SPEND_CAP_PATH),
+      },
       ms: 10_000,
     });
   }
@@ -258,10 +263,12 @@ export function ingest(batch: readonly LogEvent[]): void {
       e.type === 'security' && e.data.action === 'mcp_tools_changed' && Date.now() - e.ts < 60_000,
   );
   if (paused && !spend) {
-    const who = /^(.{1,40}?) ha /.exec(paused.data.message ?? '')?.[1] ?? 'Un programma collegato';
-    notify(`${who} ha cambiato uno strumento: lo tengo fermo finché non decidi.`, 'info', {
+    const s = appStrings().notices;
+    // i18n-ignore: "X ha cambiato…" / "X has changed…", the start of the core's message
+    const who = /^(.{1,40}?) (?:ha|has|changed) /.exec(paused.data.message ?? '')?.[1];
+    notify(s.toolChanged(who ?? s.aConnectedApp), 'info', {
       action: {
-        label: 'Vedi',
+        label: s.view,
         run: () => {
           // Loaded on demand: the sheet's component imports this store.
           void import('../components/shell/ReviewSheet.tsx').then((m) => m.showReview());
@@ -276,8 +283,9 @@ export function ingest(batch: readonly LogEvent[]): void {
       e.type === 'mcp_server' && e.data.action === 'needs_signin' && Date.now() - e.ts < 60_000,
   );
   if (signIn && !spend && !paused) {
-    notify(signIn.data.message ?? 'Un servizio chiede di nuovo l’accesso.', 'error', {
-      action: { label: 'Collega', run: () => (window.location.hash = MCP_SIGN_IN_PATH) },
+    const s = appStrings().notices;
+    notify(signIn.data.message ?? s.serviceSignIn, 'error', {
+      action: { label: s.connect, run: () => (window.location.hash = MCP_SIGN_IN_PATH) },
       ms: 10_000,
     });
   }
@@ -291,15 +299,16 @@ export function ingest(batch: readonly LogEvent[]): void {
   );
   if (giro && !spend && !paused) {
     const d = giro.data;
+    const s = appStrings().notices;
     const text =
       d.status === 'completed'
-        ? `Automazione «${d.name}»: giro finito.`
+        ? s.automationDone(d.name)
         : d.status === 'waiting_user'
-          ? `Automazione «${d.name}»: aspetta una tua risposta.`
-          : `Automazione «${d.name}»: il giro non è andato a buon fine.`;
+          ? s.automationWaiting(d.name)
+          : s.automationFailed(d.name);
     notify(text, d.status === 'failed' ? 'error' : 'info', {
       action: {
-        label: 'Vedi',
+        label: s.view,
         run: () => (window.location.hash = automationPath(d.automationId, { giro: d.giro })),
       },
       ms: 8000,
@@ -442,7 +451,7 @@ function clearSession(): void {
 
 async function sessionLost(): Promise<void> {
   clearSession();
-  notify('La sessione è finita: accedi di nuovo.', 'info');
+  notify(appStrings().notices.sessionEnded, 'info');
   await boot();
 }
 
@@ -709,7 +718,7 @@ export async function undoAction(
       delete undoConflicts[actionId];
       return { undone: { ...s.undone, [actionId]: res.commit ?? '' }, undoConflicts };
     });
-    if (!silent) notify('Fatto: la modifica è stata annullata.', 'success');
+    if (!silent) notify(appStrings().notices.undone, 'success');
     return true;
   } catch (err) {
     if (err instanceof ApiError && err.code === 'conflict' && !force) {
@@ -804,10 +813,7 @@ export async function askAgain(questionId: string): Promise<void> {
   const [request] = q.runId ? requestsOf(s.events, new Set([q.runId])) : [];
   if (request) return sendAgain(request);
   const lead = s.agents[q.from]?.isOrchestrator === true;
-  await sendMessage(
-    `Mi avevi chiesto: «${q.question}». Chiedimelo di nuovo, per favore.`,
-    lead ? undefined : q.from,
-  );
+  await sendMessage(appStrings().askAgain(q.question), lead ? undefined : q.from);
 }
 
 /** "Riprova" under an error of the chat: the failed run's request goes again (false: nothing to send). */
@@ -851,6 +857,11 @@ export function setNewsOpen(open: boolean): void {
 export function errorText(err: unknown): string {
   return describeError(err);
 }
+
+// The live activities were written in the old language: the core's snapshot says them again.
+onAppLang(() => {
+  if (api && useApp.getState().phase === 'ready') void refreshAgents().catch(() => {});
+});
 
 /** Test helper: back to a blank store. */
 export function resetForTests(): void {

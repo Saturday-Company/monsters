@@ -1,12 +1,13 @@
 import {
   INSTINCT_USE_INFO,
+  setAppLang,
   ulid,
   type EventInput,
   type InstinctUseView,
   type LogEvent,
   type ReceiptData,
 } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { hasEffect } from '../src/components/log/activity.ts';
 import { buildTerminal } from '../src/components/terminal/entries.ts';
 import { mockReceipt } from '../src/lib/mock/instinct.ts';
@@ -32,6 +33,10 @@ import {
   sourceText,
   needsOf,
 } from '../src/store/instinct.ts';
+
+// The Italian copy is pinned in this file; the English one is in log-strings.test.ts.
+beforeAll(() => setAppLang('it'));
+afterAll(() => setAppLang('en'));
 
 /* The instinct in the UI (D-068): its sentences, the receipt, the confused face. */
 

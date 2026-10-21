@@ -1,5 +1,10 @@
-import { AgentModelsRequestSchema, type ModelInfoView, type ReceiptData } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import {
+  AgentModelsRequestSchema,
+  setAppLang,
+  type ModelInfoView,
+  type ReceiptData,
+} from '@monsters/shared';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   modelName,
   optionText,
@@ -16,6 +21,10 @@ import {
   receiptModelLine,
   receiptModels,
 } from '../src/store/instinct.ts';
+
+// The Italian copy is pinned in this file; the English one is in log-strings.test.ts.
+beforeAll(() => setAppLang('it'));
+afterAll(() => setAppLang('en'));
 
 /*
  * The choice of the model (D-093): the picker's list, "Automatica" in words,
