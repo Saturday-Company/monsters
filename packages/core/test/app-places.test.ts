@@ -62,7 +62,7 @@ describe('the places of the app in the texts (D-133)', () => {
           const [tab, section, under] = steps;
           const sections = Object.values(SETTINGS_SECTIONS)
             .filter((s) => SETTINGS_TABS[s.tab] === tab)
-            .map((s) => s.label as string);
+            .map((s) => s.label);
           if (!tabs.has(tab!)) wrong.push(`${at}: «${tab}» is not a tab`);
           else if (section !== undefined && !sections.includes(section)) {
             wrong.push(`${at}: «${section}» is not a section of ${tab}`);
