@@ -36,8 +36,8 @@ test('an older version seen: the light is on; opening the sheet turns it off', a
   await page.getByTestId('news-toggle').click();
   const sheet = page.getByTestId('news-sheet');
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByRole('heading', { name: 'Novità', level: 2 })).toBeVisible();
-  await expect(page.getByTestId('news-using')).toContainText('Stai usando la ');
+  await expect(sheet.getByRole('heading', { name: 'What’s new', level: 2 })).toBeVisible();
+  await expect(page.getByTestId('news-using')).toContainText('You’re using ');
   const current = sheet.locator('[data-current]');
   await expect(current).toHaveCount(1);
   await expect(current.getByRole('button').first()).toHaveAttribute('aria-expanded', 'true');
@@ -59,9 +59,9 @@ test('older versions are collapsed and open on click', async ({ page }) => {
 
 test('the palette opens Novità', async ({ page }) => {
   await page.goto('/?mock=demo#/?chat=titan');
-  await page.getByRole('combobox', { name: 'Messaggio' }).focus();
+  await page.getByRole('combobox', { name: 'Message' }).focus();
   await page.keyboard.press('ControlOrMeta+k');
-  await page.getByTestId('palette-input').fill('Novità');
+  await page.getByTestId('palette-input').fill('What’s new');
   await page.getByTestId('palette-item').first().click();
   await expect(page.getByTestId('news-sheet')).toBeVisible();
 });

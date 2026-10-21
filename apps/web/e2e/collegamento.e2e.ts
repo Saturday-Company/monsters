@@ -31,22 +31,24 @@ test('Core that does not answer: non collegato everywhere, the message waits in 
   });
   expect(original).toBe(true);
 
-  // Not yet: the first seconds are "Mi ricollego…".
+  // Not yet: the first seconds are "Reconnecting…".
   await expect(page.getByTestId('status-display')).toHaveAttribute('data-state', 'reconnecting');
   await expect(page.getByTestId('link-band')).toHaveCount(0);
 
   await expect(page.getByTestId('link-band')).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId('link-band')).toContainText('Monsters sul computer non risponde');
+  await expect(page.getByTestId('link-band')).toContainText(
+    'Monsters isn’t answering on the computer',
+  );
   await expect(page.getByTestId('status-display')).toHaveAttribute('data-state', 'offline');
-  await expect(page.getByTestId('status-display')).toContainText('Non collegato');
+  await expect(page.getByTestId('status-display')).toContainText('Not connected');
 
-  const field = page.getByRole('combobox', { name: 'Messaggio' });
-  await field.fill('Ci sei?');
+  const field = page.getByRole('combobox', { name: 'Message' });
+  await field.fill('Are you there?');
   await expect(page.getByTestId('composer-offline')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Invia' })).toBeDisabled();
-  await expect(field).toHaveValue('Ci sei?');
+  await expect(page.getByRole('button', { name: 'Send' })).toBeDisabled();
+  await expect(field).toHaveValue('Are you there?');
 
-  // The core is back: "Riprova adesso" brings the stream up at once.
+  // The core is back: "Try now" brings the stream up at once.
   await page.evaluate(() => {
     const w = window as unknown as Win & {
       __attach: MockSockets['attach'];
@@ -56,6 +58,6 @@ test('Core that does not answer: non collegato everywhere, the message waits in 
   await page.getByTestId('link-retry').click();
   await expect(page.getByTestId('link-band')).toHaveCount(0);
   await expect(page.getByTestId('composer-offline')).toHaveCount(0);
-  await expect(field).toHaveValue('Ci sei?');
-  await expect(page.getByRole('button', { name: 'Invia' })).toBeEnabled();
+  await expect(field).toHaveValue('Are you there?');
+  await expect(page.getByRole('button', { name: 'Send' })).toBeEnabled();
 });

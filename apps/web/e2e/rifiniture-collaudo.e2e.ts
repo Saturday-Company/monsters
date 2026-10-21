@@ -20,7 +20,7 @@ for (const size of SIZES) {
     test('the card of a proposed project does not leave its column', async ({ page }) => {
       await page.goto('/?mock=demo');
       await page.getByTestId('review-toggle').click();
-      const card = page.getByTestId('draft-card').filter({ hasText: 'Sito di Saturday' });
+      const card = page.getByTestId('draft-card').filter({ hasText: 'Saturday website' });
       await expect(card.getByTestId('draft-plan-folder')).toBeVisible();
       const sheet = await page.getByTestId('review-drafts').boundingBox();
       for (const id of ['draft-plan-folder', 'draft-plan-summary', 'draft-title'] as const) {
@@ -38,17 +38,17 @@ for (const size of SIZES) {
       await page.goto('/?mock=demo#/impostazioni?sezione=tetto');
       await page.getByTestId('spend-caps-day').fill('3');
       await page.getByTestId('spend-caps-save').click();
-      await expect(page.getByTestId('spend-day-display')).toContainText('/ 3 €');
+      await expect(page.getByTestId('spend-day-display')).toContainText('/ €3');
       await page
         .getByTestId('spend-agents')
-        .getByRole('button', { name: /Per mostro/ })
+        .getByRole('button', { name: /Per monster/ })
         .click();
       const rhea = page.getByTestId('spend-agent-rhea');
       await rhea.getByTestId('spend-caps-rhea-day').fill('9');
       await rhea.getByTestId('spend-caps-rhea-save').click();
       const chain = page.getByTestId('spend-chain');
       await expect(chain.getByTestId('spend-chain-warning')).toContainText(
-        'più alto del tetto della squadra: scatta prima quello',
+        'higher than the squad’s cap: that one kicks in first',
       );
       // A "≤" is never alone at the end of a line: it sits on the same row as its link.
       const rows = await chain.locator('span[aria-hidden]:text("≤")').evaluateAll((signs) =>
@@ -75,7 +75,7 @@ test('after "Riprendi" only a chat that took a job up again says so', async ({ p
   await expect(page.getByTestId('kill')).toBeVisible();
   await expect(page.getByTestId('chat-row').first()).toBeVisible();
   await expect(
-    page.getByTestId('chat-row').filter({ hasText: 'Si riparte: i mostri sono di nuovo liberi' }),
+    page.getByTestId('chat-row').filter({ hasText: 'Back to work: the monsters are free again' }),
   ).toHaveCount(0);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/dopo-riprendi-1440.png` });
 });

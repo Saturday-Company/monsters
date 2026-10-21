@@ -23,7 +23,7 @@ async function notify(page: Page, text: string) {
     // The dev server serves the module the app itself uses: the same store.
     const path = '/src/store/app.ts';
     const app = (await import(/* @vite-ignore */ path)) as AppModule;
-    app.notify(t, 'error', { ms: 600_000, action: { label: 'Riprova', run: () => {} } });
+    app.notify(t, 'error', { ms: 600_000, action: { label: 'Try again', run: () => {} } });
   }, text);
 }
 
@@ -41,7 +41,7 @@ for (const size of SIZES) {
       await page.goto('/?mock=demo#/?chat=titan');
       const card = page.getByTestId('question-card').last();
       await expect(card).toBeVisible();
-      await notify(page, 'Non sono riuscito a mandare il messaggio. Il testo è rimasto nel campo.');
+      await notify(page, 'I couldn’t send the message. The text stayed in the field.');
       const notice = page.getByTestId('notice');
       await expect(notice).toBeVisible();
       await shot(page, `avviso-${scheme}-${size.name}`);
@@ -72,13 +72,13 @@ for (const size of SIZES) {
 
 test('Squadra lists every squad: the capo, the personal one, the projects', async ({ page }) => {
   await page.goto('/?mock=demo#/impostazioni');
-  await expect(page.getByTestId('team-squad-boss')).toContainText('Il tuo capo');
-  await expect(page.getByTestId('team-squad-personal')).toContainText('Squadra personale');
+  await expect(page.getByTestId('team-squad-boss')).toContainText('Your lead');
+  await expect(page.getByTestId('team-squad-personal')).toContainText('Personal squad');
   const project = page.getByTestId('team-squad-social-di-saturday');
-  await expect(project).toContainText('Social di Saturday');
-  await expect(project).toContainText('capo del progetto');
+  await expect(project).toContainText('Saturday Social');
+  await expect(project).toContainText('project lead');
   await expect(
-    project.getByRole('link', { name: /Apri la squadra di Social di Saturday/ }).first(),
+    project.getByRole('link', { name: /Open Saturday Social’s squad/ }).first(),
   ).toHaveAttribute('href', /progetto\?id=social-di-saturday&sezione=squadra/);
   await shot(page, 'squadra-light');
   await page.emulateMedia({ colorScheme: 'dark' });
@@ -88,9 +88,9 @@ test('Squadra lists every squad: the capo, the personal one, the projects', asyn
 test('the hierarchy in one line: new project and empty squad', async ({ page }) => {
   await page.goto('/?mock=demo#/progetto?vista=nuovo');
   const chart = page.getByTestId('squad-chart');
-  await expect(chart).toContainText('Il tuo capo');
-  await expect(chart).toContainText('Capo del progetto');
-  await expect(chart).toContainText('Mostri');
+  await expect(chart).toContainText('Your lead');
+  await expect(chart).toContainText('Project lead');
+  await expect(chart).toContainText('Monsters');
   await shot(page, 'gerarchia-nuovo-light');
   await page.emulateMedia({ colorScheme: 'dark' });
   await shot(page, 'gerarchia-nuovo-dark');
@@ -100,6 +100,8 @@ test('the project card says "costo stimato" when a key has no cost from the prov
   page,
 }) => {
   await page.goto('/?mock=demo');
+  // The mock is created by a lazy import: the app on screen means its hook is there.
+  await expect(page.getByTestId('status-display')).toBeVisible();
   await page.evaluate(() =>
     (
       window as unknown as { __monstersMock: { estimateCost(a: string, l: string): void } }
@@ -109,8 +111,8 @@ test('the project card says "costo stimato" when a key has no cost from the prov
     () => (window.location.hash = '#/progetto?id=social-di-saturday&sezione=spesa'),
   );
   const note = page.getByTestId('project-spend-estimated');
-  await expect(note).toContainText('Con Anthropic il costo è stimato');
-  await expect(note).toContainText('Il tetto del progetto lo conta');
+  await expect(note).toContainText('With Anthropic the cost is estimated');
+  await expect(note).toContainText('The project’s cap counts it');
   await shot(page, 'spesa-stimata-light');
 });
 
@@ -118,7 +120,7 @@ test('the halt band names whose messages start again', async ({ page }) => {
   await page.goto('/?mock=demo#/?chat=titan');
   await page.getByTestId('kill').click();
   await page.getByTestId('kill').click();
-  await expect(page.getByTestId('halt-again')).toContainText('Con «Riprendi e continua» ripartono');
+  await expect(page.getByTestId('halt-again')).toContainText('With “Resume and continue”');
   await shot(page, 'ferma-light');
   await page.emulateMedia({ colorScheme: 'dark' });
   await shot(page, 'ferma-dark');

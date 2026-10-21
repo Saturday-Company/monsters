@@ -39,11 +39,11 @@ for (const size of SIZES) {
 
         await page
           .getByTestId('question-card')
-          .getByRole('button', { name: /^Amichevole/ })
+          .getByRole('button', { name: /^Friendly/ })
           .click();
         const bubble = page
           .getByTestId('agent-bubble')
-          .filter({ hasText: 'Ecco fatto!' })
+          .filter({ hasText: 'All done!' })
           .and(page.locator('[data-streaming="false"]'));
         await bubble.waitFor({ timeout: 15_000 });
         await page.waitForTimeout(500);
@@ -54,7 +54,7 @@ for (const size of SIZES) {
         await page.evaluate(() => {
           window.location.hash = '#/?chat=dione';
         });
-        await page.getByRole('button', { name: 'Dietro le quinte di Dione' }).first().click();
+        await page.getByRole('button', { name: 'Behind the scenes of Dione' }).first().click();
         await page.getByTestId('agent-terminal').waitFor();
         await page.waitForTimeout(400);
         await shot('terminale');
@@ -76,13 +76,13 @@ for (const size of SIZES) {
 
         await page
           .getByTestId('event-row')
-          .filter({ hasText: 'Rhea ha creato la nota' })
-          .getByRole('button', { name: 'Dettagli' })
+          .filter({ hasText: 'Rhea created the note' })
+          .getByRole('button', { name: 'Details' })
           .click();
         await page.waitForTimeout(200);
         await page
           .getByTestId('event-row')
-          .filter({ hasText: 'Rhea ha creato la nota' })
+          .filter({ hasText: 'Rhea created the note' })
           .evaluate((el) => el.scrollIntoView({ block: 'center' }));
         await page.waitForTimeout(200);
         await shot('log-dettagli');

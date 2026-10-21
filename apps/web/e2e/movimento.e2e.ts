@@ -55,8 +55,8 @@ test('a key sinks 2 px in two frames when pressed and is up at once when release
   page,
 }) => {
   await page.goto('/?mock=demo#/?chat=dione');
-  await page.locator('#composer-input').fill('Ciao');
-  const key = page.getByTestId('composer').getByRole('button', { name: 'Invia' });
+  await page.locator('#composer-input').fill('Hello');
+  const key = page.getByTestId('composer').getByRole('button', { name: 'Send' });
   await expect(key).toBeEnabled();
   const box = (await key.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -144,7 +144,7 @@ test.describe('touch screen', () => {
     expect(await page.evaluate(() => matchMedia('(hover: hover)').matches)).toBe(false);
     const tile = page.getByTestId('file-tile').first();
     await expect(tile).toBeVisible();
-    const keys = tile.getByRole('link', { name: /^Scarica/ });
+    const keys = tile.getByRole('link', { name: /^Download/ });
     expect(await keys.evaluate((el) => getComputedStyle(el.parentElement!).opacity)).toBe('1');
   });
 });

@@ -52,7 +52,7 @@ for (const size of SIZES) {
         await shot('chat-domanda');
 
         await page.evaluate(() => (window.location.hash = '#/?chat=rhea'));
-        await page.getByRole('button', { name: 'Dietro le quinte di Rhea' }).first().click();
+        await page.getByRole('button', { name: 'Behind the scenes of Rhea' }).first().click();
         await page.getByTestId('agent-terminal').waitFor();
         await page.getByTestId('tool-line').first().click();
         await page.waitForTimeout(400);
@@ -80,9 +80,7 @@ for (const size of SIZES) {
         await page.waitForTimeout(300);
         await shot('note-elenco');
 
-        await page.goto(
-          '/?mock=demo#/note?nota=Risorse%2FLisbona%2C%20spunti%20per%20il%20weekend.md',
-        );
+        await page.goto('/?mock=demo#/note?nota=Resources%2FLisbon%2C%20weekend%20tips.md');
         await page.getByTestId('vault-related').getByRole('link').first().waitFor();
         await page.waitForTimeout(300);
         await shot('note-lettura');
@@ -91,9 +89,9 @@ for (const size of SIZES) {
         await page
           .getByTestId('vault-history-entry')
           .first()
-          .getByRole('button', { name: 'Dettagli' })
+          .getByRole('button', { name: 'Details' })
           .click();
-        await page.getByTestId('vault-diff').waitFor();
+        await page.getByTestId('vault-diff').first().waitFor();
         await page.waitForTimeout(300);
         await shot('note-cronologia');
 
@@ -111,13 +109,13 @@ for (const size of SIZES) {
       test('empty chat after setup', async ({ page }) => {
         // A team that already exists: the onboarding hands over to the chats.
         await page.goto('/?mock=team');
-        await page.getByLabel('Email').fill('giulio@esempio.it');
-        await page.getByLabel('Password').fill('una-password-lunga');
-        await page.getByLabel('Codice di avvio').fill('424242');
-        await page.getByRole('button', { name: 'Crea account' }).click();
+        await page.getByLabel('Email').fill('giulio@example.com');
+        await page.getByLabel('Password').fill('a-long-password');
+        await page.getByLabel('Setup code').fill('424242');
+        await page.getByRole('button', { name: 'Create account' }).click();
         await page.getByTestId('sidebar').waitFor();
         await page.evaluate(() => (window.location.hash = '#/?chat=titan'));
-        await page.getByText('Dimmi cosa ti serve').waitFor();
+        await page.getByText('Tell me what you need').waitFor();
         await page.waitForTimeout(400);
         await shot2(page, `vuota-${theme}-${size.name}`);
       });
@@ -126,11 +124,11 @@ for (const size of SIZES) {
         await page.goto('/?mock=demo&mockSpeed=0.2#/?chat=titan');
         await page
           .getByTestId('question-card')
-          .getByRole('button', { name: /^Amichevole/ })
+          .getByRole('button', { name: /^Friendly/ })
           .click();
         await page
           .getByTestId('agent-bubble')
-          .filter({ hasText: 'Ecco fatto!' })
+          .filter({ hasText: 'All done!' })
           .and(page.locator('[data-streaming="false"]'))
           .waitFor();
         await page.waitForTimeout(500);
@@ -148,18 +146,18 @@ for (const size of SIZES) {
         await shot('chat-lavoro');
 
         await page.goto('/?mock=demo#/impostazioni');
-        await page.getByRole('tab', { name: 'Squadra' }).waitFor();
+        await page.getByRole('tab', { name: 'Squad' }).waitFor();
         await page.waitForTimeout(400);
         await shot('impostazioni');
-        await page.getByRole('tab', { name: 'Generale' }).click();
+        await page.getByRole('tab', { name: 'General' }).click();
         await page.waitForTimeout(300);
         await shot('impostazioni-generale');
 
         await page.goto('/?mock=1');
-        await page.getByLabel('Email').fill('giulio@esempio.it');
-        await page.getByLabel('Password').fill('una-password-lunga');
-        await page.getByLabel('Codice di avvio').fill('424242');
-        await page.getByRole('button', { name: 'Crea account' }).click();
+        await page.getByLabel('Email').fill('giulio@example.com');
+        await page.getByLabel('Password').fill('a-long-password');
+        await page.getByLabel('Setup code').fill('424242');
+        await page.getByRole('button', { name: 'Create account' }).click();
         await page.getByTestId('onboarding').waitFor();
         await page.waitForTimeout(600);
         await shot('onboarding');
@@ -167,7 +165,7 @@ for (const size of SIZES) {
 
       test('setup', async ({ page }) => {
         await page.goto('/?mock=1');
-        await page.getByRole('heading', { name: 'Crea il tuo account' }).waitFor();
+        await page.getByRole('heading', { name: 'Create your account' }).waitFor();
         await page.waitForTimeout(300);
         await page.screenshot({
           path: `${OUT}setup-${theme}-${size.name}.png`,
