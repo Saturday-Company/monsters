@@ -1,6 +1,6 @@
 import { ProviderRegistry } from '@monsters/providers';
 import { fake, FakeProvider, type FakeScript } from '@monsters/providers/testing';
-import type { LogEvent, Question } from '@monsters/shared';
+import { setAppLang, type LogEvent, type Question } from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   classifyKind,
@@ -14,10 +14,12 @@ import {
 } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
 import { startTestHub, toolResultsSeen } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 const opened: CoreServices[] = [];
 afterEach(() => {
   for (const s of opened.splice(0)) s.db.close();
+  setAppLang('en');
 });
 
 function services(): CoreServices {
@@ -285,23 +287,27 @@ describe('DecisionGate', () => {
   });
 
   it('(e) through ask_user: a reversible choice is decided, an "ask always" one becomes a question', async () => {
-    const t = await startTestHub({
-      titan: [
-        fake.toolCall('ask_user', {
-          question: 'Salvo la ricerca nella nota Risorse/Encelado o in Inbox?',
-          options: ['Risorse/Encelado', 'Inbox'],
-          recommended: '1',
-        }),
-        fake.toolCall('ask_user', {
-          question: 'Invio la mail al cliente con il preventivo?',
-          options: ['Invia', 'Aspetta'],
-          recommended: 'Aspetta',
-          blocking: false,
-        }),
-        fake.text('Ho salvato in Risorse e ti ho chiesto della mail.'),
-        fake.text('Ok, la mando lunedì.'),
-      ],
-    });
+    inLang('it');
+    const t = await startTestHub(
+      {
+        titan: [
+          fake.toolCall('ask_user', {
+            question: 'Salvo la ricerca nella nota Risorse/Encelado o in Inbox?',
+            options: ['Risorse/Encelado', 'Inbox'],
+            recommended: '1',
+          }),
+          fake.toolCall('ask_user', {
+            question: 'Invio la mail al cliente con il preventivo?',
+            options: ['Invia', 'Aspetta'],
+            recommended: 'Aspetta',
+            blocking: false,
+          }),
+          fake.text('Ho salvato in Risorse e ti ho chiesto della mail.'),
+          fake.text('Ok, la mando lunedì.'),
+        ],
+      },
+      { lang: 'it' },
+    );
     const sent = await t.json<{ runId: string }>('POST', '/api/messages', {
       text: 'Sistema la ricerca',
     });
@@ -466,7 +472,58 @@ describe('DecisionGate', () => {
       decidedBy: 'model',
       reason: 'the model classifies it as taste',
     });
-    expect(JSON.stringify(provider.calls[0]!.options.prompt)).toContain('Di che tipo è la scelta');
+    expect(JSON.stringify(provider.calls[0]!.options.prompt)).toContain(
+      'What kind of choice is `question`?',
+    );
+  });
+
+  it('asks the small model in Italian in an Italian app, with the system prompt it always had', async () => {
+    const s = services();
+    setAppLang('it');
+    const { port, provider } = llmPort([
+      fake.text(
+        JSON.stringify({
+          answers: [
+            { id: 'needs_user', value: 0.05, confidence: 0.95 },
+            { id: 'option', value: 'Inbox', confidence: 0.9 },
+            { id: 'kind', value: 'taste', confidence: 0.9 },
+          ],
+        }),
+      ),
+    ]);
+    const gate = new DecisionGate({ log: s.log, port });
+    await gate.decide({
+      agent: 'titan',
+      question: 'Salvo la bozza in Inbox o in Progetti?',
+      options: ['Inbox', 'Progetti'],
+      recommended: 'Inbox',
+    });
+    const prompt = JSON.stringify(provider.calls[0]!.options.prompt);
+    expect(prompt).toContain('Di che tipo è la scelta');
+    expect(prompt).toContain(
+      'Sei un modulo decisionale (System 1). Non spieghi e non usi strumenti.',
+    );
+    expect(prompt).toContain('confidence è quanto sei sicuro (0-1): sii prudente.');
+  });
+
+  it('asks the small model in English in an English app', async () => {
+    const s = services();
+    const { port, provider } = llmPort([
+      fake.text(answers(0.05, 0.95, { value: 'Inbox', confidence: 0.9 })),
+    ]);
+    const gate = new DecisionGate({ log: s.log, port });
+    await gate.decide({
+      agent: 'titan',
+      question: 'Where do I put the notes, Inbox or Projects?',
+      options: ['Inbox', 'Projects'],
+    });
+    const prompt = JSON.stringify(provider.calls[0]!.options.prompt);
+    expect(prompt).toContain(
+      'You are a decision module (System 1). You do not explain and you do not use tools.',
+    );
+    expect(prompt).toContain('confidence is how sure you are (0-1): be cautious.');
+    expect(prompt).toContain('Which option best fits the goal `goal`?');
+    expect(prompt).not.toContain('Sei un modulo decisionale');
   });
 
   it('never decides an open question (no options) for the user', async () => {
@@ -480,5 +537,123 @@ describe('DecisionGate', () => {
     });
     expect(d).toMatchObject({ outcome: 'ask', decidedBy: 'rules' });
     expect(provider.calls).toHaveLength(0);
+  });
+});
+
+describe('the rules and the word lists read English as well as Italian (D-153)', () => {
+  const ask = async (
+    question: string,
+    options: string[],
+    kind?: 'local',
+    lang: 'en' | 'it' = 'en',
+  ) => {
+    const s = services();
+    // Services read the language of the settings when they start: pin it after.
+    setAppLang(lang);
+    const gate = new DecisionGate({ log: s.log });
+    return gate.decide({
+      agent: 'titan',
+      question,
+      options,
+      recommended: options[0]!,
+      ...(kind ? { kind } : {}),
+    });
+  };
+
+  it('"ask always" rules in English', async () => {
+    const cases: [string, string[], string][] = [
+      ['Should I post it on LinkedIn?', ['Yes', 'No'], 'publish'],
+      ['Shall we go live with the new site?', ['Yes', 'No'], 'publish'],
+      ['Shall I reply to the client about the invoice?', ['Yes', 'No'], 'contact'],
+      ['Do I pay the annual subscription?', ['Yes', 'No'], 'spend'],
+      ['Shall I top up the account?', ['Yes', 'No'], 'spend'],
+      ['Delete the old folder for good?', ['Yes', 'No'], 'delete'],
+      ['This is irreversible: wipe the archive?', ['Yes', 'No'], 'delete'],
+      ['Do we change the scope and go for the podcast?', ['Yes', 'No'], 'goal'],
+      ['Which headline do you prefer?', ['A', 'B'], 'taste'],
+      ['Should the summary be long or short?', ['Long', 'Short'], 'taste'],
+    ];
+    for (const [question, options, rule] of cases) {
+      expect(await ask(question, options), question).toMatchObject({ outcome: 'ask', rule });
+    }
+  });
+
+  it('facts only the user knows, in English, even when the agent says "local"', async () => {
+    for (const question of [
+      'What day do we hold the staff dinner?',
+      'Is Friday fine for the meeting?',
+      'At what time do I open?',
+      'Do I use your phone number for the delivery?',
+      'Who comes to the dinner?',
+    ]) {
+      expect(await ask(question, ['Yes', 'No'], 'local'), question).toMatchObject({
+        outcome: 'ask',
+        rule: 'facts',
+      });
+    }
+    // Local work still goes on alone, in English too.
+    expect(
+      await ask('Do I save the notes in the Projects note?', ['Yes, save', 'No'], 'local'),
+    ).toMatchObject({
+      outcome: 'proceed',
+      rule: 'local',
+    });
+    expect(await ask('Do I archive the old drafts?', ['Yes', 'No'], 'local')).toMatchObject({
+      outcome: 'proceed',
+      rule: 'local',
+    });
+  });
+
+  it('the kind of a choice from its words: tones, lengths, drafts', () => {
+    const taste: [string, string[]][] = [
+      ['How do we close the post?', ['Serious', 'Humorous']],
+      ['For the newsletter', ['Concise', 'Detailed']],
+      ['Which proposal do we send?', ['One', 'Two']],
+      ['Which of the headlines do we use?', ['A', 'B']],
+      ['Go with the wording from the second proposal?', ['Yes', 'No']],
+      // Italian, as before.
+      ['Come chiudiamo il post?', ['Tono ironico', 'Tono caldo']],
+      ['Lo vuoi breve o esteso?', ['Breve', 'Esteso']],
+    ];
+    for (const [question, options] of taste) {
+      expect(classifyKind(question, options), question).toBe('taste');
+    }
+    expect(
+      classifyKind('Which folder do I use for the notes?', ['Inbox', 'Projects']),
+    ).toBeUndefined();
+    expect(classifyKind('Order of the sections?', ['Chronological', 'By topic'])).toBeUndefined();
+  });
+
+  it('a reason says the default rule in the app’s language; the Italian is what it was', async () => {
+    const en = await ask('Should I post it on LinkedIn?', ['Yes', 'No']);
+    expect(en.reason).toBe('always ask: publishing something');
+    const it = await ask('Pubblico il post su LinkedIn?', ['Sì', 'No'], undefined, 'it');
+    expect(it.reason).toBe('chiedere sempre: pubblicare qualcosa');
+    expect((await ask('Qual è il tuo indirizzo?', ['A', 'B'], 'local', 'it')).reason).toBe(
+      'chiedere sempre: fatti che solo l’utente conosce (date, giorni, orari, persone, dati personali)',
+    );
+    expect(
+      (await ask('Salvo gli appunti nella nota Progetti?', ['Sì', 'No'], 'local', 'it')).reason,
+    ).toBe('si procede: azioni locali e reversibili (note, bozze, ricerche)');
+  });
+
+  it('a rule of the user keeps its own words, in any language', async () => {
+    const rules = resolveDecisionRules([
+      {
+        id: 'publish',
+        effect: 'ask',
+        kinds: ['publish'],
+        patterns: ['\\bpublish'],
+        description: 'my own words',
+      },
+    ]);
+    const s = services();
+    const gate = new DecisionGate({ log: s.log, rules });
+    const d = await gate.decide({
+      agent: 'titan',
+      question: 'Shall I publish?',
+      options: ['Yes', 'No'],
+    });
+    expect(d.reason).toBe('always ask: my own words');
   });
 });

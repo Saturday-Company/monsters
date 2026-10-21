@@ -9,6 +9,7 @@ import {
 import { z } from 'zod';
 import type { AgentDefinition } from '../agents/definition.ts';
 import type { RunHandle } from '../kill/run-controller.ts';
+import { proposeMonsterPrompts } from './propose-monster.prompts.ts';
 import { TeamError } from './team-manager.ts';
 
 /*
@@ -57,6 +58,7 @@ export interface MonsterProposals {
 }
 
 /** Hues of the colour names a model may use (Italian and English), on the monster kit's wheel. */
+// i18n-ignore: the names of the colours, in the two languages (data, not copy)
 const COLOR_HUES: Record<string, number> = {
   rosso: 25,
   red: 25,
@@ -86,6 +88,23 @@ const COLOR_HUES: Record<string, number> = {
   rosa: 350,
   pink: 350,
   magenta: 330,
+  fucsia: 330,
+  fuchsia: 330,
+  celeste: 230,
+  lightblue: 230,
+  skyblue: 230,
+  navy: 260,
+  turquoise: 185,
+  aqua: 185,
+  ambra: 70,
+  amber: 70,
+  menta: 160,
+  mint: 160,
+  corallo: 20,
+  coral: 20,
+  lavender: 280,
+  lilac: 310,
+  crimson: 15,
 };
 
 /** Hue (0-360) of `#rrggbb` (HSL), or null. */
@@ -116,36 +135,31 @@ export function hueOfColor(color: string): number | null {
 
 const oneOrMany = (v: unknown) => (typeof v === 'string' ? [v] : v);
 
-export const ProposeMonsterInput = z.object({
-  name: z.string().min(1).max(24).describe('Its name, not one of the team'),
-  role: z
-    .string()
-    .min(5)
-    .max(120)
-    .describe('What it does, one line, e.g. "tiene in ordine le idee"'),
-  mission: z
-    .string()
-    .min(5)
-    .max(200)
-    .describe('Its job in the second person, e.g. "raccogli le idee e le metti in ordine"'),
-  title: z.string().min(3).max(60).optional().describe('With the article, e.g. "l’archivista"'),
-  duties: z
-    .preprocess(oneOrMany, z.array(z.string().min(5).max(200)).min(1).max(4))
-    .optional()
-    .describe('1-4 rules in the second person'),
-  tools: z
-    .preprocess(oneOrMany, z.array(z.enum(PROPOSAL_TOOLS)).max(2))
-    .optional()
-    .describe('"note" (always) and "web"; services are connected by the user later'),
-  area: z
-    .string()
-    .min(1)
-    .max(80)
-    .optional()
-    .describe('Notes folder it writes in, e.g. "Idee" (it reads every note)'),
-  model: z.string().max(200).optional().describe('"provider/model" only if asked; default: yours'),
-  color: z.string().max(30).optional().describe('e.g. "verde" or "#4f8df7"'),
-});
+/** The arguments of the tool, described in the app's language now. */
+export const proposeMonsterInput = () => {
+  const d = proposeMonsterPrompts();
+  return z.object({
+    name: z.string().min(1).max(24).describe('Its name, not one of the team'),
+    role: z.string().min(5).max(120).describe(d.role),
+    mission: z.string().min(5).max(200).describe(d.mission),
+    title: z.string().min(3).max(60).optional().describe(d.title),
+    duties: z
+      .preprocess(oneOrMany, z.array(z.string().min(5).max(200)).min(1).max(4))
+      .optional()
+      .describe('1-4 rules in the second person'),
+    tools: z
+      .preprocess(oneOrMany, z.array(z.enum(PROPOSAL_TOOLS)).max(2))
+      .optional()
+      .describe('"note" (always) and "web"; services are connected by the user later'),
+    area: z.string().min(1).max(80).optional().describe(d.area),
+    model: z
+      .string()
+      .max(200)
+      .optional()
+      .describe('"provider/model" only if asked; default: yours'),
+    color: z.string().max(30).optional().describe(d.color),
+  });
+};
 
 export function proposeMonsterTool(ctx: {
   run: RunHandle;
@@ -164,12 +178,12 @@ export function proposeMonsterTool(ctx: {
       `Propose a new monster when ${user} asks for one or recurring work has nobody to do it. ` +
       `It sends ${user} a draft card in the chat: ${user} creates it with one tap, changes it or leaves it. ` +
       'Returns at once.',
-    inputSchema: ProposeMonsterInput,
+    inputSchema: proposeMonsterInput(),
     async execute(input, tc) {
       const hue = input.color ? hueOfColor(input.color) : null;
       if (input.color && hue === null) {
         throw new ToolError('INVALID_INPUT', `unknown colour "${input.color}"`, {
-          hint: 'Use a colour name (rosso, verde, blu, viola…) or #rrggbb, or leave it out.',
+          hint: proposeMonsterPrompts().unknownColourHint,
         });
       }
       try {

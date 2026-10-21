@@ -52,6 +52,8 @@ import {
   type TaskBrief,
   summaryText,
 } from './run-agent.ts';
+import { runAgentStrings } from './run-agent.strings.ts';
+import { listWords, runHarnessPrompts } from './run-harness.prompts.ts';
 import type { ToolGuard } from './tool-adapter.ts';
 import type { HarnessAttachments } from '../files/model-input.ts';
 
@@ -219,62 +221,32 @@ export function monstersToolsSection(
   run: { terminal?: boolean; docsPropose?: boolean; team?: boolean; ask?: boolean } = {},
 ): string {
   const server = `\`${HARNESS_MCP_SERVER}\``;
+  const p = runHarnessPrompts();
   const claude = harnessId === 'claude-agent';
   const hasWeb = web.own || web.search || web.fetch;
   // Only what the run has (A5 of the review of 19/10): "la squadra" only with `delegate`.
-  const parts = [
-    "Il vault dell'utente",
-    ...(hasWeb ? ['il web'] : []),
-    ...(run.team ? ['la squadra'] : []),
-  ];
-  const lines = [
-    `${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} e ${parts.at(-1)!} sono` : `${parts[0]!} è`} nel server MCP ${server}: usa quelli per le note, non file sul disco.`,
-  ];
+  const parts = [p.vaultPart, ...(hasWeb ? [p.webPart] : []), ...(run.team ? [p.squadPart] : [])];
+  const lines = [p.here(parts, server, p.and)];
   if (web.own) {
-    lines.push(
-      `Per cercare sul web usa la tua ricerca (${claude ? 'WebSearch' : 'web_search'}); per leggere una pagina usa \`web_fetch\` di ${server}${claude ? ' (WebFetch di Claude Code non è tra i tuoi strumenti)' : ''}. \`web_search\` di ${server} solo se la tua ricerca fallisce o non è disponibile.`,
-    );
+    lines.push(p.webOwn(claude, server));
   } else if (hasWeb) {
-    const own = [
-      ...(web.search ? ['`web_search` (cercare)'] : []),
-      ...(web.fetch ? ['`web_fetch` (leggere una pagina)'] : []),
-    ];
-    lines.push(
-      `Per il web usa ${own.join(' e ')} di ${server}${claude ? ': WebSearch e WebFetch di Claude Code non sono tra i tuoi strumenti' : ''}.`,
-    );
+    const own = [...(web.search ? [p.webSearchPart] : []), ...(web.fetch ? [p.webFetchPart] : [])];
+    lines.push(p.webOnly(own.join(` ${p.and} `), server, claude));
   } else {
     const who = web.elsewhere ?? [];
-    lines.push(
-      `Il web non è tra i tuoi strumenti${
-        who.length > 0
-          ? `: ce l’ha ${who.length > 1 ? `${who.slice(0, -1).join(', ')} e ${who.at(-1)!}` : who[0]!}. Se serve, ${run.team ? 'delega la ricerca a chi ce l’ha' : 'scrivilo nel rapporto: la ricerca la fa chi ce l’ha'}`
-          : ''
-      }. Non è un divieto dell’utente né un blocco della sessione: non dire che il web ti è stato negato.`,
-    );
+    lines.push(p.webNone(listWords(who), who.length, run.team === true));
   }
   if (harnessId === 'codex') {
     // Codex shows `request_user_input`; its questions never reach the user (M4, D-135).
-    lines.push(
-      `Per chiedere qualcosa all’utente ${run.ask ? `usa \`ask_user\` di ${server}` : 'scrivi la domanda nel rapporto'}: \`request_user_input\` di Codex non arriva a nessuno.`,
-    );
-    if (run.terminal) {
-      lines.push(
-        'I tuoi comandi non hanno rete (la sandbox di Codex): per il web usa gli strumenti web, non curl o git push. Un «Could not resolve host» viene da lì, non da un permesso dell’utente.',
-      );
-    }
+    lines.push(p.codexAsk(run.ask === true, server));
+    if (run.terminal) lines.push(p.codexNoNetwork);
   }
   if (claude) {
-    lines.push(
-      'Gli strumenti integrati di Claude Code che non hai non sono di questa run: se uno risulta negato, non l’ha negato l’utente.',
-    );
-    if (run.terminal) {
-      // The deny rules answer before any hook (D-127): only these words can say whose rule it is.
-      lines.push(
-        `«denied by your permission settings» è una regola fissa di Monsters (i suoi dati, la configurazione di Claude Code e Codex nelle cartelle, le cartelle chiuse a questo lavoro), non un permesso dell’utente: non chiedergli di cambiarlo${run.docsPropose ? '; per CLAUDE.md e AGENTS.md di un progetto proponi il testo con `project_docs_propose`' : ''}.`,
-      );
-    }
+    lines.push(p.claudeBuiltins);
+    // The deny rules answer before any hook (D-127): only these words can say whose rule it is.
+    if (run.terminal) lines.push(p.claudeRule(run.docsPropose === true));
   }
-  return `## Strumenti di Monsters\n${lines.join('\n')}`;
+  return `${p.head}\n${lines.join('\n')}`;
 }
 
 /**
@@ -318,12 +290,13 @@ export function historyText(
 
 function turnsText(history: ModelMessage[] | undefined, max: number): string {
   if (!history?.length || max <= 0) return '';
+  const labels = runHarnessPrompts();
   const lines = history.map((m) => {
     const content =
       typeof m.content === 'string'
         ? m.content
         : m.content.map((p) => ('text' in p && typeof p.text === 'string' ? p.text : '')).join(' ');
-    return `${m.role === 'user' ? 'Utente' : 'Tu'}: ${content}`;
+    return `${m.role === 'user' ? labels.userLabel : labels.youLabel}: ${content}`;
   });
   const text = lines.join('\n');
   return text.length > max ? `…${text.slice(-max)}` : text;
@@ -371,7 +344,11 @@ export function harnessUnavailable(options: {
   const { agent, log } = options;
   const provider = agent.config.models[0]?.provider ?? '';
   const name = provider === 'codex' ? 'Codex' : 'Claude Agent';
-  const message = `${agent.config.name} lavora con ${name}, che ora non è attivo: riattivalo in ${settingsPath('abbonamenti')} o cambia il modello del mostro.`;
+  const message = runAgentStrings().harnessUnavailable(
+    agent.config.name,
+    name,
+    settingsPath('abbonamenti'),
+  );
   log.append({
     agent: agent.config.id,
     runId: options.runId,
@@ -427,7 +404,7 @@ export async function runHarnessAgent(options: RunHarnessOptions): Promise<Agent
   const first = await runHarnessOnce(rest, next !== undefined && next !== options.model);
   if (!first.planLimited || !next) return withoutFlag(first);
   const { agent, harness, log, runId } = options;
-  const from = `${harness.id}:${options.model ?? first.model?.model ?? 'modello'}`;
+  const from = `${harness.id}:${options.model ?? first.model?.model ?? runAgentStrings().modelWord}`;
   const to = `${harness.id}:${next}`;
   log.append({
     agent: agent.config.id,
@@ -436,7 +413,7 @@ export async function runHarnessAgent(options: RunHarnessOptions): Promise<Agent
     type: 'error',
     data: {
       code: 'provider_fallback',
-      message: `${from} → ${to} (limite d’uso del piano)${first.error ? `: ${first.error}` : ''}`,
+      message: runAgentStrings().planLimitFallback(from, to, first.error),
       fallback: { from, to, reason: 'usage_limit' },
     },
   });
@@ -551,7 +528,7 @@ async function runHarnessOnce(
       runId,
       parentId,
       type: 'error',
-      data: { code: 'run_limit', message: `${agent.config.name} non parte: ${runLimit}` },
+      data: { code: 'run_limit', message: runAgentStrings().noStart(agent.config.name, runLimit) },
     });
     return base('run_limit', '', { error: runLimit });
   }
@@ -617,7 +594,7 @@ async function runHarnessOnce(
       team: tools.some((t) => t.name === 'delegate'),
       ask: tools.some((t) => t.name === 'ask_user'),
     }),
-    ...(history ? [`## Conversazione recente\n${history}`] : []),
+    ...(history ? [`${runHarnessPrompts().recent}\n${history}`] : []),
   ].join('\n\n');
   // The context of each request (C.1): the total is the harness's, ours is estimated.
   const contextMeter = new HarnessContextMeter(
@@ -730,7 +707,7 @@ async function runHarnessOnce(
       if (stalled || scope.aborted || Date.now() - lastEvent < limit) return;
       stalled = true;
       stalledAfterMs = limit;
-      void scope.abort(new KilledError('agent', 'nessun segnale dal programma'));
+      void scope.abort(new KilledError('agent', runAgentStrings().harnessNoSignal));
       onStall();
     },
     Math.max(10, Math.min(5000, Math.floor(idleMs / 4))),
@@ -1052,7 +1029,7 @@ async function runHarnessOnce(
               type: 'error',
               data: {
                 code: 'harness_refused',
-                message: `${d.tool} di Claude Code è stato rifiutato dalle regole di questo lavoro, non da te.`,
+                message: runAgentStrings().harnessRefused(d.tool),
               },
             });
           }
@@ -1091,13 +1068,13 @@ async function runHarnessOnce(
       runId,
       parentId,
       type: 'error',
-      data: { code: 'run_limit', message: `${agent.config.name} si ferma: ${limitHit}` },
+      data: { code: 'run_limit', message: runAgentStrings().stops(agent.config.name, limitHit) },
     });
     closeDraft('aborted');
     return base('run_limit', lastText, { error: limitHit });
   }
   if (tokenLimitHit && !answered) {
-    const message = `${agent.config.name} ha superato il limite di ${maxTokens} token`;
+    const message = runAgentStrings().tokenLimit(agent.config.name, maxTokens ?? 0);
     log.append({
       agent: agentId,
       runId,
@@ -1109,7 +1086,10 @@ async function runHarnessOnce(
     return base('token_limit', lastText, { error: message });
   }
   if (stalled && !answered && !options.signal.aborted) {
-    const message = `${agent.config.name} non dà più segnali da ${Math.round(stalledAfterMs / 60_000)} minuti: il programma è bloccato e l’ho fermato`;
+    const message = runAgentStrings().harnessStalled(
+      agent.config.name,
+      Math.round(stalledAfterMs / 60_000),
+    );
     log.append({
       agent: agentId,
       runId,
@@ -1137,7 +1117,7 @@ async function runHarnessOnce(
     if (quietPlanLimit && done?.code === 'usage_limit' && !lastText && !draftOpen) {
       return { ...base('failed', '', done.error ? { error: done.error } : {}), planLimited: true };
     }
-    const message = done?.error ?? `${agent.config.name}: il programma si è chiuso senza risposta`;
+    const message = done?.error ?? runAgentStrings().harnessClosed(agent.config.name);
     log.append({
       agent: agentId,
       runId,
@@ -1170,7 +1150,7 @@ async function runHarnessOnce(
       type: 'error',
       data: {
         code: 'max_steps',
-        message: `${agent.config.name} ha finito i ${agent.config.limits.maxSteps} passi senza concludere`,
+        message: runAgentStrings().maxSteps(agent.config.name, agent.config.limits.maxSteps),
       },
     });
   }

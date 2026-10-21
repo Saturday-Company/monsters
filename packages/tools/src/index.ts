@@ -12,8 +12,8 @@ export {
 export { OutputCapture, cleanTerminalText } from './system/output.ts';
 export { entryPathOf, expandHome, isInside, mayBeInside, realPathOf } from './system/paths.ts';
 export {
-  INTERNAL_FILES_DENIED,
-  INTERNAL_FILES_TREE_DENIED,
+  internalFilesDenied,
+  internalFilesTreeDenied,
   forbiddenEntries,
   lockedCommand,
   lockedPath,
@@ -23,7 +23,7 @@ export {
 } from './system/lockout.ts';
 export {
   INSTRUCTION_FILES,
-  INSTRUCTION_FILES_DENIED,
+  instructionFilesDenied,
   INSTRUCTION_FILES_HINT,
   commandWritesInstructions,
   instructionFileIn,

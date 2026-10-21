@@ -5,6 +5,7 @@ import { HaltedError, type RunHandle } from '../kill/run-controller.ts';
 import { DispatchError } from '../team/dispatcher.ts';
 import type { RunBudget } from '../team/run-limits.ts';
 import type { TeamService } from '../team/team-service.ts';
+import { projectPrompts } from './projects.prompts.ts';
 import { ProjectError, type ProjectService } from './service.ts';
 
 /*
@@ -58,7 +59,7 @@ export function projectTools(ctx: {
   onReports?: (runIds: string[]) => void;
 }): MonstersTool[] {
   const names = () => ctx.team.activeProjects().map((p) => p.name);
-  const list = () => names().join(', ') || 'nessuno';
+  const list = () => names().join(', ') || projectPrompts().none;
   const send = defineTool({
     name: PROJECT_SEND,
     description:
@@ -99,7 +100,7 @@ export function projectTools(ctx: {
           project: already.project,
           lead: already.lead,
           run_id: already.runId,
-          note: `Hai già passato questo lavoro a ${already.lead} in questo turno: non lo rimando. Il rapporto ti arriva al prossimo turno (o con project_status).`,
+          note: projectPrompts().alreadySent(already.lead),
         };
       }
       ctx.budget?.assertSendRoom();
@@ -112,7 +113,8 @@ export function projectTools(ctx: {
       ctx.budget?.countSend();
       if (sent.messageId) ctx.onSent?.(sent.messageId);
       const lead = ctx.team.lead(sent.project.id);
-      const who = lead?.config.name ?? 'Il capo';
+      const p = projectPrompts();
+      const who = lead?.config.name ?? p.theLead;
       if (owner) {
         const map = sentByRun.get(owner) ?? new Map<string, Sent>();
         map.set(sameWork(sent.project.id, input.text), {
@@ -128,11 +130,7 @@ export function projectTools(ctx: {
         project: sent.project.name,
         lead: lead?.config.name ?? sent.agent,
         run_id: sent.runId,
-        note:
-          (sent.queued
-            ? `${who} sta finendo un altro lavoro: comincia appena è libero, in un lavoro a parte. `
-            : `${who} ci lavora nel progetto. `) +
-          'Il rapporto ti arriva al prossimo turno (o con project_status). Dì all’utente in una riga cosa hai passato e a chi; non aspettarlo qui.',
+        note: (sent.queued ? p.sentQueued(who) : p.sentNow(who)) + p.sentTail,
       };
     } catch (err) {
       if (err instanceof ProjectError) {
@@ -178,8 +176,8 @@ export function projectTools(ctx: {
           lead: l.lead?.name ?? null,
           now:
             l.lead?.state === 'working' || l.lead?.state === 'waiting'
-              ? (l.lead.activity ?? 'al lavoro')
-              : 'libero',
+              ? (l.lead.activity ?? projectPrompts().busy)
+              : projectPrompts().free,
           monsters: l.members,
           waiting_reports: l.pending,
           ...(l.lastReport

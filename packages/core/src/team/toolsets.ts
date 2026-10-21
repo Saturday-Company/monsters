@@ -34,7 +34,7 @@ export const GRAPH_VAULT_TOOLS = ['vault_links', 'vault_tags'];
 export type RareToolsCheck = (request: string) => boolean;
 
 const RARE_REQUEST = wordRegex(
-  '\\b(annull\\w*|ripristin\\w*|torn\\w*\\s+(indietro|com.era)|com.era\\s+prima|version[ei]\\s+precedent[ei]|cronologia|modifiche\\s+precedenti|recuper\\w*|spost\\w*|cancell\\w*|elimin\\w*|cestin\\w*|togli\\w*|rimuov\\w*|rinomin\\w*|propost[ae]|undo|restore|revert|history|move|delete|remove|rename|proposal)',
+  '\\b(annull\\w*|ripristin\\w*|torn\\w*\\s+(indietro|com.era)|com.era\\s+prima|version[ei]\\s+precedent[ei]|cronologia|modifiche\\s+precedenti|recuper\\w*|spost\\w*|cancell\\w*|elimin\\w*|cestin\\w*|togli\\w*|rimuov\\w*|rinomin\\w*|propost[ae]|undo|restore|revert|history|move|delete|remove|rename|proposal|roll\\s*back|bring\\s+back|(previous|earlier)\\s+version|as\\s+it\\s+was|recover|trash|discard)', // i18n-ignore
 );
 
 export const needsRareTools: RareToolsCheck = (request) => RARE_REQUEST.test(request);

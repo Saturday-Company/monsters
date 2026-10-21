@@ -97,6 +97,7 @@ import {
   splitAgentToolName,
   type SchemaCheck,
 } from './convert.ts';
+import { mcpPrompts } from './mcp.prompts.ts';
 import { mcpStrings } from './mcp.strings.ts';
 import { ChildStdioTransport } from './stdio-transport.ts';
 
@@ -155,6 +156,9 @@ const MAX_CONSECUTIVE_TIMEOUTS = 2;
 export const RETRY_5XX_MS = 1_000;
 /** What the card of a server says when its sign-in is gone. */
 export const signInNeeded = (): string => mcpStrings().signInNeeded;
+
+/** The sign-in button of the card, quoted in a hint for the model, in the app's language. */
+const connectButton = (): string => mcpPrompts().button(mcpStrings().connectButton);
 /** After a timeout, how long a ping may take before the process counts as stuck. */
 const STUCK_PING_MS = 5_000;
 /**
@@ -557,7 +561,7 @@ class Connection {
           'NOT_LINKED',
           `${this.label} (MCP server "${this.name}") needs the user to sign in again.`,
           {
-            hint: `Ask the user to reconnect ${this.label} (${settingsPath('altriProgrammi')} → «Collega»); do not retry.`,
+            hint: `Ask the user to reconnect ${this.label} (${settingsPath('altriProgrammi')} → ${connectButton()}); do not retry.`,
           },
         )
       : new ToolError(
@@ -947,7 +951,7 @@ class Connection {
                 'NOT_LINKED',
                 `${this.label} (MCP server "${this.name}") refused this call: the access lacks a permission the service asks for.`,
                 {
-                  hint: `The user must reconnect ${this.label} to give it (${settingsPath('altriProgrammi')} → «Collega»); they have been told. Do not retry this call; the other tools still work.`,
+                  hint: `The user must reconnect ${this.label} to give it (${settingsPath('altriProgrammi')} → ${connectButton()}); they have been told. Do not retry this call; the other tools still work.`,
                 },
               );
             }
@@ -1565,7 +1569,7 @@ export class McpManager {
     const project = this.#o.team.projectOf(agentId);
     if (c.setting.agents.includes('*') && project) {
       return off(
-        `${label} is not on for the project «${project.name}».`,
+        `${label} is not on for the project ${mcpPrompts().quoted(project.name)}.`,
         `The user turns it on in the app (${projectPagePath(project.name, 'collegamenti')}); a capo can ask for it with access_request. Go on without it.`,
       );
     }

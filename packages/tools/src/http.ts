@@ -1,4 +1,5 @@
 import { ToolError } from '@monsters/shared';
+import { toolPrompts } from './tools.prompts.ts';
 import { isPrivateHost } from './address.ts';
 
 /** A desktop browser UA: several sites (and keyless search pages) refuse obvious bots. */
@@ -38,11 +39,6 @@ export function parseHttpUrl(raw: string, allowPrivate: boolean): URL {
   return url;
 }
 
-/** Why a site's refusal is nobody's setting, and what to do instead. */
-export const SITE_REFUSED_HINT =
-  "Non è un permesso dell'utente né di Monsters: il sito non accetta la lettura automatica e nessuno può attivarla da Monsters. " +
-  "Prova un'altra fonte (web_search per un'altra pagina) oppure dillo nel resoconto.";
-
 /** Maps an HTTP failure to a tool error the model can act on. */
 export function httpError(status: number, what: string, site?: string): ToolError {
   if (status === 404 || status === 410)
@@ -52,10 +48,9 @@ export function httpError(status: number, what: string, site?: string): ToolErro
   if (status === 401 || status === 403)
     return new ToolError(
       'SITE_REFUSED',
-      site
-        ? `il sito ${site} ha rifiutato la lettura (HTTP ${status})`
-        : `${what}: il sito ha rifiutato la lettura (HTTP ${status})`,
-      { hint: SITE_REFUSED_HINT },
+      site ? toolPrompts().siteRefused(site, status) : toolPrompts().pageRefused(what, status),
+      // Why a site's refusal is nobody's setting, and what to do instead.
+      { hint: toolPrompts().siteRefusedHint },
     );
   if (status === 429)
     return new ToolError('RATE_LIMITED', `${what}: HTTP 429`, {

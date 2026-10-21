@@ -221,6 +221,8 @@ import {
   type TierLevel,
   type TriageOutcome,
 } from './team/instinct/triage.ts';
+import { accessStrings } from './team/access.strings.ts';
+import { hubPrompts } from './hub.prompts.ts';
 import { hubStrings } from './hub.strings.ts';
 
 /*
@@ -435,8 +437,6 @@ const GROUP_CLOSED_TOOLS: ReadonlySet<string> = new Set(['shell', ...FS_WRITE_TO
 export function claudeTranscriptsDir(env: NodeJS.ProcessEnv = process.env): string {
   return join(env['CLAUDE_CONFIG_DIR'] || join(homedir(), '.claude'), 'projects');
 }
-const TRANSCRIPTS_CLOSED =
-  'Le trascrizioni delle sessioni di Claude Code (~/.claude/projects) non sono accessibili: contengono le note lette dagli altri run.';
 const TRANSCRIPTS_HINT = 'Use the vault_* tools for the notes you may read.';
 
 /**
@@ -465,12 +465,6 @@ export function desktopUserDataDirs(
     ]),
   ];
 }
-const DESKTOP_DATA_CLOSED =
-  'La cartella dei dati dell’app Monsters (sessione e impostazioni) non è accessibile.';
-
-const PRIVATE_IN_CHAT =
-  'Le note private (Privato/) non sono accessibili mentre parli in una chat di Telegram.';
-
 function logSecretsStatus(log: EventLog, status: SecretsStatus): void {
   const error = (code: string, message: string) =>
     log.append({ agent: 'system', type: 'error', data: { code, message } });
@@ -905,7 +899,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       for (const c of claudeConnections.view().connections) {
         if (!c.added || !c.agents.includes('*') || c.agents.includes(id)) continue;
         if (p.connections.claude.includes(c.id)) continue;
-        notHere.push(`${MCP_CATALOG.find((e) => e.id === c.id)?.name ?? c.id} (tramite Claude)`);
+        notHere.push(hubPrompts().viaClaude(MCP_CATALOG.find((e) => e.id === c.id)?.name ?? c.id));
       }
     }
     const browser = servers.find((s) => s.preset === 'browser');
@@ -915,7 +909,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       webOff: !p.webSearch,
       asker: agent.config.tools.includes(ACCESS_REQUEST_TOOL)
         ? { self: true }
-        : { capo: lead ?? 'il tuo capo' },
+        : { capo: lead ?? hubPrompts().yourLead },
     };
   };
   /** The harness of an agent whose first link is one (Claude Agent, Codex). */
@@ -1133,9 +1127,11 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       dataDir: paths.home,
       // In a Telegram chat, out of the private notes too (D-107).
       closedFolders: [
-        { path: claudeTranscriptsDir(), message: TRANSCRIPTS_CLOSED },
-        ...desktopUserDataDirs().map((path) => ({ path, message: DESKTOP_DATA_CLOSED })),
-        ...(threadOfRun(log, o.runId) ? [{ path: privateFolder(), message: PRIVATE_IN_CHAT }] : []),
+        { path: claudeTranscriptsDir(), message: hubPrompts().transcriptsClosed },
+        ...desktopUserDataDirs().map((path) => ({ path, message: hubPrompts().desktopDataClosed })),
+        ...(threadOfRun(log, o.runId)
+          ? [{ path: privateFolder(), message: hubPrompts().privateInChat }]
+          : []),
       ],
       ...(o.memory !== undefined ? { memory: o.memory } : {}),
       ...(o.profile !== undefined ? { profile: o.profile } : {}),
@@ -1232,7 +1228,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         });
         ctx.emit({ type: 'file', data: fileEvent(meta, { tool }) });
         // The file id goes in the result: Dietro le quinte shows the picture (preview/files.ts `filesIn`).
-        return `[immagine salvata tra i File dell'utente come "${meta.name}" (fileId ${meta.id}, /api/files/${meta.id}/content): l'utente la vede in chat. Non è visibile come testo: non descriverla oltre quello che sai.]`;
+        return hubPrompts().imageSaved(meta.name, meta.id);
       } catch {
         return null;
       }
@@ -1456,19 +1452,19 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       runLocks: ({ runId }) => [
         {
           lock: { dataDir: claudeTranscriptsDir(), allowed: [] },
-          message: TRANSCRIPTS_CLOSED,
+          message: hubPrompts().transcriptsClosed,
           hint: TRANSCRIPTS_HINT,
         },
         ...desktopUserDataDirs().map((dataDir) => ({
           lock: { dataDir, allowed: [] },
-          message: DESKTOP_DATA_CLOSED,
+          message: hubPrompts().desktopDataClosed,
           hint: 'Work in another folder.',
         })),
         ...(threadOfRun(log, runId)
           ? [
               {
                 lock: { dataDir: privateFolder(), allowed: [] },
-                message: PRIVATE_IN_CHAT,
+                message: hubPrompts().privateInChat,
                 hint: 'Use the vault_* tools for the notes you may read.',
               },
             ]
@@ -2488,7 +2484,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
           ...(reshown.length > 0
             ? [
                 {
-                  text: '[Il file che hai riaperto con file_read]',
+                  text: hubPrompts().reopened,
                   parts: attachmentParts(reshown.splice(0), sightOf(agent)),
                 },
               ]
@@ -2632,20 +2628,22 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     // A request of an access (D-130) is granted from its card only: the core applies it before
     // the monster's next run, and a message could not wait for that.
     if (questions.ownerOnly(q.id)) {
-      const user = settings.userName?.trim() || "l'utente";
-      return {
-        note: `La tua richiesta di accesso è ancora aperta: ${user} risponde dalla scheda (Sì, concedi o No), non a parole. Non chiederla di nuovo.`,
-      };
+      const user = settings.userName?.trim() || hubPrompts().theUser;
+      const card = accessStrings();
+      return { note: hubPrompts().accessOpen(user, card.grant, card.deny) };
     }
     const window = options.parkedAnswerWindowMs ?? PARKED_ANSWER_WINDOW_MS;
     // A question with options takes only a message that picks one: anything else is a new
     // request, with the same line (review of 16/10: Haiku asked, the next request became
     // "Hai risposto: …").
     if (Date.now() - q.createdAt > window || !readsAsAnswer(q, text)) {
-      const user = settings.userName?.trim() || "l'utente";
+      const user = settings.userName?.trim() || hubPrompts().theUser;
       const asked = q.question.replace(/\s+/g, ' ').trim();
       return {
-        note: `Hai una domanda ancora aperta per ${user}: «${asked.length > 300 ? `${asked.slice(0, 299)}…` : asked}»`,
+        note: hubPrompts().questionOpen(
+          user,
+          asked.length > 300 ? `${asked.slice(0, 299)}…` : asked,
+        ),
       };
     }
     routedBySend.add(q.id);

@@ -4,7 +4,8 @@ import { streamText } from 'ai';
 import { z } from 'zod';
 import { stepUsage } from '../agents/usage.ts';
 import type { EventLog } from '../log/event-log.ts';
-import { decisionStrings } from './decision.strings.ts';
+import { decisionPrompts } from './decision.prompts.ts';
+import { decisionStrings, decisionStringsIn } from './decision.strings.ts';
 import { BANDS, gateRequest } from './instinct/questions.ts';
 import { unicodeWords, wordRegex } from './word-boundary.ts';
 
@@ -185,14 +186,6 @@ export function extractJson(text: string): unknown {
   return JSON.parse(body.slice(start, end + 1));
 }
 
-const LLM_SYSTEM = `Sei un modulo decisionale (System 1). Non spieghi e non usi strumenti.
-Ricevi uno stato e delle domande tipizzate e rispondi SOLO con un oggetto JSON:
-{"answers":[{"id":"<id domanda>","value":<valore>,"confidence":<0-1>}]}
-- choice: value è il testo esatto di una delle opzioni (la "label" se l'opzione ha una descrizione);
-- noul: value è la probabilità (0-1) che la risposta sia sì; criteria dice cosa vuol dire sì e no;
-- score: value è un numero tra min e max; con levels è l'indice del livello (0 = il primo).
-confidence è quanto sei sicuro (0-1): sii prudente.`;
-
 /**
  * Phase 1 System 1: a small model with JSON output. Uses `streamText` (every
  * provider streams) and validates the answer with zod; any failure throws, and
@@ -222,7 +215,7 @@ export class LlmDecisionPort implements DecisionPort {
     const prompt = JSON.stringify({ state: request.state, questions }, null, 2);
     const result = streamText({
       model: session,
-      system: LLM_SYSTEM,
+      system: decisionPrompts().system,
       prompt,
       maxRetries: 0,
       maxOutputTokens: 400,
@@ -311,9 +304,22 @@ export const DecisionRuleSchema = z.object({
 export type DecisionRule = z.infer<typeof DecisionRuleSchema>;
 export type DecisionRuleInput = z.input<typeof DecisionRuleSchema>;
 
-/** Words for the length of a text, Italian: two of them in a choice make it a matter of taste. */
-const LENGTH_WORD =
-  '(lung[oa]|lunghi|lunghe|cort[oaie]|brev[ei]|estes[oaie]|sintetic[oa]|sintetici|sintetiche|stringat[oaie])';
+/** The stored descriptions of the default rules: Italian, whatever the app's language (a reason says them in its own). */
+const ITALIAN = decisionStringsIn('it').ruleDescriptions;
+
+/**
+ * What a rule says about itself in a reason ("always ask: …"): a default rule, with its stored
+ * description, in the app's language now; any other rule in its own words.
+ */
+function ruleWords(rule: DecisionRule): string {
+  const own = rule.description;
+  const mine = decisionStrings().ruleDescriptions[rule.id];
+  return (own === ITALIAN[rule.id] && mine ? mine : own) || rule.id;
+}
+
+/** Words for the length of a text, Italian and English: two of them in a choice make it a matter of taste. */
+const LENGTH_WORD = // i18n-ignore
+  '(lung[oa]|lunghi|lunghe|cort[oaie]|brev[ei]|estes[oaie]|sintetic[oa]|sintetici|sintetiche|stringat[oaie]|long|longer|short|shorter|brief|concise|detailed|extended|lengthy|compact)';
 
 /**
  * Defaults (ARCHITECTURE §5.5): always ask before publishing, writing to third
@@ -328,8 +334,16 @@ export const DEFAULT_DECISION_RULES: DecisionRule[] = (
       id: 'publish',
       effect: 'ask',
       kinds: ['publish'],
-      patterns: ['\\bpubblic', '\\bpublish', '\\bpost(are|o)?\\s+(su|sul|on)\\b', '\\btwee?t'],
-      description: 'pubblicare qualcosa',
+      patterns: [
+        '\\bpubblic',
+        '\\bpublish',
+        '\\bpost(are|o)?\\s+(su|sul|on)\\b',
+        '\\btwee?t',
+        '\\bpost(ing)?\\s+(it\\s+)?(on|to)\\b',
+        '\\bgo\\s+live\\b',
+        '\\bmake\\s+(it\\s+)?public\\b',
+      ],
+      description: ITALIAN.publish,
     },
     {
       id: 'contact',
@@ -337,11 +351,15 @@ export const DEFAULT_DECISION_RULES: DecisionRule[] = (
       kinds: ['contact'],
       patterns: [
         '\\b(invi|mand|spedi)\\w*\\b.{0,40}\\b(e-?mail|mail|messaggi|dm|whatsapp|sms)',
+        // i18n-ignore: words of the two languages (data, not copy)
         '\\b(scriv|rispond)\\w*\\s+(a|al|alla|ai|alle|agli)\\s+(client|fornitor|collegh|capo|terzi)',
         '\\b(a|ai|con)\\s+terzi\\b',
         '\\bsend\\b.{0,30}\\b(e-?mail|message)',
+        '\\b(reply|respond|write|email|message|text)\\w*\\s+(to\\s+)?(the\\s+|our\\s+|your\\s+)?(client|customer|supplier|vendor|colleague|boss|manager|third\\s+part)',
+        '\\bthird[- ]part(y|ies)\\b',
+        '\\bsend\\b.{0,40}\\b(dm|whatsapp|sms|invite|invitation)\\b',
       ],
-      description: 'scrivere a terzi',
+      description: ITALIAN.contact,
     },
     {
       id: 'spend',
@@ -350,24 +368,40 @@ export const DEFAULT_DECISION_RULES: DecisionRule[] = (
       patterns: [
         '\\b(pagar\\w*|pagament\\w*|pago|paghi\\w*|acquist\\w*|compr[aoi]\\w*|abbonament\\w*|abbonar\\w*|ricaric\\w*|spend\\w*|spes[ae])\\b',
         '\\b(buy|purchase|pay|subscribe)\\b',
+        '\\b(buying|bought|purchas\\w*|paying|paid|payments?|subscri\\w*|spend\\w*|spent|top[- ]up|recharge)\\b',
         '(€|\\$|eur)\\s?\\d',
         '\\d\\s?(€|\\$|euro)',
       ],
-      description: 'spendere soldi',
+      description: ITALIAN.spend,
     },
     {
       id: 'delete',
       effect: 'ask',
       kinds: ['delete'],
-      patterns: ['definitiv', 'irreversibil', 'permanent', '\\b(svuot|distrugg)', '\\brm\\s+-rf'],
-      description: 'cancellare in modo irreversibile',
+      patterns: [
+        'definitiv',
+        'irreversibil',
+        'permanent',
+        '\\b(svuot|distrugg)',
+        '\\brm\\s+-rf',
+        'irreversib',
+        '\\bfor\\s+good\\b',
+        '\\bforever\\b',
+        '\\b(wipe|destroy|purge)\\b',
+        '\\bempty\\s+(the\\s+)?(trash|bin)\\b',
+      ],
+      description: ITALIAN.delete,
     },
     {
       id: 'goal',
       effect: 'ask',
       kinds: ['goal_change'],
-      patterns: ["\\bcambi\\w*\\s+(l'|di\\s+)?obiettiv", '\\bchange\\s+(the\\s+)?goal'],
-      description: "cambiare l'obiettivo",
+      patterns: [
+        "\\bcambi\\w*\\s+(l'|di\\s+)?obiettiv",
+        '\\bchange\\s+(the\\s+)?goal',
+        '\\b(change|changing|widen|widening|expand|expanding|alter)\\s+(the\\s+|our\\s+|your\\s+)?(goal|objective|scope)',
+      ],
+      description: ITALIAN.goal,
     },
     {
       id: 'taste',
@@ -381,6 +415,7 @@ export const DEFAULT_DECISION_RULES: DecisionRule[] = (
         '\\bprefer(isci|ite|iresti|ireste)\\b',
         '\\b(ti|vi)\\s+piace\\b',
         '\\bquale\\s+(bozza|versione|variante|proposta|titolo|immagine|logo)\\b',
+        // i18n-ignore: words of the two languages (data, not copy)
         '\\bquale\\s+(delle|dei|degli|tra|fra)\\b.{0,40}\\b(bozz|version|propost|titol|immagin|logo)',
         '\\b(tone|variant|style|look and feel)\\b',
         '\\bwhich\\b.{0,40}\\b(prefer|like)\\b',
@@ -388,9 +423,13 @@ export const DEFAULT_DECISION_RULES: DecisionRule[] = (
         // thing is a summary or a note (D-037: "riassunto" alone made it pass as local).
         `\\b${LENGTH_WORD}\\b.{0,40}\\b${LENGTH_WORD}\\b`,
         '\\b(long|short)(er)?\\s+or\\s+(long|short)(er)?\\b',
+        '\\bwhich\\s+(draft|version|variant|proposal|title|headline|image|logo)\\b',
+        '\\bwhich\\s+(of|one\\s+of)\\s+the\\b.{0,40}\\b(draft|version|proposal|title|headline|image|logo)',
+        '\\b(do\\s+you|would\\s+you)\\s+(prefer|like)\\b',
+        '\\byou\\s+prefer\\b',
+        '\\b(colou?rs?|aesthetics?|graphics?|typeface|wording|headline)\\b',
       ],
-      description:
-        'scelte di gusto (tono, variante, lunghezza, design, quale bozza), salvo preferenza esplicita nel profilo',
+      description: ITALIAN.taste,
     },
     {
       // Facts only the user knows (D-025): when something happens, who takes part,
@@ -404,12 +443,18 @@ export const DEFAULT_DECISION_RULES: DecisionRule[] = (
         '\\bquando\\b',
         '\\bchi\\b',
         '\\ba\\s+che\\s+ora\\b',
+        // i18n-ignore: words of the two languages (data, not copy)
         '\\b(luned[iì]|marted[iì]|mercoled[iì]|gioved[iì]|venerd[iì]|sabato|domenica)\\b',
+        // i18n-ignore: words of the two languages (data, not copy)
         '\\b(il\\s+tuo|la\\s+tua|i\\s+tuoi|le\\s+tue)\\s+(indirizz\\w*|telefon\\w*|numer\\w*|compleann\\w*|e-?mail|codice\\s+fiscale|iban|password)\\b',
         '\\b(what|which)\\s+(day|date|time)\\b',
         '\\b(when|who)\\b',
+        '\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b',
+        "\\b(your|the\\s+user['’]s)\\s+(address|phone|number|birthday|e-?mail|tax\\s+code|iban|password)\\b",
+        '\\bat\\s+what\\s+time\\b',
+        '\\bon\\s+which\\s+(day|date)\\b',
       ],
-      description: 'fatti che solo l’utente conosce (date, giorni, orari, persone, dati personali)',
+      description: ITALIAN.facts,
     },
     {
       id: 'local',
@@ -419,8 +464,9 @@ export const DEFAULT_DECISION_RULES: DecisionRule[] = (
         '\\b(bozz|appunt|riassun|sintes|ricerc|cerc|legg|salv|archivi|rinomin|sposta|organizz|tagg)',
         '\\bnot[ae]\\b',
         '\\b(draft|summar|research|search|read|save|rename|note)',
+        '\\b(archiv|organi[sz])',
       ],
-      description: 'azioni locali e reversibili (note, bozze, ricerche)',
+      description: ITALIAN.local,
     },
   ] satisfies DecisionRuleInput[]
 ).map((r) => DecisionRuleSchema.parse(r));
@@ -451,8 +497,8 @@ export function resolveDecisionRules(
  * among options of taste in the user's place). Keyword rules, Italian and
  * English; what they cannot tell goes to the System 1 model.
  */
-const VARIANT_WORDS =
-  '(bozz[ae]|variant[ei]|version[ei]|propost[ae]|ton[oi]|stil[ei]|taglio|registro|draft|variant|version|tone|style)';
+const VARIANT_WORDS = // i18n-ignore
+  '(bozz[ae]|variant[ei]|version[ei]|propost[ae]|ton[oi]|stil[ei]|taglio|registro|draft|variant|version|tone|style|proposal|headline|tagline|wording)';
 const TASTE_CHOICE: RegExp[] = [
   // "quale bozza / which version", "quale delle due bozze", "which of the drafts"
   new RegExp(`\\b(quale|quali|which)\\s+(\\S+\\s+){0,2}${VARIANT_WORDS}`, 'iu'),
@@ -467,7 +513,7 @@ const TASTE_CHOICE: RegExp[] = [
 ].map(unicodeWords);
 /** Words that describe a tone or a style: options made of them are matters of taste. */
 const TONE_WORDS = unicodeWords(
-  /\b(ironic\w*|formal\w*|informal\w*|seri[oa]|scherzos\w*|emozional\w*|emotiv\w*|poetic\w*|dirett[oa]|minimal\w*|elegant\w*|giocos\w*|legger[oa]|cald[oa]|amichevol\w*|professional\w*|narrativ\w*|playful|casual|friendly|funny|witty|warm|bold|sobri[oa]|divertent\w*)\b/iu,
+  /\b(ironic\w*|formal\w*|informal\w*|seri[oa]|scherzos\w*|emozional\w*|emotiv\w*|poetic\w*|dirett[oa]|minimal\w*|elegant\w*|giocos\w*|legger[oa]|cald[oa]|amichevol\w*|professional\w*|narrativ\w*|playful|casual|friendly|funny|witty|warm|bold|sobri[oa]|divertent\w*|serious|humou?rous|light-?hearted|conversational|upbeat|neutral|authoritative|persuasive|punchy|cheerful|solemn|enthusiastic|chatty|snappy|direct|concise)\b/iu,
 );
 /** Options that are lengths of a text ("Breve" / "Estesa"). */
 const LENGTH_OPTION = wordRegex(`\\b${LENGTH_WORD}\\b`);
@@ -759,7 +805,7 @@ export class DecisionGate {
       return {
         outcome: 'ask',
         decidedBy: 'rules',
-        reason: decisionStrings().askAlways(ask.description || ask.id, inferred),
+        reason: decisionStrings().askAlways(ruleWords(ask), inferred),
         rule: ask.id,
       };
     }
@@ -780,7 +826,7 @@ export class DecisionGate {
         outcome: 'proceed',
         choice: request.recommended,
         decidedBy: 'rules',
-        reason: decisionStrings().proceedRule(proceed.description || proceed.id),
+        reason: decisionStrings().proceedRule(ruleWords(proceed)),
         rule: proceed.id,
       };
     }

@@ -1,6 +1,7 @@
 import type { ChildProcess, SpawnOptions } from 'node:child_process';
 import type { z } from 'zod';
 import type { AgentId, RunId } from './ids.ts';
+import { toolCausePrompts } from './tools.prompts.ts';
 
 /*
  * Common contract for every tool an agent can use (vault, web, team, shell, MCP…).
@@ -93,19 +94,28 @@ export function toolFailureCause(code: string): ToolFailureCause {
 
 /**
  * What the model reads next to a failure that is not the user's no (D-132):
- * who said no and who can change it, in the user's language.
+ * who said no and who can change it. The text follows the app's language at the
+ * moment it is read (D-153), so each entry is a getter.
  */
 export const TOOL_CAUSE_NOTE: Partial<Record<ToolFailureCause, string>> = {
-  user_no_answer: 'Nessuno ha risposto in tempo (l’utente può non averlo visto): non è un suo no.',
-  setting_off:
-    'Un’impostazione è spenta: non è un no dell’utente. La cambia solo l’utente, dove dice il messaggio.',
-  not_linked:
-    'Il servizio va ricollegato o la sua chiave va sistemata dall’utente: non è un suo no.',
-  site_refused:
-    'Il sito o il servizio ha rifiutato: non è un permesso dell’utente né di Monsters, e nessuno lo può accendere da Monsters.',
-  monsters_policy:
-    'Regola fissa di Monsters: non è un no dell’utente e nessuna impostazione la cambia.',
-  not_in_run: 'Non è uno strumento di questo lavoro: non è un no dell’utente.',
+  get user_no_answer() {
+    return toolCausePrompts().user_no_answer;
+  },
+  get setting_off() {
+    return toolCausePrompts().setting_off;
+  },
+  get not_linked() {
+    return toolCausePrompts().not_linked;
+  },
+  get site_refused() {
+    return toolCausePrompts().site_refused;
+  },
+  get monsters_policy() {
+    return toolCausePrompts().monsters_policy;
+  },
+  get not_in_run() {
+    return toolCausePrompts().not_in_run;
+  },
 };
 
 /** A failure the model should see and react to (not a crash). */

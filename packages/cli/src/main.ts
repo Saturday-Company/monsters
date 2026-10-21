@@ -48,6 +48,7 @@ const defaultIo: Io = {
   write: (text) => process.stdout.write(text),
 };
 
+// i18n-ignore: the help is English; the "/nuova" of the chat is a command name (alias /new)
 const HELP = `monsters ${CORE_VERSION} - local agentic hub
 
 Usage: monsters <command> [options]

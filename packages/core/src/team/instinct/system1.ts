@@ -91,7 +91,7 @@ const STATE_PREVIEW_CHARS = 1_500;
 function preview(value: unknown, depth = 0): unknown {
   if (typeof value === 'string') {
     return value.length > STATE_PREVIEW_CHARS
-      ? `${value.slice(0, STATE_PREVIEW_CHARS)}…[${value.length} caratteri]`
+      ? `${value.slice(0, STATE_PREVIEW_CHARS)}${instinctStrings().statePreviewCut(value.length)}`
       : value;
   }
   if (depth > 4 || value === null || typeof value !== 'object') return value;
@@ -209,7 +209,7 @@ export class System1 {
             : {}),
           state,
           latencyMs,
-          reason: `istinto ${INSTINCT_QUESTIONS_VERSION}`,
+          reason: instinctStrings().reasonInstinct(INSTINCT_QUESTIONS_VERSION),
         },
       });
       events.set(q.id, event.id);

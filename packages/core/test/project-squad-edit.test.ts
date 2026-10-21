@@ -6,6 +6,8 @@ import { parse as parseYaml } from 'yaml';
 import { describe, expect, it } from 'vitest';
 import type { AgentConfig } from '../src/index.ts';
 import { startTestHub, type TestHub } from './hub-helpers.ts';
+import { langHome } from './lang-home.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * The monsters of a project (members and lead) are edited with the same
@@ -25,7 +27,9 @@ const hueOf = (genome: unknown) => MonsterGenomeSchema.parse(genome).palette.hue
 
 /** A project "Saturday" with its lead Leda and a copy of Rhea in it. */
 async function withSquad(): Promise<{ t: TestHub; member: string }> {
-  const t = await startTestHub({});
+  // The assertions below are those of the Italian family (D-153): the templates are written in it.
+  inLang('it');
+  const t = await startTestHub({}, { home: langHome('it') });
   await t.json<ProjectView>('POST', '/api/projects', { name: 'Saturday', lead: { name: 'Leda' } });
   const p = await t.json<ProjectView>('POST', '/api/projects/saturday/members', {
     copyOf: 'rhea',

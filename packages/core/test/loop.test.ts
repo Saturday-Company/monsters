@@ -10,7 +10,7 @@ import {
   RESULT_READ,
   RunContext,
   createCoreServices,
-  FINAL_STEP_NOTE,
+  finalStepNote,
   parseAgentConfig,
   RunBudget,
   RunLimitsSchema,
@@ -22,6 +22,7 @@ import {
   type CoreServices,
 } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /* The loop of one agent after D-064 (AG-03, 04, 14-18, 21, 23). */
 
@@ -123,7 +124,7 @@ describe('the last step writes the report (AG-03)', () => {
     const last = env.provider.calls[3]!.options;
     expect(last.tools ?? []).toHaveLength(0);
     expect(last.toolChoice).toEqual({ type: 'none' });
-    expect(text(last.prompt)).toContain(FINAL_STEP_NOTE.slice(0, 30));
+    expect(text(last.prompt)).toContain(finalStepNote().slice(0, 30));
     // The earlier steps had their tools.
     expect(env.provider.calls[2]!.options.tools?.length).toBe(3);
     const stop = events.find((e): e is LogEvent<'error'> => e.type === 'error');
@@ -303,6 +304,7 @@ describe('messages that arrive while the agent works (AG-15)', () => {
 
 describe('repeated calls and failures in a row (AG-16)', () => {
   it('the same read-only call is answered from the cache, the third time refused', async () => {
+    inLang('it');
     lookups = 0;
     const env = setup({
       a: [
@@ -340,6 +342,7 @@ describe('repeated calls and failures in a row (AG-16)', () => {
   });
 
   it('after three failures in a row a reminder, after four another model', async () => {
+    inLang('it');
     const boom = fake.toolCall('lookup', { q: 'boom' });
     const env = setup({
       a: [
@@ -365,8 +368,8 @@ describe('repeated calls and failures in a row (AG-16)', () => {
       (e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'tool_error_streak',
     );
     expect(streaks.map((e) => e.data.message)).toEqual([
-      'Rhea: 3 tool errors in a row',
-      'Rhea: 4 tool errors in a row, trying the next model',
+      'Rhea: 3 errori di fila negli strumenti',
+      'Rhea: 4 errori di fila negli strumenti, provo il modello successivo',
     ]);
   });
 });
@@ -412,6 +415,7 @@ describe('malformed calls are repaired, not paid with a step (AG-17)', () => {
   });
 
   it('what cannot be repaired gets an INVALID_INPUT in Italian with the arguments of the tool', async () => {
+    inLang('it');
     const env = setup({ a: [fake.toolCall('lookup', { query: 42 }), fake.text('ok')] });
     const { events } = await run(env);
     const failed = events.find((e): e is LogEvent<'tool_result'> => e.type === 'tool_result');
@@ -435,6 +439,7 @@ describe('context: offload and masking (C.2)', () => {
   const noCtx = {} as never;
 
   it('a long result shows its head in its envelope; the rest is read again by reference', async () => {
+    inLang('it');
     const ctx = new RunContext();
     const body = Array.from({ length: 2000 }, (_, i) => `riga ${i}`).join('\n');
     const wrapped = `${wrapExternalData('web_fetch https://example.com', body)}\n[Monsters] Avviso.`;
@@ -466,6 +471,7 @@ describe('context: offload and masking (C.2)', () => {
   });
 
   it('old steps become one line, in chunks: the prefix stays the same between moves', () => {
+    inLang('it');
     const ctx = new RunContext({ recentToolResultChars: 1_000_000 });
     // 7 steps: 4 recent + 3, boundary at 0 (it moves 4 at a time).
     expect(ctx.compact(steps(7))).toEqual(steps(7));
@@ -486,6 +492,7 @@ describe('context: offload and masking (C.2)', () => {
   });
 
   it('a budget for the recent results: the oldest go until half is free, the last step stays', () => {
+    inLang('it');
     const ctx = new RunContext({ recentToolResultChars: 10_000 });
     const page = (n: number) => `pagina ${n} `.repeat(500);
     const last: ModelMessage = {
@@ -509,6 +516,7 @@ describe('context: offload and masking (C.2)', () => {
   });
 
   it('short results and errors: never a line longer than them, errors stay errors', () => {
+    inLang('it');
     const ctx = new RunContext({ recentSteps: 1, maskChunk: 1 });
     const err: ModelMessage = {
       role: 'tool',

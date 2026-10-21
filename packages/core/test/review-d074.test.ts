@@ -14,6 +14,7 @@ import { endsWithQuestion } from '../src/team/final-question.ts';
 import { INJECTION_REMOVED } from '../src/team/instinct/guard.ts';
 import { classifyOutbound, regenerablePath } from '../src/team/instinct/outbound.ts';
 import { RunTaint, siteOf } from '../src/team/instinct/taint.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * D-074: the corrections of the review of D-073, one block per finding (the
@@ -394,6 +395,7 @@ describe('D-074 · 7: "manca un dato" only when it asks', () => {
 
 describe('D-074 · 8: a result of one text loses only the blocks flagged', () => {
   it('keeps the rest of a single text', async () => {
+    inLang('it');
     const guard = {
       afterCall: () => {},
       external: ({ body }: { body: string }) =>

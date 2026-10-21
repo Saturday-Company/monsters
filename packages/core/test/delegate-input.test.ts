@@ -7,6 +7,7 @@ import {
   delegateTool,
   type TeamToolsContext,
 } from '../src/team/team-tools.ts';
+import { inLang } from './prompt-lang.ts';
 
 const member = (id: string, name: string, kind = 'subagent') =>
   ({ config: { id, name, kind, role: name } }) as unknown as AgentDefinition;
@@ -68,6 +69,7 @@ describe('brief defaults (AG-11)', () => {
   };
 
   it('a brief with only the goal gets the user’s words, "done when" and the format', () => {
+    inLang('it');
     const { brief, filled } = completeBrief(
       { agent: 'Dione', goal: 'Tre post sul menu' },
       defaults,
@@ -82,6 +84,7 @@ describe('brief defaults (AG-11)', () => {
   });
 
   it('what the orchestrator wrote wins, and is listed as filled', () => {
+    inLang('it');
     const { brief, filled } = completeBrief(
       {
         agent: 'Dione',

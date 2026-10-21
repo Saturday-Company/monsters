@@ -41,6 +41,8 @@ const BASELINE = resolve(ROOT, 'scripts/check-i18n.baseline.json');
 const SOURCE = /^(?:apps\/(?:web|desktop)\/src|packages\/[^/]+\/src)\/.+\.tsx?$/;
 const SKIP = [
   /\.strings\.ts$/,
+  // The texts the models read, in two families (D-153, wave 3).
+  /\.prompts\.ts$/,
   /\/i18n\//,
   /\.d\.ts$/,
   /^apps\/web\/src\/lib\/mock\//,

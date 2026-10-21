@@ -25,6 +25,7 @@ import type { ClaudeConnectionsResponse, LogEvent, SubscriptionsResponse } from 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_FREE_CHAIN } from '../src/agents/archetypes.ts';
 import { startTestHub, type TestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * Subscriptions end to end on a real core (M2.7, D-035), with a fake OpenAI
@@ -600,6 +601,7 @@ describe('Codex', () => {
       hubOptions(fake, { codex: binary }),
     );
     await signInChatGPT(t, fake);
+    inLang('it');
     await t.json('POST', '/api/subscriptions/codex/activate', {});
     await t.json('PUT', '/api/agents/dione/models', {
       models: [{ provider: 'codex', model: 'gpt-test' }],
@@ -648,6 +650,7 @@ describe('Claude Agent and the questions (D-078)', () => {
 
   it('ask_user never holds Claude Code: the turn ends waiting, the answer starts a new run', async () => {
     const { t, record } = await onClaude('ask');
+    inLang('it');
     const sent = await t.json<Sent>('POST', '/api/messages', { text: 'scrivi 3 post' });
     const end = await t.waitEvent(isRunEnd(sent.runId));
     expect(end.data.status).toBe('waiting_user');
@@ -749,6 +752,7 @@ describe('Claude Agent and the questions (D-078)', () => {
 
   it('D-140: "il web mi è stato negato" goes back once with the true cause, then rewritten', async () => {
     const { t, record } = await onClaude('denied');
+    inLang('it');
     const sent = await t.json<Sent>('POST', '/api/messages', { text: 'cerca i prezzi' });
     expect((await t.waitEvent(isRunEnd(sent.runId))).data.status).toBe('completed');
     const reason = String(records(record).find((r) => r.kind === 'stop-reason')?.['reason']);

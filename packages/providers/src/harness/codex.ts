@@ -1,6 +1,7 @@
 import type { ChildProcess } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { settingsPath } from '@monsters/shared';
+import { codexPrompts } from './codex.prompts.ts';
 import { chatgptUnreachableText, SiwcError } from '../chatgpt/siwc.ts';
 import { providerTexts } from '../providers.strings.ts';
 import { filterModels } from '../http.ts';
@@ -229,8 +230,7 @@ export const CODEX_USER_INPUT_REQUEST = 'item/tool/requestUserInput';
  * The question did not reach anyone; questions go through `ask_user` of `monsters`. Before,
  * an error "not supported by Monsters" made a monster write "non ho potuto chiederti".
  */
-export const CODEX_USER_INPUT_ANSWER =
-  '[Monsters, non l’utente] Questa domanda non è arrivata all’utente: in Monsters le domande si fanno con `ask_user` del server `monsters` (se è tra i tuoi strumenti), altrimenti scrivi la domanda nel rapporto. Non è un no dell’utente.';
+export const codexUserInputAnswer = (): string => codexPrompts().userInputAnswer;
 
 /** The answer to `request_user_input`: every question gets Monsters' words (D-135). */
 export function codexUserInputResult(params: unknown): Record<string, unknown> {
@@ -241,7 +241,7 @@ export function codexUserInputResult(params: unknown): Record<string, unknown> {
         .filter((id): id is string => typeof id === 'string')
     : [];
   return {
-    answers: Object.fromEntries(ids.map((id) => [id, { answers: [CODEX_USER_INPUT_ANSWER] }])),
+    answers: Object.fromEntries(ids.map((id) => [id, { answers: [codexUserInputAnswer()] }])),
   };
 }
 

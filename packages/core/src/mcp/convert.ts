@@ -5,6 +5,7 @@ import {
   type JsonSchemaType,
 } from '@modelcontextprotocol/client';
 import { z } from 'zod';
+import { mcpPrompts } from './mcp.prompts.ts';
 import { mcpStrings } from './mcp.strings.ts';
 
 /*
@@ -170,7 +171,7 @@ const kb = (base64: string) => `${Math.max(1, Math.round((base64.length * 3) / 4
 
 function clip(text: string, max: number): string {
   if (text.length <= max) return text;
-  return `${text.slice(0, max)}\n[… testo troncato: ${text.length - max} caratteri in più]`;
+  return `${text.slice(0, max)}${mcpPrompts().truncated(text.length - max)}`;
 }
 
 /**
@@ -185,6 +186,7 @@ export function resultText(
   /** Keeps an image (as a file, D-075) and says where: its text replaces the description. */
   image?: (block: { mimeType: string; data: string }) => string | undefined,
 ): string {
+  const p = mcpPrompts();
   const parts: string[] = [];
   for (const block of result.content ?? []) {
     switch (block.type) {
@@ -192,39 +194,34 @@ export function resultText(
         parts.push(block.text);
         break;
       case 'image':
-        parts.push(
-          image?.(block) ??
-            `[immagine ${block.mimeType}, ${kb(block.data)}: non visibile come testo]`,
-        );
+        parts.push(image?.(block) ?? p.image(block.mimeType, kb(block.data)));
         break;
       case 'audio':
-        parts.push(`[audio ${block.mimeType}, ${kb(block.data)}]`);
+        parts.push(p.audio(block.mimeType, kb(block.data)));
         break;
       case 'resource_link':
-        parts.push(
-          `[risorsa: ${block.name}${block.title ? ` (${block.title})` : ''} ${block.uri}${block.mimeType ? `, ${block.mimeType}` : ''}]`,
-        );
+        parts.push(p.resourceLink(block.name, block.title, block.uri, block.mimeType));
         break;
       case 'resource': {
         const r = block.resource;
         if ('text' in r && typeof r.text === 'string') {
-          parts.push(`[risorsa ${r.uri}]\n${r.text}`);
+          parts.push(p.resourceText(r.uri, r.text));
         } else if ('blob' in r && typeof r.blob === 'string') {
-          parts.push(`[risorsa ${r.uri}${r.mimeType ? `, ${r.mimeType}` : ''}, ${kb(r.blob)}]`);
+          parts.push(p.resourceBlob(r.uri, r.mimeType, kb(r.blob)));
         } else {
-          parts.push(`[risorsa ${r.uri}]`);
+          parts.push(p.resource(r.uri));
         }
         break;
       }
       default:
-        parts.push(`[contenuto di tipo ${(block as { type: string }).type}]`);
+        parts.push(p.otherContent((block as { type: string }).type));
     }
   }
   if (parts.length === 0 && result.structuredContent !== undefined) {
     try {
       parts.push(JSON.stringify(result.structuredContent));
     } catch {
-      parts.push('[dati strutturati non leggibili]');
+      parts.push(p.unreadable);
     }
   }
   return clip(parts.join('\n\n'), max);

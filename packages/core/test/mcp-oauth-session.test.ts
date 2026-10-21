@@ -7,6 +7,7 @@ import { signInNeeded } from '../src/mcp/manager.ts';
 import { readOAuthRecord } from '../src/mcp/oauth.ts';
 import { startFakeOAuthServer, type FakeOAuthServer } from './fixtures/fake-oauth-server.ts';
 import { startTestHub, type TestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * OAuth of a remote MCP server while the session is open (review of 18/10,
@@ -187,7 +188,8 @@ describe('MCP OAuth: a call refused for its scope (403 insufficient_scope)', () 
     expect(first!.data.error).toMatch(/^NOT_LINKED: /);
     const seen = JSON.stringify(first!.data.output);
     expect(seen).toContain('lacks a permission');
-    expect(seen).toContain('Collega');
+    // The hint names the button as the card does, in the language of the app (D-153).
+    expect(seen).toContain('“Connect”');
 
     // The card asks for «Collega» with the wider scope; the access is still there.
     const view = await notes(t);
@@ -222,7 +224,9 @@ describe('MCP: a service given to the monster but not connected (connettori 6)',
   it('the card of the monster says it, instead of giving tools that would all fail', async () => {
     const as = await startFakeOAuthServer();
     servers.push(as);
-    const t = await startTestHub({ titan: [fake.text('ok'), fake.text('ok')] });
+    // The line of the card is read in the Italian family (D-153).
+    inLang('it');
+    const t = await startTestHub({ titan: [fake.text('ok'), fake.text('ok')] }, { lang: 'it' });
     await t.json('PUT', '/api/mcp-servers/notes', {
       transport: 'http',
       url: as.mcpUrl,

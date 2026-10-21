@@ -2,6 +2,7 @@ import { MCP_CATALOG, type ClaudeConnectionView, type McpServerView } from '@mon
 import { WEB_TOOLS } from '../agents/archetypes.ts';
 import type { AgentDefinition } from '../agents/definition.ts';
 import type { AccessFact, AccessState, ClaimContext, ServiceFact } from './access-claims.ts';
+import { accessPrompts } from './access.prompts.ts';
 import type { TeamService } from './team-service.ts';
 
 /*
@@ -44,10 +45,16 @@ export interface RunAccessInput {
   unlinked?: readonly string[];
 }
 
+/** What the fingerprint of the accesses called each built-in access in each family: data, not copy. */
+const BUILT_IN_CAPS: Record<'capWeb' | 'capTerminal' | 'capBrowser', readonly string[]> = {
+  capWeb: ['il web', 'web access'], // i18n-ignore
+  capTerminal: ['terminale e file', 'terminal and files'], // i18n-ignore
+  capBrowser: ['il browser di Monsters', 'the Monsters browser'], // i18n-ignore
+};
+
 const connectorName = (name: string) => name.replace(/^claude\.ai\s+/i, '').trim();
 const serverOf = (tool: string) => /^mcp__([A-Za-z0-9_-]+?)__[^_]/.exec(tool)?.[1];
-const list = (items: readonly string[]) =>
-  items.length < 2 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} e ${items.at(-1)!}`;
+
 const catalogName = (id: string) => MCP_CATALOG.find((e) => e.id === id)?.name ?? id;
 /** "Gmail", "Google Drive" for «Gmail, Drive e Calendar». */
 const catalogAliases = (e: (typeof MCP_CATALOG)[number]): string[] =>
@@ -87,8 +94,6 @@ export function claimContext(deps: AccessStateDeps, agent: AgentDefinition): Cla
   };
 }
 
-const NOT_USER = 'non per un no dell’utente';
-
 function webFact(
   deps: AccessStateDeps,
   agent: AgentDefinition,
@@ -102,14 +107,14 @@ function webFact(
     return {
       has: false,
       off: true,
-      why: 'il permesso «Il web» è spento: lo accende l’utente in Impostazioni → Permessi',
+      why: accessPrompts().webPermissionOff(),
     };
   }
   if (p && !p.webSearch) {
     return {
       has: false,
       off: true,
-      why: `la ricerca sul web è spenta nel progetto «${p.name}»: si accende nella pagina del progetto, scheda Collegamenti`,
+      why: accessPrompts().webOffInProject(p.name),
     };
   }
   const others = squad
@@ -118,9 +123,7 @@ function webFact(
   return {
     has: false,
     off: false,
-    why: others.length
-      ? `non è tra gli strumenti di questo lavoro (${NOT_USER}: il permesso è acceso), ce l’hanno ${list(others)}`
-      : `non è tra gli strumenti di questo lavoro (${NOT_USER}: il permesso è acceso)`,
+    why: accessPrompts().webNotInRun(others),
   };
 }
 
@@ -146,19 +149,19 @@ export function accessState(deps: AccessStateDeps, input: RunAccessInput): Acces
     terminal = {
       has: false,
       off: true,
-      why: 'il permesso «Terminale e cartelle» è spento: lo accende l’utente in Impostazioni → Permessi',
+      why: accessPrompts().terminalPermissionOff(),
     };
   else if (deps.othersAsk(input.runId))
     terminal = {
       has: false,
       off: true,
-      why: 'in questa chat di Telegram scrivono altre persone: terminale e file sono chiusi',
+      why: accessPrompts().terminalOthersAsk,
     };
   else
     terminal = {
       has: false,
       off: false,
-      why: `non sono tra gli strumenti di questo lavoro (${NOT_USER})`,
+      why: accessPrompts().terminalNotInRun,
     };
 
   const servers = deps.servers();
@@ -170,19 +173,19 @@ export function accessState(deps: AccessStateDeps, input: RunAccessInput): Acces
     browser = {
       has: false,
       off: true,
-      why: 'il browser di Monsters è spento: lo accende l’utente in Impostazioni → Collegamenti → Altri programmi',
+      why: accessPrompts().browserOff(),
     };
   else if (!permissions.web)
-    browser = { has: false, off: true, why: 'il browser vuole il permesso del web, che è spento' };
+    browser = { has: false, off: true, why: accessPrompts().browserNeedsWeb };
   else if (deps.allowed(id, browserServer.name))
-    browser = { has: false, off: true, why: 'il browser non risponde ora' };
+    browser = { has: false, off: true, why: accessPrompts().browserNotResponding };
   else
     browser = {
       has: false,
       off: false,
       why: project
-        ? `il browser è acceso ma non è dato a te: si dà nella pagina del progetto «${project.name}», scheda Collegamenti`
-        : 'il browser è acceso ma non è dato a te: lo dà l’utente in Impostazioni → Collegamenti',
+        ? accessPrompts().browserNotGivenProject(project.name)
+        : accessPrompts().browserNotGiven(),
     };
 
   const services: ServiceFact[] = [];
@@ -191,13 +194,11 @@ export function accessState(deps: AccessStateDeps, input: RunAccessInput): Acces
   };
   const notHere = new Set(project ? deps.notHere(agent) : []);
   const unlinked = new Set(input.unlinked ?? []);
-  const ask = agent.config.tools.includes('access_request')
-    ? ' (puoi chiederlo con `access_request`)'
-    : agent.config.kind === 'lead'
-      ? ''
-      : ' (chiedilo al tuo capo)';
-  const projectWhy = (name: string) =>
-    `${name} è collegato all’account dell’utente ma non a questo progetto: si dà nella pagina del progetto «${project!.name}», scheda Collegamenti${ask}`;
+  const ask = accessPrompts().askHow(
+    agent.config.tools.includes('access_request'),
+    agent.config.kind === 'lead',
+  );
+  const projectWhy = (name: string) => accessPrompts().serviceOnlyProject(name, project!.name, ask);
   for (const s of servers) {
     if (s.preset === BROWSER_SERVER) continue;
     const base = { name: s.label, ...(s.name !== s.label ? { aliases: [s.name] } : {}) };
@@ -207,14 +208,14 @@ export function accessState(deps: AccessStateDeps, input: RunAccessInput): Acces
         ...base,
         has: false,
         off: true,
-        why: `${s.label} non risponde ora (accesso scaduto o un errore): si ricollega in Impostazioni → Collegamenti`,
+        why: accessPrompts().serviceNotResponding(s.label),
       });
     else if (!s.enabled)
       push({
         ...base,
         has: false,
         off: true,
-        why: `${s.label} è spento in Impostazioni → Collegamenti → Altri programmi`,
+        why: accessPrompts().serverOff(s.label),
       });
     else if (notHere.has(s.label))
       push({ ...base, has: false, off: false, project: true, why: projectWhy(s.label) });
@@ -223,7 +224,7 @@ export function accessState(deps: AccessStateDeps, input: RunAccessInput): Acces
         ...base,
         has: false,
         off: false,
-        why: `${s.label} è collegato all’account dell’utente ma non è dato a te: lo dà l’utente in Impostazioni → Collegamenti`,
+        why: accessPrompts().serviceNotGiven(s.label),
       });
   }
   const connectors = new Set((input.connectors ?? []).map((c) => connectorName(c).toLowerCase()));
@@ -239,23 +240,24 @@ export function accessState(deps: AccessStateDeps, input: RunAccessInput): Acces
         ...base,
         has: false,
         off: true,
-        why: `${name} (tramite Claude) va ricollegato: Impostazioni → Collegamenti`,
+        why: accessPrompts().viaClaudeReconnect(name),
       });
     else if (input.harness !== 'claude-agent')
       push({
         ...base,
         has: false,
         off: false,
-        why: `${name} è collegato tramite Claude: arriva solo ai mostri che lavorano con Claude`,
+        why: accessPrompts().viaClaudeOnlyClaude(name),
       });
-    else if (notHere.has(`${name} (tramite Claude)`))
+    // The hub names it "(tramite Claude)" (a key of its own list, in both families).
+    else if (notHere.has(`${name} (tramite Claude)`) || notHere.has(`${name} (through Claude)`))
       push({ ...base, has: false, off: false, project: true, why: projectWhy(name) });
     else
       push({
         ...base,
         has: false,
         off: false,
-        why: `${name} è collegato all’account dell’utente ma non è dato a te: lo dà l’utente in Impostazioni → Collegamenti`,
+        why: accessPrompts().serviceNotGiven(name),
       });
   }
   // The gallery's services nobody connected: "non è collegato" is true.
@@ -266,7 +268,7 @@ export function accessState(deps: AccessStateDeps, input: RunAccessInput): Acces
       ...(aliases.length ? { aliases } : {}),
       has: false,
       off: true,
-      why: `${e.name} non è collegato all’account: lo collega l’utente in Impostazioni → Collegamenti`,
+      why: accessPrompts().serviceNotConnected(e.name),
     });
   }
 
@@ -307,14 +309,15 @@ export function accessCaps(
   const id = agent.config.id;
   const tools = deps.team.get(id)?.config.tools ?? agent.config.tools;
   const caps = new Set<string>();
-  if (tools.some((t) => WEB_TOOLS.includes(t))) caps.add('il web');
+  const t = accessPrompts();
+  if (tools.some((t) => WEB_TOOLS.includes(t))) caps.add(t.capWeb);
   if (
     run.harness ? run.terminal : tools.includes('shell') || tools.some((t) => t.startsWith('fs_'))
   )
-    caps.add('terminale e file');
+    caps.add(t.capTerminal);
   for (const s of deps.servers()) {
     if (!s.enabled || !deps.allowed(id, s.name)) continue;
-    caps.add(s.preset === BROWSER_SERVER ? 'il browser di Monsters' : s.label);
+    caps.add(s.preset === BROWSER_SERVER ? t.capBrowser : s.label);
   }
   for (const c of run.connectors ?? []) caps.add(connectorName(c));
   return [...caps].sort((a, b) => a.localeCompare(b));
@@ -326,12 +329,21 @@ export function accessChangeNote(
   now: readonly string[],
 ): string | null {
   if (!before) return null;
-  const gained = now.filter((c) => !before.includes(c));
-  const lost = before.filter((c) => !now.includes(c));
+  // What was saved in the other language is the same access (the app's language changed).
+  const own = (cap: string) => capsOf(cap);
+  const was = before.map(own);
+  const is = now.map(own);
+  const gained = is.filter((c) => !was.includes(c));
+  const lost = was.filter((c) => !is.includes(c));
   if (gained.length === 0 && lost.length === 0) return null;
-  const parts = [
-    ...(gained.length ? [`da ora hai ${list(gained)}`] : []),
-    ...(lost.length ? [`non hai più ${list(lost)}`] : []),
-  ];
-  return `[Accessi cambiati] L’utente ha cambiato i tuoi accessi: ${parts.join('; ')}. Vale la sezione «## Monsters» di adesso: quello che memoria, note e conversazione dicono sugli accessi è di prima del cambio.`;
+  return accessPrompts().accessChanged(gained, lost);
+}
+
+/** The built-in accesses of the fingerprint ("il web", "web access"…) in the language in use. */
+function capsOf(cap: string): string {
+  const now = accessPrompts();
+  for (const key of ['capWeb', 'capTerminal', 'capBrowser'] as const) {
+    if (BUILT_IN_CAPS[key].includes(cap)) return now[key];
+  }
+  return cap;
 }

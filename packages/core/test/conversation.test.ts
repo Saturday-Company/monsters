@@ -11,6 +11,7 @@ import {
 } from '../src/index.ts';
 import { BROWSER_HEADERS, browserSession, setupUser } from './helpers.ts';
 import { deferred, promptText, startTestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /* "Nuova conversazione": the boundary in the log and the API that writes it. */
 
@@ -114,6 +115,7 @@ describe('recentConversation: notes of the past runs (AG-19)', () => {
   ): EventInput<'vault_change'> => ({ agent, type: 'vault_change', data: { action, path } });
 
   it('each answer says which notes its run created or changed, by any agent of the run', () => {
+    inLang('it');
     const log = memoryLog();
     log.append(inRun('r1', user('Preparami 3 post sul menu')));
     log.append(inRun('r1', change('rhea', 'create', 'Risorse/Ricerche/Menu autunnale.md')));
@@ -141,6 +143,7 @@ describe('recentConversation: notes of the past runs (AG-19)', () => {
   });
 
   it('lists at most 8 paths', () => {
+    inLang('it');
     const log = memoryLog();
     log.append(inRun('r1', user('Dieci note')));
     for (let i = 0; i < 10; i++)

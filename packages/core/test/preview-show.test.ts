@@ -30,6 +30,7 @@ import {
   type PreviewFiles,
 } from '../src/index.ts';
 import { startTestHub, type TestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * `preview_show` (plan of 16/10 feature 4, D-075): a monster shows the user a
@@ -222,6 +223,8 @@ describe('preview_show', { timeout: 30_000 }, () => {
       'shows you Risorse/Lisbona',
     );
     expect(describeToolCall('preview_show', { file: meta.id })).toBe('shows you a file');
+    // The card is what the model reads: the Italian family, pinned.
+    inLang('it');
     expect(monstersCard({ toolNames: ['vault_read', 'preview_show'] })).toContain(
       '- anteprima: mostri note e file (`preview_show`)',
     );

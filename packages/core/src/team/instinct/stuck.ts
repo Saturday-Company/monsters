@@ -1,5 +1,6 @@
 import type { EventLog } from '../../log/event-log.ts';
 import type { StepCall, StepWatcher } from '../../agents/run-agent.ts';
+import { instinctPrompts } from './instinct.prompts.ts';
 import { instinctStrings } from './instinct.strings.ts';
 import { BANDS, bandOf, STUCK_EVERY, STUCK_FIRST_STEP, stuckRequest } from './questions.ts';
 import { pOf, type System1 } from './system1.ts';
@@ -19,9 +20,11 @@ import { pOf, type System1 } from './system1.ts';
  * monster looks stuck (the UI shows the confused monster).
  */
 
-export const STUCK_REMINDER =
-  '[Promemoria del sistema] Stai ripetendo le stesse azioni senza risultati nuovi. Cambia approccio ' +
-  '(un’altra fonte, un altro strumento, argomenti diversi) oppure chiudi con quello che hai e scrivi cosa manca.';
+/** The reminder in Italian (the family of an Italian app); the one sent follows the app's language. */
+export const STUCK_REMINDER = instinctPrompts('it').stuckReminder;
+
+/** An outcome that is a failure ("errore", "errore CODE" / "error", "error CODE"): not this watcher's. */
+const FAILED = /→ (?:errore|error)(?: |$)/; // i18n-ignore
 
 /** Same call and outcome this many times in the window: going round in circles. */
 const SAME_OUTCOME = 3;
@@ -92,7 +95,7 @@ export class StuckWatcher implements StepWatcher {
     const counts = new Map<string, number>();
     // Failures in a row are the call tracker's (reminder at 3, next model at 4).
     for (const c of recent) {
-      if (c.signature.endsWith('→ errore') || c.signature.includes('→ errore ')) continue;
+      if (FAILED.test(c.signature)) continue;
       counts.set(c.signature, (counts.get(c.signature) ?? 0) + 1);
     }
     for (const [sig, n] of counts)
@@ -139,10 +142,10 @@ export class StuckWatcher implements StepWatcher {
   #nudge(by: 'rules' | 'model', why: string, p?: number): void {
     this.#nudges++;
     if (this.#nudges === 1) {
-      this.#pending = { reminder: STUCK_REMINDER };
+      this.#pending = { reminder: instinctPrompts().stuckReminder };
       this.#event('stuck_nudge', instinctStrings().stuckNudge(this.#o.agent.name), p, { by, why });
     } else if (this.#nudges === 2) {
-      this.#pending = { reminder: STUCK_REMINDER, demote: true };
+      this.#pending = { reminder: instinctPrompts().stuckReminder, demote: true };
       this.#event('stuck_demote', instinctStrings().stuckDemote(this.#o.agent.name), p, {
         by,
         why,

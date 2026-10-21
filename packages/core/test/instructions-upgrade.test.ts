@@ -19,6 +19,7 @@ import {
   type CoreServices,
 } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * D-065: teams created before the new templates get them when the team loads,
@@ -60,12 +61,14 @@ function team(home: string): TeamService {
 
 describe('AGENTS.md of an older template', () => {
   it('the old template is really different (the upgrade has something to do)', () => {
+    inLang('it');
     const bp = rheaBlueprint(user);
     expect(legacy(bp)).not.toBe(renderAgentsMd(bp));
     expect(legacy(bp)).toContain('intanto continui con il resto');
   });
 
   it('is rendered again with the current template when the team loads, with or without blueprint.json', async () => {
+    inLang('it');
     const home = tempHome();
     const agents = join(home, 'agents');
     const titan = orchestratorBlueprint({ ...user, name: 'Titan' });
@@ -87,6 +90,7 @@ describe('AGENTS.md of an older template', () => {
   });
 
   it('Rhea of the template before D-071 gets the web method, Dione is left alone', async () => {
+    inLang('it');
     const home = tempHome();
     const agents = join(home, 'agents');
     const rhea = rheaBlueprint(user);
@@ -105,6 +109,7 @@ describe('AGENTS.md of an older template', () => {
   });
 
   it('the capo squadra of the template before D-073 gets the language of the briefs and the writer rule', async () => {
+    inLang('it');
     const home = tempHome();
     const agents = join(home, 'agents');
     const titan = orchestratorBlueprint({ ...user, name: 'Titan' });
@@ -120,6 +125,7 @@ describe('AGENTS.md of an older template', () => {
   });
 
   it('the capo squadra of the template before D-075 gets team_propose_monster and the notes_check wording', async () => {
+    inLang('it');
     const home = tempHome();
     const agents = join(home, 'agents');
     const nova = orchestratorBlueprint({ ...user, name: 'Nova' });
@@ -140,6 +146,7 @@ describe('AGENTS.md of an older template', () => {
   });
 
   it('a file edited by hand stays exactly as it is', async () => {
+    inLang('it');
     const home = tempHome();
     const agents = join(home, 'agents');
     const rhea = rheaBlueprint(user);
@@ -156,6 +163,7 @@ describe('AGENTS.md of an older template', () => {
   });
 
   it('a file of the current template is left alone', async () => {
+    inLang('it');
     const dir = oldFolder(join(tempHome(), 'agents'), rheaBlueprint(user), {
       text: renderAgentsMd(rheaBlueprint(user)),
     });

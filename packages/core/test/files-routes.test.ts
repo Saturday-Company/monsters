@@ -2,8 +2,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { join } from 'node:path';
 import { fake } from '@monsters/providers/testing';
-import { FILE_MAX_BYTES, type FileMeta, type LogEvent } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { FILE_MAX_BYTES, setAppLang, type FileMeta, type LogEvent } from '@monsters/shared';
+import { afterEach, describe, expect, it } from 'vitest';
 import { HTML_FILE_CSP as HTML_CSP } from '../src/server/file-headers.ts';
 import { docx, pdf, png } from './file-fixtures.ts';
 import { browserSession, setupUser, tempHome } from './helpers.ts';
@@ -149,9 +149,16 @@ describe('/api/files', () => {
   });
 });
 
+// A test that pins the Italian family restores the English one.
+afterEach(() => setAppLang('en'));
+
 describe('files in the chat', () => {
   it('a message carries its files to the model; past ones become a line with the names', async () => {
-    const t = await startTestHub({ titan: [fake.text('Visto.'), fake.text('Ok.')] });
+    setAppLang('it');
+    const t = await startTestHub(
+      { titan: [fake.text('Visto.'), fake.text('Ok.')] },
+      { lang: 'it' },
+    );
     const image = (await (await upload(t, form(png(), 'gatto.png'))).json()) as FileMeta;
     const letter = (await (
       await upload(t, form(docx(['Cara Anna, il preventivo è 900 euro']), 'lettera.docx'))
@@ -181,9 +188,33 @@ describe('files in the chat', () => {
     expect(second).not.toContain('Cara Anna');
   });
 
+  it('English family: a message carries its files to the model; past ones become a line (D-153)', async () => {
+    const t = await startTestHub({ titan: [fake.text('Seen.'), fake.text('Ok.')] });
+    const image = (await (await upload(t, form(png(), 'gatto.png'))).json()) as FileMeta;
+    const letter = (await (
+      await upload(t, form(docx(['Dear Anna, the quote is 900 euros']), 'lettera.docx'))
+    ).json()) as FileMeta;
+    const sent = await t.json<Sent>('POST', '/api/messages', {
+      text: 'look at these',
+      attachments: [image.id, letter.id],
+    });
+    await t.runEnded(sent.runId);
+    const first = promptText(t.provider.callsTo('titan')[0]!.options.prompt);
+    expect(first).toContain('gatto.png');
+    expect(first).toContain('can’t see images');
+    expect(first).toContain('Dear Anna, the quote is 900 euros');
+    expect(first).toContain('<attachment name=');
+    const again = await t.json<Sent>('POST', '/api/messages', { text: 'so?' });
+    await t.runEnded(again.runId);
+    const second = promptText(t.provider.callsTo('titan')[1]!.options.prompt);
+    expect(second).toContain('[Attachments of this message: gatto.png (image');
+    expect(second).toContain('stays valid');
+  });
+
   it('a later turn keeps its answers about a file and reads it again with file_read (review of 16/10)', async () => {
+    setAppLang('it');
     const steps = [fake.text('Il preventivo nella lettera è 900 euro.')];
-    const t = await startTestHub({ titan: steps });
+    const t = await startTestHub({ titan: steps }, { lang: 'it' });
     const letter = (await (
       await upload(t, form(docx(['Cara Anna, il preventivo è 900 euro']), 'lettera.docx'))
     ).json()) as FileMeta;

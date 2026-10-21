@@ -54,6 +54,7 @@ import {
   shouldRemember,
   type RememberFilter,
 } from './memory.ts';
+import { teamPrompts } from './team.prompts.ts';
 import { teamStrings } from './team.strings.ts';
 
 /*
@@ -792,7 +793,7 @@ export class TeamService {
         return '';
       }
     }
-    const content = `# Memoria di ${agent.config.name}\n\nIndice corto della memoria di ${agent.config.name}: una riga per voce, con il link alla nota di dettaglio.\n`;
+    const content = teamPrompts().memoryIndex(agent.config.name);
     try {
       await vault.write(
         {

@@ -3,6 +3,7 @@ import { resumeText, ulid, type LogEvent, type ResumeResponse } from '@monsters/
 import { describe, expect, it, vi } from 'vitest';
 import { never, promptText, startTestHub } from './hub-helpers.ts';
 import { requeueWaiting } from '../src/team/resume-work.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * "Riprendi e continua" in the core (D-072): `POST /api/resume` with
@@ -111,14 +112,18 @@ describe('resume and continue', () => {
   });
 
   it('work of project_send that waited for a lead starts again with "Riprendi e continua", as Titan’s work', async () => {
-    const t = await startTestHub({
-      titan: [
-        fake.toolCall('tools_search', { query: 'progetto lavoro' }),
-        fake.toolCall('project_send', { project: 'Saturday', text: 'Prepara il piano dei post' }),
-        fake.text('Ho passato il lavoro a Leda.'),
-      ],
-      leda: [fake.text('mai', { gate: never }), fake.text('Fatto.'), fake.text('Fatto.')],
-    });
+    inLang('it');
+    const t = await startTestHub(
+      {
+        titan: [
+          fake.toolCall('tools_search', { query: 'progetto lavoro' }),
+          fake.toolCall('project_send', { project: 'Saturday', text: 'Prepara il piano dei post' }),
+          fake.text('Ho passato il lavoro a Leda.'),
+        ],
+        leda: [fake.text('mai', { gate: never }), fake.text('Fatto.'), fake.text('Fatto.')],
+      },
+      { lang: 'it' },
+    );
     await t.json('POST', '/api/projects', { name: 'Saturday', lead: { name: 'Leda' } });
     await t.core.hub.team.setModels('leda', [{ provider: 'fake', model: 'leda' }]);
     // Leda is busy: the work of the orchestrator waits for her, in a run of its own.
@@ -184,7 +189,8 @@ describe('resume and continue', () => {
   });
 
   it('a waiting message that answered a parked question comes back with it (review of 19/10, 13)', async () => {
-    const t = await startTestHub({});
+    inLang('it');
+    const t = await startTestHub({}, { lang: 'it' });
     const log = t.core.log;
     log.append({
       agent: 'titan',

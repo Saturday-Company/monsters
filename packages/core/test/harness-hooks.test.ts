@@ -35,6 +35,7 @@ import {
 } from '../src/index.ts';
 import type { AppEnv } from '../src/server/app.ts';
 import { tempHome } from './helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * D-069: the brake and the stop hook on the harness's own tools. The fake
@@ -146,6 +147,7 @@ describe('answers of the hooks', () => {
   });
 
   it("PostToolUse: the plan's web search taints the run and loses the blocks that give orders (D-073)", async () => {
+    inLang('it');
     const s = services();
     const taint = new RunTaint();
     const injected =
@@ -302,6 +304,7 @@ describe('answers of the hooks', () => {
   });
 
   it('the card nobody could see: the guard says why (an automation, D-142)', async () => {
+    inLang('it');
     const { ctx: wait } = ctx({
       guard: {
         beforeCall: (c) =>
@@ -322,6 +325,7 @@ describe('answers of the hooks', () => {
   });
 
   it('stop: one reminder per turn, from the last answer', async () => {
+    inLang('it');
     const texts: string[] = [];
     const { ctx: c, appended } = ctx({
       onFinalAnswer: (t) => {
@@ -351,6 +355,7 @@ describe('answers of the hooks', () => {
 
 describe('the data folder of Monsters is closed to the harness (D-078)', () => {
   it('denies the terminal and the file tools there, lets the own folder through', async () => {
+    inLang('it');
     const data = join(home, 'dati');
     const ws = join(data, 'workspaces', 'titan');
     mkdirSync(ws, { recursive: true });
@@ -435,6 +440,7 @@ describe('the transcripts of Claude Code are closed to the harness (M6)', () => 
 
 describe('the harness configuration of the working folder is never written (D-079)', () => {
   it('denies writes to .claude, .mcp.json, CLAUDE.md and AGENTS.md, lets reads through', async () => {
+    inLang('it');
     const ws = join(home, 'ws');
     mkdirSync(ws, { recursive: true });
     const appended: { type: string; data: Record<string, unknown> }[] = [];

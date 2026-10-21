@@ -35,11 +35,12 @@ function choiceWords(text: string): string[] {
 }
 
 /** Starts of a choice: yes and no, ordinals, numbers, "both", "none" (an article before is fine). */
+// The words of a choice, in both languages (data, not copy).
 const CHOICE_START =
-  /^((la|il|lo|l'|opzione|scelgo|preferisco|meglio)\s+)?(s[iì]|no|nessun[ao]?|entramb[ie]|tutt[ie] e due|prim[ao]|second[ao]|terz[ao]|quart[ao]|ultim[ao]|\d+)(\s|$)/u;
+  /^((?:la|il|lo|l'|opzione|scelgo|preferisco|meglio|the|option|number|i choose|i pick|i prefer|i'll take|i'd go with|let's go with|go with)\s+){0,3}(s[iì]|no|nessun[ao]?|entramb[ie]|tutt[ie] e due|prim[ao]|second[ao]|terz[ao]|quart[ao]|ultim[ao]|\d+|yes|yeah|yep|yup|sure|nope|none|neither|both|first|second|third|fourth|last)(\s|$)/u; // i18n-ignore
 /** Answers only when the message is very short: "ok", "va bene", "quella", "b". */
 const SHORT_CHOICE =
-  /^((la|il|lo|l'|opzione)\s+)?(ok|okay|vai|yes|procedi|va bene|vanno bene|certo|d'accordo|perfetto|esatto|giusto|quell[ao]|quest[ao]|altr[ao]|tutt[ie]|[a-f])(\s|$)/u;
+  /^((la|il|lo|l'|opzione|the|option)\s+)?(ok|okay|vai|yes|procedi|va bene|vanno bene|certo|d'accordo|perfetto|esatto|giusto|quell[ao]|quest[ao]|altr[ao]|tutt[ie]|[a-f]|yeah|yep|yup|sure|go ahead|go on|do it|sounds good|looks good|of course|all right|alright|agreed|fine|great|perfect|exactly|that one|this one|other|all)(\s|$)/u; // i18n-ignore
 /** A choice is short: past this a message without an option's words is a request of its own. */
 const CHOICE_MAX_WORDS = 8;
 
@@ -78,6 +79,26 @@ export function readsAsAnswer(
 
 /** Words that say yes or no in a short message ("va bene", "annulla"): at most three words. */
 const SHORT_YES = new Set([
+  // i18n-ignore: the words of a yes, in both languages
+  'yeah',
+  'yep',
+  'yup',
+  'sure',
+  'go ahead',
+  'go on',
+  'do it',
+  'sounds good',
+  'looks good',
+  'of course',
+  'all right',
+  'alright',
+  'agreed',
+  'confirm',
+  'confirmed',
+  'approved',
+  'fine',
+  'great',
+  'proceed',
   'ok',
   'okay',
   'yes',
@@ -92,8 +113,32 @@ const SHORT_YES = new Set([
   'confermo',
   'fallo',
 ]);
-const SHORT_NO = new Set(['annulla', 'lascia stare', 'non farlo', 'stop', 'fermo', 'fermati']);
+// i18n-ignore: the words of a no, in both languages
+const SHORT_NO = new Set([
+  'annulla',
+  'lascia stare',
+  'non farlo',
+  'stop',
+  'fermo',
+  'fermati',
+  'cancel',
+  'nope',
+  'abort',
+  'nevermind',
+  'never mind',
+  'not now',
+  "don't do",
+  'do not',
+  "don't send",
+  "don't publish",
+  "don't post",
+  "don't proceed",
+]);
 const ORDINALS: Record<string, number> = {
+  first: 0,
+  second: 1,
+  third: 2,
+  fourth: 3,
   prima: 0,
   primo: 0,
   seconda: 1,
@@ -103,15 +148,62 @@ const ORDINALS: Record<string, number> = {
   quarta: 3,
   quarto: 3,
 };
-const ARTICLES = new Set(['la', 'il', 'lo', 'opzione', 'scelgo', 'preferisco', 'meglio']);
+const ARTICLES = new Set([
+  'la',
+  'il',
+  'lo',
+  'opzione',
+  'scelgo',
+  'preferisco',
+  'meglio',
+  // i18n-ignore: the words that come before a choice in English
+  'the',
+  'option',
+  'number',
+  'choose',
+  'pick',
+  'prefer',
+  'take',
+  'better',
+  'i',
+  "i'll",
+  "i'd",
+]);
 const YES_LABEL = /^(s[iì]|yes|ok)$/u;
+/** A word that says yes, in both languages. */
+const YES_WORD = /^(?:s[iì]|yes|yeah|yep|yup|sure)$/u; // i18n-ignore
 /**
  * Words that may come with a yes and add nothing to it ("sì grazie", "ok vai pure"). Anything
  * else after the yes is a condition or a request ("sì ma non a Marco", "ok però prima…",
  * "sì, solo se…"): not an approval (review of 19/10, item 2).
  */
 const PLAIN_YES_WORDS = new Set([
-  'sì',
+  // i18n-ignore: the words that add nothing to a yes, in both languages
+  'yeah',
+  'yep',
+  'yup',
+  'sure',
+  'go',
+  'ahead',
+  'do',
+  'it',
+  'sounds',
+  'good',
+  'looks',
+  'fine',
+  'great',
+  'of',
+  'course',
+  'all',
+  'right',
+  'alright',
+  'agreed',
+  'confirm',
+  'confirmed',
+  'approved',
+  'thank',
+  'you',
+  'sì', // i18n-ignore
   'si',
   'yes',
   'ok',
@@ -178,11 +270,14 @@ function pick(
     return { id: byLabel[0]!.id, rest: joined.replace(label, ' ').split(' ').filter(Boolean) };
   }
   if (words.length > CHOICE_MAX_WORDS) return undefined;
-  const rest = words.length > 1 && ARTICLES.has(words[0]!) ? words.slice(1) : words;
+  // "la prima", "the first", "i choose the second": the words before the choice are left out.
+  let skip = 0;
+  while (skip < words.length - 1 && skip < 4 && ARTICLES.has(words[skip]!)) skip++;
+  const rest = words.slice(skip);
   const head = rest[0]!.replace(/^l'/, '');
   const index = /^\d+$/.test(head)
     ? Number(head) - 1
-    : head === 'ultima' || head === 'ultimo'
+    : head === 'ultima' || head === 'ultimo' || head === 'last'
       ? options.length - 1
       : ORDINALS[head];
   if (index !== undefined) {
@@ -193,8 +288,8 @@ function pick(
   const yesOption = options.find((o) => YES_LABEL.test(firstOf(o)));
   const noOption = options.find((o) => firstOf(o) === 'no');
   if (!yesOption || !noOption) return undefined;
-  if (/^s[iì]$/u.test(head)) return { id: yesOption.id, rest: rest.slice(1) };
-  if (head === 'no') return { id: noOption.id, rest: rest.slice(1) };
+  if (YES_WORD.test(head)) return { id: yesOption.id, rest: rest.slice(1) };
+  if (head === 'no' || head === 'nope') return { id: noOption.id, rest: rest.slice(1) };
   if (words.length > 3) return undefined;
   const two = rest.slice(0, 2).join(' ');
   if (SHORT_YES.has(two)) return { id: yesOption.id, rest: rest.slice(2) };

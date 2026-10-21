@@ -10,6 +10,7 @@ import {
 } from '@monsters/monster-kit';
 import { errorMessage, type ModelRef, type ProviderRegistry } from '@monsters/providers';
 import {
+  appLang,
   ASK_ALWAYS_EXTRAS,
   ASK_ALWAYS_FIXED,
   AGENT_NAME_PATTERN,
@@ -24,6 +25,8 @@ import {
   ONBOARDING_QUESTIONS,
   isReservedActor,
   isClaudePlanChain,
+  LANGS,
+  type Lang,
   type ArchivedMemberView,
   type Channel,
   type LogEvent,
@@ -67,16 +70,19 @@ import {
 import {
   AGENTS_MD_BACKUP,
   InstructionFieldsSchema,
-  parseInstructions,
+  instructionsOf,
   renderFields,
+  replaceLanguage,
   replaceTeamSection,
   replaceWord,
-  rendersTo,
   type InstructionFields,
+  type Instructions,
 } from '../agents/instructions.ts';
 import {
   BLUEPRINT_JSON,
+  currentTemplates,
   TemplateError,
+  TEMPLATE_FAMILIES,
   renderAgentFiles,
   writeAgentFolder,
   type LeadBlueprint,
@@ -99,8 +105,9 @@ import {
   type Answers,
   type Profile,
 } from '../onboarding/profile.ts';
+import { PROFILE_TEXTS } from '../onboarding/profile.prompts.ts';
 import {
-  GENERIC_REPORT,
+  genericReport,
   LlmAgentSchema,
   agentId,
   allowedNames,
@@ -117,6 +124,7 @@ import type { MonsterProposal, MonsterProposalInput } from './propose-monster.ts
 import type { QuestionStore } from './questions.ts';
 import type { HubSettings } from './settings.ts';
 import type { TeamService } from './team-service.ts';
+import { TEAM_MANAGER_PROMPTS, teamManagerPrompts } from './team-manager.prompts.ts';
 import { teamManagerStrings } from './team-manager.strings.ts';
 
 /*
@@ -339,8 +347,8 @@ export class TeamManager {
   // --- profile ---------------------------------------------------------------
 
   /** The user's profile now: the answers of the first start, names from the team. */
-  #profile(answers: Answers = this.#d.onboarding.answers()): Profile {
-    const p = profileFromAnswers(answers);
+  #profile(answers: Answers = this.#d.onboarding.answers(), lang: Lang = appLang()): Profile {
+    const p = profileFromAnswers(answers, lang);
     const orchestrator = this.#d.team.orchestrator()?.config.name;
     return {
       ...p,
@@ -453,12 +461,21 @@ export class TeamManager {
               : {}),
           }),
           text: (t) =>
-            replaceWord(replaceWord(t, before.userName, userName), before.language, after.language),
+            replaceLanguage(
+              replaceWord(t, before.userName, userName),
+              before.language,
+              after.language,
+            ),
         });
       }
       if (orchestrator && userName !== before.userName) {
+        // The role in the family it was written in (D-153).
+        const role = orchestrator.config.role;
+        const lang =
+          LANGS.find((l) => role === TEMPLATE_FAMILIES[l].orchestratorRole(before.userName)) ??
+          appLang();
         await this.#planYaml(pending, orchestrator, (doc) =>
-          doc.set('role', `coordinatore della squadra di ${userName}`),
+          doc.set('role', TEMPLATE_FAMILIES[lang].orchestratorRole(userName)),
         );
       }
     }
@@ -486,7 +503,10 @@ export class TeamManager {
     return this.profile();
   }
 
-  /** `profilo.md`: only the lines the settings manage change, the rest is the user's. */
+  /**
+   * `profilo.md`: only the lines the settings manage change, the rest is the user's. A note on
+   * disk keeps the family it was written in (D-153): its lines are found and written in that one.
+   */
   async #writeProfileNote(after: Profile, userName: string): Promise<void> {
     const { vault, team, settings } = this.#d;
     const orchestratorName = team.orchestrator()?.config.name ?? after.orchestratorName;
@@ -507,31 +527,40 @@ export class TeamManager {
       return;
     }
     let text = current.content;
+    const lang =
+      LANGS.find((l) => PROFILE_TEXTS[l].lines.titleRe.test(text)) ??
+      LANGS.find((l) => lineRe(PROFILE_TEXTS[l].lines.name).test(text)) ??
+      after.lang;
+    const words =
+      after.lang === lang ? after : profileFromAnswers(this.#d.onboarding.answers(), lang);
+    const t = PROFILE_TEXTS[lang].lines;
     // Function replacers: a `$` typed by the user stays a `$`.
     const line = (re: RegExp, value: string) => {
       text = text.replace(re, () => value);
     };
-    line(/^# Profilo di .*$/m, `# Profilo di ${userName}`);
-    line(/^- Nome: .*$/m, `- Nome: ${userName}`);
-    line(
-      /^- Coordinatore della squadra: .*$/m,
-      `- Coordinatore della squadra: ${orchestratorName}`,
-    );
-    line(/^- Tono: .*$/m, `- Tono: ${after.tone}`);
-    line(/^- Lingua: .*$/m, `- Lingua: ${after.language}`);
-    if (after.styleNotes) {
-      if (/^- Stile: .*$/m.test(text)) line(/^- Stile: .*$/m, `- Stile: ${after.styleNotes}`);
-      else text = text.replace(/^(- Lingua: .*)$/m, (m) => `${m}\n- Stile: ${after.styleNotes}`);
+    line(t.titleRe, t.title(userName));
+    line(lineRe(t.name), `${t.name}${userName}`);
+    line(lineRe(t.coordinator), `${t.coordinator}${orchestratorName}`);
+    line(lineRe(t.tone), `${t.tone}${words.tone}`);
+    line(lineRe(t.language), `${t.language}${words.language}`);
+    if (words.styleNotes) {
+      if (lineRe(t.style).test(text)) line(lineRe(t.style), `${t.style}${words.styleNotes}`);
+      else {
+        text = text.replace(
+          new RegExp(`^(${escapeRegex(t.language)}.*)$`, 'm'),
+          (m) => `${m}\n${t.style}${words.styleNotes}`,
+        );
+      }
     } else {
-      text = text.replace(/^- Stile: .*\n?/m, '');
+      text = text.replace(new RegExp(`^${escapeRegex(t.style)}.*\n?`, 'm'), '');
     }
     const ask = [
-      ...after.askFirst.map((id) => ASK_PROFILE_LABELS[id] ?? id),
-      ...(after.askFirstText ? [after.askFirstText] : []),
+      ...words.askFirst.map((id) => PROFILE_TEXTS[lang].ask[id] ?? id),
+      ...(words.askFirstText ? [words.askFirstText] : []),
     ];
-    const section = `## Chiedere sempre prima di\n${ask.map((a) => `- ${a}`).join('\n')}\n`;
+    const section = `${t.askHeading}\n${ask.map((a) => `- ${a}`).join('\n')}\n`;
     const lines = text.split('\n');
-    const start = lines.indexOf('## Chiedere sempre prima di');
+    const start = lines.indexOf(t.askHeading);
     if (start >= 0) {
       let end = start + 1;
       while (end < lines.length && !lines[end]!.startsWith('## ')) end++;
@@ -699,10 +728,7 @@ export class TeamManager {
 
   // --- files -------------------------------------------------------------------
 
-  async #instructions(
-    pending: Pending,
-    def: AgentDefinition,
-  ): Promise<{ text: string; fields: InstructionFields | null; pristine: boolean }> {
+  async #instructions(pending: Pending, def: AgentDefinition): Promise<Instructions> {
     const dir = def.dir!;
     const text = await pending.read(join(dir, AGENTS_MD));
     const raw = await pending.readOptional(join(dir, BLUEPRINT_JSON));
@@ -715,14 +741,13 @@ export class TeamManager {
         stored = null;
       }
     }
-    if (stored) return { text, fields: stored, pristine: rendersTo(stored, def.config, text) };
-    const parsed = parseInstructions(text, def.config);
-    return { text, fields: parsed, pristine: parsed !== null };
+    return instructionsOf(text, stored, def.config);
   }
 
   /** Fields for a file edited by hand with nothing to read back (`force` only). */
-  #defaultFields(def: AgentDefinition): InstructionFields {
-    const p = this.#profile();
+  #defaultFields(def: AgentDefinition, lang: Lang): InstructionFields {
+    const p = this.#profile(undefined, lang);
+    const t = TEAM_MANAGER_PROMPTS[lang];
     const top = this.#d.team.orchestrator()?.config.name ?? p.orchestratorName;
     const squad = this.#squadOf(def);
     if (def.config.kind === 'orchestrator') {
@@ -756,15 +781,13 @@ export class TeamManager {
       user: p.userName,
       orchestrator,
       language: p.language,
-      title: 'l’aiutante',
+      title: t.helperTitle,
       summary: def.config.role,
       mission: lowerFirst(def.config.role.replace(/\.$/, '')),
       context: contextSentence(p),
-      duties: [
-        `Lavori sui compiti che ti passa ${orchestrator} e salvi i risultati nella tua cartella.`,
-      ],
+      duties: [t.defaultDuty(orchestrator)],
       outputArea: area.success ? area.data : `Risorse/${def.config.name}`,
-      report: GENERIC_REPORT,
+      report: genericReport(lang),
       web: this.#d.team.declaredTools(def.config.id).some((t) => WEB_TOOLS.includes(t)),
     };
   }
@@ -777,9 +800,10 @@ export class TeamManager {
   ): Promise<void> {
     const dir = def.dir!;
     const current = await this.#instructions(pending, def);
+    // Rendered again in the family the file is written in (D-153), not the app's language now.
     if (current.pristine && current.fields) {
       const next = change.fields(current.fields);
-      pending.set(join(dir, AGENTS_MD), this.#render(next, def));
+      pending.set(join(dir, AGENTS_MD), this.#render(next, def, current.lang));
       pending.set(join(dir, BLUEPRINT_JSON), `${JSON.stringify(next, null, 2)}\n`);
       return;
     }
@@ -799,15 +823,15 @@ export class TeamManager {
         teamManagerStrings().instructionsEdited(def.config.name),
       );
     }
-    const next = change.fields(current.fields ?? this.#defaultFields(def));
+    const next = change.fields(current.fields ?? this.#defaultFields(def, current.lang));
     pending.set(join(dir, AGENTS_MD_BACKUP), current.text);
-    pending.set(join(dir, AGENTS_MD), this.#render(next, def));
+    pending.set(join(dir, AGENTS_MD), this.#render(next, def, current.lang));
     pending.set(join(dir, BLUEPRINT_JSON), `${JSON.stringify(next, null, 2)}\n`);
   }
 
-  #render(fields: InstructionFields, def: AgentDefinition): string {
+  #render(fields: InstructionFields, def: AgentDefinition, lang: Lang): string {
     try {
-      return renderFields(fields, def.config);
+      return renderFields(fields, def.config, currentTemplates(lang));
     } catch (err) {
       const message =
         err instanceof TemplateError
@@ -856,7 +880,7 @@ export class TeamManager {
     const team = this.#teamList(project, change);
     await this.#planInstructions(pending, capo, {
       fields: (f) => (f.kind === 'orchestrator' || f.kind === 'lead' ? { ...f, team } : f),
-      text: (t) => replaceTeamSection(t, team, project ? '## La squadra del progetto' : undefined),
+      text: (t) => replaceTeamSection(t, team, project !== undefined),
     });
   }
 
@@ -1345,7 +1369,7 @@ export class TeamManager {
             : f,
         text: (t) => {
           if (!old) return t;
-          return replaceWord(
+          return replaceLanguage(
             replaceWord(replaceWord(t, old.user, p.userName), old.orchestrator, orchestrator),
             old.language,
             p.language,
@@ -1498,7 +1522,7 @@ export class TeamManager {
     const fallback = () =>
       finish({
         name: pick(),
-        title: 'l’aiutante',
+        title: teamManagerPrompts().helperTitle,
         role: clipLine(req.description, 120),
         mission: clipLine(lowerFirst(req.description), 200),
         duties: [clipLine(req.description, 200)],
@@ -1512,7 +1536,7 @@ export class TeamManager {
     for (let attempt = 0; attempt < 2; attempt++) {
       let text: string;
       try {
-        const answer = await generate(DRAFT_SYSTEM, prompt, stop);
+        const answer = await generate(teamManagerPrompts().draftSystem, prompt, stop);
         for (const u of answer.usage ?? []) {
           log.append({ agent: 'system', type: 'provider_usage', data: u });
         }
@@ -1563,7 +1587,10 @@ export class TeamManager {
         });
         const problem = this.#draftProblem(draft);
         if (!problem) return draft;
-        prompt = `${this.#draftPrompt(p, req.description, free, name)}\n\nLa tua risposta precedente non era valida: ${problem.slice(0, 600)}\nRispondi di nuovo con il solo JSON corretto.`;
+        prompt = teamManagerPrompts().retry(
+          this.#draftPrompt(p, req.description, free, name),
+          problem.slice(0, 600),
+        );
       } else {
         const reason = formatZod(parsed.error);
         log.append({
@@ -1574,7 +1601,10 @@ export class TeamManager {
             message: teamManagerStrings().draftInvalid(attempt + 1, reason),
           },
         });
-        prompt = `${this.#draftPrompt(p, req.description, free, name)}\n\nLa tua risposta precedente non era valida: ${reason.slice(0, 600)}\nRispondi di nuovo con il solo JSON corretto.`;
+        prompt = teamManagerPrompts().retry(
+          this.#draftPrompt(p, req.description, free, name),
+          reason.slice(0, 600),
+        );
       }
     }
     return fallback();
@@ -1603,29 +1633,17 @@ export class TeamManager {
       .list()
       .map((a) => `- ${a.config.name}: ${a.config.role}`)
       .join('\n');
-    return `Profilo:
-${JSON.stringify({ nome: p.userName, occupazione: p.occupation, tono: p.tone, lingua: p.language }, null, 2)}
-
-Squadra attuale (coordinatore ${p.orchestratorName}):
-${team}
-
-${p.userName} vuole un nuovo agente nella squadra. In parole sue: "${description.replace(/"/g, "'")}"
-Progetta UN solo agente con un compito chiaro e diverso da quelli della squadra attuale.
-Per ora gli agenti lavorano solo con le note del vault e, se serve, con il web.
-${name ? `Il nome è ${name}.` : `Nomi ammessi: ${free.slice(0, 8).join(', ')}.`}
-
-Formato:
-{"agents":[{"name":"…","title":"il pianificatore","role":"…","mission":"…","context":"…","duties":["…"],"area":"Progetti/Calendario","tools":[],"look":{"shape":"egg","eyes":"round"}}]}
-
-Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
-- title: chi è, con l'articolo, max 60 caratteri.
-- role: cosa fa in una frase breve, max 120 caratteri.
-- mission: il suo lavoro in seconda persona, max 200 caratteri.
-- context: una frase su ${p.userName} utile a quell'agente, max 200 caratteri.
-- duties: da 1 a 4 regole pratiche in seconda persona, max 200 caratteri ciascuna.
-- area: una cartella del vault per i risultati (solo lettere, numeri e "/", mai Agenti, Modelli o Privato).
-- tools: ["web"] se deve cercare o leggere sul web, altrimenti [].
-- look (facoltativo): shape tra blob, egg, pear, bean, dome, lumpy; eyes tra round, cyclops, stalk, trio; mouth tra smile, grin, canyon, tiny; topper tra tuft, antenna, crest, geyser.`;
+    return teamManagerPrompts().draftPrompt({
+      userName: p.userName,
+      orchestratorName: p.orchestratorName,
+      occupation: p.occupation,
+      tone: p.tone,
+      language: p.language,
+      team,
+      description,
+      name,
+      free: free.slice(0, 8).join(', '),
+    });
   }
 
   #proposed(
@@ -1751,7 +1769,7 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
     const draft = this.#finishDraft(
       {
         name,
-        title: clean('title', input.title ?? 'l’aiutante'),
+        title: clean('title', input.title ?? teamManagerPrompts().helperTitle),
         role: clean('role', input.role),
         mission: clean('mission', input.mission),
         duties,
@@ -2184,7 +2202,10 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
         if (old) out = replaceWord(out, old.orchestrator, capo);
         return oldArea ? replaceWord(out, oldArea, area) : out;
       };
-      const text = current.pristine && fields ? this.#render(fields, copy) : replaced(current.text);
+      const text =
+        current.pristine && fields
+          ? this.#render(fields, copy, current.lang)
+          : replaced(current.text);
       const dir = join(team.dir, id);
       await mkdir(dir, { recursive: true });
       await writeFile(join(dir, AGENT_YAML), doc.toString(), 'utf8');
@@ -2343,13 +2364,7 @@ export function createRequestOf(draft: TeamDraft): TeamMemberCreateRequest {
   };
 }
 
-const DRAFT_SYSTEM = `Progetti un nuovo agente AI per la squadra di una persona.
-Rispondi SOLO con un oggetto JSON valido, senza testo prima o dopo e senza markdown.`;
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const ASK_PROFILE_LABELS: Record<string, string> = {
-  publish: 'pubblicare',
-  contact: 'inviare messaggi o mail a terzi',
-  spend: 'pagare o comprare',
-  delete: 'cancellare',
-  goal: 'cambiare un obiettivo',
-};
+/** A whole line of `profilo.md` that starts with `prefix` ("- Nome: "). */
+const lineRe = (prefix: string) => new RegExp(`^${escapeRegex(prefix)}.*$`, 'm');

@@ -26,6 +26,7 @@ import { ControlScope } from '../src/kill/control-scope.ts';
 import { buildReceipt } from '../src/team/instinct/receipt.ts';
 import { EventLog, coreMigrations, migrate, openDb } from '../src/index.ts';
 import { startTestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * D-127 (19/10/2026, Progetto Social): a capo whose squad has the web gets no
@@ -74,6 +75,8 @@ describe('a capo of a project on Claude Code (Luna, 19/10)', () => {
       .register(new FakeProvider({ models: {} }))
       .register(harness);
     const t = await startTestHub({}, { hub: { providers } });
+    // Starting a core picks the language of the system: the test says which one it wants.
+    inLang('it');
     // The plan is not enabled in the subscriptions of this home: the test puts the harness back.
     if (!providers.has(harness.id)) providers.register(harness);
     await t.json<ProjectView>('POST', '/api/projects', {
@@ -194,6 +197,7 @@ describe('Claude Code built-ins of a run (D-127)', () => {
   });
 
   it('says who has the web to a monster without it, never "denied"', () => {
+    inLang('it');
     const none = unavailableBuiltin(
       'WebSearch',
       { search: false, fetch: false, own: false, elsewhere: ['Pixel'] },
@@ -240,6 +244,7 @@ describe('Claude Code built-ins of a run (D-127)', () => {
   });
 
   it('the run section says the web of the run exactly', () => {
+    inLang('it');
     const own = monstersToolsSection('claude-agent', { search: true, fetch: true, own: true });
     expect(own).toContain('usa la tua ricerca (WebSearch)');
     expect(own).toContain('WebFetch di Claude Code non è tra i tuoi strumenti');
@@ -324,6 +329,7 @@ describe('Claude Code built-ins of a run (D-127)', () => {
 
 describe('harness runner: a refused built-in in the log (D-127)', () => {
   it('logs plain Italian, not the binary’s "denied"', async () => {
+    inLang('it');
     const dir = mkdtempSync(join(tmpdir(), 'monsters-builtins-'));
     dirs.push(dir);
     const harness = recordingHarness(
@@ -442,7 +448,7 @@ describe('harness runner: a refused built-in in the log (D-127)', () => {
           tool: 'claude-agent.WebSearch',
           calls: 1,
           failed: 1,
-          why: 'it wasn’t among the tools of the job, you didn’t deny it',
+          why: 'non era tra gli strumenti del lavoro, non l’hai negato tu',
           // The cause the core wrote (D-132), the same words for every path.
           causes: ['not_in_run'],
         },
@@ -450,7 +456,7 @@ describe('harness runner: a refused built-in in the log (D-127)', () => {
           tool: 'claude-agent.Edit',
           calls: 1,
           failed: 1,
-          why: 'a fixed Monsters rule, not a permission of yours',
+          why: 'regola fissa di Monsters, non un tuo permesso',
           causes: ['monsters_policy'],
         },
       ]),

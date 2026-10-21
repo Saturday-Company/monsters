@@ -15,6 +15,7 @@ import {
   type UsageClass,
 } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * The spending is true (review of 18/10, F-A4, F-M4, F-B13): every request
@@ -301,6 +302,7 @@ describe('the spending caps with direct keys (D-114) and the projects (F-B13)', 
   }
 
   it('a key without a price never stops, and the cap’s card says so before the first request', () => {
+    inLang('it');
     const s = createCoreServices({ home: tempHome() });
     opened.push(s);
     const m = meter(s, {
@@ -387,6 +389,7 @@ describe('the spending caps with direct keys (D-114) and the projects (F-B13)', 
   });
 
   it('a project’s cap stops the monster for that project’s runs only', () => {
+    inLang('it');
     const s = createCoreServices({ home: tempHome() });
     opened.push(s);
     let members: Record<string, string[]> = { alfa: ['leda'], beta: [] };

@@ -18,7 +18,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import { defineTool, ToolError, type FolderGrant, type MonstersTool } from '@monsters/shared';
 import { z } from 'zod';
 import {
-  INSTRUCTION_FILES_DENIED,
+  instructionFilesDenied,
   INSTRUCTION_FILES_HINT,
   instructionFileIn,
 } from './instruction-files.ts';
@@ -326,7 +326,7 @@ export function createFsTools(options: FsToolsOptions): MonstersTool[] {
     if (folders.length === 0) return;
     for (const path of typeof paths === 'string' ? [paths] : paths) {
       if (instructionFileIn(path, folders)) {
-        throw denied(INSTRUCTION_FILES_DENIED, INSTRUCTION_FILES_HINT);
+        throw denied(instructionFilesDenied(), INSTRUCTION_FILES_HINT);
       }
     }
   };

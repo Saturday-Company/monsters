@@ -1,4 +1,5 @@
 import {
+  appLang,
   AutomationCreateSchema,
   AutomationUpdateSchema,
   describeSchedule,
@@ -30,6 +31,7 @@ import type { QuestionStore } from '../team/questions.ts';
 import type { RunLimits } from '../team/run-limits.ts';
 import { OBJECTIVE_TEXT_TAIL, proposalText } from '../team/proposal-text.ts';
 import type { TeamService } from '../team/team-service.ts';
+import { automationPrompts } from './automations.prompts.ts';
 import { automationStrings } from './automations.strings.ts';
 import { automationRunOf, runsOfGiro } from './run-index.ts';
 import { checkSchedule, missedSlot, nextSlot, ScheduleError } from './schedule.ts';
@@ -163,10 +165,6 @@ interface Pending {
  * (`item`), or with a line for the capo (`text`, after a closing of the core).
  */
 type Continuation = { giro: string; item: InboxItem } | { giro: string; text: string };
-
-/** What the capo reads when a giro cut by a closing of the core goes on (B3). */
-const RECOVER_TEXT =
-  'Monsters si è chiuso (un riavvio o un aggiornamento) mentre lavoravi a questo giro. Riprendi da dove eri rimasto: quello che avevi già fatto è qui sopra, non rifarlo.';
 
 interface ActiveGiro {
   automationId: string;
@@ -1006,9 +1004,9 @@ export class AutomationService {
     );
   }
 
-  /** The slot as the lead reads it (for the model: Italian until the prompts move). */
+  /** The slot as the lead reads it, in the family of the prompts (the app's language). */
   #slotText(a: Automation, slot: number): string {
-    return `(giro di ${this.#slotWhen(a, slot, 'it')})`;
+    return automationPrompts().slot(this.#slotWhen(a, slot, appLang()));
   }
 
   /** What the capo reads: the objective and what goes around it. */
@@ -1018,25 +1016,18 @@ export class AutomationService {
     trigger: AutomationTrigger,
     slot?: number,
   ): string {
+    const p = automationPrompts();
     const head =
-      slot !== undefined
-        ? `[Automazione «${a.name}» ${this.#slotText(a, slot)}]`
-        : `[Automazione «${a.name}», eseguita ora]`;
+      slot !== undefined ? p.headSlot(a.name, this.#slotText(a, slot)) : p.headNow(a.name);
     const names = a.participants
       .filter((id) => id !== lead.config.id)
       .map((id) => this.#o.team.byId(id))
       .filter((x): x is AgentDefinition => x !== undefined)
       .map((x) => `${x.config.name} (${x.config.role})`);
     const lines = [head, a.objective];
-    if (names.length > 0) lines.push(`Mostri che partecipano: ${names.join(', ')}.`);
-    if (a.resultsFolder)
-      lines.push(`Salva i risultati nella cartella «${a.resultsFolder}» delle note.`);
-    lines.push(
-      trigger === 'manual'
-        ? "È un giro dell'automazione, avviato dall'utente."
-        : "È un giro automatico: l'utente non sta guardando la chat.",
-      'Se ti serve una sua scelta, chiedigliela invece di tirare a indovinare; alla fine scrivi in breve cosa hai fatto e dove sono i risultati.',
-    );
+    if (names.length > 0) lines.push(p.participants(names.join(', ')));
+    if (a.resultsFolder) lines.push(p.resultsFolder(a.resultsFolder));
+    lines.push(trigger === 'manual' ? p.manual : p.scheduled, p.closing);
     return lines.join('\n\n');
   }
 
@@ -1360,7 +1351,7 @@ export class AutomationService {
       this.#closeGiro(giro, a, 'aborted', automationStrings().cantContinue(a.lead));
       return;
     }
-    const continuation = { giro, text: RECOVER_TEXT };
+    const continuation = { giro, text: automationPrompts().recover };
     if (this.#o.dispatcher.busy(lead.config.id)) this.#wait(a, s.trigger, s.slot, continuation);
     else this.#begin(a, lead, s.trigger, s.slot, continuation);
   }

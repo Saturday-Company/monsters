@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EventLog, coreMigrations, migrate, openDb } from '../src/index.ts';
 import {
   accessCheck,
@@ -11,6 +12,11 @@ import {
   type ClaimContext,
   type RunAccessFacts,
 } from '../src/team/access-claims.ts';
+
+// The texts the models read are tested in Italian (the family of the app language, byte for byte
+// what they were); the English ones are checked in the blocks that switch the language.
+beforeEach(() => setAppLang('it'));
+afterEach(() => setAppLang('en'));
 
 /*
  * D3 and D4 of the audit of 19/10 (D-140, D-141): the texts paraphrase what monsters wrote

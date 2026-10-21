@@ -17,6 +17,8 @@ import type { EventLog } from '../log/event-log.ts';
 import type { CallTracker } from './call-tracker.ts';
 import { stripInvisible } from './invisible.ts';
 import { normalizeInput, type ObjectSchema } from './repair.ts';
+import { runtimePrompts } from './runtime.prompts.ts';
+import { runAgentStrings } from './run-agent.strings.ts';
 
 /*
  * MonstersTool → AI SDK tool. Every execution is logged (`tool_call` before,
@@ -520,7 +522,7 @@ export function adaptTool(t: MonstersTool, ctx: ToolAdapterContext, sources?: So
               source: source.slice(0, 300),
               tool: t.name,
               chars: visible.hidden,
-              message: `Ho tolto ${visible.hidden} caratteri invisibili da ${source.slice(0, 120)}: nascondevano un testo.`,
+              message: runAgentStrings().invisibleRemoved(visible.hidden, source.slice(0, 120)),
             },
           });
         }
@@ -544,9 +546,12 @@ export function adaptTool(t: MonstersTool, ctx: ToolAdapterContext, sources?: So
         if (!parsed.success) {
           throw new ToolError(
             'INVALID_INPUT',
-            `argomenti non validi per ${t.name}: ${z.prettifyError(parsed.error)}`,
+            runtimePrompts().invalidArguments(t.name, z.prettifyError(parsed.error)),
             {
-              hint: `Correggi gli argomenti e richiama lo strumento. Argomenti di ${t.name}: ${compactSchema(schema as ObjectSchema)} (? = facoltativo).`,
+              hint: runtimePrompts().invalidArgumentsHint(
+                t.name,
+                compactSchema(schema as ObjectSchema),
+              ),
             },
           );
         }

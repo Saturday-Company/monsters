@@ -9,7 +9,8 @@ import {
 } from 'node:fs';
 import { rename } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   commandWritesInstructions,
   createFsTools,
@@ -25,6 +26,9 @@ import { tempDir, toolCtx, toolError } from './system-helpers.ts';
  */
 
 const POSIX = process.platform !== 'win32';
+
+// A test that pins the Italian family restores the English one.
+afterEach(() => setAppLang('en'));
 
 describe('instruction files of a project folder (D-103)', () => {
   it('names them at any depth of the folder, in any case, as Windows reads them (review 18/10, M3)', () => {
@@ -122,6 +126,7 @@ describe('instruction files of a project folder (D-103)', () => {
   });
 
   it('fs_write, fs_move and fs_delete refuse them, other files of the folder are free', async () => {
+    setAppLang('it');
     const folder = tempDir();
     writeFileSync(join(folder, 'CLAUDE.md'), '# Progetto\n');
     const tools = createFsTools({
@@ -190,6 +195,7 @@ describe('instruction files of a project folder (D-103)', () => {
   });
 
   it('a folder that holds them is not moved in or out, replaced or deleted, terminal or not; the scan has a cap (S-B4)', async () => {
+    setAppLang('it');
     const project = tempDir();
     const other = tempDir();
     mkdirSync(join(project, 'sub', 'deep'), { recursive: true });

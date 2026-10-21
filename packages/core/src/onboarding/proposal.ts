@@ -2,8 +2,11 @@ import { slugify, type MonsterGenome } from '@monsters/monster-kit';
 import type { ModelRef } from '@monsters/providers';
 import {
   AgentAreaSchema,
+  appLang,
   MOON_NAMES,
+  writingLanguageName,
   type AgentPermissions,
+  type Lang,
   type ProposedAgent,
   type TeamProposal,
 } from '@monsters/shared';
@@ -28,6 +31,7 @@ import {
 } from './monsters.ts';
 import { contextSentence, type Profile } from './profile.ts';
 import { onboardingStrings } from './onboarding.strings.ts';
+import { PROPOSAL_PROMPTS } from './proposal.prompts.ts';
 
 /*
  * Team proposal (ARCHITECTURE §7.5-6, research 03 §5): a model fills a small
@@ -98,53 +102,22 @@ export type Generate = (system: string, prompt: string, signal?: AbortSignal) =>
 
 // --- prompt ------------------------------------------------------------------
 
-export const PROPOSAL_SYSTEM = `Progetti la squadra di agenti AI di una persona, a partire dal suo profilo.
-Rispondi SOLO con un oggetto JSON valido, senza testo prima o dopo e senza markdown.`;
+/** The system prompt of the proposal, in the app's language (D-153). */
+export function proposalSystem(lang: Lang = appLang()): string {
+  return PROPOSAL_PROMPTS[lang].system;
+}
 
-export function proposalPrompt(ctx: ProposalContext): string {
+export function proposalPrompt(ctx: ProposalContext, lang: Lang = appLang()): string {
   const p = ctx.profile;
-  const names = allowedNames(p.orchestratorName);
-  const tools = ctx.permissions.web
-    ? '["web"] se l’agente deve cercare o leggere sul web, altrimenti []'
-    : '[] (il web non è permesso)';
-  const profile = {
-    nome: p.userName,
-    occupazione: p.occupation,
-    obiettivi: p.goals,
-    da_delegare: p.delegate,
-    strumenti: p.tools,
-    chiedere_sempre_prima_di: p.askFirst,
-    tono: p.tone,
-    lingua: p.language,
-  };
-  return `Profilo:
-${JSON.stringify(profile, null, 2)}
-
-Proponi da 2 a 5 agenti (meglio 2-3, pochi e utili) che lavorano per ${p.userName} sotto il coordinatore ${p.orchestratorName}.
-Ogni agente ha un compito chiaro e diverso dagli altri, legato al profilo.
-Se ${p.userName} deve ricevere testi (post, mail, documenti), uno degli agenti li scrive: il coordinatore gli passa quei lavori. Se servono fatti dal web, uno degli agenti fa le ricerche.
-Le regole comuni a tutti (scrivere in ${p.language}, link alle pagine web come [testo](url), nomi dei file leggibili) sono già nel modello: nei duties metti solo regole proprie del mestiere di quell'agente.
-Per ora gli agenti lavorano solo con le note del vault e, se permesso, con il web: niente compiti su app o account esterni (mail, social, Notion…).
-
-Archetipi di partenza, da usare quando servono e adattare al profilo:
-- Rhea: ricerche online e sintesi con fonti.
-- Dione: testi pronti da usare (post, mail, riassunti, piani).
-
-Nomi ammessi: ${names.slice(0, 8).join(', ')} (gli altri nell'ordine). Mai ${p.orchestratorName}.
-
-Formato:
-{"agents":[{"name":"Rhea","title":"la ricercatrice","role":"ricerche online e sintesi con fonti","mission":"trovi informazioni affidabili e aggiornate e le trasformi in note utili","context":"${p.userName} …","duties":["…"],"area":"Risorse/Ricerche","tools":["web"],"look":{"shape":"egg","eyes":"round"}}]}
-
-Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
-- name: uno dei nomi ammessi.
-- title: chi è, con l'articolo ("la ricercatrice", "il pianificatore"), max 60 caratteri.
-- role: cosa fa in una frase breve, max 120 caratteri.
-- mission: il suo lavoro in seconda persona, max 200 caratteri.
-- context: una frase su ${p.userName} utile a quell'agente, max 200 caratteri.
-- duties: da 1 a 4 regole pratiche in seconda persona, max 200 caratteri ciascuna.
-- area: una cartella del vault per i risultati, come "Risorse/Ricerche" o "Progetti/Social" (solo lettere, numeri e "/", mai Agenti, Modelli o Privato).
-- tools: ${tools}.
-- look (facoltativo): shape tra blob, egg, pear, bean, dome, lumpy; eyes tra round, cyclops, stalk, trio; mouth tra smile, grin, canyon, tiny; topper tra tuft, antenna, crest, geyser.`;
+  const t = PROPOSAL_PROMPTS[lang];
+  return t.prompt({
+    userName: p.userName,
+    orchestratorName: p.orchestratorName,
+    profileJson: JSON.stringify(t.profile(p), null, 2),
+    language: writingLanguageName(p.language, lang),
+    names: allowedNames(p.orchestratorName).slice(0, 8).join(', '),
+    web: ctx.permissions.web,
+  });
 }
 
 // --- normalisation -------------------------------------------------------------
@@ -264,8 +237,10 @@ function fromLlm(agent: LlmAgent): Draft {
 
 // --- blueprints ----------------------------------------------------------------
 
-export const GENERIC_REPORT =
-  'cosa hai fatto (massimo 5 righe), le note create o modificate, i dubbi aperti';
+/** The report of a monster made to measure, in a family (the app's language by default). */
+export function genericReport(lang: Lang = appLang()): string {
+  return PROPOSAL_PROMPTS[lang].genericReport;
+}
 
 /** Limits of a member: the archetype's, and room for searching and reading with web tools. */
 function memberLimits(
@@ -304,7 +279,7 @@ export function memberBlueprint(
     context: member.context,
     duties: member.duties,
     outputArea: member.area,
-    report: archetype?.report ?? GENERIC_REPORT,
+    report: archetype?.report ?? genericReport(),
     color: member.color,
     models: ctx.models ?? DEFAULT_FREE_CHAIN,
     tools: member.tools,
@@ -383,18 +358,17 @@ export async function proposeTeam(
   } = {},
 ): Promise<TeamProposal> {
   if (!generate) return fallbackProposal(ctx);
+  const t = PROPOSAL_PROMPTS[appLang()];
   let prompt = proposalPrompt(ctx);
   let requests = 0;
   for (let attempt = 0; attempt < 2; attempt++) {
     let answer: Generated;
     try {
-      answer = await generate(PROPOSAL_SYSTEM, prompt, options.signal);
+      answer = await generate(t.system, prompt, options.signal);
     } catch (err) {
       for (const u of (err as GenerateError).usage ?? []) options.onUsage?.(u);
       if (options.signal?.aborted) throw err;
-      options.onAttempt?.(
-        `proposta del team: il modello non ha risposto (${(err as Error).message})`,
-      );
+      options.onAttempt?.(t.attemptNoAnswer((err as Error).message));
       break;
     }
     requests += answer.requests;
@@ -410,8 +384,8 @@ export async function proposeTeam(
       };
     } catch (err) {
       const reason = (err as Error).message;
-      options.onAttempt?.(`proposta del team non valida (tentativo ${attempt + 1}): ${reason}`);
-      prompt = `${proposalPrompt(ctx)}\n\nLa tua risposta precedente non era valida: ${reason.slice(0, 600)}\nRispondi di nuovo con il solo JSON corretto.`;
+      options.onAttempt?.(t.attemptInvalid(attempt + 1, reason));
+      prompt = t.retry(proposalPrompt(ctx), reason.slice(0, 600));
     }
   }
   options.onError?.(onboardingStrings().basicSquad);

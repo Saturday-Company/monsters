@@ -13,9 +13,10 @@ import {
   migrate,
   openDb,
   parseAgentConfig,
-  SUMMARY_SYSTEM,
+  summarySystem,
   type AgentDefinition,
 } from '../src/index.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * Who writes a summary (C.3, D-082): the cheapest model of the monster's
@@ -52,6 +53,7 @@ const usageOf = (log: EventLog) =>
 
 describe('createSummarizer', () => {
   it('the cheapest model of the chain, with the strict prompt; its cost is a compaction', async () => {
+    inLang('it');
     const provider = new FakeProvider({
       models: {
         big: [{ kind: 'text', text: 'non io' }],
@@ -138,6 +140,7 @@ describe('createSummarizer', () => {
   });
 
   it('a monster on the Claude plan only: Claude Code with Haiku, no tool, no MCP', async () => {
+    inLang('it');
     const dir = mkdtempSync(join(tmpdir(), 'monsters-summary-'));
     const home = join(dir, 'home');
     mkdirSync(join(home, '.claude'), { recursive: true });
@@ -189,6 +192,6 @@ describe('createSummarizer', () => {
     expect(appended).toBeDefined();
     const [u] = usageOf(log);
     expect(u).toMatchObject({ provider: 'claude-agent', purpose: 'compaction', inputTokens: 900 });
-    expect(SUMMARY_SYSTEM).toContain('Copia alla lettera');
+    expect(summarySystem()).toContain('Copia alla lettera');
   });
 });

@@ -1,7 +1,20 @@
 import { fake } from '@monsters/providers/testing';
 import type { LogEvent } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
-import { promptText, startTestHub } from './hub-helpers.ts';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { promptText, startTestHub as startHub } from './hub-helpers.ts';
+
+// The texts the models read are tested in Italian (the family of the app language, byte for byte
+// what they were); the English ones are checked in the blocks that switch the language.
+beforeEach(() => setAppLang('it'));
+afterEach(() => setAppLang('en'));
+
+// Starting a core picks the language of the system: the test says which one it wants.
+const startTestHub: typeof startHub = async (...args) => {
+  const hub = await startHub(...args);
+  setAppLang('it');
+  return hub;
+};
 
 /*
  * D-140 and D-141 on a real core with the fake provider: the check of the end of the turn

@@ -11,6 +11,7 @@ import {
   EventInputSchema,
   formatList,
   ONBOARDING_QUESTIONS,
+  PROFILE_NOTE_PATH,
   checkOnboardingAnswer,
   isClaudePlanChain,
   isReservedActor,
@@ -66,7 +67,7 @@ import { onboardingStrings } from './onboarding.strings.ts';
  */
 
 export const ONBOARDING_STATE_KEY = 'onboarding';
-export const PROFILE_PATH = 'profilo.md';
+export const PROFILE_PATH = PROFILE_NOTE_PATH;
 
 interface Stored {
   answers: Answers;

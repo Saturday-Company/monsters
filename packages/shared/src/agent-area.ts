@@ -12,6 +12,9 @@ import { agentAreaStrings } from './agent-area.strings.ts';
 /** First-level folders an agent area can never be in (compared case-insensitively). */
 export const RESERVED_AREA_FOLDERS = ['Agenti', 'Modelli', 'Privato'] as const;
 
+/** The user's profile, at the root of the notes (written at the first start, read by every monster). */
+export const PROFILE_NOTE_PATH = 'profilo.md';
+
 export const MAX_AREA_LENGTH = 80;
 const MAX_AREA_DEPTH = 4;
 const MAX_SEGMENT_LENGTH = 40;

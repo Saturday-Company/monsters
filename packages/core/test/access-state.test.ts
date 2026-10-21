@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { parseAgentConfig, type AgentDefinition } from '../src/agents/definition.ts';
 import {
   accessCaps,
@@ -7,6 +8,11 @@ import {
   claimContext,
   type AccessStateDeps,
 } from '../src/team/access-state.ts';
+
+// The texts the models read are tested in Italian (the family of the app language, byte for byte
+// what they were); the English ones are checked in the blocks that switch the language.
+beforeEach(() => setAppLang('it'));
+afterEach(() => setAppLang('en'));
 
 /* The accesses of a monster now, with their causes (D-140, D-141). */
 

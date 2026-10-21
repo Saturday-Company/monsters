@@ -47,6 +47,7 @@ const en = {
   noModelHint: (name: string) =>
     `${name} has no model yet: connect one in Settings → Models, or pick another monster.`,
   noModel: (name: string) => `${name} has no model yet.`,
+  agentBusy: (name: string) => `${name} is working`,
   busyNewConversation: (names: readonly string[]) =>
     `${formatList(names)} ${names.length === 1 ? 'is' : 'are'} still working: wait for ${names.length === 1 ? 'it' : 'them'} to finish or stop ${names.length === 1 ? 'it' : 'them'}, then start a new conversation.`,
   // --- resuming a job
@@ -126,6 +127,7 @@ const it: typeof en = {
   noModelHint: (name) =>
     `${name} non ha ancora un modello: collegane uno in Impostazioni → Modelli, o scegline un altro.`,
   noModel: (name) => `${name} non ha ancora un modello.`,
+  agentBusy: (name) => `${name} sta lavorando`,
   busyNewConversation: (names) =>
     `${formatList(names)} ${names.length === 1 ? 'sta' : 'stanno'} ancora lavorando: aspetta che finisca o fermalo, poi inizia una nuova conversazione.`,
   resumeMessageFailed: (message) => `Non ho potuto riprendere un messaggio in attesa: ${message}`,

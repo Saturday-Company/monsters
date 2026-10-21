@@ -7,6 +7,7 @@ import {
 } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
 import { startTestHub, type TestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * Collaudo of block B from a clean clone (17/10): the defects found on a real
@@ -111,7 +112,8 @@ describe('project_propose: the participants may name the monster a copy comes fr
 
 describe('the stop at the project’s cap says where to raise it', () => {
   it('"nella scheda Spesa del progetto", not "Impostazioni → Modelli"', async () => {
-    const t = await startTestHub({ titan: [] });
+    inLang('it');
+    const t = await startTestHub({ titan: [] }, { lang: 'it' });
     const project = await t.json<{ id: string; lead: string }>('POST', '/api/projects', {
       name: 'Saturday',
       lead: { name: 'Leda' },

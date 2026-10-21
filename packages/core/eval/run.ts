@@ -25,6 +25,9 @@ import { evaluateRun, loopFromStored, type LoopMetrics, type RunMetrics } from '
  *
  *   pnpm --filter @monsters/core eval --label baseline --case post --times 3
  *
+ * `--lang en` runs the app in English (the English prompts, D-153); the profile and the request
+ * stay the same, so the monsters still write in Italian. Default `it`.
+ *
  * `--rescore <path>` scores again without any request: a folder of runs kept
  * with --keep (events and vault on disk), or saved results (a results JSON, or
  * a folder of them such as eval/results/, with --match on the file name). Saved
@@ -62,6 +65,8 @@ const { values: args } = parseArgs({
     /** `paid`: paid web search on OPENROUTER_PAID_API_KEY (D-071); default: the free chain. */
     search: { type: 'string', default: 'free' },
     engine: { type: 'string', default: 'parallel' },
+    /** The app's language of the runs (D-153): the family of the prompts. Default: Italian, as before. */
+    lang: { type: 'string', default: 'it' },
   },
 });
 
@@ -93,6 +98,9 @@ if (args.search !== 'free' && args.search !== 'paid') {
 }
 if (args.engine !== 'parallel' && args.engine !== 'exa') {
   throw new Error(`--engine must be parallel or exa, not ${args.engine}`);
+}
+if (args.lang !== 'it' && args.lang !== 'en') {
+  throw new Error(`--lang must be it or en, not ${args.lang}`);
 }
 /** Only with --search paid: the key of the paid search, never of the models. */
 const searchKey = args.search === 'paid' ? loadKey('OPENROUTER_PAID_API_KEY') : undefined;
@@ -199,7 +207,12 @@ async function runOnce(c: EvalCase, index: number, key: string, cap: number): Pr
   const core = await startCore({
     home,
     port: 0,
-    env: { OPENROUTER_API_KEY: key, ...(typesafeKey ? { TYPESAFE_API_KEY: typesafeKey } : {}) },
+    env: {
+      OPENROUTER_API_KEY: key,
+      // A new home takes the language of the environment (D-153): the prompts' family.
+      MONSTERS_LANG: args.lang,
+      ...(typesafeKey ? { TYPESAFE_API_KEY: typesafeKey } : {}),
+    },
     webDist: false,
     hub: {
       fetch: countingFetch,
@@ -564,7 +577,7 @@ async function main(): Promise<void> {
   const budget = Number(args.budget);
   const cap = Number(args['max-requests']);
   const results: RunResult[] = [];
-  out(`Eval "${args.label}": ${cases.map((c) => c.id).join(', ')} × ${times}`);
+  out(`Eval "${args.label}" (${args.lang}): ${cases.map((c) => c.id).join(', ')} × ${times}`);
   out(`Richieste già usate: ${spent()} su ${budget}`);
   for (const c of cases) {
     for (let i = 1; i <= times; i++) {
@@ -589,7 +602,10 @@ async function main(): Promise<void> {
   mkdirSync(RESULTS, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const file = join(RESULTS, `${args.label}-${stamp}.json`);
-  writeFileSync(file, `${JSON.stringify({ label: args.label, results }, null, 2)}\n`);
+  writeFileSync(
+    file,
+    `${JSON.stringify({ label: args.label, lang: args.lang, results }, null, 2)}\n`,
+  );
   out();
   out(table(results));
   out();

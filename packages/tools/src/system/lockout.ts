@@ -1,6 +1,7 @@
 import { lstatSync, readdirSync, readlinkSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { posix, win32 } from 'node:path';
+import { toolPrompts } from '../tools.prompts.ts';
 import { isInside, mayBeInside } from './paths.ts';
 
 /*
@@ -33,11 +34,9 @@ import { isInside, mayBeInside } from './paths.ts';
  */
 
 /** What the model reads when a call reaches the data folder of Monsters. */
-export const INTERNAL_FILES_DENIED =
-  'I file interni di Monsters non sono accessibili: usa gli strumenti di Monsters.';
+export const internalFilesDenied = (): string => toolPrompts().internalFilesDenied;
 /** The same for a recursive command on a folder that contains the data folder. */
-export const INTERNAL_FILES_TREE_DENIED =
-  'Questo comando passerebbe dai file interni di Monsters: restringilo a una cartella precisa, oppure usa gli strumenti di Monsters.';
+export const internalFilesTreeDenied = (): string => toolPrompts().internalFilesTreeDenied;
 const HINT =
   'Work in your own folder or in a folder the user granted you; notes go through the vault_* tools, the team through delegate.';
 
@@ -54,7 +53,7 @@ export interface DataDirLock {
 }
 
 export interface LockVerdict {
-  /** The message for the model (`INTERNAL_FILES_DENIED` or the recursive variant). */
+  /** The message for the model (`internalFilesDenied()` or the recursive variant). */
   message: string;
   hint: string;
   /** The path that reached the data folder, as resolved. */
@@ -362,12 +361,12 @@ function holdsData(path: string, p: Prepared): boolean {
 }
 
 const denied = (path: string): LockVerdict => ({
-  message: INTERNAL_FILES_DENIED,
+  message: internalFilesDenied(),
   hint: HINT,
   path,
 });
 const treeDenied = (path: string): LockVerdict => ({
-  message: INTERNAL_FILES_TREE_DENIED,
+  message: internalFilesTreeDenied(),
   hint: HINT,
   path,
 });
@@ -550,7 +549,7 @@ export function lockedCommand(command: string, cwd: string, lock: DataDirLock): 
   let tree: LockVerdict | null = null;
   for (const text of readings(command, p)) {
     const v = lockedText(expandWords(text, p, dataDir), cwd, p);
-    if (v?.message === INTERNAL_FILES_DENIED) return v;
+    if (v?.message === internalFilesDenied()) return v;
     tree ??= v;
   }
   return tree;

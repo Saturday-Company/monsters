@@ -1,4 +1,4 @@
-import { CODEX_USER_INPUT_ANSWER, codexUserInputResult } from '@monsters/providers';
+import { codexUserInputAnswer, codexUserInputResult } from '@monsters/providers';
 import {
   TOOL_CAUSE_NOTE,
   ToolError,
@@ -12,11 +12,12 @@ import { parseAgentConfig } from '../src/agents/definition.ts';
 import { harnessMcpInstructions } from '../src/agents/harness-tools.ts';
 import { buildSystemPrompt, instructionsForTools } from '../src/agents/run-agent.ts';
 import { monstersToolsSection } from '../src/agents/run-harness.ts';
-import { SOURCES_RULE, WEB_METHOD } from '../src/agents/templates.ts';
+import { sourcesRule, webMethod } from '../src/agents/templates.ts';
 import { adaptTools } from '../src/agents/tool-adapter.ts';
 import { buildReceipt } from '../src/team/instinct/receipt.ts';
 import { createCoreServices, type CoreServices } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * D2/D6 of the review of 19/10 (D-132): who said no is part of the code, and the cause of
@@ -53,6 +54,7 @@ async function call(set: ReturnType<typeof adaptTools>, name: string): Promise<u
 
 describe('the cause of a failed call (D-132)', () => {
   it('maps the codes, and only USER_DECLINED is the user', () => {
+    inLang('it');
     expect(toolFailureCause('USER_DECLINED')).toBe('user_declined');
     expect(toolFailureCause('SITE_REFUSED')).toBe('site_refused');
     expect(toolFailureCause('BLOCKED_BY_POLICY')).toBe('monsters_policy');
@@ -67,6 +69,7 @@ describe('the cause of a failed call (D-132)', () => {
   });
 
   it('our loop: the model reads the cause, the log keeps it, the receipt says it', async () => {
+    inLang('it');
     const s = services();
     const request = s.log.append({
       agent: 'user',
@@ -117,10 +120,10 @@ describe('the cause of a failed call (D-132)', () => {
     });
     const byTool = new Map(receipt.externalTools.map((t) => [t.tool, t]));
     expect(byTool.get('web_fetch')).toMatchObject({
-      why: 'the site refused, not a permission of yours',
+      why: 'il sito ha rifiutato, non un tuo permesso',
       causes: ['site_refused'],
     });
-    expect(byTool.get('shell')).toMatchObject({ why: 'you said no', causes: ['user_declined'] });
+    expect(byTool.get('shell')).toMatchObject({ why: 'hai detto no', causes: ['user_declined'] });
   });
 
   it('a brake card nobody answered is not the user’s no (user_no_answer)', async () => {
@@ -150,6 +153,7 @@ describe('the cause of a failed call (D-132)', () => {
   });
 
   it('the rule of the system says it to every monster', () => {
+    inLang('it');
     const prompt = buildSystemPrompt({
       agent: {
         config: parseAgentConfig({
@@ -181,6 +185,7 @@ describe('what a harness reads of its tools (A5, M4, D-132, D-135)', () => {
   });
 
   it('"la squadra" only with delegate; Codex: questions with ask_user, no network for commands', () => {
+    inLang('it');
     const web = { search: false, fetch: false, own: false };
     expect(monstersToolsSection('claude-agent', web)).toContain(
       "Il vault dell'utente è nel server MCP",
@@ -200,18 +205,19 @@ describe('what a harness reads of its tools (A5, M4, D-132, D-135)', () => {
   it('Codex’s request_user_input gets Monsters’ words, never an error or the user’s voice', () => {
     expect(codexUserInputResult({ questions: [{ id: 'a' }, { id: 'b' }, { nope: 1 }] })).toEqual({
       answers: {
-        a: { answers: [CODEX_USER_INPUT_ANSWER] },
-        b: { answers: [CODEX_USER_INPUT_ANSWER] },
+        a: { answers: [codexUserInputAnswer()] },
+        b: { answers: [codexUserInputAnswer()] },
       },
     });
     expect(codexUserInputResult(undefined)).toEqual({ answers: {} });
   });
 
   it('AGENTS.md without web tools loses the web method and the sources rule (A7)', () => {
-    const md = `# Rhea\n\n## Regole\n- una regola\n- ${SOURCES_RULE}\n${WEB_METHOD}\n## Rapporto\n- breve\n`;
+    inLang('it');
+    const md = `# Rhea\n\n## Regole\n- una regola\n- ${sourcesRule('it')}\n${webMethod('it')}\n## Rapporto\n- breve\n`;
     const without = instructionsForTools(md, ['vault_search']);
     expect(without).not.toContain('## Come cerchi sul web');
-    expect(without).not.toContain(SOURCES_RULE);
+    expect(without).not.toContain(sourcesRule('it'));
     expect(without).toContain('## Rapporto');
     expect(without).toContain('- una regola');
     expect(instructionsForTools(md, ['web_search'])).toBe(md);

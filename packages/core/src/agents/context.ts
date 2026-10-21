@@ -1,6 +1,7 @@
 import { defineTool, ToolError, type MonstersTool } from '@monsters/shared';
 import type { ModelMessage } from 'ai';
 import { z } from 'zod';
+import { runtimePrompts } from './runtime.prompts.ts';
 import { EXTERNAL_DATA_TAG } from './tool-adapter.ts';
 
 /*
@@ -142,10 +143,12 @@ export class ResultStore {
     const start = Math.min(Math.max(0, offset), body.length);
     const end = Math.min(body.length, start + Math.min(length, RESULT_READ_MAX));
     const slice = body.slice(start, end);
-    const where =
-      end < body.length
-        ? `caratteri ${fmt(start)}-${fmt(end)} di ${fmt(body.length)}; il resto con offset ${end}`
-        : `caratteri ${fmt(start)}-${fmt(end)} di ${fmt(body.length)}, fino alla fine`;
+    const where = runtimePrompts().readRange(
+      fmt(start),
+      fmt(end),
+      fmt(body.length),
+      end < body.length ? end : null,
+    );
     const note = `[Monsters] ${ref} (${s.tool}): ${where}.`;
     return s.open !== undefined ? `${s.open}${slice}${s.close}\n${note}` : `${slice}\n${note}`;
   }
@@ -155,7 +158,12 @@ export class ResultStore {
 function offloaded(s: Stored, head: number): string {
   const body = s.body ?? s.text;
   const shown = body.slice(0, head);
-  const note = `[Monsters] Risultato lungo (${fmt(body.length)} caratteri): qui i primi ${fmt(shown.length)}. Il resto con result_read {"ref":"${s.ref}","offset":${shown.length}}.`;
+  const note = runtimePrompts().offloadedNote(
+    fmt(body.length),
+    fmt(shown.length),
+    s.ref,
+    shown.length,
+  );
   return s.open !== undefined
     ? `${s.open}${shown}${s.close}${s.after ?? ''}\n${note}`
     : `${shown}\n${note}`;
@@ -163,7 +171,7 @@ function offloaded(s: Stored, head: number): string {
 
 /** The one line of a masked result. */
 function masked(s: Stored): string {
-  return `[Monsters] Risultato di ${s.tool} tolto dal contesto per fare spazio (${fmt(s.text.length)} caratteri). Se ti serve ancora: result_read {"ref":"${s.ref}"}.`;
+  return runtimePrompts().maskedNote(s.tool, fmt(s.text.length), s.ref);
 }
 
 /**
@@ -294,11 +302,11 @@ export class RunContext {
   resultLine(callId: string): string | null {
     const s = this.#seen.get(callId);
     if (!s) return null;
-    const kind = s.error ? 'errore, ' : '';
+    const kind = s.error ? runtimePrompts().resultErrorKind : '';
     if (s.text.length < this.#limits.minMaskChars) {
       return `${kind}${s.text.replace(/\s+/g, ' ').trim().slice(0, 200)}`;
     }
-    return `${kind}${fmt(s.text.length)} caratteri, result_read {"ref":"${s.ref}"}`;
+    return `${kind}${runtimePrompts().resultSize(fmt(s.text.length), s.ref)}`;
   }
 
   /** `result_read`: pages through a result that was shortened or masked. */

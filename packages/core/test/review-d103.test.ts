@@ -4,7 +4,13 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fake } from '@monsters/providers/testing';
-import type { AutomationView, DraftView, LogEvent, ProjectView } from '@monsters/shared';
+import {
+  setAppLang,
+  type AutomationView,
+  type DraftView,
+  type LogEvent,
+  type ProjectView,
+} from '@monsters/shared';
 import { createWebFetchTool } from '@monsters/tools';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { parse as parseYaml, stringify } from 'yaml';
@@ -64,6 +70,8 @@ afterAll(async () => {
 const dirs: string[] = [];
 afterEach(() => {
   hits.length = 0;
+  // A test that starts its core in an Italian home sets the language: back to English.
+  setAppLang('en');
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
@@ -203,7 +211,8 @@ describe('taint that travels (D-103)', () => {
     const refused = t
       .events(r1.runId)
       .filter(isType('tool_result', (e) => e.data.tool === 'automation_propose'));
-    expect(JSON.stringify(refused[0]!.data)).toContain('un link');
+    // What the monster reads is in the language of the app (English here; the Italian is in proposal-text.test.ts).
+    expect(JSON.stringify(refused[0]!.data)).toContain('contains a link');
     const drafts = await t.json<DraftView[]>('GET', '/api/drafts');
     const d = drafts.find((x) => x.kind === 'automation')!;
     expect(d.kind === 'automation' && d.automation.objectiveFrom).toMatchObject({
@@ -265,7 +274,7 @@ describe('the instructions of the project folder (D-103)', () => {
           fake.text('Fatto.'),
         ],
       },
-      { folder },
+      { folder, hub: { lang: 'it' } },
     );
     await t.json('POST', '/api/projects/saturday/members', {
       copyOf: 'rhea',

@@ -1,5 +1,5 @@
 import { isAbsolute, resolve } from 'node:path';
-import { ToolError, type MonstersTool } from '@monsters/shared';
+import { settingsLabel, ToolError, type MonstersTool } from '@monsters/shared';
 import {
   instructionFileIn,
   lockedCommand,
@@ -14,10 +14,14 @@ import type { EventLog } from '../log/event-log.ts';
 import {
   BRAKE_HOLD_MS,
   brakeNoAnswer,
-  INJECTION_REMOVED,
-  INJECTION_WARNING,
+  INJECTION_REMOVED_MARKS,
+  injectionRemoved,
+  injectionWarning,
 } from '../team/instinct/guard.ts';
 import { stripInvisible } from './invisible.ts';
+import { runAgentPrompts } from './run-agent.prompts.ts';
+import { runAgentStrings } from './run-agent.strings.ts';
+import { listWords, runHarnessPrompts } from './run-harness.prompts.ts';
 import type { FinalAnswerHook } from './run-agent.ts';
 import type { ToolGuard } from './tool-adapter.ts';
 
@@ -212,7 +216,7 @@ function names(items: readonly string[], and: string): string {
  * blames the user (a monster and a project's CLAUDE.md, 18/10/2026).
  */
 export function monstersRuleRefusal(tool: string): string {
-  return `${tool} di Claude Code: lì non arriva per una regola fissa di Monsters (i suoi dati, la configurazione di Claude Code e Codex, le cartelle chiuse a questo lavoro), non per un tuo permesso.`;
+  return runAgentStrings().monstersRuleRefusal(tool);
 }
 
 /**
@@ -231,9 +235,8 @@ export function unavailableBuiltin(
     ? 'In this run the built-in Read opens only the files the user attached.'
     : `${tool} is not one of your tools in this run: Monsters gives you only the tools you see listed.`;
   model += ' This is not a refusal of the user and asking the user for it does not help.';
-  let user = readOnly
-    ? 'In questo lavoro Read di Claude Code apre solo i file allegati: non l’hai negato tu.'
-    : `${tool} di Claude Code non è tra gli strumenti di questo lavoro: non l’hai negato tu.`;
+  const words = runAgentStrings();
+  let user = readOnly ? words.builtinOnlyAttached : words.builtinNotInJob(tool);
   if (WEB_BUILTINS.has(tool)) {
     const search = web.own ? 'WebSearch' : web.search ? `\`web_search\` of \`${server}\`` : '';
     const fetch = web.fetch ? `\`web_fetch\` of \`${server}\`` : '';
@@ -243,13 +246,13 @@ export function unavailableBuiltin(
         ...(search ? [`${search} to search`] : []),
         ...(fetch ? [`${fetch} to read a page`] : []),
       ].join(' and ')}.`;
-      user += ' Per il web ha gli strumenti di Monsters.';
+      user += words.builtinWebTools;
     } else if (elsewhere.length > 0) {
       model += ` You have no web tools: ${names(elsewhere, 'and')} ${elsewhere.length > 1 ? 'have' : 'has'} them. Delegate the search if you can, otherwise say in your answer what must be looked up.`;
-      user += ` Il web in questa squadra ce l’ha ${names(elsewhere, 'e')}.`;
+      user += words.builtinWebElsewhere(listWords(elsewhere), elsewhere.length);
     } else {
       model += ' You have no web tools in this run: say in your answer what must be looked up.';
-      user += ' Questo mostro non ha il web.';
+      user += words.builtinNoWeb;
     }
   } else if (!readOnly) {
     model += ` Work with the tools you have (Monsters' are in the \`${server}\` server).`;
@@ -258,8 +261,7 @@ export function unavailableBuiltin(
 }
 
 /** What the model reads when a call would write the harness configuration (D-079). */
-export const HARNESS_CONFIG_DENIED =
-  'La configurazione di Claude Code e Codex nella tua cartella (.claude, .mcp.json, CLAUDE.md, AGENTS.md, .codex) non si scrive: le tue regole le cambia l’utente in Impostazioni. Per CLAUDE.md o AGENTS.md della cartella di un progetto proponi il testo nuovo con `project_docs_propose`: lo applica l’utente.';
+export const harnessConfigDenied = (): string => runHarnessPrompts().configDenied(settingsLabel());
 
 /** Names of the harness configuration inside a command line (a word, any path before it). */
 const CONFIG_WORD =
@@ -429,11 +431,10 @@ async function preToolUse(
         action: 'internal_denied',
         source: 'harness_config',
         tool: name,
-        message:
-          'Un mostro voleva cambiare la configurazione di Claude Code nella sua cartella: fermato.',
+        message: runAgentStrings().configWriteStopped,
       },
     });
-    return deny(HARNESS_CONFIG_DENIED);
+    return deny(harnessConfigDenied());
   }
   if (locked) {
     const callEventId = ctx.callEvent(input.tool_use_id ?? '', name, input.tool_input ?? {});
@@ -446,7 +447,7 @@ async function preToolUse(
         action: 'internal_denied',
         source: locked.path.slice(0, 300),
         tool: name,
-        message: 'Un mostro voleva usare i file interni di Monsters: fermato.',
+        message: runAgentStrings().internalFilesStopped,
       },
     });
     return deny(`${locked.message} ${locked.hint}`);
@@ -549,20 +550,27 @@ function mapLeaves(
   return value;
 }
 
-/** Where a result comes from, for the envelope and the Activity ("ricerca sul web: …"). */
+/** Where a result comes from, for the envelope and the Activity, in the app's language. */
 function sourceOf(tool: MonstersTool, input: unknown): string {
   const i = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   if (tool.name === 'web_search') {
-    return `ricerca sul web dell'abbonamento: ${typeof i['query'] === 'string' ? i['query'] : ''}`.trim();
+    return runHarnessPrompts()
+      .sourcePlanSearch(typeof i['query'] === 'string' ? i['query'] : '')
+      .trim();
   }
   const m = /^mcp__(.+?)__(.+)$/.exec(tool.name);
-  return m ? `${m[1]} (tramite Claude): ${m[2]}` : tool.name;
+  return m ? runHarnessPrompts().sourceViaClaude(m[1]!, m[2]!) : tool.name;
 }
 
-/** Text replacing a block of a result that gave orders to the agents (as in our loop). */
-const REMOVED = INJECTION_REMOVED;
-/** How the check marks a block it took away in the text it returns. */
-const REMOVED_IN_BODY = `\n${INJECTION_REMOVED}\n`;
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * How the check marks a block it took away in the text it returns: the mark of either family
+ * (D-153), the language may change between the check and the reading.
+ */
+const REMOVED_IN_BODY = new RegExp(
+  INJECTION_REMOVED_MARKS.map((m) => `\\n${escapeRegex(m)}\\n`).join('|'),
+);
 
 /**
  * The parts of `original` the injection check took away: `checked` is the
@@ -585,8 +593,12 @@ export function removedRanges(original: string, checked: string): [number, numbe
   return out;
 }
 
-/** A string with the parts in `ranges` (relative to it) replaced by `REMOVED`, once per run of them. */
+/**
+ * A string with the parts in `ranges` (relative to it) replaced by the mark of a removed block
+ * (as in our loop), once per run of them.
+ */
 function withoutRanges(s: string, ranges: readonly [number, number][]): string {
+  const REMOVED = injectionRemoved();
   const out: string[] = [];
   let at = 0;
   for (const [a, b] of ranges) {
@@ -635,7 +647,7 @@ async function postToolUse(
         source: source.slice(0, 300),
         tool: mapped.tool.name,
         chars: hidden,
-        message: `Ho tolto ${hidden} caratteri invisibili da ${source.slice(0, 120)}: nascondevano un testo.`,
+        message: runAgentStrings().invisibleRemoved(hidden, source.slice(0, 120)),
       },
     });
   }
@@ -716,7 +728,7 @@ async function postToolUseFailure(
   return {
     hookSpecificOutput: {
       hookEventName: 'PostToolUseFailure',
-      additionalContext: `[Monsters] ${checked?.warning ?? INJECTION_WARNING}.`,
+      additionalContext: `[Monsters] ${checked?.warning ?? injectionWarning()}.`,
     },
   };
 }
@@ -741,5 +753,5 @@ async function stop(input: ClaudeHookInput, ctx: HarnessHookContext): Promise<Cl
     type: 'message',
     data: { role: 'system', text: reminder },
   });
-  return { decision: 'block', reason: `[Promemoria del sistema] ${reminder}` };
+  return { decision: 'block', reason: runAgentPrompts().systemReminder(reminder) };
 }

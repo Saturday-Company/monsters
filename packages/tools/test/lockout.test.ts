@@ -1,11 +1,13 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
+import { setAppLang } from '@monsters/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   forbiddenEntries,
-  INTERNAL_FILES_DENIED,
-  INTERNAL_FILES_TREE_DENIED,
+  instructionFilesDenied,
+  internalFilesDenied,
+  internalFilesTreeDenied,
   lockedCommand,
   lockedPath,
   lockedSearch,
@@ -55,7 +57,7 @@ describe('paths of the file tools', () => {
       data,
     ]) {
       const v = lockedPath(p, ws, lock);
-      expect(v?.message, p).toBe(INTERNAL_FILES_DENIED);
+      expect(v?.message, p).toBe(internalFilesDenied());
     }
     for (const p of [
       join(ws, 'AGENTS.md'),
@@ -71,8 +73,8 @@ describe('paths of the file tools', () => {
 
   it('follows a link in the working folder that leads into the data folder', () => {
     symlinkSync(join(data, 'secrets'), join(ws, 'chiavi'));
-    expect(lockedPath('chiavi/keys.json', ws, lock)?.message).toBe(INTERNAL_FILES_DENIED);
-    expect(lockedPath(join(ws, 'chiavi'), ws, lock)?.message).toBe(INTERNAL_FILES_DENIED);
+    expect(lockedPath('chiavi/keys.json', ws, lock)?.message).toBe(internalFilesDenied());
+    expect(lockedPath(join(ws, 'chiavi'), ws, lock)?.message).toBe(internalFilesDenied());
     // A link out of the working folder to the user's documents is fine.
     symlinkSync(join(home, 'Documenti'), join(ws, 'docs'));
     expect(lockedPath('docs/lettera.txt', ws, lock)).toBeNull();
@@ -80,17 +82,17 @@ describe('paths of the file tools', () => {
 
   it('searches: a folder that holds the data folder is closed to a tree walk only', () => {
     expect(lockedSearch({ path: '../..', recursive: true }, ws, lock)?.message).toBe(
-      INTERNAL_FILES_DENIED,
+      internalFilesDenied(),
     );
     expect(lockedSearch({ path: home, recursive: true }, ws, lock)?.message).toBe(
-      INTERNAL_FILES_TREE_DENIED,
+      internalFilesTreeDenied(),
     );
     expect(
       lockedSearch({ path: '~', pattern: '**/*.json', recursive: false }, ws, lock)?.message,
-    ).toBe(INTERNAL_FILES_TREE_DENIED);
+    ).toBe(internalFilesTreeDenied());
     expect(
       lockedSearch({ pattern: `${data}/agents/**/*.yaml`, recursive: false }, ws, lock)?.message,
-    ).toBe(INTERNAL_FILES_DENIED);
+    ).toBe(internalFilesDenied());
     expect(lockedSearch({ path: '~', pattern: '*.txt', recursive: false }, ws, lock)).toBeNull();
     expect(lockedSearch({ path: '~/Documenti', recursive: true }, ws, lock)).toBeNull();
     expect(lockedSearch({ recursive: true }, ws, lock)).toBeNull();
@@ -125,7 +127,7 @@ describe('command lines', () => {
       'ln -s ~/.monsters/secrets chiavi',
       'cat $MONSTERS_HOME/settings.json',
     ]) {
-      expect(lockedCommand(c, ws, lock)?.message, c).toBe(INTERNAL_FILES_DENIED);
+      expect(lockedCommand(c, ws, lock)?.message, c).toBe(internalFilesDenied());
     }
   });
 
@@ -138,7 +140,7 @@ describe('command lines', () => {
       'tar czf /tmp/all.tgz ~',
       'ls -R ~',
     ]) {
-      expect(lockedCommand(c, ws, lock)?.message, c).toBe(INTERNAL_FILES_TREE_DENIED);
+      expect(lockedCommand(c, ws, lock)?.message, c).toBe(internalFilesTreeDenied());
     }
   });
 
@@ -178,10 +180,10 @@ describe('command lines', () => {
       'cat ~user/.monsters/settings.json',
       'cat ~/.monsters/workspaces/*/notes.md',
     ]) {
-      expect(lockedCommand(c, ws, lock)?.message, c).toBe(INTERNAL_FILES_DENIED);
+      expect(lockedCommand(c, ws, lock)?.message, c).toBe(internalFilesDenied());
     }
     // A glob that could be an ancestor of the data folder, walked recursively.
-    expect(lockedCommand('grep -r token /*', ws, lock)?.message).toBe(INTERNAL_FILES_TREE_DENIED);
+    expect(lockedCommand('grep -r token /*', ws, lock)?.message).toBe(internalFilesTreeDenied());
     // Another user's home is not ours.
     expect(lockedCommand('cat ~other/.monsters/settings.json', ws, lock)).toBeNull();
   });
@@ -205,7 +207,7 @@ describe('command lines', () => {
   it('follows a link of the working folder named in a command', () => {
     symlinkSync(join(data, 'agents'), join(ws, 'gli-altri'));
     expect(lockedCommand('cat gli-altri/titan/agent.yaml', ws, lock)?.message).toBe(
-      INTERNAL_FILES_DENIED,
+      internalFilesDenied(),
     );
   });
 });
@@ -239,14 +241,14 @@ describe('on Windows (path rules of win32)', () => {
       'Get-Content C:\\Users\\u\\.mon*\\settings.json',
       'Get-Content C:\\Users\\u\\*\\settings.json',
     ]) {
-      expect(lockedCommand(c, winWs, win)?.message, c).toBe(INTERNAL_FILES_DENIED);
+      expect(lockedCommand(c, winWs, win)?.message, c).toBe(internalFilesDenied());
     }
     for (const p of [
       'C:\\Users\\u\\MONSTE~1\\settings.json',
       '\\\\?\\C:\\Users\\u\\.monsters\\settings.json',
       '%USERPROFILE%\\.monsters\\secrets',
     ]) {
-      expect(lockedPath(p, winWs, win)?.message, p).toBe(INTERNAL_FILES_DENIED);
+      expect(lockedPath(p, winWs, win)?.message, p).toBe(internalFilesDenied());
     }
   });
 
@@ -269,13 +271,13 @@ describe('on Windows (path rules of win32)', () => {
   it('a root without a drive is the root of the working folder’s drive', () => {
     // The core may run from another drive (D:\ on GitHub's runners): `\` is still C:\ here.
     for (const c of ['find / -name monsters.db', 'Get-ChildItem \\ -Recurse', 'grep -r token /*']) {
-      expect(lockedCommand(c, winWs, win)?.message, c).toBe(INTERNAL_FILES_TREE_DENIED);
+      expect(lockedCommand(c, winWs, win)?.message, c).toBe(internalFilesTreeDenied());
     }
     expect(lockedPath('\\Users\\u\\.monsters\\settings.json', winWs, win)?.message).toBe(
-      INTERNAL_FILES_DENIED,
+      internalFilesDenied(),
     );
     expect(lockedSearch({ path: '\\Users\\u', recursive: true }, winWs, win)?.message).toBe(
-      INTERNAL_FILES_TREE_DENIED,
+      internalFilesTreeDenied(),
     );
   });
 
@@ -316,7 +318,7 @@ describe('on Windows (path rules of win32)', () => {
       `${shortData}\\*\\agent.yaml`,
       '..\\rhea\\notes.md',
     ]) {
-      expect(lockedPath(p, shortWs, short)?.message, p).toBe(INTERNAL_FILES_DENIED);
+      expect(lockedPath(p, shortWs, short)?.message, p).toBe(internalFilesDenied());
     }
     for (const c of [
       `type ${shortData}\\settings.json`,
@@ -325,7 +327,35 @@ describe('on Windows (path rules of win32)', () => {
       `Get-Content ${shortData}\\workspaces\\*\\notes.md`,
       `Get-Content ${shortWs}\\..\\rhea\\notes.md`,
     ]) {
-      expect(lockedCommand(c, shortWs, short)?.message, c).toBe(INTERNAL_FILES_DENIED);
+      expect(lockedCommand(c, shortWs, short)?.message, c).toBe(internalFilesDenied());
     }
+  });
+});
+
+describe('the messages of the lockout follow the language of the prompts (D-153)', () => {
+  afterEach(() => setAppLang('en'));
+
+  it('Italian family: the words the models have always read', () => {
+    setAppLang('it');
+    expect(internalFilesDenied()).toBe(
+      'I file interni di Monsters non sono accessibili: usa gli strumenti di Monsters.',
+    );
+    expect(internalFilesTreeDenied()).toBe(
+      'Questo comando passerebbe dai file interni di Monsters: restringilo a una cartella precisa, oppure usa gli strumenti di Monsters.',
+    );
+    expect(instructionFilesDenied()).toBe(
+      'CLAUDE.md, AGENTS.md, .claude, .mcp.json e .codex della cartella del progetto (anche nelle sottocartelle) non si scrivono: sono le istruzioni del progetto, le cambia l’utente.',
+    );
+  });
+
+  it('English family: the twin', () => {
+    setAppLang('en');
+    expect(internalFilesDenied()).toBe(
+      'The internal files of Monsters aren’t accessible: use the Monsters tools.',
+    );
+    expect(internalFilesTreeDenied()).toMatch(/^This command would go through the internal files/);
+    expect(instructionFilesDenied()).toMatch(
+      /^CLAUDE\.md, AGENTS\.md, \.claude, \.mcp\.json and \.codex/,
+    );
   });
 });

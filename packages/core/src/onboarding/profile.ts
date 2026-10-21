@@ -1,16 +1,22 @@
 import {
+  appLang,
   ONBOARDING_QUESTIONS,
   onboardingQuestionsIn,
   checkOnboardingAnswer,
+  writingLanguage,
   type AgentPermissions,
+  type Lang,
   type OnboardingAnswer,
 } from '@monsters/shared';
 import type { DecisionRuleInput } from '../team/decision.ts';
+import { PROFILE_TEXTS } from './profile.prompts.ts';
 
 /*
  * From the answers of the first start to a typed profile, `profilo.md` (memory,
  * not instructions: research 03 §5) and the "always ask" rules of the
- * DecisionGate.
+ * DecisionGate. The profile's words (option labels, the writing language's
+ * name) and `profilo.md` are in the family of the app's language when they are
+ * made (D-153): what the monsters read about the user.
  */
 
 export type Answers = Record<string, OnboardingAnswer>;
@@ -31,19 +37,13 @@ export interface Profile {
   askFirst: string[];
   askFirstText?: string | undefined;
   tone: string;
-  /** Language id (it, en, …) and its name in Italian, for the templates. */
+  /** Language id (it, en, …) and its name in the profile's family ("italiano", "Italian"), for the templates. */
   languageId: string;
   language: string;
   styleNotes?: string | undefined;
+  /** The family the labels and names are in (the app's language when the profile was made). */
+  lang: Lang;
 }
-
-const LANGUAGES: Record<string, string> = {
-  it: 'italiano',
-  en: 'inglese',
-  es: 'spagnolo',
-  fr: 'francese',
-  de: 'tedesco',
-};
 
 /** Ids of the questions still without a valid answer. */
 export function missingAnswers(answers: Answers): string[] {
@@ -53,10 +53,9 @@ export function missingAnswers(answers: Answers): string[] {
   }).map((q) => q.id);
 }
 
-function question(id: string) {
-  // The profile is written in Italian (for the model and `profilo.md`: wave 3 and 4), with the
-  // labels of the options inside its sentences, whatever the language of the app.
-  const q = onboardingQuestionsIn('it').find((x) => x.id === id);
+function question(id: string, lang: Lang) {
+  // The labels of the options go inside the profile's sentences: the profile's family.
+  const q = onboardingQuestionsIn(lang).find((x) => x.id === id);
   if (!q) throw new Error(`unknown onboarding question ${id}`);
   return q;
 }
@@ -65,8 +64,8 @@ function values(answers: Answers, qid: string, gid: string): string[] {
   return (answers[qid]?.values[gid] ?? []).map((v) => v.trim()).filter(Boolean);
 }
 
-function labels(answers: Answers, qid: string, gid = 'cosa'): string[] {
-  const group = question(qid).groups.find((g) => g.id === gid);
+function labels(answers: Answers, qid: string, lang: Lang, gid = 'cosa'): string[] {
+  const group = question(qid, lang).groups.find((g) => g.id === gid);
   const chosen = values(answers, qid, gid).map(
     (v) => group?.options.find((o) => o.id === v)?.label ?? v,
   );
@@ -74,8 +73,8 @@ function labels(answers: Answers, qid: string, gid = 'cosa'): string[] {
   return text ? [...chosen, text] : chosen;
 }
 
-function label(answers: Answers, qid: string, gid: string): string {
-  const q = question(qid);
+function label(answers: Answers, qid: string, gid: string, lang: Lang): string {
+  const q = question(qid, lang);
   const group = q.groups.find((g) => g.id === gid)!;
   const v = values(answers, qid, gid)[0] ?? group.defaults[0] ?? '';
   return group.options.find((o) => o.id === v)?.label ?? v;
@@ -87,47 +86,31 @@ export function cleanName(name: string): string {
   return one.charAt(0).toUpperCase() + one.slice(1);
 }
 
-export function profileFromAnswers(answers: Answers): Profile {
+export function profileFromAnswers(answers: Answers, lang: Lang = appLang()): Profile {
   const languageId = values(answers, 'tono', 'lingua')[0] ?? 'it';
   return {
     userName: cleanName(values(answers, 'nomi', 'user')[0] ?? 'Utente'),
     orchestratorName: cleanName(values(answers, 'nomi', 'orchestrator')[0] ?? 'Titan'),
-    occupation: labels(answers, 'lavoro'),
+    occupation: labels(answers, 'lavoro', lang),
     occupationText: answers['lavoro']?.text?.trim() || undefined,
-    goals: labels(answers, 'obiettivi'),
+    goals: labels(answers, 'obiettivi', lang),
     goalsText: answers['obiettivi']?.text?.trim() || undefined,
-    delegate: labels(answers, 'deleghe'),
-    tools: labels(answers, 'strumenti'),
+    delegate: labels(answers, 'deleghe', lang),
+    tools: labels(answers, 'strumenti', lang),
     askFirst: values(answers, 'chiedi', 'cosa'),
     askFirstText: answers['chiedi']?.text?.trim() || undefined,
-    tone: label(answers, 'tono', 'tono').toLowerCase(),
+    tone: label(answers, 'tono', 'tono', lang).toLowerCase(),
     languageId,
-    language: LANGUAGES[languageId] ?? 'italiano',
+    language: writingLanguage(languageId)?.[lang] ?? writingLanguage('it')![lang],
     styleNotes: answers['tono']?.text?.trim() || undefined,
+    lang,
   };
 }
 
-const ASK_LABELS: Record<string, string> = {
-  publish: 'pubblicare',
-  contact: 'inviare messaggi o mail a terzi',
-  spend: 'pagare o comprare',
-  delete: 'cancellare',
-  goal: 'cambiare un obiettivo',
-};
-
-const list = (items: string[], empty = 'non indicato') =>
+const list = (items: string[], empty: string) =>
   items.length ? items.map((i) => `- ${i}`).join('\n') : `- ${empty}`;
 
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
-
-/**
- * Options of "Di cosa ti occupi?" that are not a field of work: the third
- * person of what the user does (by the label, lower case).
- */
-const OCCUPATION_VERBS: Record<string, string> = {
-  'gestisco un’attività': 'gestisce un’attività',
-  "gestisco un'attività": 'gestisce un’attività',
-};
 
 const CONTEXT_MAX = 200;
 
@@ -149,36 +132,34 @@ function quoted(text: string, max: number): string {
  * ("si occupa di co-fondatore…", review of 16/10).
  */
 export function contextSentence(p: Profile): string {
+  const t = PROFILE_TEXTS[p.lang].context;
   const fields: string[] = [];
   const verbs: string[] = [];
   for (const o of p.occupation) {
     if (o === p.occupationText) continue;
-    const verb = OCCUPATION_VERBS[lower(o)];
+    const verb = t.verbs[lower(o)];
     if (verb) verbs.push(verb);
     else fields.push(lower(o));
   }
-  const clauses = [
-    ...(fields.length > 0 ? [`si occupa di ${fields.slice(0, 2).join(' e di ')}`] : []),
-    ...verbs,
-  ];
+  const clauses = [...(fields.length > 0 ? [t.worksIn(fields.slice(0, 2))] : []), ...verbs];
   const goal = p.goals.find((g) => g !== p.goalsText);
   const goalText = goal ? undefined : p.goalsText;
   const build = (room: { work: number; goal: number }): string => {
     let head: string;
     if (clauses.length > 0) {
-      head = `${p.userName} ${clauses.join(' e ')}`;
+      head = `${p.userName} ${clauses.join(t.and)}`;
       if (p.occupationText && room.work > 0) {
-        head += ` (in parole sue: ${quoted(p.occupationText, room.work)})`;
+        head += t.inOwnWords(quoted(p.occupationText, room.work));
       }
     } else if (p.occupationText && room.work > 0) {
-      head = `${p.userName} si presenta così: ${quoted(p.occupationText, room.work)}`;
+      head = t.introduces(p.userName, quoted(p.occupationText, room.work));
     } else {
-      head = `${p.userName} ti ha affidato una parte del suo lavoro`;
+      head = t.entrusted(p.userName);
     }
     const tail = goal
-      ? `; nelle prossime settimane vuole ${lower(goal)}`
+      ? t.wants(t.goal(lower(goal)))
       : goalText && room.goal > 0
-        ? `; per le prossime settimane: ${quoted(goalText, room.goal)}`
+        ? t.forWeeks(quoted(goalText, room.goal))
         : '';
     return `${head}${tail}.`.replace(/\s+/g, ' ');
   };
@@ -196,57 +177,45 @@ export function contextSentence(p: Profile): string {
   return sentence;
 }
 
-/** `profilo.md`: what the agents know about the user (frontmatter `type: profile` is added by the vault write). */
+/**
+ * `profilo.md`: what the agents know about the user (frontmatter `type: profile` is added by the
+ * vault write), in the profile's family.
+ */
 export function renderProfile(p: Profile, permissions: AgentPermissions | null): string {
+  const t = PROFILE_TEXTS[p.lang];
   const ask = [
-    ...p.askFirst.map((id) => ASK_LABELS[id] ?? id),
+    ...p.askFirst.map((id) => t.ask[id] ?? id),
     ...(p.askFirstText ? [p.askFirstText] : []),
   ];
   const can = permissions
     ? [
-        permissions.vault
-          ? 'leggere e scrivere note nel vault'
-          : 'leggere le note del vault (senza scrivere)',
-        permissions.web ? 'cercare e leggere pagine web' : 'niente web',
-        ...(permissions.shell
-          ? ['usare il terminale e installare programmi nella propria cartella']
-          : []),
+        permissions.vault ? t.can.vaultWrite : t.can.vaultRead,
+        permissions.web ? t.can.web : t.can.noWeb,
+        ...(permissions.shell ? [t.can.shell] : []),
         ...(permissions.folders?.length
           ? [
-              `lavorare sui file di ${permissions.folders
-                .map((f) => `${f.path}${f.write ? '' : ' (solo lettura)'}`)
-                .join(', ')}`,
+              t.can.folders(
+                permissions.folders
+                  .map((f) => `${f.path}${f.write ? '' : t.can.readOnly}`)
+                  .join(', '),
+              ),
             ]
           : []),
       ]
     : [];
-  return `# Profilo di ${p.userName}
-
-Quello che ${p.userName} ha raccontato al primo avvio. Si può modificare quando vuole: i mostri lo leggono all'inizio di ogni lavoro.
-
-## Chi è
-- Nome: ${p.userName}
-- Coordinatore della squadra: ${p.orchestratorName}
-
-## Di cosa si occupa
-${list(p.occupation)}
-
-## Obiettivi delle prossime settimane
-${list(p.goals)}
-
-## Attività da delegare
-${list(p.delegate)}
-
-## Strumenti e account
-${list(p.tools)}
-
-## Chiedere sempre prima di
-${list(ask, 'niente di particolare')}
-
-## Tono e lingua
-- Tono: ${p.tone}
-- Lingua: ${p.language}${p.styleNotes ? `\n- Stile: ${p.styleNotes}` : ''}
-${can.length ? `\n## Permessi degli agenti\n${list(can)}\n` : ''}`;
+  return t.note({
+    user: p.userName,
+    orchestrator: p.orchestratorName,
+    occupation: list(p.occupation, t.none),
+    goals: list(p.goals, t.none),
+    delegate: list(p.delegate, t.none),
+    tools: list(p.tools, t.none),
+    ask: list(ask, t.nothingToAsk),
+    tone: p.tone,
+    language: p.language,
+    style: p.styleNotes,
+    can: can.length ? list(can, t.none) : undefined,
+  });
 }
 
 const DEFAULT_ASK_IDS = ['publish', 'contact', 'spend', 'delete', 'goal'];

@@ -31,13 +31,16 @@ import {
   renderProfile,
   contextSentence,
   ONBOARDING_STATE_KEY,
-  SOURCES_RULE,
+  sourcesRule,
   StateStore,
   type Generate,
   type GenerateError,
   type ProposalContext,
 } from '../src/index.ts';
+import { onboardingStrings } from '../src/onboarding/onboarding.strings.ts';
 import { deferred, startTestHub, type TestHub } from './hub-helpers.ts';
+import { langHome } from './lang-home.ts';
+import { inLang } from './prompt-lang.ts';
 
 const ANSWERS: Record<string, OnboardingAnswer> = {
   nomi: { values: { user: ['Giulio'], orchestrator: ['Atlas'] } },
@@ -117,6 +120,7 @@ function expectHuesApart(genomes: unknown[]) {
 
 describe('onboarding profile', () => {
   it('turns the answers into a profile, profilo.md and the "always ask" rules', () => {
+    inLang('it');
     const p = profileFromAnswers(ANSWERS);
     expect(p).toMatchObject({
       userName: 'Giulio',
@@ -138,6 +142,7 @@ describe('onboarding profile', () => {
   });
 
   it('"Su di te": third person from the options, the free text in quotes (review of 16/10)', () => {
+    inLang('it');
     const answer = (cosa: string[], text?: string): OnboardingAnswer => ({
       values: { cosa },
       ...(text ? { text } : {}),
@@ -212,6 +217,7 @@ describe('team proposal', () => {
   });
 
   it('retries once with the errors, then uses the model answer', async () => {
+    inLang('it');
     const gen = scripted([
       'Ecco la squadra: {"agents": [ { "name": "Rhea" } ] }',
       JSON.stringify(MODEL_TEAM),
@@ -232,6 +238,7 @@ describe('team proposal', () => {
   });
 
   it('falls back to Rhea and Dione when the model fails twice', async () => {
+    inLang('it');
     const errors: string[] = [];
     const gen = scripted(['non è JSON', '{"agents": []}']);
     const proposal = await proposeTeam(ctx(), gen, { onError: (m) => errors.push(m) });
@@ -239,8 +246,8 @@ describe('team proposal', () => {
     expect(proposal.requests).toBe(2);
     // One error, in plain words, only because every attempt failed.
     expect(errors).toHaveLength(1);
-    expect(errors[0]).toMatch(/^I couldn’t put together a squad made for you/);
-    expect(errors[0]).not.toMatch(/JSON|attempt/);
+    expect(errors[0]).toBe(onboardingStrings('it').basicSquad);
+    expect(errors[0]).not.toMatch(/JSON|attempt|tentativo/);
     expect(proposal.members.map((m) => m.name)).toEqual(['Rhea', 'Dione']);
     expect(proposal.members[0]!.context).toBe(
       'Giulio si occupa di social e contenuti e di consulenza o freelance (in parole sue: «Seguo tre clienti nel food»); nelle prossime settimane vuole pubblicare con costanza.',
@@ -285,6 +292,7 @@ describe('team proposal', () => {
   });
 
   it('renders short AGENTS.md files without placeholders', () => {
+    inLang('it');
     const proposal = fallbackProposal(ctx());
     for (const m of proposal.members) {
       const files = renderAgentFiles(memberBlueprint(m, { profile: ctx().profile }));
@@ -337,6 +345,7 @@ describe('agent areas (write permissions)', () => {
   });
 
   it('gives the agents with web tools 30 steps and the sources rule (D-026)', () => {
+    inLang('it');
     const members = parseProposal(JSON.stringify(MODEL_TEAM), ctx());
     const steps = members.map((m) => [
       m.name,
@@ -349,8 +358,8 @@ describe('agent areas (write permissions)', () => {
       [members[2]!.name, 30],
     ]);
     const md = (i: number) => renderAgentFiles(memberBlueprint(members[i]!, ctx()))['AGENTS.md'];
-    expect(md(0)).toContain(SOURCES_RULE);
-    expect(md(1)).not.toContain(SOURCES_RULE);
+    expect(md(0)).toContain(sourcesRule('it'));
+    expect(md(1)).not.toContain(sourcesRule('it'));
     // Without the web permission nobody gets the tools, nor the extra steps.
     const offline = parseProposal(JSON.stringify(MODEL_TEAM), ctx({ vault: true, web: false }));
     expect(blueprintToConfig(memberBlueprint(offline[2]!, ctx())).limits.maxSteps).toBe(20);
@@ -382,7 +391,7 @@ describe('designed monsters', () => {
 describe('onboarding API', () => {
   const planner = [{ provider: 'fake', model: 'planner' }];
 
-  async function hub(scripts: Parameters<typeof startTestHub>[0] = {}) {
+  async function hub(scripts: Parameters<typeof startTestHub>[0] = {}, home?: string) {
     return startTestHub(
       {
         planner: [
@@ -391,19 +400,28 @@ describe('onboarding API', () => {
         ],
         ...scripts,
       },
-      { withoutTeam: true, hub: { teamModels: planner }, keyId: 'feedc0ffee00' },
+      {
+        withoutTeam: true,
+        hub: { teamModels: planner },
+        keyId: 'feedc0ffee00',
+        ...(home ? { home } : {}),
+      },
     );
   }
 
   it('runs the whole first start: answers, permissions, proposal, monsters, confirmation', async () => {
-    const t = await hub({
-      // Proposal (not JSON, then JSON), then the orchestrator's reply.
-      planner: [
-        fake.text('Mi dispiace, non so fare JSON'),
-        fake.text(JSON.stringify(MODEL_TEAM)),
-        fake.text('Eccomi!'),
-      ],
-    });
+    inLang('it');
+    const t = await hub(
+      {
+        // Proposal (not JSON, then JSON), then the orchestrator's reply.
+        planner: [
+          fake.text('Mi dispiace, non so fare JSON'),
+          fake.text(JSON.stringify(MODEL_TEAM)),
+          fake.text('Eccomi!'),
+        ],
+      },
+      langHome('it'),
+    );
     let state = await t.json<OnboardingState>('GET', '/api/onboarding');
     // The fake provider counts as a configured model: no key step.
     expect(state).toMatchObject({ status: 'pending', step: 'questions', hasKey: true });
@@ -627,10 +645,11 @@ describe('onboarding API', () => {
   });
 
   it('validates edited duties and area at the confirmation, and refuses an id taken by the orchestrator', async () => {
+    inLang('it');
     const unsafe = {
       agents: [{ ...MODEL_TEAM.agents[0], area: '**' }, MODEL_TEAM.agents[1]],
     };
-    const t = await hub({ planner: [fake.text(JSON.stringify(unsafe))] });
+    const t = await hub({ planner: [fake.text(JSON.stringify(unsafe))] }, langHome('it'));
     await t.json('POST', '/api/onboarding/answers', {
       answers: ANSWERS,
       permissions: { vault: true, web: true },

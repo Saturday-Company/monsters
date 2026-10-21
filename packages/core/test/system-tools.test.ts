@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { buildSystemPrompt, isFreeChain, systemTools } from '../src/index.ts';
 import { deferred, startTestHub, toolResultsSeen, type TestHub } from './hub-helpers.ts';
 import { tempHome } from './helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 const POSIX = process.platform !== 'win32';
 const SHELL_ON = { vault: true, web: true, shell: true };
@@ -36,6 +37,8 @@ const toolResult = (t: TestHub, runId: string, tool: string) =>
 describe('system tools in the hub', () => {
   it('offers shell and fs_* only to the agents whose permissions allow them', async () => {
     const t = await startTestHub({});
+    // Starting a core picks the language of the system: the test says which one it wants.
+    inLang('it');
     const tools = (id: string) => t.core.hub.team.get(id)!.config.tools;
     for (const id of ['titan', 'rhea', 'dione']) {
       expect(tools(id).filter((x) => x === 'shell' || x.startsWith('fs_'))).toEqual([]);

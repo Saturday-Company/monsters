@@ -1,10 +1,13 @@
 import { fake } from '@monsters/providers/testing';
-import type { LogEvent, Question } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { setAppLang, type LogEvent, type Question } from '@monsters/shared';
+import { afterEach, describe, expect, it } from 'vitest';
 import { endsWithQuestion, FINAL_QUESTION_REMINDER, lastSentence } from '../src/index.ts';
+import { finalQuestionPrompts } from '../src/team/final-question.prompts.ts';
 import { promptText, startTestHub, toolResultsSeen } from './hub-helpers.ts';
 
 type Sent = { runId: string };
+
+afterEach(() => setAppLang('en'));
 
 const finals = (events: LogEvent[], agent = 'titan') =>
   events
@@ -49,6 +52,31 @@ describe('endsWithQuestion', () => {
     for (const text of no) expect(endsWithQuestion(text), text).toBe(false);
   });
 
+  it('spots the English ways of asking, and does not take a courtesy or a thing the agent does itself', () => {
+    const yes = [
+      'Here are the drafts. Which one do you prefer?',
+      'Done. Please let me know which tone you want.',
+      'The email is ready. Please confirm the date for the meeting.',
+      'I prepared the email. Only the contact’s name is missing.',
+      'I prepared the email. I’m still missing the contact’s name.',
+      'I prepared the email. I still need the contact’s name',
+      'I prepared the email. I don’t have your address yet',
+      'Ready. Would you prefer the short one or the long one',
+      'Both are saved. Choose the one you like.',
+    ];
+    for (const text of yes) expect(endsWithQuestion(text), text).toBe(true);
+    const no = [
+      'Done. Feel free to ask for changes.',
+      'Done. If you want any adjustments, let me know.',
+      'Done. Hope this helps!',
+      'Saved. Is there anything else?',
+      'I’m missing the prices, I’ll look them up myself.',
+      'I don’t have the permission to send emails, so the draft is above.',
+      'I need the prices, which Rhea will search.',
+    ];
+    for (const text of no) expect(endsWithQuestion(text), text).toBe(false);
+  });
+
   it('takes the last sentence without Markdown or emoji', () => {
     expect(lastSentence('Primo.\n\n> **Secondo? Terzo!** 🎉')).toBe('Terzo!');
     expect(lastSentence('Uno. Due')).toBe('Due');
@@ -69,6 +97,8 @@ describe('final question in plain text (stop hook)', () => {
         fake.text('Perfetto, tengo la versione calda.'),
       ],
     });
+    // The reminder is in the language of the app when it is sent: Italian here.
+    setAppLang('it');
     const sent = await t.json<Sent>('POST', '/api/messages', { text: 'Due versioni del post' });
     const q = await t.waitEvent(
       (e): e is LogEvent<'question'> => e.type === 'question' && e.runId === sent.runId,
@@ -87,6 +117,33 @@ describe('final question in plain text (stop hook)', () => {
     expect(seen).toContain('Ecco le due versioni del post. Quale preferisci?');
     expect(seen).toContain(FINAL_QUESTION_REMINDER.slice(0, 40));
     expect(toolResultsSeen(t.provider.calls[2]!.options.prompt)).toContain('Calda');
+    expect(t.provider.calls).toHaveLength(3);
+  });
+
+  it('the same in an English app: the reminder is the English one', async () => {
+    const t = await startTestHub({
+      titan: [
+        fake.text('Here are the two versions of the post. Which do you prefer?'),
+        fake.toolCall('ask_user', {
+          question: 'Which version of the post?',
+          options: ['Ironic', 'Warm'],
+          recommended: 'Warm',
+          kind: 'taste',
+        }),
+        fake.text('Perfect, I’m keeping the warm one.'),
+      ],
+    });
+    setAppLang('en');
+    const sent = await t.json<Sent>('POST', '/api/messages', { text: 'Two versions of the post' });
+    const q = await t.waitEvent(
+      (e): e is LogEvent<'question'> => e.type === 'question' && e.runId === sent.runId,
+    );
+    await t.json('POST', `/api/questions/${q.data.questionId}/answer`, { optionId: '2' });
+    expect((await t.runEnded(sent.runId)).data.status).toBe('completed');
+    expect(reminders(t.events(sent.runId))).toHaveLength(1);
+    const seen = promptText(t.provider.calls[1]!.options.prompt);
+    expect(seen).toContain(finalQuestionPrompts('en').reminder.slice(0, 40));
+    expect(seen).not.toContain(FINAL_QUESTION_REMINDER.slice(0, 40));
     expect(t.provider.calls).toHaveLength(3);
   });
 

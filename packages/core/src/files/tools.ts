@@ -1,4 +1,5 @@
 import {
+  appLang,
   ARTIFACT_MAX_BYTES,
   ToolError,
   type FileEventData,
@@ -148,7 +149,9 @@ export function toolImageName(
 ): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-  return `${preset === 'browser' ? 'screenshot' : 'immagine'}-${server}-${stamp}`;
+  // i18n-ignore: the file name the user sees in Files, in the language of the app
+  const image = appLang() === 'it' ? 'immagine' : 'image';
+  return `${preset === 'browser' ? 'screenshot' : image}-${server}-${stamp}`;
 }
 
 /** Checks that an image of another program can be kept (size, before decoding the base64). */

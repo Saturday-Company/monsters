@@ -1,4 +1,5 @@
 import { isAbsolute, relative, resolve } from 'node:path';
+import { toolPrompts } from '../tools.prompts.ts';
 import { segment } from './launch-files.ts';
 
 /*
@@ -27,8 +28,7 @@ export const INSTRUCTION_FILES = [
 ] as const;
 
 /** What the model reads when a call would write one of them. */
-export const INSTRUCTION_FILES_DENIED =
-  'CLAUDE.md, AGENTS.md, .claude, .mcp.json e .codex della cartella del progetto (anche nelle sottocartelle) non si scrivono: sono le istruzioni del progetto, le cambia l’utente.';
+export const instructionFilesDenied = (): string => toolPrompts().instructionFilesDenied;
 export const INSTRUCTION_FILES_HINT =
   'For CLAUDE.md or AGENTS.md at the top of the folder: propose the whole new text with `project_docs_propose` (load it with `tools_search` if you do not see it); the user applies it with one tap. For the other files: write what you would change in a note of the project, or tell the user.';
 

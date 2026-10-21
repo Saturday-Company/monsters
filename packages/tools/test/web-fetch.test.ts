@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { ToolError, type ToolContext } from '@monsters/shared';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { setAppLang, ToolError, type ToolContext } from '@monsters/shared';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { readLimited } from '../src/http.ts';
 import {
   createWebFetchTool,
@@ -28,6 +28,9 @@ const ARTICLE = `<!doctype html><html><head><title>Titolo pagina</title>
 let server: Server;
 let forbidden = 0;
 let base: string;
+
+// A test that pins the Italian family restores the English one.
+afterEach(() => setAppLang('en'));
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -207,6 +210,7 @@ describe('web_fetch', () => {
   });
 
   it('a site that refused is not asked again in the same task (D-071)', async () => {
+    setAppLang('it');
     const own = createWebFetchTool({ allowPrivateHosts: true, timeoutMs: 10_000 });
     const run = (id: string): ToolContext => ({ ...ctx(), runId: id });
     forbidden = 0;
@@ -281,7 +285,25 @@ describe('web_fetch', () => {
     expect(await pending).toBe('ABORTED');
   });
 
+  it('the refusals of a site are worded in English, in the English family (D-153)', async () => {
+    const own = createWebFetchTool({ allowPrivateHosts: true, timeoutMs: 10_000 });
+    const first = (await own
+      .execute({ url: `${base}/forbidden/e` }, { ...ctx(), runId: 'r-403-en' })
+      .catch((e: unknown) => e)) as ToolError;
+    expect(first.code).toBe('SITE_REFUSED');
+    expect(first.message).toContain('refused the reading');
+    expect(first.hint).toMatch(/Don’t open its other pages/);
+    const second = (await own
+      .execute({ url: `${base}/forbidden/f` }, { ...ctx(), runId: 'r-403-en' })
+      .catch((e: unknown) => e)) as ToolError;
+    expect(second.message).toMatch(/already refused the reading/);
+    for (const text of [first.message, first.hint ?? '', second.message]) {
+      expect(text).not.toMatch(/permission|denied|rifiutato/i);
+    }
+  });
+
   it('a 403 is a refusal of the site, never worded as a permission', async () => {
+    setAppLang('it');
     const own = createWebFetchTool({ allowPrivateHosts: true, timeoutMs: 10_000 });
     const err = (await own
       .execute({ url: `${base}/forbidden/x` }, { ...ctx(), runId: 'r-403-words' })

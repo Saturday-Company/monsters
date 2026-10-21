@@ -26,6 +26,14 @@ import {
   type Generate,
 } from '../src/index.ts';
 import { never, startTestHub, type TestHub } from './hub-helpers.ts';
+import { langHome } from './lang-home.ts';
+import { inLang } from './prompt-lang.ts';
+
+/** A test hub of the Italian family (D-153): the assertions on its files are the proof it did not move. */
+function italian(): { home: string } {
+  inLang('it');
+  return { home: langHome('it') };
+}
 
 type Sent = { runId: string };
 
@@ -47,7 +55,7 @@ async function until(check: () => boolean, ms = 3000) {
 
 describe('team after the onboarding: view and instructions', () => {
   it('lists the team with the fields of each AGENTS.md, also for teams without blueprint.json', async () => {
-    const t = await startTestHub({});
+    const t = await startTestHub({}, italian());
     const view = await t.json<TeamView>('GET', '/api/team');
     expect(view.members.map((m) => [m.id, m.name, m.isOrchestrator])).toEqual([
       ['titan', 'Titan', true],
@@ -85,13 +93,16 @@ describe('team after the onboarding: view and instructions', () => {
 
 describe('rename', () => {
   it('keeps the chat and the delegations (same id), moves the memory, rewrites the AGENTS.md files', async () => {
-    const t = await startTestHub({
-      titan: [
-        fake.toolCall('delegate', { agent: 'Rhea', goal: 'Cerca le tendenze' }),
-        fake.text('Fatto.'),
-      ],
-      rhea: [fake.text('Trovate tre tendenze.'), fake.text('Sono Rea, ciao!'), fake.text('Sì.')],
-    });
+    const t = await startTestHub(
+      {
+        titan: [
+          fake.toolCall('delegate', { agent: 'Rhea', goal: 'Cerca le tendenze' }),
+          fake.text('Fatto.'),
+        ],
+        rhea: [fake.text('Trovate tre tendenze.'), fake.text('Sono Rea, ciao!'), fake.text('Sì.')],
+      },
+      italian(),
+    );
     // Teams created before blueprint.json: read back from the template.
     rmSync(join(t.home, 'agents', 'rhea', BLUEPRINT_JSON));
     rmSync(join(t.home, 'agents', 'titan', BLUEPRINT_JSON));
@@ -216,7 +227,7 @@ describe('rename', () => {
 
 describe('role, duties, area', () => {
   it('re-renders AGENTS.md with the validation of the generation and updates the capo', async () => {
-    const t = await startTestHub({});
+    const t = await startTestHub({}, italian());
     const bad = await t.api('PATCH', '/api/team/agents/rhea', { duties: ['una\nriga'] });
     expect(bad.status).toBe(400);
     const glob = await t.api('PATCH', '/api/team/agents/rhea', { area: 'Agenti/Rhea' });
@@ -366,7 +377,7 @@ describe('add', () => {
       }),
     ];
     const generate: Generate = () => Promise.resolve({ text: answers.shift()!, requests: 1 });
-    const t = await startTestHub({}, { hub: { teamGenerate: generate } });
+    const t = await startTestHub({}, { hub: { teamGenerate: generate }, ...italian() });
     await t.json('DELETE', '/api/team/agents/rhea');
     const s = await t.json<TeamSuggestions>('GET', '/api/team/suggestions');
     expect(s.archetypes.map((a) => a.archetype)).toEqual(['rhea']);
@@ -439,7 +450,7 @@ describe('add', () => {
 
 describe('profile', () => {
   it('reads and writes names, tone, language and the "always ask" extras', async () => {
-    const t = await startTestHub({});
+    const t = await startTestHub({}, italian());
     let profile = await t.json<ProfileView>('GET', '/api/profile');
     expect(profile).toMatchObject({
       userName: 'Giulio',
