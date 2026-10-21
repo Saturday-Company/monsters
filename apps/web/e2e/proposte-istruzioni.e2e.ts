@@ -19,22 +19,22 @@ test('Proposte per le istruzioni: the diff in Da rivedere, Applica; a stale one 
   const cards = page.locator('[data-testid="draft-card"][data-kind="docs"]');
   await expect(cards).toHaveCount(2);
 
-  const iapetus = cards.filter({ hasText: 'Istruzioni di Social di Saturday (CLAUDE.md)' });
-  await expect(iapetus).toContainText('Iapetus propone una modifica alle istruzioni');
-  await expect(iapetus).toContainText('/home/andrea/Progetti/social-saturday');
+  const iapetus = cards.filter({ hasText: 'Instructions of Saturday Social (CLAUDE.md)' });
+  await expect(iapetus).toContainText('Iapetus proposes a change to the instructions');
+  await expect(iapetus).toContainText('/home/andrea/Projects/social-saturday');
   const diff = iapetus.getByTestId('docs-diff');
-  await expect(diff).toContainText('+- Ogni post ha da 3 a 5 hashtag, sempre #saturdaycompany.');
-  await expect(diff).toContainText('-- Ogni post ha al massimo 5 hashtag.');
+  await expect(diff).toContainText('+- Every post has 3 to 5 hashtags, always #saturdaycompany.');
+  await expect(diff).toContainText('-- Every post has at most 5 hashtags.');
   await expect(iapetus.getByTestId('docs-tainted')).toHaveCount(0);
   await expect(iapetus.getByTestId('draft-edit')).toHaveCount(0);
 
-  const calypso = cards.filter({ hasText: 'Istruzioni di Social di Saturday (AGENTS.md)' });
+  const calypso = cards.filter({ hasText: 'Instructions of Saturday Social (AGENTS.md)' });
   await expect(calypso.getByTestId('docs-tainted')).toContainText(
-    'Proposta dopo aver letto testo di terzi (pagina web: blog di un’agenzia di social)',
+    'Proposed after reading third-party text (web page: a social media agency’s blog)',
   );
-  await expect(calypso.getByTestId('docs-stale')).toContainText('Il file è cambiato');
+  await expect(calypso.getByTestId('docs-stale')).toContainText('The file changed');
   await expect(calypso.getByTestId('draft-confirm')).toBeDisabled();
-  await expect(calypso.getByTestId('draft-discard')).toHaveText('Lascia stare');
+  await expect(calypso.getByTestId('draft-discard')).toHaveText('Leave it');
   if (SHOTS) {
     await iapetus.screenshot({ path: `${SHOTS}/istruzioni-scheda-chiaro.png` });
     await calypso.screenshot({ path: `${SHOTS}/istruzioni-scheda-vecchia-chiaro.png` });
@@ -42,7 +42,7 @@ test('Proposte per le istruzioni: the diff in Da rivedere, Applica; a stale one 
 
   await iapetus.getByTestId('draft-confirm').click();
   await expect(
-    page.getByText('Ho aggiornato le istruzioni: Social di Saturday (CLAUDE.md).'),
+    page.getByText('I updated the instructions: Saturday Social (CLAUDE.md).'),
   ).toBeVisible();
   await expect(cards).toHaveCount(1);
 });
@@ -71,7 +71,7 @@ test('Proposte per le istruzioni: on the project page, under Cartella, and left 
   await calypso.getByTestId('draft-discard').click();
   await expect(
     page.getByText(
-      'Ho lasciato stare la proposta: le istruzioni restano com’erano (Social di Saturday (AGENTS.md)).',
+      'I left the proposal alone: the instructions stay as they were (Saturday Social (AGENTS.md)).',
     ),
   ).toBeVisible();
   await expect(list.getByTestId('draft-card')).toHaveCount(1);

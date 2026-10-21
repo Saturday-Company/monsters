@@ -47,13 +47,13 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
   // the page, its CSP and the pdf.js worker are the build's, from the real core.
   const pdfMeta = {
     id: 'e2e-pdf',
-    name: 'Prova.pdf',
+    name: 'Test.pdf',
     mime: 'application/pdf',
     size: 900,
     kind: 'pdf',
     source: 'agent',
     agent: 'titan',
-    path: 'File/2026-10/Prova.pdf',
+    path: 'File/2026-10/Test.pdf',
     hasThumb: false,
     hasText: false,
     createdAt: Date.now(),
@@ -69,7 +69,7 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     return route.fulfill({
       status: 200,
       headers: { ...fileContentHeaders(pdfMeta), 'Content-Type': 'application/pdf' },
-      body: pdf([['Prova di Monsters', '', 'Una riga di testo.'], ['Seconda pagina']]),
+      body: pdf([['Monsters test', '', 'A line of text.'], ['Second page']]),
     });
   });
 
@@ -78,17 +78,17 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     const csp = res?.headers()['content-security-policy'] ?? '';
     expect(csp).toContain("script-src 'self'");
     expect(csp).not.toContain('unsafe-eval');
-    await expect(page.getByRole('heading', { name: 'Crea il tuo account' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible();
 
     await page.getByLabel('Email').fill(EMAIL);
     await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByLabel('Codice di avvio').fill('AAAA-BBBB-CCCC');
-    await page.getByRole('button', { name: 'Crea account' }).click();
-    await expect(page.getByRole('alert')).toContainText('Il codice non è giusto');
+    await page.getByLabel('Setup code').fill('AAAA-BBBB-CCCC');
+    await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(page.getByRole('alert')).toContainText('That code isn’t right');
 
     const code = readFileSync(codeFile, 'utf8').trim();
-    await page.getByLabel('Codice di avvio').fill(code);
-    await page.getByRole('button', { name: 'Crea account' }).click();
+    await page.getByLabel('Setup code').fill(code);
+    await page.getByRole('button', { name: 'Create account' }).click();
     // The team already exists in this home, so the onboarding is skipped.
     await expect(page.getByRole('heading', { name: 'Titan', level: 1 })).toBeVisible();
     // The code works once: the core deletes the file.
@@ -96,25 +96,25 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
   });
 
   await test.step('settings from the core, logout and login', async () => {
-    await page.getByRole('link', { name: 'Impostazioni' }).click();
-    await page.getByRole('tab', { name: 'Modelli' }).click();
+    await page.getByRole('link', { name: 'Settings' }).click();
+    await page.getByRole('tab', { name: 'Models' }).click();
     // No OpenRouter key: it waits among the models to connect (open when nothing is).
     await expect(page.getByTestId('models-connected')).toBeVisible();
     if ((await page.getByTestId('models-add').count()) === 0) {
-      await page.getByRole('button', { name: 'Collega un altro modello' }).click();
+      await page.getByRole('button', { name: 'Connect another model' }).click();
     }
     await expect(page.getByTestId('key-status')).toHaveAttribute('data-set', 'no');
-    await page.getByRole('tab', { name: 'Generale' }).click();
+    await page.getByRole('tab', { name: 'General' }).click();
     await expect(page.getByTestId('vault-path')).toHaveText(join(HOME, 'Monsters Note'));
-    await page.getByRole('button', { name: 'Esci' }).click();
-    await expect(page.getByRole('heading', { name: 'Accedi' })).toBeVisible();
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
 
     await page.getByLabel('Email').fill(EMAIL);
-    await page.getByLabel('Password').fill('password-sbagliata');
-    await page.getByRole('button', { name: 'Entra' }).click();
-    await expect(page.getByRole('alert')).toContainText('Email o password non corrette');
+    await page.getByLabel('Password').fill('wrong-password');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByRole('alert')).toContainText('Wrong email or password');
     await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Entra' }).click();
+    await page.getByRole('button', { name: 'Sign in' }).click();
     await page.goto('/#/');
     await expect(page.getByRole('heading', { name: 'Titan', level: 1 })).toBeVisible();
     await expect(page.getByRole('link', { name: /^Titan,/ })).toBeVisible();
@@ -122,141 +122,138 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
   });
 
   await test.step('a message: delegation to Rhea and a question with options', async () => {
-    const input = page.getByRole('combobox', { name: 'Messaggio' });
-    await input.fill('Trovami tre fatti su Encelado');
+    const input = page.getByRole('combobox', { name: 'Message' });
+    await input.fill('Find me three facts about Enceladus');
     await input.press('Enter');
     await expect(page.getByTestId('user-bubble').last()).toHaveText(
-      'Trovami tre fatti su Encelado',
+      'Find me three facts about Enceladus',
     );
     await expect(
-      page.getByTestId('agent-bubble').filter({ hasText: 'Chiedo a Rhea' }),
+      page.getByTestId('agent-bubble').filter({ hasText: 'I’ll ask Rhea' }),
     ).toBeVisible();
-    await expect(page.getByTestId('delegation').filter({ hasText: 'Encelado' })).toBeVisible();
+    await expect(page.getByTestId('delegation').filter({ hasText: 'Enceladus' })).toBeVisible();
 
     const card = page.getByTestId('question-card').first();
-    await expect(card).toContainText('Salvo i tre fatti in una nota?');
+    await expect(card).toContainText('Shall I save the three facts in a note?');
     await expect(card).toHaveAttribute('data-status', 'open');
-    await card.getByRole('button', { name: /^Sì, in una nota/ }).click();
+    await card.getByRole('button', { name: /^Yes, in a note/ }).click();
     await expect(card).toHaveAttribute('data-status', 'answered');
-    await expect(card).toContainText('Hai scelto: Sì, in una nota');
+    await expect(card).toContainText('You chose: Yes, in a note');
   });
 
   await test.step('the reply streams in', async () => {
     const streaming = page.locator('[data-testid="agent-bubble"][data-streaming="true"]');
-    await expect(streaming).toContainText('Fatto!');
-    const bubble = page.getByTestId('agent-bubble').filter({ hasText: 'Fatto! Rhea ha trovato' });
+    await expect(streaming).toContainText('Done!');
+    const bubble = page.getByTestId('agent-bubble').filter({ hasText: 'Done! Rhea found' });
     await expect(bubble).toHaveAttribute('data-streaming', 'false');
     // The wikilink shows as a note chip, without the brackets.
-    await expect(bubble).toHaveText(FINAL_REPLY.replace('[[Encelado]]', 'Encelado'));
-    await expect(bubble.getByTestId('note-chip')).toHaveText('Encelado');
+    await expect(bubble).toHaveText(FINAL_REPLY.replace('[[Enceladus]]', 'Enceladus'));
+    await expect(bubble.getByTestId('note-chip')).toHaveText('Enceladus');
     expect(existsSync(join(HOME, 'Monsters Note', `${NOTE_PATH}.md`))).toBe(true);
   });
 
   await test.step('the delegation in Rhea’s terminal', async () => {
     // The delegation in Titan's chat opens the terminal of who did the work.
-    await page.getByTestId('delegation').filter({ hasText: 'Encelado' }).first().click();
+    await page.getByTestId('delegation').filter({ hasText: 'Enceladus' }).first().click();
     const term = page.getByTestId('agent-terminal');
-    await expect(term.getByRole('heading', { name: 'Dietro le quinte di Rhea' })).toBeVisible();
+    await expect(term.getByRole('heading', { name: 'Behind the scenes of Rhea' })).toBeVisible();
     const log = term.getByTestId('terminal-log');
-    await expect(log).toContainText('Trova tre fatti su Encelado con una fonte');
+    await expect(log).toContainText('Find three facts about Enceladus with a source');
     await expect(
-      term.getByTestId('tool-line').filter({ hasText: /Encelado fatti principali/ }),
+      term.getByTestId('tool-line').filter({ hasText: /Enceladus main facts/ }),
     ).toBeVisible();
-    await expect(log).toContainText('Tre fatti su Encelado');
+    await expect(log).toContainText('Three facts about Enceladus');
     await page.keyboard.press('Escape');
     await expect(term).toBeHidden();
   });
 
   await test.step('Anteprima under the core’s CSP: the note of the reply', async () => {
     // The note opens in the right-hand pane, read from the real vault (D-075).
-    const bubble = page.getByTestId('agent-bubble').filter({ hasText: 'Fatto! Rhea ha trovato' });
+    const bubble = page.getByTestId('agent-bubble').filter({ hasText: 'Done! Rhea found' });
     await bubble.getByTestId('note-chip').click();
     const dock = page.getByTestId('right-dock');
-    await expect(dock.getByTestId('preview-title')).toHaveText('Encelado');
+    await expect(dock.getByTestId('preview-title')).toHaveText('Enceladus');
     await expect(dock.getByTestId('vault-note-body')).toBeVisible();
     await page.keyboard.press('ControlOrMeta+j');
     await expect(dock).toHaveCount(0);
   });
 
   await test.step('undo the note from the action log, still undone after a reload', async () => {
-    await page.getByRole('link', { name: 'Attività', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Attività', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Activity', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Activity', exact: true })).toBeVisible();
     await page
-      .getByRole('group', { name: 'Filtra per tipo' })
-      .getByRole('button', { name: 'Modifiche alle note' })
+      .getByRole('group', { name: 'Filter by type' })
+      .getByRole('button', { name: 'Note changes' })
       .click();
     const row = page
       .getByTestId('event-row')
-      .filter({ hasText: 'Titan ha creato la nota Encelado' });
-    await row.getByRole('button', { name: 'Annulla' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Modifica annullata' })).toBeVisible();
-    await expect(row).toContainText('Annullata');
+      .filter({ hasText: 'Titan created the note Enceladus' });
+    await row.getByRole('button', { name: 'Undo' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Change undone' })).toBeVisible();
+    await expect(row).toContainText('Undone');
     expect(existsSync(join(HOME, 'Monsters Note', `${NOTE_PATH}.md`))).toBe(false);
 
     await page.reload();
     await page
-      .getByRole('group', { name: 'Filtra per tipo' })
-      .getByRole('button', { name: 'Modifiche alle note' })
+      .getByRole('group', { name: 'Filter by type' })
+      .getByRole('button', { name: 'Note changes' })
       .click();
     const after = page
       .getByTestId('event-row')
-      .filter({ hasText: 'Titan ha creato la nota Encelado' });
-    await expect(after).toContainText('Annullata');
-    await expect(after.getByRole('button', { name: 'Annulla' })).toHaveCount(0);
-    await expect(after.getByRole('button', { name: 'Rifai' })).toBeVisible();
+      .filter({ hasText: 'Titan created the note Enceladus' });
+    await expect(after).toContainText('Undone');
+    await expect(after.getByRole('button', { name: 'Undo' })).toHaveCount(0);
+    await expect(after.getByRole('button', { name: 'Redo' })).toBeVisible();
   });
 
   await test.step('notes view: trash, search, edit, history and undo on the real vault', async () => {
     const file = join(HOME, 'Monsters Note', `${NOTE_PATH}.md`);
     const title = page.locator('#vault-note-title');
-    await page.getByRole('link', { name: 'Note', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Note', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Notes', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Notes', exact: true })).toBeVisible();
 
     // The note whose creation was undone above is in the trash: restore it.
     await page.getByTestId('vault-trash-link').click();
-    const item = page.getByTestId('vault-trash-item').filter({ hasText: 'Encelado' });
-    await expect(item).toContainText('Era in Risorse › Ricerche');
-    await expect(item).toContainText('tolta annullando la creazione');
+    const item = page.getByTestId('vault-trash-item').filter({ hasText: 'Enceladus' });
+    await expect(item).toContainText('Was in Resources › Research');
+    await expect(item).toContainText('removed by undoing its creation');
     await item.getByTestId('vault-trash-restore').click();
-    await expect(title).toHaveText('Encelado');
+    await expect(title).toHaveText('Enceladus');
     expect(existsSync(file)).toBe(true);
 
-    await page.getByTestId('vault-search').fill('Encelado');
+    await page.getByTestId('vault-search').fill('Enceladus');
     await expect(
-      page.getByTestId('vault-results').getByRole('link', { name: /^Encelado/ }),
+      page.getByTestId('vault-results').getByRole('link', { name: /^Enceladus/ }),
     ).toBeVisible();
 
     // Edit from the UI: a `user` action, the properties stay.
     await page.getByTestId('vault-edit').click();
-    await page.getByTestId('vault-editor').fill('# Encelado\n\nModificata dall’interfaccia.\n');
+    await page.getByTestId('vault-editor').fill('# Enceladus\n\nEdited from the interface.\n');
     await page.getByTestId('vault-save').click();
-    await expect(page.getByTestId('vault-note-body')).toContainText('Modificata dall’interfaccia');
+    await expect(page.getByTestId('vault-note-body')).toContainText('Edited from the interface');
     const saved = readFileSync(file, 'utf8');
-    expect(saved).toContain('Modificata dall’interfaccia');
+    expect(saved).toContain('Edited from the interface');
     expect(saved).toMatch(/^---\n[\s\S]*author: titan[\s\S]*---\n/);
 
     // History: the save is the newest version, by the user.
     await page.getByTestId('vault-history-toggle').click();
     const newest = page.getByTestId('vault-history-entry').first();
-    await expect(newest).toContainText('Tu');
-    await newest.getByRole('button', { name: 'Dettagli' }).click();
-    await expect(newest.getByTestId('vault-diff')).toContainText('+Modificata dall’interfaccia.');
+    await expect(newest).toContainText('You');
+    await newest.getByRole('button', { name: 'Details' }).click();
+    await expect(newest.getByTestId('vault-diff')).toContainText('+Edited from the interface.');
     // Undo it from the note's Attività.
     await page.getByTestId('vault-activity').click();
-    const edit = page
-      .getByTestId('event-row')
-      .filter({ hasText: 'Hai modificato la nota' })
-      .first();
-    await edit.getByRole('button', { name: 'Annulla' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Modifica annullata' })).toBeVisible();
-    expect(readFileSync(file, 'utf8')).not.toContain('Modificata dall’interfaccia');
+    const edit = page.getByTestId('event-row').filter({ hasText: 'You edited the note' }).first();
+    await edit.getByRole('button', { name: 'Undo' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Change undone' })).toBeVisible();
+    expect(readFileSync(file, 'utf8')).not.toContain('Edited from the interface');
     // Rifai: undoing the undo brings the edit back.
-    await edit.getByRole('button', { name: 'Rifai' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Modifica rifatta' })).toBeVisible();
-    await expect.poll(() => readFileSync(file, 'utf8')).toContain('Modificata dall’interfaccia');
+    await edit.getByRole('button', { name: 'Redo' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Change redone' })).toBeVisible();
+    await expect.poll(() => readFileSync(file, 'utf8')).toContain('Edited from the interface');
 
     // The graph draws the vault.
-    await page.getByRole('link', { name: 'Note', exact: true }).click();
+    await page.getByRole('link', { name: 'Notes', exact: true }).click();
     await page.getByTestId('vault-graph-toggle').click();
     await expect(page.getByTestId('vault-graph').locator('canvas')).toBeVisible();
   });
@@ -266,42 +263,42 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
       .getByTestId('sidebar')
       .getByRole('link', { name: /^Titan,/ })
       .click();
-    const input = page.getByRole('combobox', { name: 'Messaggio' });
-    await input.fill('Scrivimi una poesia lunga');
+    const input = page.getByRole('combobox', { name: 'Message' });
+    await input.fill('Write me a long poem');
     await input.press('Enter');
-    await expect(page.getByRole('link', { name: /^Titan, al lavoro/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Titan, working/ })).toBeVisible();
 
     await page.getByTestId('kill').click();
     await page.getByTestId('kill').click();
-    await expect(page.getByTestId('halt-banner')).toContainText('I mostri sono fermi');
+    await expect(page.getByTestId('halt-banner')).toContainText('The monsters are stopped');
     // Writing stays possible: the message leaves when the monsters resume (D-060).
     await expect(input).toBeEnabled();
-    await expect(input).toHaveAttribute('placeholder', /Riprendi/);
-    await expect(page.getByRole('link', { name: /^Titan, in pausa/ })).toBeVisible();
+    await expect(input).toHaveAttribute('placeholder', /Resume/);
+    await expect(page.getByRole('link', { name: /^Titan, paused/ })).toBeVisible();
 
     // "Riprendi e continua": the core starts the poem again, the chat says so in a
     // status line and not as a message typed again (D-072).
     const bubbles = await page.getByTestId('user-bubble').count();
-    await expect(page.getByTestId('halt-banner')).toContainText('il lavoro di Titan');
+    await expect(page.getByTestId('halt-banner')).toContainText('the work of Titan');
     await page.getByTestId('halt-continue').click();
     await expect(page.getByTestId('halt-banner')).toBeHidden();
     await expect(page.getByTestId('system-row').last()).toContainText(
-      'Ripreso il lavoro fermato: «Scrivimi una poesia lunga»',
+      'Picked the stopped work back up: “Write me a long poem”',
     );
     await expect(
-      page.getByTestId('agent-bubble').filter({ hasText: 'Eccomi di nuovo' }),
+      page.getByTestId('agent-bubble').filter({ hasText: 'Here I am again' }),
     ).toHaveAttribute('data-streaming', 'false');
     await expect(page.getByTestId('user-bubble')).toHaveCount(bubbles);
     await expect(input).toBeEnabled();
   });
 
   await test.step('a PDF in Anteprima, drawn by pdf.js under the core’s CSP', async () => {
-    const bubble = page.getByTestId('agent-bubble').filter({ hasText: 'Eccomi di nuovo' });
+    const bubble = page.getByTestId('agent-bubble').filter({ hasText: 'Here I am again' });
     await bubble.getByTestId('file-link').click();
     const dock = page.getByTestId('right-dock');
-    await expect(dock.getByTestId('preview-title')).toHaveText('Prova.pdf');
+    await expect(dock.getByTestId('preview-title')).toHaveText('Test.pdf');
     await expect(dock.getByTestId('preview-pdf-page')).toHaveCount(2);
-    await expect(dock.getByTestId('preview-pdf-pages')).toHaveText('Pagina 1 / 2');
+    await expect(dock.getByTestId('preview-pdf-pages')).toHaveText('Page 1 / 2');
     expect(pdfUrls.length).toBeGreaterThan(0);
     for (const url of pdfUrls) expect(url).toMatch(/[?&]ticket=[\w-]{43}/);
     await expect
@@ -322,8 +319,8 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
   });
 
   await test.step('new conversation: the chat starts over, the old one stays in the log', async () => {
-    await expect(page.getByRole('link', { name: /^Titan, (ha finito|disponibile)/ })).toBeVisible();
-    await page.getByRole('button', { name: 'Nuova conversazione' }).click();
+    await expect(page.getByRole('link', { name: /^Titan, (done|available)/ })).toBeVisible();
+    await page.getByRole('button', { name: 'New conversation' }).click();
     await expect(page.getByTestId('conversation-divider')).toBeVisible();
     await expect(page.getByTestId('user-bubble')).toHaveCount(0);
     await expect(page.getByTestId('agent-bubble')).toHaveCount(0);
@@ -334,12 +331,12 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     await expect(page.getByTestId('agent-bubble')).toHaveCount(0);
     await page.getByTestId('earlier-toggle').click();
     await expect(
-      page.getByTestId('agent-bubble').filter({ hasText: 'Eccomi di nuovo' }),
+      page.getByTestId('agent-bubble').filter({ hasText: 'Here I am again' }),
     ).toBeVisible();
 
-    await page.getByRole('link', { name: 'Attività', exact: true }).click();
+    await page.getByRole('link', { name: 'Activity', exact: true }).click();
     await expect(
-      page.getByTestId('event-row').filter({ hasText: 'Hai iniziato una nuova conversazione' }),
+      page.getByTestId('event-row').filter({ hasText: 'You started a new conversation' }),
     ).toBeVisible();
   });
 
@@ -347,18 +344,18 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     await page.goto('/#/impostazioni?sezione=permessi');
     const rhea = page.getByTestId('agent-permissions-rhea');
     await rhea.getByRole('button', { expanded: false }).click();
-    await rhea.getByRole('switch', { name: 'Terminale' }).click();
-    await expect(rhea.getByTestId('permissions-summary')).toContainText('terminale');
-    await rhea.getByLabel('Aggiungi una cartella a cartelle del computer').fill(HOME);
-    await rhea.getByRole('button', { name: 'Aggiungi' }).click();
-    await expect(rhea.getByRole('alert')).toContainText('dati di Monsters');
+    await rhea.getByRole('switch', { name: 'Terminal' }).click();
+    await expect(rhea.getByTestId('permissions-summary')).toContainText('terminal');
+    await rhea.getByLabel('Add a folder: computer folders').fill(HOME);
+    await rhea.getByRole('button', { name: 'Add' }).click();
+    await expect(rhea.getByRole('alert')).toContainText('Monsters data folder');
     const settings = JSON.parse(readFileSync(join(HOME, 'settings.json'), 'utf8')) as {
       permissions: { agents: Record<string, { shell: boolean }> };
     };
     expect(settings.permissions.agents['rhea']?.shell).toBe(true);
-    await page.getByRole('link', { name: 'Attività', exact: true }).click();
+    await page.getByRole('link', { name: 'Activity', exact: true }).click();
     await expect(
-      page.getByTestId('event-row').filter({ hasText: 'Hai cambiato i permessi di Rhea' }),
+      page.getByTestId('event-row').filter({ hasText: 'You changed Rhea’s permissions' }),
     ).toBeVisible();
   });
 
@@ -371,14 +368,14 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     );
     await page
       .getByTestId('composer-file-input')
-      .setInputFiles([{ name: 'quadratino.png', mimeType: 'image/png', buffer: png }]);
+      .setInputFiles([{ name: 'tiny-square.png', mimeType: 'image/png', buffer: png }]);
     const chip = page.getByTestId('composer-attachments').getByTestId('file-chip');
     await expect(chip).toHaveAttribute('data-state', 'ready');
     // The notes folder of a test core is `<home>/Monsters Note`.
     expect(existsSync(join(HOME, 'Monsters Note', 'File', '.gitignore'))).toBe(true);
-    await chip.getByRole('button', { name: 'Togli quadratino.png' }).click();
+    await chip.getByRole('button', { name: 'Remove tiny-square.png' }).click();
     await page.keyboard.press('ControlOrMeta+4');
-    const tile = page.getByTestId('file-tile').filter({ hasText: 'quadratino.png' });
+    const tile = page.getByTestId('file-tile').filter({ hasText: 'tiny-square.png' });
     await expect(tile).toBeVisible();
     // The picture comes from the core (cookie, nosniff), never broken.
     await expect
@@ -411,7 +408,11 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     const folder = join(dirname(HOME), 'progetto-newsletter');
     await page.getByTestId('project-new').click();
     await page.getByTestId('project-name').fill('Newsletter');
-    await page.getByTestId('project-form').getByRole('radio', { name: 'Una nuova' }).click();
+    await page
+      .getByTestId('project-form')
+      .getByRole('radiogroup', { name: 'The project’s folder' })
+      .getByRole('radio', { name: 'A new one' })
+      .click();
     await page.getByTestId('project-path').fill(folder);
     await page.getByTestId('project-lead-name').fill('Atlas');
     await page.getByTestId('project-copies').getByTestId('pick-rhea').click();
@@ -427,18 +428,18 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     await expect(copyRow).not.toContainText('Rhea');
     await expect(copyRow).not.toContainText('·');
 
-    await page.getByRole('tab', { name: 'Squadra' }).click();
+    await page.getByRole('tab', { name: 'Squad' }).click();
     await expect(page.getByTestId('project-member')).toHaveCount(2);
-    await page.getByRole('tab', { name: 'Cartella' }).click();
+    await page.getByRole('tab', { name: 'Folder' }).click();
     await expect(page.getByTestId('project-folder-path')).toHaveText(folder);
     const stop = page.getByTestId('project-stop');
     await stop.click();
     await stop.click();
-    await expect(page.getByText('Nel progetto Newsletter non lavorava nessuno')).toBeVisible();
+    await expect(page.getByText('Nobody was working in Newsletter')).toBeVisible();
     await expect(page.getByTestId('halt-banner')).toHaveCount(0);
 
-    await page.getByTestId('project-archive').getByRole('button', { name: 'Archivia' }).click();
-    await page.getByTestId('project-archive').getByRole('button', { name: 'Sì, archivia' }).click();
+    await page.getByTestId('project-archive').getByRole('button', { name: 'Archive' }).click();
+    await page.getByTestId('project-archive').getByRole('button', { name: 'Yes, archive' }).click();
     await expect(page.getByTestId('project-archived-page')).toBeVisible();
     await expect(squad).toHaveCount(0);
     await page.getByTestId('project-restore').click();
@@ -451,15 +452,15 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     await page.route(missing, (route) => route.fulfill({ status: 404, body: 'not found' }));
     await page.goto('/#/');
     await page.reload();
-    await page.getByRole('link', { name: 'Note', exact: true }).click();
+    await page.getByRole('link', { name: 'Notes', exact: true }).click();
     const fallback = page.getByTestId('error-boundary');
-    await expect(fallback).toContainText('C’è una versione nuova di Monsters');
+    await expect(fallback).toContainText('There’s a new version of Monsters');
     // One message only (the prompt of vite:preloadError stays hidden), the top bar still works.
     await expect(page.getByTestId('update-prompt')).toHaveCount(0);
     await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Titan,/ })).toBeVisible();
 
     await page.unroute(missing);
-    await fallback.getByRole('button', { name: 'Ricarica la pagina' }).click();
+    await fallback.getByRole('button', { name: 'Reload the page' }).click();
     await expect(page.getByTestId('vault-view')).toBeVisible();
     // The missing file and the error caught by the boundary are logged on purpose.
     const expected = /status of 404|dynamically imported module|VaultView/;

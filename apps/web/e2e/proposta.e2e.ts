@@ -14,12 +14,12 @@ async function propose(page: Page) {
   await page.goto('/?mock=team&mockSpeed=0.3');
   await page.getByLabel('Email').fill('giulio@esempio.it');
   await page.getByLabel('Password').fill('una-password-lunga');
-  await page.getByLabel('Codice di avvio').fill('424242');
-  await page.getByRole('button', { name: 'Crea account' }).click();
+  await page.getByLabel('Setup code').fill('424242');
+  await page.getByRole('button', { name: 'Create account' }).click();
   await page.getByTestId('sidebar').waitFor();
   await page.evaluate(() => (window.location.hash = '#/?chat=titan'));
-  const input = page.getByRole('combobox', { name: 'Messaggio' });
-  await input.fill('Crea un mostro che tenga in ordine le idee');
+  const input = page.getByRole('combobox', { name: 'Message' });
+  await input.fill('Create a monster that keeps my ideas in order');
   await input.press('Enter');
   const card = page.getByTestId('proposal-card');
   await expect(card).toHaveAttribute('data-status', 'proposed');
@@ -30,23 +30,23 @@ test('the capo proposes a monster; "Crea" adds it and the card leads to its chat
   page,
 }) => {
   const card = await propose(page);
-  await expect(card).toContainText('propone un nuovo mostro');
+  await expect(card).toContainText('proposes a new monster');
   await expect(card).toContainText('Lyra');
-  await expect(card).toContainText('tiene in ordine le idee');
+  await expect(card).toContainText('keeps ideas in order');
   const details = card.getByTestId('proposal-details');
-  await expect(details).toContainText('NOTE');
-  await expect(details).toContainText('scrive in Idee/');
-  await expect(details).toContainText('come Titan');
+  await expect(details).toContainText('NOTES');
+  await expect(details).toContainText('writes in Idee/');
+  await expect(details).toContainText('same as Titan');
   // Every rule that "Crea" writes in its AGENTS.md is on the card (D-079).
   await expect(card.getByTestId('proposal-duties').getByRole('listitem')).toHaveText([
-    'Una nota per idea, con i collegamenti alle note vicine.',
+    'One note per idea, with links to the nearby notes.',
   ]);
-  await expect(details).toContainText('niente terminale né file');
-  await expect(details).toContainText('Servizi');
+  await expect(details).toContainText('no terminal or files');
+  await expect(details).toContainText('Services');
   // Not in the team before the tap.
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Lyra,/ })).toHaveCount(0);
   if (SHOTS) {
-    await expect(page.getByText('la crei con un tocco')).toBeVisible();
+    await expect(page.getByText('create her with one tap')).toBeVisible();
     for (const theme of ['light', 'dark'] as const) {
       await page.emulateMedia({ colorScheme: theme });
       await card.scrollIntoViewIfNeeded();
@@ -57,7 +57,7 @@ test('the capo proposes a monster; "Crea" adds it and the card leads to its chat
 
   await card.getByTestId('proposal-create').click();
   await expect(card).toHaveAttribute('data-status', 'created');
-  await expect(card).toContainText('Creato: Lyra');
+  await expect(card).toContainText('Created: Lyra');
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Lyra,/ })).toBeVisible();
   if (SHOTS) await card.screenshot({ path: `${SHOTS}/proposta-creata.png` });
   await card.getByTestId('proposal-open-chat').click();
@@ -69,26 +69,26 @@ test('"Cambia" opens the form of Settings → Squadra with the draft', async ({ 
   await card.getByTestId('proposal-change').click();
   const form = page.getByTestId('team-draft');
   await expect(form).toBeVisible();
-  await expect(form).toContainText('L’ha proposto il tuo capo');
-  await expect(form.getByLabel('Nome')).toHaveValue('Lyra');
-  await expect(form.getByLabel('Cosa fa, in una riga')).toHaveValue('tiene in ordine le idee');
-  await expect(form.getByLabel('Dove scrive nelle note')).toHaveValue('Idee');
-  await form.getByLabel('Nome').fill('Vega');
-  await form.getByRole('button', { name: 'Aggiungi alla squadra' }).click();
-  await expect(page.getByText('Vega è nella squadra')).toBeVisible();
+  await expect(form).toContainText('Your lead proposed it');
+  await expect(form.getByLabel('Name')).toHaveValue('Lyra');
+  await expect(form.getByLabel('What it does, in one line')).toHaveValue('keeps ideas in order');
+  await expect(form.getByLabel('Where it writes in the notes')).toHaveValue('Idee');
+  await form.getByLabel('Name').fill('Vega');
+  await form.getByRole('button', { name: 'Add to the squad' }).click();
+  await expect(page.getByText('Vega is in the squad')).toBeVisible();
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Vega,/ })).toBeVisible();
   // Back in the chat, the card says what happened, with the name chosen in the form.
   await page.goBack();
   const again = page.getByTestId('proposal-card');
   await expect(again).toHaveAttribute('data-status', 'created');
-  await expect(again).toContainText('Creato: Vega');
+  await expect(again).toContainText('Created: Vega');
 });
 
 test('"Lascia stare" closes the card without creating anything', async ({ page }) => {
   const card = await propose(page);
   await card.getByTestId('proposal-discard').click();
   await expect(card).toHaveAttribute('data-status', 'discarded');
-  await expect(card).toContainText('Lasciato stare');
+  await expect(card).toContainText('Left alone');
   await expect(card.getByTestId('proposal-create')).toHaveCount(0);
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Lyra,/ })).toHaveCount(0);
 });

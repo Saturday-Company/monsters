@@ -12,26 +12,26 @@ test('first start: model, about you, team, birth', async ({ page }) => {
   await expect(page).toHaveURL(/#\/benvenuto$/);
   await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'key');
   // Four steps, the first one current.
-  const progress = page.getByRole('navigation', { name: 'Avanzamento' });
+  const progress = page.getByRole('navigation', { name: 'Progress' });
   await expect(progress.getByRole('listitem')).toHaveText([
-    /Modello/,
-    /Su di te/,
-    /Cosa possono fare/,
-    /Squadra/,
+    /Model/,
+    /About you/,
+    /What they can do/,
+    /Squad/,
   ]);
 
   // Three ways to a model; nothing goes on until one is connected.
-  const ways = page.getByRole('radiogroup', { name: 'Come raggiungo un modello' });
+  const ways = page.getByRole('radiogroup', { name: 'How I reach a model' });
   await expect(ways.getByRole('radio')).toHaveCount(3);
   const go = page.getByTestId('access-continue');
   await expect(go).toBeDisabled();
-  await page.getByRole('radio', { name: /Modelli gratuiti/ }).click();
+  await page.getByRole('radio', { name: /Free models/ }).click();
   // The key has its own way forward: one orange key on screen, nothing to leave for later
   // once a model is there (audit UI-18).
   await expect(go).toHaveCount(0);
-  const key = page.getByLabel('La tua chiave di OpenRouter');
+  const key = page.getByLabel('Your OpenRouter key');
   await key.fill('not-a-key');
-  await page.getByRole('button', { name: 'Verifica e continua' }).click();
+  await page.getByRole('button', { name: 'Verify and continue' }).click();
   await expect(page.getByRole('alert')).toContainText('sk-or-');
   await connectOpenRouter(page);
   await expect(progress.getByRole('listitem').first()).toHaveAttribute('data-done', 'yes');
@@ -40,119 +40,117 @@ test('first start: model, about you, team, birth', async ({ page }) => {
   // The starting agent comments the last answer, then the permissions: a step of their own.
   await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'permissions');
   await expect(progress.getByRole('listitem').nth(2)).toHaveAttribute('aria-current', 'step');
-  // The counter of "Su di te" stays with its three screens: the permissions are a step of
+  // The counter of "About you" stays with its three screens: the permissions are a step of
   // their own (D-066).
   await expect(page.getByTestId('screen-progress')).toHaveCount(0);
-  await page.getByRole('switch', { name: 'Il web' }).click();
-  await page.getByRole('switch', { name: 'Il web' }).click();
+  await page.getByRole('switch', { name: 'The web' }).click();
+  await page.getByRole('switch', { name: 'The web' }).click();
   // Only the three switches (terminal off by default); folders, browser and MCP tools
   // are set up in the settings, nothing is announced as coming.
-  const perms = page.getByRole('list', { name: 'Permessi degli agenti' });
+  const perms = page.getByRole('list', { name: 'The monsters’ permissions' });
   await expect(perms.getByRole('switch')).toHaveCount(3);
-  await expect(page.getByText('In arrivo')).toHaveCount(0);
+  await expect(page.getByText('Coming soon')).toHaveCount(0);
   await expect(page.getByTestId('guide-says').locator('..').locator('..')).toContainText(
-    'nelle impostazioni',
+    'in the settings',
   );
-  await expect(page.getByRole('switch', { name: 'Terminale' })).toHaveAttribute(
+  await expect(page.getByRole('switch', { name: 'Terminal' })).toHaveAttribute(
     'aria-checked',
     'false',
   );
-  await page.getByRole('button', { name: /Va bene, continua/ }).click();
-  await expect(page.getByTestId('guide-says')).toContainText('preparo la squadra');
+  await page.getByRole('button', { name: /Looks good, continue/ }).click();
+  await expect(page.getByTestId('guide-says')).toContainText('put the squad together');
 
   const members = page.getByTestId('member');
   await expect(members).toHaveCount(3);
-  await expect(page.getByTestId('guide-says')).toContainText('Ecco la squadra');
+  await expect(page.getByTestId('guide-says')).toContainText('Here’s the squad');
 
   // A new look for Tethys, a new name, Dione out and back in, then out again.
   const tethys = page.locator('[data-member="tethys"]');
   const before = await tethys.locator('svg').first().innerHTML();
-  await page.getByRole('button', { name: 'Un altro aspetto per Tethys' }).click();
+  await page.getByRole('button', { name: 'Another look for Tethys' }).click();
   await expect.poll(() => tethys.locator('svg').first().innerHTML()).not.toBe(before);
-  await page.getByRole('button', { name: 'Rinomina Tethys' }).click();
-  await page.getByLabel('Nuovo nome per Tethys').fill('Calendario');
-  await page.getByRole('button', { name: 'Salva il nome' }).click();
-  await expect(tethys.getByRole('heading', { name: 'Calendario' })).toBeVisible();
+  await page.getByRole('button', { name: 'Rename Tethys' }).click();
+  await page.getByLabel('New name for Tethys').fill('Calendar');
+  await page.getByRole('button', { name: 'Save the name' }).click();
+  await expect(tethys.getByRole('heading', { name: 'Calendar' })).toBeVisible();
   await expect(tethys.getByTestId('member-saved')).toBeVisible();
   // The card says what the monster does in plain words; duties (written for the
   // model) and folder are under "Personalizza", editable: a glob or a reserved
   // folder is refused (audit 2.10).
-  await expect(tethys.getByTestId('member-area')).toContainText('nelle note «Calendario»');
+  await expect(tethys.getByTestId('member-area')).toContainText('in the notes “Calendar”');
   await expect(tethys).not.toContainText('vault');
-  await expect(tethys).not.toContainText('Lavori fino in fondo');
-  await page.getByRole('button', { name: 'Personalizza Calendario' }).click();
-  const area = page.getByLabel('Cartella nelle note di Calendario');
+  await expect(tethys).not.toContainText('You see the work through');
+  await page.getByRole('button', { name: 'Customize Calendar' }).click();
+  const area = page.getByLabel('Calendar’s folder in the notes');
   await area.fill('**');
-  await page.getByRole('button', { name: 'Salva compiti e cartella di Calendario' }).click();
-  await expect(tethys.getByRole('alert')).toContainText('niente * ?');
+  await page.getByRole('button', { name: 'Save Calendar’s tasks and folder' }).click();
+  await expect(tethys.getByRole('alert')).toContainText('no * ?');
   await area.fill('Agenti/Atlas');
-  await page.getByRole('button', { name: 'Salva compiti e cartella di Calendario' }).click();
-  await expect(tethys.getByRole('alert')).toContainText('riservata');
-  await area.fill(' Progetti/Piano editoriale/ ');
+  await page.getByRole('button', { name: 'Save Calendar’s tasks and folder' }).click();
+  await expect(tethys.getByRole('alert')).toContainText('reserved');
+  await area.fill(' Projects/Editorial plan/ ');
   await page
-    .getByLabel('Compiti di Calendario (uno per riga)')
-    .fill('Un piano a settimana.\n- Ricordi le scadenze.');
-  await page.getByRole('button', { name: 'Salva compiti e cartella di Calendario' }).click();
-  await expect(tethys.getByTestId('member-area')).toContainText('«Piano editoriale»');
-  await page.getByRole('button', { name: 'Personalizza Calendario' }).click();
-  await expect(page.getByLabel('Compiti di Calendario (uno per riga)')).toHaveValue(
-    'Un piano a settimana.\nRicordi le scadenze.',
+    .getByLabel('Calendar’s tasks (one per line)')
+    .fill('One plan a week.\n- You remember the deadlines.');
+  await page.getByRole('button', { name: 'Save Calendar’s tasks and folder' }).click();
+  await expect(tethys.getByTestId('member-area')).toContainText('“Editorial plan”');
+  await page.getByRole('button', { name: 'Customize Calendar' }).click();
+  await expect(page.getByLabel('Calendar’s tasks (one per line)')).toHaveValue(
+    'One plan a week.\nYou remember the deadlines.',
   );
-  await expect(page.getByLabel('Cartella nelle note di Calendario')).toHaveValue(
-    'Progetti/Piano editoriale',
+  await expect(page.getByLabel('Calendar’s folder in the notes')).toHaveValue(
+    'Projects/Editorial plan',
   );
-  await page.getByRole('button', { name: 'Annulla' }).click();
-  await page.getByRole('button', { name: 'Togli Dione dalla squadra' }).click();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('button', { name: 'Remove Dione from the squad' }).click();
   await expect(members).toHaveCount(2);
-  // The focus does not fall on the page: it is on «Rimetti», ready to undo.
-  await expect(page.getByRole('button', { name: 'Rimetti Dione nella squadra' })).toBeFocused();
-  await page.getByRole('button', { name: 'Rimetti Dione nella squadra' }).click();
+  // The focus does not fall on the page: it is on “Put back”, ready to undo.
+  await expect(page.getByRole('button', { name: 'Put Dione back in the squad' })).toBeFocused();
+  await page.getByRole('button', { name: 'Put Dione back in the squad' }).click();
   await expect(members).toHaveCount(3);
-  await page.getByRole('button', { name: 'Togli Dione dalla squadra' }).click();
+  await page.getByRole('button', { name: 'Remove Dione from the squad' }).click();
   await expect(members).toHaveCount(2);
 
-  await page.getByRole('button', { name: /Conferma la squadra/ }).click();
+  await page.getByRole('button', { name: /Confirm the squad/ }).click();
   await expect(page.getByTestId('birth')).toBeVisible();
-  await expect(page.getByTestId('welcome')).toContainText('Ciao Giulio! Sono Atlas');
-  await page.getByRole('button', { name: 'Scrivi ad Atlas' }).click();
+  await expect(page.getByTestId('welcome')).toContainText('Hi Giulio! I’m Atlas');
+  await page.getByRole('button', { name: 'Message Atlas' }).click();
 
   // The onboarding lands in the orchestrator's chat, with the new team on the left.
   await expect(page).toHaveURL(/#\/\?chat=atlas$/);
   await expect(page.getByRole('heading', { name: 'Atlas', level: 1 })).toBeVisible();
-  const chats = page.getByRole('navigation', { name: 'Chat dei mostri' });
+  const chats = page.getByRole('navigation', { name: 'Monsters’ chats' });
   // The orchestrator's chat is the god's bar at the head of the sidebar (D-102).
   await expect(page.getByTestId('god-bar')).toHaveAccessibleName(/^Atlas,/);
-  await expect(chats.getByRole('link', { name: /^Calendario,/ })).toBeVisible();
+  await expect(chats.getByRole('link', { name: /^Calendar,/ })).toBeVisible();
   await expect(chats.getByRole('link', { name: /^Dione,/ })).toHaveCount(0);
-  await expect(page.getByTestId('agent-bubble').first()).toContainText('Sono Atlas');
+  await expect(page.getByTestId('agent-bubble').first()).toContainText('I’m Atlas');
   // A model is connected: no warning on the home page.
   await expect(page.getByTestId('no-model')).toHaveCount(0);
   // A first thing to ask: an unfinished one goes in the field, to be completed.
   const ideas = page.getByTestId('suggestions');
   await expect(ideas.getByRole('button')).toHaveCount(3);
-  await ideas.getByRole('button', { name: 'Fammi una ricerca su…' }).click();
-  await expect(page.getByRole('combobox', { name: 'Messaggio' })).toHaveValue(
-    'Fammi una ricerca su ',
-  );
-  await expect(page.getByRole('combobox', { name: 'Messaggio' })).toBeFocused();
+  await ideas.getByRole('button', { name: 'Do some research on…' }).click();
+  await expect(page.getByRole('combobox', { name: 'Message' })).toHaveValue('Do some research on ');
+  await expect(page.getByRole('combobox', { name: 'Message' })).toBeFocused();
 });
 
 test('the Claude subscription: Claude Code on the computer of Monsters', async ({ page }) => {
   await page.goto('/?mock=1');
   await createAccount(page, MOCK_SETUP_CODE);
-  await page.getByRole('radio', { name: /Abbonamento Claude/ }).click();
+  await page.getByRole('radio', { name: /Claude subscription/ }).click();
   const panel = page.getByTestId('access-panel');
   // The core may run elsewhere (desktop app over SSH): the copy says where.
-  await expect(panel).toContainText('sul computer dove gira Monsters');
-  await panel.getByRole('button', { name: 'Usa Claude Code' }).click();
+  await expect(panel).toContainText('on the computer where Monsters runs');
+  await panel.getByRole('button', { name: 'Use Claude Code' }).click();
   await expect(panel.getByTestId('claude-terminal-hint')).toContainText('claude');
   await expect(page.getByTestId('access-continue')).toBeDisabled();
   // The user signs in in a terminal; Monsters asks Claude Code again.
   await expect(async () => {
-    await panel.getByRole('button', { name: 'Ricontrolla' }).click({ timeout: 1000 });
+    await panel.getByRole('button', { name: 'Check again' }).click({ timeout: 1000 });
     await expect(page.getByTestId('access-connected')).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 10_000 });
-  await expect(page.getByTestId('access-connected')).toContainText('abbonamento');
+  await expect(page.getByTestId('access-connected')).toContainText('subscription');
   await expect(page.getByTestId('way-claude-agent')).toHaveAttribute('data-ready', 'yes');
   await page.getByTestId('access-continue').click();
   await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'questions');
@@ -161,7 +159,7 @@ test('the Claude subscription: Claude Code on the computer of Monsters', async (
 test('the ChatGPT plan: continue with ChatGPT and the first-use modal', async ({ page }) => {
   await page.goto('/?mock=1');
   await createAccount(page, MOCK_SETUP_CODE);
-  await page.getByRole('radio', { name: /Piano ChatGPT/ }).click();
+  await page.getByRole('radio', { name: /ChatGPT plan/ }).click();
   const popup = page.waitForEvent('popup');
   await page.getByRole('button', { name: 'Continue with ChatGPT' }).click();
   await (await popup).close();
@@ -177,30 +175,30 @@ test('without a model the home page says so', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto('/?mock=1');
   await createAccount(page, MOCK_SETUP_CODE);
-  await page.getByRole('button', { name: 'Lo faccio dopo' }).click();
+  await page.getByRole('button', { name: 'I’ll do it later' }).click();
   await answerQuestions(page);
-  await page.getByRole('button', { name: /Va bene, continua/ }).click();
-  await page.getByRole('button', { name: /Conferma la squadra/ }).click();
-  await page.getByRole('button', { name: /^Scrivi ad? / }).click();
+  await page.getByRole('button', { name: /Looks good, continue/ }).click();
+  await page.getByRole('button', { name: /Confirm the squad/ }).click();
+  await page.getByRole('button', { name: /^Message / }).click();
   // The greeting is honest, and carries the way out; the field and the state agree.
   const greeting = page.getByTestId('agent-bubble').first();
-  await expect(greeting).toContainText('Per lavorare mi manca solo un modello');
-  await expect(page.getByTestId('chat-status')).toContainText('In attesa di un modello');
-  const input = page.getByRole('combobox', { name: 'Messaggio' });
+  await expect(greeting).toContainText('To work I’m only missing a model');
+  await expect(page.getByTestId('chat-status')).toContainText('Waiting for a model');
+  const input = page.getByRole('combobox', { name: 'Message' });
   await expect(input).toBeDisabled();
-  await expect(input).toHaveAttribute('placeholder', 'Prima collega un modello');
+  await expect(input).toHaveAttribute('placeholder', 'Connect a model first');
   const notice = greeting.getByTestId('no-model');
-  await notice.getByRole('link', { name: 'Collega un modello' }).click();
+  await notice.getByRole('link', { name: 'Connect a model' }).click();
   await expect(page).toHaveURL(/#\/impostazioni\?sezione=modelli$/);
 });
 
 test('the key can wait, and the chats send back to the onboarding', async ({ page }) => {
   await page.goto('/?mock=1');
   await createAccount(page, MOCK_SETUP_CODE);
-  await page.getByRole('button', { name: 'Lo faccio dopo' }).click();
+  await page.getByRole('button', { name: 'I’ll do it later' }).click();
   await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'questions');
-  await page.getByLabel('Il tuo nome').fill('Giulio');
-  await page.getByRole('button', { name: /^Avanti/ }).click();
+  await page.getByLabel('Your name').fill('Giulio');
+  await page.getByRole('button', { name: /^Next/ }).click();
   await expect(page.locator('[data-question="lavoro"]')).toBeVisible();
   // Going to the chats before finishing brings the user back here.
   await page.goto('/?mock=1#/');

@@ -21,32 +21,32 @@ const TEAM = {
   agents: [
     {
       name: 'Rhea',
-      title: 'la ricercatrice',
-      role: 'trova idee e dati per i post dei ristoranti',
-      mission: 'cerchi tendenze e idee sul food e le trasformi in note con fonti',
-      context: 'Giulio segue tre ristoranti e vuole pubblicare con costanza.',
-      duties: ['Controlli sempre la data delle fonti.'],
-      area: 'Risorse/Ricerche',
+      title: 'the researcher',
+      role: 'finds ideas and data for the restaurants’ posts',
+      mission: 'you look for food trends and ideas and turn them into notes with sources',
+      context: 'Giulio follows three restaurants and wants to publish consistently.',
+      duties: ['You always check the date of the sources.'],
+      area: 'Resources/Research',
       tools: ['web'],
     },
     {
       name: 'Dione',
-      title: 'la copywriter',
-      role: 'scrive post e didascalie pronti da pubblicare',
-      mission: 'scrivi post e didascalie nel tono dei ristoranti',
-      context: 'Giulio vuole testi diretti, pronti da usare.',
-      duties: ['Proponi sempre due varianti.'],
-      area: 'Progetti/Social',
+      title: 'the copywriter',
+      role: 'writes posts and captions ready to publish',
+      mission: 'you write posts and captions in the restaurants’ tone',
+      context: 'Giulio wants direct texts, ready to use.',
+      duties: ['You always offer two versions.'],
+      area: 'Projects/Social',
       tools: [],
     },
     {
       name: 'Tethys',
-      title: 'il pianificatore',
-      role: 'tiene il calendario editoriale e le scadenze',
-      mission: 'organizzi il calendario editoriale dei ristoranti',
-      context: 'Giulio pubblica per tre ristoranti ogni settimana.',
-      duties: ['Tieni un piano settimanale per ristorante.'],
-      area: 'Progetti/Calendario',
+      title: 'the planner',
+      role: 'keeps the editorial calendar and the deadlines',
+      mission: 'you organise the restaurants’ editorial calendar',
+      context: 'Giulio publishes for three restaurants every week.',
+      duties: ['You keep a weekly plan for each restaurant.'],
+      area: 'Projects/Calendar',
       tools: [],
       look: { shape: 'dome', eyes: 'trio' },
     },
@@ -61,10 +61,10 @@ const provider = new FakeProvider({
       if (prompt.includes('Progetti la squadra')) {
         // The first answer is not valid: the core retries with the errors.
         return proposals++ === 0
-          ? fake.text('Certo! Ecco la squadra: Rhea, Dione e Tethys.')
+          ? fake.text('Sure! Here’s the squad: Rhea, Dione and Tethys.')
           : fake.text(JSON.stringify(TEAM), { chunkSize: 40 });
       }
-      return fake.text('Ciao Giulio! Ci sono, dimmi pure.', { chunkSize: 8, delayMs: 20 });
+      return fake.text('Hi Giulio! I’m here, tell me.', { chunkSize: 8, delayMs: 20 });
     },
   },
 });

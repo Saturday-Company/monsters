@@ -18,7 +18,7 @@ const god = (page: Page) => page.getByTestId('god-bar');
 
 async function closeNotice(page: Page) {
   // The demo's notice (a tool in pause) would cover the page.
-  const close = page.getByRole('button', { name: 'Chiudi', exact: true });
+  const close = page.getByRole('button', { name: 'Close', exact: true });
   if (await close.count()) {
     await close.first().click();
     await expect(close).toHaveCount(0);
@@ -81,7 +81,7 @@ test.describe('desktop', () => {
     await expect(page.locator('[data-testid="chat-row"][data-agent="titan"]')).toHaveCount(0);
     await expect(god(page)).toHaveAttribute('data-waiting', 'true');
     await expect(god(page).getByTestId('god-question')).toHaveText('1');
-    await expect(god(page)).toHaveAccessibleName(/^Titan, .*ti chiede: /);
+    await expect(god(page)).toHaveAccessibleName(/^Titan, .*asks you: /);
     await shot(page, 'barra-del-dio-scelta-chiaro');
 
     // Another chat open: the bar is not chosen; a message of Titan's is unread on it.
@@ -90,10 +90,10 @@ test.describe('desktop', () => {
     await closeTitanQuestions(page);
     await expect(god(page).getByTestId('god-question')).toHaveCount(0);
     await feed(page, [
-      { agent: 'titan', type: 'message', data: { role: 'agent', text: 'Ho finito il giro.' } },
+      { agent: 'titan', type: 'message', data: { role: 'agent', text: 'I finished the run.' } },
     ]);
     await expect(god(page).getByTestId('god-unread')).toHaveText('1');
-    await expect(god(page)).toHaveAccessibleName(/^Titan, .*1 da leggere/);
+    await expect(god(page)).toHaveAccessibleName(/^Titan, .*1 unread/);
     await shot(page, 'barra-del-dio-da-leggere-chiaro');
     await god(page).click();
     await expect(page).toHaveURL(/#\/\?chat=titan$/);
@@ -110,16 +110,16 @@ test.describe('desktop', () => {
     const relayed = page.getByTestId('relayed');
     await expect(relayed).toHaveCount(1);
     await expect(relayed).toHaveAttribute('data-from', 'titan');
-    await expect(relayed).toContainText('Da Titan');
+    await expect(relayed).toContainText('From Titan');
     await expect(relayed.getByTestId('relayed-bubble')).toContainText(
-      'Prepara il post per la serata di sabato',
+      'Prepare the post for Saturday night',
     );
     // Not a message of the user's, and the lead's answer under it.
     await expect(page.getByTestId('user-bubble')).toHaveCount(0);
-    await expect(page.getByTestId('agent-bubble').last()).toContainText('Calypso ha scritto');
+    await expect(page.getByTestId('agent-bubble').last()).toContainText('Calypso wrote');
     // Its preview in the sidebar says who wrote it.
     await expect(page.locator('[data-testid="chat-row"][data-agent="iapetus"]')).not.toContainText(
-      'Tu:',
+      'You:',
     );
     await shot(page, 'chat-del-capo-messaggio-del-dio-chiaro');
   });
@@ -132,9 +132,9 @@ test.describe('desktop', () => {
     const report = page.getByTestId('report-row');
     await expect(report).toHaveCount(1);
     await expect(report).toHaveAttribute('data-status', 'completed');
-    await expect(report).toContainText('Rapporto di Iapetus · Social di Saturday');
-    await expect(report.getByTestId('report-text')).toContainText('Iapetus ha finito');
-    await expect(report.getByTestId('report-text')).toContainText('Pandora ha preparato');
+    await expect(report).toContainText('Report from Iapetus · Saturday Social');
+    await expect(report.getByTestId('report-text')).toContainText('Iapetus finished');
+    await expect(report.getByTestId('report-text')).toContainText('Pandora prepared');
     await report.scrollIntoViewIfNeeded();
     await shot(page, 'chat-del-dio-rapporto-chiaro');
     await report.getByTestId('report-open').click();
@@ -153,7 +153,7 @@ test.describe('desktop', () => {
     // The card in Da rivedere has the lead too.
     await page.goto('/?mock=demo');
     await page.getByTestId('review-toggle').click();
-    const card = page.getByTestId('draft-card').filter({ hasText: 'Sito di Saturday' });
+    const card = page.getByTestId('draft-card').filter({ hasText: 'Saturday website' });
     await expect(card.getByTestId('crew-screen').locator('svg')).toHaveCount(3);
   });
 });
@@ -172,7 +172,7 @@ test.describe('phone', () => {
     await shot(page, 'barra-del-dio-telefono-scuro');
 
     await page.goto('/?mock=demo#/progetto?id=social-di-saturday');
-    await expect(page.getByTestId('relayed')).toContainText('Da Titan');
+    await expect(page.getByTestId('relayed')).toContainText('From Titan');
     await noSideScroll(page, 390);
     await shot(page, 'chat-del-capo-messaggio-del-dio-telefono-scuro');
 
