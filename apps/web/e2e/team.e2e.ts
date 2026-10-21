@@ -82,14 +82,14 @@ test('remove a monster, find it among the archived, bring it back', async ({ pag
   const dione = await openMember(page, 'dione');
   await dione.getByRole('button', { name: 'Remove' }).click();
   await dione.getByRole('button', { name: 'Yes, remove' }).click();
-  await expect(page.getByText(/Dione is no longer in the squad/)).toBeVisible();
+  await expect(page.getByText(/Dione is no longer on the squad/)).toBeVisible();
   await expect(page.getByTestId('team-member-dione')).toHaveCount(0);
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Dione,/ })).toHaveCount(0);
 
   const archived = page.getByTestId('team-archived-dione');
   await expect(archived).toContainText('Removed on');
   await archived.getByRole('button', { name: 'Bring back' }).click();
-  await expect(page.getByText('Dione is back in the squad.')).toBeVisible();
+  await expect(page.getByText('Dione is back on the squad.')).toBeVisible();
   await expect(page.getByTestId('team-member-dione')).toBeVisible();
   await expect(page.getByTestId('team-archived')).toHaveCount(0);
 });
@@ -111,7 +111,7 @@ test('add a monster from a description, reviewed before it is added', async ({ p
   await draft.getByLabel('Name', { exact: true }).fill('Pan');
   await draft.getByRole('button', { name: 'Another look' }).click();
   await draft.getByRole('button', { name: 'Add to the squad' }).click();
-  await expect(page.getByText('Pan is in the squad: write to it from its chat.')).toBeVisible();
+  await expect(page.getByText('Pan is on the squad: message it from its chat.')).toBeVisible();
   await expect(page.getByTestId('team-member-pan')).toBeVisible();
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Pan,/ })).toBeVisible();
 });

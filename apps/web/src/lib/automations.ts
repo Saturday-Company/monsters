@@ -4,6 +4,7 @@ import {
   formatDate,
   formatNumber,
   localTimeZone,
+  timeOptions,
   type AutomationLimits,
   type AutomationRunState,
   type AutomationRunSummary,
@@ -138,8 +139,7 @@ export function formatWhen(ts: number): string {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
+    ...timeOptions(),
   }).replace(/\./g, '');
 }
 

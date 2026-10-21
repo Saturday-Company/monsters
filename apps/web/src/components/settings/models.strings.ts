@@ -17,7 +17,7 @@ const en = {
     exactName: 'The exact model name',
     search: 'Search for a model',
     unknown:
-      'Not in the list: it’s used as is, as an id. If it isn’t the exact one, pick from the list.',
+      'Not in the list: it’s used as typed. If it isn’t the exact name, pick one from the list.',
     listLabel: (label: string) => `Model list: ${label}`,
     none: 'No model with this name: I’ll use it as written (Other).',
     partial: (shown: number, total: number) => `${shown} of ${total} · type to search`,
@@ -29,11 +29,12 @@ const en = {
       anthropic: 'Claude models, with your API key.',
       openai: 'GPT models, with your API key.',
       google: 'Gemini models, with a Google AI Studio key.',
-      mistral: 'Mistral’s models, a European company.',
+      mistral: 'Models from Mistral, a European company.',
       groq: 'Open models, very fast.',
-      ollama: 'Models on your own computer: free and private, but slower and less good with tools.',
+      ollama:
+        'Models on your own computer: free and private, but slower and less capable with tools.',
       lmstudio:
-        'Models on your own computer: free and private, but slower and less good with tools.',
+        'Models on your own computer: free and private, but slower and less capable with tools.',
     } as Record<string, string>,
     tag: {
       local: 'On your computer',
@@ -43,7 +44,7 @@ const en = {
     },
     paidTitle: 'Paid.',
     paidText: (label: string, freeTier: boolean) =>
-      `Every request from the monsters costs something and you pay for it, on your ${label} account. Monsters adds nothing and can’t see your costs.${
+      `Every request from the monsters costs money, billed to your ${label} account. Monsters adds nothing on top and can’t see your costs.${
         freeTier
           ? ' The free plan has tight limits and, on some services, may use what you write to train models.'
           : ''
@@ -91,10 +92,10 @@ const en = {
       saving: 'Saving…',
       automatic: 'Automatic',
       automaticText:
-        'For every request and every task the expert model (TypeSafe) chooses between Sonnet (medium effort) and Opus (high effort) of the Claude plan; Haiku with the Light base.',
+        'For every request and task, the expert model (TypeSafe) chooses between Sonnet (medium effort) and Opus (high effort) from your Claude plan; with the Light base it uses Haiku.',
       automaticLabel: (who: string) => `Automatic model choice for ${who}`,
       teamAuto:
-        'Each monster starts from its own base: your lead and those who work on the computer from Strong, the others from Medium. You change it with “Choose for each monster”.',
+        'Each monster starts from its own base: your lead and the monsters that work on the computer start from Strong, the others from Medium. Change it with “Choose for each monster”.',
       baseWord: 'Base',
       baseOf: (who: string) => `Base of ${who}`,
       withoutExpert:
@@ -115,7 +116,7 @@ const en = {
       titleEach: 'Each monster’s model',
       titleAll: 'The monsters’ model',
       description:
-        'The first one is the preferred: if it doesn’t answer or has run out of requests, the monster moves to the next. Every change saves itself.',
+        'The first one is used: if it doesn’t answer or runs out of requests, the monster moves on to the next. Changes save automatically.',
     },
   },
   tab: {

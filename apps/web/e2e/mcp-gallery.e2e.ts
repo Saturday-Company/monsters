@@ -136,7 +136,7 @@ test('gallery: Stripe with a key pasted once, used only by Dione', async ({ page
   await expect(create).toHaveAttribute('href', 'https://dashboard.stripe.com/apikeys');
   await expect(create).toHaveAttribute('target', '_blank');
   await panel.getByRole('button', { name: 'Connect' }).click();
-  await expect(panel.getByRole('alert')).toContainText('Paste here the code you created');
+  await expect(panel.getByRole('alert')).toContainText('Paste the token you created');
 
   for (const name of ['Titan', 'Rhea', 'Enceladus', 'Mimas']) {
     await panel.getByRole('button', { name, exact: true }).click();

@@ -26,9 +26,9 @@ const en = {
   oneMoment: 'One moment…',
   verifySave: 'Verify and save',
   verifyContinue: 'Verify and continue',
-  offerTitle: (label: string) => `This is a ${label} key: shall I use it for the monsters?`,
+  offerTitle: (label: string) => `This is a key from ${label}: shall I use it for the monsters?`,
   offerText: (label: string) =>
-    `It’s paid: you pay ${label} for the costs, depending on how much they work.`,
+    `It’s paid: you pay ${label} directly, depending on how much the monsters work.`,
   offerYes: 'Yes, use it',
   offerNo: 'No',
   openrouter: {
@@ -50,8 +50,8 @@ const en = {
     introBefore: 'Monsters uses Claude Code installed',
     introStrong: 'on the computer where Monsters runs',
     introAfter:
-      '(if you use it from another computer, that’s the remote one). You sign in to Claude yourself, in the terminal: Monsters never sees your credentials.',
-    installing: 'Installing Anthropic’s component, it takes a few minutes…',
+      '(if you connect from another computer, it’s the remote one that counts). You sign in to Claude yourself, in the terminal: Monsters never sees your credentials.',
+    installing: 'Installing Anthropic’s component: it takes a few minutes…',
     notFound: (name: string, version: string, license: string) =>
       `I can’t find Claude Code on that computer. You can install it yourself, or let Monsters install Anthropic’s official component (${name} ${version}, ${license} license).`,
     install: 'Install and use Claude Code',
@@ -60,17 +60,17 @@ const en = {
       'Claude Code would use an API key: you’d pay per use, not with the subscription. Run',
     apiKeyAfter: 'and sign in with your plan.',
     lostIt:
-      'I can’t find Claude Code on that computer any more: install it and press “Check again”.',
+      'I can’t find Claude Code on that computer anymore: install it and press “Check again”.',
     terminalStrong: 'On the computer where Monsters runs, open a terminal and run',
     terminalMid: ', then sign in with your subscription (',
-    terminalAfter: '). I’ll notice by myself, or press “Check again”.',
+    terminalAfter: '). I’ll notice on my own, or press “Check again”.',
   },
   chatgpt: {
     connected: (email: string | undefined) =>
       `ChatGPT connected${email ? ` as ${email}` : ''}: the monsters use your plan.`,
     works:
       'Works with the Plus and Pro plans. Sign-in opens in the browser; you pay Monsters nothing.',
-    finish: 'Finish signing in in the browser: I’ll notice by myself.',
+    finish: 'Complete the sign-in in your browser: I’ll notice on my own.',
     reopen: 'Reopen the sign-in page',
     tunnel: 'Is Monsters running on another computer? First open the tunnel from yours:',
     sshTarget: 'user@computer',
@@ -78,19 +78,19 @@ const en = {
   doneModelsOf: (label: string) => `the ${label} models`,
   guide: {
     done: (way: string) => `Done! Now I think with ${way}.`,
-    ask: 'Hi! I need a model to think. How do I reach one?',
+    ask: 'Hi! I need a model to think with. How do I reach one?',
     hint: 'One is enough. You can add the others whenever you like.',
   },
   waysLabel: 'How I reach a model',
   subsFailed: 'I can’t read the subscriptions. Try again in a moment.',
   looking: 'Checking what’s on that computer…',
   other: {
-    verified: (label: string) => `${label} key verified: the monsters will use its models, paid.`,
-    text: 'Do you already have an Anthropic, OpenAI, Google or Groq key? Paste it here: I recognise it by its start. They’re paid, with the costs on you.',
+    verified: (label: string) => `${label} key verified: the monsters will use its (paid) models.`,
+    text: 'Do you already have an Anthropic, OpenAI, Google or Groq key? Paste it here: I recognize it by its prefix. These are paid, and you cover the costs.',
     keyLabel: 'Your key',
-    unknown: 'I don’t recognise this key: it usually starts with sk-ant-, sk-, AIza or gsk_.',
+    unknown: 'I don’t recognize this key: it usually starts with sk-ant-, sk-, AIza or gsk_.',
     noteBefore:
-      'Mistral, or a model on your computer with Ollama or LM Studio: finish the first start and add them in',
+      'Mistral, or a model on your computer with Ollama or LM Studio: finish setup and add them in',
     noteStrong: 'Settings → Models',
     noteAfter: ', along with each monster’s model. You’ll find Codex there too.',
     otherWays: 'Other ways',

@@ -194,7 +194,7 @@ describe('events in words, in both languages', () => {
     ).toEqual(['Automation “Rassegna”: paused', 'Automazione «Rassegna»: in pausa']);
     expect(say('system', 'log_archive', { events: 1, days: 30, dir: 'log/archive' })).toEqual([
       'Monsters archived 1 old event (usage, tool results, streamed text) in log/archive',
-      'Monsters ha archiviato 1 eventi vecchi (consumi, risultati degli strumenti, testo in arrivo) in log/archive',
+      'Monsters ha archiviato 1 evento vecchio (consumi, risultati degli strumenti, testo in arrivo) in log/archive',
     ]);
   });
 
@@ -204,7 +204,7 @@ describe('events in words, in both languages', () => {
     expect(
       channel({ action: 'disconnected', reason: 'conflict', bot: true, name: 'Mario' }),
     ).toEqual([
-      'The bot Mario is used by another program (or has a webhook): Monsters will retry',
+      'The bot Mario is in use by another app (or has a webhook): Monsters will retry',
       'Il bot Mario è usato da un altro programma (o ha un webhook): Monsters riprova',
     ]);
     expect(channel({ action: 'disconnected' })).toEqual([
@@ -620,7 +620,7 @@ describe('Attività and the errors of the core', () => {
       'Rhea is working',
     ]);
     expect(both(() => describeError(e('busy')))[0]).toBe(
-      'Someone is still working: wait for them to finish or stop them, then try again.',
+      'A monster is still working: wait for it to finish or stop it, then try again.',
     );
     expect(both(() => describeError(e('invalid_schedule', 'when: every blue moon')))).toEqual([
       'I don’t understand when: every blue moon',

@@ -16,7 +16,7 @@ const en = {
   whoYou: 'by you',
   whoAgent: (name: string) => `by ${name}`,
   whoMonsters: 'by Monsters',
-  openSystem: 'Open in the system',
+  openSystem: 'Open with the default app',
   openOnlyFromFolder: 'This file only opens from its folder',
   showFolder: 'Show in the folder',
   copy: 'Copy',
@@ -58,9 +58,9 @@ const en = {
     fitted: (percent: number) => `Fitted · ${percent}%`,
   },
   text: {
-    firstLines: (n: string) => `Here are the first ${n} lines: download the file for the rest.`,
+    firstLines: (n: string) => `Showing the first ${n} lines: download the file for the rest.`,
     csvEmpty: 'The file is empty.',
-    csvMore: 'Here are the first rows: download the file to see all of it.',
+    csvMore: 'Showing the first rows: download the file to see all of it.',
     loading: 'Loading the text…',
     error: 'I can’t read this file.',
     how: 'How to show it',
@@ -71,14 +71,14 @@ const en = {
   html: {
     scriptsFailed: 'I couldn’t turn the scripts on',
     askingScripts:
-      'The page’s scripts only run inside the box, with no network. If you don’t trust the content the monster read, leave them off.',
+      'The page’s scripts only run in a sandbox with no network. If you don’t trust the content the monster read, leave them off.',
     inert: 'Page with scripts turned off: it was made after reading external content.',
     yes: 'Yes, turn them on',
     turnOn: 'Turn the scripts on',
     leaveOff: 'Leave them off',
     frame: (name: string) => `Page: ${name}`,
     note: (who: string, inert: boolean) =>
-      `Page ${who} · in a closed box: no network, no access to Monsters${inert ? ' · scripts off' : ''}`,
+      `Page ${who} · sandboxed: no network, no access to Monsters${inert ? ' · scripts off' : ''}`,
   },
   other: {
     withBridge: 'Monsters can’t show this here: open it with its own app or download it.',

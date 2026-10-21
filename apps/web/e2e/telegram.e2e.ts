@@ -42,7 +42,7 @@ test('settings: connect the bot, pair an account, quiet night, remove', async ({
   await expect(section.getByRole('alert')).toContainText('doesn’t look like a Telegram token');
   await field.fill('123456789:AAH000000wrongTokenForTheMock_abcdefgh');
   await section.getByRole('button', { name: 'Connect the bot' }).click();
-  await expect(section.getByRole('alert')).toContainText('Telegram doesn’t recognise');
+  await expect(section.getByRole('alert')).toContainText('Telegram doesn’t recognize');
 
   await field.fill('123456789:AAHdemoTokenForTheMockCore_abcdefgh');
   await section.getByRole('button', { name: 'Connect the bot' }).click();

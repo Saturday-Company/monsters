@@ -509,7 +509,7 @@ export class MockProviders {
           400,
           'invalid_key',
           tr(
-            `${spec.label} doesn’t recognise this key.`,
+            `${spec.label} doesn’t recognize this key.`,
             `${spec.label} non riconosce questa chiave.`,
           ),
         );

@@ -28,8 +28,8 @@ describe('formatResetsIn', () => {
 
   it('names the weekday and the time from a day on', () => {
     // Wednesday 21 October 2026, 16:00.
-    expect(formatResetsIn(at(2026, 10, 21, 16, 0), NOW)).toBe('Wed 04:00 PM');
-    expect(formatResetsIn(at(2026, 10, 19, 9, 5), NOW)).toBe('Mon 09:05 AM');
+    expect(formatResetsIn(at(2026, 10, 21, 16, 0), NOW)).toBe('Wed 4:00 PM');
+    expect(formatResetsIn(at(2026, 10, 19, 9, 5), NOW)).toBe('Mon 9:05 AM');
   });
 
   describe('in Italian', () => {
@@ -119,7 +119,7 @@ describe('liveWindow and the notes', () => {
   it('turns a window that reset while the page was open to 0%, "reset"', () => {
     const five = view.windows[0]!;
     expect(windowNote(five, NOW)).toBe('resets in 1 h 32 min');
-    expect(windowNote(view.windows[1]!, NOW)).toMatch(/^resets [A-Za-z]{3} \d\d:\d\d [AP]M$/);
+    expect(windowNote(view.windows[1]!, NOW)).toMatch(/^resets [A-Za-z]{3} \d{1,2}:\d\d [AP]M$/);
     const later = liveWindow(five, NOW + 100 * 60_000);
     expect(later).toMatchObject({ reset: true, usedPercent: 0, tone: 'ok' });
     expect(windowNote(later, NOW + 100 * 60_000)).toBe('reset · updates on next use');
@@ -201,7 +201,7 @@ describe('the mock of ?mock=demo reads the same at any hour of the week', () => 
   it('the Claude week resets on a Wednesday at 16:00, at least a day away', () => {
     // Every half hour of a week, Tuesday evening included (the next Wednesday is hours away).
     for (let t = at(2026, 10, 19, 0, 0); t < at(2026, 10, 26, 0, 0); t += 30 * 60_000) {
-      expect(formatResetsIn(nextWednesday(t), t), new Date(t).toString()).toBe('Wed 04:00 PM');
+      expect(formatResetsIn(nextWednesday(t), t), new Date(t).toString()).toBe('Wed 4:00 PM');
     }
   });
 });

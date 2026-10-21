@@ -59,7 +59,7 @@ test.describe('dedicated bots, desktop light', () => {
     await bots.getByRole('button', { name: 'Add a bot for a monster' }).click();
     const form = bots.getByTestId('telegram-bot-form');
     await expect(form).toContainText('/setprivacy');
-    await expect(form).toContainText('another assistant already active');
+    await expect(form).toContainText('another assistant active in the group');
     const select = form.getByLabel('The monster that answers');
     // Each monster with its project, or the Personal squad; never the God.
     const options = await select.locator('option').allTextContents();
@@ -73,7 +73,7 @@ test.describe('dedicated bots, desktop light', () => {
     await form.getByLabel('Messages per day (optional)').fill('150');
     await shot(page, '01-aggiungi-bot-chiaro', form);
     await form.getByRole('button', { name: 'Connect the bot' }).click();
-    await expect(form.getByRole('alert')).toContainText('Telegram doesn’t recognise');
+    await expect(form.getByRole('alert')).toContainText('Telegram doesn’t recognize');
     await form.getByLabel('Bot code (token)').fill(TOKEN);
     await form.getByRole('button', { name: 'Connect the bot' }).click();
     await expect(page.getByText('Bot @PandoraSaturdayBot connected to Pandora.')).toBeVisible();

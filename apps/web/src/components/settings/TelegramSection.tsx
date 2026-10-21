@@ -50,9 +50,6 @@ function errorOf(err: unknown): string {
   return describeError(err);
 }
 
-// i18n-ignore: the commands the main bot understands are identifiers, not copy
-const PHONE_COMMANDS = ['/ferma', '/riprendi', '/nuova', '/stato'];
-
 function useTelegram(): [TelegramView | null, (v: TelegramView) => void, () => void] {
   const [view, setView] = useState<TelegramView | null>(null);
   const [version, setVersion] = useState(0);
@@ -390,7 +387,7 @@ export function TelegramSection() {
         description={
           <>
             {s.section.descriptionBefore}
-            <code className="text-ink">{PHONE_COMMANDS[0]}</code>
+            <code className="text-ink">{s.commands.phone[0]}</code>
             {s.section.descriptionAfter}
           </>
         }
@@ -398,7 +395,7 @@ export function TelegramSection() {
           connected ? (
             <>
               {s.section.fromPhone}
-              <CommandList commands={PHONE_COMMANDS} />.{fromEnv ? s.section.fromEnv : ''}
+              <CommandList commands={s.commands.phone} />.{fromEnv ? s.section.fromEnv : ''}
             </>
           ) : undefined
         }

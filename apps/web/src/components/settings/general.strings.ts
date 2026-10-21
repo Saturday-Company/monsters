@@ -6,29 +6,29 @@ const en = {
   appearance: {
     title: 'Appearance',
     theme: 'Theme',
-    themeHint: 'Light, dark or like the rest of the computer.',
+    themeHint: 'Light, dark or the same as your computer.',
     light: 'Light',
     dark: 'Dark',
     system: 'System',
     reduceMotion: 'Reduce motion',
-    reduceMotionHint: 'The monsters stay still and animations become simple changes of state.',
+    reduceMotionHint: 'The monsters hold still and animations turn into simple changes of state.',
     sounds: 'Sounds',
     soundsHint:
-      'Small clicks of the keys and the lever, and a signal when a monster asks you something.',
+      'Small clicks for the keys and the lever, and a chime when a monster asks you something.',
     details: 'Show technical details',
     detailsHint: 'Under the monsters’ replies: tools used, time, cost and model.',
   },
   language: {
     label: 'Language',
-    hint: 'Of the app, of the messages and of Telegram. The monsters write in the language of their profile.',
+    hint: 'Used by the app, its messages and Telegram. The monsters write in the language set in their profile.',
     failed: 'I couldn’t change the language. Try again.',
   },
   app: {
     title: 'App',
-    footer: 'It applies to this computer’s app, also when it shows another computer.',
+    footer: 'This applies to the app on this computer, even when it’s showing another computer.',
     openAtLogin: 'Open at login',
     openAtLoginHint:
-      'When you sign in to the computer Monsters opens by itself, with no window: the icon stays near the clock and the monsters work even if you don’t open it.',
+      'When you sign in to your computer, Monsters starts by itself with no window: its icon stays in the tray and the monsters keep working even if you never open it.',
     refused: 'The system didn’t let me change it. Try again.',
   },
   password: {
@@ -37,11 +37,11 @@ const en = {
     again: 'Repeat the new password',
     minLength: (n: number) => `At least ${n} characters.`,
     currentMissing: 'Type the password you use now.',
-    same: 'It’s the same as the current one.',
+    same: 'It’s the same as your current password.',
     mismatch: 'The two passwords don’t match.',
     changed: 'Password changed.',
     changedOthers: (n: number) =>
-      `Password changed. The other sign-ins (${n}) will need the new one.`,
+      `Password changed. Your other sessions (${n}) will need the new one.`,
     changing: 'Changing…',
     change: 'Change password',
     cancel: 'Cancel',
@@ -69,7 +69,7 @@ const en = {
     where: 'Where the keys are kept',
     keychain: 'Encrypted, with the key in the system keychain.',
     files: (why: string) =>
-      `In protected files, readable only by your user, not in the keychain. ${why}`.trim(),
+      `In protected files, readable only by your user account, not in the keychain. ${why}`.trim(),
     why: {
       keychain: '',
       forced: 'Chosen with MONSTERS_SECRETS=file.',
@@ -77,14 +77,14 @@ const en = {
       timeout: 'The keychain didn’t answer in time: maybe it’s locked.',
       error: 'The keychain gave an invalid key.',
       'missing-key':
-        'The keychain doesn’t have the key of this folder: the encrypted keys stay where they are and I don’t replace them by myself. Save them again; if the key is really lost, from a terminal: monsters secrets reset.',
+        'The keychain doesn’t have the key to this folder. The encrypted keys stay where they are and I won’t replace them on my own. Save them again; if the key is truly lost, run this in a terminal: monsters secrets reset.',
     },
     unreadable: (names: string) => `Not readable now: ${names}.`,
     saveAgain: 'Save them again.',
     waitKeychain:
-      'They’re encrypted with the keychain: they come back when the keychain answers, or save them again.',
+      'They’re encrypted with the keychain: they’ll be back when the keychain responds, or you can save them again.',
     quarantined: (names: string) =>
-      `The keychain no longer had the key of: ${names}. They need to be entered again.`,
+      `The keychain no longer had the keys for: ${names}. Enter them again.`,
   },
 };
 

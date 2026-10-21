@@ -24,7 +24,7 @@ const en = {
     instructions: 'AGENTS.md and the system rules',
     memory: 'your profile and the monster’s memory',
     tools: 'the definitions of the tools it can use',
-    summary: 'the older messages, summarised',
+    summary: 'the older messages, summarized',
     conversation: 'the earlier messages and its steps so far',
     tool_results: 'what the tools returned',
     current: 'this turn’s message, with the task’s instructions',

@@ -10,7 +10,7 @@ const en = {
   noCapShort: 'no cap',
   period: { oggi: 'today', mese: 'this month' },
   higherThan: (label: string, outer: Link) =>
-    `${label}: higher than the ${{ monster: 'monster’s', project: 'project’s', team: 'squad’s' }[outer]} cap: that one kicks in first.`,
+    `${label}: higher than the ${{ monster: 'monster’s', project: 'project’s', team: 'squad’s' }[outer]} cap, which kicks in first.`,
   chainLabel: (labels: readonly string[], closest: string | null) =>
     `How the caps apply: ${labels.join(', then ')}${closest ? `. Closest to the limit: ${closest}` : ''}`,
   unpriced: (names: readonly string[], whose?: string) =>
@@ -18,7 +18,7 @@ const en = {
   estimated: (names: readonly string[], whose?: string) =>
     `With ${formatList(names)} the cost is estimated: Monsters counts tokens at the price of OpenRouter’s public list. ${whose ?? 'The cap'} counts it and stops jobs when you reach it; the real figure is on the provider’s site.`,
   form: {
-    invalid: 'Type an amount in euros (at least 0.50), or leave empty for no cap.',
+    invalid: 'Type an amount in euros (at least €0.50), or leave empty for no cap.',
     day: 'Per day (€)',
     month: 'Per month (€)',
   },
@@ -30,7 +30,7 @@ const en = {
   description:
     'How much the monsters can spend with paid models. At the cap those jobs stop until you raise it; subscriptions and free models don’t count.',
   notCounted: (list: string) => `This month, not counted: ${list}. `,
-  rate: (rate: string) => `Fixed rate: 1 $ = ${rate} €.`,
+  rate: (rate: string) => `Fixed rate: $1 = €${rate}.`,
   links: { monster: 'Monster', project: 'Project', team: 'Whole squad' },
   reached:
     'You’ve reached the cap: jobs with paid models are stopped. Raise it below to restart them.',

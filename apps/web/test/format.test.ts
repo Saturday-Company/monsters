@@ -12,6 +12,7 @@ import {
   formatAgo,
   formatDay,
   formatListTime,
+  formatTime,
   formatShortDay,
   formatUsd,
   parseAmount,
@@ -147,7 +148,7 @@ describe('formatShortDay', () => {
   it('is short enough for a narrow card', () => {
     expect(formatShortDay(today, now)).toBe('Today');
     expect(formatShortDay(yesterday, now)).toBe('Yesterday');
-    expect(formatShortDay(friday, now)).toBe('Fri, Oct 16');
+    expect(formatShortDay(friday, now)).toBe('Oct 16');
   });
 
   inItalian(() => {
@@ -168,6 +169,10 @@ describe('dates in the log and in the chat list', () => {
     expect(formatDay(at(17, 8), now)).toBe('Yesterday');
     expect(formatDay(at(12, 8), now)).toBe('Monday, October 12');
     expect(formatListTime(at(18, 10, 15), now)).toBe('10:15 AM');
+    // No leading zero in English: "9:05 AM", "4:00 PM".
+    expect(formatListTime(at(18, 9, 5), now)).toBe('9:05 AM');
+    expect(formatListTime(at(18, 16, 0), now)).toBe('4:00 PM');
+    expect(formatTime(at(18, 0, 30))).toBe('12:30 AM');
     expect(formatListTime(at(17, 10), now)).toBe('Yesterday');
     expect(formatListTime(at(14, 10), now)).toBe('Wed');
     expect(formatListTime(at(2, 10), now)).toBe('Oct 2');
@@ -186,6 +191,8 @@ describe('dates in the log and in the chat list', () => {
       expect(formatDay(at(17, 8), now)).toBe('Ieri');
       expect(formatDay(at(12, 8), now)).toBe('Lunedì 12 ottobre');
       expect(formatListTime(at(18, 10, 15), now)).toBe('10:15');
+      expect(formatListTime(at(18, 9, 5), now)).toBe('09:05');
+      expect(formatTime(at(18, 16, 0))).toBe('16:00');
       expect(formatListTime(at(17, 10), now)).toBe('Ieri');
       expect(formatListTime(at(14, 10), now)).toBe('mer');
       expect(formatListTime(at(2, 10), now)).toBe('2 ott');

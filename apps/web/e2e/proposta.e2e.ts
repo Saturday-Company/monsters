@@ -75,7 +75,7 @@ test('"Cambia" opens the form of Settings → Squadra with the draft', async ({ 
   await expect(form.getByLabel('Where it writes in the notes')).toHaveValue('Idee');
   await form.getByLabel('Name').fill('Vega');
   await form.getByRole('button', { name: 'Add to the squad' }).click();
-  await expect(page.getByText('Vega is in the squad')).toBeVisible();
+  await expect(page.getByText('Vega is on the squad')).toBeVisible();
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Vega,/ })).toBeVisible();
   // Back in the chat, the card says what happened, with the name chosen in the form.
   await page.goBack();

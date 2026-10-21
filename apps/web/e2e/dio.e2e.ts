@@ -45,7 +45,7 @@ test('the bar heads the sidebar: the god, what it does, the colours of the team 
   const bar = page.getByTestId('god-bar');
   await expect(bar).toBeVisible();
   await expect(page.getByTestId('god-name')).toHaveText('Titan');
-  await expect(page.getByTestId('god-line')).toHaveText('Waiting for your answer');
+  await expect(page.getByTestId('god-line')).toHaveText('Waiting for you');
 
   // Above the search and the squad.
   const barBox = (await bar.boundingBox())!;

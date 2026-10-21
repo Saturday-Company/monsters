@@ -10,7 +10,7 @@ const en = {
     owned: 'Done: the line is yours, without the mark.',
     title: 'Lines from third-party text',
     text: (name: string) =>
-      `${name} wrote these after reading other people’s pages or messages: it reads them as data, not as things of yours, and the jobs that read them have their defences on. If a line says something that’s yours, tap “It’s mine”.`,
+      `${name} wrote these after reading other people’s pages or messages. They’re treated as data, not as your own words, and any job that reads them runs with its defenses on. If a line really is yours, tap “It’s mine”.`,
     mine: 'It’s mine',
     mineLabel: (text: string) => `It’s mine: ${text}`,
   },
@@ -58,7 +58,7 @@ const en = {
     empty: 'The note is empty.',
     truncated:
       'The note is very long: you only see its start here. Open it in Obsidian for the rest.',
-    backlinks: 'Notes that cite it',
+    backlinks: 'Notes that link to it',
     noBacklinks: 'No note links to it yet.',
     similar: 'Similar notes',
     noSimilar: 'Nothing similar, for now.',

@@ -135,7 +135,7 @@ describe('god bar: words', () => {
       capitalize(CONFUSED_TEXT),
     );
     expect(line({ titan: at('waiting', NOW, ASKED_ACTIVITY), rhea: at('working') })).toBe(
-      'Waiting for your answer',
+      'Waiting for you',
     );
   });
 
@@ -145,10 +145,8 @@ describe('god bar: words', () => {
     expect(line({ rhea: at('working'), dione: at('working'), mimas: at('talking') })).toBe(
       'At work: Rhea, Dione and one other',
     );
-    expect(line({}, { askers: ['rhea'] })).toBe('Rhea is waiting for your answer');
-    expect(line({}, { askers: ['rhea', 'dione', 'rhea'] })).toBe(
-      'Rhea and Dione are waiting for your answer',
-    );
+    expect(line({}, { askers: ['rhea'] })).toBe('Rhea has a question');
+    expect(line({}, { askers: ['rhea', 'dione', 'rhea'] })).toBe('Rhea and Dione have questions');
   });
 
   it('a calm line at rest, the stop and the lost connection in words', () => {

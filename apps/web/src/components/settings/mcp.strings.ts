@@ -1,5 +1,5 @@
 import { defineStrings } from '../../lib/i18n.ts';
-import { toName } from '../../lib/utils.ts';
+import { toNameIt } from '../../lib/utils.strings.ts';
 
 /* Settings → Connections → other apps (MCP): servers, gallery, Claude connections (D-153). */
 
@@ -40,7 +40,7 @@ const en = {
     noDescription: '(no description)',
     summary: (n: number, firstIsNew: boolean) =>
       n === 1
-        ? `has ${firstIsNew ? 'a new tool' : 'a changed tool'}: the monsters won’t use it until you accept it.`
+        ? `has ${firstIsNew ? 'a new tool' : 'a tool that changed'}: the monsters won’t use it until you accept it.`
         : `has ${n} new or changed tools: the monsters won’t use them until you accept them.`,
     warning:
       'A changed description is how an app can give the monsters new orders: read it before you accept.',
@@ -70,9 +70,9 @@ const en = {
     },
     openConnectors: 'Open Claude’s connectors',
     designLogin: {
-      before: 'In a terminal on this computer type ',
+      before: 'In a terminal on this computer, type ',
       then: ', then ',
-      after: ' and sign in with your Claude account.',
+      after: ', and sign in with your Claude account.',
     },
     connectOnClaude: (name: string) =>
       `Connect ${name} to your Claude account, if you haven’t already (Settings → Connectors).`,
@@ -82,7 +82,7 @@ const en = {
         ? 'Reconnect it from Claude’s connectors, then press “Check again”.'
         : 'Connect it from Claude’s connectors, then press “Check again”.',
     orTerminal: 'Or, in a terminal on this computer:',
-    designTerminal: { before: 'In a terminal type ', then: ', then ', after: '.' },
+    designTerminal: { before: 'In a terminal, type ', then: ', then ', after: '.' },
     connectedVia: (name: string) => `${name} connected through Claude.`,
     removed: (name: string) => `${name} disconnected from Monsters.`,
     intro:
@@ -145,12 +145,12 @@ const en = {
       commandMissing: 'Type the command.',
       urlInvalid: 'Type the full address, for example https://example.com/mcp.',
       name: 'Name',
-      nameHint: 'Short, to recognise it: for example github or calendar.',
+      nameHint: 'Short, to recognize it: for example github or calendar.',
       where: 'Where it is',
       local: 'App on this computer',
       web: 'Web service',
       command: 'Command',
-      commandHint: 'What you find in its instructions, for example npx -y package-name.',
+      commandHint: 'Copy it from the app’s instructions, for example npx -y package-name.',
       address: 'Address',
       addressExample: 'https://example.com/mcp',
       variables: 'Variables (optional)',
@@ -181,7 +181,7 @@ const en = {
     tenantInvalid: (suffix: string) =>
       `That isn’t a company name: type only the part before ${suffix}.`,
     tenantMissing: (name: string) => `Type your company’s name on ${name}.`,
-    tokenMissing: (name: string) => `Paste here the code you created on ${name}.`,
+    tokenMissing: (name: string) => `Paste the token you created on ${name}.`,
     tenantFirst: (name: string) => `Type your company on ${name} first.`,
     connected: (name: string) => `${name} connected.`,
     disconnected: (name: string) => `${name} disconnected.`,
@@ -192,7 +192,7 @@ const en = {
     yourCompany: 'Your company',
     address: 'Address:',
     moreScope: (name: string) =>
-      `${name} wants one more permission for what the monsters asked of it. The rest already works: press Connect to confirm it on its page.`,
+      `${name} needs one more permission for what the monsters asked it to do. The rest already works: press Connect to approve it on its page.`,
     oauthInfo: (name: string) =>
       `${name}’s page opens: sign in and confirm, then come back here. Monsters never sees your password.`,
     noneNeeded: 'No sign-in needed: just connect it.',
@@ -219,7 +219,7 @@ const en = {
     docs: (name: string) => `${name} documentation`,
     title: 'Apps and services',
     description:
-      'Connect the services you use and the monsters can read and use them. Every use ends up in Activity, and “Stop everything” stops them at once.',
+      'Connect the services you use and the monsters can read and use them. Every use is logged in Activity, and Stop halts them at once.',
     showAll: (n: number) => `Show all (${n})`,
   },
 };
@@ -399,7 +399,7 @@ const it: typeof en = {
       connected: 'Collegato',
       error: 'Problema',
     },
-    signIn: (name) => `Accedi ${toName(name)}`,
+    signIn: (name) => `Accedi ${toNameIt(name)}`,
     noSignIn: 'Senza accesso',
     tenantInvalid: (suffix) =>
       `Non è il nome di un’azienda: scrivi solo la parte prima di ${suffix}.`,

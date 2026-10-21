@@ -35,7 +35,7 @@ const en = {
     gate: {
       label: 'Asks you only when needed',
       description:
-        'The squad decides what can be undone; taste, facts only you know and anything under “They always ask you” go to you.',
+        'The squad decides anything that can be undone; taste, facts only you know and anything under “They always ask you” go to you.',
       sends: 'The monster’s question, the options and the request it’s working on.',
     },
     done_check: {
@@ -104,8 +104,8 @@ const en = {
     scorecard: {
       label: 'Learns which model works best',
       description:
-        'Keeps the monsters’ report card: after at least 20 checked jobs per model, it puts first, among the models you already have, the one that finishes the most at the lowest cost.',
-      sends: 'Nothing: the report card stays on this computer.',
+        'Keeps the monsters’ scorecard: after at least 20 checked jobs per model, it puts first, among the models you already have, the one that finishes the most at the lowest cost.',
+      sends: 'Nothing: the scorecard stays on this computer.',
     },
   } satisfies Record<string, UseTexts>,
 };

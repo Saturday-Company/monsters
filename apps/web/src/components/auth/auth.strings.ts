@@ -27,7 +27,7 @@ const en = {
     headerLogin: 'Sign-in',
     titleSetup: 'Create your account',
     titleLogin: 'Sign in',
-    introSetup: 'Monsters runs on your computer. The account is only for you, to sign in.',
+    introSetup: 'Monsters runs on your computer. This account is just for you, to sign in.',
     introLogin: 'Welcome back! Sign in with the email and password you chose the first time.',
     email: 'Email',
     password: 'Password',
@@ -46,11 +46,12 @@ const en = {
   },
   forgot: {
     button: 'I forgot my password',
-    intro: 'The account lives only on the computer where Monsters runs: no email can reset it.',
+    intro:
+      'The account lives only on the computer where Monsters runs, so it can’t be reset by email.',
     appTitle: 'With the app',
     app: 'Open the Monsters app on that computer: you’ll be signed in without a password.',
     terminalTitle: 'With the terminal',
-    terminalBefore: 'On that computer run ',
+    terminalBefore: 'On that computer, run ',
     terminalAfter: ' and choose a new one.',
   },
   owner: {

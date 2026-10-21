@@ -1,4 +1,10 @@
-import { USD_TO_EUR_DEFAULT, appLang, formatDate, formatNumber } from '@monsters/shared';
+import {
+  USD_TO_EUR_DEFAULT,
+  appLang,
+  formatDate,
+  formatNumber,
+  timeOptions,
+} from '@monsters/shared';
 import { clsx, type ClassValue } from 'clsx';
 import { extendTailwindMerge } from 'tailwind-merge';
 import { utilsStrings } from './utils.strings.ts';
@@ -26,10 +32,8 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
-const TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
-
 export function formatTime(ts: number): string {
-  return formatDate(ts, TIME);
+  return formatDate(ts, timeOptions());
 }
 
 /** Whole calendar days from `ts` to `now`, local time (0 = today, 1 = yesterday). */
@@ -50,11 +54,15 @@ export function formatDay(ts: number, now = Date.now()): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** Like `formatDay` but short, for narrow cards: "Today", "Yesterday", "Fri, Oct 16". */
+/**
+ * Like `formatDay` but short, for narrow cards: "Today", "Yesterday", "Oct 16" ("ven 16 ott" in
+ * Italian: the English line, with the time after it, would not fit with a weekday too).
+ */
 export function formatShortDay(ts: number, now = Date.now()): string {
   const diff = daysAgo(ts, now);
   if (diff === 0 || diff === 1) return formatDay(ts, now);
-  return formatDate(ts, { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '');
+  const weekday = appLang() === 'it' ? { weekday: 'short' as const } : {};
+  return formatDate(ts, { ...weekday, day: 'numeric', month: 'short' }).replace(/\./g, '');
 }
 
 /** Time of the latest message in the chat list: "10:15", "Yesterday", "Mon", "Oct 12". */

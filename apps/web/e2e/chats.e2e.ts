@@ -80,7 +80,7 @@ test('one chat per monster, in the team order, the orchestrator open', async ({ 
   await expect(page.getByTestId('question-card')).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Message' })).toHaveAttribute(
     'placeholder',
-    'Write to Dione… (@ for another monster)',
+    'Message Dione… (@ for another monster)',
   );
 });
 
@@ -296,7 +296,7 @@ test('the keypad: a letter presses the key when the composer is empty', async ({
     .filter({ hasText: 'What tone should we give the posts?' });
   await expect(card).toHaveAttribute('data-keypad', 'on');
   const input = page.getByRole('combobox', { name: 'Message' });
-  await expect(input).toHaveAttribute('placeholder', 'Write to Titan, or press A, B or C');
+  await expect(input).toHaveAttribute('placeholder', 'Message Titan, or press A, B or C');
   // Typing in the composer is writing, not pressing.
   await input.fill('c');
   await input.press('b');

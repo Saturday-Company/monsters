@@ -27,7 +27,7 @@ const en = {
     missing: 'The folder is gone (moved or deleted): pick another one or put it back where it was.',
     docsChanged: 'Instructions changed',
     docsChangedText: (files: string) =>
-      `The folder’s ${files} is no longer as you approved it: until you approve it, the project’s monsters work with the defences they use when they read third-party text (they ask before sending data out).`,
+      `The folder’s ${files} is no longer as you approved it: until you approve it, the project’s monsters work with the defenses they use when they read third-party text (they ask before sending data out).`,
     filesJoin: ' or ',
     approve: 'Approve',
     none: 'No folder',
@@ -49,10 +49,10 @@ const en = {
   links: {
     webTitle: 'Web search',
     webFooter:
-      'It applies together with each monster’s permissions: whoever has no web access doesn’t get it from here.',
+      'This works alongside each monster’s permissions: a monster without web access doesn’t get it from here.',
     webLabel: 'The project’s monsters search the web',
     webDescription:
-      'Off, the project works only with the notes, the folder and the connections below (the browser turns off too).',
+      'When off, the project works only with the notes, the folder and the connections below (the browser turns off too).',
     webSwitch: 'Web search for the project',
     title: 'Apps and services',
     description:
@@ -61,7 +61,7 @@ const en = {
     none: 'No app connected, for now.',
     team: 'Given to the whole squad',
     off: 'Off in Settings',
-    viaClaude: 'Through the Claude subscription, for those who work with Claude',
+    viaClaude: 'Through your Claude subscription, for the monsters that work with Claude',
     switch: (label: string) => `${label} for the project`,
     only: (names: string) => `Only for ${names}: change it in Settings`,
   },

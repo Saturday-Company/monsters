@@ -28,7 +28,7 @@ const en = {
   terminal: {
     onWindows: (text: string) => `${text} On Windows the commands are PowerShell.`,
     warning: (name: string) =>
-      `With the terminal ${name} can do on the computer everything you can do, even outside the folders below. Every command ends up in Activity and “Stop everything” interrupts it.`,
+      `With the terminal, ${name} can do anything on the computer that you can, even outside the folders below. Every command is logged in Activity, and Stop interrupts it.`,
   },
   folders: {
     label: 'Computer folders',
@@ -40,7 +40,7 @@ const en = {
     readOnly: 'read-only',
     canEditFiles: (path: string) => `Can edit the files in ${path}`,
     remove: (path: string) => `Remove ${path}`,
-    none: 'No folders: the files on the computer stay closed.',
+    none: 'No folders: the files on the computer stay off limits.',
     launchFiles:
       'Without the terminal a monster still can’t change .git folders or files that start programs (.bashrc, .profile, autostart).',
     addTo: (label: string) => `Add a folder: ${label.toLowerCase()}`,

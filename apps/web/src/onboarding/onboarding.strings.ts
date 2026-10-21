@@ -1,5 +1,5 @@
 import { defineStrings } from '../lib/i18n.ts';
-import { toName } from '../lib/utils.ts';
+import { toNameIt } from '../lib/utils.strings.ts';
 
 /* First start: the frame, the model chains, the birth, the permissions (D-153). */
 
@@ -22,7 +22,7 @@ const en = {
   loading: 'Loading…',
   firstStart: 'First start',
   errors: {
-    invalid_key: 'OpenRouter says the key doesn’t work. Check you copied all of it.',
+    invalid_key: 'OpenRouter says the key doesn’t work. Check that you copied all of it.',
     verification_failed: 'I can’t verify the key right now. Try again in a moment.',
     invalid_name:
       'That name doesn’t work: use letters only, no duplicates, and not User or System.',
@@ -120,7 +120,7 @@ const it: typeof en = {
     lead: 'Il tuo capo',
     awake: 'Sveglio',
     waiting: 'In attesa',
-    write: (name) => `Scrivi ${toName(name)}`,
+    write: (name) => `Scrivi ${toNameIt(name)}`,
   },
   permissions: {
     terminal:

@@ -18,7 +18,7 @@ const en = {
   chart: {
     steps: ['Your lead', 'Personal squad / Projects', 'Project lead', 'Monsters'],
     label:
-      'How the monsters are organised: your lead, the personal squad and the projects, the project lead, the monsters',
+      'How the monsters are organized: your lead, the personal squad and the projects, the project lead, the monsters',
   },
 };
 const it: typeof en = {

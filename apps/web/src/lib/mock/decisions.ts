@@ -65,7 +65,7 @@ export class MockDecisions {
           return fail(
             400,
             'invalid_key',
-            tr('TypeSafe doesn’t recognise this key.', 'TypeSafe non riconosce questa chiave.'),
+            tr('TypeSafe doesn’t recognize this key.', 'TypeSafe non riconosce questa chiave.'),
           );
         }
         this.view = { ...this.view, jev: { ...this.view.jev, keySet: true, keySource: 'file' } };

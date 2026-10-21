@@ -252,7 +252,7 @@ test('Progetti: the orchestrator’s draft in Da rivedere, confirmed with its pl
   await expect(plan).toContainText('Telesto');
   await expect(plan).toContainText('with Rhea’s role and rules; its own name, look and memory');
   await expect(plan).toContainText('I’ll create it when you confirm');
-  await expect(plan).toContainText('«Website check»');
+  await expect(plan).toContainText('“Website check”');
   await expect(page.getByTestId('project-draft-banner')).toContainText('Titan proposed it.');
   await page.goBack();
   // The column stays open (a preference of this browser).
@@ -365,7 +365,7 @@ test('Progetti: a project’s monster is renamed, changes look and role from its
   await expect(looks.getByRole('radio')).toHaveCount(4);
   await looks.getByRole('radio', { name: 'New look 1 for Telesto' }).click();
   await expect(page.getByText('Telesto has a new look.')).toBeVisible();
-  await expect(row.getByRole('button', { name: 'Write to Telesto' })).toBeVisible();
+  await expect(row.getByRole('button', { name: 'Message Telesto' })).toBeVisible();
   await expect(row.getByRole('button', { name: 'Remove' })).toBeVisible();
   await expect(page.getByTestId('project-member')).toHaveCount(3);
 

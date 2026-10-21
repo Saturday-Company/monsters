@@ -59,8 +59,6 @@ export function pasteTelegramToken(set: (token: string) => void) {
   };
 }
 
-// i18n-ignore: the commands a group bot understands are identifiers, not copy
-const GROUP_COMMANDS = ['/stato', '/join', '/aiuto'];
 const JOIN = '/join';
 
 /** Commands as code tags, apart by commas. */
@@ -778,7 +776,7 @@ export function TelegramBotsSection({
       footer={
         <>
           {b.footer}
-          <CommandList commands={GROUP_COMMANDS} />.
+          <CommandList commands={telegramStrings().commands.group} />.
         </>
       }
     >

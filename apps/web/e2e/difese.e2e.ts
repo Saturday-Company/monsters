@@ -19,7 +19,7 @@ test('Tetto di spesa: what was spent, the caps, a cap per monster', async ({ pag
   // What does not count is said apart, with the fixed exchange rate.
   await expect(page.getByTestId('spend-footer')).toContainText('requests to free models');
   await expect(page.getByTestId('spend-footer')).toContainText('Claude subscription');
-  await expect(page.getByTestId('spend-footer')).toContainText('1 $ = 0.86 €');
+  await expect(page.getByTestId('spend-footer')).toContainText('$1 = €0.86');
 
   // The team's cap: a new number, saved.
   const save = page.getByTestId('spend-caps-save');
@@ -83,7 +83,7 @@ test('a tool of another program changed: paused, with what changed, until "Accet
   const card = page.getByTestId('mcp-paused');
   await expect(card.getByRole('heading', { name: 'Paused tools' })).toBeInViewport();
   const github = page.getByTestId('mcp-paused-github');
-  await expect(github).toContainText('GitHub has a changed tool');
+  await expect(github).toContainText('GitHub has a tool that changed');
   const tool = page.getByTestId('mcp-paused-tool-create_issue');
   await expect(tool).toContainText('description changed');
   await expect(tool).toContainText('Open a new issue');

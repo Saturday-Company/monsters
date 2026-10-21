@@ -206,7 +206,7 @@ test('File: Ctrl 4, filters, search, delete with "Di nuovo"', async ({ page }) =
   await filter.getByRole('radio', { name: 'Documents' }).click();
   await expect(tiles).toHaveCount(4);
   await expect(tiles.filter({ hasText: 'Lisbon quote.pdf' })).toHaveAttribute('data-kind', 'pdf');
-  await filter.getByRole('radio', { name: 'From the monsters' }).click();
+  await filter.getByRole('radio', { name: 'Monsters' }).click();
   await expect(tiles).toHaveCount(5);
   await expect(tiles.filter({ hasText: 'Screenshot by Rhea' })).toHaveCount(1);
   await expect(tiles.filter({ hasText: 'Page by Titan' })).toHaveCount(1);

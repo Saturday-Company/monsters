@@ -6,7 +6,7 @@ const en = {
   atLeastOne: 'At least one task is needed.',
   atMost: (n: number) => `At most ${n} tasks, one per line.`,
   dutyProblem: (duty: string, message: string | null) =>
-    `Task "${duty}": ${message ?? 'not valid'}`,
+    `Task “${duty}”: ${message ?? 'not valid'}`,
   editor: {
     duties: (name: string) => `${name}’s tasks (one per line)`,
     folder: (name: string) => `${name}’s folder in the notes`,
@@ -19,7 +19,7 @@ const en = {
     taken: 'Name already in use.',
     newName: (name: string) => `New name for ${name}`,
     saveName: 'Save the name',
-    area: (area: string) => `Leaves its work in the notes “${area}”.`,
+    area: (area: string) => `Saves its work in the notes folder “${area}”.`,
     searchesWeb: 'Searches the web',
     saved: 'Saved',
     tasks: 'Tasks',
@@ -44,12 +44,12 @@ const en = {
   proposedHint:
     'You can remove someone, change a name or a look, and with “Tasks” what each one does and where it writes.',
   writtenBy: (model: string) => `Written by ${model}`,
-  tailored: 'Tailor-made suggestion',
+  tailored: 'Suggestion tailored to you',
   starter: 'Starter squad, adapted to you',
   yourLead: (name: string) => `Your lead: ${name}`,
   listLabel: 'The suggested squad',
   removed: 'Removed:',
-  putBack: (name: string) => `Put ${name} back in the squad`,
+  putBack: (name: string) => `Put ${name} back on the squad`,
   another: 'Suggest another squad',
   waking: 'Waking them up…',
   confirm: 'Confirm the squad',

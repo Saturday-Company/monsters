@@ -335,7 +335,7 @@ export class MockOnboarding {
           this.host.hasProvider(id),
         )
           ? tr(
-              `Hi ${user}! I’m ${agents[0]!.name} and I coordinate your squad. With me there are ${team}. Write me what you need and we’ll take care of it: for the things you told me about, I’ll ask you first.`,
+              `Hi ${user}! I’m ${agents[0]!.name} and I coordinate your squad. With me there are ${team}. Tell me what you need and we’ll take care of it: for the things you told me about, I’ll ask you first.`,
               `Ciao ${user}! Sono ${agents[0]!.name} e coordino la tua squadra. Con me ci sono ${team}. Scrivimi quello che ti serve e ci pensiamo noi: per le cose che mi hai indicato, prima chiedo a te.`,
             )
           : tr(

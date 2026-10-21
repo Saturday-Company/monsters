@@ -26,7 +26,7 @@ test('providers: add a key, connect Ollama, choose the models of a monster', asy
   const key = anthropic.getByLabel('Anthropic key');
   await key.fill('sk-ant-wrong-0123456789');
   await anthropic.getByRole('button', { name: 'Verify and save' }).click();
-  await expect(anthropic.getByRole('alert')).toHaveText('Anthropic doesn’t recognise this key.');
+  await expect(anthropic.getByRole('alert')).toHaveText('Anthropic doesn’t recognize this key.');
   await key.fill('sk-ant-api03-0123456789abcdef');
   await anthropic.getByRole('button', { name: 'Verify and save' }).click();
   await expect(page.getByText('Anthropic key verified and saved.')).toBeVisible();

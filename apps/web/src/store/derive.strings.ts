@@ -1,6 +1,6 @@
 import { formatList } from '@monsters/shared';
 import { defineStrings } from '../lib/i18n.ts';
-import { toName } from '../lib/utils.ts';
+import { toNameIt } from '../lib/utils.strings.ts';
 
 /* The sentences of the event log and the chat (store/derive.ts), D-153. */
 
@@ -31,15 +31,15 @@ const en = {
     readNoteAny: 'Reading a note',
     writeNote: (name: string) => `Writing ${name}`,
     writeNoteAny: 'Writing a note',
-    editNote: (name: string) => `Fixing up ${name}`,
-    editNoteAny: 'Fixing up a note',
+    editNote: (name: string) => `Editing ${name}`,
+    editNoteAny: 'Editing a note',
     trashNote: 'Moving a note to the trash',
     moveNote: (name: string) => `Moving ${name}`,
     moveNoteAny: 'Moving a note',
-    listNotes: 'Looking at which notes there are',
-    links: 'Looking at the links between notes',
-    tags: 'Looking at the notes’ tags',
-    history: 'Looking at a note’s history',
+    listNotes: 'Listing the notes',
+    links: 'Checking the links between notes',
+    tags: 'Checking the notes’ tags',
+    history: 'Checking a note’s history',
     restore: 'Putting a note back',
     propose: 'Proposing a change to you',
     applyProposal: 'Applying a proposed change',
@@ -48,7 +48,7 @@ const en = {
     ask: 'Asking you a question',
     shell: (command: string) => `Running ${command}`,
     shellAny: 'Running a command',
-    fsList: 'Looking at the files in a folder',
+    fsList: 'Listing the files in a folder',
     fsRead: (name: string) => `Reading ${name}`,
     fsReadAny: 'Reading a file',
     fsWrite: (name: string) => `Writing ${name}`,
@@ -160,7 +160,7 @@ const en = {
     ask_user: 'Question',
     team_propose_monster: 'New monster',
     project_send: 'To the project',
-    project_status: 'Projects status',
+    project_status: 'Project status',
     project_propose: 'New project',
     automation_propose: 'New automation',
     preview_show: 'Preview',
@@ -210,13 +210,13 @@ const en = {
   },
 
   group: {
-    events: (n: number) => `${n} events among the monsters`,
+    events: (n: number) => `${n} ${n === 1 ? 'event' : 'events'} among the monsters`,
     done: (n: number) => `${n} ${n === 1 ? 'task' : 'tasks'} completed`,
     open: (n: number) => `${n} ${n === 1 ? 'task' : 'tasks'} handed to the squad`,
     partDone: (n: number) => `${n} completed`,
     partOpen: (n: number) => `${n} in progress`,
     partOther: (n: number) => `${n} stopped`,
-    mixed: (total: number, parts: string) => `${total} tasks: ${parts}`,
+    mixed: (total: number, parts: string) => `${total} ${total === 1 ? 'task' : 'tasks'}: ${parts}`,
   },
 
   /** A list: "A, B and C". */
@@ -300,7 +300,7 @@ const en = {
     noAlternative: (who: string, message: string) =>
       `${who}’s model isn’t responding and there are no alternatives: ${message}`,
     switchModel: (who: string) => `The model wasn’t responding: ${who} is switching to another one`,
-    orphans: 'Closed programs left open since the previous start',
+    orphans: 'Closed processes left over from the previous start',
     killHook: 'The stop couldn’t close everything right away',
     internal: 'Monsters internal error',
     runLimit: (who: string) => `${who} stops here: this job reached its limit`,
@@ -331,14 +331,14 @@ const en = {
     bot: (dedicated: boolean, name: string | undefined) =>
       dedicated ? (name ? `The bot ${name}` : 'The dedicated bot') : 'Telegram',
     conflict: (bot: string) =>
-      `${bot} is used by another program (or has a webhook): Monsters will retry`,
+      `${bot} is in use by another app (or has a webhook): Monsters will retry`,
     stoppedBot: (bot: string) => `${bot} stopped: it needs your attention`,
     noAnswer: (bot: string) => `${bot} isn’t responding: Monsters will retry`,
     ignored: (who: string, reason: string) => `Telegram message ignored: ${who} (${reason})`,
     notAllowed: 'not allowed',
     ignoredReason: {
       not_whitelisted: 'not one of the connected accounts',
-      not_private: 'written in a group',
+      not_private: 'sent in a group',
       forwarded: 'forwarded message',
       not_text: 'not text',
       bot_or_anonymous: 'unknown sender',
@@ -368,7 +368,7 @@ const en = {
       `${who} asks to talk to a dedicated bot: it’s waiting for your approval`,
     personApproved: (who: string) => `${who} can talk to a dedicated bot`,
     personRemoved: (who: string) => `${who} can no longer talk to a dedicated bot`,
-    limitReached: 'A dedicated bot reached today’s messages',
+    limitReached: 'A dedicated bot reached today’s message limit',
     chatMigrated: (name: string | undefined) =>
       `The group${name ? ` ${name}` : ''} became a supergroup: it stays approved`,
     chatLeft: (name: string | undefined) =>
@@ -472,7 +472,7 @@ const en = {
     mcpChanged: (name: string) => `You changed ${name}`,
     mcpRemoved: (name: string) => `You removed ${name}`,
     mcpConnected: (name: string) => `Connected ${name}`,
-    mcpDisconnected: (name: string) => `Closed ${name}`,
+    mcpDisconnected: (name: string) => `Disconnected ${name}`,
     mcpSignedIn: (name: string) => `You signed in for ${name}`,
     mcpSignedOut: (name: string) => `You disconnected the sign-in for ${name}`,
     mcpToolsUpdated: (name: string) => `${name} updated its tools`,
@@ -599,7 +599,7 @@ const it: typeof en = {
     restore: 'Rimetto a posto una nota',
     propose: 'Ti propongo una modifica',
     applyProposal: 'Applico una modifica proposta',
-    delegate: (to) => `Passo il lavoro ${toName(to)}`,
+    delegate: (to) => `Passo il lavoro ${toNameIt(to)}`,
     delegateAny: 'Passo il lavoro a un collega',
     ask: 'Ti faccio una domanda',
     shell: (command) => `Eseguo ${command}`,
@@ -760,13 +760,13 @@ const it: typeof en = {
   },
 
   group: {
-    events: (n) => `${n} eventi tra i mostri`,
-    done: (n) => `${n} compiti completati`,
-    open: (n) => `${n} compiti passati alla squadra`,
+    events: (n) => `${n} ${n === 1 ? 'evento' : 'eventi'} tra i mostri`,
+    done: (n) => (n === 1 ? '1 compito completato' : `${n} compiti completati`),
+    open: (n) => (n === 1 ? '1 compito passato alla squadra' : `${n} compiti passati alla squadra`),
     partDone: (n) => `${n} ${n === 1 ? 'completato' : 'completati'}`,
     partOpen: (n) => `${n} in corso`,
     partOther: (n) => `${n} ${n === 1 ? 'fermato' : 'fermati'}`,
-    mixed: (total, parts) => `${total} compiti: ${parts}`,
+    mixed: (total, parts) => `${total} ${total === 1 ? 'compito' : 'compiti'}: ${parts}`,
   },
 
   list: (items) =>
@@ -931,13 +931,13 @@ const it: typeof en = {
   },
 
   event: {
-    wroteTo: (name) => `Hai scritto ${toName(name)}`,
+    wroteTo: (name) => `Hai scritto ${toNameIt(name)}`,
     wroteMessage: 'Hai scritto un messaggio',
     writing: (who) => `${who} sta scrivendo`,
     stoppedWriting: (who) => `${who} si è fermato mentre scriveva`,
     didNotFinishWriting: (who) => `${who} non ha finito di scrivere`,
     replied: (who) => `${who} ha risposto`,
-    handedTask: (from, to, task) => `${from} ha passato un compito ${toName(to)}: “${task}”`,
+    handedTask: (from, to, task) => `${from} ha passato un compito ${toNameIt(to)}: “${task}”`,
     taskDone: (to, from) => `${to} ha finito il compito per ${from}`,
     taskFailed: (to, from) => `Il compito di ${to} per ${from} non è andato a buon fine`,
     taskStopped: (to, from) => `Il compito di ${to} per ${from} si è fermato`,
@@ -986,7 +986,7 @@ const it: typeof en = {
     aMonster: 'un mostro',
     teamAdd: (name) => `Hai aggiunto ${name} alla squadra`,
     teamRename: (from, name) =>
-      `Hai cambiato nome ${from ? toName(from) : 'a un mostro'}: ora è ${name}`,
+      `Hai cambiato nome ${from ? toNameIt(from) : 'a un mostro'}: ora è ${name}`,
     teamEdit: (name) => `Hai cambiato ruolo e compiti di ${name}`,
     teamLook: (name) => `Hai cambiato l’aspetto di ${name}`,
     teamArchive: (name) => `Hai tolto ${name} dalla squadra`,
@@ -1057,7 +1057,7 @@ const it: typeof en = {
     },
     projectReport: (lead, to) => `${lead} ha mandato il rapporto del progetto a ${to}`,
     logArchive: (n, dir) =>
-      `Monsters ha archiviato ${n} eventi vecchi (consumi, risultati degli strumenti, testo in arrivo) in ${dir}`,
+      `Monsters ha archiviato ${n} ${n === 1 ? 'evento vecchio' : 'eventi vecchi'} (consumi, risultati degli strumenti, testo in arrivo) in ${dir}`,
     accessGranted: (summary, from) => `Hai concesso ${summary} (l’ha chiesto ${from})`,
     accessDenied: (summary, from) => `Non hai concesso ${summary} (l’aveva chiesto ${from})`,
     accessFailed: (summary, message) =>

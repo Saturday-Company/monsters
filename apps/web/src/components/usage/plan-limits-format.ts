@@ -1,4 +1,4 @@
-import { formatDate, planWindowTone, type PlanWindowView } from '@monsters/shared';
+import { formatDate, planWindowTone, timeOptions, type PlanWindowView } from '@monsters/shared';
 import { usageStrings } from './usage.strings.ts';
 
 /*
@@ -15,7 +15,7 @@ export function formatResetsIn(resetsAt: number, now: number): string {
   const minutes = Math.round(ms / 60_000);
   if (minutes < 60) return w.resetsInMinutes(minutes);
   if (ms < 24 * 3_600_000) return w.resetsInHours(Math.floor(minutes / 60), minutes % 60);
-  return `${formatDate(resetsAt, { weekday: 'short' }).replace(/\.$/, '')} ${formatDate(resetsAt, { hour: '2-digit', minute: '2-digit' })}`;
+  return `${formatDate(resetsAt, { weekday: 'short' }).replace(/\.$/, '')} ${formatDate(resetsAt, timeOptions())}`;
 }
 
 /** "just now", "20 min ago", "2 h ago", "3 days ago". */

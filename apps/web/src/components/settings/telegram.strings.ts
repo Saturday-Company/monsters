@@ -3,6 +3,11 @@ import { defineStrings } from '../../lib/i18n.ts';
 /* Settings → Connections → Telegram: the main bot and the bots dedicated to a monster (D-153). */
 
 const en = {
+  /** The commands of the bots (the core understands both languages' names; the app shows its own). */
+  commands: {
+    phone: ['/stop', '/resume', '/new', '/status'],
+    group: ['/status', '/join', '/help'],
+  },
   status: {
     off: 'Not connected.',
     connecting: 'Connecting to Telegram…',
@@ -21,7 +26,7 @@ const en = {
   },
   botConnected: (username: string | undefined) =>
     `Bot ${username ? `@${username} ` : ''}connected.`,
-  step1: { before: 'On Telegram open ', mid: ' and type ', after: '.' },
+  step1: { before: 'On Telegram, open ', mid: ' and type ', after: '.' },
   step2: 'Pick a name: BotFather gives you a code (the token).',
   step3: 'Paste it here: Monsters checks with Telegram that it works.',
   tokenLabel: 'Bot code (token)',
@@ -99,7 +104,7 @@ const en = {
       `Bot ${username ? `@${username} ` : ''}connected to ${monster}.`,
     form: {
       step1: {
-        before: 'On Telegram open ',
+        before: 'On Telegram, open ',
         mid: ', type ',
         after: ' and give it a name: it gives you the token.',
       },
@@ -110,7 +115,7 @@ const en = {
           '. In groups the bot only receives messages that mention it, replies to its messages and commands.',
       },
       step3:
-        'A token is used by one program at a time. If the bot belongs to another program today (for example another assistant already active in the group), create a new bot or stop that program first.',
+        'A token can only be used by one app at a time. If the bot is already used by another app (for example another assistant active in the group), create a new bot or stop that app first.',
       step4: {
         before:
           'Add the bot to the group: it shows up below and you approve it. Whoever wants to talk to it types ',
@@ -118,10 +123,11 @@ const en = {
       },
       agent: 'The monster that answers',
       agentHint:
-        'Only it talks: with @Name it doesn’t reach the other monsters. Your lead stays on the main bot.',
+        'Only this monster answers: @Name doesn’t reach the others. Your lead stays on the main bot.',
       chooseOption: 'Choose a monster',
       limit: 'Messages per day (optional)',
-      limitHint: 'Past this number the bot replies that it’s done for today. Empty: 100 a day.',
+      limitHint:
+        'Past this number the bot replies that it’s done for the day. Leave it empty for 100 a day.',
       limitPlaceholder: 'e.g. 200',
     },
     toApprove: ' · to approve',
@@ -178,6 +184,10 @@ const en = {
 };
 
 const it: typeof en = {
+  commands: {
+    phone: ['/ferma', '/riprendi', '/nuova', '/stato'],
+    group: ['/stato', '/join', '/aiuto'],
+  },
   status: {
     off: 'Non collegato.',
     connecting: 'Mi collego a Telegram…',

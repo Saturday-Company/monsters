@@ -44,11 +44,11 @@ describe('composer', () => {
   const base = { name: 'Titan', halted: false, noModel: false, question: null, wide: true };
 
   it('says what the field does now', () => {
-    expect(composerPlaceholder(base)).toBe('Write to Titan… (@ for another monster)');
-    expect(composerPlaceholder({ ...base, name: 'Atlas', wide: false })).toBe('Write to Atlas…');
+    expect(composerPlaceholder(base)).toBe('Message Titan… (@ for another monster)');
+    expect(composerPlaceholder({ ...base, name: 'Atlas', wide: false })).toBe('Message Atlas…');
     // A keypad: with a keyboard the letters answer; on a phone, the keys.
     expect(composerPlaceholder({ ...base, question: { id: 'q', from: 'Rhea', options: 3 } })).toBe(
-      'Write to Rhea, or press A, B or C',
+      'Message Rhea, or press A, B or C',
     );
     expect(
       composerPlaceholder({
@@ -61,7 +61,7 @@ describe('composer', () => {
       'Answer Rhea',
     );
     expect(composerPlaceholder({ ...base, halted: true })).toBe(
-      'Write: the message goes out when you press Resume',
+      'Go ahead and write: the message goes out when you press Resume',
     );
     expect(composerPlaceholder({ ...base, halted: true, noModel: true })).toBe(
       'Connect a model first',
@@ -148,7 +148,7 @@ describe('greeting', () => {
     expect(greetingWords(agent(0.2), false)).toEqual({
       hello: 'Hi, I’m Rhea.',
       words:
-        'What I do: Fa ricerche sul web. Write to me here: I’ll answer you myself, without going through the others.',
+        'What I do: Fa ricerche sul web. Message me here: I’ll answer you myself, without going through the others.',
     });
     expect(greetingWords(agent(0.2, true), false).words).toMatch(/^Tell me what you need/);
     // The lead of a project hands work to its monsters (collaudo of 17/10).
@@ -157,9 +157,9 @@ describe('greeting', () => {
       'My role: Capo del progetto Social Saturday. Tell me what the project needs: I’ll take care of it and, if needed, pass it to the project’s monsters.',
     );
     expect(greetingWords(lead, false).words).not.toContain('without going through the others');
-    expect(greetingWords({ ...agent(0.2), role: '  ' }, false).words).toMatch(/^Write to me here/);
+    expect(greetingWords({ ...agent(0.2), role: '  ' }, false).words).toMatch(/^Message me here/);
     expect(greetingWords(agent(0.8), true).words).toBe(
-      'To work I only need a model: connect one and we’ll start.',
+      'I just need a model to get to work: connect one and we’ll start.',
     );
   });
 

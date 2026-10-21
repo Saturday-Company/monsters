@@ -83,7 +83,7 @@ const en = {
     sentry: { description: 'Read errors and issues, analyze crashes' },
     supabase: {
       description: 'Manage databases, tables and functions',
-      note: 'On a real project, better use a test one: the monsters can change the data.',
+      note: 'If you can, use a test project: the monsters can change the data.',
     },
     stripe: {
       description: 'Read payments, customers, subscriptions and invoices',

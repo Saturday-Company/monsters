@@ -2,6 +2,10 @@ import { defineStrings } from './i18n.ts';
 
 /* Shared formatting helpers (D-153): words of dates, times and money. */
 
+/** "a Titan" / "ad Atlas": the Italian preposition with the euphonic d before an "a". */
+export const toNameIt = (name: string): string =>
+  /^[aàAÀ]/.test(name) ? `ad ${name}` : `a ${name}`;
+
 const en = {
   today: 'Today',
   yesterday: 'Yesterday',
@@ -19,8 +23,7 @@ const it: typeof en = {
   now: 'adesso',
   minutesAgo: (n) => `${n} min fa`,
   hoursAgo: (n) => `${n} h fa`,
-  // With the euphonic d before an "a": "ad Atlas".
-  toName: (name) => (/^[aàAÀ]/.test(name) ? `ad ${name}` : `a ${name}`),
+  toName: toNameIt,
   moreChars: (n) => `${n} caratteri in più`,
 };
 
