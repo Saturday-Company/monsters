@@ -7,7 +7,8 @@
 import type { Os } from './os.ts';
 
 export const REPO_URL = 'https://github.com/Saturday-Company/monsters';
-export const RELEASES_URL = `${REPO_URL}/releases/latest`;
+// Not /releases/latest: GitHub skips pre-releases there, and every alpha is one.
+export const RELEASES_URL = `${REPO_URL}/releases`;
 export const FEED_BASE = 'https://monsters-updates.saturdaycompany.workers.dev/desktop';
 /** One feed per system (apps/desktop/scripts/package-config.ts, channel `alpha`). */
 export const FEEDS = { linux: 'alpha-linux.yml', windows: 'alpha.yml', mac: 'alpha-mac.yml' };
@@ -76,13 +77,13 @@ const MATCHERS: { id: DownloadId; os: Download['os']; format: string; test: RegE
   { id: 'exe', os: 'windows', format: '.exe', test: /\.exe$/ },
 ];
 
-/** Direct link to a file of the latest GitHub release. */
-export const downloadUrl = (file: string): string =>
-  `${REPO_URL}/releases/latest/download/${encodeURIComponent(file)}`;
+/** Direct link to a file of the GitHub release of that version (tag `v<version>`, D-145). */
+export const downloadUrl = (file: string, version: string): string =>
+  `${REPO_URL}/releases/download/v${encodeURIComponent(version)}/${encodeURIComponent(file)}`;
 
 /** The installers the site offers, in a fixed order, from the three feeds. */
 export function downloadsFrom(feeds: readonly Feed[]): Download[] {
-  const all = feeds.flatMap((f) => f.files);
+  const all = feeds.flatMap((f) => f.files.map((file) => ({ ...file, version: f.version })));
   const out: Download[] = [];
   for (const m of MATCHERS) {
     const file = all.find((f) => m.test.test(f.url));
@@ -93,7 +94,7 @@ export function downloadsFrom(feeds: readonly Feed[]): Download[] {
         format: m.format,
         file: file.url,
         size: file.size,
-        url: downloadUrl(file.url),
+        url: downloadUrl(file.url, file.version),
       });
   }
   return out;

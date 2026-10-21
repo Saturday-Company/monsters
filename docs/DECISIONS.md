@@ -4703,6 +4703,10 @@ test.
 **Conseguenza:** i link puntano a `https://github.com/Saturday-Company/monsters/releases/latest`; serve `gh` autenticato
 con i permessi sul repo. Le release non sostituiscono il feed: un'app installata non le legge.
 
+**Aggiunta (21/10/2026, alpha.19):** `/releases/latest` su GitHub ignora le pre-release, e ogni alpha lo è: il sito
+linka il file della release del suo tag (`/releases/download/v<versione>/<file>`, versione letta dal feed al build) e
+l'elenco `/releases`; anche i README puntano a `/releases`.
+
 ### D-146 · Il sito diventa un terminale: finestre, codice vero, shell della pagina
 **Stato:** fatta · 20/10/2026 (deploy non ancora fatto)
 **Contesto:** Giulio vuole il sito di D-144 più «geek» e più sporco, sulla scia di typesafe.ai: finestre di terminale,

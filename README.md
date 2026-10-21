@@ -53,7 +53,7 @@ Website: <https://getmonsters.dev>
 
 ## Download
 
-Get the latest build from [GitHub Releases](https://github.com/Saturday-Company/monsters/releases/latest):
+Get the latest build from [GitHub Releases](https://github.com/Saturday-Company/monsters/releases):
 
 - **Linux:** AppImage or `.deb`
 - **macOS:** `.dmg` for Apple silicon (arm64) or Intel (x64)

@@ -106,7 +106,7 @@ describe('feed parsing', () => {
     expect(d.map((x) => x.id)).toEqual(['appimage', 'deb', 'dmg-arm64', 'dmg-x64', 'exe']);
     expect(d.find((x) => x.id === 'dmg-arm64')?.file).toBe('Monsters-0.1.0-alpha.17-mac-arm64.dmg');
     expect(d[0]?.url).toBe(
-      'https://github.com/Saturday-Company/monsters/releases/latest/download/Monsters-0.1.0-alpha.17-linux-x86_64.AppImage',
+      'https://github.com/Saturday-Company/monsters/releases/download/v0.1.0-alpha.17/Monsters-0.1.0-alpha.17-linux-x86_64.AppImage',
     );
   });
 

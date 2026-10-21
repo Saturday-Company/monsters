@@ -52,7 +52,7 @@ Sito: <https://getmonsters.dev>
 
 ## Scarica
 
-L'ultima versione è nelle [Release di GitHub](https://github.com/Saturday-Company/monsters/releases/latest):
+L'ultima versione è nelle [Release di GitHub](https://github.com/Saturday-Company/monsters/releases):
 
 - **Linux:** AppImage o `.deb`
 - **macOS:** `.dmg` per Apple silicon (arm64) o Intel (x64)
