@@ -73,16 +73,16 @@ for (const size of SIZES) {
         await shot(page, '01-istinto');
         await page
           .getByTestId('instinct-uses')
-          .getByRole('button', { name: /Cosa fa/ })
+          .getByRole('button', { name: /What it does/ })
           .click();
         await page.waitForTimeout(150);
         await into(page, 'instinct-uses');
         await shot(page, '02-istinto-cosa-fa');
         await page
           .getByTestId('instinct-uses')
-          .getByRole('button', { name: /Cosa fa/ })
+          .getByRole('button', { name: /What it does/ })
           .click();
-        await page.getByRole('radio', { name: 'Un modello esperto (TypeSafe)' }).click();
+        await page.getByRole('radio', { name: 'An expert model (TypeSafe)' }).click();
         await page.getByTestId('no-key').waitFor();
         await into(page, 'instinct-section');
         await page.waitForTimeout(150);
@@ -122,11 +122,11 @@ for (const size of SIZES) {
         await page.waitForTimeout(200);
         await shot(page, '10-mostro-confuso');
         await page.goto('/?mock=demo#/?chat=rhea');
-        await page.getByRole('button', { name: 'Dietro le quinte di Rhea' }).first().click();
+        await page.getByRole('button', { name: 'Behind the scenes of Rhea' }).first().click();
         await page.getByTestId('agent-terminal').waitFor();
         await page.waitForTimeout(300);
         await scrollTo(
-          page.getByTestId('agent-terminal').locator('li', { hasText: 'Ho tolto' }),
+          page.getByTestId('agent-terminal').locator('li', { hasText: 'I removed' }),
           'center',
         );
         await page.waitForTimeout(150);
@@ -135,22 +135,22 @@ for (const size of SIZES) {
 
         await page.goto('/?mock=demo#/log');
         await page.getByTestId('event-row').first().waitFor();
-        await scrollTo(page.getByTestId('event-row').filter({ hasText: 'Ho tolto' }), 'center');
+        await scrollTo(page.getByTestId('event-row').filter({ hasText: 'I removed' }), 'center');
         await page.waitForTimeout(150);
         await shot(page, '12-attivita-importanti');
-        await page.getByRole('radio', { name: 'Tutto' }).click();
+        await page.getByRole('radio', { name: 'Everything' }).click();
         await scrollTo(
-          page.getByTestId('event-row').filter({ hasText: 'Ci pensa Dione' }),
+          page.getByTestId('event-row').filter({ hasText: 'Dione will handle it' }),
           'center',
         );
         await page.waitForTimeout(150);
         await shot(page, '13-attivita-tutto');
 
         await page.goto('/?mock=demo&mockSpeed=0.2#/?chat=dione');
-        const composer = page.getByRole('combobox', { name: 'Messaggio' });
-        await composer.fill('Pubblica il primo post su Instagram');
+        const composer = page.getByRole('combobox', { name: 'Message' });
+        await composer.fill('Publish the first post on Instagram');
         await composer.press('Enter');
-        const card = page.getByTestId('question-card').filter({ hasText: 'Procedo?' });
+        const card = page.getByTestId('question-card').filter({ hasText: 'Go ahead?' });
         await card.waitFor();
         await scrollTo(card, 'center');
         await page.waitForTimeout(250);

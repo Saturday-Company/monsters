@@ -12,7 +12,7 @@ import { expect, test } from './fixtures.ts';
 /** Settings → Modelli with the list of what can still be connected open. */
 async function openModels(page: Page) {
   await page.goto('/?mock=demo#/impostazioni?sezione=modelli');
-  await page.getByRole('button', { name: 'Collega un altro modello' }).click();
+  await page.getByRole('button', { name: 'Connect another model' }).click();
   await expect(page.getByTestId('models-add')).toBeVisible();
 }
 
@@ -38,7 +38,9 @@ async function signInChatGPT(page: Page) {
 
 test('ChatGPT: continue with ChatGPT, first-use modal, a monster on the plan', async ({ page }) => {
   await openModels(page);
-  await expect(page.getByRole('heading', { name: 'Un abbonamento che hai già' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'A subscription you already have' }),
+  ).toBeVisible();
   // Subscriptions are not in the list of keys.
   await expect(page.getByTestId('provider-row-chatgpt')).toHaveCount(0);
 
@@ -46,7 +48,7 @@ test('ChatGPT: continue with ChatGPT, first-use modal, a monster on the plan', a
   await modal.getByRole('button', { name: 'Got it' }).click();
   await expect(modal).toBeHidden();
   const card = page.getByTestId('models-connected').getByTestId('subscription-chatgpt');
-  await expect(card).toContainText('Collegato come giulio@example.com');
+  await expect(card).toContainText('Connected as giulio@example.com');
   await expect(card.getByTestId('manage-usage')).toHaveAttribute(
     'href',
     'https://chatgpt.com/settings/usage',
@@ -56,9 +58,9 @@ test('ChatGPT: continue with ChatGPT, first-use modal, a monster on the plan', a
   // Everybody shares one model at first (D-066): one chain per monster on request.
   await page.getByTestId('chains-per-monster').click();
   const titan = page.getByTestId('agent-chain-titan');
-  await titan.getByLabel('Servizio 1 di Titan', { exact: true }).selectOption('chatgpt');
-  await expect(titan.getByLabel('Modello 1 di Titan', { exact: true })).toHaveValue('gpt-test');
-  await expect(page.getByText('Modelli di Titan salvati.')).toBeVisible();
+  await titan.getByLabel('Service 1 of Titan', { exact: true }).selectOption('chatgpt');
+  await expect(titan.getByLabel('Model 1 of Titan', { exact: true })).toHaveValue('gpt-test');
+  await expect(page.getByText('Titan’s models saved.')).toBeVisible();
 });
 
 test('ChatGPT plan indicator next to the composer', async ({ page }) => {
@@ -68,8 +70,8 @@ test('ChatGPT plan indicator next to the composer', async ({ page }) => {
   // Everybody shares one model at first (D-066): one chain per monster on request.
   await page.getByTestId('chains-per-monster').click();
   const titan = page.getByTestId('agent-chain-titan');
-  await titan.getByLabel('Servizio 1 di Titan', { exact: true }).selectOption('chatgpt');
-  await expect(page.getByText('Modelli di Titan salvati.')).toBeVisible();
+  await titan.getByLabel('Service 1 of Titan', { exact: true }).selectOption('chatgpt');
+  await expect(page.getByText('Titan’s models saved.')).toBeVisible();
   // Same page, same mock core: back to the dashboard through the app.
   await page.evaluate(() => (window.location.hash = '#/'));
   const indicator = page.getByTestId('chatgpt-plan-indicator');
@@ -94,21 +96,21 @@ test('Abbonamento Claude: plain label, terminal instructions, no login of ours',
 }) => {
   await openModels(page);
   const offer = page.getByTestId('subscription-claude');
-  await expect(offer.getByText('Abbonamento Claude', { exact: true })).toBeVisible();
-  await expect(offer).toContainText('Usa Claude Code sul computer dove gira Monsters');
+  await expect(offer.getByText('Claude subscription', { exact: true })).toBeVisible();
+  await expect(offer).toContainText('It uses Claude Code on the computer where Monsters runs');
   // No logo and no login button: the login is the user's, in a terminal.
   await expect(offer.locator('img, svg[role="img"]')).toHaveCount(0);
   await expect(offer.getByRole('button', { name: /accedi|login|sign in|continue/i })).toHaveCount(
     0,
   );
 
-  await offer.getByRole('button', { name: 'Collega' }).click();
+  await offer.getByRole('button', { name: 'Connect' }).click();
   // Turned on: among what the monsters think with, waiting for the login.
   const card = page.getByTestId('models-connected').getByTestId('subscription-claude');
-  await expect(card).toContainText('Manca l’accesso a Claude Code');
+  await expect(card).toContainText('Claude Code sign-in is missing');
   await expect(card.getByRole('button', { name: /accedi|login|sign in|continue/i })).toHaveCount(0);
   const hint = card.getByTestId('claude-terminal-hint');
-  await expect(hint).toContainText('Apri un terminale ed esegui');
+  await expect(hint).toContainText('Open a terminal and run');
   await expect(hint.locator('code').first()).toHaveText('claude');
   if (SHOTS) {
     for (const theme of ['light', 'dark'] as const) {
@@ -119,17 +121,17 @@ test('Abbonamento Claude: plain label, terminal instructions, no login of ours',
         .screenshot({ path: `${SHOTS}/abbonamenti-claude-istruzioni-${theme}.png` });
     }
   }
-  await card.getByRole('button', { name: 'Ricontrolla' }).click();
-  await expect(card).toContainText('Pronto: i mostri che scegli lavorano con Claude Code');
+  await card.getByRole('button', { name: 'Check again' }).click();
+  await expect(card).toContainText('Ready: the monsters you choose work with Claude Code');
   await expect(card.getByTestId('claude-terminal-hint')).toHaveCount(0);
 });
 
 test('Codex: needs ChatGPT, installed only on request', async ({ page }) => {
   await openModels(page);
   const codex = page.getByTestId('subscription-codex');
-  await expect(codex).toContainText('Codex (per programmare)');
-  await expect(codex).toContainText('Collega prima ChatGPT');
-  await expect(codex.getByRole('button', { name: /Collega/ })).toHaveCount(0);
+  await expect(codex).toContainText('Codex (for coding)');
+  await expect(codex).toContainText('Connect ChatGPT first');
+  await expect(codex.getByRole('button', { name: /Connect/ })).toHaveCount(0);
   const modal = await signInChatGPT(page);
   if (SHOTS) {
     for (const theme of ['light', 'dark'] as const) {
@@ -140,15 +142,15 @@ test('Codex: needs ChatGPT, installed only on request', async ({ page }) => {
   }
   await modal.getByRole('button', { name: 'Got it' }).click();
   await expect(codex).toContainText('Apache-2.0');
-  await codex.getByRole('button', { name: 'Installa e collega' }).click();
+  await codex.getByRole('button', { name: 'Install and connect' }).click();
   await expect(
     page.getByTestId('models-connected').getByTestId('subscription-codex'),
-  ).toContainText('Pronto: usa il tuo piano ChatGPT.');
+  ).toContainText('Ready: it uses your ChatGPT plan.');
   if (SHOTS) {
-    await page.getByTestId('subscription-claude').getByRole('button', { name: 'Collega' }).click();
+    await page.getByTestId('subscription-claude').getByRole('button', { name: 'Connect' }).click();
     await page
       .getByTestId('subscription-claude')
-      .getByRole('button', { name: 'Ricontrolla' })
+      .getByRole('button', { name: 'Check again' })
       .click();
     for (const theme of ['light', 'dark'] as const) {
       await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });

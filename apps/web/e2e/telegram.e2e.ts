@@ -17,15 +17,15 @@ async function openTelegram(page: Page) {
 
 /** The token form opens from "Collega un bot". */
 async function openTokenForm(section: Locator) {
-  await expect(section.getByLabel('Codice del bot')).toHaveCount(0);
-  await section.getByRole('button', { name: 'Collega un bot' }).click();
+  await expect(section.getByLabel('Bot code')).toHaveCount(0);
+  await section.getByRole('button', { name: 'Connect a bot' }).click();
 }
 
 async function connect(page: Page) {
   const section = await openTelegram(page);
   await openTokenForm(section);
-  await section.getByLabel('Codice del bot').fill('123456789:AAHdemoTokenForTheMockCore_abcdefgh');
-  await section.getByRole('button', { name: 'Collega il bot' }).click();
+  await section.getByLabel('Bot code').fill('123456789:AAHdemoTokenForTheMockCore_abcdefgh');
+  await section.getByRole('button', { name: 'Connect the bot' }).click();
   await expect(section.getByTestId('telegram-status')).toContainText('@MonstersDemoBot');
   return section;
 }
@@ -36,68 +36,68 @@ test('settings: connect the bot, pair an account, quiet night, remove', async ({
 
   // A malformed token is caught in the page, a refused one by the core.
   await openTokenForm(section);
-  const field = section.getByLabel('Codice del bot');
+  const field = section.getByLabel('Bot code');
   await field.fill('ciao');
-  await section.getByRole('button', { name: 'Collega il bot' }).click();
-  await expect(section.getByRole('alert')).toContainText('non sembra un token di Telegram');
+  await section.getByRole('button', { name: 'Connect the bot' }).click();
+  await expect(section.getByRole('alert')).toContainText('doesn’t look like a Telegram token');
   await field.fill('123456789:AAH000000wrongTokenForTheMock_abcdefgh');
-  await section.getByRole('button', { name: 'Collega il bot' }).click();
-  await expect(section.getByRole('alert')).toContainText('Telegram non riconosce');
+  await section.getByRole('button', { name: 'Connect the bot' }).click();
+  await expect(section.getByRole('alert')).toContainText('Telegram doesn’t recognise');
 
   await field.fill('123456789:AAHdemoTokenForTheMockCore_abcdefgh');
-  await section.getByRole('button', { name: 'Collega il bot' }).click();
-  await expect(page.getByText('Bot @MonstersDemoBot collegato.')).toBeVisible();
+  await section.getByRole('button', { name: 'Connect the bot' }).click();
+  await expect(page.getByText('Bot @MonstersDemoBot connected.')).toBeVisible();
   // The token is never shown again.
-  await expect(section.getByLabel('Codice del bot')).toHaveCount(0);
+  await expect(section.getByLabel('Bot code')).toHaveCount(0);
 
   // Pairing starts by itself: a code to send to the bot, then the account appears.
   const code = section.getByTestId('telegram-pairing-code');
   await expect(code).toHaveText(/^\/start [A-Z2-9]{8}$/);
-  await expect(section.getByRole('link', { name: 'Apri in Telegram' })).toHaveAttribute(
+  await expect(section.getByRole('link', { name: 'Open in Telegram' })).toHaveAttribute(
     'href',
     /^https:\/\/t\.me\/MonstersDemoBot\?start=[A-Z2-9]{8}$/,
   );
-  await expect(section.getByText(/Scade tra \d+:\d\d/)).toBeVisible();
+  await expect(section.getByText(/Expires in \d+:\d\d/)).toBeVisible();
   // "Mi collego…" first, then the page reads the state again by itself.
   await expect(section.getByTestId('telegram-status')).toHaveAttribute('data-status', 'online');
-  await expect(page.getByText('Account collegato: Giulio.')).toBeVisible({ timeout: 8000 });
+  await expect(page.getByText('Account connected: Giulio.')).toBeVisible({ timeout: 8000 });
   await expect(section.getByTestId('telegram-pairing')).toHaveCount(0);
   await expect(section.getByTestId('telegram-user')).toHaveCount(1);
   await expect(section.getByTestId('telegram-user')).toContainText('Giulio · @giulio');
 
   // Quiet night: hours appear when it is on.
-  const quiet = section.getByRole('switch', { name: 'Silenzioso di notte' });
+  const quiet = section.getByRole('switch', { name: 'Quiet at night' });
   await expect(quiet).toHaveAttribute('aria-checked', 'false');
   await quiet.click();
   await expect(quiet).toHaveAttribute('aria-checked', 'true');
-  await expect(section.getByLabel('Dalle', { exact: true })).toHaveValue('22:00');
-  await section.getByLabel('fino alle', { exact: true }).fill('07:30');
-  await expect(section.getByLabel('fino alle', { exact: true })).toHaveValue('07:30');
-  const done = section.getByRole('switch', { name: 'Lavoro finito' });
+  await expect(section.getByLabel('From', { exact: true })).toHaveValue('22:00');
+  await section.getByLabel('until', { exact: true }).fill('07:30');
+  await expect(section.getByLabel('until', { exact: true })).toHaveValue('07:30');
+  const done = section.getByRole('switch', { name: 'Work finished' });
   await done.click();
   await expect(done).toHaveAttribute('aria-checked', 'false');
 
   // Remove the account; then the bot.
-  await section.getByRole('button', { name: 'Togli Giulio' }).click();
+  await section.getByRole('button', { name: 'Remove Giulio' }).click();
   await expect(section.getByTestId('telegram-user')).toHaveCount(0);
-  await section.getByRole('button', { name: 'Scollega il bot' }).click();
-  await section.getByRole('button', { name: 'Sì, scollega' }).click();
-  await expect(section.getByRole('button', { name: 'Collega un bot' })).toBeVisible();
+  await section.getByRole('button', { name: 'Disconnect the bot' }).click();
+  await section.getByRole('button', { name: 'Yes, disconnect' }).click();
+  await expect(section.getByRole('button', { name: 'Connect a bot' })).toBeVisible();
 
   // Everything is in the log.
   await page.goto('/?mock=demo#/log');
   await expect(
-    page.getByText('Giulio non può più comandare i mostri da Telegram').first(),
+    page.getByText('Giulio can no longer control the monsters from Telegram').first(),
   ).toBeVisible();
 });
 
 test('settings: a pairing code can be cancelled', async ({ page }) => {
   const section = await connect(page);
-  await section.getByRole('button', { name: 'Collega un account' }).click();
+  await section.getByRole('button', { name: 'Connect an account' }).click();
   await expect(section.getByTestId('telegram-pairing-code')).toBeVisible();
-  await section.getByRole('button', { name: 'Annulla' }).click();
+  await section.getByRole('button', { name: 'Cancel' }).click();
   await expect(section.getByTestId('telegram-pairing')).toHaveCount(0);
-  await expect(section.getByRole('button', { name: 'Collega un account' })).toBeVisible();
+  await expect(section.getByRole('button', { name: 'Connect an account' })).toBeVisible();
 });
 
 const SHOTS = process.env['TELEGRAM_SHOTS'];
@@ -114,9 +114,9 @@ for (const theme of ['light', 'dark'] as const) {
     test('telegram settings', async ({ page }) => {
       const section = await openTelegram(page);
       await openTokenForm(section);
-      await expect(section.getByLabel('Codice del bot')).toBeVisible();
+      await expect(section.getByLabel('Bot code')).toBeVisible();
       // The sections above load on their own: scroll once they are there.
-      await expect(page.getByTestId('agent-permissions-rhea')).toBeVisible();
+      await expect(page.getByTestId('mcp-settings')).toBeVisible();
       await page.waitForTimeout(500);
       await section.evaluate((el) => el.scrollIntoView({ block: 'start' }));
       await page.waitForTimeout(300);
@@ -125,8 +125,9 @@ for (const theme of ['light', 'dark'] as const) {
         animations: 'disabled',
       });
 
+      await page.reload();
       await connect(page);
-      await section.getByRole('button', { name: 'Collega un account' }).click();
+      await section.getByRole('button', { name: 'Connect an account' }).click();
       await expect(section.getByTestId('telegram-pairing-code')).toBeVisible();
       await section.evaluate((el) => el.scrollIntoView({ block: 'start' }));
       await page.waitForTimeout(300);
@@ -136,8 +137,8 @@ for (const theme of ['light', 'dark'] as const) {
       });
 
       await expect(section.getByTestId('telegram-user')).toHaveCount(1, { timeout: 8000 });
-      await section.getByRole('switch', { name: 'Silenzioso di notte' }).click();
-      await expect(section.getByLabel('Dalle', { exact: true })).toBeVisible();
+      await section.getByRole('switch', { name: 'Quiet at night' }).click();
+      await expect(section.getByLabel('From', { exact: true })).toBeVisible();
       await section.evaluate((el) => el.scrollIntoView({ block: 'start' }));
       await page.waitForTimeout(300);
       await page.screenshot({

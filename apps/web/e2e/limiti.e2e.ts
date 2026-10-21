@@ -12,11 +12,11 @@ const SHOTS = process.env['LIMITI_SHOTS'];
 
 async function connectClaude(page: Page) {
   await page.goto('/?mock=demo#/impostazioni?sezione=modelli');
-  await page.getByRole('button', { name: 'Collega un altro modello' }).click();
-  await page.getByTestId('subscription-claude').getByRole('button', { name: 'Collega' }).click();
+  await page.getByRole('button', { name: 'Connect another model' }).click();
+  await page.getByTestId('subscription-claude').getByRole('button', { name: 'Connect' }).click();
   const card = page.getByTestId('models-connected').getByTestId('subscription-claude');
-  await card.getByRole('button', { name: 'Ricontrolla' }).click();
-  await expect(card).toContainText('Pronto: i mostri che scegli lavorano con Claude Code');
+  await card.getByRole('button', { name: 'Check again' }).click();
+  await expect(card).toContainText('Ready: the monsters you choose work with Claude Code');
   return card;
 }
 
@@ -26,31 +26,31 @@ test('Claude plan: session, week and Opus week under the plan, with when they re
   const card = await connectClaude(page);
   const block = card.getByTestId('plan-limits-claude');
   await expect(block).toBeVisible();
-  await expect(card.getByRole('heading', { name: 'Utilizzo del piano' })).toBeVisible();
+  await expect(card.getByRole('heading', { name: 'Plan usage' })).toBeVisible();
 
   const session = block.getByTestId('plan-window-five_hour');
-  await expect(session).toContainText('Sessione');
+  await expect(session).toContainText('Session');
   await expect(session.getByTestId('plan-percent')).toHaveText('9%');
-  await expect(session.getByTestId('plan-reset')).toHaveText(/^si azzera tra 1 h (3[01]|32)$/);
+  await expect(session.getByTestId('plan-reset')).toHaveText(/^resets in 1 h (3[01]|32) min$/);
   await expect(session.locator('i')).toHaveCount(20);
   await expect(session).toHaveAttribute('data-tone', 'ok');
 
   const week = block.getByTestId('plan-window-seven_day');
-  await expect(week).toContainText('Settimana');
+  await expect(week).toContainText('Week');
   await expect(week.getByTestId('plan-percent')).toHaveText('63%');
-  await expect(week.getByTestId('plan-reset')).toHaveText(/^si azzera mer 16:00$/);
+  await expect(week.getByTestId('plan-reset')).toHaveText(/^resets Wed 04:00 PM$/);
 
   const opus = block.getByTestId('plan-window-seven_day_opus');
-  await expect(opus).toContainText('Opus settimana');
+  await expect(opus).toContainText('Opus week');
   await expect(opus.getByTestId('plan-percent')).toHaveText('41%');
 
-  await expect(block.getByTestId('plan-updated')).toContainText(/^Aggiornato (19|20|21) min fa\./);
+  await expect(block.getByTestId('plan-updated')).toContainText(/^Updated (19|20|21) min ago\./);
   await expect(block.getByTestId('plan-updated')).toContainText(
-    'Si aggiorna solo quando un mostro lavora con questo piano.',
+    'It updates only when a monster works on this plan.',
   );
   // The meter says it without colour too.
   await expect(session).toHaveAttribute('role', 'meter');
-  await expect(session).toHaveAccessibleName('Sessione: 9% usato');
+  await expect(session).toHaveAccessibleName('Session: 9% used');
 
   if (SHOTS) {
     for (const theme of ['light', 'dark'] as const) {
@@ -65,7 +65,7 @@ test('ChatGPT plan: the two windows named by their length, the week warns at 81%
   page,
 }) => {
   await page.goto('/?mock=demo#/impostazioni?sezione=modelli');
-  await page.getByRole('button', { name: 'Collega un altro modello' }).click();
+  await page.getByRole('button', { name: 'Connect another model' }).click();
   const popup = page.waitForEvent('popup');
   await page
     .getByTestId('subscription-chatgpt')
@@ -77,16 +77,16 @@ test('ChatGPT plan: the two windows named by their length, the week warns at 81%
   const block = page.getByTestId('models-connected').getByTestId('plan-limits-chatgpt');
   await expect(block).toBeVisible();
   const short = block.getByTestId('plan-window-primary');
-  await expect(short).toContainText('5 ore');
+  await expect(short).toContainText('5 hours');
   await expect(short.getByTestId('plan-percent')).toHaveText('24%');
   await expect(short).toHaveAttribute('data-tone', 'ok');
   const week = block.getByTestId('plan-window-secondary');
-  await expect(week).toContainText('Settimana');
+  await expect(week).toContainText('Week');
   await expect(week.getByTestId('plan-percent')).toHaveText('81%');
   await expect(week).toHaveAttribute('data-tone', 'warn');
-  await expect(week).toContainText('in esaurimento');
+  await expect(week).toContainText('running low');
   await expect(week.getByTestId('plan-reset')).toHaveText(
-    /^si azzera (lun|mar|mer|gio|ven|sab|dom) \d\d:\d\d$/,
+    /^resets (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2}:\d\d (AM|PM)$/,
   );
   if (SHOTS) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -107,20 +107,20 @@ test('Consumi of a monster on the Claude plan carries the same block', async ({ 
       window as unknown as { __monstersMock: { useSubscription(id: string): void } }
     ).__monstersMock.useSubscription('mimas'),
   );
-  const input = page.getByRole('combobox', { name: 'Messaggio' });
-  await input.fill('Ciao Mimas, a che punto sono i conti?');
+  const input = page.getByRole('combobox', { name: 'Message' });
+  await input.fill('Hi Mimas, where are we on the accounts?');
   await input.press('Enter');
   await expect(key.getByTestId('context-amount')).toHaveText(/^\d+%$/, { timeout: 15_000 });
   await key.click();
   const sheet = page.getByTestId('usage-sheet');
   const plan = sheet.getByTestId('usage-plan');
-  await expect(plan).toContainText('Utilizzo del piano · Claude', { timeout: 15_000 });
-  await expect(plan.getByTestId('plan-window-five_hour')).toContainText('Sessione');
+  await expect(plan).toContainText('Plan usage · Claude', { timeout: 15_000 });
+  await expect(plan.getByTestId('plan-window-five_hour')).toContainText('Session');
   await expect(plan.getByTestId('plan-window-seven_day').getByTestId('plan-percent')).toHaveText(
     '63%',
   );
-  await expect(plan.getByTestId('plan-window-seven_day_opus')).toContainText('Opus settimana');
-  await expect(plan.getByTestId('plan-updated')).toContainText('Aggiornato');
+  await expect(plan.getByTestId('plan-window-seven_day_opus')).toContainText('Opus week');
+  await expect(plan.getByTestId('plan-updated')).toContainText('Updated');
   if (SHOTS) {
     await page.waitForTimeout(300);
     await plan.scrollIntoViewIfNeeded();
