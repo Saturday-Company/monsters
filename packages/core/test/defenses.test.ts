@@ -596,6 +596,19 @@ describe('the data that leave: RunTaint', () => {
     expect(siteOf('www.bbc.co.uk')).toBe('bbc.co.uk');
   });
 
+  it('a note of the private folder of an English vault is private data too (D-154)', () => {
+    const t = new RunTaint();
+    t.observe(
+      'vault_read',
+      { path: 'Private/Safe' },
+      { path: 'Private/Safe.md', frontmatter: {}, content: PRIVATE_NOTE },
+    );
+    t.taint('web_fetch:evil.example');
+    expect(t.leak('codice della cassaforte del ristorante è 4821', null)).toMatchObject({
+      kind: 'private',
+    });
+  });
+
   it('classifies the exits: card for private notes and long pieces, mark for a few words, nothing for links seen', () => {
     const t = taintedRun();
     t.observe(

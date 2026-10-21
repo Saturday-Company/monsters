@@ -1,4 +1,5 @@
 import {
+  vaultLayout,
   appLang,
   CONFUSED_MIN_MS,
   formatNumber,
@@ -225,19 +226,25 @@ export function modelLabel(model: string): string {
   return name.endsWith(':free') ? s.free(name.slice(0, -5)) : name;
 }
 
-/** Files the agents keep for themselves in `Agenti/<Nome>/` (memory, work state). */
+/** Files the agents keep for themselves in `Agenti/<Nome>/` (memory, work state; `Agents/`: D-154). */
 export interface AgentFile {
   owner: string;
   kind: 'memory' | 'state' | 'other';
 }
 
 export function agentFileOf(path: string): AgentFile | null {
-  const m = /^Agenti\/([^/]+)\/(.+)$/.exec(path);
-  if (!m) return null;
-  const file = m[2]!.toLowerCase();
+  const layout = vaultLayout();
+  const parts = path.split('/');
+  if (parts.length < 3 || parts[0] !== layout.agents || parts[1] === '') return null;
+  const file = parts.slice(2).join('/').toLowerCase();
   return {
-    owner: m[1]!,
-    kind: file === 'memory.md' ? 'memory' : file === 'stato.md' ? 'state' : 'other',
+    owner: parts[1]!,
+    kind:
+      file === layout.memory.toLowerCase()
+        ? 'memory'
+        : file === layout.state.toLowerCase()
+          ? 'state'
+          : 'other',
   };
 }
 

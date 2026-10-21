@@ -6,6 +6,7 @@ import { MESSAGE_MAX_CHARS, RESUME_EXTRA_CHARS } from './halted.ts';
 import { LangSchema } from './i18n.ts';
 import { AgentIdSchema, EmailSchema } from './ids.ts';
 import { UlidSchema } from './ulid.ts';
+import { VaultLayoutIdSchema } from './vault-layout.ts';
 
 /** Minimum password length for the local user. */
 export const PASSWORD_MIN_LENGTH = 8;
@@ -78,6 +79,8 @@ export const SetupStatusResponseSchema = z.object({
   needsSetup: z.boolean(),
   /** The app's language (D-153), also before sign-in; absent from older cores. */
   language: LangSchema.optional(),
+  /** The names of the vault's folders (D-154: `it`, `en`); absent from older cores (Italian). */
+  vaultLayout: VaultLayoutIdSchema.optional(),
 });
 export type SetupStatusResponse = z.infer<typeof SetupStatusResponseSchema>;
 
@@ -442,6 +445,8 @@ export const SettingsResponseSchema = z.object({
   secrets: SecretsStatusSchema.optional(),
   /** The app's language (D-153); absent from older cores. */
   language: LangSchema.optional(),
+  /** The names of the vault's folders (D-154); absent from older cores (Italian). */
+  vaultLayout: VaultLayoutIdSchema.optional(),
 });
 export type SettingsResponse = z.infer<typeof SettingsResponseSchema>;
 

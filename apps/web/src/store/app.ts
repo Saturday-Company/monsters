@@ -3,6 +3,7 @@ import {
   appLang,
   DRAFT_EVENT_TYPES,
   onAppLang,
+  setVaultLayout,
   type AgentSummary,
   type Lang,
   type AnswerRequest,
@@ -473,6 +474,8 @@ export async function boot(): Promise<void> {
     const setup = await c.setupStatus();
     // The core's language wins over the browser's guess (D-153).
     if (setup.language) applyLang(setup.language);
+    // The names of the vault's folders (D-154): an older core's vault is Italian.
+    setVaultLayout(setup.vaultLayout ?? 'it');
     coreLang = setup.language ?? null;
     if (setup.needsSetup) {
       useApp.setState({ phase: 'setup' });

@@ -1,5 +1,4 @@
-import { ToolError } from '@monsters/shared';
-import { PRIVATE_FOLDER } from './index-db/vault-index.ts';
+import { ToolError, VAULT_LAYOUTS, type VaultLayout } from '@monsters/shared';
 import { isInside, isSystemPath, matchesAnyGlob } from './paths.ts';
 import { currentVaultScope } from './scope.ts';
 
@@ -59,16 +58,11 @@ export interface WriteCheck {
   isNew?: boolean;
 }
 
-export const AGENTS_FOLDER = 'Agenti';
-export const INBOX_FOLDER = 'Inbox';
-export const DAILY_FOLDER = 'Diario';
-export const DAILY_AGENTS_SECTION = 'Agenti';
-
 /** Actors with full access besides the orchestrator. */
 const PRIVILEGED = new Set(['user', 'system']);
 
-const PROPOSE_HINT =
-  'Use vault_propose to suggest this change: it creates a proposal in Inbox/ that the orchestrator can apply.';
+const proposeHint = (inbox: string) =>
+  `Use vault_propose to suggest this change: it creates a proposal in ${inbox}/ that the orchestrator can apply.`;
 
 export function capitalize(id: string): string {
   return id.charAt(0).toUpperCase() + id.slice(1);
@@ -101,9 +95,12 @@ export function fileNamePart(name: string): string | null {
 
 export class VaultPermissions {
   readonly #config: VaultPermissionsConfig;
+  /** The names of the vault's folders (D-154): its agents' folder, inbox, journal, private folder. */
+  readonly layout: VaultLayout;
 
-  constructor(config: VaultPermissionsConfig = {}) {
+  constructor(config: VaultPermissionsConfig = {}, layout: VaultLayout = VAULT_LAYOUTS.it) {
     this.#config = config;
+    this.layout = layout;
   }
 
   /** The configuration (to rebuild it with another team). */
@@ -145,9 +142,9 @@ export class VaultPermissions {
     );
   }
 
-  /** `Agenti/<Name>` for an agent. */
+  /** `Agenti/<Name>` (in the vault's layout) for an agent. */
   areaOf(agent: string): string {
-    return `${AGENTS_FOLDER}/${this.#profile(agent)?.name ?? capitalize(agent)}`;
+    return `${this.layout.agents}/${this.#profile(agent)?.name ?? capitalize(agent)}`;
   }
 
   /** Folders and globs where an agent may create and edit notes, for hints. */
@@ -155,7 +152,7 @@ export class VaultPermissions {
     const extra = this.#profile(agent)?.write ?? [];
     return [
       `${this.areaOf(agent)}/`,
-      `${INBOX_FOLDER}/`,
+      `${this.layout.inbox}/`,
       ...extra.map((g) => g.replace(/\/\*\*$/, '/')),
     ];
   }
@@ -163,7 +160,7 @@ export class VaultPermissions {
   canRead(agent: string, path: string, isPrivate: boolean): boolean {
     if (isSystemPath(path) || !inScope(path)) return false;
     if (this.isPrivileged(agent)) return true;
-    return !isPrivate && !isInside(path, PRIVATE_FOLDER);
+    return !isPrivate && !isInside(path, this.layout.private);
   }
 
   assertRead(agent: string, path: string, isPrivate: boolean): void {
@@ -186,9 +183,9 @@ export class VaultPermissions {
     if (isSystemPath(path) || !inScope(path)) return false;
     if (this.isPrivileged(agent)) return true;
     if (isInside(path, this.areaOf(agent))) return true;
-    if (isInside(path, INBOX_FOLDER) && (opts.isNew || author === agent)) return true;
+    if (isInside(path, this.layout.inbox) && (opts.isNew || author === agent)) return true;
     if (author === agent) return true;
-    if (opts.dailyAgentsAppend && isInside(path, DAILY_FOLDER)) return true;
+    if (opts.dailyAgentsAppend && isInside(path, this.layout.daily)) return true;
     return matchesAnyGlob(path, this.#profile(agent)?.write ?? []);
   }
 
@@ -203,7 +200,7 @@ export class VaultPermissions {
     if (out) throw out;
     if (!this.canWrite(agent, path, author, opts)) {
       throw new ToolError('SETTING_OFF', `${agent} cannot write ${path}`, {
-        hint: `${PROPOSE_HINT} You can write freely in ${this.areaOf(agent)}/, create new notes in ${INBOX_FOLDER}/ and edit your own notes there${this.#extraWritable(agent)}. The user can change the note areas of a monster.`,
+        hint: `${proposeHint(this.layout.inbox)} You can write freely in ${this.areaOf(agent)}/, create new notes in ${this.layout.inbox}/ and edit your own notes there${this.#extraWritable(agent)}. The user can change the note areas of a monster.`,
       });
     }
   }
@@ -217,7 +214,7 @@ export class VaultPermissions {
     if (isSystemPath(path) || !inScope(path)) return false;
     if (this.isPrivileged(agent)) return true;
     if (isInside(path, this.areaOf(agent))) return true;
-    if (isInside(path, INBOX_FOLDER) && author === agent) return true;
+    if (isInside(path, this.layout.inbox) && author === agent) return true;
     return matchesAnyGlob(path, this.#profile(agent)?.delete ?? []);
   }
 
@@ -226,7 +223,7 @@ export class VaultPermissions {
     if (out) throw out;
     if (!this.canDelete(agent, path, author)) {
       throw new ToolError('SETTING_OFF', `${agent} cannot delete or move ${path}`, {
-        hint: `${PROPOSE_HINT} You can delete and move only inside ${this.areaOf(agent)}/ and your own notes in ${INBOX_FOLDER}/. The user can change the note areas of a monster.`,
+        hint: `${proposeHint(this.layout.inbox)} You can delete and move only inside ${this.areaOf(agent)}/ and your own notes in ${this.layout.inbox}/. The user can change the note areas of a monster.`,
       });
     }
   }
@@ -244,7 +241,7 @@ export class VaultPermissions {
     const granted = matchesAnyGlob(to, this.#profile(agent)?.delete ?? []);
     if (!inArea && !granted) {
       throw new ToolError('SETTING_OFF', `${agent} cannot move notes to ${to}`, {
-        hint: `${PROPOSE_HINT} Sub-agents move notes only inside ${this.areaOf(agent)}/. The user can change the note areas of a monster.`,
+        hint: `${proposeHint(this.layout.inbox)} Sub-agents move notes only inside ${this.areaOf(agent)}/. The user can change the note areas of a monster.`,
       });
     }
   }

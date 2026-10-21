@@ -58,6 +58,9 @@ export default defineConfig({
       MONSTERS_E2E_PORT: String(PORT),
       // A fresh home takes the system's language: the same as the browser's (D-153).
       MONSTERS_LANG: (process.env['E2E_LOCALE'] ?? 'en-US').slice(0, 2),
+      // …and an Italian vault, like every vault made before D-154: the scenario's notes and files
+      // are those of an existing user (the first start in English: e2e-core/onboarding.e2e.ts).
+      MONSTERS_VAULT_LAYOUT: 'it',
     },
     stdout: 'pipe',
     gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },

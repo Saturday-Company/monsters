@@ -130,8 +130,8 @@ agent.yaml       # name, color, provider and fallback chain, tools, vault permis
 genome.json      # the monster's look
 skills/          # recurring procedures in SKILL.md format (agentskills.io standard)
 ```
-The agent's long-term memory lives in the vault, in `Agenti/<Name>/MEMORY.md`, so the user can see and correct it in
-Obsidian. On every run the system prompt is: AGENTS.md + MEMORY.md + the essential user profile + the task brief. The
+The agent's long-term memory lives in the vault, in `Agents/<Name>/MEMORY.md` (`Agenti/` in an Italian vault, D-154),
+so the user can see and correct it in Obsidian. On every run the system prompt is: AGENTS.md + MEMORY.md + the essential user profile + the task brief. The
 loop is AI SDK's `ToolLoopAgent` with a step limit, an AbortSignal and callbacks that write to the log. When an agent
 runs on a harness (Claude Code, Codex), its working folder receives AGENTS.md (Codex reads it from there) and
 Monsters' tools arrive as an MCP server. Claude Code reads neither settings files nor CLAUDE.md from the folder
@@ -275,8 +275,11 @@ connection assigned to `*` reaches the monsters of the Personal squad and those 
 Full details in `research/04-second-brain.md`. In short:
 - **Source of truth**: the vault's `.md` files, openable in Obsidian. The SQLite index (FTS5, tags, links,
   properties; vectors in Phase 2) lives in `~/.monsters/index/` and can be rebuilt from scratch.
-- **Initial structure**: `Inbox/ Diario/ Progetti/ Aree/ Risorse/ Persone/ Archivio/ Agenti/<Name>/ Modelli/
-  Allegati/ LEGGIMI.md` (simplified PARA; the folder names are Italian for now, they are identifiers). An existing Obsidian vault can be linked instead.
+- **Initial structure**: `Inbox/ Journal/ Projects/ Areas/ Resources/ People/ Archive/ Agents/<Name>/ Templates/
+  Attachments/ README.md` in a new English vault, `Inbox/ Diario/ Progetti/ Aree/ Risorse/ Persone/ Archivio/
+  Agenti/<Name>/ Modelli/ Allegati/ LEGGIMI.md` in an Italian one (simplified PARA). The vault's layout is decided once,
+  when it is created, and recorded in `.monsters/vault.json`; an existing vault keeps its names (D-154). An existing
+  Obsidian vault can be linked instead.
 - **Conventions**: readable, unique file names, minimal frontmatter (`id`, `type`, `tags`, `created`, `updated`,
   `author`), lowercase hierarchical tags, short wikilinks. Notes created by hand without frontmatter are accepted as
   they are.

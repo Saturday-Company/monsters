@@ -1,5 +1,6 @@
 import {
   appLang,
+  vaultLayout,
   ConfirmRequestSchema,
   EventTypeSchema,
   EventsQuerySchema,
@@ -479,7 +480,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
   });
 
   app.get('/api/setup-status', (c) =>
-    c.json({ needsSetup: auth.needsSetup(), language: appLang() }),
+    c.json({ needsSetup: auth.needsSetup(), language: appLang(), vaultLayout: vaultLayout().id }),
   );
 
   app.post('/api/setup', async (c) => {

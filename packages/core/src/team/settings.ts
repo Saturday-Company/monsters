@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { SearchBackendConfigSchema } from '@monsters/tools';
 import {
+  appLang,
   DecisionEngineSchema,
   DEFAULT_TELEGRAM_PREFS,
   InstinctModeSchema,
@@ -13,6 +14,12 @@ import {
   PaidSearchEngineSchema,
   PaidSearchModeSchema,
   TelegramPrefsSchema,
+  LEGACY_NOTES_DIR_NAME,
+  VAULT_LAYOUTS,
+  vaultLayout,
+  isVaultLayoutId,
+  type VaultLayout,
+  type VaultLayoutId,
 } from '@monsters/shared';
 import { z } from 'zod';
 import { ModelRefSchema } from '../agents/definition.ts';
@@ -35,34 +42,62 @@ const LegacyJevSchema = z.object({
  */
 
 export const SETTINGS_FILE = 'settings.json';
-export const VAULT_DIR_NAME = 'Monsters Note';
+/** Name of the notes folder of the Italian layout (`~/Monsters Note`), the one of every install before D-154. */
+export const VAULT_DIR_NAME = VAULT_LAYOUTS.it.notesDir;
 /** Name before 16/10 (the glossary has no "vault"): kept wherever that folder already exists. */
-export const LEGACY_VAULT_DIR_NAME = 'Monsters Vault';
+export const LEGACY_VAULT_DIR_NAME = LEGACY_NOTES_DIR_NAME;
 
 /**
- * Default folder of the vault: `~/Monsters Note` for the default data
- * directory, `<home>/Monsters Note` for a custom `MONSTERS_HOME` (tests and
- * trials never touch the real vault). An existing `Monsters Vault` next to it
- * wins, so nobody loses their notes to the rename.
+ * The layout a vault created now takes (D-154): the app's language, or
+ * `MONSTERS_VAULT_LAYOUT` (`it`, `en`) when set (tests, trials). An existing
+ * vault keeps its own (`detectVaultLayout`).
  */
-export function defaultVaultDir(home: string): string {
+export function newVaultLayout(env: NodeJS.ProcessEnv = process.env): VaultLayoutId {
+  // The process environment counts too, as for MONSTERS_EMBEDDINGS (a test's own `env`).
+  const forced = env['MONSTERS_VAULT_LAYOUT'] ?? process.env['MONSTERS_VAULT_LAYOUT'];
+  return isVaultLayoutId(forced) ? forced : appLang();
+}
+
+/** The default folder named `wanted`, unless only the folder of the other layout exists (it is kept). */
+function existingOr(parent: string, wanted: string, other: string): string {
+  const own = join(parent, wanted);
+  if (existsSync(own)) return own;
+  const theirs = join(parent, other);
+  return existsSync(theirs) ? theirs : own;
+}
+
+/**
+ * Default folder of the vault: `~/Monsters Note` (`~/Monsters Notes` for a new
+ * install in English, D-154) for the default data directory, the same name in
+ * `<home>` for a custom `MONSTERS_HOME` (tests and trials never touch the real
+ * vault). A folder that already exists is kept whatever the language: an
+ * existing `Monsters Vault` first, then the name of either language, so nobody
+ * loses their notes to a rename or to a change of language.
+ */
+export function defaultVaultDir(home: string, lang: VaultLayoutId = newVaultLayout()): string {
   const standard = resolve(join(homedir(), '.monsters'));
   const parent = resolve(home) === standard ? homedir() : home;
   const legacy = join(parent, LEGACY_VAULT_DIR_NAME);
-  return existsSync(legacy) ? legacy : join(parent, VAULT_DIR_NAME);
+  if (existsSync(legacy)) return legacy;
+  const other = lang === 'it' ? 'en' : 'it';
+  return existingOr(parent, VAULT_LAYOUTS[lang].notesDir, VAULT_LAYOUTS[other].notesDir);
 }
 
-/** Folder of the new project folders a proposal asks for (D-098): next to the notes. */
-export const PROJECTS_DIR_NAME = 'Monsters Progetti';
+/** Folder of the new project folders of the Italian layout (D-098): next to the notes. */
+export const PROJECTS_DIR_NAME = VAULT_LAYOUTS.it.projectsDir;
 
 /**
- * `~/Monsters Progetti` for the default data directory; next to a custom
- * `MONSTERS_HOME` otherwise (never inside it: a project cannot work in the data).
+ * Folder of the new project folders a proposal asks for (D-098), next to the
+ * notes: `~/Monsters Progetti` for the default data directory (`~/Monsters
+ * Projects` with an English vault, D-154), next to a custom `MONSTERS_HOME`
+ * otherwise (never inside it: a project cannot work in the data). The folder of
+ * the other layout is kept when only that one exists.
  */
-export function defaultProjectsDir(home: string): string {
+export function defaultProjectsDir(home: string, layout: VaultLayout = vaultLayout()): string {
   const standard = resolve(join(homedir(), '.monsters'));
   const parent = resolve(home) === standard ? homedir() : dirname(resolve(home));
-  return join(parent, PROJECTS_DIR_NAME);
+  const other = VAULT_LAYOUTS[layout.id === 'it' ? 'en' : 'it'];
+  return existingOr(parent, layout.projectsDir, other.projectsDir);
 }
 
 /** Permissions of one agent (or the team's defaults) in `settings.json`. */
@@ -114,7 +149,7 @@ export const HubSettingsSchema = z.object({
   /**
    * What external AI clients (Claude Desktop, Codex, Cursor… through
    * `monsters mcp`) may change in the vault, like a sub-agent: their area
-   * `Agenti/MCP/`, new notes in `Inbox/`, plus these globs.
+   * `Agenti/MCP/` (`Agents/MCP/` in an English vault), new notes in `Inbox/`, plus these globs.
    */
   mcp: z
     .object({
@@ -269,7 +304,10 @@ export function loadHubSettings(
   const parsed = HubSettingsSchema.safeParse(merged);
   if (!parsed.success) throw new Error(`${file}: ${z.prettifyError(parsed.error)}`);
   const vault = expand(
-    overrides.vault ?? env['MONSTERS_VAULT'] ?? parsed.data.vault ?? defaultVaultDir(home),
+    overrides.vault ??
+      env['MONSTERS_VAULT'] ??
+      parsed.data.vault ??
+      defaultVaultDir(home, newVaultLayout(env)),
   );
   return { ...parsed.data, vault };
 }

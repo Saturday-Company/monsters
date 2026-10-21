@@ -1,4 +1,4 @@
-import type { FileMeta, LogEvent } from '@monsters/shared';
+import { isAgentMemoryPath, type FileMeta, type LogEvent } from '@monsters/shared';
 import { attachmentsLine } from '../files/model-input.ts';
 import type { ModelMessage } from 'ai';
 import { automationRuns } from '../automations/run-index.ts';
@@ -180,8 +180,8 @@ function isFinalAnswer(e: LogEvent, agentId: string): e is LogEvent<'message'> {
   );
 }
 
-/** An agent's own file (`Agenti/<Name>/MEMORY.md`): not a note of the work. */
-const isAgentFile = (path: string) => /^Agenti\/[^/]+\/MEMORY\.md$/u.test(path);
+/** An agent's own file (`Agenti/<Name>/MEMORY.md` in the vault's layout): not a note of the work. */
+const isAgentFile = (path: string) => isAgentMemoryPath(path);
 
 /**
  * "[Note di questo lavoro: …]" for each final answer: the notes created or

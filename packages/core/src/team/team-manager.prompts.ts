@@ -1,4 +1,4 @@
-import { pick, type Lang } from '@monsters/shared';
+import { pick, vaultLayout, type Lang } from '@monsters/shared';
 
 /*
  * What the models read when the team changes after the onboarding (D-153, wave 3): the prompt
@@ -20,6 +20,17 @@ export interface DraftPromptInput {
   free: string;
 }
 
+/*
+ * The vault's names the prompt quotes are those of the vault in use (D-154): an Italian vault's
+ * (`Progetti/Calendario`, `Agenti, Modelli o Privato`) in either family, an English vault's
+ * otherwise.
+ */
+const exampleArea = () => (vaultLayout().id === 'it' ? 'Progetti/Calendario' : 'Projects/Calendar');
+const reservedFolders = (or: string) => {
+  const l = vaultLayout();
+  return `${l.agents}, ${l.templates} ${or} ${l.private}`;
+};
+
 const it = {
   draftSystem: `Progetti un nuovo agente AI per la squadra di una persona.
 Rispondi SOLO con un oggetto JSON valido, senza testo prima o dopo e senza markdown.`,
@@ -35,7 +46,7 @@ Per ora gli agenti lavorano solo con le note del vault e, se serve, con il web.
 ${x.name ? `Il nome è ${x.name}.` : `Nomi ammessi: ${x.free}.`}
 
 Formato:
-{"agents":[{"name":"…","title":"il pianificatore","role":"…","mission":"…","context":"…","duties":["…"],"area":"Progetti/Calendario","tools":[],"look":{"shape":"egg","eyes":"round"}}]}
+{"agents":[{"name":"…","title":"il pianificatore","role":"…","mission":"…","context":"…","duties":["…"],"area":"${exampleArea()}","tools":[],"look":{"shape":"egg","eyes":"round"}}]}
 
 Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
 - title: chi è, con l'articolo, max 60 caratteri.
@@ -43,7 +54,7 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
 - mission: il suo lavoro in seconda persona, max 200 caratteri.
 - context: una frase su ${x.userName} utile a quell'agente, max 200 caratteri.
 - duties: da 1 a 4 regole pratiche in seconda persona, max 200 caratteri ciascuna.
-- area: una cartella del vault per i risultati (solo lettere, numeri e "/", mai Agenti, Modelli o Privato).
+- area: una cartella del vault per i risultati (solo lettere, numeri e "/", mai ${reservedFolders('o')}).
 - tools: ["web"] se deve cercare o leggere sul web, altrimenti [].
 - look (facoltativo): shape tra blob, egg, pear, bean, dome, lumpy; eyes tra round, cyclops, stalk, trio; mouth tra smile, grin, canyon, tiny; topper tra tuft, antenna, crest, geyser.`,
   retry: (prompt: string, reason: string) =>
@@ -70,7 +81,7 @@ For now the agents work only with the notes of the vault and, if needed, with th
 ${x.name ? `The name is ${x.name}.` : `Allowed names: ${x.free}.`}
 
 Format:
-{"agents":[{"name":"…","title":"the planner","role":"…","mission":"…","context":"…","duties":["…"],"area":"Progetti/Calendario","tools":[],"look":{"shape":"egg","eyes":"round"}}]}
+{"agents":[{"name":"…","title":"the planner","role":"…","mission":"…","context":"…","duties":["…"],"area":"${exampleArea()}","tools":[],"look":{"shape":"egg","eyes":"round"}}]}
 
 Rules of the fields (everything in English, each field on one line, no markdown):
 - title: who they are, with the article, max 60 characters.
@@ -78,7 +89,7 @@ Rules of the fields (everything in English, each field on one line, no markdown)
 - mission: their work in the second person, max 200 characters.
 - context: a sentence about ${x.userName} useful to that agent, max 200 characters.
 - duties: from 1 to 4 practical rules in the second person, max 200 characters each.
-- area: a folder of the vault for the results (only letters, numbers and "/", never Agenti, Modelli or Privato).
+- area: a folder of the vault for the results (only letters, numbers and "/", never ${reservedFolders('or')}).
 - tools: ["web"] if it has to search or read on the web, otherwise [].
 - look (optional): shape among blob, egg, pear, bean, dome, lumpy; eyes among round, cyclops, stalk, trio; mouth among smile, grin, canyon, tiny; topper among tuft, antenna, crest, geyser.`,
   retry: (prompt, reason) =>

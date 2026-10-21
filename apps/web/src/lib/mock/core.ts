@@ -581,7 +581,12 @@ export class MockCore {
       case 'GET /api/health':
         return ok({ ok: true, version: MOCK_VERSION });
       case 'GET /api/setup-status':
-        return ok({ needsSetup: this.auth.user === null, language: this.language });
+        // The demo vault has the Italian names (D-154), like every vault made before.
+        return ok({
+          needsSetup: this.auth.user === null,
+          language: this.language,
+          vaultLayout: 'it',
+        });
       case 'POST /api/setup': {
         if (this.auth.user) return fail(409, 'already_configured');
         const p = SetupBodySchema.safeParse(body);
@@ -747,6 +752,7 @@ export class MockCore {
           braveKey: { set: this.braveKey },
           webSearch: this.webSearchView(),
           vaultPath: '/home/demo/Monsters Note',
+          vaultLayout: 'it',
           userName: this.squad.userName,
           language: this.language,
           secrets: {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { agentAreaStrings } from './agent-area.strings.ts';
+import { vaultLayout, type VaultLayout } from './vault-layout.ts';
 
 /*
  * The vault area of a generated agent: the folder where it saves its results.
@@ -9,11 +10,13 @@ import { agentAreaStrings } from './agent-area.strings.ts';
  * proposal, confirmation, AGENTS.md template) and the UI (team step).
  */
 
-/** First-level folders an agent area can never be in (compared case-insensitively). */
-export const RESERVED_AREA_FOLDERS = ['Agenti', 'Modelli', 'Privato'] as const;
-
-/** The user's profile, at the root of the notes (written at the first start, read by every monster). */
-export const PROFILE_NOTE_PATH = 'profilo.md';
+/**
+ * First-level folders an agent area can never be in (compared case-insensitively): the agents'
+ * memories, the templates and the private notes of the vault's layout (D-154).
+ */
+export function reservedAreaFolders(layout: VaultLayout = vaultLayout()): readonly string[] {
+  return [layout.agents, layout.templates, layout.private];
+}
 
 export const MAX_AREA_LENGTH = 80;
 const MAX_AREA_DEPTH = 4;
@@ -34,7 +37,7 @@ export function normalizeAgentArea(raw: string): string {
 }
 
 /** Why a (normalized) area is not acceptable, or null when it is. In the app's language: the UI shows it. */
-export function agentAreaProblem(area: string): string | null {
+export function agentAreaProblem(area: string, layout: VaultLayout = vaultLayout()): string | null {
   const t = agentAreaStrings();
   if (area === '') return t.areaEmpty;
   if (area.length > MAX_AREA_LENGTH) return t.areaTooLong(MAX_AREA_LENGTH);
@@ -47,7 +50,7 @@ export function agentAreaProblem(area: string): string | null {
     if (/\.md$/i.test(part)) return t.notANote;
   }
   const first = parts[0]!.toLowerCase();
-  if (RESERVED_AREA_FOLDERS.some((f) => f.toLowerCase() === first)) {
+  if (reservedAreaFolders(layout).some((f) => f.toLowerCase() === first)) {
     return t.reserved(parts[0]!);
   }
   return null;

@@ -18,7 +18,7 @@ describe('hub prompts', () => {
     expect(p.desktopDataClosed).toBe(
       'La cartella dei dati dell’app Monsters (sessione e impostazioni) non è accessibile.',
     );
-    expect(p.privateInChat).toBe(
+    expect(p.privateInChat('Privato')).toBe(
       'Le note private (Privato/) non sono accessibili mentre parli in una chat di Telegram.',
     );
     expect(p.yourLead).toBe('il tuo capo');
@@ -41,6 +41,10 @@ describe('hub prompts', () => {
     const card = accessStrings();
     expect(p.transcriptsClosed).toMatch(/^The Claude Code session transcripts/);
     expect(p.yourLead).toBe('your squad lead');
+    // The private folder of the vault, whatever its layout (D-154).
+    expect(p.privateInChat('Private')).toBe(
+      'The private notes (Private/) aren’t accessible while you talk in a Telegram chat.',
+    );
     expect(p.viaClaude('Gmail')).toBe('Gmail (through Claude)');
     expect(p.imageSaved('a.png', 'F1')).toContain('(fileId F1, /api/files/F1/content)');
     expect(p.reopened).toBe('[The file you reopened with file_read]');

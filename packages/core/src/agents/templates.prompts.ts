@@ -1,4 +1,4 @@
-import { PROFILE_NOTE_PATH, type Lang } from '@monsters/shared';
+import { VAULT_LAYOUTS, type Lang } from '@monsters/shared';
 import { DECIDE_MARKER, REMEMBER_MARKER } from './markers.prompts.ts';
 
 /*
@@ -10,7 +10,9 @@ import { DECIDE_MARKER, REMEMBER_MARKER } from './markers.prompts.ts';
  * same order, with the same placeholders, so that a model behaves the same.
  */
 
-const PROFILE = PROFILE_NOTE_PATH;
+// The templates name the paths of the Italian layout; `renderAgentsMd` writes those of the
+// agent's vault (D-154: `profile.md` in an English vault).
+const PROFILE = VAULT_LAYOUTS.it.profile;
 
 // --- Italian (tuned with the evals: never edited) ---------------------------------
 

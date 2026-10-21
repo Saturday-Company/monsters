@@ -118,13 +118,13 @@ export function foldPath(path: string): string {
   return path.normalize('NFC').toLowerCase();
 }
 
-/**
- * Usual name of the folder of the files of Monsters (attachments, screenshots,
- * pages made by the monsters, D-075): Obsidian sees it, the vault does not (no
- * index, no history, no vault tools). The core picks the real name (a `File/`
- * of the user stays a folder of notes) and gives it as `filesDir`.
+/*
+ * The folder of the files of Monsters (attachments, screenshots, pages made by
+ * the monsters, D-075): Obsidian sees it, the vault does not (no index, no
+ * history, no vault tools). Its usual name is the layout's (`File/`, `Files/`,
+ * D-154); the core picks the real one (a folder of the user with that name
+ * stays a folder of notes) and gives it as `filesDir`.
  */
-export const FILES_DIR = 'File';
 
 /** A path inside the files folder of Monsters (`<dir>/...`, any case); never without a folder. */
 export function isFilesPath(path: string, dir: string | null | undefined): boolean {

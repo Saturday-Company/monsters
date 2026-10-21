@@ -193,6 +193,7 @@ describe('team', () => {
         usdPer1000: { parallel: 1.09, exa: 7.09 },
       },
       vaultPath: join(t.home, 'Monsters Note'),
+      vaultLayout: 'it',
       userName: 'Giulio',
       // Tests keep secrets in files (MONSTERS_SECRETS=file in vitest.config.ts).
       secrets: { backend: 'file', reason: 'forced', unreadable: [] },

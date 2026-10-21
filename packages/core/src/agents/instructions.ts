@@ -1,6 +1,16 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AgentAreaSchema, appLang, LANGS, writingLanguage, type Lang } from '@monsters/shared';
+import {
+  AgentAreaSchema,
+  appLang,
+  LANGS,
+  VAULT_LAYOUT_IDS,
+  VAULT_LAYOUTS,
+  vaultLayout,
+  writingLanguage,
+  type Lang,
+  type VaultLayout,
+} from '@monsters/shared';
 import { z } from 'zod';
 import { WEB_TOOLS } from './archetypes.ts';
 import { AGENTS_MD, type AgentConfig } from './definition.ts';
@@ -139,8 +149,18 @@ export function renderFields(
   fields: InstructionFields,
   config: AgentConfig,
   templates: AgentTemplates = currentTemplates(),
+  layout: VaultLayout = vaultLayout(),
 ): string {
-  return renderAgentsMd(blueprintOf(fields, config), templates);
+  return renderAgentsMd(blueprintOf(fields, config), templates, layout);
+}
+
+/** The vault in use first, then the other layouts: a file names the paths of the vault it was written for (D-154). */
+function layoutsToTry(): VaultLayout[] {
+  const current = vaultLayout();
+  return [
+    current,
+    ...VAULT_LAYOUT_IDS.filter((id) => id !== current.id).map((id) => VAULT_LAYOUTS[id]),
+  ];
 }
 
 const same = (a: string, b: string) => a.replace(/\s+$/, '') === b.replace(/\s+$/, '');
@@ -161,18 +181,29 @@ export function rendersTo(
   return renderedWith(fields, config, text, templates ? [templates] : CURRENT_SETS) !== null;
 }
 
-/** The first of `sets` with which `fields` render exactly `text`, or null. */
+/** The first of `sets` with which `fields` render exactly `text` (in a vault of either layout), or null. */
 function renderedWith(
   fields: InstructionFields,
   config: AgentConfig,
   text: string,
   sets: readonly AgentTemplates[],
 ): AgentTemplates | null {
+  return matchOf(fields, config, text, sets)?.templates ?? null;
+}
+
+function matchOf(
+  fields: InstructionFields,
+  config: AgentConfig,
+  text: string,
+  sets: readonly AgentTemplates[],
+): { templates: AgentTemplates; layout: VaultLayout } | null {
   for (const t of sets) {
-    try {
-      if (same(renderFields(fields, config, t), text)) return t;
-    } catch {
-      // Fields that do not fit these templates: not this one.
+    for (const layout of layoutsToTry()) {
+      try {
+        if (same(renderFields(fields, config, t, layout), text)) return { templates: t, layout };
+      } catch {
+        // Fields that do not fit these templates: not this one.
+      }
     }
   }
   return null;
@@ -380,11 +411,11 @@ export async function upgradeInstructions(
   const fields = stored ?? parseInstructions(text, config, LEGACY_SETS);
   if (!fields || rendersTo(fields, config, text)) return null;
   // Again in the family it was written in, whatever the app's language is now.
-  const old = renderedWith(fields, config, text, LEGACY_SETS);
+  const old = matchOf(fields, config, text, LEGACY_SETS);
   if (!old) return null;
   let next: string;
   try {
-    next = renderFields(fields, config, TEMPLATE_FAMILIES[old.lang].current);
+    next = renderFields(fields, config, TEMPLATE_FAMILIES[old.templates.lang].current, old.layout);
   } catch {
     return null;
   }

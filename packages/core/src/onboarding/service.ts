@@ -11,7 +11,7 @@ import {
   EventInputSchema,
   formatList,
   ONBOARDING_QUESTIONS,
-  PROFILE_NOTE_PATH,
+  agentMemoryPath,
   checkOnboardingAnswer,
   isClaudePlanChain,
   isReservedActor,
@@ -67,7 +67,6 @@ import { onboardingStrings } from './onboarding.strings.ts';
  */
 
 export const ONBOARDING_STATE_KEY = 'onboarding';
-export const PROFILE_PATH = PROFILE_NOTE_PATH;
 
 interface Stored {
   answers: Answers;
@@ -328,7 +327,7 @@ export class OnboardingService {
     };
   }
 
-  /** Merges answers and permissions. Complete answers write `profilo.md` and the rules. */
+  /** Merges answers and permissions. Complete answers write the profile (`profilo.md`) and the rules. */
   async submit(req: OnboardingAnswersRequest): Promise<OnboardingState> {
     this.#assertPending();
     const s = this.#load();
@@ -417,16 +416,16 @@ export class OnboardingService {
     const content = renderProfile(profile, permissions);
     let hash: string | undefined;
     try {
-      const current = await vault.read({ agentId: 'system' }, { path: PROFILE_PATH });
+      const current = await vault.read({ agentId: 'system' }, { path: vault.layout.profile });
       if (current.content?.trim() === content.trim()) return;
       hash = current.hash;
     } catch (err) {
       if ((err as { code?: string }).code !== 'NOT_FOUND') throw err;
     }
     await vault.write(this.#actor(), {
-      path: PROFILE_PATH,
+      path: vault.layout.profile,
       content,
-      frontmatter: { type: 'profile', tags: ['profilo'] },
+      frontmatter: { type: 'profile', tags: [vault.layout.profileTag] },
       ...(hash ? { mode: 'overwrite' as const, base_hash: hash } : {}),
     });
   }
@@ -770,7 +769,7 @@ export class OnboardingService {
   }
 
   /**
-   * A new vault starts with `Agenti/Titan/MEMORY.md`. When the orchestrator
+   * A new vault starts with `Agenti/Titan/MEMORY.md` (`Agents/Titan/…`). When the orchestrator
    * has another name and that note was never touched, it goes to the trash
    * (the right one is created on first use).
    */
@@ -778,7 +777,7 @@ export class OnboardingService {
     const { vault, team } = this.#d;
     const fallback = this.#d.settings.orchestratorName || 'Titan';
     if (fallback.toLowerCase() === orchestratorName.toLowerCase() || team.get(fallback)) return;
-    const path = `Agenti/${fallback}/MEMORY.md`;
+    const path = agentMemoryPath(vault.layout, fallback);
     try {
       const note = await vault.read({ agentId: 'system' }, { path });
       const pristine =

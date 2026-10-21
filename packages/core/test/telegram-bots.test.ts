@@ -29,6 +29,7 @@ import {
 } from './hub-helpers.ts';
 import { FAKE_TOKEN, FakeTelegram, type FakeUser, type SentMessage } from './telegram-fake.ts';
 import { inLang } from './prompt-lang.ts';
+import { vaultLayoutIn } from './vault-layout-env.ts';
 
 /*
  * Bots dedicated to one monster (D-107), on the fake Bot API: setup, who and
@@ -522,6 +523,53 @@ describe('dedicated bots: the user’s words and what stays out', () => {
     expect(promptText(group[1]!.options.prompt)).not.toContain('CODICE-PROFILO');
     // The refusal for the model, in the app's language (D-153).
     expect(toolResultsSeen(group[2]!.options.prompt)).toContain('The private notes (Privato/)');
+    expect(toolResultsSeen(group[2]!.options.prompt)).not.toContain('SEGRETO-PRIVATO');
+  });
+  it('the same in an English vault: no profile.md, Private/ closed to the terminal (D-154)', async () => {
+    vaultLayoutIn('en');
+    let secret = '';
+    const steps = () => [
+      // The app: the profile is there.
+      fake.text('App.'),
+      // The group: no profile, and the private folder is closed to the terminal.
+      fake.toolCall('shell', { command: `cat "${secret}"` }),
+      fake.text('Gruppo.'),
+    ];
+    const { t, tg } = await startBots(
+      { rhea: (call: { index: number }) => steps()[call.index]! },
+      // Notes outside the data folder (its lockout would refuse them first).
+      { group: true, vault: join(dirname(tempHome()), 'Note') },
+    );
+    const vault = t.core.hub.vault.root;
+    expect(t.core.hub.vault.layout.id).toBe('en');
+    await t.core.hub.vault.write(
+      { agentId: 'system' },
+      { path: 'profile.md', content: '# Profilo\n\nGiulio ama il CODICE-PROFILO.\n' },
+    );
+    mkdirSync(join(vault, 'Private'), { recursive: true });
+    secret = join(vault, 'Private', 'segreto.md');
+    writeFileSync(secret, 'SEGRETO-PRIVATO\n');
+    const folder = join(t.home, '..', 'lavoro-rhea');
+    mkdirSync(folder, { recursive: true });
+    await t.json('PUT', '/api/permissions', {
+      agents: {
+        rhea: { vault: true, web: true, shell: true, folders: [{ path: folder, write: true }] },
+      },
+    });
+
+    const sent = await t.json<{ runId: string }>('POST', '/api/messages', { text: '@rhea ciao' });
+    await t.runEnded(sent.runId);
+    expect(promptText(t.provider.callsTo('rhea')[0]!.options.prompt)).toContain('CODICE-PROFILO');
+
+    await approve(t, tg, LIVIO);
+    // The terminal for the people of the group, turned on for this bot (D-114).
+    await t.json('PATCH', `/api/telegram/bots/${RHEA}`, { fullTools: true });
+    tg.text(LIVIO, `@rhea_saturday_bot leggi ${secret}`, { chat: GROUP, token: RHEA_TOKEN });
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('Gruppo.'));
+    const group = t.provider.callsTo('rhea');
+    expect(promptText(group[1]!.options.prompt)).not.toContain('CODICE-PROFILO');
+    // The refusal for the model, in the app's language (D-153).
+    expect(toolResultsSeen(group[2]!.options.prompt)).toContain('The private notes (Private/)');
     expect(toolResultsSeen(group[2]!.options.prompt)).not.toContain('SEGRETO-PRIVATO');
   });
 });

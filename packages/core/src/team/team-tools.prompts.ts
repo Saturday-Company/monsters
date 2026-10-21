@@ -1,4 +1,4 @@
-import { pick } from '@monsters/shared';
+import { pick, vaultLayout } from '@monsters/shared';
 
 /*
  * What the models read from `delegate` and `ask_user` (D-153, wave 3): the tool descriptions
@@ -6,8 +6,8 @@ import { pick } from '@monsters/shared';
  * hints of the errors that carry an example, and the words of the report of a delegation. Two
  * families: the one of the app's language at the moment the text is produced. The Italian one
  * is byte for byte what it was (a description that was English with an Italian example stays so);
- * the English one translates the VALUES of the examples and keeps the keys and the vault
- * paths (`Risorse/Ricerche/…`).
+ * the English one translates the VALUES of the examples and keeps the keys. The vault paths
+ * are those of the vault in use (`Risorse/Ricerche/…`, `Resources/Research/…`: D-154).
  */
 
 const en = {
@@ -34,7 +34,7 @@ const en = {
     `${maxPerRun} per task). ` +
     "Write the brief in the user's language: the agent writes its notes in the same language. " +
     'Example: {"agent": "Dione", "goal": "The November newsletter for the customers, in 2 variants", ' +
-    '"context_links": ["Risorse/Ricerche/November news"], "done_when": "drafts saved in a note"}',
+    `"context_links": ["${vaultLayout().research}/November news"], "done_when": "drafts saved in a note"}`,
   askUserDescription:
     'Ask the user a choice that is theirs: publishing, writing to others, spending, deleting for good, ' +
     'changing the goal, or taste (tone, variant, which draft). Only for such a choice or a fact that blocks ' +
@@ -78,7 +78,7 @@ const it: typeof en = {
     `${maxPerRun} per task). ` +
     "Write the brief in the user's language: the agent writes its notes in the same language. " +
     'Example: {"agent": "Dione", "goal": "La newsletter di novembre per i clienti, in 2 varianti", ' +
-    '"context_links": ["Risorse/Ricerche/Novità di novembre"], "done_when": "bozze salvate in una nota"}',
+    `"context_links": ["${vaultLayout().research}/Novità di novembre"], "done_when": "bozze salvate in una nota"}`,
   askUserDescription:
     'Ask the user a choice that is theirs: publishing, writing to others, spending, deleting for good, ' +
     'changing the goal, or taste (tone, variant, which draft). Only for such a choice or a fact that blocks ' +

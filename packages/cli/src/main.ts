@@ -6,6 +6,7 @@ import {
   homePaths,
   installProcessGuard,
   loadHubSettings,
+  newVaultLayout,
   resolveHome,
   startCore,
   type ServerInfo,
@@ -14,9 +15,12 @@ import {
   DEFAULT_PORT,
   setAppLang,
   systemLang,
+  VAULT_LAYOUTS,
   type Lang,
   type StatusResponse,
+  type VaultLayout,
 } from '@monsters/shared';
+import { detectVaultLayout } from '@monsters/vault';
 import { checkTunnelProof, newTunnelProofNonce, prepareCoreProcess } from '@monsters/shared/node';
 import { cmdAutomations } from './automations.ts';
 import { cmdAnswer, cmdChat, cmdVault, terminalSafe, type CoreAccess } from './chat.ts';
@@ -408,6 +412,16 @@ function cliLanguage(home: string): Lang {
   }
 }
 
+/** The layout of the notes folder of a data folder (D-154), as the core reads it at start. */
+function cliVaultLayout(home: string): VaultLayout {
+  try {
+    const vault = loadHubSettings(home).vault;
+    return VAULT_LAYOUTS[detectVaultLayout(vault) ?? newVaultLayout()];
+  } catch {
+    return VAULT_LAYOUTS.it;
+  }
+}
+
 /** Runs the CLI. Returns the exit code. `signal` stops `start` (used by tests). */
 export async function run(
   argv: string[],
@@ -516,7 +530,7 @@ export async function run(
             token: () => readToken(home),
             verify: () => verifyCore(coreUrl(values, home), home),
           },
-          { client: values.client, err: io.err },
+          { client: values.client, err: io.err, layout: cliVaultLayout(home) },
         );
       case 'resume': {
         const s = await callCore(values, home, 'POST', '/api/resume');

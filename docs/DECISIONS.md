@@ -4928,7 +4928,7 @@ e nei pacchetti, i template dei prompt). Il progetto è open source e si rivolge
   si leggono in tutte e due. Le parole che il codice cerca nei testi di modelli e utenti (negazioni, verbi, articoli,
   stopword, sinonimi) coprono inglese e italiano.
 - **Nomi persistiti:** gli identificatori (rotte, id delle risposte, chiavi delle impostazioni) restano come sono. Le
-  cartelle del vault di un'installazione nuova in inglese seguono la lingua; i vault esistenti non cambiano.
+  cartelle del vault di un'installazione nuova in inglese seguono la lingua; i vault esistenti non cambiano (D-154).
 - **Guardia** `scripts/check-i18n.ts` in `pnpm lint`: testo JSX e attributi visibili scritti a mano, frasi italiane
   fuori dai dizionari. Durante il passaggio una baseline per file (`scripts/check-i18n.baseline.json`) impedisce di
   aggiungerne; alla fine è vuota. Guida e glossario in `docs/i18n.md`.
@@ -4949,3 +4949,63 @@ wave-3 English templates stay as `legacy`. After the fixes no metric is clearly 
 arm); the choice left in the reply without `ask_user` (2/10 in English, 0/6 in Italian) is still open. The
 onboarding now starts the monsters' writing language on the app's language (`defaultWritingLanguage`), not on
 Italian.
+
+### D-154 · Vault layout: English names for a new English vault, Italian names kept forever
+**Status:** done · 21/10/2026
+**Context:** after D-153 the UI, the core's messages and the prompts were bilingual, but every name Monsters puts on
+disk was Italian for everybody: the vault's folders (`Inbox, Diario, Progetti, Aree, Risorse, Persone, Archivio,
+Agenti, Modelli, Allegati`), `profilo.md`, `LEGGIMI.md`, `Agenti/<Name>/stato.md`, `Privato/`, the files folder
+(`File/`, `File di Monsters/`), the templates (`Modelli/Nota.md`…), the default areas (`Risorse/Ricerche`,
+`Inbox/Bozze`), the folders next to the data (`~/Monsters Note`, `~/Monsters Progetti`). Those names are also guards:
+the private folder, the profile and the agents' memories are what the permissions, the CLI token rule and the taint
+protect.
+**Choice:**
+- **One layout object** (`VaultLayout` in `@monsters/shared`, `vault-layout.ts`) holds every persisted name: `inbox`,
+  `daily`, `projects`, `areas`, `resources`, `people`, `archive`, `agents`, `templates`, `attachments`, `private`,
+  `profile`, `readme`, `memory`, `state`, `files`, `filesAlt`, `dailyAgentsSection`, `research`, `drafts`,
+  `renaming`, `notesDir`, `projectsDir`, `untitledProject`. Two instances: `it` (the names of before, exactly) and
+  `en` (`Inbox, Journal, Projects, Areas, Resources, People, Archive, Agents, Templates, Attachments`, `Private/`,
+  `profile.md`, `README.md`, `state.md`, `Files/`, `Monsters Files/`, `Resources/Research`, `Inbox/Drafts`,
+  `~/Monsters Notes`, `~/Monsters Projects`). The texts of a new vault (readme, templates, proposal notes, the marker
+  and `.gitignore` of the files folder) follow the layout, never the app's language.
+- **Decided once, recorded in the vault.** A vault takes its layout when it is created, from the app's language at
+  that moment (`newVaultLayout()`; `MONSTERS_VAULT_LAYOUT=it|en` forces it for tests and trials), and records it in
+  `.monsters/vault.json` (`{ "layout": "en" }`, hidden: no index, no vault tool, committed in the first commit). The
+  record travels with the vault, so a vault opened by another install keeps its names.
+- **Detection without a record** (`detectVaultLayout` in `@monsters/vault`): an `Agenti/`, `profilo.md`, `Privato/`,
+  `LEGGIMI.md` or `Modelli/` at the root (any case) means Italian, `Agents/`, `profile.md` or `Private/` English,
+  Italian when both. A record that names a layout the vault has no trace of, while it has traces of the other, gives
+  way to the other: an Italian vault is never read as English because of its record alone. A folder with neither
+  (notes Monsters never used) takes the app's language and the core records it at once (`resolveVaultLayout` in
+  `hub.ts`). An existing vault is never renamed and never gets a record it does not need.
+- **Who reads what.** The guards take the layout of their own vault, explicitly: `VaultService.layout`,
+  `VaultPermissions` (agents' areas, inbox, journal section, private folder), `VaultIndex` (private and templates
+  folders), the hub (profile, `Privato/` closed to a Telegram chat's terminal and files, inbox in a chat's scope),
+  `TeamService.layout` (memory paths, known before the vault opens because the team is bootstrapped first), the team
+  manager (memory folder moves, globs), onboarding, projects, the files store. The texts that only name a path
+  (prompts, hints, the UI) read `vaultLayout()`, the layout of the vault in use, which the hub sets before anything
+  else and the UI takes from `/api/setup-status` (`vaultLayout`, also in `/api/settings`). Two checks cover the names
+  of both layouts on purpose: the CLI token never writes `profilo.md`/`profile.md`, `Privato/`/`Private/`,
+  `Agenti/`/`Agents/<Name>/MEMORY.md` (`protectedNote`), and a note read from either private folder is private data
+  for the taint (`inAnyPrivateFolder`). The areas a monster may get exclude the agents', templates' and private folders
+  of the vault in use (`reservedAreaFolders`: a zod schema of `@monsters/shared` cannot take the vault, so it reads
+  `vaultLayout()`, set by the hub before the team loads).
+- **Prompts.** No prompt text changed: the Italian templates still name `profilo.md`, and `renderAgentsMd` writes the
+  vault's own profile path into the template (never into a value) for another layout; the Italian family on an Italian
+  vault renders byte for byte as before. The examples and reserved folders quoted by the team proposal, the made to
+  measure monster and `delegate` come from `vaultLayout()`. Reading AGENTS.md back (untouched check, upgrade) tries both
+  layouts.
+- **Folders next to the data.** `~/Monsters Notes` and `~/Monsters Projects` for a new English install; an existing
+  `Monsters Vault`, then an existing folder of either language, is kept (`defaultVaultDir`, `defaultProjectsDir`, the
+  desktop app's `defaultVaultDir` and `filesDirOf`, which accept both layouts' files folders).
+- **Tests.** `vitest.env.ts` sets `MONSTERS_VAULT_LAYOUT=it`: the tests model the vaults that exist. The tests of the
+  English layout ask for it (`vaultLayoutIn('en')`, `layout: 'en'`), the real-core onboarding e2e runs a fresh English
+  install, the real-core scenario keeps an Italian vault.
+**Motivation:** a person who installs Monsters in English should not find `Agenti/` and `profilo.md` in their notes,
+and nobody who already has a vault may lose a link, a memory or the guard of `Privato/` to a rename. Recording the
+choice in the vault (not in settings) keeps it right when the vault moves or is opened by another install, and the
+detection keeps every vault made before working with no migration.
+**Consequence:** a new persisted name goes into `VaultLayout`, in both instances; a guard takes the layout of its
+vault, and `vaultLayout()` only where nothing else can reach the vault (the area schema). Known limit: the layout is decided when the core first starts; a language picked on the
+first screen afterwards does not change the vault already created.
+

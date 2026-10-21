@@ -1,7 +1,7 @@
 import {
   MAX_PROJECT_MEMBERS,
   MOON_NAMES,
-  PROJECTS_VAULT_FOLDER,
+  projectsVaultFolder,
   ProjectCreateRequestSchema,
   ProjectMemberRequestSchema,
   ProjectUpdateRequestSchema,
@@ -548,7 +548,7 @@ export class MockProjects {
       id: idFor(req.name, (x) => this.defs.has(x)),
       name: req.name,
       ...(req.folder ? { folder: req.folder.path.replace(/^~(?=\/|$)/, '/home/andrea') } : {}),
-      vaultArea: req.vaultArea ?? `${PROJECTS_VAULT_FOLDER}/${req.name}`,
+      vaultArea: req.vaultArea ?? `${projectsVaultFolder()}/${req.name}`,
       status: req.status,
       ...(req.status === 'draft' ? { plan: { lead: req.lead, members: [], automations: [] } } : {}),
       spend: req.spend ?? {},

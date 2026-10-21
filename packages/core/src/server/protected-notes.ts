@@ -1,5 +1,5 @@
 import { posix } from 'node:path';
-import { PROFILE_PATH } from '../onboarding/service.ts';
+import { VAULT_LAYOUT_IDS, VAULT_LAYOUTS } from '@monsters/shared';
 
 /*
  * Notes the CLI token may not write (review of ondate 3-4, n. 7). The token is a file every
@@ -22,14 +22,30 @@ function normalVaultPath(raw: string): string {
  */
 export const TOKEN_CLOSED_VAULT_TOOLS: ReadonlySet<string> = new Set(['vault_undo']);
 
-/** True for a monster's memory, the user's profile and the private folder. */
+/**
+ * True for a monster's memory, the user's profile and the private folder, with the names of
+ * either layout (D-154: `profilo.md`, `Privato/`, `Agenti/<Name>/MEMORY.md` and `profile.md`,
+ * `Private/`, `Agents/<Name>/MEMORY.md`): whatever the vault's, the token never writes them.
+ */
 export function protectedNote(raw: string): boolean {
   const p = normalVaultPath(raw);
-  // The vault takes a note's path with or without `.md`.
-  const profile = PROFILE_PATH.toLowerCase();
-  if (p === profile || `${p}.md` === profile) return true;
-  if (p === 'privato' || p.startsWith('privato/')) return true;
-  return /^agenti\/[^/]+\/memory(?:\.md)?$/.test(p) || p === 'agenti' || /^agenti\/[^/]+$/.test(p);
+  return VAULT_LAYOUT_IDS.some((id) => {
+    const l = VAULT_LAYOUTS[id];
+    // The vault takes a note's path with or without `.md`.
+    const profile = l.profile.toLowerCase();
+    if (p === profile || `${p}.md` === profile) return true;
+    const priv = l.private.toLowerCase();
+    if (p === priv || p.startsWith(`${priv}/`)) return true;
+    const agents = l.agents.toLowerCase();
+    const memory = l.memory.toLowerCase().replace(/\.md$/, '');
+    if (p === agents) return true;
+    const rest = p.startsWith(`${agents}/`) ? p.slice(agents.length + 1).split('/') : null;
+    if (!rest) return false;
+    // `Agenti/<Name>` itself (a move of the whole folder) and `Agenti/<Name>/MEMORY(.md)`.
+    return (
+      rest.length === 1 || (rest.length === 2 && (rest[1] === memory || rest[1] === `${memory}.md`))
+    );
+  });
 }
 
 /**

@@ -8,7 +8,8 @@ import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { afterEach, describe, expect, it } from 'vitest';
 import { run, type Io } from '../src/main.ts';
-import { callCoreTool } from '../src/mcp.ts';
+import { VAULT_LAYOUTS } from '@monsters/shared';
+import { callCoreTool, mcpInstructions } from '../src/mcp.ts';
 
 /*
  * The MCP server of the vault seen from a real MCP client: `monsters mcp` is
@@ -98,12 +99,25 @@ async function call(client: Client, name: string, args: Record<string, unknown>)
 }
 
 // Real core and a stdio child process: slow on a loaded machine.
+describe('the instructions of monsters mcp', () => {
+  it('name the area of the external clients in the vault’s own words (D-154)', () => {
+    expect(mcpInstructions(VAULT_LAYOUTS.it)).toContain(
+      'You may create notes in Inbox/ and work freely in Agenti/MCP/;',
+    );
+    expect(mcpInstructions(VAULT_LAYOUTS.en)).toContain(
+      'You may create notes in Inbox/ and work freely in Agents/MCP/;',
+    );
+  });
+});
+
 describe('monsters mcp', { timeout: 30_000 }, () => {
   it('lists the vault tools, writes through the core with a commit and a log entry', async () => {
     const h = home();
     const core = await startCore(h);
     const client = await connect(h);
 
+    // The vault of the test core is Italian (every vault before D-154): its MCP area too.
+    expect(client.getInstructions()).toContain('Agenti/MCP/');
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);
     expect(names).toEqual(expect.arrayContaining(['vault_search', 'vault_read', 'vault_write']));

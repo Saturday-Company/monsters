@@ -9,7 +9,7 @@ import {
   MAX_PROJECT_MEMBERS,
   MAX_PROPOSED_AUTOMATIONS,
   MAX_PROPOSED_MEMBERS,
-  PROJECTS_VAULT_FOLDER,
+  projectsVaultFolder,
   ProjectCreateRequestSchema,
   ProjectNameSchema,
   ProjectUpdateRequestSchema,
@@ -103,7 +103,7 @@ export interface ProjectServiceOptions {
   runs: RunController;
   /** The automations: a proposal's first ones become drafts, "Ferma" skips the giri waiting. */
   automations?: () => AutomationService | undefined;
-  /** Where a new project folder goes when a proposal asks for one (`<parent>/Monsters Progetti`). */
+  /** Where a new project folder goes when a proposal asks for one (`<parent>/Monsters Progetti`, `Monsters Projects`). */
   projectsDir?: () => string;
   /** Connected MCP servers and services through Claude a proposal may name (D-098). */
   connections?: () => { mcp: string[]; claude: { id: string; name: string }[] };
@@ -561,7 +561,9 @@ export class ProjectService {
     const req = ProjectCreateRequestSchema.parse(input);
     const { team } = this.#o;
     this.#checkName(req.name);
-    const area = req.vaultArea ?? AgentAreaSchema.parse(`${PROJECTS_VAULT_FOLDER}/${req.name}`);
+    const area =
+      req.vaultArea ??
+      AgentAreaSchema.parse(`${projectsVaultFolder(this.#o.vault.layout)}/${req.name}`);
     this.#checkArea(area);
     const folder = req.folder ? await this.#folder(req.folder) : undefined;
     const store = team.projectStore;
@@ -780,7 +782,8 @@ export class ProjectService {
     if (!base) {
       throw new ProjectError('invalid_folder', projectStrings().newFolderUnknown);
     }
-    return join(base, name.replace(/[\\/:*?"<>|]/g, '').trim() || 'Progetto');
+    const clean = name.replace(/[\\/:*?"<>|]/g, '').trim();
+    return join(base, clean || this.#o.vault.layout.untitledProject);
   }
 
   /** The folder of a proposal, checked; nothing is created until the confirmation. */
@@ -877,7 +880,7 @@ export class ProjectService {
       );
     if (open) return { ...this.#proposalView(open), repeated: true };
     this.#checkName(name);
-    const area = AgentAreaSchema.parse(`${PROJECTS_VAULT_FOLDER}/${name}`);
+    const area = AgentAreaSchema.parse(`${projectsVaultFolder(this.#o.vault.layout)}/${name}`);
     this.#checkArea(area);
     const goal = clean('goal', input.goal);
     const folder = await this.#proposalFolder(input);

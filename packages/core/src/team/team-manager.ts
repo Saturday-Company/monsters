@@ -16,6 +16,7 @@ import {
   AGENT_NAME_PATTERN,
   autoChain,
   AgentAreaSchema,
+  agentFolder,
   EventInputSchema,
   MAX_DUTIES,
   MAX_TEAM_MEMBERS,
@@ -116,7 +117,7 @@ import {
   type Generate,
   type GenerateError,
 } from '../onboarding/proposal.ts';
-import { PROFILE_PATH, providerGenerate, type OnboardingService } from '../onboarding/service.ts';
+import { providerGenerate, type OnboardingService } from '../onboarding/service.ts';
 import { patchSettingsFile } from '../onboarding/settings-file.ts';
 import { extractJson, resolveDecisionRules, type DecisionGate } from './decision.ts';
 import { proposalText } from './proposal-text.ts';
@@ -504,8 +505,9 @@ export class TeamManager {
   }
 
   /**
-   * `profilo.md`: only the lines the settings manage change, the rest is the user's. A note on
-   * disk keeps the family it was written in (D-153): its lines are found and written in that one.
+   * The profile (`profilo.md`, `profile.md`): only the lines the settings manage change, the rest
+   * is the user's. A note on disk keeps the family it was written in (D-153): its lines are found
+   * and written in that one.
    */
   async #writeProfileNote(after: Profile, userName: string): Promise<void> {
     const { vault, team, settings } = this.#d;
@@ -513,16 +515,19 @@ export class TeamManager {
     const full = { ...after, userName, orchestratorName };
     let current: { content: string; hash: string } | null = null;
     try {
-      const note = await vault.read({ agentId: 'system' }, { path: PROFILE_PATH, max_chars: 1e6 });
+      const note = await vault.read(
+        { agentId: 'system' },
+        { path: vault.layout.profile, max_chars: 1e6 },
+      );
       current = { content: note.content ?? '', hash: note.hash };
     } catch (err) {
       if ((err as { code?: string }).code !== 'NOT_FOUND') throw err;
     }
     if (!current) {
       await vault.write(this.#actor(), {
-        path: PROFILE_PATH,
+        path: vault.layout.profile,
         content: renderProfile(full, settings.permissions),
-        frontmatter: { type: 'profile', tags: ['profilo'] },
+        frontmatter: { type: 'profile', tags: [vault.layout.profileTag] },
       });
       return;
     }
@@ -570,7 +575,7 @@ export class TeamManager {
     }
     if (text === current.content) return;
     await vault.write(this.#actor(), {
-      path: PROFILE_PATH,
+      path: vault.layout.profile,
       content: text,
       mode: 'overwrite',
       base_hash: current.hash,
@@ -623,10 +628,14 @@ export class TeamManager {
     };
   }
 
-  /** The results folder of a subagent from its write globs (not its memory, not Inbox). */
+  /** The results folder of a subagent from its write globs (not its memory, not the inbox). */
   #areaOf(def: AgentDefinition): string | undefined {
+    const layout = this.#d.team.layout;
     return def.config.vault.write
-      .filter((g) => g.endsWith('/**') && !g.startsWith('Agenti/') && g !== 'Inbox/**')
+      .filter(
+        (g) =>
+          g.endsWith('/**') && !g.startsWith(`${layout.agents}/`) && g !== `${layout.inbox}/**`,
+      )
       .map((g) => g.slice(0, -3))[0];
   }
 
@@ -774,7 +783,9 @@ export class TeamManager {
     }
     // The capo a monster reports to: its project's lead, or the orchestrator.
     const orchestrator = (squad ? this.#d.team.lead(squad)?.config.name : undefined) ?? top;
-    const area = AgentAreaSchema.safeParse(this.#areaOf(def) ?? `Risorse/${def.config.name}`);
+    const area = AgentAreaSchema.safeParse(
+      this.#areaOf(def) ?? `${this.#d.team.layout.resources}/${def.config.name}`,
+    );
     return {
       kind: 'subagent',
       name: def.config.name,
@@ -786,7 +797,7 @@ export class TeamManager {
       mission: lowerFirst(def.config.role.replace(/\.$/, '')),
       context: contextSentence(p),
       duties: [t.defaultDuty(orchestrator)],
-      outputArea: area.success ? area.data : `Risorse/${def.config.name}`,
+      outputArea: area.success ? area.data : `${this.#d.team.layout.resources}/${def.config.name}`,
       report: genericReport(lang),
       web: this.#d.team.declaredTools(def.config.id).some((t) => WEB_TOOLS.includes(t)),
     };
@@ -884,18 +895,18 @@ export class TeamManager {
     });
   }
 
-  /** Memory notes of `Agenti/<from>/` and where they go; refuses to overwrite anything. */
+  /** Memory notes of `Agenti/<from>/` (the vault's layout) and where they go; never overwrites. */
   async #planMemoryMoves(from: string, to: string): Promise<Move[]> {
     const { vault } = this.#d;
     if (from === to) return [];
-    const folder = `Agenti/${from}`;
+    const folder = agentFolder(vault.layout, from);
     const list = await vault.list(
       { agentId: 'system' },
       { folder, recursive: true, limit: 100_000 },
     );
     const moves = list.files.map((f) => ({
       from: f.path,
-      to: `Agenti/${to}/${f.path.slice(folder.length + 1)}`,
+      to: `${agentFolder(vault.layout, to)}/${f.path.slice(folder.length + 1)}`,
     }));
     const caseOnly = from.toLowerCase() === to.toLowerCase();
     for (const m of moves) {
@@ -910,16 +921,18 @@ export class TeamManager {
   async #moveMemory(moves: Move[], from: string, to: string): Promise<void> {
     const { vault } = this.#d;
     const done: Move[] = [];
+    const target = `${agentFolder(vault.layout, to)}/`;
+    const tmpFolder = `${agentFolder(vault.layout, `${to} (${vault.layout.renaming})`)}/`;
     // A change of case only goes through a temporary folder (case-insensitive disks).
     const steps =
       from.toLowerCase() === to.toLowerCase()
         ? [
             ...moves.map((m) => ({
               from: m.from,
-              to: m.to.replace(`Agenti/${to}/`, `Agenti/${to} (rinomina)/`),
+              to: m.to.replace(target, tmpFolder),
             })),
             ...moves.map((m) => ({
-              from: m.to.replace(`Agenti/${to}/`, `Agenti/${to} (rinomina)/`),
+              from: m.to.replace(target, tmpFolder),
               to: m.to,
             })),
           ]
@@ -944,11 +957,11 @@ export class TeamManager {
     }
     // The old folder, now empty, goes too (a folder with other files stays).
     try {
-      const old = join(vault.root, 'Agenti', from);
+      const old = join(vault.root, vault.layout.agents, from);
       if (from.toLowerCase() !== to.toLowerCase() && (await readdir(old)).length === 0) {
         await rmdir(old);
       }
-      const tmp = join(vault.root, 'Agenti', `${to} (rinomina)`);
+      const tmp = join(vault.root, tmpFolder);
       if (existsSync(tmp) && (await readdir(tmp)).length === 0) await rmdir(tmp);
     } catch {
       // nothing to clean
@@ -1005,8 +1018,9 @@ export class TeamManager {
       doc.set('name', name);
       const write = ((raw['vault'] ?? {}) as { write?: unknown }).write;
       if (Array.isArray(write)) {
+        const agents = this.#d.team.layout;
         const next = (write as unknown[]).map((g) =>
-          g === `Agenti/${from}/**` ? `Agenti/${name}/**` : g,
+          g === `${agentFolder(agents, from)}/**` ? `${agentFolder(agents, name)}/**` : g,
         );
         doc.setIn(['vault', 'write'], doc.createNode(next));
       }
@@ -1460,7 +1474,7 @@ export class TeamManager {
       mission: lowerFirst(d.mission.replace(/\.$/, '')),
       context: contextSentence(p),
       duties: d.duties.slice(0, 4),
-      area: area.success ? area.data : `Risorse/${d.name}`,
+      area: area.success ? area.data : `${this.#d.team.layout.resources}/${d.name}`,
       web: d.web,
       color: colorOfGenome(genome),
       genome: { ...genome, id: agentId(d.name) },
@@ -1526,7 +1540,7 @@ export class TeamManager {
         role: clipLine(req.description, 120),
         mission: clipLine(lowerFirst(req.description), 200),
         duties: [clipLine(req.description, 200)],
-        area: `Risorse/${pick()}`,
+        area: `${this.#d.team.layout.resources}/${pick()}`,
         web: req.web ?? false,
         archetype: null,
         source: 'fallback',
@@ -1776,8 +1790,9 @@ export class TeamManager {
         area:
           area ??
           (project
-            ? (this.#d.team.project(project)?.vaultArea ?? `Risorse/${name}`)
-            : `Risorse/${name}`),
+            ? (this.#d.team.project(project)?.vaultArea ??
+              `${this.#d.team.layout.resources}/${name}`)
+            : `${this.#d.team.layout.resources}/${name}`),
         web: input.web,
         archetype: null,
         source: 'proposal',
@@ -2174,8 +2189,8 @@ export class TeamManager {
         ['vault', 'write'],
         doc.createNode(
           write.map((g) =>
-            g === `Agenti/${from}/**`
-              ? `Agenti/${name}/**`
+            g === `${agentFolder(team.layout, from)}/**`
+              ? `${agentFolder(team.layout, name)}/**`
               : oldArea && g === `${oldArea}/**`
                 ? `${area}/**`
                 : g,

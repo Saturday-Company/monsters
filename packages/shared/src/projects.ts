@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { agentAreaStrings } from './agent-area.strings.ts';
 import { AgentAreaSchema } from './agent-area.ts';
+import { vaultLayout, type VaultLayout } from './vault-layout.ts';
 import { AgentStateSchema } from './api.ts';
 import { AgentIdSchema, ProjectIdSchema } from './ids.ts';
 import {
@@ -63,8 +64,10 @@ export { ProjectIdSchema, type ProjectId } from './ids.ts';
 /** Most monsters of a project besides its lead (as the Squadra personale). */
 export const MAX_PROJECT_MEMBERS = 7;
 
-/** First-level folder of the notes where the projects' areas go. */
-export const PROJECTS_VAULT_FOLDER = 'Progetti';
+/** First-level folder of the notes where the projects' areas go (`Progetti`, `Projects`: D-154). */
+export function projectsVaultFolder(layout: VaultLayout = vaultLayout()): string {
+  return layout.projects;
+}
 
 /** A project's name: also the folder of its notes, so letters, digits, spaces and dashes. */
 export const ProjectNameSchema = z

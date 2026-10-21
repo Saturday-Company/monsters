@@ -1,6 +1,15 @@
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { extname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
+import {
+  LEGACY_NOTES_DIR_NAME,
+  VAULT_LAYOUT_IDS,
+  VAULT_LAYOUTS,
+  isLang,
+  isVaultLayoutId,
+  systemLang,
+  type VaultLayoutId,
+} from '@monsters/shared';
 
 /*
  * "Apri con il sistema" and "Mostra nella cartella" for a file of the notes folder (preview
@@ -10,23 +19,34 @@ import { extname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:p
  * it (`File/2026-10/foto.png`, packages/shared/src/files.ts). Only files under the files
  * folder of Monsters are reached, after resolving symlinks, and only regular files. That
  * folder is the one the core marked (`.monsters`, D-083): `File/` when it is Monsters', else
- * `File di Monsters/` (a `File/` the user made is a folder of notes and stays closed). Anything that could run when
+ * `File di Monsters/` (a `File/` the user made is a folder of notes and stays closed); `Files/`
+ * and `Monsters Files/` in an English vault (D-154). Anything that could run when
  * opened (by extension on every system, or with an execute bit on POSIX) is never opened: the
  * app shows it in its folder instead.
  */
 
 /** Folder names of the core (packages/core/src/team/settings.ts; checked by a test). */
-export const VAULT_DIR_NAME = 'Monsters Note';
-export const LEGACY_VAULT_DIR_NAME = 'Monsters Vault';
+export const VAULT_DIR_NAME = VAULT_LAYOUTS.it.notesDir;
+export const LEGACY_VAULT_DIR_NAME = LEGACY_NOTES_DIR_NAME;
 export const SETTINGS_FILE = 'settings.json';
-/** The folder of the notes folder that holds the files (packages/shared/src/files.ts). */
-export const FILES_DIR = 'File';
+/** The folder of an Italian notes folder that holds the files (packages/shared/src/files.ts). */
+export const FILES_DIR = VAULT_LAYOUTS.it.files;
 /** Its name when the user has a `File/` of their own (packages/core/src/files/store.ts). */
-export const FILES_DIR_ALT = 'File di Monsters';
+export const FILES_DIR_ALT = VAULT_LAYOUTS.it.filesAlt;
 /** The file the core writes in its files folder (packages/core/src/files/store.ts). */
 export const FILES_MARKER = '.monsters';
-/** Names the files folder may have: `File`, `File di Monsters`, `File di Monsters 2`… */
-const FILES_DIR_NAME = /^(?:File|File di Monsters(?: [1-9]\d{0,15})?)$/;
+
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/**
+ * Names the files folder may have, in either layout: `File`, `File di Monsters`, `File di
+ * Monsters 2`…, `Files`, `Monsters Files`, `Monsters Files 2`…
+ */
+const FILES_DIR_NAME = new RegExp(
+  `^(?:${VAULT_LAYOUT_IDS.map((id) => {
+    const l = VAULT_LAYOUTS[id];
+    return `${escape(l.files)}|${escape(l.filesAlt)}(?: [1-9]\\d{0,15})?`;
+  }).join('|')})$`,
+);
 
 const isMarked = (dir: string) => {
   try {
@@ -37,18 +57,22 @@ const isMarked = (dir: string) => {
 };
 
 /**
- * The files folder of the core in `vault`, like `filesDirFor()` of the core: the first of
- * `File`, `File di Monsters`, `File di Monsters 2`…`20` that has the marker; a candidate
- * that does not exist yet ends the search (the core would make it there: no file to open).
- * Null when no folder is Monsters'.
+ * The files folder of the core in `vault`, like `filesDirFor()` of the core, in the names of
+ * either layout (the core writes the marker in one only): the first of `File`, `File di
+ * Monsters`, `File di Monsters 2`…`20` (`Files`, `Monsters Files`… in English) that has the
+ * marker; a candidate that does not exist yet ends the search of that layout (the core would
+ * make it there: no file to open). Null when no folder is Monsters'.
  */
 export function filesDirOf(vault: string): string | null {
-  const candidates = [FILES_DIR, FILES_DIR_ALT];
-  for (let n = 2; n <= 20; n++) candidates.push(`${FILES_DIR_ALT} ${n}`);
-  for (const name of candidates) {
-    const dir = join(vault, name);
-    if (!existsSync(dir)) return null;
-    if (isMarked(dir)) return name;
+  for (const id of VAULT_LAYOUT_IDS) {
+    const { files, filesAlt } = VAULT_LAYOUTS[id];
+    const candidates = [files, filesAlt];
+    for (let n = 2; n <= 20; n++) candidates.push(`${filesAlt} ${n}`);
+    for (const name of candidates) {
+      const dir = join(vault, name);
+      if (!existsSync(dir)) break;
+      if (isMarked(dir)) return name;
+    }
   }
   return null;
 }
@@ -59,12 +83,36 @@ function expand(path: string, home: string, userHome: string): string {
   return isAbsolute(p) ? p : resolve(home, p);
 }
 
-/** Same as `defaultVaultDir()` of the core. */
-export function defaultVaultDir(home: string, userHome: string = homedir()): string {
+/**
+ * Same as `defaultVaultDir()` of the core: an existing `Monsters Vault`, else the folder of
+ * the language (`Monsters Note`, `Monsters Notes`: D-154), else the other one if only that one
+ * exists, else the language's.
+ */
+export function defaultVaultDir(
+  home: string,
+  userHome: string = homedir(),
+  layout: VaultLayoutId = 'it',
+): string {
   const standard = resolve(join(userHome, '.monsters'));
   const parent = resolve(home) === standard ? userHome : home;
   const legacy = join(parent, LEGACY_VAULT_DIR_NAME);
-  return existsSync(legacy) ? legacy : join(parent, VAULT_DIR_NAME);
+  if (existsSync(legacy)) return legacy;
+  const own = join(parent, VAULT_LAYOUTS[layout].notesDir);
+  if (existsSync(own)) return own;
+  const other = join(parent, VAULT_LAYOUTS[layout === 'it' ? 'en' : 'it'].notesDir);
+  return existsSync(other) ? other : own;
+}
+
+/**
+ * The layout a new vault of the core takes (`newVaultLayout()` of the core): `MONSTERS_VAULT_LAYOUT`,
+ * else the app's language in `settings.json`, else the system's (the core's first start).
+ */
+function newVaultLayout(raw: Record<string, unknown>, env: NodeJS.ProcessEnv): VaultLayoutId {
+  // The process environment counts too, as in the core (the core's child inherits it).
+  const forced = env['MONSTERS_VAULT_LAYOUT'] ?? process.env['MONSTERS_VAULT_LAYOUT'];
+  if (isVaultLayoutId(forced)) return forced;
+  const lang = raw['language'];
+  return isLang(lang) ? lang : systemLang(env);
 }
 
 /**
@@ -89,7 +137,9 @@ export function resolveVaultDir(
   if (setting !== undefined && (typeof setting !== 'string' || setting.length === 0)) return null;
   const fromEnv = env['MONSTERS_VAULT'];
   const chosen = fromEnv !== undefined && fromEnv !== '' ? fromEnv : setting;
-  return chosen !== undefined ? expand(chosen, home, userHome) : defaultVaultDir(home, userHome);
+  return chosen !== undefined
+    ? expand(chosen, home, userHome)
+    : defaultVaultDir(home, userHome, newVaultLayout(raw as Record<string, unknown>, env));
 }
 
 /**

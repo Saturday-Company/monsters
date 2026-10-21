@@ -21,6 +21,8 @@ import {
   MCP_CATALOG,
   OPENROUTER_FREE_ROUTER,
   ToolError,
+  VAULT_LAYOUTS,
+  setVaultLayout,
   type Channel,
   type FileMeta,
   type Lang,
@@ -32,6 +34,7 @@ import {
   type StoppedRequest,
   type TelegramOrigin,
   type UndoRunResult,
+  type VaultLayout,
   type WebSearchSettingsRequest,
   spendCapPath,
 } from '@monsters/shared';
@@ -47,8 +50,9 @@ import {
   type SearchBackend,
 } from '@monsters/tools';
 import {
-  INBOX_FOLDER,
   VaultService,
+  detectVaultLayout,
+  writeVaultLayoutRecord,
   SemanticUnavailableError,
   WorkerEmbedder,
   defaultIndexPath,
@@ -175,6 +179,7 @@ import {
 import {
   defaultProjectsDir,
   loadHubSettings,
+  newVaultLayout,
   type HubSettings,
   type HubSettingsInput,
 } from './team/settings.ts';
@@ -478,7 +483,6 @@ function logSecretsStatus(log: EventLog, status: SecretsStatus): void {
     error('secrets_unreadable', hubStrings().secretsUnreadable(status.unreadable.join(', ')));
   }
 }
-const PROFILE_NOTE = 'profilo.md';
 const PROFILE_MAX_CHARS = 3000;
 
 function isNonEmptyDir(path: string): boolean {
@@ -504,10 +508,42 @@ export function monsterWritableFolders(
   return [home, settings.vault, defaultProjectsDir(home), ...granted];
 }
 
+/**
+ * The layout of the vault in `root` (D-154): an existing vault keeps its own (its record, else
+ * what it has); a new one, or a folder of notes with nothing of Monsters in it, takes the app's
+ * language now, and that folder records it at once, so the choice holds at every start.
+ */
+export function resolveVaultLayout(
+  root: string,
+  env: NodeJS.ProcessEnv = process.env,
+  onError?: (err: unknown) => void,
+): VaultLayout {
+  if (!isNonEmptyDir(root)) return VAULT_LAYOUTS[newVaultLayout(env)];
+  const found = detectVaultLayout(root);
+  if (found !== null) return VAULT_LAYOUTS[found];
+  const chosen = newVaultLayout(env);
+  try {
+    writeVaultLayoutRecord(root, chosen);
+  } catch (err) {
+    onError?.(err);
+  }
+  return VAULT_LAYOUTS[chosen];
+}
+
 export async function createHub(services: CoreServices, options: HubOptions = {}): Promise<Hub> {
   const { db, log, runs, state, paths } = services;
   const env = options.env ?? process.env;
   const settings = loadHubSettings(paths.home, options.settings ?? {}, env);
+  // The names of the vault's folders (D-154), before anything names one: the team's permissions,
+  // the prompts, the projects folder below.
+  const layout = resolveVaultLayout(settings.vault, env, (err) =>
+    log.append({
+      agent: 'system',
+      type: 'error',
+      data: { code: 'vault_layout', message: err instanceof Error ? err.message : String(err) },
+    }),
+  );
+  setVaultLayout(layout);
   // Inside the app: the `node` of the JavaScript children, found once now and kept (review of
   // wave 5, n. 9), never in a folder the monsters can write.
   pinNodeRuntime({ env, exclude: monsterWritableFolders(paths.home, settings) });
@@ -537,6 +573,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     log,
     halted: runs.halted,
     policy: settings.permissions,
+    layout,
   });
   await team.load();
   const bootstrapTeam = () =>
@@ -565,11 +602,12 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         : (signal: AbortSignal) =>
             WorkerEmbedder.create({ cacheDir: join(paths.home, 'models'), signal });
   // The folder of the files of Monsters (D-075): never a `File/` the user made.
-  const filesDir = filesDirFor(root);
+  const filesDir = filesDirFor(root, layout);
   const vaultOptions = {
     root,
     indexPath,
     filesDir,
+    layout: layout.id,
     permissions: { ...team.vaultPermissions(), external: settings.mcp },
     // Folders without permission, watcher failures: in the log, never fatal.
     onWarning: (w: VaultWarning) =>
@@ -620,6 +658,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     db,
     root: vault.root,
     dirName: filesDir,
+    layout: vault.layout,
     // The text of a document is extracted in a worker after the upload answered (D-085).
     onText: (meta) =>
       log.append({
@@ -1130,7 +1169,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         { path: claudeTranscriptsDir(), message: hubPrompts().transcriptsClosed },
         ...desktopUserDataDirs().map((path) => ({ path, message: hubPrompts().desktopDataClosed })),
         ...(threadOfRun(log, o.runId)
-          ? [{ path: privateFolder(), message: hubPrompts().privateInChat }]
+          ? [{ path: privateFolder(), message: hubPrompts().privateInChat(vault.layout.private) }]
           : []),
       ],
       ...(o.memory !== undefined ? { memory: o.memory } : {}),
@@ -1419,7 +1458,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     return [
       ...new Set([
         vault.permissions.areaOf(agentId),
-        INBOX_FOLDER,
+        vault.layout.inbox,
         ...(project ? [project] : []),
         ...own,
       ]),
@@ -1464,7 +1503,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
           ? [
               {
                 lock: { dataDir: privateFolder(), allowed: [] },
-                message: hubPrompts().privateInChat,
+                message: hubPrompts().privateInChat(vault.layout.private),
                 hint: 'Use the vault_* tools for the notes you may read.',
               },
             ]
@@ -1549,14 +1588,14 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
 
   /** The vault's private folder, closed to the runs of a Telegram chat (D-107). */
   function privateFolder(): string {
-    return join(vault.root, 'Privato');
+    return join(vault.root, vault.layout.private);
   }
   const system: VaultActor = { agentId: 'system' };
   const readProfile = async (signal: AbortSignal): Promise<string | undefined> => {
     try {
       const note = await vault.read(
         { ...system, signal },
-        { path: PROFILE_NOTE, max_chars: PROFILE_MAX_CHARS },
+        { path: vault.layout.profile, max_chars: PROFILE_MAX_CHARS },
       );
       return note.content ?? undefined;
     } catch {
@@ -2182,7 +2221,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     if (profile) {
       // A profile a run wrote after third-party text (review of 18/10, A2): data, not the user's
       // words, and the run starts tainted.
-      if (vault.index.pathsWithProp([PROFILE_NOTE], THIRD_PARTY_PROP).length > 0) {
+      if (vault.index.pathsWithProp([vault.layout.profile], THIRD_PARTY_PROP).length > 0) {
         taint.taint(hubStrings().profileAfter);
       } else taint.known(profile);
       taint.sensitive(profile, 'profile');
@@ -2686,7 +2725,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     runs,
     forbiddenFolders: () => permissions.forbiddenFolders(),
     automations: () => automations,
-    projectsDir: () => defaultProjectsDir(paths.home),
+    projectsDir: () => defaultProjectsDir(paths.home, vault.layout),
     connections: () => ({
       mcp: mcp.view().servers.map((s) => s.name),
       claude: claudeConnections
@@ -2789,7 +2828,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
   // switch, the log and the questions are the same objects the HTTP API uses.
   const telegramOptions = options.telegram === false ? {} : (options.telegram ?? {});
   const telegram: TelegramChannel = new TelegramChannel({
-    projectsDir: () => defaultProjectsDir(paths.home),
+    projectsDir: () => defaultProjectsDir(paths.home, vault.layout),
     db,
     log,
     state,
@@ -2905,6 +2944,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       userName: settings.userName,
       secrets: secretStore.status(),
       language: appLang(),
+      vaultLayout: vault.layout.id,
     };
   };
 

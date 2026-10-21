@@ -1,12 +1,14 @@
-import type {
-  DelegationVerdict,
-  Effort,
-  EventDataMap,
-  InstinctUseView,
-  InstinctView,
-  ReceiptData,
-  ScorecardRow,
-  ScorecardView,
+import {
+  agentOfPath,
+  vaultLayout,
+  type DelegationVerdict,
+  type Effort,
+  type EventDataMap,
+  type InstinctUseView,
+  type InstinctView,
+  type ReceiptData,
+  type ScorecardRow,
+  type ScorecardView,
 } from '@monsters/shared';
 import { EFFORT_WORD, EffortSchema, INSTINCT_USE_INFO, STUCK_ACTIONS } from '@monsters/shared';
 import { clipText, plainText } from '../lib/markdown.ts';
@@ -268,9 +270,6 @@ export const VERDICT: Record<DelegationVerdict, { mark: string; word: string; to
 
 export type Tone = 'ok' | 'warn' | 'stop' | 'muted';
 
-/** Files the monsters keep for themselves (memory, state): not the user's notes. */
-const AGENT_FILE = /^Agenti\/[^/]+\//;
-
 /** What happened to a note on the receipt ("created", "edited"). */
 export const NOTE_ACTION: Record<string, string> = localizedRecord(
   () => instinctStrings().noteAction,
@@ -286,7 +285,7 @@ export interface ReceiptNote {
 export function receiptNotes(r: ReceiptData): ReceiptNote[] {
   const out = new Map<string, ReceiptNote>();
   for (const n of r.notes) {
-    if (AGENT_FILE.test(n.path)) continue;
+    if (agentOfPath(n.path, vaultLayout()) !== null) continue;
     const prev = out.get(n.path);
     // A note created and then edited in the same turn is still a new note.
     out.set(n.path, { path: n.path, action: prev?.action === 'create' ? 'create' : n.action });
@@ -294,12 +293,13 @@ export function receiptNotes(r: ReceiptData): ReceiptNote[] {
   return [...out.values()];
 }
 
-/** Owners of the memories the turn updated ("Agenti/Rhea/MEMORY.md" → "Rhea"). */
+/** Owners of the memories the turn updated ("Agenti/Rhea/MEMORY.md" → "Rhea", in the vault's layout). */
 export function receiptMemories(r: ReceiptData): string[] {
   const out: string[] = [];
   for (const n of r.notes) {
-    const m = /^Agenti\/([^/]+)\//.exec(n.path);
-    if (m && !out.includes(m[1]!)) out.push(m[1]!);
+    // A file of the monster's own folder (memory, state), not the folder itself.
+    const owner = n.path.split('/').length > 2 ? agentOfPath(n.path, vaultLayout()) : null;
+    if (owner && !out.includes(owner)) out.push(owner);
   }
   return out;
 }

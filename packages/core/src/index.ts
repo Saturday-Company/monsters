@@ -38,7 +38,7 @@ export {
   type ProcessGuard,
   type ProcessGuardOptions,
 } from './process-guard.ts';
-export { createHub, type Hub, type HubOptions } from './hub.ts';
+export { createHub, resolveVaultLayout, type Hub, type HubOptions } from './hub.ts';
 export { resolveCoreVersion, type VersionSources } from './version.ts';
 export {
   CORE_VERSION,

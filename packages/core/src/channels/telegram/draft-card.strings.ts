@@ -1,5 +1,7 @@
-import { pick } from '@monsters/shared';
-import { PROJECTS_DIR_NAME } from '../../team/settings.ts';
+import { pick, vaultLayout } from '@monsters/shared';
+
+/** The default folder of the new projects (`Monsters Progetti`, `Monsters Projects`: D-154). */
+const projectsDir = () => vaultLayout().projectsDir;
 
 /*
  * The labels of the card of a draft on Telegram (D-153): English first, Italian as a choice.
@@ -36,7 +38,9 @@ const en = {
   noFolder: 'Folder: none (each monster in its own)',
   folderGrant: (created: boolean) =>
     `⚠️ All the project’s monsters will be able to read and write in that folder${created ? '' : ', along with everything already in it'}.`,
-  folderOutside: `⚠️ It’s an existing folder, outside ${PROJECTS_DIR_NAME}: confirming it is done in the app.`,
+  get folderOutside(): string {
+    return `⚠️ It’s an existing folder, outside ${projectsDir()}: confirming it is done in the app.`;
+  },
   projectNotes: (area: string) => `Project notes: ${area}/`,
   connections: (list: string) => `Connections: ${list}`,
   webSearch: (on: string) => `Web search: ${on}`,
@@ -104,7 +108,9 @@ const it: typeof en = {
   noFolder: 'Cartella: nessuna (ogni mostro nella sua)',
   folderGrant: (created) =>
     `⚠️ Tutti i mostri del progetto potranno leggere e scrivere in quella cartella${created ? '' : ', con tutto quello che c’è già'}.`,
-  folderOutside: `⚠️ È una cartella che c’è già, fuori da ${PROJECTS_DIR_NAME}: la conferma è nell’app.`,
+  get folderOutside(): string {
+    return `⚠️ È una cartella che c’è già, fuori da ${projectsDir()}: la conferma è nell’app.`;
+  },
   projectNotes: (area) => `Note del progetto: ${area}/`,
   connections: (list) => `Collegamenti: ${list}`,
   webSearch: (on) => `Ricerca web: ${on}`,

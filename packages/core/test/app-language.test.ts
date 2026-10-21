@@ -47,6 +47,7 @@ describe('language API', () => {
     expect(await (await fetch(`${url}/api/setup-status`)).json()).toEqual({
       needsSetup: true,
       language: 'en',
+      vaultLayout: 'it',
     });
 
     const res = await postJson(`${url}/api/setup`, {
