@@ -4,7 +4,7 @@ import type { Layout } from '../layout.ts';
 import type { MonsterPalette } from '../palette.ts';
 import type { Rng } from '../random.ts';
 
-/** Stroke widths in viewBox units (viewBox is 200×200). See STILE.md. */
+/** Stroke widths in viewBox units (viewBox is 200×200). See STYLE.md. */
 export const SW = {
   /** Silhouette of body and attached parts. */
   outline: 3.8,

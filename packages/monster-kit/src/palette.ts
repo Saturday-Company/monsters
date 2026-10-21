@@ -1,7 +1,7 @@
 import { hex } from './color.ts';
 import type { MonsterGenome } from './genome.ts';
 
-/** All colours of one monster, derived from a single OKLCH hue (see docs/mostri/STILE.md). */
+/** All colours of one monster, derived from a single OKLCH hue (see docs/monsters/STYLE.md). */
 export interface MonsterPalette {
   base: string;
   light: string;

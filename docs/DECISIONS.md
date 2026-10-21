@@ -253,7 +253,7 @@ fisso), così un secondo responso DNS (rebinding) non conta; ogni redirect ripet
 
 ### D-020 · I mostri ufficiali dei 7 agenti
 **Stato:** approvata dal maintainer · 14/10/2026
-**Scelta:** Titan A, Rhea A, Dione B, Tethys A, Enceladus A, Hyperion A, Mimas A (foglio `docs/mostri/concept.png`).
+**Scelta:** Titan A, Rhea A, Dione B, Tethys A, Enceladus A, Hyperion A, Mimas A (foglio `docs/monsters/concept.png`).
 Tethys A da ritoccare nella parte alta della bocca.
 
 ### D-021 · Dettagli di orchestratore, decisioni e collegamento nel core (M1.3)
@@ -528,7 +528,7 @@ macchina con GPU.
 senza ripartire; chi esce porta via fumetti e promemoria; `setMax` toglie subito i fumetti in più; durante lo stop
 stanno tutti fermi e dopo tornano a passeggiare. Interruttore "Riduci movimento" nelle Impostazioni (`reduceMotion`,
 `data-motion="reduced"` su `<html>`, letto dal CSS del kit) in aggiunta a `prefers-reduced-motion`.
-**Aperto:** piazzetta che scorre di lato sul telefono; `docs/mostri/ANIMAZIONI.md` da aggiornare con `data-gait`; le
+**Aperto:** piazzetta che scorre di lato sul telefono; `docs/monsters/ANIMATIONS.md` da aggiornare con `data-gait`; le
 altre animazioni dell'app (`MotionConfig`) seguono solo l'impostazione di sistema; lo stato `stopped` nello store si
 azzera solo con l'evento `resume`.
 

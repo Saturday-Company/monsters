@@ -48,7 +48,7 @@ macOS and Windows.
   `monsters chat`.
 - **Providers.** Anthropic, OpenAI, Google, Mistral, Groq via `@ai-sdk/*`; Ollama and LM Studio. Subscriptions: Sign in
   with ChatGPT, the Codex harness, and the official Claude binary as the "Claude Agent" harness (clean environment,
-  the user's own login, `~/.claude` never read by Monsters). See [`abbonamenti.md`](abbonamenti.md).
+  the user's own login, `~/.claude` never read by Monsters). See [`subscriptions.md`](subscriptions.md).
 - **Second brain.** Local multilingual embeddings, hybrid search (RRF), related notes, Italian stemming, vault views
   (notes, backlinks, graph, trash, history), and an MCP server exposing the vault to other clients
   ([`mcp-vault.md`](mcp-vault.md)).
@@ -75,8 +75,8 @@ Done:
 - Packages, signing and updates (M3.4, D-046): electron-builder, signed update manifests, an update channel. See
   [`signing.md`](signing.md).
 - Install-from-scratch checks in CI on all three systems (M3.5, D-048).
-- Projects, the orchestrator as head of all teams ("Dio dei mostri"), and scheduled automations, with drafts under
-  **Da rivedere** that need your confirmation; a Claude-subscription model mode that picks model and effort per
+- Projects, the orchestrator as head of all teams ("god of the monsters"), and scheduled automations, with drafts under
+  **To review** that need your confirmation; a Claude-subscription model mode that picks model and effort per
   sub-task; a Blender MCP server in the connector gallery.
 
 Open:
@@ -96,7 +96,7 @@ A review in October 2026 produced waves of fixes; the first four are done.
 - [x] Quick fixes: core, connectors, security, interface.
 - [x] Money, limits and reliability: true spend tracking, MCP OAuth, search, stuck runs, lost work, Telegram, updates.
 - [x] Defenses on newer paths: outgoing MCP, memory, dedicated bots, CLI token, project folders.
-- [x] Interface: names, jargon, a crashed core, sidebar, chat, "Da rivedere".
+- [x] Interface: names, jargon, a crashed core, sidebar, chat, "To review".
 - [x] Honest access reporting: monsters only see tools they can actually run, report the real cause of a failure, and
   ask for missing access with one tap; publishing always asks for confirmation.
 - [ ] Release wave: signed updates on all systems, Windows certificate, `RunAsNode`, a week-long soak test, then a beta.
@@ -106,12 +106,13 @@ clean-clone walkthrough on video; a week of use without crashes or stalled autom
 
 ## English first
 
-Monsters started in Italian; the open-source release makes it **English first, with an Italian translation**.
+Monsters started in Italian; the open-source release makes it **English first, with an Italian translation**. The app
+is English first, with Italian as a choice in Settings (D-153; see [`i18n.md`](i18n.md)).
 
 - [ ] A small typed dictionary (English source, Italian translation checked by the typecheck), language from the
   system and switchable in Settings.
-- [ ] Every user-facing string of the interface and of the core (errors, notifications, Telegram, receipts, "Da
-  rivedere") moved to the dictionary.
+- [ ] Every user-facing string of the interface and of the core (errors, notifications, Telegram, receipts, "To
+  review") moved to the dictionary.
 - [ ] Monsters' prompts, onboarding and proposed team follow the chosen language.
 - [ ] A guard test that fails on hand-written UI text outside the dictionary.
 - [ ] Docs in `docs/` in English, Italian where useful.
