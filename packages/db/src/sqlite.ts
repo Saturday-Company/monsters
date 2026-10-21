@@ -148,3 +148,25 @@ export function openDb(path: string): Db {
   }
   return db;
 }
+
+/**
+ * Whether a table of an existing database has a row, without creating, migrating or writing
+ * anything (the file may belong to a running core). False for a missing file, a missing table or
+ * any error.
+ */
+export function tableHasRows(path: string, table: string): boolean {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(table) || !existsSync(path)) return false;
+  let db: DatabaseSync | undefined;
+  try {
+    db = new DatabaseSync(path, { readOnly: true });
+    return db.prepare(`SELECT 1 AS x FROM ${table} LIMIT 1`).get() !== undefined;
+  } catch {
+    return false;
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      /* already closed */
+    }
+  }
+}

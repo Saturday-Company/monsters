@@ -23,6 +23,8 @@ const en = {
   claudeMissing: 'Claude Code isn’t installed.',
   claudeMissingRun: (settings: string) =>
     `Claude Code isn’t installed: install it, or connect your Claude subscription in ${settings}.`,
+  /** The reason of a connector check that said nothing. */
+  noAnswer: 'no answer',
   claudeClosed: (code: string | number | null, tail: string) =>
     `Claude Code closed without a result (${code ?? 'signal'})${tail ? `: ${tail}` : ''}`,
   /** Appended to a usage-limit error: when the window opens again. */
@@ -75,6 +77,7 @@ const it: typeof en = {
   claudeMissing: 'Claude Code non è installato.',
   claudeMissingRun: (settings) =>
     `Claude Code non è installato: installalo, o collega l’abbonamento Claude in ${settings}.`,
+  noAnswer: 'nessuna risposta',
   claudeClosed: (code, tail) =>
     `Claude Code si è chiuso senza risultato (${code ?? 'segnale'})${tail ? `: ${tail}` : ''}`,
   resetsAt: (when) => `(si ripristina ${when})`,

@@ -290,7 +290,7 @@ export class MockProviders {
         package: {
           name: '@anthropic-ai/claude-agent-sdk',
           version: '0.3.286',
-          license: 'Proprietaria (Anthropic Commercial Terms)',
+          license: 'proprietary',
         },
       },
       codex: {

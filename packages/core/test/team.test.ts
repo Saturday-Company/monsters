@@ -499,13 +499,17 @@ describe('hub settings', () => {
     mkdirSync(home, { recursive: true });
     expect(loadHubSettings(home, {}, {})).toMatchObject({
       vault: join(home, 'Monsters Note'),
-      userName: 'Utente',
+      userName: 'User',
       conversationTurns: 12,
       decisions: { threshold: 0.8 },
       // The instinct (D-067): Jev pinned, every use with its default mode.
       instinct: { uses: {}, jev: { model: 'jev-1.13.0', maxP: 0.45 } },
       openrouter: { freeOnly: true },
     });
+    // The fallback name is the app's language's (C20).
+    inLang('it');
+    expect(loadHubSettings(home, {}, {}).userName).toBe('Utente');
+    inLang('en');
     // The real home: `Monsters Vault` where it already exists (before the rename), else `Monsters Note`.
     expect(defaultVaultDir(join(homedir(), '.monsters'))).toBe(
       join(

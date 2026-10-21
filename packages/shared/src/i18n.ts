@@ -69,7 +69,8 @@ export function appLang(): Lang {
 
 /**
  * Sets the language in use. `region` is a tag of the same language from the
- * system ("en-GB"), for dates and numbers; another language's tag is ignored.
+ * system ("en-GB"), for English dates and numbers; another language's tag is
+ * ignored, and Italian is always `it-IT`.
  */
 export function setAppLang(lang: Lang, region?: string): void {
   regionTag =
@@ -85,9 +86,12 @@ export function onAppLang(fn: (lang: Lang) => void): () => void {
   return () => listeners.delete(fn);
 }
 
-/** The locale for Intl: the system's when it is of the same language, else the base one. */
+/**
+ * The locale for Intl: English takes the system's region when it is of the same language ("en-GB"),
+ * Italian is always `it-IT` (as it was before D-153: "it-CH" would change the separators).
+ */
 export function appLocale(lang: Lang = current): string {
-  if (lang === current && regionTag) {
+  if (lang === 'en' && lang === current && regionTag) {
     try {
       return Intl.getCanonicalLocales(regionTag)[0] ?? BASE_LOCALE[lang];
     } catch {

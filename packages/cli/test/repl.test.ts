@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Readable } from 'node:stream';
@@ -10,7 +10,7 @@ import {
 } from '@monsters/core';
 import { ProviderRegistry } from '@monsters/providers';
 import { fake, FakeProvider, type FakeScript } from '@monsters/providers/testing';
-import type { LogEvent } from '@monsters/shared';
+import { setAppLang, type LogEvent } from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { run, type Io } from '../src/main.ts';
 
@@ -22,6 +22,7 @@ import { run, type Io } from '../src/main.ts';
 const dirs: string[] = [];
 const cores: CoreServer[] = [];
 afterEach(async () => {
+  setAppLang('en');
   for (const c of cores.splice(0)) await c.close();
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
@@ -75,7 +76,7 @@ async function until(check: () => boolean, what: string, ms = 5000): Promise<voi
 }
 
 describe('monsters chat (interactive, for SSH)', () => {
-  it('streams answers, answers by number, /stop in less than 2 s, /riprendi, /nuova', async () => {
+  it('streams answers, answers by number, /stop in less than 2 s, /resume, /new', async () => {
     const { home, core: c } = await core({
       titan: [
         fake.toolCall('ask_user', {
@@ -93,7 +94,7 @@ describe('monsters chat (interactive, for SSH)', () => {
     });
     const tty = terminal();
     const chat = run(['chat', '--home', home], tty);
-    await until(() => tty.screen().includes('/aiuto for the commands'), 'banner');
+    await until(() => tty.screen().includes('/help for the commands'), 'banner');
 
     tty.type('pubblica il post');
     await until(() => tty.screen().includes('2) No (recommended) - resta una bozza'), 'question');
@@ -118,19 +119,43 @@ describe('monsters chat (interactive, for SSH)', () => {
     expect(c.runs.halted).toBe(true);
     expect(c.runs.activeRuns()).toEqual([]);
 
-    tty.type('/stato');
+    tty.type('/status');
     await until(() => tty.screen().includes('Kill switch: ENGAGED'), 'status');
-    tty.type('/riprendi');
+    expect(tty.screen()).toContain('type /resume to let them work');
+    tty.type('/resume');
     await until(() => tty.screen().includes('Let the agents work again? [y/N]'), 'confirm');
     expect(c.runs.halted).toBe(true);
-    tty.type('s');
+    tty.type('y');
     await until(() => tty.screen().includes('Resumed: the agents can work again.'), 'resume');
     expect(c.runs.halted).toBe(false);
 
-    tty.type('/nuova');
+    tty.type('/new');
     await until(() => tty.screen().includes('New conversation:'), 'new conversation');
     tty.type('/boh');
     await until(() => tty.screen().includes('unknown command /boh'), 'unknown');
+    tty.type('/help');
+    await until(() => tty.screen().includes('/answer <text>'), 'help');
+    expect(tty.screen()).toContain('/quit');
+    tty.type('/quit');
+    expect(await chat).toBe(0);
+  });
+
+  it('in an Italian folder: Italian texts, and the Italian command names work', async () => {
+    const { home } = await core({ titan: [fake.text('ok')] });
+    writeFileSync(join(home, 'settings.json'), JSON.stringify({ language: 'it' }));
+    const tty = terminal();
+    const chat = run(['chat', '--home', home], tty);
+    await until(() => tty.screen().includes('/aiuto per i comandi'), 'banner');
+    tty.type('/stato');
+    await until(() => tty.screen().includes('Interruttore: spento'), 'status');
+    tty.type('/nuova');
+    await until(() => tty.screen().includes('Nuova conversazione'), 'new conversation');
+    tty.type('/aiuto');
+    await until(() => tty.screen().includes('/risposta <testo>'), 'help');
+    tty.type('/riprendi');
+    await until(() => tty.screen().includes('[s/N]'), 'confirm');
+    tty.type('n');
+    await until(() => tty.screen().includes('Ok: restano fermi.'), 'stay');
     tty.type('/esci');
     expect(await chat).toBe(0);
   });
@@ -152,10 +177,10 @@ describe('monsters chat (interactive, for SSH)', () => {
     });
     const tty = terminal();
     const chat = run(['chat', '--home', home], tty);
-    await until(() => tty.screen().includes('/aiuto for the commands'), 'banner');
+    await until(() => tty.screen().includes('/help for the commands'), 'banner');
     tty.type('scrivi la bozza');
     await until(() => tty.screen().includes('(end: completed)'), 'end');
-    tty.type('/esci');
+    tty.type('/quit');
     expect(await chat).toBe(0);
     const reminder = c.log
       .query({ type: 'message' })
@@ -173,12 +198,12 @@ describe('monsters chat (interactive, for SSH)', () => {
     });
     const tty = terminal();
     const chat = run(['chat', '--home', home], tty);
-    await until(() => tty.screen().includes('/aiuto for the commands'), 'banner');
+    await until(() => tty.screen().includes('/help for the commands'), 'banner');
     tty.type('vai');
-    await until(() => tty.screen().includes('Answer with /risposta'), 'question');
-    tty.type('/risposta si');
+    await until(() => tty.screen().includes('Answer with /answer'), 'question');
+    tty.type('/answer si');
     await until(() => tty.screen().includes('(end: completed)'), 'end');
-    tty.type('/esci');
+    tty.type('/quit');
     expect(await chat).toBe(0);
     const screen = tty.screen();
     expect(screen).toContain('Fatto]52;c;ZWNobyBwd25lZA==');

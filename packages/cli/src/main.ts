@@ -5,6 +5,7 @@ import {
   DEFAULT_HOST,
   homePaths,
   installProcessGuard,
+  languageOfHome,
   loadHubSettings,
   newVaultLayout,
   resolveHome,
@@ -52,7 +53,7 @@ const defaultIo: Io = {
   write: (text) => process.stdout.write(text),
 };
 
-// i18n-ignore: the help is English; the "/nuova" of the chat is a command name (alias /new)
+// i18n-ignore: the help is English; the chat commands are English first (the Italian names work too)
 const HELP = `monsters ${CORE_VERSION} - local agentic hub
 
 Usage: monsters <command> [options]
@@ -63,9 +64,9 @@ Commands:
   kill       Stop every agent now (kill switch); nothing runs until resume
   resume     Allow agents to run again after a kill
   chat                    Interactive chat in the terminal (also over SSH): answers as they are
-                          written, questions with numbered options, /stop, /nuova, /stato
+                          written, questions with numbered options, /stop, /new, /status
   chat <text>             Send a message (to the orchestrator, or --to / @Name) and follow the run
-  chat /nuova [@Name]     Start a new conversation (alias /new): the agents no longer see
+  chat /new [@Name]       Start a new conversation (alias /nuova): the agents no longer see
                           the earlier messages, which stay in the log
   answer <id> <n|text>    Answer a question of an agent
   vault reindex           Rebuild the search index of the vault
@@ -403,10 +404,14 @@ async function cmdStart(values: Values, io: Io, signal?: AbortSignal): Promise<n
   return 0;
 }
 
-/** The app's language of a data folder (settings.json), else the system's. */
+/**
+ * The app's language of a data folder, by the core's rule (D-153): settings.json, else Italian
+ * when the folder has an account (an install the core has not restarted since the update), else
+ * the system's.
+ */
 function cliLanguage(home: string): Lang {
   try {
-    return loadHubSettings(home).language ?? systemLang(process.env);
+    return languageOfHome(home, process.env);
   } catch {
     return systemLang(process.env);
   }

@@ -26,6 +26,7 @@ import { ModelRefSchema } from '../agents/definition.ts';
 import { McpServersSettingSchema } from '../mcp/config.ts';
 import { DecisionRuleSchema } from './decision.ts';
 import { JEV_DEFAULT_MODEL } from './jev.ts';
+import { teamStrings } from './team.strings.ts';
 import { DEFAULT_RUN_LIMITS, RunLimitsSchema } from './run-limits.ts';
 import { DEFAULT_SPEND_SETTINGS, SpendSettingsSchema } from './spend.ts';
 
@@ -122,7 +123,11 @@ export const HubSettingsSchema = z.object({
   /** Folder of the vault (created if missing). Default: see `defaultVaultDir`. */
   vault: z.string().min(1).optional(),
   /** How the agents address the user (until the onboarding sets it). */
-  userName: z.string().min(1).max(60).default('Utente'),
+  userName: z
+    .string()
+    .min(1)
+    .max(60)
+    .default(() => teamStrings().userName),
   /** Name of the orchestrator created by the default team. */
   orchestratorName: z.string().min(1).max(40).default('Titan'),
   /** Concept variant of the roster genomes used by the default team. */

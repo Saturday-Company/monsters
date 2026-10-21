@@ -429,7 +429,8 @@ export class SubscriptionService {
       package: {
         name: CLAUDE_AGENT_SDK_PACKAGE,
         version: CLAUDE_AGENT_SDK_VERSION,
-        license: 'Proprietaria (Anthropic Commercial Terms)',
+        // An id, not a sentence: the UI says it in the app's language (`licenseName`).
+        license: 'proprietary',
       },
     };
     const codexBinary = this.#codexBinary();

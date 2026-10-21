@@ -394,7 +394,15 @@ export function ClaudeAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: R
       testId="subscription-claude"
       configured={false}
       title={serviceLabel('claude-agent')}
-      status={install ? t.addInstall(c.package.name, c.package.version, c.package.license) : t.add}
+      status={
+        install
+          ? t.addInstall(
+              c.package.name,
+              c.package.version,
+              subscriptionsStrings().license(c.package.license),
+            )
+          : t.add
+      }
       actions={
         <Button
           variant="secondary"
@@ -454,7 +462,11 @@ export function CodexAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: Re
         c.state === 'needs_chatgpt'
           ? t.needsChatgpt
           : install
-            ? t.addInstall(c.package.name, c.package.version, c.package.license)
+            ? t.addInstall(
+                c.package.name,
+                c.package.version,
+                subscriptionsStrings().license(c.package.license),
+              )
             : t.add
       }
       actions={

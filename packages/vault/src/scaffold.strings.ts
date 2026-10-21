@@ -9,6 +9,14 @@ import type { VaultLayoutId } from '@monsters/shared';
  */
 
 const en = {
+  /** Commit messages of the vault's history, in the words of the vault's layout (D-153, C8). */
+  commitCreate: 'vault_create: new vault',
+  commitInit: 'vault_init: history started by Monsters',
+  commitSnapshot: (files: string) =>
+    `user snapshot: ${files}\n\nChanges made outside Monsters, saved before an agent’s write.`,
+  commitUndo: (actionId: string, commit: string) => `Undo action ${actionId} (commit ${commit})`,
+  /** The orchestrator's name when nobody gave one. */
+  orchestratorName: 'Orchestrator',
   readme: `# Read me
 
 This is your second brain: Markdown notes you can open with Obsidian or any editor.
@@ -96,6 +104,12 @@ tags: []
 };
 
 const it: typeof en = {
+  commitCreate: 'vault_create: nuovo vault',
+  commitInit: 'vault_init: cronologia avviata da Monsters',
+  commitSnapshot: (files) =>
+    `snapshot utente: ${files}\n\nModifiche fatte fuori da Monsters, salvate prima della scrittura di un agente.`,
+  commitUndo: (actionId, commit) => `Annulla l'azione ${actionId} (commit ${commit})`,
+  orchestratorName: 'Orchestratore',
   readme: `# Leggimi
 
 Questo è il tuo second brain: note Markdown che puoi aprire con Obsidian o con qualsiasi editor.

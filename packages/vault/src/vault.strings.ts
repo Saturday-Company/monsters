@@ -3,7 +3,7 @@ import { pick } from '@monsters/shared';
 /*
  * What a person reads from the vault service (D-153): the warnings of the watcher and of the
  * reader, and the line the UI shows when the search by meaning is not available. The commit
- * messages of the notes' history and the notes' templates are data and stay as written.
+ * messages of the notes' history follow the vault's layout (`scaffold.strings.ts`).
  */
 
 const en = {

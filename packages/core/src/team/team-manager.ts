@@ -127,6 +127,7 @@ import type { HubSettings } from './settings.ts';
 import type { TeamService } from './team-service.ts';
 import { TEAM_MANAGER_PROMPTS, teamManagerPrompts } from './team-manager.prompts.ts';
 import { teamManagerStrings } from './team-manager.strings.ts';
+import { teamStrings } from './team.strings.ts';
 
 /*
  * The team after the onboarding (Settings → Squadra, contract in
@@ -1213,7 +1214,7 @@ export class TeamManager {
     this.#assertReady();
     const count = req.count ?? 3;
     const self = req.agent !== undefined ? this.#agent(req.agent) : undefined;
-    const name = self?.config.name ?? cleanName(req.name ?? 'Mostro');
+    const name = self?.config.name ?? cleanName(req.name ?? teamStrings().monsterName);
     const id = self?.config.id ?? agentId(name);
     // The squad it is (or will be) in: `#checkGenome` refuses a colour close to one of it.
     const hues = this.#d.team
@@ -2262,7 +2263,13 @@ export class TeamManager {
         text: (t) =>
           replaceWord(replaceWord(t, before.vaultArea, p.vaultArea), before.name, p.name),
       });
-      await this.#planYaml(pending, lead, (doc) => doc.set('role', `capo del progetto ${p.name}`));
+      // The role in the family it was written in (D-153), as for the orchestrator's.
+      const lang =
+        LANGS.find((l) => lead.config.role === TEMPLATE_FAMILIES[l].leadRole(before.name)) ??
+        appLang();
+      await this.#planYaml(pending, lead, (doc) =>
+        doc.set('role', TEMPLATE_FAMILIES[lang].leadRole(p.name)),
+      );
       await pending.commit();
       await this.#reload();
     });

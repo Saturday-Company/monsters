@@ -119,6 +119,11 @@ function expectHuesApart(genomes: unknown[]) {
 }
 
 describe('onboarding profile', () => {
+  it('a profile without a name is “User” in English and “Utente” in Italian (C20)', () => {
+    expect(profileFromAnswers({}).userName).toBe('User');
+    expect(profileFromAnswers({}, 'it').userName).toBe('Utente');
+  });
+
   it('turns the answers into a profile, profilo.md and the "always ask" rules', () => {
     inLang('it');
     const p = profileFromAnswers(ANSWERS);

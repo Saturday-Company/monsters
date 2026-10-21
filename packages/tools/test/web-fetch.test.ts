@@ -232,7 +232,12 @@ describe('web_fetch', () => {
   it('with find returns the headings and the passages around the keywords', async () => {
     const out = await tool.execute({ url: `${base}/long`, find: 'prezzi euro' }, ctx());
     expect(out.matches).toBe(1);
-    expect(out.content).toMatch(/^Intestazioni:\n# Trattoria da Bruno\n## Orari\n## Prezzi/);
+    expect(out.content).toMatch(/^Headings:\n# Trattoria da Bruno\n## Orari\n## Prezzi/);
+    // The Italian family keeps its word, byte for byte.
+    setAppLang('it');
+    const it = await tool.execute({ url: `${base}/long`, find: 'prezzi euro' }, ctx());
+    expect(it.content).toMatch(/^Intestazioni:\n# Trattoria da Bruno\n## Orari\n## Prezzi/);
+    setAppLang('en');
     expect(out.content).toContain('Il menu degustazione costa 45 euro');
     expect(out.content.length).toBeLessThan(2000);
     // Nothing found: the start of the page, as without find.

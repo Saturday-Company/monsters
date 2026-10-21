@@ -179,6 +179,62 @@ describe('a new English vault', () => {
   });
 });
 
+describe('the history of a vault speaks its layout’s language (C8)', () => {
+  const log = (root: string): string =>
+    execFileSync('git', ['log', '--format=%B%x00'], { cwd: root, encoding: 'utf8' });
+
+  it('an English vault: create, user snapshot and undo messages are English', async () => {
+    const vault = await newVault({ layout: 'en' });
+    const a = titan();
+    await vault.write(a, { path: 'Inbox/Shared', content: 'agent version\n' });
+    writeFileSync(join(vault.root, 'Inbox/Shared.md'), 'user version\n');
+    const read = await vault.read(a, { path: 'Inbox/Shared' });
+    const edit = await vault.edit(a, {
+      path: 'Inbox/Shared',
+      base_hash: read.hash,
+      ops: [{ append: { text: 'agent addition' } }],
+    });
+    await vault.undo(a, { action_id: edit.action_id });
+    const text = log(vault.root);
+    expect(text).toContain('vault_create: new vault');
+    expect(text).toMatch(/user snapshot: Inbox\/Shared\.md\n\nChanges made outside Monsters/);
+    expect(text).toContain(`Undo action ${edit.action_id} (commit `);
+    expect(text).not.toMatch(/nuovo vault|snapshot utente|Annulla l/);
+  });
+
+  it('an Italian vault keeps the Italian messages, and a history started later too', async () => {
+    const vault = await newVault();
+    const a = titan();
+    await vault.write(a, { path: 'Inbox/Condivisa', content: 'agente\n' });
+    writeFileSync(join(vault.root, 'Inbox/Condivisa.md'), 'utente\n');
+    const read = await vault.read(a, { path: 'Inbox/Condivisa' });
+    const edit = await vault.edit(a, {
+      path: 'Inbox/Condivisa',
+      base_hash: read.hash,
+      ops: [{ append: { text: 'aggiunta' } }],
+    });
+    await vault.undo(a, { action_id: edit.action_id });
+    const text = log(vault.root);
+    expect(text).toContain('vault_create: nuovo vault');
+    expect(text).toContain('snapshot utente: Inbox/Condivisa.md');
+    expect(text).toContain(`Annulla l'azione ${edit.action_id} (commit `);
+
+    // A folder without history that gets one: the first commit says it in the layout's words.
+    for (const layout of ['en', 'it'] as const) {
+      const root = join(tempDir(), 'late');
+      mkdirSync(root, { recursive: true });
+      writeVaultLayoutRecord(root, layout);
+      writeFileSync(join(root, 'Nota.md'), '# Nota\n');
+      track(await VaultService.open({ root, permissions: PERMISSIONS, initGit: true }));
+      expect(log(root)).toContain(
+        layout === 'en'
+          ? 'vault_init: history started by Monsters'
+          : 'vault_init: cronologia avviata da Monsters',
+      );
+    }
+  });
+});
+
 describe('an Italian vault', () => {
   it('keeps its names when opened without a layout, and Privato/ stays private', async () => {
     const created = await newVault();

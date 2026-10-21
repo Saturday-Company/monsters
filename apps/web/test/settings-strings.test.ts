@@ -9,6 +9,7 @@ import { parsePairs } from '../src/components/settings/McpServersSection.tsx';
 import { noCapNote } from '../src/components/settings/SpendSection.tsx';
 import { paidSearchText } from '../src/components/settings/PaidSearchSection.tsx';
 import { spendStrings } from '../src/components/settings/spend.strings.ts';
+import { subscriptionsStrings } from '../src/components/settings/subscriptions.strings.ts';
 import { teamStrings } from '../src/components/settings/team.strings.ts';
 import { telegramStrings } from '../src/components/settings/telegram.strings.ts';
 import { ApiError } from '../src/lib/api.ts';
@@ -144,5 +145,18 @@ describe('paid search', () => {
     setAppLang('it');
     expect(paidSearchText(ws)).toMatch(/^Serve una chiave OpenRouter con credito/);
     expect(paidSearchText({ ...ws, reason: undefined })).toMatch(/^Spenta: i mostri cercano/);
+  });
+});
+
+describe('package license', () => {
+  it('words the core’s `proprietary` id in the app’s language and lets SPDX ids through', () => {
+    expect(subscriptionsStrings().license('proprietary')).toBe(
+      'proprietary (Anthropic Commercial Terms)',
+    );
+    expect(subscriptionsStrings().license('Apache-2.0')).toBe('Apache-2.0');
+    setAppLang('it');
+    expect(subscriptionsStrings().license('proprietary')).toBe(
+      'proprietaria (Anthropic Commercial Terms)',
+    );
   });
 });

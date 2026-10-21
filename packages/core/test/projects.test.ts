@@ -21,7 +21,7 @@ import type {
   ProjectView,
   TeamView,
 } from '@monsters/shared';
-import { SPEND_PERIOD_WORDS, type Lang } from '@monsters/shared';
+import { SPEND_PERIOD_WORDS, setAppLang, type Lang } from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parseAgentConfig, type AgentDefinition } from '../src/agents/definition.ts';
 import { HarnessToolSessions } from '../src/agents/harness-tools.ts';
@@ -271,6 +271,22 @@ describe('projects: data, lead and names', () => {
     expect(leda.config.tools).toContain('delegate');
     await t.json('PATCH', '/api/team/agents/titan', { name: 'Kronos' });
     expect(t.core.hub.team.byId('leda')!.instructions).toContain('da Kronos che coordina');
+  });
+});
+
+describe('projects: the lead’s role after a rename follows the family it was written in (D-153)', () => {
+  it('an English install keeps an English role', async () => {
+    const { t } = await withProject({});
+    expect(t.core.hub.team.byId('leda')!.config.role).toBe('lead of the Saturday project');
+    await t.json('PATCH', '/api/projects/saturday', { name: 'Saturday Social' });
+    expect(t.core.hub.team.byId('leda')!.config.role).toBe('lead of the Saturday Social project');
+  });
+
+  it('an Italian lead written before the language was English stays Italian', async () => {
+    const { t } = await withProject({}, { lang: 'it' });
+    setAppLang('en');
+    await t.json('PATCH', '/api/projects/saturday', { name: 'Saturday Social' });
+    expect(t.core.hub.team.byId('leda')!.config.role).toBe('capo del progetto Saturday Social');
   });
 });
 

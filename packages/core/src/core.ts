@@ -2,6 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { rmSync } from 'node:fs';
 import { getRequestListener } from '@hono/node-server';
+import { setAppLang } from '@monsters/shared';
 import { newTunnelProofKey } from '@monsters/shared/node';
 import { AuthService } from './auth/auth-service.ts';
 import {
@@ -23,7 +24,7 @@ import { RunController } from './kill/run-controller.ts';
 import { LogArchiver } from './log/archive.ts';
 import { EventLog } from './log/event-log.ts';
 import { acquireHomeLock, type HomeLock } from './home-lock.ts';
-import { resolveAppLanguage } from './i18n.ts';
+import { languageOfHome, resolveAppLanguage } from './i18n.ts';
 import { createHub, type Hub, type HubOptions } from './hub.ts';
 import { registerOnboardingRoutes } from './server/routes/onboarding.ts';
 import { oauthCallbackHost } from './mcp/oauth.ts';
@@ -136,6 +137,9 @@ export function createCoreServices(options: StartCoreOptions = {}): CoreServices
     );
   }
   ensureHome(config.home);
+  // Before the lock, whose refusal ("already running") is text: the language the data folder is in
+  // (the core writes it in `wireServices`, once it holds the lock).
+  setAppLang(languageOfHome(config.home, options.env ?? process.env));
   // Before touching any state: a second core would expire the live one's
   // questions, rotate its tokens and reap its processes.
   const lock = acquireHomeLock(config.home);

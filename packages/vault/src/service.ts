@@ -408,7 +408,8 @@ export class VaultService {
     const files: Record<string, string> = scaffoldFiles(layout);
     const orchestratorId = opts.permissions?.orchestrator;
     const orchestratorName =
-      opts.orchestratorName ?? (orchestratorId ? capitalize(orchestratorId) : 'Orchestratore');
+      opts.orchestratorName ??
+      (orchestratorId ? capitalize(orchestratorId) : scaffoldStrings(layout.id).orchestratorName);
     const agents = [orchestratorName, ...(opts.agentNames ?? [])];
     const profiles = Object.entries(opts.permissions?.agents ?? {});
     for (const name of agents) {
@@ -438,7 +439,7 @@ export class VaultService {
           VAULT_LAYOUT_RECORD,
           ...Object.keys(files).filter((p) => !p.startsWith('.')),
         ],
-        message: `vault_create: nuovo vault\n\n${TRAILER_AGENT}: system\n`,
+        message: `${scaffoldStrings(layout.id).commitCreate}\n\n${TRAILER_AGENT}: system\n`,
         author: SYSTEM_AUTHOR,
       });
     }
@@ -451,6 +452,8 @@ export class VaultService {
     const info = await stat(root).catch(() => null);
     if (!info?.isDirectory()) throw new ToolError('NOT_FOUND', `vault folder not found: ${root}`);
 
+    // What the vault has wins over what the caller says: its `Privato/` keeps its guard.
+    const layout = vaultLayoutOf(detectVaultLayout(root) ?? opts.layout ?? 'it');
     let vcs: VaultVcs | null = null;
     if (opts.git !== false) {
       vcs = await makeVcs(root, opts.git ?? 'isomorphic');
@@ -463,7 +466,7 @@ export class VaultService {
           const paths = ['.gitignore', ...(await scanFiles(root, '', () => {}, opts.filesDir))];
           await vcs.commit({
             paths,
-            message: `vault_init: cronologia avviata da Monsters\n\n${TRAILER_AGENT}: system\n`,
+            message: `${scaffoldStrings(layout.id).commitInit}\n\n${TRAILER_AGENT}: system\n`,
             author: SYSTEM_AUTHOR,
           });
         } else {
@@ -472,8 +475,6 @@ export class VaultService {
       }
     }
 
-    // What the vault has wins over what the caller says: its `Privato/` keeps its guard.
-    const layout = vaultLayoutOf(detectVaultLayout(root) ?? opts.layout ?? 'it');
     const ownsDb = !opts.db;
     const db = opts.db ?? openDb(opts.indexPath ?? ':memory:');
     migrate(db, 'vault', vaultMigrations);
@@ -1058,7 +1059,7 @@ export class VaultService {
       if (changed.length === 0) return null;
       return vcs.commit({
         paths: changed,
-        message: `snapshot utente: ${changed.join(', ')}\n\nModifiche fatte fuori da Monsters, salvate prima della scrittura di un agente.\n\n${TRAILER_AGENT}: user\n`,
+        message: `${scaffoldStrings(this.layout.id).commitSnapshot(changed.join(', '))}\n\n${TRAILER_AGENT}: user\n`,
         author: USER_AUTHOR,
       });
     });
@@ -2436,7 +2437,7 @@ export class VaultService {
       return {
         changes,
         summary: files.length === 1 ? files[0]! : `${files.length} file`,
-        body: `Annulla l'azione ${input.action_id} (commit ${target.slice(0, 7)})`,
+        body: scaffoldStrings(this.layout.id).commitUndo(input.action_id, target.slice(0, 7)),
         vaultChange: { action: 'undo', path: main, undoneActionId: input.action_id },
         result: (base) => ({
           ...base,

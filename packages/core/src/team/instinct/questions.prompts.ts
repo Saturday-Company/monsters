@@ -1,4 +1,4 @@
-import { pick, type Lang } from '@monsters/shared';
+import { pick, vaultLayout, type Lang } from '@monsters/shared';
 
 /*
  * What the instinct's engine reads (D-153, wave 3): the questions of every use, with their
@@ -95,7 +95,10 @@ const en = {
     prompt:
       '`request` asks to undo, restore, move, delete or rename notes, or to see their previous versions.',
     criteria: {
-      true: 'For example "undo the last change", "bring the note back as it was yesterday", "move the old notes to Archivio", "delete the draft"',
+      // The folder is named as the vault in use names it (D-154); the Italian family keeps its own.
+      get true() {
+        return `For example "undo the last change", "bring the note back as it was yesterday", "move the old notes to ${vaultLayout().archive}", "delete the draft"`;
+      },
       false: 'Reading, searching, writing or editing notes, doing research or texts',
     },
   },
