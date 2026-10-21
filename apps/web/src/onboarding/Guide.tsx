@@ -2,6 +2,7 @@ import { dotPalette, type Expression, type MonsterGenome } from '@monsters/monst
 import type { ReactNode } from 'react';
 import { Monster } from '../components/monster/Monster.tsx';
 import { useMediaQuery } from '../store/hooks.ts';
+import { onboardingStrings } from './onboarding.strings.ts';
 import './boot.css';
 
 /**
@@ -23,7 +24,7 @@ export function Guide({
   name: string;
   /**
    * The user already chose its name. Before that the monster introduces itself
-   * as "il tuo primo mostro" (audit 2.16).
+   * as "your first monster" (audit 2.16).
    */
   named?: boolean;
   expression: Expression;
@@ -44,7 +45,7 @@ export function Guide({
       </div>
       <div className="min-w-0 flex-1">
         <p className="label mb-2" style={{ color: led }}>
-          {named ? `${name} · il tuo capo` : 'Il tuo primo mostro'}
+          {named ? onboardingStrings().guide.lead(name) : onboardingStrings().guide.first}
         </p>
         <div role="status" aria-live="polite">
           <p

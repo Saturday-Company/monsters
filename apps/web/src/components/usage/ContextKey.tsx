@@ -1,6 +1,7 @@
 import type { ContextPart, UsageContext } from '@monsters/shared';
 import { contextAmount, formatTokens, segmentsOf, thresholdAt } from './model.ts';
 import { openUsage, useContextNow, useUsageShown } from './state.ts';
+import { usageStrings } from './usage.strings.ts';
 import './usage.css';
 
 /*
@@ -55,6 +56,7 @@ export function ContextBar({
  * lineette and the share of the window. Opens the panel.
  */
 export function ContextKey({ agentId, name }: { agentId: string; name: string }) {
+  const s = usageStrings().key;
   const context = useContextNow(agentId);
   const open = useUsageShown(agentId);
   const amount = contextAmount(context);
@@ -62,25 +64,25 @@ export function ContextKey({ agentId, name }: { agentId: string; name: string })
   const near = context !== null && ratio >= context.threshold;
   const said = context
     ? context.window
-      ? `${amount} della finestra del modello`
+      ? s.window(amount)
       : context.measuredWith
-        ? 'modello cambiato, lo misuro al prossimo passo'
-        : `${formatTokens(context.total)} token`
-    : 'nessun passo ancora';
+        ? s.changed
+        : s.tokens(formatTokens(context.total))
+    : s.noStep;
   return (
     <button
       type="button"
       className="screen-key gap-2.5 px-2.5 @max-[460px]:px-0.5"
       onClick={() => openUsage(agentId)}
-      aria-label={`Contesto e consumi di ${name}: ${said}`}
+      aria-label={s.aria(name, said)}
       aria-expanded={open}
-      title="Contesto: quanto della memoria di lavoro del modello occupa questa conversazione. Apri i consumi"
+      title={s.title}
       data-testid="context-key"
       data-near={near ? '' : undefined}
     >
       {/* A meter without its name is a riddle: the word stays down to 680 px of monitor (the summary gives way first). */}
       <span className="label @max-[680px]:hidden" aria-hidden>
-        Contesto
+        {s.label}
       </span>
       <span className="@max-[520px]:hidden">
         <ContextBar context={context} count={20} />

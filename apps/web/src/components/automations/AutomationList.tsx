@@ -14,6 +14,7 @@ import { Button } from '../ui/button.tsx';
 import { Switch } from '../ui/controls.tsx';
 import { EmptyScreen } from '../ui/EmptyScreen.tsx';
 import { CrewScreen } from '../monster/CrewScreen.tsx';
+import { automationsStrings } from './automations.strings.ts';
 import { RunState } from './parts.tsx';
 
 /*
@@ -25,6 +26,7 @@ import { RunState } from './parts.tsx';
  */
 
 function Row({ a, onChanged }: { a: AutomationView; onChanged: (a: AutomationView) => void }) {
+  const s = automationsStrings().list;
   const nameOf = useNameOf();
   const [busy, setBusy] = useState(false);
   const run = shownRun(a);
@@ -40,7 +42,7 @@ function Row({ a, onChanged }: { a: AutomationView; onChanged: (a: AutomationVie
       const api = getApi();
       const next = on ? await api.resumeAutomation(a.id) : await api.pauseAutomation(a.id);
       onChanged(next);
-      notify(on ? `«${a.name}» riprende a girare.` : `«${a.name}» è in pausa.`);
+      notify(on ? s.resumed(a.name) : s.paused(a.name));
     } catch (err) {
       notify(describeError(err), 'error');
     } finally {
@@ -50,7 +52,7 @@ function Row({ a, onChanged }: { a: AutomationView; onChanged: (a: AutomationVie
   const crew = crewOf(a);
   const who =
     crew.length > 1
-      ? `${nameOf(a.lead)} con ${listText(crew.slice(1).map(nameOf))}`
+      ? s.withCrew(nameOf(a.lead), listText(crew.slice(1).map(nameOf)))
       : nameOf(a.lead);
   return (
     <li
@@ -83,7 +85,7 @@ function Row({ a, onChanged }: { a: AutomationView; onChanged: (a: AutomationVie
             {a.status === 'draft' && (
               <span className="label inline-flex shrink-0 items-center gap-1.5 text-signal-ink">
                 <span aria-hidden className="led" data-tone="signal" />
-                Bozza
+                {s.draft}
               </span>
             )}
           </span>
@@ -93,19 +95,19 @@ function Row({ a, onChanged }: { a: AutomationView; onChanged: (a: AutomationVie
           <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-footnote text-ink-muted">
             {run && (
               <span className="inline-flex min-w-0 items-center gap-1.5">
-                <span className="sr-only">Ultimo giro:</span>
+                <span className="sr-only">{s.lastRun}</span>
                 <RunState state={run.state} className="text-ink" />
                 <span className="truncate">· {formatWhen(run.startedAt)}</span>
               </span>
             )}
             <span className="truncate" data-testid="automation-next">
               {a.status === 'paused'
-                ? 'In pausa'
+                ? s.pausedNext
                 : a.status === 'draft'
-                  ? 'Da confermare'
+                  ? s.toConfirm
                   : a.nextRunAt !== null
-                    ? `Prossimo: ${formatWhen(a.nextRunAt)}`
-                    : 'Nessun giro in vista'}
+                    ? s.next(formatWhen(a.nextRunAt))
+                    : s.noRun}
             </span>
           </span>
         </span>
@@ -115,7 +117,7 @@ function Row({ a, onChanged }: { a: AutomationView; onChanged: (a: AutomationVie
           checked={a.status === 'active'}
           onCheckedChange={(v) => void toggle(v)}
           disabled={busy}
-          label={a.status === 'active' ? `Metti in pausa «${a.name}»` : `Riprendi «${a.name}»`}
+          label={a.status === 'active' ? s.pause(a.name) : s.resume(a.name)}
         />
       )}
     </li>
@@ -123,16 +125,17 @@ function Row({ a, onChanged }: { a: AutomationView; onChanged: (a: AutomationVie
 }
 
 function Empty() {
+  const s = automationsStrings().list;
   return (
     <EmptyScreen
       testId="automations-empty"
       maxWidth={560}
       className="pt-6"
-      title="Ancora nessuna automazione"
-      text="Un’automazione è un lavoro che la squadra fa da sola, a un’ora fissa: per esempio i post della settimana, ogni domenica sera, pronti da leggere il lunedì."
+      title={s.emptyTitle}
+      text={s.emptyText}
     >
       <Button onClick={() => openPage(automationPath(null, { mode: 'nuova' }))}>
-        <Plus size={18} weight="bold" aria-hidden /> Crea la prima
+        <Plus size={18} weight="bold" aria-hidden /> {s.createFirst}
       </Button>
     </EmptyScreen>
   );
@@ -158,7 +161,7 @@ export function AutomationList({
   if (!list) {
     return (
       <p className="label text-ink-muted" aria-busy="true">
-        Carico…
+        {automationsStrings().loading}
       </p>
     );
   }

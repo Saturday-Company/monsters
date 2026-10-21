@@ -1,4 +1,4 @@
-import { VaultFolderSchema, type AutomationView } from '@monsters/shared';
+import { appLang, formatNumber, VaultFolderSchema, type AutomationView } from '@monsters/shared';
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { describeError } from '../../lib/api.ts';
 import {
@@ -6,13 +6,13 @@ import {
   formatWhen,
   formOfCron,
   nextRuns,
+  personalSquad,
   scheduleText,
   userTimeZone,
-  WEEKDAY_KEYS,
+  weekdayKeys,
   type ScheduleForm,
   type SchedulePreset,
 } from '../../lib/automations.ts';
-import { PERSONAL_SQUAD } from '../../lib/automations.ts';
 import { isLive } from '../../lib/projects.ts';
 import { automationPath, openPage, useHashParam } from '../../lib/router.ts';
 import { cn, domId } from '../../lib/utils.ts';
@@ -24,6 +24,7 @@ import { Group, Row } from '../settings/parts.tsx';
 import { Button } from '../ui/button.tsx';
 import { Chip, Segmented, Switch } from '../ui/controls.tsx';
 import { Field, Input, Label } from '../ui/field.tsx';
+import { automationsStrings } from './automations.strings.ts';
 
 /*
  * Create or change an automation (docs/design.md, "Automazioni"): the name
@@ -34,12 +35,11 @@ import { Field, Input, Label } from '../ui/field.tsx';
  * and the notices. A new one can be saved as a draft, to finish later.
  */
 
-const PRESETS: { value: SchedulePreset; label: string }[] = [
-  { value: 'daily', label: 'Ogni giorno' },
-  { value: 'weekly', label: 'Ogni settimana' },
-  { value: 'monthly', label: 'Ogni mese' },
-  { value: 'advanced', label: 'Avanzato' },
-];
+const PRESET_IDS: SchedulePreset[] = ['daily', 'weekly', 'monthly', 'advanced'];
+
+function go(hash: string) {
+  window.location.hash = hash;
+}
 
 interface FormState {
   name: string;
@@ -87,7 +87,7 @@ function initial(a: AutomationView | null, lead: string, project: string): FormS
     folder: a.resultsFolder ?? '',
     maxSteps: a.limits.maxSteps?.toString() ?? '',
     maxTokens: a.limits.maxTotalTokens?.toString() ?? '',
-    maxEur: a.limits.maxEur?.toLocaleString('it-IT') ?? '',
+    maxEur: a.limits.maxEur === undefined ? '' : formatNumber(a.limits.maxEur),
     notifyApp: a.notify.app,
     notifyTelegram: a.notify.telegram,
   };
@@ -104,13 +104,19 @@ function zones(current: string): string[] {
   return list.includes(current) ? list : [current, ...list];
 }
 
-/** A number field read: undefined when empty, NaN when not a number. */
+/**
+ * A number field read: undefined when empty, NaN when not a number. The
+ * separator of the thousands goes ("1.000" in Italian, "1,000" in English).
+ */
 function numberOf(s: string): number | undefined {
-  const t = s.trim().replace(/\./g, '').replace(',', '.');
+  const t = s.trim();
   if (!t) return undefined;
-  return Number(t);
+  return appLang() === 'it'
+    ? Number(t.replace(/\./g, '').replace(',', '.'))
+    : Number(t.replace(/,/g, ''));
 }
 
+/** An amount in euros: a comma or a dot for the decimals. */
 function eurOf(s: string): number | undefined {
   const t = s.trim().replace(',', '.');
   if (!t) return undefined;
@@ -131,6 +137,7 @@ export function MonsterKey({
   role: 'radio' | 'checkbox';
   onClick: () => void;
 }) {
+  const s = automationsStrings().form;
   return (
     <button
       type="button"
@@ -156,7 +163,7 @@ export function MonsterKey({
         <span className="leading-5">{agent.name}</span>
         {pressed && (
           <span className="label leading-4 text-signal-ink">
-            {role === 'radio' ? 'Capo' : 'Partecipa'}
+            {role === 'radio' ? s.lead : s.takesPart}
           </span>
         )}
       </span>
@@ -188,9 +195,10 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const ids = domId(useId());
-  const set = (patch: Partial<FormState>) => setF((s) => ({ ...s, ...patch }));
+  const s = automationsStrings().form;
+  const set = (patch: Partial<FormState>) => setF((st) => ({ ...st, ...patch }));
   const setSchedule = (patch: Partial<ScheduleForm>) =>
-    setF((s) => ({ ...s, schedule: { ...s.schedule, ...patch } }));
+    setF((st) => ({ ...st, schedule: { ...st.schedule, ...patch } }));
 
   const cron = cronOfForm(f.schedule);
   const preview = useMemo(() => (cron ? nextRuns(cron, f.timezone, 3) : null), [cron, f.timezone]);
@@ -225,19 +233,18 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
 
   const check = (): Errors => {
     const e: Errors = {};
-    if (!f.name.trim()) e.name = 'Dai un nome all’automazione.';
-    if (!f.objective.trim()) e.objective = 'Scrivi cosa deve fare il capo a ogni giro.';
+    if (!f.name.trim()) e.name = s.errName;
+    if (!f.objective.trim()) e.objective = s.errObjective;
     if (!scheduleOk) {
       e.schedule =
         f.schedule.preset === 'weekly' && f.schedule.weekdays.length === 0
-          ? 'Scegli almeno un giorno.'
+          ? s.errNoDay
           : f.schedule.preset === 'advanced'
-            ? 'Questa regola non si capisce: servono cinque campi (minuto ora giorno mese giorno-della-settimana).'
-            : 'Scrivi un’ora valida, per esempio 23:00.';
+            ? s.errCron
+            : s.errTime;
     }
     if (f.folder.trim() && !VaultFolderSchema.safeParse(f.folder.trim()).success) {
-      e.folder =
-        'Una cartella delle note, per esempio Social/Saturday (senza / all’inizio, senza ..).';
+      e.folder = s.errFolder;
     }
     const steps = numberOf(f.maxSteps);
     const tokens = numberOf(f.maxTokens);
@@ -248,7 +255,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
         !(Number.isInteger(tokens) && tokens >= 1000 && tokens <= 50_000_000)) ||
       (eur !== undefined && !(eur >= 0.01 && eur <= 1000))
     ) {
-      e.limits = 'Passi da 1 a 2000, token da 1.000 a 50 milioni, euro da 0,01 a 1000.';
+      e.limits = s.errLimits;
     }
     return e;
   };
@@ -292,12 +299,12 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
           });
       notify(
         a
-          ? `Ho salvato «${saved.name}».`
+          ? s.saved(saved.name)
           : draft
-            ? `«${saved.name}» è una bozza: la confermi quando vuoi.`
-            : `«${saved.name}» è pronta: ${saved.scheduleText}.`,
+            ? s.savedDraft(saved.name)
+            : s.ready(saved.name, saved.scheduleText),
       );
-      window.location.hash = automationPath(saved.id);
+      go(automationPath(saved.id));
     } catch (err) {
       setFailure(describeError(err));
       setBusy(false);
@@ -319,28 +326,23 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
       aria-labelledby={`${ids}-title`}
     >
       <h2 id={`${ids}-title`} className="px-1 text-title2 font-semibold text-ink">
-        {a ? `Modifica «${a.name}»` : 'Nuova automazione'}
+        {a ? s.editTitle(a.name) : s.newTitle}
       </h2>
 
-      <Group title="Cosa fa">
+      <Group title={s.whatTitle}>
         <div className="grid gap-5 px-4 pt-1 pb-4">
-          <Field id={`${ids}-name`} label="Nome" error={errors.name}>
+          <Field id={`${ids}-name`} label={s.name} error={errors.name}>
             <Input
               id={`${ids}-name`}
               value={f.name}
               onChange={(e) => set({ name: e.target.value })}
-              placeholder="Post della settimana"
+              placeholder={s.namePlaceholder}
               maxLength={80}
               aria-invalid={errors.name ? true : undefined}
               data-testid="form-name"
             />
           </Field>
-          <Field
-            id={`${ids}-objective`}
-            label="Obiettivo"
-            hint="Il testo che il capo riceve a ogni giro: cosa fare, per chi, dove mettere i risultati."
-            error={errors.objective}
-          >
+          <Field id={`${ids}-objective`} label={s.goal} hint={s.goalHint} error={errors.objective}>
             <textarea
               id={`${ids}-objective`}
               value={f.objective}
@@ -349,25 +351,25 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
               maxLength={8000}
               aria-invalid={errors.objective ? true : undefined}
               data-testid="form-objective"
-              placeholder="Prepara i post della settimana che arriva: tre post con testo, hashtag e immagine."
+              placeholder={s.goalPlaceholder}
               className="well min-h-[132px] w-full resize-y rounded-[10px] px-3.5 py-3 text-large leading-[1.5] text-ink placeholder:text-ink-muted focus:outline-2 focus:outline-offset-0 focus:outline-signal-ink aria-[invalid=true]:outline-2 aria-[invalid=true]:outline-stop"
             />
           </Field>
         </div>
       </Group>
 
-      <Group title="Chi la fa">
+      <Group title={s.whoTitle}>
         <div className="grid gap-5 px-4 pt-1 pb-4">
           {(live.length > 0 || f.project) && (
             <div className="grid gap-2">
-              <Label id={`${ids}-squad`}>Squadra</Label>
+              <Label id={`${ids}-squad`}>{s.squad}</Label>
               <div
                 role="group"
                 aria-labelledby={`${ids}-squad`}
                 className="flex flex-wrap gap-2"
                 data-testid="automation-squad-pick"
               >
-                {[{ id: '', name: PERSONAL_SQUAD }, ...live].map((p) => (
+                {[{ id: '', name: personalSquad() }, ...live].map((p) => (
                   <Chip
                     key={p.id || 'personale'}
                     pressed={f.project === p.id}
@@ -380,10 +382,8 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
             </div>
           )}
           <div className="grid gap-2">
-            <Label id={`${ids}-lead`}>Capo</Label>
-            <p className="text-footnote text-ink-muted">
-              Riceve l’obiettivo e passa i compiti agli altri.
-            </p>
+            <Label id={`${ids}-lead`}>{s.lead}</Label>
+            <p className="text-footnote text-ink-muted">{s.leadHint}</p>
             <div
               role="radiogroup"
               aria-labelledby={`${ids}-lead`}
@@ -402,7 +402,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
           </div>
           {others.length > 0 && (
             <div className="grid gap-2">
-              <Label id={`${ids}-crew`}>Partecipano</Label>
+              <Label id={`${ids}-crew`}>{s.takingPart}</Label>
               <div
                 role="group"
                 aria-labelledby={`${ids}-crew`}
@@ -423,21 +423,21 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
         </div>
       </Group>
 
-      <Group title="Quando">
+      <Group title={s.whenTitle}>
         <div className="grid gap-5 px-4 pt-1 pb-4">
           <Segmented<SchedulePreset>
             value={f.schedule.preset}
             onChange={choosePreset}
-            options={PRESETS}
-            label="Quando gira"
+            options={PRESET_IDS.map((value) => ({ value, label: s.presets[value] }))}
+            label={s.whenLabel}
             size="sm"
             className="grid w-full grid-cols-2 gap-y-1.5 min-[560px]:inline-flex min-[560px]:w-auto [&>button]:px-3"
           />
           {f.schedule.preset === 'weekly' && (
             <div className="grid gap-2">
-              <Label id={`${ids}-days`}>Il giorno</Label>
+              <Label id={`${ids}-days`}>{s.day}</Label>
               <div role="group" aria-labelledby={`${ids}-days`} className="flex flex-wrap gap-1.5">
-                {WEEKDAY_KEYS.map((d) => (
+                {weekdayKeys().map((d) => (
                   <Chip
                     key={d.day}
                     pressed={f.schedule.weekdays.includes(d.day)}
@@ -454,7 +454,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
           {f.schedule.preset !== 'advanced' && (
             <div className="flex flex-wrap gap-4">
               {f.schedule.preset === 'monthly' && (
-                <Field id={`${ids}-dom`} label="Il giorno del mese">
+                <Field id={`${ids}-dom`} label={s.dayOfMonth}>
                   <select
                     id={`${ids}-dom`}
                     value={f.schedule.monthDay}
@@ -463,13 +463,13 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
                   >
                     {Array.from({ length: 31 }, (_, i) => i + 1).map((n) => (
                       <option key={n} value={n}>
-                        {n === 1 ? '1°' : n}
+                        {s.monthDay(n)}
                       </option>
                     ))}
                   </select>
                 </Field>
               )}
-              <Field id={`${ids}-time`} label="Alle">
+              <Field id={`${ids}-time`} label={s.at}>
                 <Input
                   id={`${ids}-time`}
                   type="time"
@@ -482,11 +482,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
             </div>
           )}
           {f.schedule.preset === 'advanced' && (
-            <Field
-              id={`${ids}-cron`}
-              label="Regola cron"
-              hint="Cinque campi: minuto, ora, giorno del mese, mese, giorno della settimana (0 = domenica)."
-            >
+            <Field id={`${ids}-cron`} label={s.cronRule} hint={s.cronHint}>
               <Input
                 id={`${ids}-cron`}
                 value={f.schedule.cron}
@@ -499,7 +495,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
               />
             </Field>
           )}
-          <Field id={`${ids}-tz`} label="Fuso orario">
+          <Field id={`${ids}-tz`} label={s.timezone}>
             <select
               id={`${ids}-tz`}
               value={f.timezone}
@@ -508,7 +504,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
             >
               {tzList.map((z) => (
                 <option key={z} value={z}>
-                  {z === userTimeZone() ? `${z} (il tuo)` : z}
+                  {z === userTimeZone() ? `${z} (${s.yours})` : z}
                 </option>
               ))}
             </select>
@@ -527,7 +523,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
                   {scheduleText(cron, f.timezone)}
                 </p>
                 <p className="font-mono text-micro tracking-[0.06em] text-screen-muted uppercase">
-                  Prossimi giri
+                  {s.nextRuns}
                 </p>
                 <ol
                   className="grid gap-0.5 font-mono text-caption text-screen-ink tabular-nums"
@@ -540,34 +536,29 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
               </>
             ) : (
               <p className="font-mono text-micro tracking-[0.06em] text-screen-stop uppercase">
-                {errors.schedule ?? 'Regola non valida'}
+                {errors.schedule ?? s.invalidRule}
               </p>
             )}
           </div>
         </div>
       </Group>
 
-      <Group title="Risultati e limiti">
+      <Group title={s.resultsTitle}>
         <div className="grid gap-5 px-4 pt-1 pb-4">
-          <Field
-            id={`${ids}-folder`}
-            label="Cartella delle note"
-            hint="Dove il capo salva i risultati. Vuota: decide lui."
-            error={errors.folder}
-          >
+          <Field id={`${ids}-folder`} label={s.folder} hint={s.folderHint} error={errors.folder}>
             <Input
               id={`${ids}-folder`}
               value={f.folder}
               onChange={(e) => set({ folder: e.target.value })}
-              placeholder="Social/Saturday"
+              placeholder={s.folderPlaceholder}
               aria-invalid={errors.folder ? true : undefined}
               data-testid="form-folder"
             />
           </Field>
           <div className="grid gap-2">
-            <p className="text-footnote font-medium text-ink">Tetto per giro</p>
+            <p className="text-footnote font-medium text-ink">{s.capPerRun}</p>
             <div className="grid gap-3 min-[560px]:grid-cols-3">
-              <Field id={`${ids}-steps`} label="Passi">
+              <Field id={`${ids}-steps`} label={s.steps}>
                 <Input
                   id={`${ids}-steps`}
                   inputMode="numeric"
@@ -576,7 +567,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
                   placeholder="60"
                 />
               </Field>
-              <Field id={`${ids}-tokens`} label="Quantità di lavoro (token)">
+              <Field id={`${ids}-tokens`} label={s.work}>
                 <Input
                   id={`${ids}-tokens`}
                   inputMode="numeric"
@@ -585,7 +576,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
                   placeholder="200000"
                 />
               </Field>
-              <Field id={`${ids}-eur`} label="Euro">
+              <Field id={`${ids}-eur`} label={s.euros}>
                 <Input
                   id={`${ids}-eur`}
                   inputMode="decimal"
@@ -600,27 +591,25 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
                 {errors.limits}
               </p>
             ) : (
-              <p className="text-footnote text-ink-faint">
-                Vuoti: valgono i limiti di ogni lavoro. Gli euro contano solo sui modelli a consumo.
-              </p>
+              <p className="text-footnote text-ink-faint">{s.limitsHint}</p>
             )}
           </div>
         </div>
       </Group>
 
-      <Group title="Avvisi a fine giro">
-        <Row label="Nell’app" description="Un avviso quando il giro finisce o ha bisogno di te.">
+      <Group title={s.noticesTitle}>
+        <Row label={s.inApp} description={s.inAppHint}>
           <Switch
             checked={f.notifyApp}
             onCheckedChange={(v) => set({ notifyApp: v })}
-            label="Avviso nell’app"
+            label={s.inAppLabel}
           />
         </Row>
-        <Row label="Su Telegram" description="Un messaggio dal bot, se l’hai collegato.">
+        <Row label={s.telegram} description={s.telegramHint}>
           <Switch
             checked={f.notifyTelegram}
             onCheckedChange={(v) => set({ notifyTelegram: v })}
-            label="Avviso su Telegram"
+            label={s.telegramLabel}
           />
         </Row>
       </Group>
@@ -632,11 +621,11 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
       )}
       <div className="flex flex-wrap items-center gap-2.5 pb-4">
         <Button type="submit" disabled={busy} data-testid="form-save">
-          {a ? 'Salva' : 'Crea automazione'}
+          {a ? s.save : s.create}
         </Button>
         {!a && (
           <Button variant="secondary" onClick={() => void submit(true)} disabled={busy}>
-            Salva come bozza
+            {s.saveDraft}
           </Button>
         )}
         <Button
@@ -644,7 +633,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
           onClick={() => openPage(a ? automationPath(a.id) : automationPath())}
           disabled={busy}
         >
-          Annulla
+          {s.cancel}
         </Button>
       </div>
     </form>

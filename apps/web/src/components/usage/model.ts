@@ -1,10 +1,12 @@
 import {
   CONTEXT_COMPACT_AT,
   CONTEXT_PARTS,
+  formatNumber,
   type ContextPart,
   type LogEvent,
   type UsageContext,
 } from '@monsters/shared';
+import { usageStrings } from './usage.strings.ts';
 
 /*
  * The Consumi panel without React (D-075): which segment of the bar is lit by
@@ -13,52 +15,26 @@ import {
 
 /** Long names (legend of the panel, screen readers). */
 export function partName(part: ContextPart, provider?: string): string {
-  switch (part) {
-    case 'base':
-      return provider === 'codex'
-        ? 'Base di Codex'
-        : provider === 'claude-agent'
-          ? 'Base di Claude Code'
-          : 'Base del programma';
-    case 'instructions':
-      return 'Istruzioni';
-    case 'memory':
-      return 'Memoria e profilo';
-    case 'tools':
-      return 'Strumenti';
-    case 'summary':
-      return 'Riassunto';
-    case 'conversation':
-      return 'Conversazione';
-    case 'tool_results':
-      return 'Risultati degli strumenti';
-    case 'current':
-      return 'Messaggio di adesso';
-  }
+  const names = usageStrings().parts;
+  return part === 'base' ? names.base(provider) : names[part];
 }
 
 /** What each part is, in one line (the legend's second line). */
-export const PART_HINT: Record<ContextPart, string> = {
-  base: 'il prompt e gli strumenti del programma, non nostri',
-  instructions: 'AGENTS.md e le regole del sistema',
-  memory: 'il tuo profilo e la memoria del mostro',
-  tools: 'le definizioni degli strumenti che può usare',
-  summary: 'i messaggi più vecchi, riassunti',
-  conversation: 'i messaggi di prima e i suoi passi di adesso',
-  tool_results: 'quello che gli strumenti hanno restituito',
-  current: 'il messaggio di questo turno, con le istruzioni del compito',
-};
-
-/** "820", "8,4K", "38K", "1M", "1,2M": tokens on the instrument. */
-export function formatTokens(n: number): string {
-  if (!Number.isFinite(n) || n < 1000) return String(Math.max(0, Math.round(n)));
-  if (n < 10_000) return `${(n / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1 })}K`;
-  if (n < 1_000_000) return `${Math.round(n / 1000)}K`;
-  return `${(n / 1_000_000).toLocaleString('it-IT', { maximumFractionDigits: 1 })}M`;
+export function partHint(part: ContextPart): string {
+  return usageStrings().hints[part];
 }
 
-/** "12.345": a whole count with the Italian thousands. */
-export const formatCount = (n: number) => Math.round(n).toLocaleString('it-IT');
+/** "820", "8.4K", "38K", "1M", "1.2M": tokens on the instrument ("8,4K" in Italian). */
+export function formatTokens(n: number): string {
+  if (!Number.isFinite(n) || n < 1000) return String(Math.max(0, Math.round(n)));
+  const one = { maximumFractionDigits: 1 };
+  if (n < 10_000) return `${formatNumber(n / 1000, one)}K`;
+  if (n < 1_000_000) return `${Math.round(n / 1000)}K`;
+  return `${formatNumber(n / 1_000_000, one)}M`;
+}
+
+/** "12,345": a whole count with the thousands of the language ("12.345" in Italian). */
+export const formatCount = (n: number) => formatNumber(Math.round(n));
 
 /** "31%", "<1%", null without a window. */
 export function percentText(total: number, window: number | null): string | null {

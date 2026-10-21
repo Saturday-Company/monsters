@@ -12,6 +12,7 @@ import {
 import type { z } from 'zod';
 import { ApiError, describeError } from '../lib/api.ts';
 import { getApi } from '../store/app.ts';
+import { onboardingStrings } from './onboarding.strings.ts';
 
 /* Client of the onboarding API (contract at the bottom of packages/shared/src/api.ts). */
 
@@ -55,15 +56,11 @@ export function onboardingError(err: unknown): string {
   if (err instanceof ApiError) {
     switch (err.code) {
       case 'invalid_key':
-        return 'OpenRouter dice che la chiave non va. Controlla di averla copiata tutta.';
       case 'verification_failed':
-        return 'Non riesco a verificare la chiave adesso. Riprova tra poco.';
       case 'invalid_name':
-        return 'Questo nome non va: usa solo lettere, niente doppioni, e non User o System.';
       case 'onboarding_done':
-        return 'La squadra esiste già.';
       case 'answers_incomplete':
-        return 'Manca ancora qualche risposta.';
+        return onboardingStrings().errors[err.code];
       default:
         break;
     }

@@ -15,6 +15,7 @@ afterEach(() => setAppLang('en'));
 
 describe('chat list helpers', () => {
   it('shows the time of the latest message as a messaging app does', () => {
+    setAppLang('it');
     const now = new Date(2026, 9, 15, 18, 0).getTime();
     expect(formatListTime(new Date(2026, 9, 15, 9, 5).getTime(), now)).toBe('09:05');
     expect(formatListTime(new Date(2026, 9, 14, 23, 50).getTime(), now)).toBe('Ieri');

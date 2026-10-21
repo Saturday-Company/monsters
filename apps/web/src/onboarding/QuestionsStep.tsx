@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight, Lock } from '@phosphor-icons/react';
 import type { Expression } from '@monsters/monster-kit';
 import {
   AGENT_NAME_PATTERN,
+  appLang,
   ASK_ALWAYS_FIXED,
   ONBOARDING_QUESTIONS,
   checkOnboardingAnswer,
@@ -19,6 +20,7 @@ import { domId } from '../lib/utils.ts';
 import { onboardingApi, onboardingError } from './api.ts';
 import { Guide } from './Guide.tsx';
 import { ErrorLine, ScreenProgress, genomeFrom } from './parts.tsx';
+import { questionsStrings } from './questions.strings.ts';
 
 /** How long the starting agent's comment stays before the next screen. */
 const REPLY_MS = 950;
@@ -30,10 +32,7 @@ const REPLY_MS = 950;
  */
 interface Screen {
   id: string;
-  /** What the guide asks; default: the title of the first question. */
-  title?: string;
-  hint?: string;
-  ask: { id: string; label?: string; text?: string }[];
+  ask: { id: string }[];
   quiet?: string[];
   /** Question whose `reply` the guide says once the screen is saved. */
   reply: string;
@@ -43,30 +42,42 @@ const SCREENS: Screen[] = [
   { id: 'nomi', ask: [{ id: 'nomi' }], reply: 'nomi' },
   {
     id: 'lavoro',
-    title: 'Di cosa ti occupi, e cosa vorresti delegare?',
-    hint: 'Scegli quello che vuoi, anche niente: mi serve per proporti la squadra giusta.',
-    ask: [
-      { id: 'lavoro', label: 'Il tuo lavoro', text: 'In parole tue (se vuoi)' },
-      { id: 'deleghe', label: 'Cosa ti ruba tempo' },
-    ],
+    ask: [{ id: 'lavoro' }, { id: 'deleghe' }],
     quiet: ['obiettivi', 'strumenti'],
     reply: 'deleghe',
   },
-  {
-    id: 'regole',
-    title: 'Due cose ancora: cosa non facciamo mai senza chiederti, e come ti scriviamo?',
-    hint: 'Per tutto il resto lavoriamo da soli e ti avvisiamo alla fine.',
-    ask: [
-      {
-        id: 'chiedi',
-        label: 'Chiedimi anche prima di',
-        text: 'Altro da chiederti sempre (se vuoi)',
-      },
-      { id: 'tono' },
-    ],
-    reply: 'tono',
-  },
+  { id: 'regole', ask: [{ id: 'chiedi' }, { id: 'tono' }], reply: 'tono' },
 ];
+
+/**
+ * What the guide asks on a screen (default: the title of the first question) and
+ * the label and free-text prompt of each question that needs one.
+ */
+function screenWords(id: string): {
+  title?: string;
+  hint?: string;
+  ask: Record<string, { label?: string; text?: string }>;
+} {
+  const s = questionsStrings().screens;
+  if (id === 'lavoro') {
+    return {
+      title: s.lavoro.title,
+      hint: s.lavoro.hint,
+      ask: {
+        lavoro: { label: s.lavoro.work, text: s.lavoro.workText },
+        deleghe: { label: s.lavoro.delegate },
+      },
+    };
+  }
+  if (id === 'regole') {
+    return {
+      title: s.regole.title,
+      hint: s.regole.hint,
+      ask: { chiedi: { label: s.regole.ask, text: s.regole.askText } },
+    };
+  }
+  return { ask: {} };
+}
 
 const question = (id: string): OnboardingQuestion => ONBOARDING_QUESTIONS.find((q) => q.id === id)!;
 
@@ -96,11 +107,15 @@ function delegateOptions(work: string[], chosen: string[]): Set<string> {
   return new Set([...(ids.length ? ids : DELEGATE_DEFAULT), ...chosen]);
 }
 
-/** The language of the system, when it is one of the options (audit 2.12). */
+/**
+ * The language of the system, when it is one of the options (audit 2.12); else
+ * the app's own language, so a screen in Italian starts on Italian.
+ */
 function systemLanguage(options: string[]): string | undefined {
   const tag = typeof navigator === 'undefined' ? '' : (navigator.language ?? '');
   const code = tag.slice(0, 2).toLowerCase();
-  return options.includes(code) ? code : undefined;
+  if (options.includes(code)) return code;
+  return options.includes(appLang()) ? appLang() : undefined;
 }
 
 const answered = (answers: OnboardingState['answers'], id: string): boolean => {
@@ -166,7 +181,11 @@ function NameGroup({
         autoFocus={autoFocus}
       />
       {group.options.length > 0 && (
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Nomi suggeriti">
+        <div
+          className="flex flex-wrap gap-2"
+          role="radiogroup"
+          aria-label={questionsStrings().suggestedNames}
+        >
           {group.options.map((o) => (
             <Chip
               size="lg"
@@ -233,6 +252,7 @@ export function QuestionsStep({
   state: OnboardingState;
   onState: (s: OnboardingState) => void;
 }) {
+  const s = questionsStrings();
   const [index, setIndex] = useState(() => firstOpen(state.answers));
   const screen = SCREENS[index]!;
   const [drafts, setDrafts] = useState(() => draftsFor(screen, state.answers));
@@ -294,15 +314,11 @@ export function QuestionsStep({
       for (const g of q.groups) {
         const vals = answer.values[g.id] ?? [];
         if (g.required && vals.length === 0) {
-          setProblem(
-            g.kind === 'name'
-              ? `Scrivi ${g.label?.toLowerCase() ?? 'un nome'}.`
-              : 'Scegli una opzione.',
-          );
+          setProblem(g.kind === 'name' ? s.writeName(g.label) : s.pickOne);
           return;
         }
         if (g.kind === 'name' && vals.some((v) => !AGENT_NAME_PATTERN.test(v))) {
-          setProblem('Per i nomi usa solo lettere (anche spazi e apostrofi), massimo 24.');
+          setProblem(s.badName);
           return;
         }
       }
@@ -334,8 +350,9 @@ export function QuestionsStep({
   };
 
   const expression: Expression = reply ? 'happy' : 'talk';
-  const title = screen.title ?? first.title;
-  const hint = screen.hint ?? first.hint;
+  const words = screenWords(screen.id);
+  const title = words.title ?? first.title;
+  const hint = words.hint ?? first.hint;
   const multi = screen.ask.length > 1;
   // Until the names are saved the guide is "il tuo primo mostro" (audit 2.16).
   const named = screen.id !== 'nomi' || !!reply;
@@ -374,7 +391,7 @@ export function QuestionsStep({
           return (
             <div key={ask.id} className="grid gap-4" data-ask={ask.id}>
               {q.groups.map((g, gi) => {
-                const label = g.label ?? (multi ? ask.label : undefined);
+                const label = g.label ?? (multi ? words.ask[ask.id]?.label : undefined);
                 return g.kind === 'name' ? (
                   <NameGroup
                     key={`${q.id}-${g.id}`}
@@ -393,10 +410,8 @@ export function QuestionsStep({
                       >
                         <Lock size={20} className="mt-px shrink-0 text-ink-muted" aria-hidden />
                         <span>
-                          <strong className="font-semibold">
-                            Pubblicare, scrivere ad altri, spendere e cancellare:
-                          </strong>{' '}
-                          te lo chiediamo sempre.
+                          <strong className="font-semibold">{s.alwaysAskTitle}</strong>{' '}
+                          {s.alwaysAskText}
                         </span>
                       </p>
                     )}
@@ -421,9 +436,9 @@ export function QuestionsStep({
                   </div>
                 );
               })}
-              {ask.text && q.freeText && (
+              {words.ask[ask.id]?.text && q.freeText && (
                 <FreeText
-                  label={ask.text}
+                  label={words.ask[ask.id]!.text!}
                   placeholder={q.freeText}
                   value={draft.text ?? ''}
                   onChange={(v) => setText(q.id, v)}
@@ -443,10 +458,10 @@ export function QuestionsStep({
           disabled={index === 0 || busy}
           className={index === 0 ? 'invisible' : undefined}
         >
-          <ArrowLeft size={18} aria-hidden /> Indietro
+          <ArrowLeft size={18} aria-hidden /> {s.back}
         </Button>
         <Button type="submit" size="lg" disabled={busy} onClick={() => playSound('click')}>
-          Avanti <ArrowRight size={18} aria-hidden />
+          {s.next} <ArrowRight size={18} aria-hidden />
         </Button>
       </div>
     </form>

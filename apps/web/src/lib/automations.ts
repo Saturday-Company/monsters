@@ -1,5 +1,8 @@
 import {
+  compareText,
   describeSchedule,
+  formatDate,
+  formatNumber,
   localTimeZone,
   type AutomationLimits,
   type AutomationRunState,
@@ -9,6 +12,7 @@ import {
 } from '@monsters/shared';
 import { Cron } from 'croner';
 import { formatDuration } from '../store/derive.ts';
+import { automationTextStrings } from './automations.strings.ts';
 import { formatUsd } from './utils.ts';
 
 /*
@@ -34,16 +38,10 @@ export interface ScheduleForm {
   cron: string;
 }
 
-/** Days of the week as the form shows them, Monday first (the Italian week). */
-export const WEEKDAY_KEYS: readonly { day: number; short: string; long: string }[] = [
-  { day: 1, short: 'Lun', long: 'lunedì' },
-  { day: 2, short: 'Mar', long: 'martedì' },
-  { day: 3, short: 'Mer', long: 'mercoledì' },
-  { day: 4, short: 'Gio', long: 'giovedì' },
-  { day: 5, short: 'Ven', long: 'venerdì' },
-  { day: 6, short: 'Sab', long: 'sabato' },
-  { day: 0, short: 'Dom', long: 'domenica' },
-];
+/** Days of the week as the form shows them, Monday first. */
+export function weekdayKeys(): readonly { day: number; short: string; long: string }[] {
+  return automationTextStrings().weekdays;
+}
 
 const TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 
@@ -129,42 +127,25 @@ export function nextRuns(
   }
 }
 
-/** The schedule in Italian, the zone said only when it is not the user's. */
+/** The schedule in words, the zone said only when it is not the user's. */
 export function scheduleText(cron: string, timezone: string): string {
   return describeSchedule(cron, { timezone, userTimezone: userTimeZone() });
 }
 
-const whenFmt = new Intl.DateTimeFormat('it-IT', {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
-/** "dom 19 ott, 23:00" (the user's time). */
+/** "Sun, Oct 19, 11:00 PM" (the user's time). */
 export function formatWhen(ts: number): string {
-  return whenFmt.format(ts).replace(/\./g, '');
+  return formatDate(ts, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).replace(/\./g, '');
 }
 
 /** The state of a run in words (the menu, the list). */
 export function runStateText(state: AutomationRunState): string {
-  switch (state) {
-    case 'completed':
-      return 'Fatto';
-    case 'running':
-      return 'In corso';
-    case 'waiting_lead':
-      return 'Aspetta il capo';
-    case 'waiting_user':
-      return 'Aspetta una risposta';
-    case 'skipped':
-      return 'Saltato';
-    case 'failed':
-      return 'Errore';
-    case 'aborted':
-      return 'Fermato';
-  }
+  return automationTextStrings().runState[state];
 }
 
 /** The light of a state: green done, orange something waits or works, red an error. */
@@ -186,29 +167,21 @@ export function runStateTone(state: AutomationRunState): 'ok' | 'signal' | 'stop
 
 /** Why the run started, in words. */
 export function triggerText(trigger: AutomationTrigger): string {
-  switch (trigger) {
-    case 'schedule':
-      return 'all’ora prevista';
-    case 'catchup':
-      return 'recuperato all’accensione';
-    case 'manual':
-      return 'avviato da te';
-    case 'answer':
-      return 'ripreso dopo la tua risposta';
-  }
+  return automationTextStrings().trigger[trigger];
 }
 
-/** "12 passi · 48.200 token · gratis" (shown in upper case); null when nothing ran. */
+/** "12 steps · 48,200 tokens · free" (shown in upper case); null when nothing ran. */
 export function usageText(
   run: Pick<AutomationRunSummary, 'steps' | 'tokens' | 'costUsd'>,
-  /** Tokens are a technical detail: only with "Mostra i dettagli tecnici" (U-8). */
+  /** Tokens are a technical detail: only with "Show technical details" (U-8). */
   withTokens = true,
 ): string | null {
   if (run.steps === 0 && run.tokens === 0 && run.costUsd === 0) return null;
+  const w = automationTextStrings();
   const parts: string[] = [];
-  if (run.steps > 0) parts.push(`${run.steps} ${run.steps === 1 ? 'passo' : 'passi'}`);
-  if (withTokens && run.tokens > 0) parts.push(`${run.tokens.toLocaleString('it-IT')} token`);
-  parts.push(run.costUsd > 0 ? formatUsd(run.costUsd) : 'gratis');
+  if (run.steps > 0) parts.push(w.steps(run.steps));
+  if (withTokens && run.tokens > 0) parts.push(w.tokens(formatNumber(run.tokens)));
+  parts.push(run.costUsd > 0 ? formatUsd(run.costUsd) : w.free);
   return parts.join(' · ');
 }
 
@@ -221,12 +194,13 @@ export function runDuration(
 
 /** The limits of a run in words; null when it has the limits of every run. */
 export function limitsText(l: AutomationLimits): string | null {
+  const w = automationTextStrings();
   const parts: string[] = [];
-  if (l.maxSteps !== undefined) parts.push(`al massimo ${l.maxSteps} passi`);
-  if (l.maxTotalTokens !== undefined)
-    parts.push(`${l.maxTotalTokens.toLocaleString('it-IT')} token`);
-  if (l.maxEur !== undefined)
-    parts.push(`${l.maxEur.toLocaleString('it-IT', { maximumFractionDigits: 2 })} € a giro`);
+  if (l.maxSteps !== undefined) parts.push(w.limitSteps(l.maxSteps));
+  if (l.maxTotalTokens !== undefined) parts.push(w.tokens(formatNumber(l.maxTotalTokens)));
+  if (l.maxEur !== undefined) {
+    parts.push(w.limitEur(formatNumber(l.maxEur, { maximumFractionDigits: 2 })));
+  }
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
@@ -235,8 +209,13 @@ export function crewOf(a: Pick<AutomationView, 'lead' | 'participants'>): string
   return [a.lead, ...a.participants.filter((p) => p !== a.lead)];
 }
 
-/** The squad of the automations with no project (D-097). */
-export const PERSONAL_SQUAD = 'Squadra personale';
+/** The name of the squad of the automations with no project (D-097). */
+export function personalSquad(): string {
+  return automationTextStrings().personalSquad;
+}
+
+/** @deprecated Italian only: use `personalSquad()`, which follows the app language. */
+export const PERSONAL_SQUAD = 'Squadra personale'; // i18n-ignore: kept until the last callers move to personalSquad()
 
 export interface SquadGroup {
   /** The project's id, or '' for the personal squad. */
@@ -258,17 +237,17 @@ export function groupBySquad(
     const key = a.project ?? '';
     let g = groups.get(key);
     if (!g) {
-      g = { key, label: key ? projectName(key) : PERSONAL_SQUAD, items: [] };
+      g = { key, label: key ? projectName(key) : personalSquad(), items: [] };
       groups.set(key, g);
     }
     g.items.push(a);
   }
   const rank = (a: AutomationView) => (a.status === 'draft' ? 0 : 1);
   for (const g of groups.values()) {
-    g.items.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'it'));
+    g.items.sort((a, b) => rank(a) - rank(b) || compareText(a.name, b.name));
   }
   return [...groups.values()].sort(
-    (a, b) => Number(a.key !== '') - Number(b.key !== '') || a.label.localeCompare(b.label, 'it'),
+    (a, b) => Number(a.key !== '') - Number(b.key !== '') || compareText(a.label, b.label),
   );
 }
 
