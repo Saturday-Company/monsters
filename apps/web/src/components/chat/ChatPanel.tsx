@@ -75,6 +75,7 @@ import {
   ResetRow,
   SystemRow,
 } from './ChatEvents.tsx';
+import { chatStrings } from './chat.strings.ts';
 import { ReceiptBlock } from './Receipt.tsx';
 import { behindTheScenes, ChatMonitor } from './ChatMonitor.tsx';
 import { Composer, prefillComposer, type ComposerQuestion } from './Composer.tsx';
@@ -121,6 +122,7 @@ function AgentBubble({
 }) {
   const agent = useAgent(item.agent);
   const theme = useResolvedTheme();
+  const s = chatStrings().panel;
   const lit = useMemo(
     () => (agent ? dotPalette(agent.genome).lit : THEMES[theme].screenMuted),
     [agent, theme],
@@ -140,7 +142,7 @@ function AgentBubble({
               type="button"
               onClick={() => openTerminalAt(agent.id, item.runId)}
               aria-label={behindTheScenes(agent.name)}
-              title="Dietro le quinte (terminale)"
+              title={s.behindTitle}
               className="block rounded-[8px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
             >
               <MonsterScreen
@@ -174,14 +176,14 @@ function AgentBubble({
             type="button"
             className="instr"
             onClick={() => openTerminalAt(agent.id, item.runId)}
-            title="Dietro le quinte di questo turno"
+            title={s.turnTitle}
             data-testid="instrumentation"
           >
             {instr}
             <span aria-hidden className="instr-go">
               {' ↗'}
             </span>
-            <span className="sr-only">: apri Dietro le quinte su questo turno</span>
+            <span className="sr-only">{s.turnSr}</span>
           </button>
         </div>
       )}
@@ -204,6 +206,7 @@ function RelayedBubble({
 }) {
   const from = useAgent(item.from);
   const theme = useResolvedTheme();
+  const s = chatStrings().panel;
   const lit = useMemo(
     () => (from ? dotPalette(from.genome).lit : THEMES[theme].screenMuted),
     [from, theme],
@@ -214,7 +217,7 @@ function RelayedBubble({
     <div className="pr-8 sm:pr-16" data-testid="relayed" data-from={item.from}>
       {first && (
         <p className={cn(AVATAR_COL, 'label mb-1 text-ink-muted')} aria-hidden>
-          Da {name}
+          {s.from(name)}
         </p>
       )}
       <div className="flex items-start gap-2.5">
@@ -224,11 +227,11 @@ function RelayedBubble({
           )}
         </div>
         <span className="sr-only">
-          Da {name}, {formatTime(item.ts)}:
+          {s.from(name)}, {formatTime(item.ts)}:
         </span>
         <div
           data-testid="relayed-bubble"
-          title={`Scritto da ${name} · ${formatTime(item.ts)}`}
+          title={s.writtenBy(name, formatTime(item.ts))}
           className="bubble bubble-agent w-fit max-w-full min-w-0 px-4 py-2.5 text-large leading-[1.55] break-words"
           style={{ background: c.bg, color: c.fg }}
         >
@@ -253,7 +256,7 @@ function TelegramBubble({
   first: boolean;
 }) {
   const where = telegramWhere(item);
-  const who = item.owner ? `${item.sender.name} (tu)` : item.sender.name;
+  const who = item.owner ? `${item.sender.name}${chatStrings().panel.youSuffix}` : item.sender.name;
   return (
     <div
       className="pr-8 sm:pr-16"
@@ -293,13 +296,14 @@ function TelegramBubble({
 }
 
 function UserBubble({ item }: { item: Extract<ChatItem, { kind: 'user' }> }) {
+  const s = chatStrings().panel;
   const files = item.attachments ?? [];
   return (
     <div className="flex flex-col items-end pl-12 sm:pl-24">
-      <span className="sr-only">Tu, {formatTime(item.ts)}:</span>
+      <span className="sr-only">{s.you(formatTime(item.ts))}</span>
       {files.length > 0 && (
         <ul
-          aria-label={files.length === 1 ? 'Un allegato' : `${files.length} allegati`}
+          aria-label={s.attachments(files.length)}
           data-testid="bubble-attachments"
           className={cn('mb-1.5 flex flex-wrap justify-end gap-2', item.pending && 'opacity-70')}
         >
@@ -325,17 +329,17 @@ function UserBubble({ item }: { item: Extract<ChatItem, { kind: 'user' }> }) {
       )}
       {item.held ? (
         <p className="mt-1.5 pr-1 text-caption text-ink-muted" data-testid="held-note">
-          Parte quando premi Riprendi ·{' '}
+          {s.heldBefore}
           <button
             type="button"
             onClick={() => dropHeld(item.id)}
             className="font-medium text-signal-ink hover:underline"
           >
-            Non mandarlo
+            {s.dontSend}
           </button>
         </p>
       ) : (
-        item.pending && <p className="label mt-1.5 pr-1 text-ink-muted">Invio…</p>
+        item.pending && <p className="label mt-1.5 pr-1 text-ink-muted">{s.sending}</p>
       )}
     </div>
   );
@@ -344,14 +348,11 @@ function UserBubble({ item }: { item: Extract<ChatItem, { kind: 'user' }> }) {
 /** Above a question carried over from a previous conversation. */
 function CarriedCaption({ questionId }: { questionId: string }) {
   const open = useApp((s) => s.questions[questionId]?.status === 'open');
-  return (
-    <p className="label pl-1 text-ink-muted">
-      {open ? 'Ancora in attesa dalla conversazione precedente' : 'Dalla conversazione precedente'}
-    </p>
-  );
+  const t = chatStrings().panel;
+  return <p className="label pl-1 text-ink-muted">{open ? t.carriedOpen : t.carried}</p>;
 }
 
-/** Shows or hides the conversations before the latest "Nuova conversazione". */
+/** Shows or hides the conversations before the latest "New conversation". */
 function EarlierToggle({
   open,
   messages,
@@ -361,6 +362,7 @@ function EarlierToggle({
   messages: number;
   onToggle: () => void;
 }) {
+  const s = chatStrings().panel;
   return (
     <div className="flex justify-center px-4 pt-4">
       <Button
@@ -373,16 +375,13 @@ function EarlierToggle({
       >
         {open ? (
           <>
-            <CaretUp size={15} weight="bold" aria-hidden /> Nascondi le conversazioni precedenti
+            <CaretUp size={15} weight="bold" aria-hidden /> {s.earlierHide}
           </>
         ) : (
           <>
-            <ClockCounterClockwise size={17} aria-hidden /> Mostra le conversazioni precedenti
+            <ClockCounterClockwise size={17} aria-hidden /> {s.earlierShow}
             {messages > 0 && (
-              <span className="font-normal text-ink-muted">
-                {' '}
-                · {messages} {messages === 1 ? 'messaggio' : 'messaggi'}
-              </span>
+              <span className="font-normal text-ink-muted">{s.earlierCount(messages)}</span>
             )}
           </>
         )}
@@ -593,9 +592,10 @@ function WorkingRow({ agent }: { agent: AgentView }) {
     () => accentInk(dotPalette(agent.genome).lit, theme),
     [agent.genome, theme],
   );
+  const s = chatStrings().panel;
   const text = live.confused
     ? `${agent.name} ${CONFUSED_TEXT}`
-    : (live.activity ?? (live.mood === 'talking' ? 'Sta scrivendo…' : `${agent.name} è al lavoro`));
+    : (live.activity ?? (live.mood === 'talking' ? s.writing : s.atWork(agent.name)));
   return (
     <div className="flex items-start gap-2.5 pb-5" data-testid="working-row">
       <MonsterScreen
@@ -615,16 +615,10 @@ function WorkingRow({ agent }: { agent: AgentView }) {
 }
 
 /** First things to ask (audit 2.17). Ending with "…": they go in the field, to be finished. */
-const SUGGESTIONS_ORCHESTRATOR = [
-  'Fammi una ricerca su…',
-  'Scrivi un post su…',
-  'Cosa c’è nelle mie note?',
-];
-const SUGGESTIONS_MEMBER = ['Cosa sai fare?', 'Cosa hai fatto di recente?', 'Aiutami con…'];
-
 function Suggestions({ agent }: { agent: AgentView }) {
   const halted = useApp((s) => s.halted);
-  const list = agent.isOrchestrator ? SUGGESTIONS_ORCHESTRATOR : SUGGESTIONS_MEMBER;
+  const t = chatStrings().panel;
+  const list = agent.isOrchestrator ? t.suggestionsLead : t.suggestionsMember;
   const pick = (s: string) => {
     if (s.endsWith('…')) {
       prefillComposer(`${s.slice(0, -1)} `);
@@ -637,7 +631,7 @@ function Suggestions({ agent }: { agent: AgentView }) {
   return (
     <ul
       className="flex flex-wrap justify-center gap-2.5"
-      aria-label="Per cominciare"
+      aria-label={t.toStart}
       data-testid="suggestions"
     >
       {list.map((s) => (
@@ -659,16 +653,18 @@ function Suggestions({ agent }: { agent: AgentView }) {
 
 /**
  * Under an error that ends the chat (audit UI-14): what to do about it instead
- * of the first suggestions, "Riprova" (the request of the failed work again)
- * and "Dietro le quinte" on that work.
+ * of the first suggestions, "Try again" (the request of the failed work again)
+ * and "Behind the scenes" on that work.
  */
 function ErrorActions({ item }: { item: Extract<ChatItem, { kind: 'error' }> }) {
+  const s = chatStrings().panel;
   const halted = useApp((s) => s.halted);
   const canRetry = useApp((s) => !!item.runId && retryOf(s.events, item.runId) !== null);
   const agent = useAgent(item.agent);
   const [sent, setSent] = useState(false);
   // The spending cap (D-070): the work stops until the cap is raised.
-  const capped = item.code === 'spend_cap' || /tetto di spesa/.test(item.text);
+  // i18n-ignore: the words of the core's message, Italian or English
+  const capped = item.code === 'spend_cap' || /tetto di spesa|spending cap/i.test(item.text);
   return (
     <div className="flex flex-wrap justify-center gap-2.5 pb-5" data-testid="error-actions">
       {capped && (
@@ -678,7 +674,7 @@ function ErrorActions({ item }: { item: Extract<ChatItem, { kind: 'error' }> }) 
           data-testid="raise-cap"
         >
           <Coins size={16} weight="bold" aria-hidden />
-          Alza il tetto
+          {s.raiseCap}
         </a>
       )}
       {canRetry && !sent && !capped && (
@@ -686,7 +682,7 @@ function ErrorActions({ item }: { item: Extract<ChatItem, { kind: 'error' }> }) 
           variant="secondary"
           size="sm"
           disabled={halted}
-          title={halted ? 'Prima riprendi i mostri' : undefined}
+          title={halted ? s.resumeFirst : undefined}
           onClick={() => {
             setSent(true);
             retryRun(item.runId!).catch((err: unknown) => {
@@ -696,36 +692,37 @@ function ErrorActions({ item }: { item: Extract<ChatItem, { kind: 'error' }> }) 
           }}
         >
           <ArrowClockwise size={16} aria-hidden />
-          Riprova
+          {s.retry}
         </Button>
       )}
       <Button
         variant="secondary"
         size="sm"
         onClick={() => openTerminalAt(item.agent, item.runId)}
-        aria-label={agent ? behindTheScenes(agent.name) : 'Dietro le quinte'}
+        aria-label={agent ? behindTheScenes(agent.name) : s.behindLabel}
       >
         <TerminalWindow size={16} aria-hidden />
-        Dietro le quinte
+        {s.behindLabel}
       </Button>
     </div>
   );
 }
 
-/** "Collega un modello", inside the greeting or above the composer. */
+/** "Connect a model", inside the greeting or above the composer. */
 function ConnectModel({ className }: { className?: string }) {
+  const s = chatStrings().panel;
   return (
     <a
       href={MODELS_PATH}
       className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), className)}
     >
       <Plugs size={17} weight="bold" aria-hidden />
-      Collega un modello
+      {s.connectModel}
     </a>
   );
 }
 
-/** "Da rivedere" and "Novità" in the rail: their names beside the key, under it on a phone. */
+/** "To review" and "What’s new" in the rail: their names beside the key, under it on a phone. */
 function ActivityToggle() {
   const phone = useMediaQuery('(max-width: 767px)');
   const layout = phone ? 'stacked' : 'inline';
@@ -739,6 +736,7 @@ function ActivityToggle() {
 
 /** Above the composer while the open question is out of sight: one tap brings it back. */
 function QuestionBar({ name, onShow }: { name: string; onShow: () => void }) {
+  const s = chatStrings().panel;
   return (
     <button
       type="button"
@@ -748,9 +746,10 @@ function QuestionBar({ name, onShow }: { name: string; onShow: () => void }) {
     >
       <span aria-hidden className="led" data-tone="signal" data-blink="" />
       <span>
-        <span className="font-semibold text-ink">{name}</span> aspetta una tua risposta
+        <span className="font-semibold text-ink">{name}</span>
+        {s.waitingForYou}
       </span>
-      <span className="label text-signal-ink">Vedi</span>
+      <span className="label text-signal-ink">{s.show}</span>
     </button>
   );
 }
@@ -783,6 +782,7 @@ export function ChatPanel({
 }) {
   const agent = useAgent(agentId);
   const agents = useAgents();
+  const t = chatStrings().panel;
   const live = useLive(agentId);
   const halted = useApp((s) => s.halted);
   const questions = useApp((s) => s.questions);
@@ -811,7 +811,7 @@ export function ChatPanel({
       ),
     [thread, questions, closedAt],
   );
-  // Previous conversations stay folded; a newer "Nuova conversazione" folds them again.
+  // Previous conversations stay folded; a newer "New conversation" folds them again.
   const [earlierOpenFor, setEarlierOpenFor] = useState<string | null>(null);
   const showEarlier = !!view.boundary && earlierOpenFor === view.boundary.id;
   const shown: Shown[] =
@@ -1008,14 +1008,12 @@ export function ChatPanel({
   const busy = live.mood !== 'idle' && live.mood !== 'done';
   const waitingForYou = !!openQuestion && !halted;
   const status = waitingForYou
-    ? 'Aspetta una tua risposta'
+    ? t.statusWaiting
     : noModel && !busy
-      ? 'In attesa di un modello'
+      ? t.statusNoModel
       : capitalize(statusText(live));
   const quiet = !waitingForYou && !(noModel && !busy) && !busy;
-  const roleText = agent.isOrchestrator
-    ? `il tuo capo · coordina ${agents.length - 1} ${agents.length - 1 === 1 ? 'mostro' : 'mostri'}`
-    : agent.role;
+  const roleText = agent.isOrchestrator ? t.roleLead(agents.length - 1) : agent.role;
 
   // Files dragged from the computer onto the chat: they go to the composer (D-075).
   const dragging = (e: DragEvent) => !noModel && e.dataTransfer.types.includes('Files');
@@ -1056,7 +1054,7 @@ export function ChatPanel({
           data-testid="drop-zone"
           className="pointer-events-none absolute inset-3 z-30 flex items-center justify-center rounded-[14px] border-2 border-dashed border-signal-ink bg-panel/90"
         >
-          <p className="label text-ink">Lascia qui i file per allegarli</p>
+          <p className="label text-ink">{t.drop}</p>
         </div>
       )}
       <ToolbarContent>
@@ -1067,14 +1065,14 @@ export function ChatPanel({
         {rail && <ToolbarTitle>{rail.title}</ToolbarTitle>}
         <div className="sr-only">
           {rail ? (
-            <h2 id="chat-title">Chat con {agent.name}</h2>
+            <h2 id="chat-title">{t.chatWith(agent.name)}</h2>
           ) : (
             <h1 id="chat-title">{agent.name}</h1>
           )}
           <p data-testid="chat-status">
             {quiet ? (
               <>
-                {agent.isOrchestrator ? 'Il tuo capo' : agent.role} · {capitalize(statusText(live))}
+                {agent.isOrchestrator ? t.lead : agent.role} · {capitalize(statusText(live))}
               </>
             ) : (
               status
@@ -1132,10 +1130,10 @@ export function ChatPanel({
                   data-testid="fresh-working"
                 >
                   {busyWith
-                    ? `${agent.name} sta lavorando a un’automazione.`
+                    ? t.freshAutomation(agent.name)
                     : agent.isOrchestrator
-                      ? `${agent.name} sta lavorando.`
-                      : `${agent.name} sta lavorando a un compito che arriva da un altro mostro.`}
+                      ? t.freshLead(agent.name)
+                      : t.freshMember(agent.name)}
                 </p>
               ) : fresh ? (
                 <Greeting agent={agent} noModel={noModel}>
@@ -1180,7 +1178,7 @@ export function ChatPanel({
                   onClick={jump}
                   className="popover rise-in label absolute -top-11 left-1/2 z-10 flex h-9 -translate-x-1/2 items-center gap-2 rounded-[10px] px-3.5 text-ink"
                 >
-                  <ArrowDown size={14} weight="bold" aria-hidden /> Nuovi messaggi
+                  <ArrowDown size={14} weight="bold" aria-hidden /> {t.newMessages}
                 </button>
               )}
               {busyWith && (
@@ -1195,7 +1193,7 @@ export function ChatPanel({
                     href={automationPath(busyWith.automationId, { giro: busyWith.giro })}
                     className="font-medium whitespace-nowrap text-signal-ink hover:underline"
                   >
-                    Vedi il giro
+                    {t.seeRun}
                   </a>
                 </p>
               )}
@@ -1207,9 +1205,9 @@ export function ChatPanel({
                   className="mb-3 flex items-center justify-center gap-2 text-footnote text-ink-muted"
                   data-testid="no-model"
                 >
-                  Per lavorare serve un modello
+                  {t.needsModel}
                   <a href={MODELS_PATH} className="font-medium text-signal-ink hover:underline">
-                    Collega un modello
+                    {t.connectModel}
                   </a>
                 </p>
               )}

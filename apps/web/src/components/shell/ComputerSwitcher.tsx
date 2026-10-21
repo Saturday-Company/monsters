@@ -2,6 +2,7 @@ import { CaretDown } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 import { desktop, type DesktopTarget } from '../../lib/desktop.ts';
 import { Meter } from '../ui/Meter.tsx';
+import { shellStrings } from './shell.strings.ts';
 
 /*
  * Which computer the monsters work on (D-059), at the foot of the sidebar,
@@ -17,25 +18,27 @@ export function targetStatus(target: Pick<DesktopTarget, 'state'>): {
   tone: TargetTone;
   text: string;
 } {
+  const s = shellStrings().computer;
   switch (target.state) {
     case 'ready':
-      return { tone: 'ready', text: 'pronto' };
+      return { tone: 'ready', text: s.ready };
     case 'starting':
-      return { tone: 'busy', text: 'si avvia…' };
+      return { tone: 'busy', text: s.starting };
     case 'connecting':
-      return { tone: 'busy', text: 'mi collego…' };
+      return { tone: 'busy', text: s.connecting };
     case 'reconnecting':
-      return { tone: 'busy', text: 'mi ricollego…' };
+      return { tone: 'busy', text: s.reconnecting };
     case 'offline':
-      return { tone: 'off', text: 'non raggiungibile' };
+      return { tone: 'off', text: s.offline };
   }
 }
 
 /** The name shown: the connection's, "Questo computer" for the local one. */
 export function targetName(target: Pick<DesktopTarget, 'kind' | 'name'>): string {
+  const s = shellStrings().computer;
   const name = target.name.trim();
-  if (target.kind === 'local') return name || 'Questo computer';
-  return name || 'Un altro computer';
+  if (target.kind === 'local') return name || s.thisComputer;
+  return name || s.anotherComputer;
 }
 
 /** The indicator light of each tone (styles.css `.led`): green, orange, off. */
@@ -69,6 +72,7 @@ function useDesktopTarget(): DesktopTarget | null {
 }
 
 export function ComputerSwitcher() {
+  const s = shellStrings().computer;
   const target = useDesktopTarget();
   const bridge = desktop();
   if (!target || !bridge?.openConnections) return null;
@@ -80,8 +84,8 @@ export function ComputerSwitcher() {
       onClick={() => bridge.openConnections?.()}
       data-testid="computer-switcher"
       data-state={target.state}
-      aria-label={`Computer: ${name}, ${status.text}. Cambia computer`}
-      title="Cambia computer"
+      aria-label={s.label(name, status.text)}
+      title={s.switch}
       className="row-key flex h-10 w-full items-center gap-2.5 rounded-[12px] px-3 text-left text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
     >
       <span aria-hidden data-testid="computer-dot" data-tone={status.tone} className="flex">

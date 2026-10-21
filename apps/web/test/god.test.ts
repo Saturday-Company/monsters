@@ -1,5 +1,6 @@
 import { dotPalette } from '@monsters/monster-kit';
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   BAND_COLS,
   GAP_COLS,
@@ -17,7 +18,7 @@ import {
   type GodStateInput,
 } from '../src/components/god/god.ts';
 import { monsterFor } from '../src/lib/monsters.ts';
-import { ASKED_ACTIVITY, type LiveState } from '../src/store/derive.ts';
+import { ASKED_ACTIVITY, CONFUSED_TEXT, capitalize, type LiveState } from '../src/store/derive.ts';
 
 const NOW = 1_800_000_000_000;
 const ids = ['titan', 'rhea', 'dione', 'mimas'];
@@ -111,6 +112,7 @@ describe('god bar: speed', () => {
 });
 
 describe('god bar: words', () => {
+  afterEach(() => setAppLang('en'));
   const nameOf = (id: string) => id[0]!.toUpperCase() + id.slice(1);
   const line = (live: Record<string, LiveState>, over: Partial<GodStateInput> = {}, squads = 1) => {
     const i = input({ live, ...over });
@@ -128,17 +130,43 @@ describe('god bar: words', () => {
     expect(line({ titan: at('waiting', NOW, 'Aspetto Rhea'), rhea: at('working') })).toBe(
       'Aspetto Rhea',
     );
-    expect(line({ titan: at('working') })).toBe('Al lavoro…');
+    expect(line({ titan: at('working') })).toBe('At work…');
     expect(line({ titan: { ...at('working', NOW, 'Cerco'), confused: true } })).toBe(
-      'Sta cambiando strada',
+      capitalize(CONFUSED_TEXT),
     );
     expect(line({ titan: at('waiting', NOW, ASKED_ACTIVITY), rhea: at('working') })).toBe(
-      'Aspetta una tua risposta',
+      'Waiting for your answer',
     );
   });
 
   it('else who is at work, or who waits for an answer', () => {
-    expect(line({ rhea: at('working') })).toBe('Al lavoro: Rhea');
+    expect(line({ rhea: at('working') })).toBe('At work: Rhea');
+    expect(line({ rhea: at('working'), dione: at('working') })).toBe('At work: Rhea and Dione');
+    expect(line({ rhea: at('working'), dione: at('working'), mimas: at('talking') })).toBe(
+      'At work: Rhea, Dione and one other',
+    );
+    expect(line({}, { askers: ['rhea'] })).toBe('Rhea is waiting for your answer');
+    expect(line({}, { askers: ['rhea', 'dione', 'rhea'] })).toBe(
+      'Rhea and Dione are waiting for your answer',
+    );
+  });
+
+  it('a calm line at rest, the stop and the lost connection in words', () => {
+    expect(line({})).toBe('Leading the squad');
+    expect(line({}, {}, 3)).toBe('Leading all the squads');
+    expect(line({ rhea: at('working') }, { halted: true })).toBe('The monsters are stopped');
+    expect(line({}, { connection: 'closed' })).toBe('Not connected to the computer');
+  });
+
+  it('names the monsters', () => {
+    expect(namesText([])).toBe('');
+    expect(namesText(['A', 'B'])).toBe('A and B');
+    expect(namesText(['A', 'B', 'C', 'D'])).toBe('A, B and 2 others');
+  });
+
+  it('says the same in Italian', () => {
+    setAppLang('it');
+    expect(line({ titan: at('working') })).toBe('Al lavoro…');
     expect(line({ rhea: at('working'), dione: at('working') })).toBe('Al lavoro: Rhea e Dione');
     expect(line({ rhea: at('working'), dione: at('working'), mimas: at('talking') })).toBe(
       'Al lavoro: Rhea, Dione e un altro',
@@ -147,17 +175,10 @@ describe('god bar: words', () => {
     expect(line({}, { askers: ['rhea', 'dione', 'rhea'] })).toBe(
       'Rhea e Dione aspettano una tua risposta',
     );
-  });
-
-  it('a calm line at rest, the stop and the lost connection in words', () => {
     expect(line({})).toBe('A capo della squadra');
     expect(line({}, {}, 3)).toBe('A capo di tutte le squadre');
     expect(line({ rhea: at('working') }, { halted: true })).toBe('I mostri sono fermi');
     expect(line({}, { connection: 'closed' })).toBe('Non collegato al computer');
-  });
-
-  it('names in Italian', () => {
-    expect(namesText([])).toBe('');
     expect(namesText(['A', 'B', 'C', 'D'])).toBe('A, B e altri 2');
   });
 
@@ -167,10 +188,21 @@ describe('god bar: words', () => {
       working,
       restsAt: null,
     });
+    expect(godLabel(s('halted'), 5, 0)).toEqual({ text: 'Stopped', tone: 'stop', blink: false });
+    expect(godLabel(s('working', ['a', 'b']), 5, 0).text).toBe('2 at work');
+    expect(godLabel(s('asking'), 5, 2)).toEqual({
+      text: '2 questions',
+      tone: 'signal',
+      blink: true,
+    });
+    expect(godLabel(s('quiet'), 5, 0)).toEqual({ text: '5 monsters', tone: 'off', blink: false });
+    expect(godLabel(s('quiet'), 5, 0, 'Titan').text).toBe('5 with Titan');
+    setAppLang('it');
     expect(godLabel(s('halted'), 5, 0)).toEqual({ text: 'Fermi', tone: 'stop', blink: false });
     expect(godLabel(s('working', ['a', 'b']), 5, 0).text).toBe('2 al lavoro');
     expect(godLabel(s('asking'), 5, 2)).toEqual({ text: '2 domande', tone: 'signal', blink: true });
     expect(godLabel(s('quiet'), 5, 0)).toEqual({ text: '5 mostri', tone: 'off', blink: false });
+    expect(godLabel(s('quiet'), 5, 0, 'Titan').text).toBe('5 con Titan');
   });
 });
 

@@ -1,5 +1,6 @@
 import { dotPalette, type MonsterGenome } from '@monsters/monster-kit';
 import { ASKED_ACTIVITY, CONFUSED_TEXT, capitalize, type LiveState } from '../../store/derive.ts';
+import { godStrings } from './god.strings.ts';
 
 /*
  * The bar of the god of the monsters (docs/design.md, "La barra del Dio",
@@ -87,12 +88,9 @@ export function marqueeSpeed(kind: GodKind, working = 0): number {
   }
 }
 
-/** "Rhea", "Rhea e Dione", "Rhea, Dione e altri 2". */
+/** "Rhea", "Rhea and Dione", "Rhea, Dione and 2 others". */
 export function namesText(names: readonly string[]): string {
-  if (names.length <= 1) return names[0] ?? '';
-  if (names.length === 2) return `${names[0]} e ${names[1]}`;
-  const more = names.length - 2;
-  return `${names[0]}, ${names[1]} e ${more === 1 ? 'un altro' : `altri ${more}`}`;
+  return godStrings().names(names);
 }
 
 /**
@@ -108,26 +106,25 @@ export function godLine(input: {
   squads: number;
 }): string {
   const { state, god, nameOf, askers, godId, squads } = input;
-  if (state.kind === 'halted') return 'I mostri sono fermi';
-  if (state.kind === 'offline') return 'Non collegato al computer';
-  if (waitsForUser(god) || askers.includes(godId)) return 'Aspetta una tua risposta';
+  const s = godStrings();
+  if (state.kind === 'halted') return s.halted;
+  if (state.kind === 'offline') return s.offline;
+  if (waitsForUser(god) || askers.includes(godId)) return s.waitingAnswer;
   if (god && isBusy(god)) {
     if (god.confused) return capitalize(CONFUSED_TEXT);
-    return god.activity ?? (god.mood === 'talking' ? 'Sta scrivendo…' : 'Al lavoro…');
+    return god.activity ?? (god.mood === 'talking' ? s.writing : s.atWork);
   }
-  if (god?.mood === 'error') return god.activity ?? 'Ha un problema';
+  if (god?.mood === 'error') return god.activity ?? s.problem;
   if (state.kind === 'working') {
     const others = state.working.filter((id) => id !== godId).map(nameOf);
-    return `Al lavoro: ${namesText(others)}`;
+    return s.atWorkWith(namesText(others));
   }
   if (state.kind === 'asking' && askers.length > 0) {
     const who = [...new Set(askers)].map(nameOf);
-    return who.length === 1
-      ? `${who[0]} aspetta una tua risposta`
-      : `${namesText(who)} aspettano una tua risposta`;
+    return who.length === 1 ? s.oneAsks(who[0]!) : s.manyAsk(namesText(who));
   }
   // At rest the line says who the god is for the user (D-114): the one above every squad.
-  return squads > 1 ? 'A capo di tutte le squadre' : 'A capo della squadra';
+  return squads > 1 ? s.leadsAll : s.leadsSquad;
 }
 
 export interface GodLabel {
@@ -143,25 +140,20 @@ export function godLabel(
   questions: number,
   godName?: string,
 ): GodLabel {
+  const s = godStrings().label;
   switch (state.kind) {
     case 'halted':
-      return { text: 'Fermi', tone: 'stop', blink: false };
+      return { text: s.halted, tone: 'stop', blink: false };
     case 'offline':
-      return { text: 'Non collegato', tone: 'stop', blink: false };
+      return { text: s.offline, tone: 'stop', blink: false };
     case 'working':
-      return { text: `${state.working.length} al lavoro`, tone: 'ok', blink: false };
-    case 'asking': {
-      const n = Math.max(1, questions);
-      return { text: n === 1 ? '1 domanda' : `${n} domande`, tone: 'signal', blink: true };
-    }
+      return { text: s.working(state.working.length), tone: 'ok', blink: false };
+    case 'asking':
+      return { text: s.questions(Math.max(1, questions)), tone: 'signal', blink: true };
     default:
       return {
         // It says what it counts: every monster, the god included (D-114).
-        text: godName
-          ? `${monsters} con ${godName}`
-          : monsters === 1
-            ? '1 mostro'
-            : `${monsters} mostri`,
+        text: godName ? s.withGod(monsters, godName) : s.monsters(monsters),
         tone: 'off',
         blink: false,
       };

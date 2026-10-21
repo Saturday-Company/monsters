@@ -7,6 +7,7 @@ import { monsterFor } from './lib/monsters.ts';
 import { useRoute } from './lib/router.ts';
 import { useOnboardingRedirect } from './onboarding/redirect.ts';
 import { useApp } from './store/app.ts';
+import { appStrings } from './app.strings.ts';
 
 /*
  * Code splitting (M2.8): the first bundle holds React, the store, the API client
@@ -25,7 +26,7 @@ const AuthScreen = lazy(() =>
 function Loading() {
   return (
     <main className="relative z-[1] flex min-h-full items-center justify-center" aria-busy="true">
-      <span className="sr-only">Carico Monsters…</span>
+      <span className="sr-only">{appStrings().loading}</span>
       <Monster genome={monsterFor('titan')} size={96} expression="think" />
     </main>
   );

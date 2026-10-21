@@ -2,16 +2,19 @@ import { dotPalette } from '@monsters/monster-kit';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import type { AgentView } from '../../store/hooks.ts';
 import { Monster } from '../monster/Monster.tsx';
+import { chatStrings } from './chat.strings.ts';
 
 /**
- * The role as proposals write it ("trova idee e dati per i post", third person,
- * often lowercase) cannot be glued after "Sono Rhea.": it becomes a short
+ * The role as proposals write it ("finds ideas and data for the posts", third person,
+ * often lowercase) cannot be glued after "I’m Rhea.": it becomes a short
  * sentence of its own, with a capital, so the greeting reads as speech.
  */
 export function roleSentence(role: string, isLead = false): string {
   const text = role.trim().replace(/[.:;,\s]+$/, '');
   if (!text) return '';
-  return `${isLead ? 'Il mio ruolo' : 'Mi occupo di questo'}: ${text.charAt(0).toUpperCase()}${text.slice(1)}. `;
+  const s = chatStrings().greeting;
+  const sentence = `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+  return isLead ? s.roleLead(sentence) : s.roleMember(sentence);
 }
 
 /**
@@ -26,35 +29,22 @@ export function greetingWords(
   },
   noModel: boolean,
 ): { hello: string; words: string } {
+  const s = chatStrings().greeting;
   const lively = agent.genome.personality.bounce >= 0.55;
-  const hello = lively ? `Eccomi! Sono ${agent.name}.` : `Ciao, sono ${agent.name}.`;
-  if (noModel)
-    return { hello, words: 'Per lavorare mi manca solo un modello: collegane uno e partiamo.' };
+  const hello = lively ? s.lively(agent.name) : s.calm(agent.name);
+  if (noModel) return { hello, words: s.noModel };
   if (agent.isOrchestrator)
-    return {
-      hello,
-      words: lively
-        ? 'Dimmi cosa ti serve: ci penso io, e se serve sveglio qualcuno della squadra.'
-        : 'Dimmi cosa ti serve: ci penso io e, se serve, chiamo qualcuno della squadra.',
-    };
-  // The lead of a project passes the work to its monsters: "senza passare
-  // dagli altri" said the opposite (collaudo of 17/10).
+    return { hello, words: lively ? s.orchestratorLively : s.orchestratorCalm };
+  // The lead of a project passes the work to its monsters: "without going through
+  // the others" said the opposite (collaudo of 17/10).
   if (agent.isLead)
     return {
       hello,
-      words: `${roleSentence(agent.role, true)}${
-        lively
-          ? 'Dimmi cosa serve al progetto: ci penso io, e se serve lo passo ai mostri del progetto.'
-          : 'Dimmi cosa serve al progetto: ci penso io e, se serve, lo passo ai mostri del progetto.'
-      }`,
+      words: `${roleSentence(agent.role, true)}${lively ? s.leadLively : s.leadCalm}`,
     };
   return {
     hello,
-    words: `${roleSentence(agent.role)}${
-      lively
-        ? 'Scrivimi qui: rispondo io, al volo, senza passare dagli altri.'
-        : 'Scrivimi qui: ti rispondo io, senza passare dagli altri.'
-    }`,
+    words: `${roleSentence(agent.role)}${lively ? s.memberLively : s.memberCalm}`,
   };
 }
 

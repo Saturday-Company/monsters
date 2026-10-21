@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, describe, expect, it } from 'vitest';
 import { composerPlaceholder } from '../src/components/chat/Composer.tsx';
 import { greetingWords } from '../src/components/chat/Greeting.tsx';
 import { keypadAccepts, lettersText } from '../src/components/chat/QuestionCard.tsx';
@@ -8,6 +9,9 @@ import { formatListTime } from '../src/lib/utils.ts';
 import { initBaseline, markSeen, seenOf, useReads } from '../src/store/reads.ts';
 
 /* The pieces of the chat list that are not React: times, addresses, read marks. */
+
+// The words are English by default; the tests of the Italian copy say so.
+afterEach(() => setAppLang('en'));
 
 describe('chat list helpers', () => {
   it('shows the time of the latest message as a messaging app does', () => {
@@ -39,9 +43,34 @@ describe('composer', () => {
   const base = { name: 'Titan', halted: false, noModel: false, question: null, wide: true };
 
   it('says what the field does now', () => {
+    expect(composerPlaceholder(base)).toBe('Write to Titan… (@ for another monster)');
+    expect(composerPlaceholder({ ...base, name: 'Atlas', wide: false })).toBe('Write to Atlas…');
+    // A keypad: with a keyboard the letters answer; on a phone, the keys.
+    expect(composerPlaceholder({ ...base, question: { id: 'q', from: 'Rhea', options: 3 } })).toBe(
+      'Write to Rhea, or press A, B or C',
+    );
+    expect(
+      composerPlaceholder({
+        ...base,
+        wide: false,
+        question: { id: 'q', from: 'Rhea', options: 2 },
+      }),
+    ).toBe('Answer Rhea or pick an option');
+    expect(composerPlaceholder({ ...base, question: { id: 'q', from: 'Rhea', options: 0 } })).toBe(
+      'Answer Rhea',
+    );
+    expect(composerPlaceholder({ ...base, halted: true })).toBe(
+      'Write: the message goes out when you press Resume',
+    );
+    expect(composerPlaceholder({ ...base, halted: true, noModel: true })).toBe(
+      'Connect a model first',
+    );
+  });
+
+  it('agrees with the name in Italian ("a" / "ad")', () => {
+    setAppLang('it');
     expect(composerPlaceholder(base)).toBe('Scrivi a Titan… (@ per un altro mostro)');
     expect(composerPlaceholder({ ...base, name: 'Atlas', wide: false })).toBe('Scrivi ad Atlas…');
-    // A keypad: with a keyboard the letters answer; on a phone, the keys.
     expect(composerPlaceholder({ ...base, question: { id: 'q', from: 'Rhea', options: 3 } })).toBe(
       'Scrivi a Rhea, oppure premi A, B o C',
     );
@@ -74,6 +103,10 @@ describe('keypad', () => {
   };
 
   it('names its letters', () => {
+    expect(lettersText(2)).toBe('A or B');
+    expect(lettersText(3)).toBe('A, B or C');
+    expect(lettersText(4)).toBe('A, B, C or D');
+    setAppLang('it');
     expect(lettersText(2)).toBe('A o B');
     expect(lettersText(3)).toBe('A, B o C');
     expect(lettersText(4)).toBe('A, B, C o D');
@@ -110,6 +143,27 @@ describe('greeting', () => {
   });
 
   it('greets in the monster’s own words', () => {
+    expect(greetingWords(agent(0.8), false).hello).toBe('Here I am! I’m Rhea.');
+    expect(greetingWords(agent(0.2), false)).toEqual({
+      hello: 'Hi, I’m Rhea.',
+      words:
+        'What I do: Fa ricerche sul web. Write to me here: I’ll answer you myself, without going through the others.',
+    });
+    expect(greetingWords(agent(0.2, true), false).words).toMatch(/^Tell me what you need/);
+    // The lead of a project hands work to its monsters (collaudo of 17/10).
+    const lead = { ...agent(0.2), role: 'capo del progetto Social Saturday', isLead: true };
+    expect(greetingWords(lead, false).words).toBe(
+      'My role: Capo del progetto Social Saturday. Tell me what the project needs: I’ll take care of it and, if needed, pass it to the project’s monsters.',
+    );
+    expect(greetingWords(lead, false).words).not.toContain('without going through the others');
+    expect(greetingWords({ ...agent(0.2), role: '  ' }, false).words).toMatch(/^Write to me here/);
+    expect(greetingWords(agent(0.8), true).words).toBe(
+      'To work I only need a model: connect one and we’ll start.',
+    );
+  });
+
+  it('greets in Italian, word for word', () => {
+    setAppLang('it');
     expect(greetingWords(agent(0.8), false).hello).toBe('Eccomi! Sono Rhea.');
     expect(greetingWords(agent(0.2), false)).toEqual({
       hello: 'Ciao, sono Rhea.',

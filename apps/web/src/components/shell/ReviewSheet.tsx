@@ -11,6 +11,7 @@ import { pausedToolEvents } from '../log/activity.ts';
 import { REVIEW_WITH_DOCK_FROM } from '../dock/layout.ts';
 import { ActivityPanel, latestNoteChanges } from '../log/ActivityPanel.tsx';
 import { LabeledKey } from '../ui/button.tsx';
+import { shellStrings } from './shell.strings.ts';
 
 /*
  * "Da rivedere" (docs/design.md, "La chat"): the drafts of the monsters to
@@ -83,6 +84,7 @@ export function ReviewKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' })
   const shown = useReviewColumn();
   const sheetOn = useApp((s) => s.reviewOpen);
   const count = useReviewCount();
+  const s = shellStrings().review;
   const on = column ? shown : sheetOn;
   useMarkReviewed(shown);
   // The column hidden by the right-hand pane comes back in its place.
@@ -95,18 +97,12 @@ export function ReviewKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' })
   };
   return (
     <LabeledKey
-      label="Da rivedere"
+      label={s.label}
       layout={layout}
       pressed={on}
       data-testid="review-toggle"
-      title={
-        count > 0
-          ? `Da rivedere: ${count} ${count === 1 ? 'cosa' : 'cose'}`
-          : on
-            ? 'Nascondi “Da rivedere”'
-            : 'Mostra “Da rivedere”'
-      }
-      aria-label={count > 0 ? `Da rivedere, ${count}` : 'Da rivedere'}
+      title={count > 0 ? s.count(count) : on ? s.hide : s.show}
+      aria-label={count > 0 ? s.withCount(count) : s.label}
       onClick={() => (column ? toggleColumn() : setReviewOpen(!sheetOn))}
       badge={
         count > 0 ? (
@@ -127,6 +123,7 @@ export function ReviewKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' })
 
 /** The sheet: mounted by the shell, shown while `reviewOpen`. */
 export function ReviewSheet() {
+  const s = shellStrings().review;
   const open = useApp((s) => s.reviewOpen);
   useMarkReviewed(open);
   useEffect(() => {
@@ -142,7 +139,7 @@ export function ReviewSheet() {
     <aside
       role="dialog"
       aria-modal="false"
-      aria-label="Da rivedere"
+      aria-label={s.label}
       data-testid="review-sheet"
       className={cn(
         'review-sheet slide-in raised fixed inset-x-0 top-[52px] bottom-0 z-30 flex flex-col overflow-hidden rounded-none',
@@ -152,8 +149,8 @@ export function ReviewSheet() {
       <button
         type="button"
         onClick={() => setReviewOpen(false)}
-        aria-label="Chiudi “Da rivedere”"
-        title="Chiudi (Esc)"
+        aria-label={s.close}
+        title={s.closeTitle}
         className="key-ghost absolute top-3 right-3 z-[1] inline-flex size-9 items-center justify-center rounded-[9px] text-ink-muted hover:text-ink"
       >
         <X size={18} weight="bold" aria-hidden />

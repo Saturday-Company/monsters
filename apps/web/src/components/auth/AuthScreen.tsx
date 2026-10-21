@@ -12,6 +12,7 @@ import '../../onboarding/boot.css';
 import { Button } from '../ui/button.tsx';
 import { Field, Input } from '../ui/field.tsx';
 import { Meter } from '../ui/Meter.tsx';
+import { authStrings } from './auth.strings.ts';
 import { DeviceFrame, DeviceScreen } from './Device.tsx';
 import { LanguageSwitch } from './LanguageSwitch.tsx';
 
@@ -32,20 +33,14 @@ const FROWN_MS = 1400;
 
 type Phase = 'asleep' | 'busy' | 'awake' | 'refused';
 
-const SCREEN_LINE: Record<Phase, string> = {
-  asleep: 'La squadra dorme',
-  busy: 'Controllo…',
-  awake: 'Ciao!',
-  refused: 'Non ti riconosco',
-};
-
 function screenLine(phase: Phase, setupMode: boolean): string {
-  if (!setupMode) return SCREEN_LINE[phase];
+  const s = authStrings().authScreen;
+  if (!setupMode) return s.line[phase];
   return phase === 'asleep'
-    ? 'Pronto per la prima accensione'
+    ? s.lineSetup.asleep
     : phase === 'refused'
-      ? 'Manca qualcosa'
-      : SCREEN_LINE[phase];
+      ? s.lineSetup.refused
+      : s.line[phase];
 }
 
 const EXPRESSION: Record<Phase, Expression> = {
@@ -57,6 +52,7 @@ const EXPRESSION: Record<Phase, Expression> = {
 
 /** "Ho dimenticato la password": the account lives on the computer, nothing goes by email (D-057). */
 function ForgotPassword() {
+  const s = authStrings().forgot;
   const id = domId(useId());
   const [open, setOpen] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
@@ -76,7 +72,7 @@ function ForgotPassword() {
         onClick={() => setOpen((v) => !v)}
         className="mx-auto text-footnote text-signal-ink hover:text-signal-ink"
       >
-        Ho dimenticato la password
+        {s.button}
       </Button>
       {open && (
         <div
@@ -86,18 +82,18 @@ function ForgotPassword() {
           data-testid="forgot-password"
           className="well rise-in grid scroll-mb-4 gap-3 outline-none rounded-[12px] px-4 py-3.5 text-body leading-snug text-ink-muted"
         >
-          <p>
-            L’account vive solo sul computer dove gira Monsters: nessuna mail lo può reimpostare.
-          </p>
+          <p>{s.intro}</p>
           <div className="grid gap-0.5">
-            <p className="label text-ink">Con l’app</p>
-            <p>Apri l’app Monsters su quel computer: lì entri senza password.</p>
+            <p className="label text-ink">{s.appTitle}</p>
+            <p>{s.app}</p>
           </div>
           <div className="grid gap-0.5">
-            <p className="label text-ink">Con il terminale</p>
+            <p className="label text-ink">{s.terminalTitle}</p>
             <p>
-              Su quel computer esegui <code className="font-mono text-ink">monsters password</code>{' '}
-              e scegline una nuova.
+              {s.terminalBefore}
+              {/* i18n-ignore: a command */}
+              <code className="font-mono text-ink">monsters password</code>
+              {s.terminalAfter}
             </p>
           </div>
         </div>
@@ -126,6 +122,7 @@ function rememberEmail(email: string): void {
 }
 
 export function AuthScreen({ mode, mock }: { mode: 'setup' | 'login'; mock: boolean }) {
+  const s = authStrings().authScreen;
   const uid = domId(useId());
   const [email, setEmail] = useState(() => (mode === 'login' ? lastEmail() : ''));
   // Known email: the password is what is left to type.
@@ -209,10 +206,10 @@ export function AuthScreen({ mode, mock }: { mode: 'setup' | 'login'; mock: bool
           if (errs[k]) continue;
           errs[k] =
             k === 'email'
-              ? 'Serve un indirizzo email valido.'
+              ? s.emailInvalid
               : k === 'password'
-                ? `La password deve avere almeno ${PASSWORD_MIN_LENGTH} caratteri.`
-                : 'Inserisci il codice di avvio (lo trovi dove hai lanciato “monsters start”).';
+                ? s.passwordShort(PASSWORD_MIN_LENGTH)
+                : s.codeMissing;
         }
         setFieldErrors(errs);
         frownFor('missing');
@@ -233,7 +230,7 @@ export function AuthScreen({ mode, mock }: { mode: 'setup' | 'login'; mock: bool
       return;
     }
     if (!email.trim() || !password) {
-      setError('Scrivi email e password.');
+      setError(s.emailAndPassword);
       frownFor('missing');
       return;
     }
@@ -256,18 +253,18 @@ export function AuthScreen({ mode, mock }: { mode: 'setup' | 'login'; mock: bool
   const setupMode = mode === 'setup';
   const status: { tone?: string; text: string } =
     phase === 'awake'
-      ? { tone: 'ok', text: 'Sveglio' }
+      ? { tone: 'ok', text: s.status.awake }
       : phase === 'busy'
-        ? { tone: 'signal', text: 'Controllo' }
+        ? { tone: 'signal', text: s.status.busy }
         : phase === 'refused'
-          ? { tone: 'stop', text: refusal === 'missing' ? 'Manca qualcosa' : 'Rifiutato' }
-          : { text: 'In attesa' };
+          ? { tone: 'stop', text: refusal === 'missing' ? s.status.missing : s.status.refused }
+          : { text: s.status.waiting };
 
   return (
     <DeviceFrame testId="auth-device">
       {/* The top of the faceplate: what the device is doing, in words and a light. */}
       <div className="mb-3 flex items-center justify-between px-1">
-        <span className="label text-ink-muted">{setupMode ? 'Prima accensione' : 'Accesso'}</span>
+        <span className="label text-ink-muted">{setupMode ? s.headerSetup : s.headerLogin}</span>
         <span className="label flex items-center gap-2 text-ink-muted" role="status">
           {/* Checking is a wait: the dashes run in place of the light. */}
           {phase === 'busy' ? (
@@ -290,12 +287,10 @@ export function AuthScreen({ mode, mock }: { mode: 'setup' | 'login'; mock: bool
           id={`${uid}-title`}
           className="text-title1 leading-tight font-bold tracking-[-0.02em] text-ink"
         >
-          {setupMode ? 'Crea il tuo account' : 'Accedi'}
+          {setupMode ? s.titleSetup : s.titleLogin}
         </h1>
         <p className="mt-1.5 text-body text-balance text-ink-muted">
-          {setupMode
-            ? 'Monsters gira sul tuo computer. L’account serve solo a te, per entrare.'
-            : 'Bentornato! Entra con l’email e la password che hai scelto al primo avvio.'}
+          {setupMode ? s.introSetup : s.introLogin}
         </p>
       </div>
 
@@ -307,7 +302,7 @@ export function AuthScreen({ mode, mock }: { mode: 'setup' | 'login'; mock: bool
         data-testid={setupMode && appCode ? 'setup-code-from-app' : undefined}
         className="mt-6 grid gap-4"
       >
-        <Field id={`${uid}-email`} label="Email" error={fe('email')}>
+        <Field id={`${uid}-email`} label={s.email} error={fe('email')}>
           <Input
             id={`${uid}-email`}
             type="email"
@@ -322,9 +317,9 @@ export function AuthScreen({ mode, mock }: { mode: 'setup' | 'login'; mock: bool
         </Field>
         <Field
           id={`${uid}-password`}
-          label="Password"
+          label={s.password}
           error={fe('password')}
-          hint={setupMode ? `Almeno ${PASSWORD_MIN_LENGTH} caratteri.` : undefined}
+          hint={setupMode ? s.passwordHint(PASSWORD_MIN_LENGTH) : undefined}
         >
           <Input
             id={`${uid}-password`}
@@ -340,17 +335,18 @@ export function AuthScreen({ mode, mock }: { mode: 'setup' | 'login'; mock: bool
         {setupMode && !appCode && (
           <Field
             id={`${uid}-setupCode`}
-            label="Codice di avvio"
+            label={s.setupCode}
             error={fe('setupCode')}
             hint={
               import.meta.env.DEV && mock ? (
                 <>
-                  Modalità prova: il codice è{' '}
+                  {s.demoCode}{' '}
                   <strong className="font-mono font-semibold text-ink">{MOCK_SETUP_CODE}</strong>.
                 </>
               ) : (
                 <>
-                  Lo trovi dove hai lanciato{' '}
+                  {s.codeBefore}
+                  {/* i18n-ignore: a command */}
                   <code className="font-mono text-ink-muted">monsters start</code>.
                 </>
               )
@@ -384,13 +380,7 @@ export function AuthScreen({ mode, mock }: { mode: 'setup' | 'login'; mock: bool
           data-pressed={phase === 'awake' ? 'true' : undefined}
           className={cn('mt-2 w-full', phase === 'awake' && 'disabled:opacity-100')}
         >
-          {phase === 'awake'
-            ? 'Entro…'
-            : busy
-              ? 'Un attimo…'
-              : setupMode
-                ? 'Crea account'
-                : 'Entra'}
+          {phase === 'awake' ? s.entering : busy ? s.wait : setupMode ? s.create : s.signIn}
         </Button>
       </form>
       {!setupMode && (

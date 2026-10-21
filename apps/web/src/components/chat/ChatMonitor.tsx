@@ -10,9 +10,10 @@ import { fitDots } from '../monster/MonsterScreen.tsx';
 import { openTerminalAt } from '../terminal/focus.ts';
 import { Meter } from '../ui/Meter.tsx';
 import { ContextKey } from '../usage/ContextKey.tsx';
+import { chatStrings } from './chat.strings.ts';
 
-/** "Dietro le quinte" (the agent terminal): the label of the UI, "terminale" in the tooltip. */
-export const behindTheScenes = (name: string) => `Dietro le quinte di ${name}`;
+/** "Behind the scenes" (the agent terminal): the label of the UI, "terminal" in the tooltip. */
+export const behindTheScenes = (name: string) => chatStrings().monitor.behind(name);
 
 /** Height of the monitor and of the creature on it (docs/design.md, "Monitor del mostro"). */
 const MONITOR_H = 76;
@@ -54,24 +55,25 @@ export function ChatMonitor({
     (live.mood === 'working' || live.mood === 'talking' || live.mood === 'waiting');
   const kick = useKick(busy);
   const size = fitDots(200, CREATURE_H, 0);
+  const s = chatStrings().monitor;
 
   let status: ReactNode;
   if (halted) {
     // The halt band says why: the monitor only says how the monster is.
-    status = <span className="truncate text-screen-muted">dorme</span>;
+    status = <span className="truncate text-screen-muted">{s.asleep}</span>;
   } else if (asking) {
     status = (
       <span className="text-screen-signal flex min-w-0 items-center gap-2">
         <span aria-hidden className="led" data-tone="signal" data-blink="" />
-        <span className="truncate @max-[460px]:hidden">aspetta una tua risposta</span>
-        <span className="truncate @min-[460px]:hidden">domanda per te</span>
+        <span className="truncate @max-[460px]:hidden">{s.waitingAnswer}</span>
+        <span className="truncate @min-[460px]:hidden">{s.questionForYou}</span>
       </span>
     );
   } else if (live.mood === 'error') {
     status = (
       <span className="flex min-w-0 items-start gap-2 text-screen-stop">
         <span aria-hidden className="led mt-1" data-tone="stop" />
-        <span className="line-clamp-2">{live.activity ?? 'ha un problema'}</span>
+        <span className="line-clamp-2">{live.activity ?? s.problem}</span>
       </span>
     );
   } else if (busy && live.confused) {
@@ -85,7 +87,7 @@ export function ChatMonitor({
           ?
         </span>
         <span className="label truncate @max-[460px]:hidden">{CONFUSED_TEXT}</span>
-        <span className="label truncate @min-[460px]:hidden">cambia strada</span>
+        <span className="label truncate @min-[460px]:hidden">{s.changingCourse}</span>
       </span>
     );
   } else if (busy) {
@@ -93,12 +95,12 @@ export function ChatMonitor({
       <span className="flex min-w-0 items-start gap-2 text-screen-ink">
         <Meter active color={lit} className="monitor-meter mt-[3px] shrink-0" />
         <span className="line-clamp-2">
-          {live.activity ?? (live.mood === 'talking' ? 'sta scrivendo…' : 'al lavoro…')}
+          {live.activity ?? (live.mood === 'talking' ? s.writing : s.atWork)}
         </span>
       </span>
     );
   } else if (noModel) {
-    status = <span className="text-screen-muted">in attesa di un modello</span>;
+    status = <span className="text-screen-muted">{s.waitingModel}</span>;
   } else {
     status = <span className="truncate text-screen-muted">{roleText}</span>;
   }
@@ -134,7 +136,7 @@ export function ChatMonitor({
           <p
             className="label shrink-0 text-screen-muted @max-[1320px]:hidden"
             data-testid="chat-summary"
-            title="Questa conversazione: strumenti usati, tempo di lavoro, costo"
+            title={s.summaryTitle}
           >
             {summary}
           </p>
@@ -147,12 +149,12 @@ export function ChatMonitor({
             className="screen-key"
             onClick={() => openTerminalAt(agent.id)}
             aria-label={behindTheScenes(agent.name)}
-            title="Dietro le quinte: il terminale, con il ragionamento e gli strumenti passo per passo"
+            title={s.behindTitle}
             data-testid="behind-the-scenes"
           >
             <TerminalWindow size={18} aria-hidden />
             <span className="label @max-[860px]:hidden" aria-hidden>
-              Dietro le quinte
+              {s.behindLabel}
             </span>
           </button>
           <NewConversationKey agent={agent} disabled={!canStartOver} />
@@ -163,6 +165,7 @@ export function ChatMonitor({
 }
 
 function NewConversationKey({ agent, disabled }: { agent: AgentView; disabled: boolean }) {
+  const s = chatStrings().monitor;
   const [busy, setBusy] = useState(false);
   const start = async () => {
     setBusy(true);
@@ -180,12 +183,12 @@ function NewConversationKey({ agent, disabled }: { agent: AgentView; disabled: b
       className="screen-key"
       onClick={() => void start()}
       disabled={disabled || busy}
-      aria-label="Nuova conversazione"
-      title={`Nuova conversazione con ${agent.name}`}
+      aria-label={s.newConversation}
+      title={s.newConversationWith(agent.name)}
     >
       <NotePencil size={18} aria-hidden />
       <span className="label @max-[860px]:hidden" aria-hidden>
-        Nuova conversazione
+        {s.newConversation}
       </span>
     </button>
   );

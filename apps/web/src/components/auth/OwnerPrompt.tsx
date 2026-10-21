@@ -4,6 +4,7 @@ import { domId } from '../../lib/utils.ts';
 import { answerOwnerPrompt, confirmOwner, errorText, useApp } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Field, Input } from '../ui/field.tsx';
+import { authStrings } from './auth.strings.ts';
 
 /*
  * "Conferma che sei tu" (review of 18/10, M1). Approvals, permissions, the cap, the
@@ -21,6 +22,7 @@ export function OwnerPrompt() {
 }
 
 function OwnerDialog({ reason }: { reason: 'owner' | 'recent' }) {
+  const s = authStrings().owner;
   const ids = domId(useId());
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -64,14 +66,12 @@ function OwnerDialog({ reason }: { reason: 'owner' | 'recent' }) {
       >
         <form onSubmit={(e) => void submit(e)} noValidate className="grid gap-4">
           <h2 id={`${ids}-title`} className="text-title2 font-semibold">
-            Conferma che sei tu
+            {s.title}
           </h2>
           <p id={`${ids}-text`} className="text-body leading-snug text-ink-muted">
-            {reason === 'owner'
-              ? 'Questa la decidi solo tu. L’app è entrata da sola con il token del terminale, che anche un mostro con il Terminale può leggere: per approvare, dare permessi o cambiare Telegram serve la tua password.'
-              : 'Dare il Terminale a un mostro, abbinare Telegram o accendere gli strumenti per gli altri vuole la tua password degli ultimi minuti: scrivila di nuovo.'}
+            {reason === 'owner' ? s.owner : s.recent}
           </p>
-          <Field id={`${ids}-password`} label="Password" error={error}>
+          <Field id={`${ids}-password`} label={s.password} error={error}>
             <Input
               id={`${ids}-password`}
               type="password"
@@ -84,10 +84,10 @@ function OwnerDialog({ reason }: { reason: 'owner' | 'recent' }) {
           </Field>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" type="button" onClick={() => answerOwnerPrompt(false)}>
-              Annulla
+              {s.cancel}
             </Button>
             <Button type="submit" disabled={busy || !password}>
-              {busy ? 'Controllo…' : 'Conferma'}
+              {busy ? s.checking : s.confirm}
             </Button>
           </div>
         </form>

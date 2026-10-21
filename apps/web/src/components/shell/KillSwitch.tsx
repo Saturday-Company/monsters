@@ -4,6 +4,7 @@ import { playSound } from '../../lib/sound.ts';
 import { cn } from '../../lib/utils.ts';
 import { killAll, resumeAll, resumeAndContinue, useApp } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
+import { shellStrings } from './shell.strings.ts';
 
 /*
  * Ferma (docs/design.md, "Il binario superiore"): a guarded switch, as in a
@@ -44,6 +45,7 @@ export function ResumeButton({
   continueWork?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
+  const s = shellStrings().halt;
   return (
     <Button
       variant={variant}
@@ -56,7 +58,7 @@ export function ResumeButton({
       }}
     >
       {(continueWork || variant === 'primary') && <Play size={16} weight="fill" aria-hidden />}
-      {continueWork ? 'Riprendi e continua' : 'Riprendi'}
+      {continueWork ? s.resumeAndContinue : s.resume}
     </Button>
   );
 }
@@ -71,6 +73,7 @@ export function armKillSwitch(): void {
 }
 
 export function KillSwitch({ compact = false }: { compact?: boolean }) {
+  const s = shellStrings().kill;
   const halted = useApp((s) => s.halted);
   const working = useAnyoneWorking();
   const [armed, setArmed] = useState(false);
@@ -133,7 +136,7 @@ export function KillSwitch({ compact = false }: { compact?: boolean }) {
     void killAll();
   };
 
-  const word = state === 'halted' ? 'Riprendi' : 'Ferma';
+  const word = state === 'halted' ? s.resume : s.stop;
   const led = state === 'halted' ? 'stop' : working || state === 'armed' ? 'signal' : undefined;
 
   return (
@@ -149,15 +152,15 @@ export function KillSwitch({ compact = false }: { compact?: boolean }) {
         }
       }}
       disabled={busy}
-      aria-label={state === 'halted' ? 'Riprendi' : 'Ferma tutti i mostri'}
+      aria-label={state === 'halted' ? s.resume : s.stopAll}
       aria-keyshortcuts={state === 'halted' ? undefined : isMac ? 'Meta+.' : 'Control+.'}
       aria-describedby={state === 'armed' ? 'kill-armed-hint' : undefined}
       title={
         state === 'halted'
-          ? 'Riprendi: i mostri tornano al lavoro'
+          ? s.resumeTitle
           : state === 'armed'
-            ? 'Premi di nuovo per fermare tutti i mostri'
-            : `Ferma tutti i mostri (${isMac ? '⌘.' : 'Ctrl+.'})`
+            ? s.armedTitle
+            : s.idleTitle(isMac ? '⌘.' : 'Ctrl+.')
       }
       data-testid={state === 'halted' ? 'resume' : 'kill'}
       data-state={state}
@@ -182,7 +185,7 @@ export function KillSwitch({ compact = false }: { compact?: boolean }) {
         />
         {state === 'armed' ? (
           // The whole sentence is in the title and in the announcement below.
-          <span className="label text-micro text-stop-ink">Di nuovo</span>
+          <span className="label text-micro text-stop-ink">{s.again}</span>
         ) : compact ? null : (
           <span
             className={cn('label text-micro', state === 'halted' ? 'text-ink' : 'text-stop-ink')}
@@ -192,7 +195,7 @@ export function KillSwitch({ compact = false }: { compact?: boolean }) {
         )}
       </span>
       <span id="kill-armed-hint" role="status" className="sr-only">
-        {state === 'armed' ? 'Copertura alzata: premi di nuovo per fermare tutti i mostri.' : ''}
+        {state === 'armed' ? s.armedHint : ''}
       </span>
     </button>
   );

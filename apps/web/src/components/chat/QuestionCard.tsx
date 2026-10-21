@@ -19,6 +19,7 @@ import { playSound } from '../../lib/sound.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { Button, KeyCap } from '../ui/button.tsx';
 import { Input } from '../ui/field.tsx';
+import { chatStrings } from './chat.strings.ts';
 
 /** The letters of the keypad, one per option (2-4 options). */
 export const KEYPAD_LETTERS = ['A', 'B', 'C', 'D'] as const;
@@ -49,24 +50,14 @@ export function keypadAccepts(
   return tag !== 'INPUT' && tag !== 'SELECT';
 }
 
-/** "A, B o C": the letters of a keypad of `n` options, in words. */
+/** "A, B or C": the letters of a keypad of `n` options, in words. */
 export function lettersText(n: number): string {
-  const l = KEYPAD_LETTERS.slice(0, Math.max(0, Math.min(n, KEYPAD_LETTERS.length)));
-  if (l.length <= 1) return l.join('');
-  return `${l.slice(0, -1).join(', ')} o ${l.at(-1)}`;
+  return chatStrings().composer.letters(
+    KEYPAD_LETTERS.slice(0, Math.max(0, Math.min(n, KEYPAD_LETTERS.length))),
+  );
 }
 
 type ExpiredWhy = LogEvent<'question_expired'>['data']['reason'];
-
-/** Why a question closed without an answer, in words. */
-const EXPIRED_TEXT: Record<NonNullable<ExpiredWhy> | 'other', string> = {
-  kill: 'Non hai risposto: hai fermato i mostri.',
-  run_aborted: 'Non hai risposto: il lavoro si è fermato.',
-  restart: 'Non hai risposto: Monsters si è riavviato.',
-  agent_archived: 'Non hai risposto: il mostro è stato tolto dalla squadra.',
-  run_ended: 'Non serve più: il lavoro è finito senza questa azione.',
-  other: 'La domanda è scaduta.',
-};
 
 /**
  * The expiry of a question and whether the work went on afterwards (a new run
@@ -86,21 +77,22 @@ function expiryOf(
   return { why: e.data.reason, resumed };
 }
 
-/** A question that will never be answered: why, and "Chiedimelo di nuovo" when it makes sense. */
+/** A question that will never be answered: why, and "Ask me again" when it makes sense. */
 function Expired({ q }: { q: Question }) {
+  const s = chatStrings().question;
   const halted = useApp((s) => s.halted);
   const events = useApp((s) => s.events);
   const expiry = useMemo(() => expiryOf(events, q), [events, q]);
   const [sent, setSent] = useState(false);
   const why = expiry?.why;
-  // While stopped, "Riprendi e continua" in the halt band does it: the key comes after.
+  // While stopped, "Resume and continue" in the halt band does it: the key comes after.
   const again = !halted && why !== 'agent_archived' && !expiry?.resumed && !sent;
   return (
     <div className="grid gap-2.5 px-4 pt-2.5 pb-4" data-testid="question-expired" data-why={why}>
       <p className="flex items-center gap-2 text-body text-ink-muted">
         {/* An unlit light, never the tick of "done": nobody answered. */}
         <span aria-hidden className="led" data-tone={why === 'kill' ? 'stop' : undefined} />
-        <span>{EXPIRED_TEXT[why ?? 'other']}</span>
+        <span>{s.expired[why ?? 'other']}</span>
       </p>
       {again && (
         <div>
@@ -117,7 +109,7 @@ function Expired({ q }: { q: Question }) {
             }}
           >
             <ArrowClockwise size={16} aria-hidden />
-            Chiedimelo di nuovo
+            {s.askAgain}
           </Button>
         </div>
       )}
@@ -142,7 +134,7 @@ export function QuestionCard({
   /**
    * The card has its own field for words: where no composer answers it (the
    * page of an automation round, D-096). In the collaudo of 17/10 an open
-   * question of a round said "Rispondi qui sotto, nel campo dei messaggi" on a
+   * question of a round said "Answer below, in the message field" on a
    * page without one, and could be answered only from the CLI.
    */
   answerField?: boolean;
@@ -153,6 +145,7 @@ export function QuestionCard({
 }
 
 function QuestionBody({ q, answerField }: { q: Question; answerField: boolean }) {
+  const s = chatStrings().question;
   const agent = useAgent(q.from);
   const halted = useApp((s) => s.halted);
   const active = useContext(ActiveKeypad) === q.id;
@@ -249,9 +242,7 @@ function QuestionBody({ q, answerField }: { q: Question; answerField: boolean })
           />
         )}
         <div className="min-w-0 flex-1">
-          <p className="label text-ink-muted">
-            {agent?.name ?? 'Un mostro'} {open ? 'ti chiede' : 'ti aveva chiesto'}
-          </p>
+          <p className="label text-ink-muted">{s.asks(agent?.name ?? s.someone, open)}</p>
           <h3
             id={`${uid}-q`}
             className="mt-0.5 text-large leading-snug font-semibold text-pretty text-ink"
@@ -264,7 +255,7 @@ function QuestionBody({ q, answerField }: { q: Question; answerField: boolean })
       {open ? (
         <div className="grid gap-2 px-3 pt-3.5 pb-3">
           {!freeOnly && (
-            <ul className="grid gap-2.5" aria-label="Opzioni">
+            <ul className="grid gap-2.5" aria-label={s.options}>
               {options.map((o, i) => {
                 const rec = o.id === q.recommended;
                 const letter = KEYPAD_LETTERS[i];
@@ -297,10 +288,10 @@ function QuestionBody({ q, answerField }: { q: Question; answerField: boolean })
                       {rec && (
                         <span className="label inline-flex shrink-0 items-center gap-2 text-signal-ink">
                           <span aria-hidden className="led" data-tone="signal" />
-                          Consigliata
+                          {s.recommended}
                         </span>
                       )}
-                      {busy === o.id && <span className="sr-only">Invio in corso</span>}
+                      {busy === o.id && <span className="sr-only">{s.sendingSr}</span>}
                     </button>
                   </li>
                 );
@@ -311,20 +302,20 @@ function QuestionBody({ q, answerField }: { q: Question; answerField: boolean })
             {/* Parked (D-078): the monster ended its turn, the answer starts it again. */}
             {q.parked && !halted && (
               <span className="light-on block" data-testid="question-parked">
-                {agent?.name ?? 'Il mostro'} ha messo in pausa il lavoro: riparte quando rispondi.
+                {s.parked(agent?.name ?? s.theMonster)}
               </span>
             )}
             {halted
-              ? 'Riprendi i mostri per rispondere.'
+              ? s.resumeToAnswer
               : answerField
                 ? freeOnly
-                  ? 'Scrivi la tua risposta qui sotto.'
-                  : 'Oppure scrivi la tua risposta qui sotto.'
+                  ? s.writeBelow
+                  : s.orWriteBelow
                 : freeOnly
-                  ? 'Rispondi qui sotto, nel campo dei messaggi.'
+                  ? s.answerBelow
                   : active && keyboard
-                    ? `Premi ${lettersText(options.length)} sulla tastiera, oppure scrivi la tua risposta qui sotto.`
-                    : 'Oppure scrivi la tua risposta qui sotto.'}
+                    ? s.press(lettersText(options.length))
+                    : s.orWriteBelow}
           </p>
           {answerField && !halted && (
             <form
@@ -333,16 +324,16 @@ function QuestionBody({ q, answerField }: { q: Question; answerField: boolean })
               data-testid="question-answer-form"
             >
               <Input
-                aria-label={`Risposta a ${agent?.name ?? 'il mostro'}`}
+                aria-label={s.answerTo(agent?.name ?? s.answerToDefault)}
                 value={words}
                 onChange={(e) => setWords(e.target.value)}
                 maxLength={5000}
                 disabled={locked}
-                placeholder="La tua risposta"
+                placeholder={s.placeholder}
                 data-testid="question-answer-input"
               />
               <Button type="submit" disabled={locked || words.trim() === ''}>
-                Rispondi
+                {s.answer}
               </Button>
             </form>
           )}
@@ -356,8 +347,8 @@ function QuestionBody({ q, answerField }: { q: Question; answerField: boolean })
         <p className="flex items-center gap-2 px-4 pt-2.5 pb-4 text-body text-ink-muted">
           <CheckCircle size={20} weight="fill" aria-hidden className="shrink-0 text-ink" />
           <span>
-            {freeOnly || !q.answer?.optionId ? 'Hai risposto:' : 'Hai scelto:'}{' '}
-            <strong className="font-semibold text-ink">{chosen ?? 'risposta inviata'}</strong>
+            {freeOnly || !q.answer?.optionId ? s.youAnswered : s.youChose}{' '}
+            <strong className="font-semibold text-ink">{chosen ?? s.sent}</strong>
           </span>
         </p>
       ) : (

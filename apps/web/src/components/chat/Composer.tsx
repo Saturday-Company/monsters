@@ -17,13 +17,14 @@ import {
 } from '../../store/app.ts';
 import { useAgents, useConnection, useMediaQuery, type AgentView } from '../../store/hooks.ts';
 import { openChat } from '../../lib/router.ts';
-import { cn, toName } from '../../lib/utils.ts';
+import { cn } from '../../lib/utils.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { Button, KeyCap } from '../ui/button.tsx';
 import { lettersText } from './QuestionCard.tsx';
 import { ACCEPT } from '../../lib/files.ts';
 import { FileChip } from '../files/FileChip.tsx';
 import { useAttachments } from './attachments.ts';
+import { chatStrings } from './chat.strings.ts';
 
 /** Where the user manages the plan usage of the apps (OpenAI's SIWC guidelines). */
 export const CHATGPT_USAGE_URL = 'https://chatgpt.com/settings/usage';
@@ -105,23 +106,18 @@ export function composerPlaceholder(o: {
   /** A real keyboard (no touch-first pointer): the letters can press the keypad. Defaults to `wide`. */
   keyboard?: boolean;
 }): string {
-  if (o.noModel) return 'Prima collega un modello';
-  if (o.offline)
-    return o.wide
-      ? 'Non collegato: scrivi pure, il messaggio resta qui'
-      : 'Non collegato: il messaggio resta qui';
-  if (o.halted)
-    return o.wide
-      ? 'Scrivi: il messaggio parte quando premi Riprendi'
-      : 'Parte quando premi Riprendi';
+  const s = chatStrings().composer;
+  if (o.noModel) return s.connectFirst;
+  if (o.offline) return o.wide ? s.offlineWide : s.offlineNarrow;
+  if (o.halted) return o.wide ? s.haltedWide : s.haltedNarrow;
   if (o.question) {
-    if (o.question.options === 0) return `Rispondi ${toName(o.question.from)}`;
+    if (o.question.options === 0) return s.answer(o.question.from);
     // With a keyboard the letters press the keys of the keypad (QuestionCard).
     return (o.keyboard ?? o.wide)
-      ? `Scrivi ${toName(o.question.from)}, oppure premi ${lettersText(o.question.options)}`
-      : `Rispondi ${toName(o.question.from)} o scegli un’opzione`;
+      ? s.writeOrPress(o.question.from, lettersText(o.question.options))
+      : s.answerOrPick(o.question.from);
   }
-  return o.wide ? `Scrivi ${toName(o.name)}… (@ per un altro mostro)` : `Scrivi ${toName(o.name)}…`;
+  return o.wide ? s.writeWide(o.name) : s.writeNarrow(o.name);
 }
 
 /**
@@ -140,6 +136,7 @@ export function Composer({
   question?: ComposerQuestion | null;
   noModel?: boolean;
 }) {
+  const s = chatStrings().composer;
   const agents = useAgents();
   const halted = useApp((s) => s.halted);
   const offline = useConnection() === 'closed';
@@ -285,11 +282,11 @@ export function Composer({
         <ul
           id={listId}
           role="listbox"
-          aria-label="Scegli un mostro"
+          aria-label={s.pickMonster}
           className="popover rise-in absolute bottom-full left-0 z-40 mb-2 w-[min(360px,100%)] overflow-hidden rounded-[14px] p-1.5"
         >
           <li role="presentation" className="label px-2.5 pt-1.5 pb-1 text-ink-muted">
-            Scrivi a
+            {s.writeTo}
           </li>
           {suggestions.map((a, i) => (
             <li key={a.id} role="option" aria-selected={i === active}>
@@ -322,7 +319,7 @@ export function Composer({
             className="flex flex-wrap items-center gap-x-1.5 px-1.5 text-footnote text-ink-muted"
             data-testid="chatgpt-plan-indicator"
           >
-            <span className="font-medium text-ink">Using ChatGPT plan</span>
+            <span className="font-medium text-ink">{s.usingPlan}</span>
             <span aria-hidden>·</span>
             <a
               href={CHATGPT_USAGE_URL}
@@ -330,15 +327,16 @@ export function Composer({
               rel="noreferrer"
               className="underline decoration-from-font underline-offset-2 hover:text-ink"
             >
-              Manage usage
+              {s.manageUsage}
             </a>
           </p>
         )}
         {elsewhere && (
           <p className="flex items-center gap-1.5 px-1.5 text-footnote text-ink-muted">
             <At size={16} weight="bold" aria-hidden />
-            Lo mando a <strong className="font-semibold text-ink">{elsewhere.name}</strong>, nella
-            sua chat
+            {s.sendBefore}
+            <strong className="font-semibold text-ink">{elsewhere.name}</strong>
+            {s.sendAfter}
           </p>
         )}
         {canAnswer && text.trim() && !mentioning && (
@@ -350,15 +348,16 @@ export function Composer({
               <>
                 <ArrowBendDownRight size={16} weight="bold" aria-hidden />
                 <span>
-                  Risposta alla domanda di{' '}
+                  {s.answeringBefore}
                   <strong className="font-semibold text-ink">{question.from}</strong>
+                  {s.answeringAfter}
                 </span>
                 {!question.blocking && (
                   <button
                     type="button"
                     onClick={() => setNotAnswerTo(question.id)}
-                    aria-label="Non è una risposta: manda un messaggio normale"
-                    title="Non è una risposta: manda un messaggio normale"
+                    aria-label={s.notAnswer}
+                    title={s.notAnswer}
                     className="key ml-0.5 inline-flex size-6 items-center justify-center rounded-[6px] text-ink-muted hover:text-ink"
                   >
                     <X size={11} weight="bold" aria-hidden />
@@ -367,13 +366,13 @@ export function Composer({
               </>
             ) : (
               <>
-                <span>Messaggio normale: la domanda di {question.from} resta aperta · </span>
+                <span>{s.normalMessage(question.from)}</span>
                 <button
                   type="button"
                   onClick={() => setNotAnswerTo(null)}
                   className="font-medium text-signal-ink hover:underline"
                 >
-                  È una risposta
+                  {s.itIsAnswer}
                 </button>
               </>
             )}
@@ -387,18 +386,18 @@ export function Composer({
             className="flex items-center gap-1.5 px-1.5 text-footnote text-ink-muted"
           >
             <WifiSlash size={16} weight="bold" aria-hidden />
-            Monsters sul computer non risponde: il messaggio resta qui, lo mandi appena torna.
+            {s.offlineNote}
           </p>
         )}
         {halted && !offline && !noModel && text.trim() && (
           <p className="flex items-center gap-1.5 px-1.5 text-footnote text-ink-muted">
-            <PauseCircle size={16} weight="bold" aria-hidden />I mostri sono fermi: lo mando quando
-            premi Riprendi
+            <PauseCircle size={16} weight="bold" aria-hidden />
+            {s.haltedNote}
           </p>
         )}
         {attaching && (
           <ul
-            aria-label="Allegati"
+            aria-label={s.attachments}
             className="flex flex-wrap gap-2 px-0.5 pb-0.5"
             data-testid="composer-attachments"
           >
@@ -417,7 +416,7 @@ export function Composer({
         )}
         {files.uploading && (
           <p className="sr-only" role="status">
-            Carico gli allegati: il messaggio parte quando hanno finito.
+            {s.uploading}
           </p>
         )}
         <div className="composer-well well flex min-h-[52px] items-end gap-2 p-1.5 pl-1">
@@ -440,15 +439,15 @@ export function Composer({
             type="button"
             onClick={() => picker.current?.click()}
             disabled={noModel}
-            aria-label="Allega un file"
-            title="Allega immagini o documenti (anche incolla o trascina)"
+            aria-label={s.attach}
+            title={s.attachTitle}
             data-testid="composer-attach"
             className="key-ghost inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink disabled:opacity-50"
           >
             <Paperclip size={20} aria-hidden />
           </button>
           <label htmlFor="composer-input" className="sr-only">
-            Messaggio
+            {s.message}
           </label>
           <textarea
             id="composer-input"
@@ -489,12 +488,12 @@ export function Composer({
             variant={ready ? 'primary' : 'secondary'}
             onClick={() => void submit()}
             disabled={!ready}
-            aria-label={answering ? 'Invia la risposta' : 'Invia'}
-            title={offline ? 'Non collegato: Monsters sul computer non risponde' : undefined}
+            aria-label={answering ? s.sendAnswer : s.send}
+            title={offline ? s.sendOffline : undefined}
             aria-keyshortcuts="Enter"
             className="label h-10 shrink-0 gap-2 px-4 text-micro font-semibold disabled:opacity-60"
           >
-            <span className="max-sm:hidden">Invia</span> <span aria-hidden>↵</span>
+            <span className="max-sm:hidden">{s.send}</span> <span aria-hidden>↵</span>
           </Button>
         </div>
       </div>

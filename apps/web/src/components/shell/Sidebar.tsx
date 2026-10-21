@@ -28,6 +28,7 @@ import { useProjects } from '../../store/projects.ts';
 import { ChatList, isMac } from '../chat/ChatList.tsx';
 import { useChats } from '../chat/useChats.ts';
 import { ComputerSwitcher } from './ComputerSwitcher.tsx';
+import { shellStrings } from './shell.strings.ts';
 import { SIDEBAR_WIDTH } from './Toolbar.tsx';
 
 /*
@@ -76,6 +77,7 @@ function NavTile({
     openPage(href);
   };
   const sc = keys ? shortcut(keys) : null;
+  const t = shellStrings().sidebar;
   return (
     <a
       href={href}
@@ -83,9 +85,7 @@ function NavTile({
       aria-current={current ? 'page' : undefined}
       aria-keyshortcuts={sc?.aria}
       aria-label={
-        waiting > 0
-          ? `${label}: ${waiting === 1 ? 'un giro aspetta una risposta' : `${waiting} giri aspettano una risposta`}`
-          : label
+        waiting > 0 ? `${label}: ${waiting === 1 ? t.waitingOne : t.waitingMany(waiting)}` : label
       }
       title={sc ? `${label} (${sc.shown})` : label}
       data-testid={testId}
@@ -142,6 +142,7 @@ function NavRow({
     openPage(href);
   };
   const sc = keys ? shortcut(keys) : null;
+  const t = shellStrings().sidebar;
   return (
     <a
       href={href}
@@ -160,11 +161,7 @@ function NavRow({
         <span className="flex items-center gap-1.5" data-testid="nav-waiting">
           <span aria-hidden className="led" data-tone="signal" data-blink="" />
           <span className="label text-ink">{waiting}</span>
-          <span className="sr-only">
-            {waiting === 1
-              ? 'un giro aspetta una risposta'
-              : `${waiting} giri aspettano una risposta`}
-          </span>
+          <span className="sr-only">{waiting === 1 ? t.waitingOne : t.waitingMany(waiting)}</span>
         </span>
       )}
       {sc && (
@@ -204,7 +201,7 @@ function ArchivedProjects({
           aria-hidden
           className={cn('turn', open && 'rotate-90')}
         />
-        Progetti archiviati · {archived.length}
+        {shellStrings().sidebar.archived(archived.length)}
       </button>
       {open && (
         <ul className="grid gap-0.5 pt-0.5">
@@ -226,6 +223,7 @@ function ArchivedProjects({
 
 export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
   const { agents, threads, waiting } = useChats();
+  const t = shellStrings().sidebar;
   const orch = useOrchestrator();
   const param = useHashParam('chat');
   const events = useApp((s) => s.events);
@@ -248,7 +246,7 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
       <NavRow
         href={projectPath(null)}
         icon={<Plus size={20} aria-hidden />}
-        label="Nuovo progetto"
+        label={t.newProject}
         current={route === 'project' && newProject}
         testId="project-new"
       />
@@ -257,11 +255,11 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
   );
 
   const sections = (
-    <nav aria-label="Sezioni" className="grid gap-1">
+    <nav aria-label={t.sections} className="grid gap-1">
       <NavRow
         href={PATHS.automations}
         icon={<ClockCountdown size={20} aria-hidden />}
-        label="Automazioni"
+        label={t.nav.automations.label}
         current={route === 'automations'}
         keys="2"
         waiting={waitingGiri}
@@ -269,21 +267,21 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
       <NavRow
         href={PATHS.vault}
         icon={<Notebook size={20} aria-hidden />}
-        label="Note"
+        label={t.nav.notes.label}
         current={route === 'vault'}
         keys="3"
       />
       <NavRow
         href={PATHS.files}
         icon={<Files size={20} aria-hidden />}
-        label="File"
+        label={t.nav.files.label}
         current={route === 'files'}
         keys="4"
       />
       <NavRow
         href={PATHS.log}
         icon={<ListBullets size={20} aria-hidden />}
-        label="Attività"
+        label={t.nav.log.label}
         current={route === 'log'}
         keys="5"
       />
@@ -292,14 +290,14 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
 
   return (
     <aside
-      aria-label="Barra laterale"
+      aria-label={t.sidebar}
       data-testid="sidebar"
       className={cn('flex min-h-0 shrink-0 flex-col bg-chassis', phone && 'w-full')}
       style={phone ? undefined : { width: SIDEBAR_WIDTH }}
     >
       {agents.length === 0 ? (
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-2">
-          <p className="px-3 py-4 text-body text-ink-muted">La squadra non c’è ancora.</p>
+          <p className="px-3 py-4 text-body text-ink-muted">{t.noSquad}</p>
         </div>
       ) : (
         <ChatList
@@ -319,15 +317,15 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
         <div aria-hidden className="seam-h mx-0 mb-1" />
         {short ? (
           <nav
-            aria-label="Sezioni"
+            aria-label={t.sections}
             className="-mx-1.5 grid grid-cols-5 gap-0.5"
             data-testid="sidebar-tiles"
           >
             <NavTile
               href={PATHS.automations}
               icon={<ClockCountdown size={22} aria-hidden />}
-              label="Automazioni"
-              short="Auto"
+              label={t.nav.automations.label}
+              short={t.nav.automations.short}
               current={route === 'automations'}
               keys="2"
               waiting={waitingGiri}
@@ -335,32 +333,32 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
             <NavTile
               href={PATHS.vault}
               icon={<Notebook size={22} aria-hidden />}
-              label="Note"
-              short="Note"
+              label={t.nav.notes.label}
+              short={t.nav.notes.short}
               current={route === 'vault'}
               keys="3"
             />
             <NavTile
               href={PATHS.files}
               icon={<Files size={22} aria-hidden />}
-              label="File"
-              short="File"
+              label={t.nav.files.label}
+              short={t.nav.files.short}
               current={route === 'files'}
               keys="4"
             />
             <NavTile
               href={PATHS.log}
               icon={<ListBullets size={22} aria-hidden />}
-              label="Attività"
-              short="Attiv."
+              label={t.nav.log.label}
+              short={t.nav.log.short}
               current={route === 'log'}
               keys="5"
             />
             <NavTile
               href={PATHS.settings}
               icon={<GearSix size={22} aria-hidden />}
-              label="Impostazioni"
-              short="Impost."
+              label={t.nav.settings.label}
+              short={t.nav.settings.short}
               current={route === 'settings'}
               keys=","
             />
@@ -371,7 +369,7 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
             <NavRow
               href={PATHS.settings}
               icon={<GearSix size={20} aria-hidden />}
-              label="Impostazioni"
+              label={t.nav.settings.label}
               current={route === 'settings'}
               keys=","
             />

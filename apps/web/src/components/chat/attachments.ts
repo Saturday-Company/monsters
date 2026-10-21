@@ -11,6 +11,7 @@ import {
 import { getApi, notify } from '../../store/app.ts';
 import { useFiles } from '../../store/files.ts';
 import type { ChipFile } from '../files/FileChip.tsx';
+import { chatStrings } from './chat.strings.ts';
 
 /*
  * The files of the message being written (D-075): each one starts to upload
@@ -51,7 +52,7 @@ export function useAttachments(agentId: string) {
     (files: readonly File[]) => {
       const room = MESSAGE_MAX_ATTACHMENTS - live.current.length;
       if (files.length > room) {
-        notify(`Al massimo ${MESSAGE_MAX_ATTACHMENTS} allegati per messaggio.`, 'error');
+        notify(chatStrings().composer.tooMany(MESSAGE_MAX_ATTACHMENTS), 'error');
       }
       for (const raw of files.slice(0, Math.max(0, room))) {
         const name = pastedName(raw);

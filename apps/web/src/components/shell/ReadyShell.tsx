@@ -9,6 +9,7 @@ import { usePreview } from '../../store/preview.ts';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
 import { NewsSheet } from './NewsSheet.tsx';
 import { ReviewSheet } from './ReviewSheet.tsx';
+import { shellStrings } from './shell.strings.ts';
 import { Sidebar } from './Sidebar.tsx';
 import { HaltBanner, LinkBand, NoticeBar } from './StatusLayer.tsx';
 import { Toolbar, ToolbarProvider, useToolbarSlot } from './Toolbar.tsx';
@@ -37,19 +38,10 @@ const SettingsView = lazy(() =>
 function PageLoading() {
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center" aria-busy="true">
-      <span className="sr-only">Carico…</span>
+      <span className="sr-only">{shellStrings().loading}</span>
     </div>
   );
 }
-
-const TITLES: Record<Exclude<Route, 'home' | 'welcome'>, string> = {
-  automations: 'Automazioni',
-  project: 'Progetto',
-  log: 'Attività',
-  vault: 'Note',
-  files: 'File',
-  settings: 'Impostazioni',
-};
 
 /** The pages of the sidebar by their key with ⌘ / Ctrl (the labels of the sidebar). */
 const PAGE_KEYS: Readonly<Record<string, string>> = {
@@ -68,7 +60,7 @@ function usePageTitle(route: Route): string {
   if (route === 'home' || route === 'welcome') {
     return agents.find((a) => a.id === param)?.name ?? orch?.name ?? 'Monsters';
   }
-  return TITLES[route];
+  return shellStrings().titles[route];
 }
 
 export default function ReadyShell({ route }: { route: Route }) {

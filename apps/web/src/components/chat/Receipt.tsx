@@ -22,6 +22,7 @@ import {
   type Tone,
 } from '../../store/instinct.ts';
 import { usePrefs } from '../../store/prefs.ts';
+import { chatStrings } from './chat.strings.ts';
 
 /*
  * The receipt of a job in the chat (D-067, D-068): a display of the
@@ -81,15 +82,16 @@ function AgentName({ id, name }: { id: string; name: string }) {
 }
 
 function Delegations({ data, details }: { data: ReceiptData; details: boolean }) {
+  const s = chatStrings().receipt;
   return (
-    <Part title="Incarichi">
+    <Part title={s.tasks}>
       {data.delegations.map((d, i) => {
         const v = VERDICT[d.verdict];
         const meta = [
           // Each delegation has its own level (D-109): which model it got and why.
           delegationModelLine(d),
-          d.retried ? 'completato dopo un promemoria' : null,
-          details && d.steps !== undefined ? `${d.steps} passi` : null,
+          d.retried ? s.retried : null,
+          details && d.steps !== undefined ? s.steps(d.steps) : null,
         ]
           .filter(Boolean)
           .join(' · ');
@@ -113,11 +115,11 @@ function Delegations({ data, details }: { data: ReceiptData; details: boolean })
                     >
                       <p data-testid="receipt-criterion" data-ok={String(c.ok)}>
                         <span className="text-screen-ink">
-                          {c.kind === 'notes' ? 'Le note sono salvate davvero' : c.text}
+                          {c.kind === 'notes' ? s.notesSaved : c.text}
                         </span>
                         {c.reason && <span className="text-screen-muted"> · {c.reason}</span>}
                         {c.ok === null && !c.reason && (
-                          <span className="text-screen-muted"> · non controllato</span>
+                          <span className="text-screen-muted">{s.notChecked}</span>
                         )}
                       </p>
                     </Line>
@@ -133,15 +135,12 @@ function Delegations({ data, details }: { data: ReceiptData; details: boolean })
 }
 
 function UndoResult({ result }: { result: UndoRunResult }) {
+  const s = chatStrings().receipt;
   const files = [...new Set(result.undone.flatMap((u) => u.files))];
   const n = result.undone.length;
   return (
     <div className="grid gap-1.5" role="status" data-testid="receipt-undone">
-      <p className="label text-screen-ok">
-        {n === 0
-          ? 'Niente da annullare'
-          : `Annullato · ${n} ${n === 1 ? 'modifica riportata' : 'modifiche riportate'} indietro`}
-      </p>
+      <p className="label text-screen-ok">{n === 0 ? s.nothingToUndo : s.undone(n)}</p>
       {files.length > 0 && (
         <ul className="grid gap-1">
           {files.map((f) => (
@@ -155,9 +154,7 @@ function UndoResult({ result }: { result: UndoRunResult }) {
         <ul className="grid gap-1" data-testid="receipt-undo-failed">
           {result.failed.map((f) => (
             <Line key={f.actionId} mark="✗" tone="stop">
-              <span className="text-screen-stop">
-                {f.message || 'Non sono riuscito ad annullarla'}
-              </span>
+              <span className="text-screen-stop">{f.message || s.undoFailed}</span>
             </Line>
           ))}
         </ul>
@@ -168,6 +165,7 @@ function UndoResult({ result }: { result: UndoRunResult }) {
 
 /** "Annulla tutto il lavoro": two presses, like the cover of Ferma. */
 function UndoAll({ runId, onDone }: { runId: string; onDone: (r: UndoRunResult) => void }) {
+  const s = chatStrings().receipt;
   const [armed, setArmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -201,9 +199,7 @@ function UndoAll({ runId, onDone }: { runId: string; onDone: (r: UndoRunResult) 
         </p>
       )}
       {armed && (
-        <span className="text-screen-muted max-sm:basis-full max-sm:text-right">
-          Riporta indietro tutte le note di questo lavoro
-        </span>
+        <span className="text-screen-muted max-sm:basis-full max-sm:text-right">{s.rollBack}</span>
       )}
       <button
         type="button"
@@ -218,13 +214,11 @@ function UndoAll({ runId, onDone }: { runId: string; onDone: (r: UndoRunResult) 
             if (timer.current) clearTimeout(timer.current);
           }
         }}
-        aria-label={
-          armed ? 'Premi di nuovo per annullare tutto il lavoro' : 'Annulla tutto il lavoro'
-        }
-        title={armed ? 'Premi di nuovo: le note tornano come prima di questo lavoro' : undefined}
+        aria-label={armed ? s.undoArmedLabel : s.undoAll}
+        title={armed ? s.undoArmedTitle : undefined}
       >
         <span aria-hidden className="label">
-          {busy ? 'Annullo…' : armed ? 'Di nuovo' : 'Annulla tutto il lavoro'}
+          {busy ? s.undoing : armed ? s.again : s.undoAll}
         </span>
       </button>
     </div>
@@ -240,6 +234,7 @@ export function ReceiptBlock({
   latest: boolean;
 }) {
   const data = item.data;
+  const s = chatStrings().receipt;
   const nameOf = useNameOf();
   const details = usePrefs((p) => p.showDetails);
   const [open, setOpen] = useState(latest);
@@ -254,21 +249,16 @@ export function ReceiptBlock({
   const usedModels = receiptModels(data, details);
   const memories = receiptMemories(data);
   const summary = receiptSummary(data);
-  const outside = data.externalTools.map(
-    (t) =>
-      `${toolShort(t.tool)}${t.calls > 1 ? ` ×${t.calls}` : ''}${t.failed ? ` (${t.failed} non riusciti${t.why ? `: ${t.why}` : ''})` : ''}`,
+  const outside = data.externalTools.map((t) =>
+    s.outsideTool(toolShort(t.tool), t.calls, t.failed, t.why),
   );
   const alerts = [
-    data.alerts.injections > 0
-      ? `${data.alerts.injections === 1 ? 'Un testo' : `${data.alerts.injections} testi`} con ordini ai mostri ${data.alerts.injections === 1 ? 'tolto' : 'tolti'}`
-      : null,
-    data.alerts.stuck > 0
-      ? `${data.alerts.stuck === 1 ? 'Un mostro girava' : `${data.alerts.stuck} volte un mostro girava`} a vuoto: ha cambiato strada`
-      : null,
+    data.alerts.injections > 0 ? s.injections(data.alerts.injections) : null,
+    data.alerts.stuck > 0 ? s.stuck(data.alerts.stuck) : null,
   ].filter((a): a is string => a !== null);
   const footer = [
     receiptCost(data),
-    `${data.usage.modelCalls} ${data.usage.modelCalls === 1 ? 'passo' : 'passi'}`,
+    s.callsFooter(data.usage.modelCalls),
     formatDuration(data.durationMs),
   ]
     .filter(Boolean)
@@ -277,7 +267,7 @@ export function ReceiptBlock({
   return (
     <section
       className="receipt screen font-mono text-micro leading-[19px] text-screen-ink"
-      aria-label={`Ricevuta del lavoro: ${summary}`}
+      aria-label={s.label(summary)}
       data-testid="receipt"
       data-open={open ? 'true' : 'false'}
       data-run={item.runId}
@@ -289,12 +279,12 @@ export function ReceiptBlock({
         aria-controls={bodyId}
         className="row-key flex min-h-11 w-full items-center gap-3 rounded-[10px] px-4 py-2 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal"
       >
-        <span className="label shrink-0 text-screen-ink">Ricevuta</span>
+        <span className="label shrink-0 text-screen-ink">{s.receipt}</span>
         <span
           className="label min-w-0 flex-1 truncate text-screen-muted"
           data-testid="receipt-summary"
         >
-          {allUndone ? 'Lavoro annullato' : summary}
+          {allUndone ? s.jobUndone : summary}
         </span>
         <span className="label shrink-0 text-screen-muted max-sm:hidden">
           {formatTime(item.ts)}
@@ -308,10 +298,11 @@ export function ReceiptBlock({
       {open && (
         <div id={bodyId} className="grid gap-4 px-4 pt-1 pb-4">
           <p className="text-screen-ink" data-testid="receipt-request">
-            <span className="text-screen-muted">Richiesta · </span>«{originalRequest(data.request)}»
+            <span className="text-screen-muted">{s.request}</span>
+            {s.quote(originalRequest(data.request))}
           </p>
           {usedModels.length > 0 && (
-            <Part title="Modelli">
+            <Part title={s.models}>
               {usedModels.map((m) => (
                 <Line
                   key={m.agent}
@@ -328,7 +319,7 @@ export function ReceiptBlock({
           )}
           {data.delegations.length > 0 && <Delegations data={data} details={details} />}
           {(notes.length > 0 || memories.length > 0) && (
-            <Part title="Note">
+            <Part title={s.notes}>
               {notes.map((n) => (
                 <Line key={n.path} mark="◆" tone="ok">
                   <a
@@ -338,20 +329,18 @@ export function ReceiptBlock({
                   >
                     {baseName(n.path)}
                   </a>
-                  <span className="text-screen-muted"> · {NOTE_ACTION[n.action] ?? 'toccata'}</span>
+                  <span className="text-screen-muted"> · {NOTE_ACTION[n.action] ?? s.touched}</span>
                 </Line>
               ))}
               {memories.length > 0 && (
                 <Line mark="·">
-                  <span className="text-screen-muted">
-                    Appunti di {memories.join(', ')} aggiornati
-                  </span>
+                  <span className="text-screen-muted">{s.memories(memories.join(', '))}</span>
                 </Line>
               )}
             </Part>
           )}
           {(outside.length > 0 || data.outbound.length > 0) && (
-            <Part title="Fuori dal computer">
+            <Part title={s.outside}>
               {outside.length > 0 && (
                 <Line mark="↗">
                   <span className="text-screen-ink">{outside.join(' · ')}</span>
@@ -369,7 +358,7 @@ export function ReceiptBlock({
             </Part>
           )}
           {alerts.length > 0 && (
-            <Part title="Sicurezza">
+            <Part title={s.security}>
               {alerts.map((a) => (
                 <Line key={a} mark="!" tone="warn">
                   <span className="text-screen-ink">{a}</span>
@@ -382,16 +371,11 @@ export function ReceiptBlock({
               <p className="label text-screen-muted" data-testid="receipt-cost">
                 {footer}
                 {details && data.usage.instinctCalls > 0 && (
-                  <span className="max-sm:block">
-                    {' '}
-                    · decisioni dei mostri: {data.usage.instinctCalls}{' '}
-                    {data.usage.instinctCalls === 1 ? 'domanda' : 'domande'}
-                  </span>
+                  <span className="max-sm:block">{s.decisions(data.usage.instinctCalls)}</span>
                 )}
                 {details && (data.usage.compactionCalls ?? 0) > 0 && (
                   <span className="max-sm:block" data-testid="receipt-compaction">
-                    {' '}
-                    · riassunto della conversazione
+                    {s.summaryLine}
                     {data.usage.compactionCostUsd
                       ? ` ${formatUsd(data.usage.compactionCostUsd)}`
                       : ''}
@@ -405,7 +389,7 @@ export function ReceiptBlock({
             {result && <UndoResult result={result} />}
             {allUndone && !result && (
               <p className="label text-screen-ok" data-testid="receipt-undone">
-                Lavoro annullato: le note sono tornate come prima
+                {s.jobUndoneNotes}
               </p>
             )}
           </div>
