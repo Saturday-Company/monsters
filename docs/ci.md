@@ -1,198 +1,204 @@
 # CI
 
-Come si controlla Monsters prima e dopo un commit: GitHub Actions leggero sulle PR, la CI completa sui tre sistemi su
-GitHub Actions a ogni push su `main` (D-152), che è anche il cancello di ogni release; la CI locale su Linux, Mac e
-Windows resta come alternativa e ripiego (D-147), più la CI cloud facoltativa. I passi sono gli stessi ovunque
-(`scripts/ci-local.ts`); cambia dove girano. Firma e pubblicazione restano sulle macchine dei manutentori: su GitHub non
-c'è nessun segreto.
+How Monsters is checked before and after a commit: lightweight GitHub Actions on pull requests, the full CI on the
+three systems on GitHub Actions at every push to `main` (D-152), which is also the gate of every release; the local CI
+on Linux, Mac and Windows stays as an alternative and a fallback (D-147), plus an optional cloud CI. The steps are the
+same everywhere (`scripts/ci-local.ts`); what changes is where they run. Signing and publishing stay on the
+maintainers' machines: GitHub holds no secrets.
 
 ## GitHub Actions
 
-`.github/workflows/ci.yml` ha due gruppi di job.
+`.github/workflows/ci.yml` has two groups of jobs.
 
-**Sulle pull request** (veloci, richiesti dal ruleset di `main`: `linux`, `unit (windows-latest)`,
+**On pull requests** (fast, required by the `main` ruleset: `linux`, `unit (windows-latest)`,
 `unit (macos-latest)`):
 
-- **`linux`:** install (`pnpm install --frozen-lockfile`), typecheck, lint (compreso `scripts/check-public.ts`, il
-  controllo che nel repo non ci siano dati privati), format check, test unitari (con `TZ=Pacific/Kiritimati`, D-148)
-  ed e2e della UI (Playwright: flussi con core finto, UI contro un core vero, onboarding).
-- **`unit (…)`, Windows e macOS:** typecheck e test unitari (timeout più lunghi su Windows, dove i test che avviano un
-  core vero o git sono più lenti).
+- **`linux`:** install (`pnpm install --frozen-lockfile`), typecheck, lint (including `scripts/check-public.ts`, the
+  check that no private data is in the repo), format check, unit tests (with `TZ=Pacific/Kiritimati`, D-148) and the
+  UI's e2e tests (Playwright: flows with a fake core, the UI against a real core, onboarding).
+- **`unit (…)`, Windows and macOS:** typecheck and unit tests (longer timeouts on Windows, where the tests that start
+  a real core or git are slower).
 
-Le PR da un fork non ricevono segreti (non ce ne sono comunque) e non aprono il cancello: i loro job girano il file del
-workflow del fork.
+Pull requests from a fork receive no secrets (there are none anyway) and don't open the gate: their jobs run the
+fork's workflow file.
 
-**A ogni push su `main` e a mano** (`workflow_dispatch`: `gh workflow run ci.yml --ref <branch>`, anche su un altro
-branch): la CI completa, `full (linux)`, `full (windows)` e `full (macos)`, che è `node scripts/ci-local.ts --github`.
-Gli stessi passi di `ci:local` pieno, nel checkout del runner (niente worktree), con l'uscita di ogni passo in un gruppo
-richiudibile del log del job:
+**On every push to `main` and by hand** (`workflow_dispatch`: `gh workflow run ci.yml --ref <branch>`, also on
+another branch): the full CI, `full (linux)`, `full (windows)` and `full (macos)`, which is `node scripts/ci-local.ts
+--github`. The same steps as the full `ci:local`, in the runner's checkout (no worktree), with the output of each
+step in a collapsible group of the job's log:
 
-| Passo | Linux (`ubuntu-24.04`) | Windows (`windows-latest`) | macOS (`macos-latest`, arm64) |
+| Step | Linux (`ubuntu-24.04`) | Windows (`windows-latest`) | macOS (`macos-latest`, arm64) |
 |---|---|---|---|
-| install, typecheck, check-public, lint, format, test | sì (test con `TZ=Pacific/Kiritimati`) | sì (timeout 30 s) | sì |
-| build della UI, e2e (mock, core vero, onboarding) | sì (Chromium con `--with-deps`) | sì | sì |
-| `build:core` + `smoke:bundle` (Node 24 ed Electron come Node) | sì | sì (senza lo stop con SIGTERM, che Windows non ha) | sì |
-| `package` (`desktop:install-test`) | AppImage + deb, in Xvfb; il deb in un chroot Ubuntu 24.04 (sudo senza password del runner) | installer NSIS **non firmato** (`MONSTERS_WIN_SIGN=off`), installato per utente, registrazione dalla finestra, disinstallato (`install-test --win`, `test-windows.ps1` senza certificato) | dmg arm64 firmato ad-hoc, **mai notarizzato** |
-| `update-e2e` (AppImage 0.0.1 → 0.0.2, firma del feed) | sì | no | no |
+| install, typecheck, check-public, lint, format, test | yes (tests with `TZ=Pacific/Kiritimati`) | yes (30 s timeout) | yes |
+| UI build, e2e (mock, real core, onboarding) | yes (Chromium with `--with-deps`) | yes | yes |
+| `build:core` + `smoke:bundle` (Node 24 and Electron as Node) | yes | yes (without the SIGTERM stop, which Windows doesn't have) | yes |
+| `package` (`desktop:install-test`) | AppImage + deb, in Xvfb; the deb in an Ubuntu 24.04 chroot (the runner's passwordless sudo) | **unsigned** NSIS installer (`MONSTERS_WIN_SIGN=off`), installed per user, registration from the window, uninstalled (`install-test --win`, `test-windows.ps1` without a certificate) | arm64 dmg signed ad-hoc, **never notarized** |
+| `update-e2e` (AppImage 0.0.1 → 0.0.2, feed signature) | yes | no | no |
 
-- Ambiente come in D-148: `MONSTERS_SECRETS=file`, `MONSTERS_EMBEDDINGS=off`, `TZ=Pacific/Kiritimati` per i test su
-  Linux; `CSC_IDENTITY_AUTO_DISCOVERY=false` e `MONSTERS_MAC_NOTARIZE=0` perché non si cerchi mai un'identità di firma.
-  Il lint gira con `--max-old-space-size=4096` (sul runner macOS da 7 GB il limite di default non basta).
-- Cache: lo store di pnpm (`setup-node`), e con `actions/cache` legata a `pnpm-lock.yaml` i download di Electron e di
-  electron-builder, il Chromium di Playwright e (Linux) l'immagine base di Ubuntu del test del deb.
-- Artifact: `ci-results-<sistema>` (JSON e log nel formato di `ci:local`, `runner: "github"`, 14 giorni) e
-  `packages-<sistema>` (AppImage e deb, exe, dmg; 3 giorni). Sono **build di prova** (feed su cui non risponde nessuno,
-  `publish-update.ts` le rifiuta) e non firmate: servono a provarle a mano, non a distribuirle.
-- Durata (ottobre 2026): circa 25 minuti su Linux e Windows, 32 su macOS (gli e2e con il core finto sono la parte più
-  lunga: 9-17 minuti). Timeout del job 90 minuti; `concurrency` per ref: un push nuovo su `main` ferma la run del
-  precedente.
+- Environment as in D-148: `MONSTERS_SECRETS=file`, `MONSTERS_EMBEDDINGS=off`, `TZ=Pacific/Kiritimati` for the tests
+  on Linux; `CSC_IDENTITY_AUTO_DISCOVERY=false` and `MONSTERS_MAC_NOTARIZE=0` so that a signing identity is never
+  looked for. Lint runs with `--max-old-space-size=4096` (on the 7 GB macOS runner the default limit isn't enough).
+- Cache: the pnpm store (`setup-node`), and with `actions/cache` tied to `pnpm-lock.yaml` the Electron and
+  electron-builder downloads, Playwright's Chromium and (Linux) the Ubuntu base image of the deb test.
+- Artifacts: `ci-results-<system>` (JSON and logs in the `ci:local` format, `runner: "github"`, 14 days) and
+  `packages-<system>` (AppImage and deb, exe, dmg; 3 days). They are **test builds** (a feed nobody answers on;
+  `publish-update.ts` refuses them) and unsigned: they are for trying by hand, not for distributing.
+- Duration (October 2026): about 25 minutes on Linux and Windows, 32 on macOS (the e2e tests with the fake core are
+  the longest part: 9-17 minutes). Job timeout 90 minutes; `concurrency` per ref: a new push to `main` stops the
+  previous run.
 
-I test non scaricano mai il modello di embedding (`MONSTERS_EMBEDDINGS=off`) e non toccano il portachiavi di sistema
+The tests never download the embedding model (`MONSTERS_EMBEDDINGS=off`) and never touch the system keychain
 (`MONSTERS_SECRETS=file`).
 
-## CI locale: `pnpm ci:local`
+## Local CI: `pnpm ci:local`
 
-Gli stessi passi dei job `full` di `ci.yml` su un checkout pulito del commit: in locale gli e2e girano solo su Linux, e
-il passo `package` (M3.5, D-048: i pacchetti vengono installati da zero, registrati dalla finestra e disinstallati; per
-il deb serve `sudo -n`) su Windows lo fa `ci:windows` nella VM. `smoke-bundle` prova il bundle sotto Node e sotto
-Electron come Node; dove il binario di Electron non c'è (`ELECTRON_SKIP_BINARY_DOWNLOAD=1`: la VM Windows, la CI
-cloud) solo sotto Node. Su Windows lo stop con SIGTERM non esiste: lo smoke termina il processo e lo dice. Circa 5-6
-minuti su una macchina a 16 core.
+The same steps as the `full` jobs of `ci.yml` on a clean checkout of the commit: locally the e2e tests only run on
+Linux, and the `package` step (M3.5, D-048: packages are installed from scratch, registered from the window and
+uninstalled; the deb needs `sudo -n`) is done on Windows by `ci:windows` in the VM. `smoke-bundle` tries the bundle
+under Node and under Electron as Node; where the Electron binary isn't there (`ELECTRON_SKIP_BINARY_DOWNLOAD=1`: the
+Windows VM, the cloud CI) only under Node. On Windows the SIGTERM stop doesn't exist: the smoke test kills the process
+and says so. About 5-6 minutes on a 16-core machine.
 
-| Opzione | Effetto |
+| Option | Effect |
 |---|---|
-| `--quick` | senza e2e né pacchetto |
-| `--no-package` | senza il passo `package` |
-| `--keep` | tiene la cartella di lavoro (utile per capire un rosso) |
-| `--commit <rev>` | prova quel commit invece di `HEAD` |
-| `--github` | modalità dei job `full` (sopra): nel checkout stesso, e2e e `package` su tutti e tre i sistemi, pacchetti copiati in `MONSTERS_CI_ARTIFACTS` |
+| `--quick` | without e2e and package |
+| `--no-package` | without the `package` step |
+| `--keep` | keeps the working folder (useful to understand a red) |
+| `--commit <rev>` | tries that commit instead of `HEAD` |
+| `--github` | the mode of the `full` jobs (above): in the checkout itself, e2e and `package` on all three systems, packages copied to `MONSTERS_CI_ARTIFACTS` |
 
-Esito in `ci-results/<data>-<commit>-<os>.json` + `.log` (cartella ignorata da git; il formato `CiResult` è in
+The result is in `ci-results/<date>-<commit>-<os>.json` + `.log` (folder ignored by git; the `CiResult` format is in
 `scripts/ci-local.ts`).
 
-**Hook facoltativo:** `git config core.hooksPath scripts/git-hooks` attiva un pre-push che lancia `ci:local --quick`.
+**Optional hook:** `git config core.hooksPath scripts/git-hooks` turns on a pre-push that runs `ci:local --quick`.
 
-## Un Mac raggiungibile via SSH: `pnpm ci:mac`
+## A Mac reachable over SSH: `pnpm ci:mac`
 
-Lancia `ci-local.ts` del commit su un Mac come utente `monsters-ci` (nel disegno, un utente senza privilegi che non
-vede i segreti di firma: vedi `docs/signing.md`), tutto in `~/monsters-ci` sul Mac; i risultati tornano nello stesso
-`ci-results/`. Anche qui c'è il passo `package` (dmg arm64, sempre firmato ad-hoc), saltabile con
-`--quick` / `--no-package`. `pnpm desktop:dist:mac` usa lo stesso script per i pacchetti firmati.
+Runs the commit's `ci-local.ts` on a Mac as the user `monsters-ci` (in the design, an unprivileged user that can't see
+the signing secrets: see `docs/signing.md`), everything in `~/monsters-ci` on the Mac; the results come back to the
+same `ci-results/`. Here too there is the `package` step (arm64 dmg, always signed ad-hoc), which can be skipped with
+`--quick` / `--no-package`. `pnpm desktop:dist:mac` uses the same script for the signed packages.
 
-Il Mac si configura da variabili d'ambiente oppure da `scripts/ci.local.env` (ignorato da git, righe `CHIAVE=valore`):
+The Mac is configured with environment variables or with `scripts/ci.local.env` (ignored by git, `KEY=value` lines):
 
 ```sh
 # scripts/ci.local.env
-MONSTERS_MAC_HOST=100.64.0.1          # indirizzo del Mac (LAN, VPN, Tailscale…)
-MONSTERS_MAC_USER=alice               # utente SSH sul Mac
-MONSTERS_MAC_KEY=~/.ssh/id_ed25519    # chiave SSH
+MONSTERS_MAC_HOST=100.64.0.1          # the Mac's address (LAN, VPN, Tailscale…)
+MONSTERS_MAC_USER=alice               # SSH user on the Mac
+MONSTERS_MAC_KEY=~/.ssh/id_ed25519    # SSH key
 ```
 
-**Exit 75** = il Mac è spento, irraggiungibile o occupato da un'altra run: riprova più tardi, non è un rosso del
-codice.
+**Exit 75** = the Mac is off, unreachable or busy with another run: try again later, it isn't a red of the code.
 
-## Una VM Windows locale: `pnpm ci:windows`
+## A local Windows VM: `pnpm ci:windows`
 
-`pnpm ci:windows [--keep] [--fresh] [--no-package] [--commit <rev>]` lancia `ci:local` in una VM Windows locale
-(QEMU/KVM) e riporta l'esito in `ci-results/`. La VM sta fuori dal repo, in `$MONSTERS_WINVM_DIR` (default
-`~/.local/share/monsters/winvm`: ISO di Windows, disco, risposte dell'installazione automatica) e riparte ogni volta
-dallo snapshot `ci-base`. Il passo `package` costruisce l'installer su Linux prima di accendere la VM e lo prova nella
-stessa accensione dopo `ci:local`.
+`pnpm ci:windows [--keep] [--fresh] [--no-package] [--commit <rev>]` runs `ci:local` in a local Windows VM
+(QEMU/KVM) and reports the result in `ci-results/`. The VM lives outside the repo, in `$MONSTERS_WINVM_DIR` (default
+`~/.local/share/monsters/winvm`: Windows ISO, disk, answers of the automatic installation) and starts again from the
+`ci-base` snapshot every time. The `package` step builds the installer on Linux before turning the VM on and tries it
+in the same run after `ci:local`.
 
-| Variabile | Default | Cosa fa |
+| Variable | Default | What it does |
 |---|---|---|
-| `MONSTERS_WINVM_DIR` | `~/.local/share/monsters/winvm` | cartella della VM |
-| `MONSTERS_WINVM_SSH_PORT` | 22522 | porta locale inoltrata all'SSH della VM |
-| `MONSTERS_WINVM_CPUS` | 6 | processori |
-| `MONSTERS_WINVM_MEM` | 6G | memoria (non lanciare build pesanti insieme alla VM) |
+| `MONSTERS_WINVM_DIR` | `~/.local/share/monsters/winvm` | the VM's folder |
+| `MONSTERS_WINVM_SSH_PORT` | 22522 | local port forwarded to the VM's SSH |
+| `MONSTERS_WINVM_CPUS` | 6 | processors |
+| `MONSTERS_WINVM_MEM` | 6G | memory (don't run heavy builds together with the VM) |
 
-`scripts/ci-windows.sh` contiene i comandi per creare e aggiornare la VM (`scripts/ci-windows.autounattend.xml` e
-`scripts/ci-windows.setup.ps1` per l'installazione automatica).
+`scripts/ci-windows.sh` holds the commands to create and update the VM (`scripts/ci-windows.autounattend.xml` and
+`scripts/ci-windows.setup.ps1` for the automatic installation).
 
-## Il cancello di ogni release: `pnpm release:ci` e `pnpm release:check`
+## The gate of every release: `pnpm release:ci` and `pnpm release:check`
 
-Non c'è più una CI serale (D-147). La CI completa sui tre sistemi deve essere verde **sul commit che esce**, e la release
-non parte senza. Da D-152 la fonte predefinita sono i job `full (…)` di GitHub Actions; i risultati locali restano come
-ripiego, sistema per sistema.
+There is no nightly CI any more (D-147). The full CI on the three systems must be green **on the commit that goes
+out**, and the release doesn't start without it. Since D-152 the default source is the `full (…)` jobs of GitHub
+Actions; local results stay as a fallback, system by system.
 
-- `pnpm release:ci [--commit <rev>] [--no-probe] [--no-wait]` (predefinito, GitHub): il commit deve essere su origin.
-  Se c'è già una run del workflow per quel commit avviata da un push o a mano, la segue (`gh run watch`); se non c'è,
-  la avvia (`gh workflow run ci.yml --ref <branch>` su un branch di origin che ha il commit in testa: un avvio a mano
-  parte da un branch, non da un hash); se l'ultima è rossa lo dice con il comando per rilanciare i job falliti
-  (`gh run rerun <id> --failed`). `--no-wait` la avvia o la indica e si ferma lì.
-- `pnpm release:ci --local [--commit <rev>] [--no-probe] [--no-status]`: come prima di D-152, lancia in fila
-  `ci:local`, `ci:windows` e `ci:mac` (con l'hash intero del commit) e si ferma al primo rosso. Mac con exit 75
-  (spento, irraggiungibile o occupato) è detto chiaramente e non è un rosso del codice: lo si accende e si rilancia.
-- In coda, in tutti e due i modi, gira sulla macchina locale la **sonda degli strumenti degli harness** (D5 della review del 19/10, D-127, `packages/core/test/fixtures/probe-harness-tools.ts`): avvia il vero
-  `claude` (e `codex`, se c'è) come lo avvia Monsters e controlla che ogni strumento che vede sia uno che può eseguire;
-  nessuna richiesta al modello, pochi secondi; senza `claude` (exit 3) è saltata, non rossa. `--no-probe` la salta; a
-  mano: `pnpm exec node packages/core/test/fixtures/probe-harness-tools.ts`.
-- **Stati su GitHub (solo `--local`).** I job `full (…)` sono già check run del commit; dopo una CI locale, in coda
-  (anche se un sistema è rosso) `release:ci --local` pubblica il risultato come *commit status* sul commit, così GitHub mostra la verifica fatta in locale: `local-ci/linux`, `local-ci/windows`, `local-ci/macos`
-  (success, failure o pending, con una descrizione corta tipo `ci:local full + package, 4m31s`) e `local-ci/release-gate`
-  (success solo se i tre sono verdi). Lo fa `pnpm ci:status [--commit <rev>] [--dry-run]` (`scripts/ci-status.ts`, la
-  mappatura è pura e testata), con `gh api -X POST repos/<owner>/<repo>/statuses/<sha>`; owner e repo vengono da
-  `git remote get-url origin` (predefinito `Saturday-Company/monsters`). Pubblica solo se il commit è su origin
-  (altrimenti spiega di fare prima il push e rilanciare `pnpm ci:status`). Nessun `target_url` e nessun percorso,
-  host o dato personale nelle descrizioni. `--dry-run` stampa i comandi `gh` senza eseguirli; `pnpm release:ci
-  --no-status` salta la pubblicazione. `pnpm ci:status` da solo non pubblica nulla se il commit ha già i tre job
-  `full (…)` verdi su GitHub (`--force` pubblica comunque).
-- `pnpm release:check [--commit <rev>] [--source auto|github|local]` (`scripts/release-gate.ts`) stampa lo stato del
-  cancello per quel commit ed esce 0 se è aperto, 1 se è chiuso. Un sistema conta se una delle due fonti lo ha verde
-  (`auto`, il predefinito; `MONSTERS_CI_GATE=github|local` o `--source` ne tiene una):
-  - **GitHub:** il check run `full (<sistema>)` del commit (`gh api repos/<owner>/<repo>/commits/<sha>/check-runs`),
-    concluso `success`, fatto da GitHub Actions in una run di `.github/workflows/ci.yml` avviata da un push o a mano in
-    questo stesso repo (letta con `gh api repos/<owner>/<repo>/actions/runs/<id>`). Una run di una pull request non
-    conta mai: la PR di un fork gira il workflow del fork, che può chiamare un job come vuole. Se GitHub non risponde
-    lo dice e resta il ripiego locale.
-  - **Locale:** in `ci-results/` un risultato dell'**hash intero** del commit con `mode: full`, `status: passed`, non
-    fatto su un checkout sporco e con il passo `package` passato (quindi né `--quick` né `--no-package`; su Windows il
-    passo `package` lo scrive `ci-windows.sh` nel risultato).
+- `pnpm release:ci [--commit <rev>] [--no-probe] [--no-wait]` (default, GitHub): the commit has to be on origin. If
+  there is already a run of the workflow for that commit started by a push or by hand, it follows it (`gh run
+  watch`); if there isn't, it starts one (`gh workflow run ci.yml --ref <branch>` on an origin branch that has the
+  commit at its tip: a manual start begins from a branch, not from a hash); if the last one is red it says so, with
+  the command to rerun the failed jobs (`gh run rerun <id> --failed`). `--no-wait` starts it or points to it and
+  stops there.
+- `pnpm release:ci --local [--commit <rev>] [--no-probe] [--no-status]`: as before D-152, it runs `ci:local`,
+  `ci:windows` and `ci:mac` in a row (with the commit's full hash) and stops at the first red. A Mac with exit 75
+  (off, unreachable or busy) is reported clearly and isn't a red of the code: turn it on and run again.
+- At the end, in both modes, the **harness tools probe** runs on the local machine (D5 of the review of 19/10, D-127,
+  `packages/core/test/fixtures/probe-harness-tools.ts`): it starts the real `claude` (and `codex`, if present) the way
+  Monsters starts it and checks that every tool it sees is one it can execute; no request to the model, a few seconds;
+  without `claude` (exit 3) it is skipped, not red. `--no-probe` skips it; by hand: `pnpm exec node
+  packages/core/test/fixtures/probe-harness-tools.ts`.
+- **Statuses on GitHub (`--local` only).** The `full (…)` jobs are already check runs of the commit; after a local CI,
+  at the end (even if a system is red) `release:ci --local` publishes the result as a *commit status* on the commit,
+  so that GitHub shows the check done locally: `local-ci/linux`, `local-ci/windows`, `local-ci/macos` (success,
+  failure or pending, with a short description such as `ci:local full + package, 4m31s`) and
+  `local-ci/release-gate` (success only if the three are green). It is done by `pnpm ci:status [--commit <rev>]
+  [--dry-run]` (`scripts/ci-status.ts`, the mapping is pure and tested), with `gh api -X POST
+  repos/<owner>/<repo>/statuses/<sha>`; owner and repo come from `git remote get-url origin` (default
+  `Saturday-Company/monsters`). It only publishes if the commit is on origin (otherwise it explains that you should
+  push first and run `pnpm ci:status` again). No `target_url` and no path, host or personal data in the descriptions.
+  `--dry-run` prints the `gh` commands without running them; `pnpm release:ci --no-status` skips the publication.
+  `pnpm ci:status` on its own publishes nothing if the commit already has the three `full (…)` jobs green on GitHub
+  (`--force` publishes anyway).
+- `pnpm release:check [--commit <rev>] [--source auto|github|local]` (`scripts/release-gate.ts`) prints the state of
+  the gate for that commit and exits 0 if it's open, 1 if it's closed. A system counts if either source has it green
+  (`auto`, the default; `MONSTERS_CI_GATE=github|local` or `--source` keeps one):
+  - **GitHub:** the commit's `full (<system>)` check run (`gh api repos/<owner>/<repo>/commits/<sha>/check-runs`),
+    concluded `success`, made by GitHub Actions in a run of `.github/workflows/ci.yml` started by a push or by hand
+    in this same repo (read with `gh api repos/<owner>/<repo>/actions/runs/<id>`). A pull request's run never
+    counts: a fork's PR runs the fork's workflow, which can call a job whatever it likes. If GitHub doesn't answer it
+    says so and the local fallback remains.
+  - **Local:** in `ci-results/`, a result for the commit's **full hash** with `mode: full`, `status: passed`, not made
+    on a dirty checkout and with the `package` step passed (so neither `--quick` nor `--no-package`; on Windows the
+    `package` step is written into the result by `ci-windows.sh`).
 
-  Se manca qualcosa dice cosa, per le due fonti, e quale comando lanciare. Un rosso più recente non cancella un verde
-  pieno dello stesso commit.
-- `pnpm desktop:publish` (feed `desktop` e GitHub Release) controlla il cancello su `HEAD` (le due fonti, come
-  `release:check`) e **rifiuta** di pubblicare se è chiuso. `--skip-ci-gate` lo scavalca con un avviso ben visibile; `--dry-run` lo mostra ma non si
-  ferma; i prefissi di prova (`desktop/e2e-<run>`) non sono release e non lo passano.
+  If something is missing it says what, for both sources, and which command to run. A more recent red doesn't cancel
+  a full green of the same commit.
+- `pnpm desktop:publish` (the `desktop` feed and the GitHub Release) checks the gate on `HEAD` (both sources, like
+  `release:check`) and **refuses** to publish if it's closed. `--skip-ci-gate` bypasses it with a very visible
+  warning; `--dry-run` shows it but doesn't stop; test prefixes (`desktop/e2e-<run>`) aren't releases and don't pass
+  through it.
 
-## CI cloud (facoltativa)
+## Cloud CI (optional)
 
-Un secondo parere su macchine pulite che non dipendono dalla tua. Gira **solo a orario e a mano, mai a un push**, per
-non consumare i crediti dei piani gratuiti. Le configurazioni sono `.circleci/config.yml` e `.gitlab-ci.yml`; ogni job
-lancia `scripts/ci-cloud.sh`:
+A second opinion on clean machines that don't depend on yours. It runs **only on a schedule and by hand, never on a
+push**, so as not to use up the credits of the free plans. The configurations are `.circleci/config.yml` and
+`.gitlab-ci.yml`; every job runs `scripts/ci-cloud.sh`:
 
-- `setup`: Node 24 ufficiale (scaricato da nodejs.org e controllato con `SHASUMS256.txt` se il runner non lo ha),
-  pnpm alla versione di `packageManager`, su Linux le librerie di sistema di Chromium per Playwright;
-- `run`: `node scripts/ci-local.ts --no-package` (install, typecheck, lint, format, test, build della UI, e2e solo su
-  Linux). Il passo `package` non gira nel cloud: vuole sudo, chroot, firma o VM.
+- `setup`: official Node 24 (downloaded from nodejs.org and checked with `SHASUMS256.txt` if the runner doesn't have
+  it), pnpm at the `packageManager` version, on Linux the system libraries of Chromium for Playwright;
+- `run`: `node scripts/ci-local.ts --no-package` (install, typecheck, lint, format, test, UI build, e2e on Linux
+  only). The `package` step doesn't run in the cloud: it needs sudo, chroot, signing or a VM.
 
-Il risultato è nello stesso formato della CI locale e resta tra gli artifact del job. Il binario di Electron non si
-scarica (`ELECTRON_SKIP_BINARY_DOWNLOAD=1`) e lo store di pnpm va in cache legata a `pnpm-lock.yaml`.
+The result is in the same format as the local CI and stays among the job's artifacts. The Electron binary isn't
+downloaded (`ELECTRON_SKIP_BINARY_DOWNLOAD=1`) and the pnpm store is cached, tied to `pnpm-lock.yaml`.
 
-- **CircleCI:** tre workflow (`linux`, `windows`, `macos`), ognuno acceso da un suo parametro `run-linux` /
-  `run-windows` / `run-macos`, falso per default. Li accendono solo le pianificazioni e i lanci a mano o via API;
-  inoltre ogni workflow si spegne se l'evento è `push` o `pull_request`. Conviene disattivare anche il trigger dei
-  push del progetto. Le pianificazioni sono in UTC (con fino a 10 minuti di ritardo casuale) e, per i progetti con la
-  GitHub App, si creano solo dal sito (Project Setup).
-- **GitLab.com:** `workflow:rules` crea una pipeline solo per `schedule`, `web` e `api`; la variabile
-  `CLOUD_CI_PLATFORMS` (`linux`, `windows` o `linux windows`) sceglie i job. Se il progetto GitLab è un mirror,
-  il push non crea pipeline. La variabile richiede che il ruolo minimo per usare le variabili di pipeline permetta
-  di impostarla.
+- **CircleCI:** three workflows (`linux`, `windows`, `macos`), each turned on by its own parameter `run-linux` /
+  `run-windows` / `run-macos`, false by default. Only schedules and manual or API launches turn them on; besides,
+  every workflow switches itself off if the event is `push` or `pull_request`. It's best to also turn off the
+  project's push trigger. Schedules are in UTC (with up to 10 minutes of random delay) and, for projects with the
+  GitHub App, can only be created from the website (Project Setup).
+- **GitLab.com:** `workflow:rules` creates a pipeline only for `schedule`, `web` and `api`; the `CLOUD_CI_PLATFORMS`
+  variable (`linux`, `windows` or `linux windows`) chooses the jobs. If the GitLab project is a mirror, a push
+  doesn't create pipelines. The variable requires that the minimum role allowed to use pipeline variables lets you set
+  it.
 
-**Esiti:** `pnpm ci:cloud-status` (`scripts/ci-cloud-status.ts`) legge le API dei servizi con i token del `.env` (ignorato
-da git) e stampa l'ultima run di `main` per servizio e sistema: esito, cosa l'ha lanciata, commit, ora, link. Con
-`--json` dà i dati grezzi. Esce con 1 se un'ultima run è rossa e con 2 se ci sono errori di API o di configurazione.
+**Results:** `pnpm ci:cloud-status` (`scripts/ci-cloud-status.ts`) reads the services' APIs with the tokens from `.env`
+(ignored by git) and prints the last run of `main` per service and system: result, what started it, commit, time,
+link. With `--json` it gives the raw data. It exits with 1 if a last run is red and with 2 if there are API or
+configuration errors.
 
 ```sh
 # .env
 CIRCLECI_TOKEN=...
-CIRCLECI_PROJECT_SLUG=circleci/<org>/<progetto>
+CIRCLECI_PROJECT_SLUG=circleci/<org>/<project>
 CIRCLECI_DEFINITION_ID=...
-GITLAB_TOKEN=glpat-...        # scope read_api (api per creare le pianificazioni)
-GITLAB_PROJECT=<gruppo>/monsters
+GITLAB_TOKEN=glpat-...        # read_api scope (api to create schedules)
+GITLAB_PROJECT=<group>/monsters
 ```
 
-Una run a mano su CircleCI si lancia dall'API con i parametri del workflow voluto (senza parametri non parte nulla):
+A manual run on CircleCI is launched from the API with the parameters of the workflow you want (without parameters
+nothing starts):
 
 ```sh
 curl -X POST "https://circleci.com/api/v2/project/$CIRCLECI_PROJECT_SLUG/pipeline/run" \
@@ -201,9 +207,9 @@ curl -X POST "https://circleci.com/api/v2/project/$CIRCLECI_PROJECT_SLUG/pipelin
        "checkout":{"branch":"main"},"parameters":{"run-windows":true}}'
 ```
 
-Su GitLab: Build > Pipelines > **Run pipeline** e scegli `CLOUD_CI_PLATFORMS`.
+On GitLab: Build > Pipelines > **Run pipeline** and choose `CLOUD_CI_PLATFORMS`.
 
-**Limiti noti.** Il passo `package` non gira nel cloud (i pacchetti sono provati dalla CI locale). Il lint usa più
-memoria del default di Node: `ci-cloud.sh` passa `--max-old-space-size=4096`. I minuti e i crediti dei piani gratuiti
-sono pochi: tieni le pianificazioni rade (CircleCI macOS costa molto più di Linux) e la conservazione di cache e
-artifact a pochi giorni.
+**Known limits.** The `package` step doesn't run in the cloud (packages are tried by the local CI). Lint uses more
+memory than Node's default: `ci-cloud.sh` passes `--max-old-space-size=4096`. The minutes and credits of the free
+plans are few: keep schedules sparse (CircleCI macOS costs much more than Linux) and the retention of caches and
+artifacts to a few days.

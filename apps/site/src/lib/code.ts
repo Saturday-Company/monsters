@@ -141,14 +141,13 @@ export function cliHelp(version: string): string {
 }
 
 /**
- * The Claude Desktop block of docs/mcp-vault.md, with the Italian placeholders in English and
- * without the optional MONSTERS_HOME line.
+ * The Claude Desktop block of docs/mcp-vault.md, without the optional MONSTERS_HOME line.
  */
 export function mcpConfig(): string {
   const doc = readFileSync(ROOT + 'docs/mcp-vault.md', 'utf8');
   const m = /## Claude Desktop[\s\S]*?```json\n([\s\S]*?)```/.exec(doc);
   if (!m?.[1]) throw new Error('site: the Claude Desktop block is gone from docs/mcp-vault.md');
-  return m[1].replace(/\/percorso\/di\//g, '/path/to/').replace(/,\n\s*"env": \{[^}]*\}/, '');
+  return m[1].replace(/,\n\s*"env": \{[^}]*\}/, '');
 }
 
 /** Rhea's agent.yaml exactly as the onboarding writes it (the core's own template). */

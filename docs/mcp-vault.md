@@ -1,68 +1,68 @@
-# Il vault di Monsters in Claude Desktop, Codex e Cursor
+# The Monsters notes in Claude Desktop, Codex and Cursor
 
-`monsters mcp` è un server MCP (stdio) che dà a un altro client AI gli strumenti del vault: cercare (per parole e
-per significato), leggere, scrivere, modificare, spostare, cestinare, vedere la cronologia e annullare.
+`monsters mcp` is an MCP server (stdio) that gives another AI client the tools of the notes (the vault): search (by
+words and by meaning), read, write, edit, move, trash, see the history and undo.
 
-## Come funziona
-- Il server MCP non apre il vault: inoltra ogni chiamata al core in esecuzione (HTTP su 127.0.0.1 con il token della
-  CLI). Il vault ha un solo scrittore, il core (D-002).
-- Serve il core acceso (`monsters start` o l'app). Se è spento, gli strumenti restano elencati e ogni chiamata
-  risponde «Monsters is not running: start it with "monsters start"…» (codice `not_running`: non è stato fatto
-  niente). Se il core è acceso ma non risponde entro 60 secondi la risposta è diversa (codice `timeout`, o
-  `connection_lost` se la connessione cade a metà): la chiamata potrebbe essere andata a buon fine, quindi prima di
-  ripetere una scrittura il client deve controllare con `vault_read` o `vault_history`. Con il kill switch attivo le
-  chiamate sono rifiutate finché non si fa `monsters resume`.
-- Il contenuto delle note (`vault_read`, `vault_search`) arriva al client dentro
-  `<dati_esterni fonte="…">…</dati_esterni>`, come agli agenti (D-021): sono dati, non istruzioni, e le istruzioni
-  del server MCP lo dicono al modello. Nel log delle azioni l'input delle chiamate è troncato come l'output.
-- Il client è un attore a sé, `mcp-<nome del client>` (per esempio `mcp-claude-ai`): ogni chiamata finisce nel log
-  delle azioni come quelle degli agenti, ogni modifica è un commit con quell'autore e si annulla dalla UI.
-- Permessi di un sottoagente: legge tutto tranne le note private e `Privato/`, crea note nuove in `Inbox/`, lavora
-  liberamente in `Agenti/MCP/`, modifica le note che ha scritto lui; per il resto usa `vault_propose`. Altre cartelle
-  si concedono in `MONSTERS_HOME/settings.json`:
+## How it works
+- The MCP server doesn't open the vault: it forwards every call to the running core (HTTP on 127.0.0.1 with the CLI
+  token). The vault has a single writer, the core (D-002).
+- The core has to be running (`monsters start` or the app). If it's off, the tools are still listed and every call
+  answers «Monsters is not running: start it with "monsters start"…» (code `not_running`: nothing was done). If the
+  core is running but doesn't answer within 60 seconds the answer is different (code `timeout`, or `connection_lost`
+  if the connection drops halfway): the call may have succeeded, so before repeating a write the client must check
+  with `vault_read` or `vault_history`. With the kill switch engaged, calls are refused until `monsters resume`.
+- The content of notes (`vault_read`, `vault_search`) reaches the client inside
+  `<dati_esterni fonte="…">…</dati_esterni>`, as it does for the agents (D-021): it is data, not instructions, and
+  the MCP server's instructions tell the model so. In the action log, the input of calls is truncated like the
+  output.
+- The client is an actor of its own, `mcp-<client name>` (for example `mcp-claude-ai`): every call ends up in the
+  action log like the agents' calls, every change is a commit with that author and can be undone from the UI.
+- A sub-agent's permissions: it reads everything except private notes and `Privato/`, creates new notes in `Inbox/`,
+  works freely in `Agenti/MCP/`, edits the notes it wrote itself; for anything else it uses `vault_propose`. Other
+  folders are granted in `MONSTERS_HOME/settings.json`:
 
   ```json
   { "mcp": { "write": ["Progetti/**"], "delete": [] } }
   ```
 
 ## Claude Desktop
-File di configurazione: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS),
+Configuration file: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS),
 `%APPDATA%\Claude\claude_desktop_config.json` (Windows), `~/.config/Claude/claude_desktop_config.json` (Linux).
 
 ```json
 {
   "mcpServers": {
     "monsters-vault": {
-      "command": "/percorso/di/node24/bin/node",
-      "args": ["/percorso/di/monsters/packages/cli/bin/monsters.js", "mcp"],
-      "env": { "MONSTERS_HOME": "/home/<utente>/.monsters" }
+      "command": "/path/to/node24/bin/node",
+      "args": ["/path/to/monsters/packages/cli/bin/monsters.js", "mcp"],
+      "env": { "MONSTERS_HOME": "/home/<user>/.monsters" }
     }
   }
 }
 ```
 
-Serve il percorso assoluto di Node 24 (Claude Desktop non vede il `PATH` della shell). `MONSTERS_HOME` va indicata
-solo se non è quella standard (`~/.monsters`). Per dare un nome fisso al client nel log: `"args": [..., "mcp",
-"--client", "Claude Desktop"]`. Dopo aver salvato, riavviare Claude Desktop.
+It needs the absolute path of Node 24 (Claude Desktop doesn't see the shell's `PATH`). Set `MONSTERS_HOME` only if
+it isn't the standard one (`~/.monsters`). To give the client a fixed name in the log: `"args": [..., "mcp",
+"--client", "Claude Desktop"]`. After saving, restart Claude Desktop.
 
-## Altri client
-- **Cursor**: stesso blocco `mcpServers` in `~/.cursor/mcp.json`.
+## Other clients
+- **Cursor**: the same `mcpServers` block in `~/.cursor/mcp.json`.
 - **Codex** (`~/.codex/config.toml`):
 
   ```toml
   [mcp_servers.monsters-vault]
-  command = "/percorso/di/node24/bin/node"
-  args = ["/percorso/di/monsters/packages/cli/bin/monsters.js", "mcp"]
+  command = "/path/to/node24/bin/node"
+  args = ["/path/to/monsters/packages/cli/bin/monsters.js", "mcp"]
   ```
 
-- **Claude Code**: `claude mcp add monsters-vault -- /percorso/di/node24/bin/node /percorso/di/monsters/packages/cli/bin/monsters.js mcp`.
+- **Claude Code**: `claude mcp add monsters-vault -- /path/to/node24/bin/node /path/to/monsters/packages/cli/bin/monsters.js mcp`.
 
-## Ricerca
-`vault_search` cerca per parole (con lo stemming italiano: «ricette» trova «ricetta») e per significato, con un
-modello di embedding locale (granite-embedding-97m multilingue, circa 120 MB) che il core scarica al primo avvio in
-`MONSTERS_HOME/models` e fa girare in background. Il modello è fissato a un commit del repository su Hugging Face e
-ogni file è controllato con il suo sha256, anche quelli già in cache: un file diverso viene cancellato e non si
-carica mai. Finché il modello non c'è (primo download, offline, worker caduto) la ricerca è solo per parole e il core
-riprova da solo con attese crescenti; le note appena scritte, non ancora indicizzate per significato, si trovano
-comunque per parole. `related_to` trova le note sullo stesso argomento di una nota. Per spegnere la ricerca per
-significato: `"semanticSearch": false` in `settings.json`.
+## Search
+`vault_search` searches by words (with Italian stemming: «ricette» finds «ricetta») and by meaning, with a local
+embedding model (multilingual granite-embedding-97m, about 120 MB) that the core downloads on first start into
+`MONSTERS_HOME/models` and runs in the background. The model is pinned to a commit of its Hugging Face repository and
+every file is checked against its sha256, including the ones already cached: a different file is deleted and never
+loaded. Until the model is there (first download, offline, worker down) search is by words only and the core retries
+by itself with growing waits; notes just written, not yet indexed by meaning, can still be found by words.
+`related_to` finds the notes on the same topic as a note. To turn off search by meaning: `"semanticSearch": false`
+in `settings.json`.

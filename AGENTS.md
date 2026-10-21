@@ -13,7 +13,7 @@ in `docs/security-model.md`. Most of `docs/` is in Italian.
   the vault's stdio MCP server for Claude Desktop and other clients (`docs/mcp-vault.md`); `chat` without text opens the
   interactive terminal chat, also over SSH. The Telegram bot lives in `packages/core/src/channels/telegram/`, with
   per-monster bots in `bots.ts` (one polling loop per token, one conversation per chat with `thread`); in tests use the
-  fake Bot API `packages/core/test/telegram-fake.ts`, never real bots. See `docs/remoto.md`.
+  fake Bot API `packages/core/test/telegram-fake.ts`, never real bots. See `docs/remote.md`.
 - Desktop app: `pnpm desktop:dev` (bundles the core, builds `apps/desktop`, runs Electron on your usual
   `MONSTERS_HOME`); `pnpm --filter @monsters/desktop test:e2e` (Playwright `_electron` under `xvfb-run`; needs
   `pnpm build:core`; the client-mode e2e tests use a throwaway sshd and skip without `/usr/sbin/sshd`;
@@ -69,7 +69,7 @@ in `docs/security-model.md`. Most of `docs/` is in Italian.
   generation (`src/onboarding/`), composition of vault, providers and team at startup (`src/hub.ts`).
 - `packages/providers`: `Provider` interface, registry, OpenRouter, fallback, pinned model, `RateBudget`; subscriptions:
   `chatgpt` with Sign in with ChatGPT (`src/chatgpt`), Claude Agent and Codex harnesses (`src/harness`); fake provider,
-  fake OpenAI and fake `claude`/`codex` binaries in `@monsters/providers/testing`. User guide in `docs/abbonamenti.md`.
+  fake OpenAI and fake `claude`/`codex` binaries in `@monsters/providers/testing`. User guide in `docs/subscriptions.md`.
 - `packages/tools`: built-in tools (`web_search` with a swappable backend, `web_fetch`, `shell` and `fs_*` on granted
   folders in `src/system/`); per-agent permissions are in `packages/core/src/team/permissions.ts`.
 - `packages/vault`: the Markdown vault (parser, index, git per action, trash, undo, MCP server).

@@ -1,5 +1,5 @@
 /*
- * The key pair of the update feed's signature (S-A4, docs/signing.md "Firma degli aggiornamenti").
+ * The key pair of the update feed's signature (S-A4, docs/signing.md "Update signing").
  *
  *   node apps/desktop/scripts/update-signing-key.ts generate --out <key file> [--install] [--plain]
  *       a new Ed25519 key pair: the private key in <key file> (mode 600, never inside this repo,

@@ -35,7 +35,7 @@ Website: <https://getmonsters.dev>
 - **Any model.** OpenRouter (free tier to start), Anthropic, OpenAI, Google, Mistral and Groq with your own keys, local
   Ollama and LM Studio. Each monster has its own model chain with fallbacks.
 - **Subscriptions you already have.** Claude Agent (Claude Code on your machine) and ChatGPT Plus/Pro, also through
-  Codex. See [`docs/abbonamenti.md`](docs/abbonamenti.md).
+  Codex. See [`docs/subscriptions.md`](docs/subscriptions.md).
 - **Connectors.** Any MCP server, plus a browser with a profile separate from yours. Terminal and file access are off
   by default and granted monster by monster.
 - **Obsidian-compatible vault.** Markdown with YAML frontmatter and wikilinks; list, graph, hybrid keyword and semantic
@@ -47,7 +47,7 @@ Website: <https://getmonsters.dev>
   the monsters out of external text. At the end of a job you get a receipt with "undo all the work".
 - **Remote.** Telegram from your phone (including dedicated bots per monster), or the terminal chat over SSH
   (`monsters chat`); the desktop app can also connect as a client to a core running elsewhere through an SSH tunnel.
-  See [`docs/remoto.md`](docs/remoto.md).
+  See [`docs/remote.md`](docs/remote.md).
 - **Control.** Action log for everything, daily and monthly spending caps (per project too), the **Ferma** kill switch,
   secrets in the system keychain.
 
@@ -94,8 +94,8 @@ Most technical documents are in **Italian**; the community files (README, CONTRI
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): every non-obvious technical decision, with context and rationale
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): phases and direction (English)
 - [`docs/security-model.md`](docs/security-model.md): threat model and defenses
-- [`docs/remoto.md`](docs/remoto.md): Telegram and SSH
-- [`docs/abbonamenti.md`](docs/abbonamenti.md): using Claude and ChatGPT subscriptions
+- [`docs/remote.md`](docs/remote.md): Telegram and SSH
+- [`docs/subscriptions.md`](docs/subscriptions.md): using Claude and ChatGPT subscriptions
 - [`docs/mcp-vault.md`](docs/mcp-vault.md): the vault as an MCP server
 - [`docs/signing.md`](docs/signing.md): packaging, signing and updates
 - [`docs/ci.md`](docs/ci.md): continuous integration

@@ -34,7 +34,7 @@ Sito: <https://getmonsters.dev>
 - **Qualsiasi modello.** OpenRouter (gratuito per cominciare), Anthropic, OpenAI, Google, Mistral e Groq con le tue
   chiavi, Ollama e LM Studio in locale. Ogni mostro ha la sua catena di modelli, con ripiego se uno non risponde.
 - **Gli abbonamenti che hai già.** Claude Agent (Claude Code sul tuo PC) e ChatGPT Plus/Pro, anche con Codex. Vedi
-  [`docs/abbonamenti.md`](docs/abbonamenti.md).
+  [`docs/subscriptions.md`](docs/subscriptions.md).
 - **Strumenti esterni.** Server MCP a tua scelta e un browser con un profilo separato dal tuo. Terminale e file sono
   spenti di default: li dai tu, mostro per mostro.
 - **Vault compatibile con Obsidian.** Markdown con frontmatter YAML e wikilink; elenco, grafo, ricerca per parole e per
@@ -46,7 +46,7 @@ Sito: <https://getmonsters.dev>
   mostri. A fine lavoro c'è una ricevuta con "Annulla tutto il lavoro".
 - **Da lontano.** Telegram dal telefono (anche con un bot dedicato per mostro), oppure la chat nel terminale via SSH
   (`monsters chat`); l'app desktop può anche collegarsi come client a un core che gira altrove, con un tunnel SSH. Vedi
-  [`docs/remoto.md`](docs/remoto.md).
+  [`docs/remote.md`](docs/remote.md).
 - **Controllo.** Log di ogni azione, tetti di spesa al giorno e al mese (anche per progetto), kill switch **Ferma**,
   segreti nel portachiavi del sistema.
 
@@ -94,8 +94,8 @@ inglese.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): ogni scelta tecnica non ovvia, con contesto e motivazione
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): fasi e direzione (in inglese)
 - [`docs/security-model.md`](docs/security-model.md): modello di minaccia e difese
-- [`docs/remoto.md`](docs/remoto.md): Telegram e SSH
-- [`docs/abbonamenti.md`](docs/abbonamenti.md): usare gli abbonamenti Claude e ChatGPT
+- [`docs/remote.md`](docs/remote.md): Telegram e SSH
+- [`docs/subscriptions.md`](docs/subscriptions.md): usare gli abbonamenti Claude e ChatGPT
 - [`docs/mcp-vault.md`](docs/mcp-vault.md): il vault come server MCP
 - [`docs/signing.md`](docs/signing.md): pacchetti, firma e aggiornamenti
 - [`docs/ci.md`](docs/ci.md): integrazione continua

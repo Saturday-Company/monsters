@@ -616,7 +616,7 @@ chip delle note in chat portano ancora al Log.
   dell'harness tradotti nel log; budget per run e kill switch (< 2 s) come gli altri agenti;
 - UI: blocco "Abbonamenti" con "Continue with ChatGPT", modale al primo uso, "Using ChatGPT plan" e "Manage usage"
   vicino al composer, schermata del limite d'uso; Claude Agent solo con le istruzioni per il terminale; guida in
-  `docs/abbonamenti.md` (tunnel `ssh -L 1455:127.0.0.1:1455` per un core remoto).
+  `docs/subscriptions.md` (tunnel `ssh -L 1455:127.0.0.1:1455` per un core remoto).
 **Prova reale (14/10/2026, Claude Agent con un account di prova):** compito con `vault_write` via MCP riuscito (nota, commit,
 log, `provider_usage`); kill switch che ferma `claude` in 589 ms; nessuna apertura di `~/.claude` da parte del core
 (strace: 0 su 8.408 operazioni).
@@ -657,7 +657,7 @@ rinnova il token in turni oltre la sua validità; `claude.cmd` su Windows; core 
 - notifiche decise da regole in `DecisionGate.notify` (uso 3 di ARCHITECTURE §5.5), con "silenzioso di notte": una
   domanda che blocca il lavoro arriva comunque, senza suono; ogni decisione nel log;
 - SSH (D-014): `monsters chat` senza testo è una chat interattiva con risposte in streaming, domande numerate e
-  `/stop`; guida in `docs/remoto.md` (chiavi SSH, tunnel `ssh -L`, sicurezza).
+  `/stop`; guida in `docs/remote.md` (chiavi SSH, tunnel `ssh -L`, sicurezza).
 **Aggiornamento (revisione dell'ondata 2, 14/10/2026):** invio con retry e backoff finché Telegram risponde (coda
 ordinata e limitata, rinuncia dopo 30 min); notifiche rimandate e messaggi delle domande in SQLite (reggono un
 riavvio; le domande vecchie perdono i pulsanti); whitelist ricontrollata a ogni consegna e risposte di un lavoro solo
@@ -957,7 +957,7 @@ periodica la chiuderebbe del tutto, se servirà.
 **Stato:** proposta · 15/10/2026 (parte senza Electron; il lato app arriva con M3.1)
 **Contesto:** il core remoto accetta solo l'Origin `http://{127.0.0.1,localhost,[::1]}:<la sua porta>` (D-013). La
 finestra dell'app carica la UI dal tunnel, `http://127.0.0.1:<porta locale>`: se la porta locale è diversa da quella
-del core, API e WebSocket rispondono 403. Per questo `remoto.md` chiede la stessa porta ai due lati. Ma la stessa porta
+del core, API e WebSocket rispondono 403. Per questo `remote.md` chiede la stessa porta ai due lati. Ma la stessa porta
 non è sempre libera: il core locale dell'app usa 4747, due profili remoti hanno la stessa porta, un altro programma la
 occupa.
 **Opzioni valutate:**
@@ -1368,7 +1368,7 @@ finto nel main), primo avvio del core remoto col codice via SSH, Origin riscritt
 senza filtro), Ferma tutto e Riprendi sul core remoto, ssh ucciso → banner e riconnessione sulla stessa porta, ripresa
 dalla sospensione, ritorno a "Questo PC" senza ssh rimasti; riavvio sul profilo con accesso automatico; chiave
 rifiutata → messaggio e "Usa questo PC". Suite dell'app (8 test) verde quattro giri di fila, ~30 s.
-**Aperto:** demo vera da un Mac su una rete privata (M3.6, istruzioni in `remoto.md`); macOS e Windows non provati
+**Aperto:** demo vera da un Mac su una rete privata (M3.6, istruzioni in `remote.md`); macOS e Windows non provati
 (dialoghi, banner col bordo `hiddenInset`, tray, l'`ssh` di Windows); host dietro ProxyJump (la chiave si accetta
 da terminale, D-044); nessun dialogo di scelta all'avvio (da confermare); anche con "Accesso automatico", una sessione
 che scade mentre la finestra è aperta chiede la password fino al prossimo collegamento.
