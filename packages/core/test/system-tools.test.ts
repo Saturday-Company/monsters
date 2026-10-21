@@ -132,19 +132,19 @@ describe('system tools in the hub', () => {
     };
     expect(await bad(join(folder, 'manca'))).toMatchObject({
       error: 'invalid_folder',
-      message: expect.stringContaining('non esiste') as unknown,
+      message: expect.stringContaining('doesn’t exist') as unknown,
     });
     expect(await bad('relativa/cartella')).toMatchObject({
-      message: expect.stringContaining('percorso completo') as unknown,
+      message: expect.stringContaining('full path') as unknown,
     });
     expect(await bad(t.core.hub.vault.root)).toMatchObject({
-      message: expect.stringContaining('cartella delle note') as unknown,
+      message: expect.stringContaining('notes folder') as unknown,
     });
     expect(await bad(join(t.core.hub.vault.root, 'Inbox'))).toMatchObject({
       error: 'invalid_folder',
     });
     expect(await bad(t.home)).toMatchObject({
-      message: expect.stringContaining('dati di Monsters') as unknown,
+      message: expect.stringContaining('Monsters data folder') as unknown,
     });
     const unknown = await t.api('PUT', '/api/permissions', {
       agents: { nessuno: { vault: true, web: true } },

@@ -8,7 +8,7 @@ import {
   RunBudget,
   runAgent,
   SpendMeter,
-  TRUNCATED_NOTE,
+  truncatedNote,
   type AgentDefinition,
   type CoreServices,
   type SpendSettings,
@@ -256,12 +256,12 @@ describe('answers cut short (F-M4)', () => {
     });
     const { result, events } = await run(env);
     expect(result.status).toBe('completed');
-    expect(result.text).toBe(`Le lune di Saturno sono: Mimas, Encelado, Te\n\n${TRUNCATED_NOTE}`);
-    expect(result.finalText).toContain(TRUNCATED_NOTE);
+    expect(result.text).toBe(`Le lune di Saturno sono: Mimas, Encelado, Te\n\n${truncatedNote()}`);
+    expect(result.finalText).toContain(truncatedNote());
     const notice = events.find((e) => e.type === 'error');
     expect(notice?.data).toMatchObject({ code: 'answer_truncated' });
     const answer = events.filter((e) => e.type === 'message' && !e.data.partial).at(-1);
-    expect(answer?.type === 'message' && answer.data.text).toContain('Scrivi «continua»');
+    expect(answer?.type === 'message' && answer.data.text).toContain('Type “continue”');
   });
 });
 

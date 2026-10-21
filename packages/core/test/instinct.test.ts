@@ -288,7 +288,7 @@ describe('done check ("finito davvero?")', () => {
     const check = new DoneChecker(system1(s, undefined));
     const r = await check.check({ ...brief, notesCreated: [] }, ctx);
     expect(r.verdict).toBe('incomplete');
-    expect(r.reminder).toMatch(/registro del vault/);
+    expect(r.reminder).toMatch(/notes log/);
     // A report that says it did not save anything is not a claim.
     const honest = await check.check(
       { ...brief, notesCreated: [], summary: 'Non ho salvato nulla: le pagine non si aprono.' },
@@ -301,7 +301,7 @@ describe('done check ("finito davvero?")', () => {
   it('counts in code: 2 suppliers declared for "almeno 3"', () => {
     expect(
       countShortfalls('almeno 3 fornitori con prezzo', 'Ho trovato 2 fornitori con prezzo.'),
-    ).toEqual(['servono 3 fornitori, il rapporto ne dichiara 2']);
+    ).toEqual(['needs 3 fornitori, the report declares 2']);
     expect(countShortfalls('due bozze salvate', 'Ho scritto due bozze.')).toEqual([]);
     // An upper bound is not a number to reach (d06 of the measure).
     expect(countShortfalls('massimo 10 righe con le decisioni', 'Riassunto in 8 righe.')).toEqual(
@@ -314,7 +314,7 @@ describe('done check ("finito davvero?")', () => {
         'Settimana 1 sostenibilità, settimana 2 ricette, settimana 3 dietro le quinte.',
         'Piano editoriale di ottobre',
       ),
-    ).toEqual(['serve un tema per ognuna delle 4 settimane, il rapporto ne elenca 3']);
+    ).toEqual(['needs one tema for each of the 4 weeks, the report lists 3']);
   });
 
   it('low band: a reminder; middle: doubt; high: verified (done_when and each constraint)', async () => {
@@ -555,7 +555,7 @@ describe('outbound actions: who can see or change something (D-073)', () => {
     });
     const removed = classifyOutbound(design('remove_member'), { member: 'marco@example.com' });
     expect(removed).toMatchObject({ category: 'contact', certain: true });
-    expect(removed!.meaning).toBe('togliere l’accesso a un’altra persona');
+    expect(removed!.meaning).toBe('take away another person’s access');
     expect(classifyOutbound(design('get_sharing'), {})).toBeNull();
     expect(classifyOutbound(design('list_members'), {})).toBeNull();
     expect(classifyOutbound(design('create_project'), {})).toMatchObject({ certain: false });
@@ -605,7 +605,7 @@ describe('outbound actions: who can see or change something (D-073)', () => {
     ).toMatchObject({ certain: false });
   });
 
-  it('the card says what it means: «togliere l’accesso», not «cancellare per sempre»', async () => {
+  it('the card says what it means: “take away access”, not “delete for good”', async () => {
     const s = services();
     const questions = new QuestionStore(s.db, s.log);
     const rules = resolveDecisionRules([]);
@@ -626,7 +626,7 @@ describe('outbound actions: who can see or change something (D-073)', () => {
     await new Promise((r) => setTimeout(r, 5));
     const [q] = questions.list({ status: 'open' });
     expect(q!.question).toBe(
-      'Rhea vuole usare «remove_member» di claude-design, cioè togliere l’accesso a un’altra persona. Procedo?',
+      'Rhea wants to use “remove_member” on claude-design, meaning take away another person’s access. Proceed?',
     );
     questions.answer(q!.id, { optionId: '2' }, 'ui');
     await expect(held).rejects.toThrow(/said no/);
@@ -670,7 +670,7 @@ describe('outbound actions: the brake (InstinctGuard)', () => {
     await new Promise((r) => setTimeout(r, 5));
     const [q] = questions.list({ status: 'open' });
     expect(q!.question).toMatch(
-      /^Rhea vuole usare «send_email» di gmail, cioè scrivere a terzi\. Procedo\?$/,
+      /^Rhea wants to use “send_email” on gmail, meaning write to third parties\. Proceed\?$/,
     );
     questions.answer(q!.id, { optionId: '1' }, 'ui');
     await expect(pending).resolves.toBeUndefined();
@@ -724,11 +724,11 @@ describe('outbound actions: the brake (InstinctGuard)', () => {
     expect(auto.err.message).toContain('It is not a no of the user');
     expect(auto.err.message).not.toMatch(/the user did not answer/i);
     expect(auto.event.data.message).toBe(
-      'Nessuna risposta (era un’automazione: l’utente non la stava seguendo): Rhea non ha fatto usare «send_email» di gmail.',
+      'No answer (it was an automation: the user wasn’t following it): Rhea didn’t use “send_email” on gmail.',
     );
     expect(auto.event.data.details).toMatchObject({
       outcome: 'expired',
-      unseen: 'era un’automazione: l’utente non la stava seguendo',
+      unseen: 'it was an automation: the user wasn’t following it',
     });
     // A Telegram chat with other people.
     expect((await expire(() => 'others')).err.message).toContain('other people were writing');
@@ -863,7 +863,7 @@ describe('outbound actions: the brake (InstinctGuard)', () => {
     await new Promise((r) => setTimeout(r, 5));
     const [r] = questions.list({ status: 'open' });
     expect(r!.question).toBe(
-      'Rhea vuole usare «search_threads» di gmail, cioè leggere o usare i tuoi dati in un altro programma (posta, documenti, calendari): quello che trova può finire nella risposta alla chat (richiesta di Livio su Telegram, non dell’utente). Procedo?',
+      'Rhea wants to use “search_threads” on gmail, meaning read or use your data in another app (mail, documents, calendars): what it finds may end up in the reply to the chat (richiesta di Livio su Telegram, non dell’utente). Proceed?',
     );
     questions.answer(r!.id, { optionId: '1' }, 'ui');
     await read;
@@ -881,7 +881,7 @@ describe('outbound actions: the brake (InstinctGuard)', () => {
     await new Promise((r) => setTimeout(r, 5));
     const [q] = questions.list({ status: 'open' });
     expect(q!.question).toBe(
-      'Rhea vuole usare «sync_board» di anteiku, cioè fare un’azione con un altro programma (cambia qualcosa fuori da Monsters) (richiesta di Livio su Telegram, non dell’utente). Procedo?',
+      'Rhea wants to use “sync_board” on anteiku, meaning do something with another app (it changes something outside Monsters) (richiesta di Livio su Telegram, non dell’utente). Proceed?',
     );
     expect(questions.kindOf(q!.id)).toBe('brake');
     questions.answer(q!.id, { optionId: '2' }, 'ui');

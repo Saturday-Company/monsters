@@ -205,7 +205,7 @@ describe('ask_user with an open question', () => {
     const decision = t
       .events(sent.runId)
       .find((e): e is LogEvent<'decision'> => e.type === 'decision');
-    expect(decision?.data.reason).toContain('domanda aperta');
+    expect(decision?.data.reason).toContain('open question');
   });
 
   it('refuses a single option with a clear error', async () => {

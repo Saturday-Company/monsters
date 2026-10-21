@@ -4,6 +4,7 @@ import { streamText } from 'ai';
 import { z } from 'zod';
 import { stepUsage } from '../agents/usage.ts';
 import type { EventLog } from '../log/event-log.ts';
+import { decisionStrings } from './decision.strings.ts';
 import { BANDS, gateRequest } from './instinct/questions.ts';
 import { unicodeWords, wordRegex } from './word-boundary.ts';
 
@@ -249,7 +250,7 @@ export class LlmDecisionPort implements DecisionPort {
       failure ??= err;
     }
     if (stopped && failure === undefined && !signal?.aborted) {
-      failure = new Error(`nessuna risposta entro ${Math.round(this.#timeoutMs / 1000)} s`);
+      failure = new Error(decisionStrings().noAnswerWithin(Math.round(this.#timeoutMs / 1000)));
     }
     if (failure !== undefined) {
       throw new DecisionPortError(errorMessage(failure), usage, 'provider_error');
@@ -677,15 +678,16 @@ export class DecisionGate {
    */
   notify(request: NotifyRequest): NotifyDecision {
     const decision = ((): NotifyDecision => {
-      if (!request.enabled) return { when: 'never', reason: 'notifiche di questo tipo spente' };
-      if (request.userActive) return { when: 'now', reason: 'l’utente sta usando il canale' };
+      const t = decisionStrings();
+      if (!request.enabled) return { when: 'never', reason: t.notifyOff };
+      if (request.userActive) return { when: 'now', reason: t.notifyUserActive };
       const quiet =
         request.quietHours.enabled && inQuietHours(request.quietHours, request.at ?? new Date());
-      if (!quiet) return { when: 'now', reason: 'fuori dalle ore di silenzio' };
+      if (!quiet) return { when: 'now', reason: t.notifyOutsideQuiet };
       if (request.kind === 'question' && request.blocking) {
-        return { when: 'silent', reason: 'ore di silenzio, ma il lavoro aspetta la risposta' };
+        return { when: 'silent', reason: t.notifyQuietBlocking };
       }
-      return { when: 'later', reason: 'ore di silenzio: arriva al risveglio' };
+      return { when: 'later', reason: t.notifyQuietLater };
     })();
     this.#log.append({
       agent: request.agent,
@@ -693,7 +695,7 @@ export class DecisionGate {
       type: 'decision',
       data: {
         kind: 'notify',
-        question: `Notifico ora o dopo? (${request.kind})`,
+        question: decisionStrings().notifyQuestion(request.kind),
         options: ['now', 'silent', 'later', 'never'],
         choice: decision.when,
         decidedBy: 'rules',
@@ -743,7 +745,7 @@ export class DecisionGate {
   async #decide(request: GateRequest, signal?: AbortSignal): Promise<GateDecisionWithDetail> {
     if (request.options.length === 0) {
       // Nothing to pick: only the user knows the answer.
-      return { outcome: 'ask', decidedBy: 'rules', reason: 'domanda aperta: risponde l’utente' };
+      return { outcome: 'ask', decidedBy: 'rules', reason: decisionStrings().openQuestion };
     }
     const text = [request.question, ...request.options].join('\n');
     // A kind declared "local" or "other" is the agent's word, not a fact: the words
@@ -757,7 +759,7 @@ export class DecisionGate {
       return {
         outcome: 'ask',
         decidedBy: 'rules',
-        reason: `chiedere sempre: ${ask.description || ask.id}${inferred ? ` (tipo dedotto: ${inferred})` : ''}`,
+        reason: decisionStrings().askAlways(ask.description || ask.id, inferred),
         rule: ask.id,
       };
     }
@@ -778,12 +780,12 @@ export class DecisionGate {
         outcome: 'proceed',
         choice: request.recommended,
         decidedBy: 'rules',
-        reason: `si procede: ${proceed.description || proceed.id}`,
+        reason: decisionStrings().proceedRule(proceed.description || proceed.id),
         rule: proceed.id,
       };
     }
     if (!this.#port) {
-      return { outcome: 'ask', decidedBy: 'rules', reason: 'zona grigia senza modello: si chiede' };
+      return { outcome: 'ask', decidedBy: 'rules', reason: decisionStrings().grayNoModel };
     }
     try {
       return await this.#askModel(request, signal, undeclaredVariants);
@@ -794,7 +796,7 @@ export class DecisionGate {
       return {
         outcome: 'ask',
         decidedBy: 'rules',
-        reason: `il modello non ha risposto (${decisionErrorCode(err)}): si chiede`,
+        reason: decisionStrings().modelNoAnswer(decisionErrorCode(err)),
         detail: errorMessage(err),
       };
     }
@@ -858,7 +860,7 @@ export class DecisionGate {
         ? {
             outcome: 'ask',
             decidedBy: 'rules',
-            reason: 'zona grigia: si chiede (istinto in prova)',
+            reason: decisionStrings().grayTrial,
             model: { ...model, wouldProceed: decision.outcome === 'proceed' },
           }
         : { ...decision, model };
@@ -869,7 +871,7 @@ export class DecisionGate {
     const detail = response.fallbackDetail?.join('; ');
     return {
       ...out,
-      reason: `${out.reason} (ripiego: ${codes})`,
+      reason: decisionStrings().fallback(out.reason, codes),
       ...(detail ? { detail } : {}),
     };
   }
@@ -887,7 +889,7 @@ export class DecisionGate {
         outcome: 'ask',
         decidedBy: 'model',
         confidence: answers.get('kind')!.confidence,
-        reason: `il modello la classifica come ${kind}`,
+        reason: decisionStrings().classifiedAs(kind),
       };
     }
     const needsUser = answers.get('needs_user')!;
@@ -901,8 +903,8 @@ export class DecisionGate {
         confidence,
         reason:
           pYes >= 0.5
-            ? 'il modello ritiene che serva l’utente'
-            : `confidenza ${confidence.toFixed(2)} sotto la soglia ${this.threshold}`,
+            ? decisionStrings().needsUser
+            : decisionStrings().belowThreshold(confidence.toFixed(2), this.threshold),
       };
     }
     let choice = request.recommended;
@@ -914,7 +916,7 @@ export class DecisionGate {
           outcome: 'ask',
           decidedBy: 'model',
           confidence: option?.confidence ?? 0,
-          reason: 'nessuna opzione consigliata e il modello non è abbastanza sicuro',
+          reason: decisionStrings().noOptionUnsure,
         };
       }
       choice = option.value as string;
@@ -925,7 +927,7 @@ export class DecisionGate {
       choice,
       decidedBy: 'model',
       confidence: choiceConfidence,
-      reason: 'scelta reversibile, il modello è sicuro',
+      reason: decisionStrings().reversibleSure,
     };
   }
 
@@ -943,9 +945,7 @@ export class DecisionGate {
         decidedBy: 'model',
         confidence,
         reason:
-          p >= 0.5
-            ? 'il modello ritiene che serva l’utente'
-            : `p ${p.toFixed(2)} sopra la soglia di Jev ${maxP}`,
+          p >= 0.5 ? decisionStrings().needsUser : decisionStrings().jevAbove(p.toFixed(2), maxP),
       };
     }
     if (request.recommended !== undefined) {
@@ -954,7 +954,7 @@ export class DecisionGate {
         choice: request.recommended,
         decidedBy: 'model',
         confidence,
-        reason: 'scelta reversibile, il modello è sicuro',
+        reason: decisionStrings().reversibleSure,
       };
     }
     const option = answers.get('option');
@@ -964,7 +964,7 @@ export class DecisionGate {
         outcome: 'ask',
         decidedBy: 'model',
         confidence: option?.confidence ?? 0,
-        reason: 'nessuna opzione consigliata e il modello cambia scelta con l’ordine delle opzioni',
+        reason: decisionStrings().noOptionOrder,
       };
     }
     return {
@@ -972,7 +972,7 @@ export class DecisionGate {
       choice: option.value as string,
       decidedBy: 'model',
       confidence: Math.min(confidence, option.confidence),
-      reason: 'scelta reversibile, il modello sceglie la stessa opzione in entrambi gli ordini',
+      reason: decisionStrings().reversibleSameOption,
     };
   }
 }

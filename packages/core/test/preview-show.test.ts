@@ -219,9 +219,9 @@ describe('preview_show', { timeout: 30_000 }, () => {
 
   it('speech bubble and card', () => {
     expect(describeToolCall('preview_show', { note: 'Risorse/Lisbona' })).toBe(
-      'ti mostra Risorse/Lisbona',
+      'shows you Risorse/Lisbona',
     );
-    expect(describeToolCall('preview_show', { file: meta.id })).toBe('ti mostra un file');
+    expect(describeToolCall('preview_show', { file: meta.id })).toBe('shows you a file');
     expect(monstersCard({ toolNames: ['vault_read', 'preview_show'] })).toContain(
       '- anteprima: mostri note e file (`preview_show`)',
     );

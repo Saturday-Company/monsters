@@ -1,8 +1,14 @@
-import type { LogEvent, ScorecardRow, ScorecardView } from '@monsters/shared';
+import {
+  formatNumber,
+  type LogEvent,
+  type ScorecardRow,
+  type ScorecardView,
+} from '@monsters/shared';
 import type { AgentDefinition } from '../../agents/definition.ts';
 import { HARNESS_PROVIDER_IDS } from '../../agents/run-harness.ts';
 import type { StateStore } from '../../db/state-store.ts';
 import type { EventLog } from '../../log/event-log.ts';
+import { instinctStrings } from './instinct.strings.ts';
 import { blockedByFreeOnly, hasTiers, type TieredRef } from './triage.ts';
 
 /*
@@ -213,11 +219,17 @@ export class Scorecard {
     return this.#remember(
       { ...agent, config: { ...agent.config, models: next } },
       {
-        why:
-          `${refKey(best.m)} ha finito ${best.row!.verified} lavori controllati su ${best.row!.checked}` +
-          (best.row!.costPerVerifiedUsd !== null
-            ? ` (${best.row!.costPerVerifiedUsd.toFixed(4)} $ a lavoro)`
-            : ''),
+        why: instinctStrings().chainWhy(
+          refKey(best.m),
+          best.row!.verified,
+          best.row!.checked,
+          best.row!.costPerVerifiedUsd !== null
+            ? formatNumber(best.row!.costPerVerifiedUsd, {
+                minimumFractionDigits: 4,
+                maximumFractionDigits: 4,
+              })
+            : null,
+        ),
       },
       runId,
     );
@@ -250,7 +262,7 @@ export class Scorecard {
       data: {
         use: 'scorecard',
         action: 'chain_reordered',
-        message: `Per ${agent.config.name} ora uso per primo ${order[0]}: ${change.why}.`,
+        message: instinctStrings().chainReordered(agent.config.name, order[0] ?? '', change.why),
         subject: id,
         details: { chain: order, ...(before ? { before } : {}) },
       },

@@ -71,7 +71,7 @@ describe('A1 · the arguments of every call of another program are checked, read
       { taint: taintedRun() },
     );
     expect(found).toMatchObject({ certain: true, category: 'contact' });
-    expect(found?.summary).toContain('mandare a exa un pezzo di una tua nota privata');
+    expect(found?.summary).toContain('send a piece of one of your private notes to exa');
   });
 
   it('a registered key in any argument is a card, also in a clean run', () => {
@@ -81,7 +81,7 @@ describe('A1 · the arguments of every call of another program are checked, read
       { taint: new RunTaint(), containsSecret: secret },
     );
     expect(found).toMatchObject({ certain: true, category: 'contact' });
-    expect(found?.summary).toContain('una delle tue chiavi');
+    expect(found?.summary).toContain('one of your keys');
   });
 
   it('an address with notes towards a site never seen, inside a text argument too', () => {

@@ -231,7 +231,7 @@ describe('orchestrator scenarios (fake provider)', () => {
     expect(end?.data).toMatchObject({
       to: 'dione',
       status: 'failed',
-      error: expect.stringMatching(/^Dione non ha dato una risposta/) as unknown,
+      error: expect.stringMatching(/^Dione didn’t give an answer/) as unknown,
     });
     const report = log.find(
       (e): e is LogEvent<'tool_result'> => e.type === 'tool_result' && e.data.tool === 'delegate',

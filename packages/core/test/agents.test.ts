@@ -282,9 +282,9 @@ describe('runAgent', () => {
     expect(env.provider.calls).toHaveLength(1);
     const log = events(env.log, run.id);
     expect(log.some((e) => e.type === 'error' && e.data.code === 'aborted')).toBe(true);
-    // Plain Italian, no gender for the agent's name, no internal "stopped (global)".
+    // Plain words, no gender for the agent's name, no internal "stopped (global)".
     const stop = log.find((e): e is LogEvent<'error'> => e.type === 'error');
-    expect(stop?.data.message).toMatch(/^Il lavoro di .+ si è fermato: test$/);
+    expect(stop?.data.message).toMatch(/^.+’s job stopped: test$/);
     expect(log.some((e) => e.type === 'run' && e.data.status === 'aborted')).toBe(true);
     // The partial text is closed by a final (empty) message marked as aborted.
     const messages = log.filter((e): e is LogEvent<'message'> => e.type === 'message');
@@ -481,8 +481,8 @@ describe('answers of the turn (Phase 2 demo)', () => {
       (e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'provider_fallback',
     );
     expect(fallbacks.map((e) => e.data.message)).toEqual([
-      expect.stringMatching(/^fake:a → fake:a \(risposta vuota\)/),
-      expect.stringMatching(/^fake:a → fake:b \(risposta vuota\)/),
+      expect.stringMatching(/^fake:a → fake:a \(empty answer\)/),
+      expect.stringMatching(/^fake:a → fake:b \(empty answer\)/),
     ]);
     expect(finals(log).at(-1)?.data.text).toBe('Rea misura 1527 km.');
   });
@@ -492,7 +492,7 @@ describe('answers of the turn (Phase 2 demo)', () => {
     const { result, log } = await run(env, agent(), 'Quanto è grande Rea, la luna di Saturno?');
     expect(result.status).toBe('failed');
     expect(result.text).toBe('');
-    expect(result.error).toMatch(/^Rhea non ha dato una risposta: il modello ha risposto vuoto/);
+    expect(result.error).toMatch(/^Rhea didn’t give an answer: the model answered empty/);
     expect(log.find((e) => e.type === 'error' && e.data.code === 'agent_failed')).toBeDefined();
   });
 
@@ -517,8 +517,8 @@ describe('answers of the turn (Phase 2 demo)', () => {
       (e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'empty_answer',
     );
     expect(retries.map((e) => e.data.message)).toEqual([
-      expect.stringMatching(/ha solo ripetuto la richiesta\): nuovo tentativo$/),
-      expect.stringMatching(/provo il modello successivo$/),
+      expect.stringMatching(/it only repeated the request\): trying again$/),
+      expect.stringMatching(/trying the next model$/),
     ]);
     // The echo never reached the chat, not even as a draft.
     expect(partials(log)).not.toContain('tortellini.');
@@ -533,7 +533,7 @@ describe('answers of the turn (Phase 2 demo)', () => {
     const env = setup({ a: [fake.text(task), fake.text(task)] });
     const { result } = await run(env, agent(), task);
     expect(result.status).toBe('failed');
-    expect(result.error).toMatch(/ripetendo solo la richiesta, anche ai nuovi tentativi/);
+    expect(result.error).toMatch(/only repeating the request, even on the new attempts/);
   });
 
   it('a short greeting answered with the same words is an answer, not an echo', async () => {

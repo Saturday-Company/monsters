@@ -13,6 +13,7 @@ import type { RunHandle } from '../kill/run-controller.ts';
 import type { EventLog } from '../log/event-log.ts';
 import { ActionKindSchema, type DecisionGate } from './decision.ts';
 import type { DoneChecker, DoneCheckResult } from './instinct/done-check.ts';
+import { instinctStrings } from './instinct/instinct.strings.ts';
 import { QuestionExpiredError, type QuestionOption, type QuestionStore } from './questions.ts';
 import {
   earlierDelegation,
@@ -521,15 +522,16 @@ async function runDelegation(
   if (doneCheck && (retried || !check)) check = (await runCheck(summary.text)) ?? check;
   if (retried) {
     instinctEvent(ctx, 'retry', target, {
-      message: `Il lavoro di ${target.config.name} non era finito: gli ho chiesto di completarlo.`,
+      message: instinctStrings().retried(target.config.name),
       parentId: started.id,
       details: { missing: firstCheck!.missing, after: check?.verdict ?? 'unchecked' },
     });
   }
   if (check?.verdict === 'doubt') {
     instinctEvent(ctx, 'doubt', target, {
-      message: `Il lavoro di ${target.config.name} è in dubbio: ${check.doubt ?? ''}`.trim(),
+      message: instinctStrings().inDoubt(target.config.name, check.doubt ?? ''),
       parentId: started.id,
+      details: { doubt: check.doubt ?? '' },
     });
   }
   const logged =

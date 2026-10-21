@@ -175,7 +175,7 @@ describe('the guard in a run', () => {
     expect(result.status).toBe('completed');
     const guard = errors(s.log, 'context_guard');
     expect(guard.length).toBeGreaterThanOrEqual(1);
-    expect(guard[0]!.data.message).toContain('tolgo dal contesto i risultati vecchi');
+    expect(guard[0]!.data.message).toContain('I’m dropping old results from the context');
     const calls = s.provider.callsTo('a');
     // Every request and its answer fit the window (the fake counts the prompt's characters).
     for (const c of calls) {
@@ -206,7 +206,7 @@ describe('the guard in a run', () => {
     });
     expect(result.status).toBe('completed');
     const notes = errors(s.log, 'context_guard').map((e) => e.data.message);
-    expect(notes.some((n) => n.includes('riassumo i passi fatti finora'))).toBe(true);
+    expect(notes.some((n) => n.includes('I’m summing up the steps so far'))).toBe(true);
     const calls = s.provider.callsTo('a');
     for (const c of calls) {
       expect(Math.ceil(promptOf(c).length / 3.3) + 1000).toBeLessThanOrEqual(window);
@@ -248,7 +248,7 @@ describe('the guard in a run', () => {
     expect(s.provider.callsTo('b')).toHaveLength(0);
     const rescue = errors(s.log, 'context_rescue');
     expect(rescue).toHaveLength(1);
-    expect(rescue[0]!.data.message).toContain('riprovo lo stesso modello');
+    expect(rescue[0]!.data.message).toContain('trying the same model again');
     const retried = promptOf(s.provider.callsTo('a')[5]!);
     expect(retried).toContain('Per fare spazio nel contesto');
     expect(retried.length).toBeLessThan(promptOf(s.provider.callsTo('a')[4]!).length);

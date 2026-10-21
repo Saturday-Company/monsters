@@ -16,6 +16,7 @@ import {
 import { withoutAccessClaims } from './access-claims.ts';
 import { isThirdPartySource } from './instinct/taint.ts';
 import type { QuestionStore } from './questions.ts';
+import { teamStrings } from './team.strings.ts';
 
 /*
  * Compaction of a conversation (C.3 of the plan of 16/10, D-082). Before, the
@@ -391,10 +392,10 @@ export class ConversationCompactor {
       signal.throwIfAborted();
       // What the assistant said about its accesses is not a fact nor a decision (D-141).
       const text = fitSummary(withoutAccessClaims(out.text).text);
-      if (text.length < 20) throw new Error('riassunto vuoto');
+      if (text.length < 20) throw new Error(teamStrings().summaryEmpty);
       // A recursive summary much shorter than the old one lost its facts (seen on 16/10, D-082).
       if (previous && text.length < previous.length * SHRINK_LIMIT) {
-        throw new Error('riassunto molto più corto del precedente');
+        throw new Error(teamStrings().summaryShrunk);
       }
       const tainted =
         latest?.data.tainted === true ||
@@ -423,7 +424,7 @@ export class ConversationCompactor {
     } catch (err) {
       if (req.signal?.aborted) return null;
       const why = timeout.aborted
-        ? `più di ${Math.round((this.#o.timeoutMs ?? SUMMARY_TIMEOUT_MS) / 1000)} s`
+        ? teamStrings().summaryTimeout(Math.round((this.#o.timeoutMs ?? SUMMARY_TIMEOUT_MS) / 1000))
         : errorMessage(err);
       this.#failedAt.set(agentId, { summary: latest?.id ?? null, turns: turns.length });
       log.append({
@@ -432,7 +433,11 @@ export class ConversationCompactor {
         type: 'error',
         data: {
           code: 'compaction_failed',
-          message: `Non sono riuscito a riassumere i messaggi più vecchi di ${req.agent.config.name} (${why}): al prossimo messaggio vede gli ultimi ${Math.min(maxTurns, turns.length)}`,
+          message: teamStrings().compactionFailed(
+            req.agent.config.name,
+            why,
+            Math.min(maxTurns, turns.length),
+          ),
         },
       });
       return null;

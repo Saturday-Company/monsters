@@ -144,9 +144,9 @@ describe('team_propose_monster', () => {
       .filter((e): e is LogEvent<'tool_result'> => e.type === 'tool_result')
       .map((e) => JSON.stringify(e.data));
     // The same words as the API of Settings → Squadra.
-    expect(errors[0]).toContain("C'è già un mostro che si chiama Rhea.");
-    expect(errors[1]).toContain('mai Agenti, Modelli o Privato');
-    expect(errors[2]).toContain('il provider nessuno non è configurato');
+    expect(errors[0]).toContain('There’s already a monster called Rhea.');
+    expect(errors[1]).toContain('never Agenti, Modelli or Privato');
+    expect(errors[2]).toContain('the provider nessuno isn’t configured');
     expect(proposals(t)).toHaveLength(0);
   });
 

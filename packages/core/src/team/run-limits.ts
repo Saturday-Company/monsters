@@ -1,5 +1,6 @@
 import { ToolError } from '@monsters/shared';
 import { z } from 'zod';
+import { teamStrings } from './team.strings.ts';
 
 /*
  * Cost limits of one run (the orchestrator, its turns and every delegated
@@ -178,19 +179,19 @@ export class RunBudget {
   exhausted(agentId?: string): string | null {
     const l = this.limits;
     if (this.#steps >= l.maxRunSteps) {
-      return `this task used all its ${l.maxRunSteps} model steps`;
+      return teamStrings().runSteps(l.maxRunSteps);
     }
     if (this.#tokens >= l.maxRunTokens) {
-      return `this task used all its ${l.maxRunTokens} tokens`;
+      return teamStrings().runTokens(l.maxRunTokens);
     }
     if (this.#costUsd >= l.maxRunCostUsd) {
-      return `this task spent its ${l.maxRunCostUsd} $ limit`;
+      return teamStrings().runCost(l.maxRunCostUsd);
     }
     // The run that sent the work and every lead's run it started: one cost limit (F-A6).
     const root = this.#root();
     const tree = treeCostLimit(root.limits);
     if (root.#treeCostUsd >= tree) {
-      return `this task spent its ${tree} $ limit (with the work sent to projects)`;
+      return teamStrings().runTreeCost(tree);
     }
     if (agentId !== undefined && this.spendCheck) return this.spendCheck(agentId);
     return null;

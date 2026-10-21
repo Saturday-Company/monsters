@@ -268,7 +268,7 @@ describe('ConversationCompactor', () => {
     expect(summaries(log)).toHaveLength(1);
     const err = log.query({ type: 'error' }).at(-1) as LogEvent<'error'>;
     expect(err.data.code).toBe('compaction_failed');
-    expect(err.data.message).toContain('ultimi 12');
+    expect(err.data.message).toContain('the last 12');
     // Not tried again at the next turn: only after a few more turns.
     exchanges(log, 13, 1);
     await c.prepare(prep);
@@ -297,7 +297,7 @@ describe('ConversationCompactor', () => {
     expect(seen?.aborted).toBe(true);
     const err = log.query({ type: 'error' }).at(-1) as LogEvent<'error'>;
     expect(err.data.code).toBe('compaction_failed');
-    expect(err.data.message).toContain('più di 0 s');
+    expect(err.data.message).toContain('more than 0 s');
   });
 
   it('a recursive summary that lost most of the old one is refused', async () => {
@@ -318,7 +318,7 @@ describe('ConversationCompactor', () => {
     });
     expect(await short.prepare(prep)).toBeNull();
     const err = log.query({ type: 'error' }).at(-1) as LogEvent<'error'>;
-    expect(err.data.message).toContain('riassunto molto più corto del precedente');
+    expect(err.data.message).toContain('summary much shorter than the previous one');
     expect(short.history(req).summary).toBe(first.summary);
     expect(summaries(log)).toHaveLength(1);
   });

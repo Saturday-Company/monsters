@@ -9,6 +9,7 @@ import {
   type SystemOneRequest,
   type SystemOneResponse,
 } from './decision.ts';
+import { decisionStrings } from './decision.strings.ts';
 
 /*
  * Jev (TypeSafe) as a System 1 backend of the DecisionGate (M2.9, D-037).
@@ -285,7 +286,7 @@ export class JevDecisionPort implements DecisionPort {
 
   async decide(request: SystemOneRequest, signal?: AbortSignal): Promise<SystemOneResponse> {
     const key = this.#key();
-    if (!key) throw new JevError('unavailable', 'nessuna chiave TypeSafe');
+    if (!key) throw new JevError('unavailable', decisionStrings().jevNoKey);
     const closed = this.#closed;
     if (closed && closed.key === key && this.#now() < closed.until) {
       throw new JevError(closed.error.code, closed.error.message, closed.error.status);
@@ -311,9 +312,9 @@ export class JevDecisionPort implements DecisionPort {
     } catch (err) {
       if (signal?.aborted) throw err;
       if (timeout.aborted) {
-        throw new JevError('timeout', `Jev non ha risposto entro ${this.#timeoutMs} ms`);
+        throw new JevError('timeout', decisionStrings().jevTimeout(this.#timeoutMs));
       }
-      throw new JevError('network', `Jev non raggiungibile (${(err as Error).name})`);
+      throw new JevError('network', decisionStrings().jevNetwork((err as Error).name));
     }
 
     if (!res.ok) throw await this.#failure(res, key);
@@ -322,7 +323,7 @@ export class JevDecisionPort implements DecisionPort {
     try {
       raw = await res.json();
     } catch {
-      throw new JevError('bad_response', 'risposta di Jev non leggibile', res.status);
+      throw new JevError('bad_response', decisionStrings().jevUnreadable, res.status);
     }
     const durationMs = this.#now() - started;
     const served = isRecord(raw) && typeof raw['model'] === 'string' ? raw['model'] : this.model;
@@ -353,7 +354,7 @@ export class JevDecisionPort implements DecisionPort {
     } catch (err) {
       throw new JevError(
         'bad_response',
-        `risposta di Jev non valida: ${(err as Error).message}`,
+        decisionStrings().jevInvalid((err as Error).message),
         res.status,
         usage,
       );
@@ -374,19 +375,19 @@ export class JevDecisionPort implements DecisionPort {
       case 403:
         // Until the key changes (a day at most: a key fixed on the console works again).
         return close(
-          new JevError('invalid_key', `chiave TypeSafe rifiutata (${res.status})`, res.status),
+          new JevError('invalid_key', decisionStrings().jevKeyRejected(res.status), res.status),
           86_400_000,
         );
       case 402:
         return close(
-          new JevError('no_credit', `credito TypeSafe finito (402)${suffix}`, 402),
+          new JevError('no_credit', decisionStrings().jevNoCredit(suffix), 402),
           3_600_000,
         );
       case 422:
       case 400:
         return new JevError(
           'invalid_request',
-          `richiesta rifiutata da Jev (${res.status})${suffix}`,
+          decisionStrings().jevRejected(res.status, suffix),
           res.status,
         );
       case 429:
@@ -394,13 +395,17 @@ export class JevDecisionPort implements DecisionPort {
         return close(
           new JevError(
             res.status === 429 ? 'rate_limited' : 'overloaded',
-            res.status === 429 ? 'limite di richieste di Jev (429)' : 'Jev è sovraccarico (529)',
+            res.status === 429 ? decisionStrings().jevRateLimit : decisionStrings().jevOverloaded,
             res.status,
           ),
           retryAfterMs(res) ?? this.#backoffMs,
         );
       default:
-        return new JevError('server_error', `errore di Jev (${res.status})${suffix}`, res.status);
+        return new JevError(
+          'server_error',
+          decisionStrings().jevError(res.status, suffix),
+          res.status,
+        );
     }
   }
 }
@@ -418,16 +423,16 @@ export async function verifyTypeSafeKey(
       signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
     });
   } catch (err) {
-    return { ok: false, message: `TypeSafe non raggiungibile (${(err as Error).name})` };
+    return { ok: false, message: decisionStrings().tsNetwork((err as Error).name) };
   }
   if (res.status === 401 || res.status === 403) {
-    return { ok: false, status: res.status, message: 'TypeSafe non riconosce questa chiave.' };
+    return { ok: false, status: res.status, message: decisionStrings().tsUnknownKey };
   }
   if (!res.ok) {
     return {
       ok: false,
       status: res.status,
-      message: `risposta inattesa di TypeSafe (${res.status})`,
+      message: decisionStrings().tsUnexpected(res.status),
     };
   }
   try {

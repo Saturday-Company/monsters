@@ -500,9 +500,11 @@ describe('the taint of the orchestrator’s run goes with project_send (D-070, D
     );
     await t.json('POST', '/api/messages', { text: 'orari? poi passa a Saturday' });
     const question = await t.waitEvent(
-      isType('question', (e) => e.agent === 'leda' && /nota privata/.test(e.data.question)),
+      isType('question', (e) => e.agent === 'leda' && /private note/.test(e.data.question)),
     );
-    expect(question.data.question).toMatch(/^Leda vuole mandare a evil\.example/);
+    expect(question.data.question).toMatch(
+      /^Leda wants to send a piece of one of your private notes to evil\.example/,
+    );
   });
 });
 

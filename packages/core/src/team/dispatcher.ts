@@ -13,6 +13,7 @@ import type { EventLog } from '../log/event-log.ts';
 import { fromLine } from '../projects/lines.ts';
 import type { RunLimits } from './run-limits.ts';
 import type { TeamService } from './team-service.ts';
+import { teamStrings } from './team.strings.ts';
 import { inflightSettled } from './team-tools.ts';
 
 /*
@@ -282,10 +283,7 @@ export class Dispatcher {
       telegram: origin,
     };
     if (!this.#canRun(agent)) {
-      throw new DispatchError(
-        'no_provider',
-        `${agent.config.name} non ha ancora un modello: collegane uno in Impostazioni → Modelli, o scegline un altro.`,
-      );
+      throw new DispatchError('no_provider', teamStrings().noModelHint(agent.config.name));
     }
     const id = agent.config.id;
     const active = this.#byAgent.get(id);
@@ -354,7 +352,7 @@ export class Dispatcher {
     const agent = this.#team.get(agentId);
     if (!agent) throw new DispatchError('unknown_agent', `no agent called "${agentId}"`);
     if (!this.#canRun(agent)) {
-      throw new DispatchError('no_provider', `${agent.config.name} non ha ancora un modello.`);
+      throw new DispatchError('no_provider', teamStrings().noModel(agent.config.name));
     }
     if (this.busy(agent.config.id)) {
       const queue = this.#deferred.get(agent.config.id) ?? [];
@@ -532,11 +530,7 @@ export class Dispatcher {
       .filter((c) => !target || c.agent.config.id === target.config.id)
       .map((c) => c.agent.config.name);
     if (busy.length > 0) {
-      const who = busy.length === 1 ? `${busy[0]} sta` : `${busy.join(' e ')} stanno`;
-      throw new DispatchError(
-        'busy',
-        `${who} ancora lavorando: aspetta che finisca o fermalo, poi inizia una nuova conversazione.`,
-      );
+      throw new DispatchError('busy', teamStrings().busyNewConversation(busy));
     }
     return this.#log.append({
       agent: 'user',
@@ -654,7 +648,7 @@ export class Dispatcher {
     const agent = this.#team.get(params.agentId);
     if (!agent) throw new DispatchError('unknown_agent', `no agent called "${params.agentId}"`);
     if (!this.#canRun(agent)) {
-      throw new DispatchError('no_provider', `${agent.config.name} non ha ancora un modello.`);
+      throw new DispatchError('no_provider', teamStrings().noModel(agent.config.name));
     }
     const id = agent.config.id;
     const request = items.at(-1)?.eventId;
@@ -722,7 +716,7 @@ export class Dispatcher {
         agent: 'system',
         runId: run.id,
         type: 'error',
-        data: { code: 'questions', message: `domande del lavoro: ${(err as Error).message}` },
+        data: { code: 'questions', message: teamStrings().questionsError((err as Error).message) },
       });
       return 0;
     }

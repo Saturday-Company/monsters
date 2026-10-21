@@ -19,6 +19,7 @@ import {
 import { z } from 'zod';
 import type { StateStore } from '../db/state-store.ts';
 import type { EventLog } from '../log/event-log.ts';
+import { teamStrings } from './team.strings.ts';
 
 /*
  * Spending caps in euros (D-070, research 07 §5.5). The meter sums the cost
@@ -444,7 +445,7 @@ export class SpendMeter {
     const known = new Set(this.#o.agents().map((a) => a.id));
     const agents: Record<string, SpendAgentCaps> = { ...current.agents };
     for (const [id, caps] of Object.entries(update.agents ?? {})) {
-      if (!known.has(id)) throw new SpendError(`Non c’è nessun mostro “${id}” nella squadra.`);
+      if (!known.has(id)) throw new SpendError(teamStrings().noSuchMonster(id));
       if (caps === null) {
         delete agents[id];
         continue;

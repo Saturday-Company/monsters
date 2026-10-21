@@ -1,4 +1,5 @@
 import type { EventLog } from '../log/event-log.ts';
+import { instinctStrings } from './instinct/instinct.strings.ts';
 import { BANDS, pendingRequest } from './instinct/questions.ts';
 import { pOf, type System1 } from './instinct/system1.ts';
 import { unicodeWords } from './word-boundary.ts';
@@ -224,8 +225,7 @@ export function finalQuestionHook(
         data: {
           use: 'final_question',
           action: 'final_question',
-          message:
-            'La risposta finiva con una domanda per te: ho chiesto di mandartela come scheda.',
+          message: instinctStrings().finalQuestion,
           subject: params.agentId,
           confidence: p,
         },

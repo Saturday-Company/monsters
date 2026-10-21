@@ -2,6 +2,7 @@ import { isMarkedMemoryLine, MEMORY_TAINT_MARK, unmarkedMemoryLine } from '@mons
 import type { EventLog } from '../log/event-log.ts';
 import { BANDS, memoryRequest } from './instinct/questions.ts';
 import { pOf, type System1 } from './instinct/system1.ts';
+import { teamStrings } from './team.strings.ts';
 
 /*
  * Long-term memory of an agent (`Agenti/<Name>/MEMORY.md`, ARCHITECTURE §5.3),
@@ -318,7 +319,7 @@ export function instinctRememberFilter(
         data: {
           use: 'memory',
           action: 'memory_skipped',
-          message: `Non ho aggiunto alla memoria di ${agent.name} ${dropped.length === 1 ? 'una riga che serviva solo a questo lavoro' : `${dropped.length} righe che servivano solo a questo lavoro`}.`,
+          message: teamStrings().memorySkipped(agent.name, dropped.length),
           subject: ctx.agent,
           details: { lines: dropped },
         },

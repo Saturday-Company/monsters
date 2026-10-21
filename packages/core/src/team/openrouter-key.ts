@@ -9,6 +9,7 @@ import { z } from 'zod';
 import type { StateStore } from '../db/state-store.ts';
 import { secretStoreFor } from '../secrets/store.ts';
 import type { HubSettings } from './settings.ts';
+import { teamStrings } from './team.strings.ts';
 
 /*
  * The OpenRouter key (ARCHITECTURE §5.8): the secret `openrouter.key` in
@@ -92,14 +93,14 @@ export async function verifyOpenRouterKey(
     return {
       ok: false,
       status: 0,
-      message: `OpenRouter non raggiungibile: ${(err as Error).message}`,
+      message: teamStrings().openrouterUnreachable((err as Error).message),
     };
   }
   if (res.status === 401 || res.status === 403) {
-    return { ok: false, status: res.status, message: 'chiave non valida' };
+    return { ok: false, status: res.status, message: teamStrings().invalidKey };
   }
   if (!res.ok)
-    return { ok: false, status: res.status, message: `OpenRouter ha risposto ${res.status}` };
+    return { ok: false, status: res.status, message: teamStrings().openrouterAnswered(res.status) };
   const parsed = KeyResponseSchema.safeParse(await res.json().catch(() => null));
   if (!parsed.success) return { ok: true, info: {} };
   const d = parsed.data.data;

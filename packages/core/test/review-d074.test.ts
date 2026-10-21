@@ -75,7 +75,7 @@ describe('D-074 · 1: every address and every search, the most severe wins', () 
     );
     expect(found).toMatchObject({ certain: true });
     expect(found!.markOnly).toBeUndefined();
-    expect(found!.summary).toMatch(/nota privata/);
+    expect(found!.summary).toMatch(/private notes/);
   });
 
   it('a candidate over a mark keeps the mark on the receipt; the searches too', () => {
@@ -313,10 +313,10 @@ describe('D-074 · 5-6: the verb after the service, fewer false cards', () => {
   it('reads the verb after the name of the service', () => {
     const add = classifyOutbound(mcp('github_add_collaborator'), {});
     expect(add).toMatchObject({ category: 'contact', certain: true });
-    expect(add!.meaning).toMatch(/dare accesso/);
+    expect(add!.meaning).toMatch(/give another person access/);
     const remove = classifyOutbound(mcp('github_remove_collaborator'), {});
     expect(remove).toMatchObject({ category: 'contact', certain: true });
-    expect(remove!.meaning).toMatch(/togliere l’accesso/);
+    expect(remove!.meaning).toMatch(/take away another person’s access/);
     for (const n of ['drive_update_sharing', 'files_set_permissions', 'transfer_ownership']) {
       expect(classifyOutbound(mcp(n), {}), n).toMatchObject({ category: 'publish', certain: true });
     }

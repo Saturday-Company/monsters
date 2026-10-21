@@ -27,6 +27,7 @@ import {
   type SystemOneRequest,
   type SystemOneResponse,
 } from './decision.ts';
+import { decisionStrings } from './decision.strings.ts';
 import { CRITICAL_TIMEOUT_MS, INSTINCT_SPECS } from './instinct/questions.ts';
 import type { EnginePort } from './instinct/system1.ts';
 import {
@@ -102,7 +103,7 @@ export class TimeoutPort implements DecisionPort {
     } catch (err) {
       if (signal?.aborted || !timeout.aborted) throw err;
       const usage = err instanceof DecisionPortError ? err.usage : [];
-      throw new DecisionPortError(`nessuna risposta entro ${this.#ms} ms`, usage, 'timeout');
+      throw new DecisionPortError(decisionStrings().noAnswerWithinMs(this.#ms), usage, 'timeout');
     }
   }
 }
@@ -327,10 +328,7 @@ export class DecisionEngineService {
 
   #setEngine(engine: DecisionEngine): void {
     if (engine === 'jev' && !this.#key) {
-      throw new DecisionEngineError(
-        'no_key',
-        'Per usare il modello esperto serve prima la chiave di TypeSafe.',
-      );
+      throw new DecisionEngineError('no_key', decisionStrings().noKey);
     }
     patchSettingsFile(this.#o.home, { instinct: { engine } });
     this.#o.settings.instinct.engine = engine;
@@ -344,7 +342,7 @@ export class DecisionEngineService {
       if (!INSTINCT_SPECS[use].modes.includes(mode)) {
         throw new DecisionEngineError(
           'mode_not_available',
-          `«${INSTINCT_SPECS[use].label}» non ha la modalità ${mode}.`,
+          decisionStrings().noMode(INSTINCT_SPECS[use].label, mode),
         );
       }
     }
@@ -380,10 +378,7 @@ export class DecisionEngineService {
 
   removeKey(): DecisionsView {
     if (this.#key?.source === 'env') {
-      throw new DecisionEngineError(
-        'key_from_env',
-        `La chiave viene da ${TYPESAFE_KEY_ENV}: toglila da lì.`,
-      );
+      throw new DecisionEngineError('key_from_env', decisionStrings().keyFromEnv(TYPESAFE_KEY_ENV));
     }
     removeProviderKey(this.#o.secretsDir, TYPESAFE_PROVIDER_ID);
     this.#key = this.#readKey();

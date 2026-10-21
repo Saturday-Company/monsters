@@ -38,6 +38,8 @@ function codeLines(path: string): { line: string; at: string }[] {
 
 /** Sub-places under a section, by the name the app shows: the browser in Altri programmi. */
 const UNDER: Record<string, readonly string[]> = { 'Altri programmi': ['Browser'] };
+/** The tabs of the settings in English (docs/i18n.md glossary). */
+const ENGLISH_TABS = new Set(['General', 'Squad', 'Models', 'Permissions', 'Connections']);
 
 describe('the places of the app in the texts (D-133)', () => {
   it('every "Impostazioni → …" written in the code is a tab and a section of the app', () => {
@@ -63,8 +65,13 @@ describe('the places of the app in the texts (D-133)', () => {
             wrong.push(`${at}: «${under}» is not under ${section}`);
           }
         }
-        // The English names of the settings are not the app's (B2 of the review of 19/10).
-        if (/Settings → |\(External tools\)/.test(line)) wrong.push(`${at}: English place`);
+        // The English names of the settings are not the app's (B2 of the review of 19/10), except
+        // in the English dictionaries (`*.strings.ts`, D-153), where the tab is one of the glossary's.
+        const english = /Settings((?: → [^.,;:()«»"'`$\n]+)+)/.exec(line);
+        if (english && file.endsWith('.strings.ts')) {
+          const tab = english[1]!.split(' → ')[1]?.trim();
+          if (!ENGLISH_TABS.has(tab ?? '')) wrong.push(`${at}: «${tab}» is not an English tab`);
+        } else if (/Settings → |\(External tools\)/.test(line)) wrong.push(`${at}: English place`);
       }
     }
     expect(seen).toBeGreaterThan(10);

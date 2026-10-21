@@ -117,10 +117,10 @@ describe('the cause of a failed call (D-132)', () => {
     });
     const byTool = new Map(receipt.externalTools.map((t) => [t.tool, t]));
     expect(byTool.get('web_fetch')).toMatchObject({
-      why: 'il sito ha rifiutato, non un tuo permesso',
+      why: 'the site refused, not a permission of yours',
       causes: ['site_refused'],
     });
-    expect(byTool.get('shell')).toMatchObject({ why: 'hai detto no', causes: ['user_declined'] });
+    expect(byTool.get('shell')).toMatchObject({ why: 'you said no', causes: ['user_declined'] });
   });
 
   it('a brake card nobody answered is not the user’s no (user_no_answer)', async () => {
