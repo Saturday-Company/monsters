@@ -209,7 +209,7 @@ function stageApp(version: string): string {
         name: 'monsters',
         productName: PRODUCT_NAME,
         version,
-        description: 'Monsters: un team di agenti AI che lavora sul tuo computer',
+        description: 'Monsters: a team of AI agents that works on your computer',
         author: { name: 'Saturday Company' },
         homepage: 'https://saturdaycompany.it',
         license: 'Apache-2.0',

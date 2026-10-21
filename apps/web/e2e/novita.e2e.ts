@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures.ts';
+import { expect, SHOT_LANG, test } from './fixtures.ts';
 
 /* "Novità": the key beside "Da rivedere", the sheet with the changelog, the light for what is new. */
 
@@ -83,13 +83,13 @@ for (const size of [
         await page.goto('/?mock=demo#/?chat=titan');
         await expect(page.getByTestId('news-led')).toBeVisible();
         await page.screenshot({
-          path: `${OUT}novita-chiave-${theme}-${size.name}-2026-10-19.png`,
+          path: `${OUT}novita-chiave-${theme}-${size.name}-${SHOT_LANG}.png`,
           animations: 'disabled',
         });
         await page.getByTestId('news-toggle').click();
         await expect(page.getByTestId('news-sheet')).toBeVisible();
         await page.screenshot({
-          path: `${OUT}novita-${theme}-${size.name}-2026-10-19.png`,
+          path: `${OUT}novita-${theme}-${size.name}-${SHOT_LANG}.png`,
           animations: 'disabled',
         });
       });

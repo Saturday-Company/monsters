@@ -5,6 +5,7 @@ import {
   expectNoSideScroll,
   holdMock,
   releaseMock,
+  SHOT_LANG,
   stepMockUntil,
   test,
 } from './fixtures.ts';
@@ -137,7 +138,7 @@ test('Progetti: a new project from the sidebar, with its lead and a copied monst
     .getByRole('radiogroup', { name: 'The project’s folder' })
     .getByRole('radio', { name: 'A new one' })
     .click();
-  await expect(page.getByTestId('project-path')).toHaveValue('~/Monsters Progetti/Newsletter');
+  await expect(page.getByTestId('project-path')).toHaveValue('~/Monsters Projects/Newsletter');
   await page.getByTestId('project-lead-name').fill('Atlas');
   await page.getByTestId('project-copies').getByTestId('pick-rhea').click();
   await expect(page.getByTestId('project-copies').getByTestId('pick-rhea')).toHaveAttribute(
@@ -406,7 +407,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(row.getByRole('button', { name: 'Change look' })).toBeVisible();
       await closeNotice(page);
       await page.screenshot({
-        path: `${OUT}progetto-squadra-${theme}-1440-2026-10-19.png`,
+        path: `${OUT}progetto-squadra-${theme}-1440-${SHOT_LANG}.png`,
         animations: 'disabled',
       });
     });

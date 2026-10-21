@@ -53,7 +53,7 @@ import { CHANGELOG } from '../changelog-data.ts';
 import { MockDocs } from './docs.ts';
 import { seedPreviewScene } from './preview-scene.ts';
 import { setMockLang, startLang, tr } from './lang.ts';
-import { noteTitle, notePath } from './paths.ts';
+import { mockLayout, mockVaultDir, noteTitle, notePath } from './paths.ts';
 
 /** The mock core reports the newest version of the changelog, so "Novità" has a current one. */
 const MOCK_VERSION = CHANGELOG[0]?.version ?? '0.0.0-mock';
@@ -581,11 +581,11 @@ export class MockCore {
       case 'GET /api/health':
         return ok({ ok: true, version: MOCK_VERSION });
       case 'GET /api/setup-status':
-        // The demo vault has the Italian names (D-154), like every vault made before.
+        // The demo vault is built in the mock's language, with that layout's names (D-154).
         return ok({
           needsSetup: this.auth.user === null,
           language: this.language,
-          vaultLayout: 'it',
+          vaultLayout: mockLayout().id,
         });
       case 'POST /api/setup': {
         if (this.auth.user) return fail(409, 'already_configured');
@@ -751,8 +751,8 @@ export class MockCore {
           },
           braveKey: { set: this.braveKey },
           webSearch: this.webSearchView(),
-          vaultPath: '/home/demo/Monsters Note',
-          vaultLayout: 'it',
+          vaultPath: mockVaultDir(),
+          vaultLayout: mockLayout().id,
           userName: this.squad.userName,
           language: this.language,
           secrets: {
@@ -2671,7 +2671,7 @@ export class MockCore {
         type: 'vault_change',
         data: {
           action: 'edit',
-          path: 'Agenti/Rhea/MEMORY.md',
+          path: notePath('rheaMemory'),
           commit: '5f4e3d2',
           actionId: 'act_seed_memory',
         },

@@ -90,7 +90,7 @@ describe('ApiClient against the mock core', () => {
     expect(await api.setupStatus()).toEqual({
       needsSetup: true,
       language: 'en',
-      vaultLayout: 'it',
+      vaultLayout: 'en',
     });
     await expect(
       api.setup({ email: 'a@b.it', password: 'password1', setupCode: '000000' }),

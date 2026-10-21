@@ -1,8 +1,10 @@
-import { tr } from './lang.ts';
+import { vaultLayoutOf, type VaultLayout } from '@monsters/shared';
+import { mockLang, tr } from './lang.ts';
 
 /*
  * The notes of the mock's demo vault, by key: path (and so title: the file name) in the mock's
- * language. `Agenti/` and `Privato/` are reserved folders of the vault, the same in both languages.
+ * language, in the layout of that language (D-154: `Agents/`, `Private/`, `~/Monsters Notes` in English;
+ * `Agenti/`, `Privato/`, `~/Monsters Note` in Italian).
  * The wikilinks inside the notes name titles, so they must follow these names.
  */
 
@@ -28,10 +30,10 @@ const TABLE = {
   ],
   running: ['Areas/Health/Running.md', 'Aree/Salute/Corsa.md'],
   budget: ['Areas/Finance/October budget.md', 'Aree/Finanze/Budget di ottobre.md'],
-  personalDiary: ['Privato/Personal diary.md', 'Privato/Diario personale.md'],
+  personalDiary: ['Private/Personal diary.md', 'Privato/Diario personale.md'],
   giulio: ['People/Giulio.md', 'Persone/Giulio.md'],
   sara: ['People/Sara.md', 'Persone/Sara.md'],
-  rheaMemory: ['Agenti/Rhea/MEMORY.md', 'Agenti/Rhea/MEMORY.md'],
+  rheaMemory: ['Agents/Rhea/MEMORY.md', 'Agenti/Rhea/MEMORY.md'],
   oldPlan: ['Archive/Old plan.md', 'Archivio/Vecchio piano.md'],
   socialPosts: ['Projects/Social/Post drafts.md', 'Progetti/Social/Bozze dei post.md'],
   meetingSummary: [
@@ -55,4 +57,14 @@ export function notePath(key: NoteKey): string {
 /** The title of a demo note (its file name without `.md`), as wikilinks name it. */
 export function noteTitle(key: NoteKey): string {
   return (notePath(key).split('/').pop() ?? '').replace(/\.md$/, '');
+}
+
+/** The layout of the mock's vault: the one of the mock's language (the demo vault is built in it). */
+export function mockLayout(): VaultLayout {
+  return vaultLayoutOf(mockLang());
+}
+
+/** The notes folder of the demo vault (`~/Monsters Notes`, `~/Monsters Note` in Italian). */
+export function mockVaultDir(): string {
+  return `/home/demo/${mockLayout().notesDir}`;
 }

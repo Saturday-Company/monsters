@@ -114,7 +114,7 @@ const COMPONENTS: Components = {
     const file = fileIdOf(url);
     if (file) return <ChatImage fileId={file} alt={alt?.trim() ?? ''} />;
     if (/^https:\/\//i.test(url)) return <RemoteImage url={url} alt={alt?.trim() ?? ''} />;
-    const label = alt?.trim() ? `Immagine: ${alt.trim()}` : 'Immagine';
+    const label = uiStrings().image(alt?.trim() ?? '');
     return isExternalUrl(url) ? (
       <a href={url} target="_blank" rel="noopener noreferrer" className="md-link">
         {label}
@@ -150,7 +150,7 @@ export interface MarkdownProps {
  * Markdown written by the models, rendered safely: no raw HTML (it shows as
  * text), links only to http(s) and mailto (in a new tab), wikilinks and vault
  * paths as note chips (opened in Anteprima), the core's files as images or
- * chips, remote images only after "Mostra immagine".
+ * chips, remote images only after "Show image".
  */
 export const MarkdownRenderer = memo(function MarkdownRenderer({
   text,

@@ -96,7 +96,10 @@ export function displayState(input: {
   return { ...base, kind: 'quiet', text: s.quiet, short: s.quietShort, tone: 'ok' };
 }
 
-/** "17:42", updated on the minute. */
+/**
+ * "17:42", updated on the minute. It is an instrument readout (the segment clock of the display), so it
+ * stays 24 h in every language, unlike the times in the text, which follow `timeOptions()`.
+ */
 function useClock(): string {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {

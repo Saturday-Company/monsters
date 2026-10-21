@@ -41,7 +41,7 @@ test('settings: change what a monster may do, saved at once and logged', async (
   await field.fill('Documents');
   await rhea.getByRole('button', { name: 'Add' }).click();
   await expect(rhea.getByRole('alert')).toContainText('full path');
-  await field.fill('/home/demo/Monsters Note');
+  await field.fill('/home/demo/Monsters Notes');
   await rhea.getByRole('button', { name: 'Add' }).click();
   await expect(rhea.getByRole('alert')).toContainText('notes folder');
   await field.fill('/home/demo/Progetti');
