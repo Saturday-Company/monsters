@@ -11,6 +11,7 @@ import {
 } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
 import { promptText, startTestHub, toolResultsSeen } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * D-078: questions do not expire on their own. When nothing waits for one
@@ -148,6 +149,7 @@ const tone = () =>
 
 describe('ask_user that does not hold the run (native, 10 minutes)', () => {
   it('past the wait the question parks, the run ends waiting, the card answer starts a new run', async () => {
+    inLang('it');
     const t = await startTestHub(
       {
         titan: [
@@ -156,7 +158,7 @@ describe('ask_user that does not hold the run (native, 10 minutes)', () => {
           fake.text('Ok, scrivo i post con tono ironico.'),
         ],
       },
-      { hub: { askWaitMs: 80 } },
+      { lang: 'it', hub: { askWaitMs: 80 } },
     );
     const sent = await t.json<Sent>('POST', '/api/messages', { text: 'scrivi 3 post' });
     expect((await t.runEnded(sent.runId)).data.status).toBe('waiting_user');
@@ -211,6 +213,7 @@ describe('ask_user that does not hold the run (native, 10 minutes)', () => {
   });
 
   it('a plain message to a monster that waits on a parked question is its answer', async () => {
+    inLang('it');
     const t = await startTestHub(
       {
         titan: [
@@ -220,7 +223,7 @@ describe('ask_user that does not hold the run (native, 10 minutes)', () => {
           fake.text('Ecco la lista delle novità.'),
         ],
       },
-      { hub: { askWaitMs: 50 } },
+      { lang: 'it', hub: { askWaitMs: 50 } },
     );
     const sent = await t.json<Sent>('POST', '/api/messages', { text: 'scrivi 3 post' });
     await t.runEnded(sent.runId);
@@ -248,6 +251,7 @@ describe('ask_user that does not hold the run (native, 10 minutes)', () => {
   });
 
   it('past the window a plain message is a new request, with one line on the open question (D-079)', async () => {
+    inLang('it');
     const t = await startTestHub(
       {
         titan: [
@@ -257,7 +261,7 @@ describe('ask_user that does not hold the run (native, 10 minutes)', () => {
           fake.text('Ok: tono serio.'),
         ],
       },
-      { hub: { askWaitMs: 50, parkedAnswerWindowMs: -1 } },
+      { lang: 'it', hub: { askWaitMs: 50, parkedAnswerWindowMs: -1 } },
     );
     const sent = await t.json<Sent>('POST', '/api/messages', { text: 'scrivi 3 post' });
     await t.runEnded(sent.runId);
@@ -285,6 +289,7 @@ describe('ask_user that does not hold the run (native, 10 minutes)', () => {
   });
 
   it('with options, a message that picks none is a new request; without options it is the answer (review of 16/10)', async () => {
+    inLang('it');
     const t = await startTestHub(
       {
         titan: [
@@ -296,7 +301,7 @@ describe('ask_user that does not hold the run (native, 10 minutes)', () => {
           fake.text('Ok, scrivo delle cassate.'),
         ],
       },
-      { hub: { askWaitMs: 50 } },
+      { lang: 'it', hub: { askWaitMs: 50 } },
     );
     const sent = await t.json<Sent>('POST', '/api/messages', { text: 'scrivi 3 post' });
     await t.runEnded(sent.runId);
@@ -353,7 +358,8 @@ describe('ask_user that does not hold the run (native, 10 minutes)', () => {
   });
 
   it('parked questions survive a restart of the core, and their answer starts the work again', async () => {
-    const t = await startTestHub({ titan: [tone()] });
+    inLang('it');
+    const t = await startTestHub({ titan: [tone()] }, { lang: 'it' });
     const sent = await t.json<Sent>('POST', '/api/messages', { text: 'scrivi 3 post' });
     const q = await t.waitEvent(isType('question'));
     // The core closes while the native run still waits on the question.
@@ -361,7 +367,7 @@ describe('ask_user that does not hold the run (native, 10 minutes)', () => {
 
     const again = await startTestHub(
       { titan: [fake.text('Ok, ironico come chiedi.')] },
-      { home: t.home, withoutTeam: true },
+      { home: t.home, withoutTeam: true, lang: 'it' },
     );
     const [open] = await again.json<Question[]>('GET', '/api/questions?status=open');
     expect(open).toMatchObject({ id: q.data.questionId, status: 'open', parked: true });

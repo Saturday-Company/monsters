@@ -157,6 +157,16 @@ const en = {
   instinctDown: (use: string, engine: string, code: string, detail: string) =>
     `Instinct (${use}, ${engine}) didn’t answer (${code}): going on without it. ${detail}`,
   finalQuestion: 'The reply ended with a question for you: I asked to send it to you as a card.',
+  // --- small labels
+  /** The app's place where the instinct's lines are written (quoted to the monsters too). */
+  activity: 'Activity',
+  shortcutTrial: (member: string) =>
+    `On trial: I would have passed the request straight to ${member}.`,
+  otherMonsterWork: 'another monster’s work',
+  noteAfterThirdParty: (path: string) =>
+    `note ${path || 'in the vault'} written after third-party text`,
+  statePreviewCut: (chars: number) => `…[${chars} characters]`,
+  reasonInstinct: (version: string) => `instinct ${version}`,
 };
 
 const it: typeof en = {
@@ -299,6 +309,12 @@ const it: typeof en = {
   instinctDown: (use, engine, code, detail) =>
     `Istinto (${use}, ${engine}) senza risposta (${code}): si va avanti senza. ${detail}`,
   finalQuestion: 'La risposta finiva con una domanda per te: ho chiesto di mandartela come scheda.',
+  activity: 'Attività',
+  shortcutTrial: (member) => `In prova: avrei passato la richiesta direttamente a ${member}.`,
+  otherMonsterWork: 'lavoro di un altro mostro',
+  noteAfterThirdParty: (path) => `nota ${path || 'del vault'} scritta dopo testo di terzi`,
+  statePreviewCut: (chars) => `…[${chars} caratteri]`,
+  reasonInstinct: (version) => `istinto ${version}`,
 };
 
 export const instinctStrings = () => pick({ en, it });

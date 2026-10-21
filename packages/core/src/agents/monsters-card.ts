@@ -15,6 +15,8 @@ import {
   projectPagePath,
   settingsPath,
 } from '@monsters/shared';
+import { accessStrings } from '../team/access.strings.ts';
+import { listIn, monstersCardPrompts } from './monsters-card.prompts.ts';
 
 /** What a harness gives besides Monsters' tools (Claude Code, Codex). */
 export interface HarnessCapabilities {
@@ -64,13 +66,6 @@ export interface CardContext {
   cut?: readonly { server: string; shown: number; total: number }[];
 }
 
-/** "A", "A e B", "A, B e C". */
-function listWords(items: readonly string[]): string {
-  return items.length < 2
-    ? (items[0] ?? '')
-    : `${items.slice(0, -1).join(', ')} e ${items.at(-1)!}`;
-}
-
 const BROWSER_SERVER = 'browser';
 
 /** Servers of the `mcp__<server>__<tool>` tools, sorted (the browser apart). */
@@ -88,6 +83,7 @@ function mcpServers(toolNames: readonly string[]): string[] {
 const connectorName = (name: string) => name.replace(/^claude\.ai\s+/i, '').trim();
 
 export function monstersCard(options: MonstersCardOptions & CardContext): string {
+  const p = monstersCardPrompts();
   const names = new Set(options.toolNames);
   const has = (n: string) => names.has(n);
   const any = (prefix: string) => options.toolNames.some((n) => n.startsWith(prefix));
@@ -97,136 +93,96 @@ export function monstersCard(options: MonstersCardOptions & CardContext): string
 
   // Tools that wait for a search (D-098, D-134): the card names them, `tools_search` loads them.
   const later = new Set(options.searched ?? []);
-  const load = (names: string[]) =>
-    names.some((n) => later.has(n)) ? ' (prima caricali con `tools_search`)' : '';
+  const load = (names: string[]) => (names.some((n) => later.has(n)) ? p.loadFirst : '');
   if (any('vault_')) {
     const writes = has('vault_write') || has('vault_edit') || has('vault_propose');
-    can.push(`note: cerchi${writes ? ', leggi e scrivi' : ' e leggi'} (\`vault_*\`)`);
+    can.push(p.vault(writes));
   }
   const webSearch = has('web_search') || h?.ownWebSearch === true;
   if (webSearch || has('web_fetch')) {
-    const search = h?.ownWebSearch ? 'la tua ricerca web' : '`web_search`';
+    const search = h?.ownWebSearch ? p.ownSearch : '`web_search`';
     can.push(
       webSearch && has('web_fetch')
-        ? `web: ${search}, pagine con \`web_fetch\`${load(['web_search', 'web_fetch'])}`
+        ? p.webBoth(search, load(['web_search', 'web_fetch']))
         : webSearch
-          ? `web: ${search}${load(['web_search'])}`
-          : `web: pagine con \`web_fetch\`${load(['web_fetch'])}`,
+          ? p.webSearch(search, load(['web_search']))
+          : p.webFetch(load(['web_fetch'])),
     );
   } else {
     cannot.push(webMissing(options, has('delegate'), has('access_request')));
   }
-  if (has('preview_show')) can.push('anteprima: mostri note e file (`preview_show`)');
+  if (has('preview_show')) can.push(p.preview);
   // The profile of Monsters' browser keeps the sign-ins the user made there (D-131).
-  if (any(`mcp__${BROWSER_SERVER}__`)) {
-    can.push(
-      'browser: usi siti veri nel browser di Monsters, con gli accessi che l’utente ci ha fatto (es. Instagram): leggi e prepari; prima di Pubblica, Condividi, Invia o Paga Monsters chiede all’utente',
-    );
-  }
+  if (any(`mcp__${BROWSER_SERVER}__`)) can.push(p.browser);
   if (h?.terminal) {
     // Codex's sandbox keeps the network closed to its commands (M3 of the review of 19/10).
-    can.push(
-      `terminale e file: nella cartella di questo lavoro${h.id === 'codex' ? ' (i comandi non hanno rete: per il web usa gli strumenti web)' : ''}`,
-    );
+    can.push(p.terminalHere(h.id === 'codex'));
   } else if (has('shell') || any('fs_')) {
-    can.push('terminale e file: solo nelle cartelle concesse (`shell`, `fs_*`)');
+    can.push(p.terminalGranted);
   }
-  if (has('artifact_create'))
-    can.push('pagine HTML per l’utente, tra i suoi File (`artifact_create`)');
-  if (has('delegate')) can.push('squadra: deleghi agli altri mostri (`delegate`)');
-  if (has('ask_user')) can.push('domande all’utente (`ask_user`)');
+  if (has('artifact_create')) can.push(p.artifact);
+  if (has('delegate')) can.push(p.delegate);
+  if (has('ask_user')) can.push(p.askUser);
   const projects = ['project_propose', 'project_send', 'project_status'].filter(has);
   if (projects.length > 0) {
     const parts = [
-      ...(has('project_propose')
-        ? [
-            'proponi un progetto nuovo come bozza (`project_propose`: mostri nuovi, con nomi mai usati; copi un mostro esistente solo se l’utente lo chiede)',
-          ]
-        : []),
-      ...(has('project_send')
-        ? ['passi lavoro al capo di un progetto (`project_send`, `project_status`)']
-        : []),
+      ...(has('project_propose') ? [p.projectPropose] : []),
+      ...(has('project_send') ? [p.projectSend] : []),
     ];
-    can.push(`progetti: ${parts.join('; ')}${load(projects)}`);
+    can.push(p.projects(parts, load(projects)));
   }
-  if (has('automation_propose')) {
-    can.push(
-      `lavori che si ripetono a orario: proponi un’automazione come bozza (\`automation_propose\`)${load(['automation_propose'])}`,
-    );
-  }
-  if (has('project_docs_propose')) {
-    can.push(
-      `CLAUDE.md e AGENTS.md della cartella del progetto: non li scrivi, proponi il testo nuovo (\`project_docs_propose\`), l’utente lo applica${load(['project_docs_propose'])}`,
-    );
-  }
-  if (has('access_request')) {
-    can.push(
-      'accessi che mancano alla squadra (il web a un mostro, un servizio già collegato all’account, il browser): li chiedi all’utente con `access_request`, lui tocca «Sì, concedi»',
-    );
-  }
-  if (has('team_propose_monster')) {
-    can.push('nuovi mostri: proponi una bozza (`team_propose_monster`), l’utente la crea');
-  }
+  if (has('automation_propose')) can.push(p.automation(load(['automation_propose'])));
+  if (has('project_docs_propose')) can.push(p.docs(load(['project_docs_propose'])));
+  // The button the user taps is quoted from the dictionary that shows it.
+  if (has('access_request')) can.push(p.access(accessStrings().grant));
+  if (has('team_propose_monster')) can.push(p.teamMonster);
   const services = [...mcpServers(options.toolNames), ...(h?.connectors ?? []).map(connectorName)];
   if (services.length > 0) {
     // Many tools of a service wait for a search (C.2): the monster must know they exist.
-    const search =
-      (options.mcpSearch ?? has('tools_search'))
-        ? ' (molti strumenti: cercali con `tools_search`)'
-        : '';
-    can.push(`servizi collegati: ${[...new Set(services)].join(', ')}${search}`);
+    const search = (options.mcpSearch ?? has('tools_search')) ? p.searchServices : '';
+    can.push(p.services([...new Set(services)].join(', '), search));
   } else {
     // The cause and where it changes (D-132), never a bare «non hai» the model fills in.
     cannot.push(
       options.project
-        ? `servizi collegati (nessuno è acceso per questo progetto: li accende l’utente nella ${projectPagePath(options.project, 'collegamenti')})`
-        : `servizi collegati (nessuno è dato a te: li collega e li dà l’utente in ${settingsPath('altriProgrammi')})`,
+        ? p.noServicesProject(projectPagePath(options.project, 'collegamenti'))
+        : p.noServices(settingsPath('altriProgrammi')),
     );
   }
   // Own tools that wait for this turn (D-134): there, loadable, never "non ce l'ho".
   const waiting = (options.searched ?? []).filter(
     (n) => !OWN_DEFERRED_LINES.has(n) && !n.startsWith('web_'),
   );
-  if (waiting.length > 0) {
-    can.push(`anche, da caricare con \`tools_search\` quando servono: ${waiting.join(', ')}`);
-  }
+  if (waiting.length > 0) can.push(p.loadable(waiting.join(', ')));
 
-  const lines = [
-    '## Monsters',
-    'Sei in Monsters: mostri AI che lavorano per l’utente sul suo computer; lui li segue dall’app.',
-    'Puoi:',
-    ...can.map((c) => `- ${c}`),
-  ];
-  if (cannot.length > 0) lines.push(`Non hai: ${cannot.join('; ')}.`);
-  for (const c of options.cut ?? []) {
-    lines.push(
-      `Di ${c.server} vedi ${c.shown} strumenti su ${c.total} (limite di strumenti di questo lavoro): gli altri non sono tra i tuoi, non è un no dell’utente.`,
-    );
-  }
+  const lines = [p.head, p.intro, p.youCan, ...can.map((c) => `- ${c}`)];
+  if (cannot.length > 0) lines.push(p.youDontHave(cannot.join('; ')));
+  for (const c of options.cut ?? []) lines.push(p.cut(c.server, c.shown, c.total));
   const unlinked = [...new Set(options.unlinked ?? [])];
   if (unlinked.length === 1) {
-    lines.push(
-      `${unlinked[0]!} non risponde ora (accesso scaduto o un errore): i suoi strumenti mancano. Se ti serve, chiedi all’utente di ricollegarlo in ${settingsPath('altriProgrammi')}.`,
-    );
+    lines.push(p.unlinkedOne(unlinked[0]!, settingsPath('altriProgrammi')));
   } else if (unlinked.length > 1) {
-    lines.push(
-      `${listWords(unlinked)} non rispondono ora (accesso scaduto o un errore): i loro strumenti mancano. Se ti servono, chiedi all’utente di ricollegarli in ${settingsPath('altriProgrammi')}.`,
-    );
+    lines.push(p.unlinkedMany(listIn(unlinked), settingsPath('altriProgrammi')));
   }
   // The capo squadra's AGENTS.md says it already ("Senza uno strumento che pubblica…").
-  if (!has('delegate')) {
-    lines.push(
-      'Senza uno strumento apposta non pubblichi, non invii mail o messaggi, non paghi: prepari bozze.',
-    );
-  }
+  if (!has('delegate')) lines.push(p.noPublish);
   // The names the app shows, word for word (review of 16/10: "sezione Mostri" does not exist).
   const t = SETTINGS_TABS;
   lines.push(
-    `Solo l’utente, in ${settingsLabel()}: ${t.squadra} (creare, cambiare e archiviare mostri; chi è lui per voi), ${t.modelli} (modelli e spesa; tu non la vedi), ${t.permessi}, ${t.collegamenti} (servizi, Telegram).${
-      options.project
-        ? ` Per il progetto «${options.project}» la pagina del progetto: schede ${PROJECT_TABS.squadra}, ${PROJECT_TABS.collegamenti} (servizi e ricerca sul web) e ${PROJECT_TABS.spesa} (tetto di spesa).`
-        : ''
-    } Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file.`,
+    p.onlyUser(settingsLabel(), {
+      squad: t.squadra,
+      models: t.modelli,
+      permissions: t.permessi,
+      connections: t.collegamenti,
+    }) +
+      (options.project
+        ? p.onlyUserProject(options.project, {
+            squad: PROJECT_TABS.squadra,
+            connections: PROJECT_TABS.collegamenti,
+            spending: PROJECT_TABS.spesa,
+          })
+        : '') +
+      p.sidebar,
   );
   return lines.join('\n');
 }
@@ -249,18 +205,22 @@ function webMissing(
   delegates: boolean,
   asks: boolean,
 ): string {
+  const p = monstersCardPrompts();
   const who = [...new Set(o.webElsewhere ?? [])];
   if (o.webOff === 'permission') {
-    const ask = asks ? ', o lo chiedi tu con `access_request`' : '';
-    return `web (spento per te: lo accende l’utente in ${settingsPath('ilWeb')}${ask}${who.length > 0 ? `, e intanto ce l’ha ${listWords(who)}` : ''})`;
+    return p.webOffPermission(settingsPath('ilWeb'), asks, who, listIn(who));
   }
   if (o.webOff === 'project') {
-    return `web (la ricerca sul web è spenta per il progetto${o.project ? ` «${o.project}»` : ''}: la accende l’utente nella ${o.project ? projectPagePath(o.project, 'collegamenti') : 'pagina del progetto'}${asks ? ', o la chiedi tu con `access_request`' : ''})`;
+    return p.webOffProject(
+      o.project,
+      o.project ? projectPagePath(o.project, 'collegamenti') : p.projectPageWord,
+      asks,
+    );
   }
   if (who.length > 0) {
     // Who has it (D-127): not "denied in this session", just not this monster's tool.
-    return `web (ce l’ha ${listWords(who)}${delegates ? ': delega la ricerca' : ''})`;
+    return p.webElsewhere(listIn(who), who.length, delegates);
   }
-  if (o.webElsewhere) return 'web (nessuno nella squadra ce l’ha)';
+  if (o.webElsewhere) return p.webNobody;
   return 'web';
 }

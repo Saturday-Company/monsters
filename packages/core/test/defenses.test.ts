@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { fake } from '@monsters/providers/testing';
 import type { LogEvent, MonstersTool } from '@monsters/shared';
-import { MCP_CATALOG, ToolError, SPEND_PERIOD_WORDS } from '@monsters/shared';
+import { MCP_CATALOG, ToolError, SPEND_PERIOD_WORDS, setAppLang } from '@monsters/shared';
 import { createWebFetchTool } from '@monsters/tools';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -32,6 +32,7 @@ import {
 } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
 import { startTestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * The defences of D-070: the brake on every road out of the computer, the
@@ -304,6 +305,7 @@ describe('the brake: code run by another program (Blender, D-092)', () => {
   });
 
   it('code that writes files or hides what it does goes to the instinct, told the server’s hint', () => {
+    inLang('it');
     for (const text of [
       'exec(__import__("base64").b64decode("aW1wb3J0IG9z"))',
       'with open("/home/a/nota.txt", "w") as f: f.write("x")',
@@ -927,6 +929,7 @@ describe('hidden characters in external text', () => {
     [...text].map((c) => String.fromCodePoint(0xe0000 + c.charCodeAt(0))).join('');
 
   it('removes Unicode tags (one mark), zero-width and bidi; keeps emoji and accents', () => {
+    inLang('it');
     const zw = String.fromCodePoint(0x200b);
     const rlo = String.fromCodePoint(0x202e);
     const out = stripInvisible(
@@ -939,6 +942,7 @@ describe('hidden characters in external text', () => {
   });
 
   it('a tool result with hidden text reaches the model without it, and Attività says so', async () => {
+    inLang('it');
     const s = services();
     const set = adaptTools(
       [
@@ -1025,6 +1029,9 @@ describe('spending caps', () => {
     usage(s, 'rhea', 4); // 10.3 €
     expect(spendEvents(s).map((e) => e.data.action)).toEqual(['warning', 'stopped']);
     expect(spendEvents(s)[1]!.data.message).toMatch(/Reached the squad’s cap for today \(€10\)/);
+    // The reason is read by the user and the monster, in the language of the moment.
+    expect(m.stopReason('rhea')).toContain('reached the squad’s spending cap for today');
+    inLang('it');
     expect(m.stopReason('rhea')).toContain(
       `tetto di spesa della squadra ${SPEND_PERIOD_WORDS.day}`,
     );
@@ -1062,7 +1069,10 @@ describe('spending caps', () => {
       type: 'provider_usage',
       data: { provider: 'anthropic', model: 'claude', inputTokens: 10, outputTokens: 5 },
     });
+    expect(m.stopReason('rhea')).toContain('reached Rhea’s spending cap for today');
+    inLang('it');
     expect(m.stopReason('rhea')).toContain(`tetto di spesa di Rhea ${SPEND_PERIOD_WORDS.day}`);
+    setAppLang('en');
     expect(m.stopReason('titan')).toBeNull();
     const v = m.view();
     expect(v.agents.find((a) => a.id === 'rhea')).toMatchObject({
@@ -1105,7 +1115,8 @@ describe('spending caps', () => {
   });
 
   it('in the hub: past the cap a paid monster does not start, with "spend_cap" and no model call', async () => {
-    const t = await startTestHub({ titan: [fake.text('Ciao!')] });
+    inLang('it');
+    const t = await startTestHub({ titan: [fake.text('Ciao!')] }, { lang: 'it' });
     t.core.log.append({
       agent: 'titan',
       type: 'provider_usage',
@@ -1116,7 +1127,7 @@ describe('spending caps', () => {
     const error = t
       .events(sent.runId)
       .find((e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'spend_cap');
-    expect(error?.data.message).toMatch(/^Titan stops: /);
+    expect(error?.data.message).toMatch(/^Titan (stops|si ferma): /);
     expect(error?.data.message).toMatch(/raggiunto il tetto di spesa della squadra/);
     expect(t.provider.callsTo('titan')).toHaveLength(0);
     const view = await t.json<{ status: string; day: { spentEur: number } }>(

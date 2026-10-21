@@ -4,7 +4,7 @@ import { defineTool, ToolError, type LogEvent } from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
-  BRIEF_LANGUAGE_NOTE,
+  briefLanguageNote,
   buildSystemPrompt,
   createCoreServices,
   extractUrls,
@@ -20,6 +20,7 @@ import {
   type CoreServices,
 } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 const opened: CoreServices[] = [];
 afterEach(() => {
@@ -325,6 +326,7 @@ describe('runAgent', () => {
   });
 
   it('keeps the last tool results whole and masks the older ones, read again with result_read', async () => {
+    inLang('it');
     const page = (n: number) => `pagina ${n} `.repeat(800);
     const fetchPage = defineTool({
       name: 'lookup',
@@ -568,6 +570,7 @@ describe('answers of the turn (Phase 2 demo)', () => {
 
 describe('system prompt', () => {
   it('is AGENTS.md + system rules + profile + memory: the stable part first (D-064)', () => {
+    inLang('it');
     const prompt = buildSystemPrompt({
       agent: agent({ tools: ['web_fetch'] }),
       memory: '- Giulio preferisce fonti in italiano',
@@ -585,6 +588,7 @@ describe('system prompt', () => {
   });
 
   it('puts the brief in the first message: two delegations share the system prompt', async () => {
+    inLang('it');
     const env = setup({ a: [fake.text('Prima.'), fake.text('Seconda.')] });
     const run = env.runs.startRun({ agent: 'rhea' });
     const brief = (goal: string, why: string) => ({
@@ -621,7 +625,7 @@ describe('system prompt', () => {
     expect(firstUser).toContain('Note utili nel vault: [[Saturno]]');
     expect(firstUser).toContain('Finito quando: nota salvata');
     // The language of the notes, whatever the language of the brief (D-073).
-    expect(firstUser).toContain(BRIEF_LANGUAGE_NOTE);
+    expect(firstUser).toContain(briefLanguageNote());
   });
 
   it('an answer that only repeats the goal of a brief is still an echo', async () => {

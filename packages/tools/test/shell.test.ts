@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   childEnv,
   cleanTerminalText,
@@ -19,6 +20,9 @@ function shellTool(extra: Partial<ShellToolOptions> = {}) {
   const tool = createShellTool({ workspace, allowed: () => true, ...extra });
   return { tool, root, workspace };
 }
+
+// A test that pins the Italian family restores the English one.
+afterEach(() => setAppLang('en'));
 
 describe('OutputCapture', () => {
   it('keeps the beginning and the end and counts what it drops', () => {
@@ -265,6 +269,7 @@ describe.skipIf(!POSIX)('shell', () => {
   });
 
   it('keeps out of the data folder of Monsters, except the own folder (D-078)', async () => {
+    setAppLang('it');
     const root = tempDir();
     const data = join(root, 'home');
     const workspace = (id: string) => join(data, 'workspaces', id);
@@ -291,6 +296,24 @@ describe.skipIf(!POSIX)('shell', () => {
       stdout: string;
     };
     expect(ok.stdout.trim()).toBe('ciao');
+  });
+
+  it('says it in English, in the English family, when the data folder is reached (D-153)', async () => {
+    const root = tempDir();
+    const data = join(root, 'home');
+    const workspace = (id: string) => join(data, 'workspaces', id);
+    mkdirSync(join(data, 'secrets'), { recursive: true });
+    const tool = createShellTool({
+      workspace,
+      allowed: () => true,
+      lockout: (id) => ({ dataDir: data, allowed: [workspace(id)], home: root }),
+    });
+    const err = await toolError(
+      tool.execute({ command: 'cat ../../secrets/keys.json' }, toolCtx()),
+    );
+    expect(err.message).toBe(
+      'The internal files of Monsters aren’t accessible: use the Monsters tools.',
+    );
   });
 
   it('does not wait for processes left in the background, and stops them', async () => {

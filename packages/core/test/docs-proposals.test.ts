@@ -25,6 +25,7 @@ import {
 } from '../src/projects/docs-proposals.ts';
 import type { SendResult } from '../src/team/dispatcher.ts';
 import { promptText, startTestHub, type TestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * D-113: the monsters of a project and the orchestrator propose changes to
@@ -203,7 +204,8 @@ describe('project_docs_propose: the proposal and its draft (D-113)', () => {
     expect(await docsDrafts(t)).toEqual([]);
     // Again: closed.
     expect((await t.api('POST', `/api/drafts/docs/${d!.id}/confirm`)).status).toBe(409);
-    // The lead reads it at its next turn.
+    // The lead reads it at its next turn, in the language of the moment.
+    inLang('it');
     await toLead(t, 'fatto?');
     expect(promptText(t.provider.callsTo('leda').at(-1)!.options.prompt)).toContain(
       "[Dall'app] Ho applicato la tua proposta per CLAUDE.md di «Saturday»",

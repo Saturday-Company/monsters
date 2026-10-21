@@ -2,6 +2,7 @@ import type { ModelRef } from '@monsters/providers';
 import { BROWSER_SERVER, defineTool, type MonstersTool } from '@monsters/shared';
 import { z } from 'zod';
 import { splitAgentToolName } from '../mcp/convert.ts';
+import { toolGroupName, toolSearchPrompts } from './tool-search.prompts.ts';
 
 /*
  * Tools of big servers loaded when needed (C.2 of the plan of 16/10, D-075):
@@ -65,8 +66,11 @@ export function toolSearchConfigFor(models: readonly ModelRef[]): ToolSearchConf
 
 /**
  * A few words both ways between Italian and English, so "create task" finds
- * `anteiku_task_crea` and "elenca clienti" finds `list_customers` (stems).
+ * `anteiku_task_crea` and "elenca clienti" finds `list_customers` (stems). A query is
+ * written in either language (D-153): the English words also reach each other
+ * ("make", "show", "remove") and the Italian ones keep their pairs.
  */
+// i18n-ignore: the words of the tool search, data and not copy
 const SYNONYMS: [string, string][] = [
   ['crea', 'create'],
   ['nuovo', 'new'],
@@ -87,7 +91,7 @@ const SYNONYMS: [string, string][] = [
   ['cliente', 'customer'],
   ['cliente', 'client'],
   ['progetto', 'project'],
-  ['attività', 'task'],
+  ['attività', 'task'], // i18n-ignore
   ['compito', 'task'],
   ['pagamento', 'payment'],
   ['fattura', 'invoice'],
@@ -107,6 +111,33 @@ const SYNONYMS: [string, string][] = [
   ['automazione', 'automation'],
   ['proponi', 'propose'],
   ['istruzione', 'instruction'],
+  // English with English: what a query in English says for what the tools call otherwise
+  ['make', 'create'],
+  ['show', 'read'],
+  ['show', 'get'],
+  ['view', 'read'],
+  ['view', 'get'],
+  ['fetch', 'get'],
+  ['change', 'update'],
+  ['change', 'edit'],
+  ['modify', 'edit'],
+  ['remove', 'delete'],
+  ['find', 'search'],
+  ['lookup', 'search'],
+  ['todo', 'task'],
+  ['appointment', 'event'],
+  ['appointment', 'meeting'],
+  ['schedule', 'calendar'],
+  ['bill', 'invoice'],
+  ['proposal', 'quote'],
+  // more Italian verbs and nouns, with their English
+  ['mostra', 'show'],
+  ['trova', 'find'],
+  ['salva', 'save'],
+  ['scrivi', 'write'],
+  ['sposta', 'move'],
+  ['apri', 'open'],
+  ['chiudi', 'close'],
 ];
 
 /** The pairs as stems (`crea` ↔ `creat`), built on first use. */
@@ -137,12 +168,18 @@ export function searchTerms(text: string): string[] {
     .map(stem);
 }
 
-/** A crude stem for Italian and English: infinitives and final vowels and plurals go. */
+/**
+ * A crude stem for Italian and English: infinitives, final vowels, plurals and the English
+ * `-ing` and `-ed` go ("creating", "created", "create" and "crea" meet at `creat`).
+ */
 export function stem(term: string): string {
   let t = term;
   if (t.length > 5 && /(?:are|ere|ire)$/.test(t)) t = t.slice(0, -3);
   if (t.length > 4 && /(?:ies)$/.test(t)) t = `${t.slice(0, -3)}y`;
   else if (t.length > 4 && /[^s]s$/.test(t)) t = t.slice(0, -1);
+  // After the plural, so "strings" and "string" stem alike.
+  if (t.length > 5 && /ing$/.test(t)) t = t.slice(0, -3);
+  else if (t.length > 4 && /ed$/.test(t)) t = t.slice(0, -2);
   while (t.length > 3 && /[aeiouy]$/.test(t)) t = t.slice(0, -1);
   return t;
 }
@@ -339,8 +376,12 @@ function argsLine(t: MonstersTool): string {
     .join(', ');
 }
 
-/** Where a tool found by `tools_search` stands (M6 of the review of 19/10, D-134). */
-export type ToolSearchStatus = 'pronto' | 'pronto dal prossimo passo' | 'non caricabile';
+/**
+ * Where a tool found by `tools_search` stands (M6 of the review of 19/10, D-134), in the words of
+ * the family the run speaks (`pronto` / `ready`, `pronto dal prossimo passo` / `ready from the
+ * next step`, `non caricabile` / `not loadable`).
+ */
+export type ToolSearchStatus = string;
 
 export interface ToolSearchResult {
   tools: { name: string; description: string; args: string; status: ToolSearchStatus }[];
@@ -499,7 +540,7 @@ export class DeferredTools {
     }
     return [...by]
       .sort(([a], [b]) => (a < b ? -1 : 1))
-      .map(([s, k]) => `${s} (${k})`)
+      .map(([s, k]) => `${toolGroupName(s)} (${k})`)
       .join(', ');
   }
 
@@ -509,17 +550,18 @@ export class DeferredTools {
     if (hits.length === 0) {
       return {
         tools: [],
-        note: 'Nessuno strumento trovato: prova con altre parole (il verbo e la cosa, anche in inglese), o con un modello sui nomi come anteiku_task_*.',
+        note: toolSearchPrompts().notFound,
       };
     }
     const wasReady = new Set(hits.filter((h) => this.#ready(h.name)).map((h) => h.name));
     this.load(hits.map((h) => h.name).filter((n) => !wasReady.has(n)));
+    const words = toolSearchPrompts();
     const status = (name: string): ToolSearchStatus =>
       wasReady.has(name)
-        ? 'pronto'
+        ? words.statusReady
         : this.#loaded.includes(name)
-          ? 'pronto dal prossimo passo'
-          : 'non caricabile';
+          ? words.statusNext
+          : words.statusOut;
     const tools = hits.map((h) => {
       const t = this.#all.get(h.name)!;
       const d = plainDescription(t);
@@ -531,19 +573,11 @@ export class DeferredTools {
       };
     });
     const by = (s: ToolSearchStatus) => tools.filter((t) => t.status === s).map((t) => t.name);
-    const [ready, next, out] = [
-      by('pronto'),
-      by('pronto dal prossimo passo'),
-      by('non caricabile'),
-    ];
+    const [ready, next, out] = [by(words.statusReady), by(words.statusNext), by(words.statusOut)];
     const note = [
-      ...(ready.length > 0 ? [`Già pronti, chiamali ora: ${ready.join(', ')}.`] : []),
-      ...(next.length > 0 ? [`Pronti dal prossimo passo: ${next.join(', ')}.`] : []),
-      ...(out.length > 0
-        ? [
-            `Non caricabili: ${out.join(', ')} (limite di ${this.config.maxLoaded} strumenti caricati in questo lavoro raggiunto). Non è un no dell’utente: usa quelli già pronti, o dillo nel rapporto.`,
-          ]
-        : []),
+      ...(ready.length > 0 ? [words.readyNote(ready.join(', '))] : []),
+      ...(next.length > 0 ? [words.nextNote(next.join(', '))] : []),
+      ...(out.length > 0 ? [words.outNote(out.join(', '), this.config.maxLoaded)] : []),
     ].join(' ');
     return { tools, note };
   }
@@ -552,10 +586,7 @@ export class DeferredTools {
   tool(): MonstersTool<{ query: string; limit?: number | undefined }, ToolSearchResult> {
     return defineTool({
       name: TOOL_SEARCH,
-      description:
-        `Finds your tools by what they do and loads the ones that wait (${this.#servers()}); the ones you already have come back marked "pronto". ` +
-        'Search with a few words (the action and the thing, e.g. "crea task", "elenca clienti") or a name pattern with * (e.g. "anteiku_preventivi_*"; * is the only wildcard, no regex). ' +
-        'The tools loaded are callable by name from the next step.',
+      description: toolSearchPrompts().description(this.#servers()),
       inputSchema: z.object({
         query: z.string().min(1).max(200).describe('Words, or a name pattern with *'),
         limit: z.number().int().min(1).max(this.config.maxResults).optional(),

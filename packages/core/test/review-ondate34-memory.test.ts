@@ -7,6 +7,7 @@ import type { SendResult } from '../src/team/dispatcher.ts';
 import { memoryLineNeedsReview, splitMarkedMemory } from '../src/team/memory.ts';
 import { MAX_OPEN_MEMORY_PROPOSALS, MemoryProposals } from '../src/team/memory-proposals.ts';
 import { promptText, startTestHub, type TestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * Review of the waves 3 and 4, memory (S-A2 «niente cricchetto»): a run of the user that read
@@ -59,6 +60,7 @@ describe('which lines of a tainted run wait for the user', () => {
 
 describe('the prompt gives the marked lines as data', () => {
   it('apart from the memory, inside the block of third-party data', () => {
+    inLang('it');
     const memory = `# Memoria di Rhea\n\n- Giulio preferisce i rapporti brevi\n- Il sito X ha i prezzi aggiornati ${MEMORY_TAINT_MARK}`;
     expect(splitMarkedMemory(memory).external).toEqual(['- Il sito X ha i prezzi aggiornati']);
     const prompt = buildSystemPrompt({
@@ -82,6 +84,7 @@ describe('the prompt gives the marked lines as data', () => {
 
 describe('normal use with a web search (Rhea searches and remembers)', () => {
   it('innocent lines go by themselves, marked; no draft; the next prompt has them as data', async () => {
+    inLang('it');
     const t = await startTestHub({
       rhea: [
         fake.toolCall('web_search', { query: 'encelado geyser' }),

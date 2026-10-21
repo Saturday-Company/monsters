@@ -1,3 +1,5 @@
+import { runtimePrompts } from './runtime.prompts.ts';
+
 /*
  * The guard of the window inside a run (C.3 of the plan of 16/10, D-082).
  * Before every step of our loop the context is estimated (the characters of
@@ -108,12 +110,12 @@ export type ResultLine = (callId: string, toolName: string, output: unknown) => 
 
 const defaultLine = (output: unknown): string => {
   const text = outputText(output);
-  if (!text) return 'fatto';
+  if (!text) return runtimePrompts().done;
   const isError =
     !!output &&
     typeof output === 'object' &&
     String((output as { type?: string }).type).startsWith('error');
-  return `${isError ? 'errore: ' : ''}${short(text, 120)}`;
+  return `${isError ? runtimePrompts().errorPrefix : ''}${short(text, 120)}`;
 };
 
 /** The "progress so far" text of the folded messages. */
@@ -130,24 +132,24 @@ export function progressText(folded: readonly AnyMessage[], line?: ResultLine): 
     const content =
       typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : partsOf(m);
     for (const p of content) {
-      if (p.type === 'text' && p.text?.trim()) lines.push(`- Hai scritto: «${short(p.text, 240)}»`);
+      if (p.type === 'text' && p.text?.trim())
+        lines.push(runtimePrompts().youWrote(short(p.text, 240)));
       if (p.type !== 'tool-call') continue;
       const r = p.toolCallId ? results.get(p.toolCallId) : undefined;
       const outcome = r
         ? (line?.(p.toolCallId!, p.toolName ?? '', r.output) ?? defaultLine(r.output))
-        : 'senza risultato';
+        : runtimePrompts().noResult;
       lines.push(`- ${p.toolName ?? '?'} ${short(p.input, 140)} → ${outcome}`);
     }
   }
-  const head =
-    '[Monsters] Per fare spazio nel contesto, i tuoi passi di prima in questo compito sono riassunti qui (chiamate ed esiti). I risultati interi si rileggono con result_read e il ref, se c’è.';
+  const head = runtimePrompts().progressHead;
   let body = lines;
   let dropped = 0;
   while (body.length > 1 && head.length + body.join('\n').length > PROGRESS_MAX_CHARS) {
     body = body.slice(1);
     dropped++;
   }
-  const more = dropped > 0 ? [`- (… ${dropped} passi più vecchi tolti)`] : [];
+  const more = dropped > 0 ? [runtimePrompts().olderStepsDropped(dropped)] : [];
   return [head, ...more, ...body].join('\n');
 }
 

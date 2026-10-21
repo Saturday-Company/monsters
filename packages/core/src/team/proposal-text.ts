@@ -1,4 +1,5 @@
 import { stripInvisible } from '../agents/invisible.ts';
+import { proposalTextPrompts } from './proposal-text.prompts.ts';
 
 /**
  * What a proposal may not carry in the text that becomes AGENTS.md (D-079):
@@ -9,26 +10,34 @@ import { stripInvisible } from '../agents/invisible.ts';
  * addresses or links, no tool names, no hiding from the user, no overriding
  * of other rules.
  */
-const PROPOSAL_TEXT_RULES: { re: RegExp; why: string }[] = [
-  { re: /\b(?:https?:\/\/|www\.)\S+/i, why: 'un link' },
-  { re: /[\w.+-]+@[\w-]+\.[\w.-]+/, why: 'un indirizzo email' },
+// i18n-ignore: what the rules look for, in the two languages (data, not copy)
+const PROPOSAL_TEXT_RULES: {
+  re: RegExp;
+  why: keyof ReturnType<typeof proposalTextPrompts>['why'];
+}[] = [
+  { re: /\b(?:https?:\/\/|www\.)\S+/i, why: 'link' },
+  { re: /[\w.+-]+@[\w-]+\.[\w.-]+/, why: 'email' },
   {
     re: /\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|net|org|io|it|dev|app|ai|co|xyz|me|info|biz|site|online|ru|cn|tk|sh|link|click|page|cloud)\b/i,
-    why: 'un sito',
+    why: 'site',
   },
   {
     re: /\b(?:mcp__\w+|(?:web|vault|team|fs|ask|memory|browser)_[a-z_]+|shell|delegate|curl|wget)\b/i,
-    why: 'il nome di uno strumento',
+    why: 'tool',
   },
   {
-    re: /\b(?:di nascosto|senza dirl[oae]|senza (?:dire|avvisare|chiedere)|non dirl[oae]|non dire (?:a|all)|in segreto|segretamente|secretly|without telling)\b/i,
-    why: 'una cosa da nascondere all’utente',
+    re: /\b(?:di nascosto|senza dirl[oae]|senza (?:dire|avvisare|chiedere)|non dirl[oae]|non dire (?:a|all)|in segreto|segretamente|secretly|without telling|in secret|behind (?:his|her|their|the user['’]s) back|(?:do not|don['’]t) tell|without (?:asking|warning|informing)|hide (?:it )?from)\b/i,
+    why: 'hide',
   },
   {
     re: /\b(?:ignora(?:re)?|ignore|dimentica|forget|disregard)\b.{0,40}\b(?:istruzion|regol|instruction|rule|prompt)/i,
-    why: 'un invito a ignorare le regole',
+    why: 'ignore',
   },
-  { re: /\b(?:system prompt|prompt di sistema|jailbreak)\b/i, why: 'il prompt di sistema' },
+  {
+    re: /\b(?:override|bypass)\b.{0,40}\b(?:rules?|instructions?|safeguards?|restrictions?|permissions?)/i,
+    why: 'ignore',
+  },
+  { re: /\b(?:system prompt|prompt di sistema|jailbreak)\b/i, why: 'prompt' },
 ];
 
 /**
@@ -54,24 +63,19 @@ export function proposalText(
         .replace(/\n{3,}/g, '\n\n')
         .trim()
     : stripped.text.replace(/\s+/g, ' ').trim();
-  const tail =
-    options.tail ??
-    'Un mostro nuovo ha solo regole di lavoro per l’utente: niente indirizzi, link, nomi di strumenti o cose da non dirgli.';
-  if (stripped.hidden > 0) {
-    return { text, problem: `${field}: contiene testo invisibile. Scrivilo in chiaro.` };
-  }
+  const t = proposalTextPrompts();
+  // `OBJECTIVE_TEXT_TAIL` (the Italian one) stands for "the objective's tail, in the app's language".
+  const tail = options.tail === OBJECTIVE_TEXT_TAIL ? t.objectiveTail : (options.tail ?? t.tail);
+  if (stripped.hidden > 0) return { text, problem: t.invisible(field) };
   for (const rule of PROPOSAL_TEXT_RULES) {
     const m = rule.re.exec(text);
-    if (m) {
-      return {
-        text,
-        problem: `${field}: contiene ${rule.why} («${m[0].slice(0, 60)}»). ${tail}`,
-      };
-    }
+    if (m) return { text, problem: t.contains(field, t.why[rule.why], m[0].slice(0, 60), tail) };
   }
   return { text };
 }
 
-/** What a monster reads when the objective of an automation it proposes is refused (D-103). */
-export const OBJECTIVE_TEXT_TAIL =
-  'L’obiettivo di un’automazione proposta dice il lavoro con parole tue: niente indirizzi, link, nomi di strumenti o cose da non dire all’utente (i siti li aggiunge l’utente dall’app).';
+/**
+ * The tail a monster reads when the objective of an automation it proposes is refused (D-103), in
+ * Italian. Passed as `tail` it means the tail of the app's language (`proposalTextPrompts().objectiveTail`).
+ */
+export const OBJECTIVE_TEXT_TAIL = proposalTextPrompts('it').objectiveTail;

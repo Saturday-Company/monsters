@@ -3,6 +3,7 @@ import {
   MCP_CATALOG,
   defineTool,
   formatList,
+  settingsPath,
   ToolError,
   type Channel,
   type ClaudeConnectionsResponse,
@@ -18,6 +19,7 @@ import { z } from 'zod';
 import type { AgentDefinition } from '../agents/definition.ts';
 import type { RunHandle } from '../kill/run-controller.ts';
 import type { EventLog } from '../log/event-log.ts';
+import { accessPrompts } from './access.prompts.ts';
 import { accessStrings } from './access.strings.ts';
 import { pickedOption, QuestionExpiredError, type QuestionStore } from './questions.ts';
 import { ASK_USER_WAIT_MS } from './team-tools.ts';
@@ -150,10 +152,10 @@ export interface AccessToolContext {
 }
 
 /** What the model reads when its request is parked: the answer starts a new turn. */
-const parkedNote = () =>
-  `The request is now with the user, as a card with "${accessStrings().grant}" and "${accessStrings().deny}". End your turn now with one ` +
-  'short line saying what you asked and that you wait; do not ask it again. Their answer starts a new ' +
-  'turn: once granted, the monster has it from its next job (delegate again).';
+const parkedNote = () => accessPrompts().parked(accessStrings().grant, accessStrings().deny);
+
+/** The note after an answer starts "Fatto"/"Done" when the access was granted and applied. */
+const GRANTED_NOTE = /^(?:Fatto|Done)\b/;
 
 export class AccessRequests {
   readonly #o: AccessRequestsOptions;
@@ -229,7 +231,7 @@ export class AccessRequests {
           by,
         },
       });
-      return `Non concesso: ${grant.summary} resta com’è. Vai avanti senza e non chiederlo di nuovo.`;
+      return accessPrompts().notGranted(grant.summary);
     }
     try {
       await this.#apply(grant, by);
@@ -248,7 +250,7 @@ export class AccessRequests {
           by,
         },
       });
-      return `Concesso, ma Monsters non è riuscito ad applicarlo: ${message}. Dillo all’utente.`;
+      return accessPrompts().grantedNotApplied(message);
     }
     this.#o.log.append({
       agent: 'user',
@@ -256,7 +258,7 @@ export class AccessRequests {
       type: 'access_grant',
       data: { questionId: q.id, from: grant.from, outcome: 'granted', summary: grant.summary, by },
     });
-    return `Fatto: Monsters ha concesso ${grant.summary}. Vale dal prossimo lavoro di chi lo usa: delega di nuovo (tu lo hai dal tuo prossimo turno).`;
+    return accessPrompts().granted(grant.summary);
   }
 
   /** The steps of a granted request, checked again: what changed meanwhile is skipped. */
@@ -326,18 +328,12 @@ export class AccessRequests {
   tool(ctx: AccessToolContext): MonstersTool {
     return defineTool({
       name: ACCESS_TOOL,
-      description:
-        'Ask the user for an access that a monster of your squad lacks, with one tap: the web for a monster, ' +
-        'a service already connected to the account (given to the whole team) for your project, or the browser ' +
-        `of Monsters. The user sees a card with "${accessStrings().grant}" and "${accessStrings().deny}"; you never grant anything yourself. ` +
-        'Use it when the work needs it, instead of explaining the settings. A service not connected to the ' +
-        'account cannot be asked: the result says where the user connects it. Example: ' +
-        '{"access": "service", "service": "Canva", "why": "Leggere le grafiche del club per i post"}',
+      description: accessPrompts().toolDescription(accessStrings().grant, accessStrings().deny),
       inputSchema: Input,
       execute: async (input, tc) => {
         const plan = this.#plan(ctx.self, input);
         if ('done' in plan) return { status: 'already', note: plan.done };
-        const user = this.#o.userName?.()?.trim() || 'l’utente';
+        const user = this.#o.userName?.()?.trim() || accessPrompts().theUser;
         const question = this.#o.questions.create({
           agent: ctx.self.config.id,
           runId: ctx.run.id,
@@ -365,7 +361,7 @@ export class AccessRequests {
           await this.#o.questions.waitFor(question.id, AbortSignal.any([tc.signal, timeout]));
           const outcome = await this.settled(question.id);
           return {
-            status: outcome.startsWith('Fatto') ? 'granted' : 'not_granted',
+            status: GRANTED_NOTE.test(outcome) ? 'granted' : 'not_granted',
             question_id: question.id,
             note: outcome,
           };
@@ -416,7 +412,7 @@ export class AccessRequests {
       project = own;
       if (input.project?.trim() && team.project(input.project)?.id !== own?.id) {
         throw new ToolError('BLOCKED_BY_POLICY', 'only for your project', {
-          hint: `You ask for «${own?.name ?? ''}» only.`,
+          hint: accessPrompts().onlyForProject(own?.name ?? ''),
         });
       }
       if (monster && team.projectOf(monster.config.id)?.id !== own?.id) {
@@ -433,7 +429,10 @@ export class AccessRequests {
       project = team.projectOf(monster.config.id);
     }
     if (monster && project && team.projectOf(monster.config.id)?.id !== project.id) {
-      throw new ToolError('INVALID_INPUT', `${monster.config.name} is not of «${project.name}»`);
+      throw new ToolError(
+        'INVALID_INPUT',
+        accessPrompts().monsterNotOfProject(monster.config.name, project.name),
+      );
     }
 
     if (input.access === 'web') {
@@ -458,12 +457,12 @@ export class AccessRequests {
       const found = this.#findService(name);
       if (!project) {
         return {
-          done: `${found.label} reaches the monsters of the personal squad already when it is given to the whole team: if its tools are missing, it is not signed in (Impostazioni → Collegamenti).`,
+          done: accessPrompts().serviceReaches(found.label),
         };
       }
       if (project.connections[found.via].includes(found.id)) {
         return {
-          done: `${found.label} is on for «${project.name}» already. If its tools are missing, the user signs in again in Impostazioni → Collegamenti${found.via === 'claude' ? ' (and only monsters working with Claude get it)' : ''}.`,
+          done: accessPrompts().serviceOnAlready(found.label, project.name, found.via === 'claude'),
         };
       }
       const steps: AccessStep[] = [
@@ -480,12 +479,12 @@ export class AccessRequests {
     const browser = this.#o.mcp.view().servers.find((s) => s.preset === 'browser');
     if (!browser) {
       throw new ToolError('NOT_FOUND', 'the browser of Monsters is not set up', {
-        hint: `Tell ${this.#o.userName?.()?.trim() || 'the user'} to turn it on in Impostazioni → Collegamenti → Altri programmi → Browser (with "Mostra la finestra del browser" to sign in to sites). You cannot ask it here.`,
+        hint: accessPrompts().browserNotSetUp(this.#o.userName?.()?.trim() || 'the user'),
       });
     }
     if (!browser.enabled) {
       throw new ToolError('UNAVAILABLE', 'the browser of Monsters is off', {
-        hint: 'Tell the user to turn it on in Impostazioni → Collegamenti → Altri programmi → Browser.',
+        hint: accessPrompts().browserIsOff(),
       });
     }
     const targets = monster
@@ -561,13 +560,16 @@ export class AccessRequests {
     const service = entry ? services.find((c) => c.id === entry.id && c.added) : undefined;
     if (n === BROWSER_SERVER) {
       throw new ToolError('INVALID_INPUT', 'the browser is its own access', {
-        hint: 'Ask with {"access": "browser"}.',
+        hint: accessPrompts().browserOwnAccess,
       });
     }
     if (server) {
       if (!server.agents.includes('*')) {
         throw new ToolError('SETTING_OFF', `${server.label} is not given to the whole team`, {
-          hint: `Only the user changes who uses it, in Impostazioni → Collegamenti (${server.label}): tell ${user}.`,
+          hint: accessPrompts().onlyUserChanges(
+            `${settingsPath('collegamenti')} (${server.label})`,
+            user,
+          ),
         });
       }
       return { via: 'mcp', id: server.name, label: server.label };
@@ -575,7 +577,10 @@ export class AccessRequests {
     if (service) {
       if (!service.agents.includes('*')) {
         throw new ToolError('SETTING_OFF', `${entry!.name} is not given to the whole team`, {
-          hint: `Only the user changes who uses it, in Impostazioni → Collegamenti (${entry!.name}, tramite Claude): tell ${user}.`,
+          hint: accessPrompts().onlyUserChanges(
+            `${settingsPath('collegamenti')} (${entry!.name}, ${accessPrompts().viaClaudeLabel})`,
+            user,
+          ),
         });
       }
       return { via: 'claude', id: service.id, label: entry!.name };
@@ -588,10 +593,12 @@ export class AccessRequests {
         .map((c) => MCP_CATALOG.find((e) => e.id === c.id)?.name ?? c.id),
     ];
     throw new ToolError('NOT_FOUND', `${known?.name ?? name} is not connected to the account`, {
-      hint:
-        `Do not ask it: tell ${user} to connect ${known?.name ?? name} in Impostazioni → Collegamenti` +
-        `${known?.viaClaude ? ' ("Collega tramite Claude", with the Claude subscription)' : ''}; then you can ask it for the project. ` +
-        `Connected now: ${connected.join(', ') || 'none'}.`,
+      hint: accessPrompts().notConnectedHint(
+        known?.name ?? name,
+        user,
+        Boolean(known?.viaClaude),
+        connected.join(', ') || 'none',
+      ),
     });
   }
 

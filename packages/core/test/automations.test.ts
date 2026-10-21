@@ -29,6 +29,8 @@ import {
 } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
 import { deferred, never, promptText, startTestHub, type TestHub } from './hub-helpers.ts';
+import { langHome } from './lang-home.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * Automations (D-094): the schedule (time zones, DST, missed slots), the
@@ -88,7 +90,7 @@ const isType =
     e.type === type && extra(e as Extract<LogEvent, { type: T }>);
 
 const isAutomationPrompt = (call: FakeCall) =>
-  promptText(call.options.prompt).includes('[Automazione');
+  /\[Automazione|\[Automation/.test(promptText(call.options.prompt));
 
 /** Waits until nothing runs in the dispatcher (a run's end is async). */
 async function settled(t: TestHub): Promise<void> {
@@ -223,11 +225,13 @@ describe('automations in the core', () => {
     titan: (call: FakeCall) => FakeStep,
     opts: { home?: string; start?: number; askWaitMs?: number; maxWaitMs?: number } = {},
   ) {
+    // The texts the models read are those of the Italian family, byte for byte as they were (D-153).
+    inLang('it');
     const time = fakeClock(opts.start ?? START);
     const t = await startTestHub(
       { titan, rhea: [fake.text('ok')], dione: [fake.text('ok')] },
       {
-        ...(opts.home ? { home: opts.home } : {}),
+        home: opts.home ?? langHome('it'),
         hub: {
           ...(opts.askWaitMs !== undefined ? { askWaitMs: opts.askWaitMs } : {}),
           automations: {
@@ -250,7 +254,7 @@ describe('automations in the core', () => {
     expect(created).toMatchObject({
       id: 'post-della-settimana',
       status: 'active',
-      scheduleText: 'every Sunday at 11:00 PM',
+      scheduleText: 'ogni domenica alle 23:00',
       nextRunAt: Date.parse('2026-10-18T21:00:00Z'),
       current: null,
       last: null,
@@ -391,7 +395,7 @@ describe('automations in the core', () => {
     time.advance(6000);
     const skipped = await t.waitEvent(isType('automation_run_skipped'));
     expect(skipped.data).toMatchObject({ reason: 'busy', trigger: 'schedule' });
-    expect(skipped.data.message).toContain('was busy');
+    expect(skipped.data.message).toContain('era occupato');
     gate.resolve();
     await t.runEnded(user.runId);
     expect(t.events().filter(isType('automation_run_started'))).toHaveLength(0);
@@ -547,7 +551,7 @@ describe('automations in the core', () => {
     // Ten minutes later: the next slot is a week away, the giro goes on.
     const { t } = await hub(
       (call) =>
-        promptText(call.options.prompt).includes('Monsters si è chiuso')
+        /Monsters si è chiuso|Monsters was closed/.test(promptText(call.options.prompt))
           ? fake.text('Ripreso: post pronti.')
           : fake.text('Ciao.'),
       { home, start: START + 10 * MIN },
@@ -751,7 +755,7 @@ describe('automations in the core', () => {
 
     const { t } = await hub(
       (call) =>
-        promptText(call.options.prompt).includes('Monsters si è chiuso')
+        /Monsters si è chiuso|Monsters was closed/.test(promptText(call.options.prompt))
           ? fake.text('Ripreso: post pronti.')
           : fake.text('Ciao.'),
       { home, start: START + 10 * MIN },
@@ -904,7 +908,7 @@ describe('automations in the core', () => {
     expect(d).toMatchObject({
       status: 'draft',
       nextRunAt: null,
-      scheduleText: 'every day at 8:00 AM',
+      scheduleText: 'ogni giorno alle 8:00',
       schedule: { timezone: 'Europe/Rome' },
     });
     expect((await t.api('POST', `/api/automations/${d.id}/run`)).status).toBe(409);

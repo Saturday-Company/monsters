@@ -1,5 +1,6 @@
 import type { DelegationVerdict, ReceiptCriterion } from '@monsters/shared';
 import { withUnicodeBoundaries, wordRegex } from '../word-boundary.ts';
+import { instinctPrompts } from './instinct.prompts.ts';
 import { instinctStrings } from './instinct.strings.ts';
 import { BANDS, bandOf, doneCheckRequest } from './questions.ts';
 import { pOf, type System1 } from './system1.ts';
@@ -72,19 +73,37 @@ const NUMBER_WORDS: Record<string, number> = {
   three: 3,
   four: 4,
   five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  one: 1,
 };
-const NUMBER = '(\\d{1,2}|due|tre|quattro|cinque|sei|sette|otto|nove|dieci|two|three|four|five)';
+// i18n-ignore: number words in the two languages (data, not copy)
+const NUMBER =
+  '(\\d{1,2}|due|tre|quattro|cinque|sei|sette|otto|nove|dieci|two|three|four|five|six|seven|eight|nine|ten)';
 const COUNT = new RegExp(
   withUnicodeBoundaries(`\\b(?:almeno\\s+|at\\s+least\\s+)?${NUMBER}\\s+(\\p{L}{3,})`),
   'giu',
 );
 
 const toNumber = (s: string) => NUMBER_WORDS[s.toLowerCase()] ?? Number(s);
-/** A noun compared by its start: "fornitori" and "fornitore", "varianti" and "variante". */
-const stem = (noun: string) => noun.toLowerCase().slice(0, Math.max(4, noun.length - 2));
+/**
+ * A noun compared by its start: "fornitori" and "fornitore", "varianti" and "variante"; an
+ * English plural first loses its "s" ("suppliers" and "supplier", "companies" and "company").
+ */
+const stem = (noun: string) => {
+  const n = noun
+    .toLowerCase()
+    .replace(/ies$/, 'y')
+    .replace(/(?<=[^s])s$/, '');
+  return n.slice(0, Math.max(4, n.length - 2));
+};
 
 /** "massimo 10 righe", "non più di 3": an upper bound, not a number to reach. */
 const UPPER_BOUND = wordRegex(
+  // i18n-ignore: words of the two languages (data, not copy)
   '\\b(massimo|al\\s+massimo|max|non\\s+più\\s+di|fino\\s+a|entro|meno\\s+di|at\\s+most|up\\s+to|no\\s+more\\s+than)\\s*$',
 );
 
@@ -100,18 +119,24 @@ export function expectedCounts(text: string): { n: number; noun: string }[] {
 }
 
 /** "un tema per settimana" for a month: four weeks (the count Jev got wrong, research 08 §4.3). */
-const PER_WEEK = wordRegex('\\b(un|uno|una)\\s+(\\p{L}{3,})\\s+(per|a|ogni)\\s+settimana\\b');
+// i18n-ignore: the words of a week and a month in the two languages (data, not copy)
+const PER_WEEK = wordRegex(
+  // i18n-ignore: words of the two languages (data, not copy)
+  '\\b(un|uno|una|a|an|one)\\s+(\\p{L}{3,})\\s+(per|a|ogni|every|each)\\s+(?:settimana|week)\\b',
+);
 const MONTH = wordRegex(
-  '\\b(mese|mensile|gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\\b',
+  '\\b(mese|mensile|gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|month|monthly|january|february|march|april|june|july|august|september|october|november|december)\\b', // i18n-ignore
 );
 const WEEK_N = new RegExp(
-  withUnicodeBoundaries('\\bsettimana\\s+(\\d|uno|due|tre|quattro|cinque)\\b'),
+  withUnicodeBoundaries(
+    '\\b(?:settimana|week)\\s+(\\d|uno|due|tre|quattro|cinque|one|two|three|four|five)\\b', // i18n-ignore
+  ),
   'giu',
 );
 
 /** Weeks named in a report ("settimana 1 …, settimana 2 …"). */
 function weeksNamed(summary: string): number {
-  return new Set([...summary.matchAll(WEEK_N)].map((m) => m[1]!.toLowerCase())).size;
+  return new Set([...summary.matchAll(WEEK_N)].map((m) => toNumber(m[1]!))).size;
 }
 
 /**
@@ -146,12 +171,17 @@ function countsBelow(doneWhen: string, summary: string): string[] {
 /** The report says it saved or wrote a note. */
 const SAVE_CLAIM = new RegExp(
   withUnicodeBoundaries(
-    "\\b(salvat\\w*|salvo|ho\\s+creato|creat[ao]|ho\\s+scritto|scritt[ao]\\s+(in|nella)|aggiornat[ao]|nella\\s+nota|in\\s+una\\s+nota|l'ho\\s+messa|saved|created|wrote\\s+(it\\s+)?(in|to))\\b",
+    // i18n-ignore: what a report says when it saved a note, in the two languages (data, not copy)
+    "\\b(salvat\\w*|salvo|ho\\s+creato|creat[ao]|ho\\s+scritto|scritt[ao]\\s+(in|nella)|aggiornat[ao]|nella\\s+nota|in\\s+una\\s+nota|l'ho\\s+messa|saved|created|updated|i\\s+wrote|wrote\\s+(it\\s+)?(in|to)|written\\s+(in|to)|in\\s+(a|the)\\s+note|i(?:['’]ve|\\s+have)?\\s+(put|stored|filed))\\b",
   ),
   'giu',
 );
 /** "non ho salvato", "senza salvare", "not saved": not a claim. */
-const NEGATION = wordRegex('\\b(non|senza|not|nessun\\w*|niente)\\b[^.!?\\n]{0,20}$');
+// i18n-ignore: negations in the two languages (data, not copy)
+const NEGATION = wordRegex(
+  // i18n-ignore: words of the two languages (data, not copy)
+  "\\b(non|senza|not|nessun\\w*|niente|no|never|without|nothing|none|unable|cannot|\\w+n['’]t)\\b[^.!?\\n]{0,20}$",
+);
 
 /** A report that claims saved notes while the vault log has none (hd1, d04 of the measure). */
 export function claimsNotesWithout(
@@ -223,7 +253,7 @@ export class DoneChecker {
     if (doneWhen || constraints.length > 0) {
       const request = doneCheckRequest({
         goal: input.goal,
-        doneWhen: doneWhen ?? 'il compito è fatto e il rapporto è pronto',
+        doneWhen: doneWhen ?? instinctPrompts().defaultDoneWhen,
         constraints,
         summary: input.summary,
         notesCreated: input.notesCreated,
@@ -317,11 +347,7 @@ export class DoneChecker {
         criteria,
         missing,
         byModel,
-        reminder:
-          `[Controllo del sistema] Il lavoro non sembra finito: ${missing.join('; ')}. ` +
-          'Completa quello che manca con gli strumenti; se non puoi, scrivi chiaramente nel rapporto ' +
-          'cosa manca e la causa come te l’ha data il sistema, senza dedurla (un rifiuto è dell’utente ' +
-          'solo se l’utente ha detto no). Non dire che è fatto se non lo è.',
+        reminder: instinctPrompts().doneReminder(missing),
       };
     }
     if (doubtful) {

@@ -4913,8 +4913,20 @@ e nei pacchetti, i template dei prompt). Il progetto è open source e si rivolge
   (`setLanguage` nel preload, come il tema di D-091), la tiene con le connessioni e ricostruisce i menu.
 - **Core:** i testi si scelgono quando nascono; gli eventi già nel registro restano nella lingua in cui sono stati
   scritti (niente migrazione del registro: la ricevuta di ieri resta quella di ieri).
-- **Prompt:** i template italiani restano identici e si usano quando i mostri scrivono in italiano; per le altre lingue
-  template inglesi. Il parser di AGENTS.md legge le due famiglie.
+- **Prompt (onda 3):** la *famiglia* dei testi che leggono i modelli (AGENTS.md, promemoria del sistema, prompt del
+  cancello e dell'istinto, descrizioni e risultati degli strumenti) è la lingua dell'app nel momento in cui il testo
+  nasce. App in italiano: i testi italiani, identici byte per byte a prima (le eval restano valide; un test ne fissa
+  l'hash). App in inglese: una traduzione fedele, stessa struttura, stesse regole, stessi esempi, stessi segnaposto. I
+  testi stanno in file `*.prompts.ts` accanto al codice (la guardia li salta). La *lingua di scrittura* resta
+  separata: un prompt inglese dice «Always in Italian»; una sola tabella codice ↔ parola italiana ↔ parola inglese
+  (`writingLanguageName` in `@monsters/shared`), e chi legge accetta tutte e due le parole.
+- **File già su disco:** AGENTS.md, `profilo.md`, MEMORY.md tengono la famiglia in cui sono nati; cambiare la lingua
+  dell'app non li riscrive. Ogni lettore e ogni riscrittura riconosce le due famiglie: il parser di AGENTS.md, il
+  controllo «non toccato a mano» (contro i template correnti e vecchi di entrambe), l'aggiornamento ai template nuovi
+  (sempre nella famiglia del file), il cambio di nome dell'utente e della lingua, le righe di `profilo.md` che le
+  impostazioni gestiscono. I marcatori che i modelli scrivono e il codice cerca («Da ricordare:» / “To remember:”)
+  si leggono in tutte e due. Le parole che il codice cerca nei testi di modelli e utenti (negazioni, verbi, articoli,
+  stopword, sinonimi) coprono inglese e italiano.
 - **Nomi persistiti:** gli identificatori (rotte, id delle risposte, chiavi delle impostazioni) restano come sono. Le
   cartelle del vault di un'installazione nuova in inglese seguono la lingua; i vault esistenti non cambiano.
 - **Guardia** `scripts/check-i18n.ts` in `pnpm lint`: testo JSX e attributi visibili scritti a mano, frasi italiane

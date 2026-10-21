@@ -1,4 +1,5 @@
 import { ToolError } from '@monsters/shared';
+import { runtimePrompts } from './runtime.prompts.ts';
 
 /*
  * What one agent did with its tools during one run (D-064): free models repeat
@@ -39,16 +40,12 @@ export const ERROR_STREAK_REMINDER = 3;
 /** Failures in a row before the session moves to the next model. */
 export const ERROR_STREAK_DEMOTE = 4;
 
-export const REPEATED_CALL_HINT =
-  'Hai già questo risultato: usalo, oppure cambia approccio (un’altra query, un’altra fonte, un altro strumento).';
+/** What a refused repeated call says (the app's language at the moment it is read). */
+export const repeatedCallHint = (): string => runtimePrompts().repeatedCallHint;
 
 /** What the agent reads in the next step after failures in a row. */
 export function errorStreakReminder(count: number): string {
-  return (
-    `[Promemoria del sistema] Le ultime ${count} chiamate agli strumenti sono fallite. ` +
-    'Leggi codice e suggerimento dell’ultimo errore e cambia approccio: argomenti diversi, un altro strumento, ' +
-    'oppure fermati e scrivi il rapporto con quello che hai.'
-  );
+  return runtimePrompts().errorStreakReminder(count);
 }
 
 interface Seen {
@@ -76,7 +73,7 @@ export class CallTracker {
       throw new ToolError(
         'REPEATED_CALL',
         `${tool} called ${seen.count} times with the same arguments`,
-        { hint: REPEATED_CALL_HINT },
+        { hint: repeatedCallHint() },
       );
     }
     seen.count++;

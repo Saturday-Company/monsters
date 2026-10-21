@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { childEnv } from './env.ts';
 import {
   commandWritesInstructions,
-  INSTRUCTION_FILES_DENIED,
+  instructionFilesDenied,
   INSTRUCTION_FILES_HINT,
 } from './instruction-files.ts';
 import { lockedCommand, lockedPath, type DataDirLock } from './lockout.ts';
@@ -241,7 +241,7 @@ export function createShellTool(options: ShellToolOptions): MonstersTool<ShellIn
         (f) => isInside(resolve(f), cwd, platform) || input.command.includes(f),
       );
       if (inProject && commandWritesInstructions(input.command)) {
-        throw new ToolError('BLOCKED_BY_POLICY', INSTRUCTION_FILES_DENIED, {
+        throw new ToolError('BLOCKED_BY_POLICY', instructionFilesDenied(), {
           hint: INSTRUCTION_FILES_HINT,
         });
       }

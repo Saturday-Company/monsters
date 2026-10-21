@@ -5,6 +5,7 @@ import type { AgentSummary, LogEvent, Question } from '@monsters/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { optionsWithoutContent } from '../src/index.ts';
 import { deferred, never, promptText, startTestHub, toolResultsSeen } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 type Sent = { runId: string; agent: string; queued: boolean };
 
@@ -50,6 +51,7 @@ describe('orchestrator scenarios (fake provider)', () => {
   });
 
   it('(b) delegates to Rhea and Dione in parallel; Dione reads Rhea’s note by link', async () => {
+    inLang('it');
     const rheaWrote = deferred();
     const t = await startTestHub({
       titan: [
@@ -674,18 +676,22 @@ describe('messages and answers around a run', () => {
   });
 
   it('answering a non-blocking question after its run ended starts a new run of the asker', async () => {
-    const t = await startTestHub({
-      titan: [
-        fake.toolCall('ask_user', {
-          question: 'Pubblico?',
-          options: ['Sì', 'No'],
-          blocking: false,
-          kind: 'publish',
-        }),
-        fake.text('Ti ho chiesto, intanto ho finito.'),
-        fake.text('Pubblicato, come chiedevi.'),
-      ],
-    });
+    inLang('it');
+    const t = await startTestHub(
+      {
+        titan: [
+          fake.toolCall('ask_user', {
+            question: 'Pubblico?',
+            options: ['Sì', 'No'],
+            blocking: false,
+            kind: 'publish',
+          }),
+          fake.text('Ti ho chiesto, intanto ho finito.'),
+          fake.text('Pubblicato, come chiedevi.'),
+        ],
+      },
+      { lang: 'it' },
+    );
     const sent = await t.json<Sent>('POST', '/api/messages', { text: 'fai' });
     await t.runEnded(sent.runId);
     const q = t.events(sent.runId).find(isType('question'))!;

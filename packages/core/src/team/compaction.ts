@@ -16,6 +16,7 @@ import {
 import { withoutAccessClaims } from './access-claims.ts';
 import { isThirdPartySource } from './instinct/taint.ts';
 import type { QuestionStore } from './questions.ts';
+import { SUMMARY_EXPENDABLE } from './summarizer.prompts.ts';
 import { teamStrings } from './team.strings.ts';
 
 /*
@@ -462,7 +463,7 @@ export function fixedContextTokens(log: EventLog, agentId: string): number | und
 }
 
 /** Sections of a summary given up first when it is too long: what was delivered, then the requests. */
-const EXPENDABLE = [/^##\s*Consegnato/i, /^##\s*Richieste/i];
+const EXPENDABLE = SUMMARY_EXPENDABLE;
 
 /**
  * A summary within `max` characters: trimmed; when longer, the lines of

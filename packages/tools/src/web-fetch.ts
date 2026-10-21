@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { fetch as undiciFetch, type Agent } from 'undici';
 import { pinnedDispatcher, resolvePublic, systemResolver, type Resolver } from './address.ts';
 import { htmlToMarkdown } from './html.ts';
+import { toolPrompts } from './tools.prompts.ts';
 import {
   BROWSER_USER_AGENT,
   fetchFailure,
@@ -175,10 +176,6 @@ export function findPassages(
   return { content: content.trim(), matches: merged.length };
 }
 
-const REFUSED_HINT =
-  "Non è un permesso dell'utente né di Monsters: il sito non accetta la lettura automatica e nessuno può attivarla da Monsters. " +
-  "Non aprire le sue altre pagine: usa quello che dicono gli snippet di web_search, oppure un'altra fonte, o dillo nel resoconto.";
-
 /** The site of a URL for the refusals: the host without `www.`. */
 function siteOf(url: URL): string {
   return url.hostname.toLowerCase().replace(/^www\./, '');
@@ -310,11 +307,9 @@ export function createWebFetchTool(
     let url = parseHttpUrl(rawUrl, allowPrivate);
     const host = siteOf(url);
     if (refused.get(runId)?.has(host)) {
-      throw new ToolError(
-        'SITE_REFUSED',
-        `il sito ${host} ha già rifiutato la lettura in questo compito`,
-        { hint: REFUSED_HINT },
-      );
+      throw new ToolError('SITE_REFUSED', toolPrompts().alreadyRefused(host), {
+        hint: toolPrompts().fetchRefusedHint,
+      });
     }
     const signal = withTimeout(parent, timeoutMs);
     let res: Response | undefined;
@@ -353,11 +348,9 @@ export function createWebFetchTool(
         await res.body?.cancel().catch(() => {});
         if (res.status === 401 || res.status === 403) {
           noteRefused(runId, host);
-          throw new ToolError(
-            'SITE_REFUSED',
-            `il sito ${host} ha rifiutato la lettura (HTTP ${res.status})`,
-            { hint: REFUSED_HINT },
-          );
+          throw new ToolError('SITE_REFUSED', toolPrompts().siteRefused(host, res.status), {
+            hint: toolPrompts().fetchRefusedHint,
+          });
         }
         throw httpError(res.status, `fetching ${url.toString()}`, siteOf(url));
       }

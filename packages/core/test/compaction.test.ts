@@ -18,6 +18,7 @@ import {
 } from '../src/index.ts';
 import { historyText } from '../src/agents/run-harness.ts';
 import { promptText, startTestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * Compaction of a conversation (C.3, D-082): when it triggers, what a summary
@@ -489,6 +490,7 @@ describe('summary model and prompt', () => {
   });
 
   it('the prompt has the old summary and the turns by speaker', () => {
+    inLang('it');
     const text = summaryPrompt({
       agent,
       previous: 'Giulio vuole i post il lunedì.',
@@ -505,6 +507,7 @@ describe('summary model and prompt', () => {
 
 describe('harness history', () => {
   it('the summary first, whole and as data, then the newest turns within 6000 characters', () => {
+    inLang('it');
     const history: ModelMessage[] = Array.from({ length: 12 }, (_, i) => ({
       role: i % 2 ? 'assistant' : 'user',
       content: `turno ${i} ${'w'.repeat(900)}`,
@@ -531,7 +534,10 @@ describe('compaction in the hub (fake provider)', () => {
     const t = await startTestHub({
       titan: (call) => {
         const system = JSON.stringify(call.options.prompt[0]);
-        if (system.includes('Riassumi la conversazione')) {
+        if (
+          system.includes('Riassumi la conversazione') ||
+          system.includes('Summarise the conversation')
+        ) {
           return {
             kind: 'text',
             text: '## Fatti dati dall’utente\n- Il gatto si chiama Briciola; budget 1.200 €.',
@@ -563,6 +569,8 @@ describe('compaction in the hub (fake provider)', () => {
         };
       },
     });
+    // Starting a core picks the language of the system: the test says which one it wants.
+    inLang('it');
     for (let i = 1; i <= 8; i++) {
       const sent = await t.json<Sent>('POST', '/api/messages', {
         text: i === 1 ? 'Il mio gatto si chiama Briciola, budget 1.200 €' : `messaggio ${i}`,

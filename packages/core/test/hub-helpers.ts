@@ -1,8 +1,15 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ProviderRegistry } from '@monsters/providers';
 import { FakeProvider, type FakeScript } from '@monsters/providers/testing';
-import { defineTool, type LogEvent, type MonstersTool } from '@monsters/shared';
+import {
+  appLang,
+  defineTool,
+  setAppLang,
+  type Lang,
+  type LogEvent,
+  type MonstersTool,
+} from '@monsters/shared';
 import { afterEach } from 'vitest';
 import { z } from 'zod';
 import {
@@ -60,6 +67,8 @@ const cores: CoreServer[] = [];
 // does not reach the projects of the workspace (vitest 5), while `--testTimeout` does.
 afterEach(async () => {
   for (const c of cores.splice(0)) await c.close();
+  // A hub started with `lang` set the language: back to English (the language of the tests).
+  setAppLang('en');
 }, 60_000);
 
 export interface Deferred<T = void> {
@@ -112,9 +121,35 @@ export interface TestHub {
  */
 export async function startTestHub(
   scripts: Record<string, FakeScript>,
-  options: { hub?: HubOptions; withoutTeam?: boolean; home?: string; keyId?: string } = {},
+  options: {
+    hub?: HubOptions;
+    withoutTeam?: boolean;
+    home?: string;
+    keyId?: string;
+    /** The app's language of this hub (D-153); English unless a test pins the Italian family. */
+    lang?: Lang;
+  } = {},
 ): Promise<TestHub> {
   const home = options.home ?? tempHome();
+  {
+    // The core reads the language from `settings.json` at its start (without one it takes the
+    // machine's), and the blueprints below are written in the language in use: a test hub is
+    // in the language in use (English in a test unless `inLang` or `lang` says another), or the one its home already says.
+    const file = join(home, 'settings.json');
+    let settings: Record<string, unknown> = {};
+    try {
+      settings = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
+    } catch {
+      // no settings yet
+    }
+    const saved = settings['language'];
+    const lang: Lang = options.lang ?? (saved === 'it' || saved === 'en' ? saved : appLang());
+    if (saved !== lang) {
+      mkdirSync(home, { recursive: true });
+      writeFileSync(file, JSON.stringify({ ...settings, language: lang }));
+    }
+    setAppLang(lang);
+  }
   if (!options.withoutTeam) {
     const model = (id: string) => [{ provider: 'fake', model: id }];
     const agents = join(home, 'agents');

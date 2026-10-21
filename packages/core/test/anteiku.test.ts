@@ -16,6 +16,7 @@ import {
   type FakeAnteiku,
 } from './fixtures/fake-anteiku-server.ts';
 import { startTestHub, type TestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * Anteiku in Monsters (D-075), against a fake Anteiku on 127.0.0.1 (never the
@@ -157,6 +158,8 @@ describe('Anteiku: a monster at work', () => {
         fake.text('Fatto: task creata.'),
       ],
     });
+    // Starting a core picks the language of the system: the test says which one it wants.
+    inLang('it');
     const fa = await anteiku(t, 'oauth');
     // A monster that used the list before: it is preloaded.
     t.core.log.append({

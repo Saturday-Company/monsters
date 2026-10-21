@@ -406,7 +406,7 @@ export class Dispatcher {
     if (this.#runs.halted) throw new HaltedError();
     const { agent } = params;
     if (this.busy(agent.config.id)) {
-      throw new DispatchError('busy', `${agent.config.name} sta lavorando`);
+      throw new DispatchError('busy', teamStrings().agentBusy(agent.config.name));
     }
     let item = params.item;
     if (params.text !== undefined) {

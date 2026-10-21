@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { ProviderRegistry } from '@monsters/providers';
 import { lockedPath } from '@monsters/tools';
 import { fake, FakeProvider } from '@monsters/providers/testing';
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createCoreServices, parseAgentConfig, runAgent } from '../src/index.ts';
 import { migrate } from '../src/db/migrations.ts';
 import { openDb } from '../src/db/sqlite.ts';
@@ -382,6 +383,10 @@ describe('the upload body', () => {
 });
 
 describe('files for the models', () => {
+  // The Italian family unless a test says otherwise: the assertions are those of before D-153.
+  beforeEach(() => setAppLang('it'));
+  afterEach(() => setAppLang('en'));
+
   it('knows which models see images and read PDFs', () => {
     expect(modelSight('anthropic', 'claude-sonnet-4-5')).toEqual({ images: true, pdf: true });
     expect(modelSight('openai', 'gpt-4o-mini')).toEqual({ images: true, pdf: true });
@@ -483,6 +488,52 @@ describe('files for the models', () => {
     expect(line).not.toMatch(/non li hai più|rimand|chiedi di/i);
     // Only deleted files: nothing to read again.
     expect(attachmentsLine([], 2)).not.toContain('file_read');
+  });
+
+  describe('English family (D-153)', () => {
+    beforeEach(() => setAppLang('en'));
+
+    it('says an image cannot be seen, in English, as the Italian one does', () => {
+      const blind = attachmentParts([src(meta({}))], { images: false, pdf: false });
+      expect((blind[0] as { text: string }).text).toMatch(/can’t see images/);
+      expect((blind[0] as { text: string }).text).toMatch(/foto\.png/);
+    });
+
+    it('gives the text of a PDF as user data inside <attachment>', () => {
+      const doc = src(
+        meta({ name: 'c.pdf', kind: 'pdf', mime: 'application/pdf' }),
+        'Totale 100 euro',
+      );
+      const text = attachmentParts([doc], { images: false, pdf: false });
+      expect((text[0] as { text: string }).text).toMatch(
+        /<attachment name="c\.pdf">\nTotale 100 euro\n<\/attachment>/,
+      );
+      expect((text[0] as { text: string }).text).toMatch(/not instructions/);
+    });
+
+    it('a file without text: the model is told', () => {
+      const doc = src(meta({ name: 'scan.pdf', kind: 'pdf', mime: 'application/pdf' }));
+      const parts = attachmentParts([doc], { images: false, pdf: false });
+      expect((parts[0] as { text: string }).text).toMatch(/I couldn’t read its text/);
+    });
+
+    it('a harness reads images and PDFs from their paths', () => {
+      const files = [
+        src(
+          meta({ name: 'c.pdf', kind: 'pdf', mime: 'application/pdf', path: 'File/2026-10/c.pdf' }),
+        ),
+      ];
+      const claude = harnessAttachments(files, 'claude-agent', (m) => `/home/g/${m.path}`);
+      expect(claude.text).toMatch(/read them with the Read tool/);
+    });
+
+    it('past messages keep a neutral line with names and ids, never the bytes', () => {
+      const line = attachmentsLine([meta({})], 1);
+      expect(line).toBe(
+        '[Attachments of this message: foto.png (image, 2 KB, file id 01J0000000000000000000000A), a file the user deleted afterwards. You had them in front of you when it arrived: what you said about them then stays valid, no need to correct it. If you need the content again, read it with `file_read` and the file id, without asking the user.]',
+      );
+      expect(attachmentsLine([], 2)).not.toContain('file_read');
+    });
   });
 });
 

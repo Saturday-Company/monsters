@@ -1,14 +1,16 @@
 import { isMarkedMemoryLine, MEMORY_TAINT_MARK, unmarkedMemoryLine } from '@monsters/shared';
+import { REMEMBER_MARKER } from '../agents/markers.prompts.ts';
 import type { EventLog } from '../log/event-log.ts';
 import { BANDS, memoryRequest } from './instinct/questions.ts';
 import { pOf, type System1 } from './instinct/system1.ts';
+import { memoryPrompts } from './memory.prompts.ts';
 import { teamStrings } from './team.strings.ts';
 
 /*
  * Long-term memory of an agent (`Agenti/<Name>/MEMORY.md`, ARCHITECTURE §5.3),
  * kept by the runtime (D-065):
- * - the agent ends its report with a «Da ricordare:» section; the runtime takes
- *   it out of the report and appends the new lines to MEMORY.md in one write
+ * - the agent ends its report with a «Da ricordare:» (or “To remember:”) section; the
+ *   runtime takes it out of the report and appends the new lines to MEMORY.md in one write
  *   (no `vault_read` + `vault_edit` steps of the model, review AG-06);
  * - a memory longer than the prompt allows keeps its title and the newest
  *   lines, the ones written last (AG-05).
@@ -66,12 +68,13 @@ const URL_IN_LINE = new RegExp(
 );
 /** Words that tell a monster what to do or what to leave out, anywhere in the line. */
 const RULE_WORDS =
-  /(?:^|[^\p{L}])(?:ignora(?:re)?|dimentica(?:re)?|d['’]ora in (?:poi|avanti)|da (?:ora|adesso|oggi) in (?:poi|avanti)|devi|dovete|bisogna|obbligatori[oa]|istruzion[ei]|prompt|in copia|in ccn|di nascosto|senza dir(?:lo|glielo)|ignore|disregard|always|never|must|instructions?)(?!\p{L})/iu;
+  /(?:^|[^\p{L}])(?:ignora(?:re)?|dimentica(?:re)?|d['’]ora in (?:poi|avanti)|da (?:ora|adesso|oggi) in (?:poi|avanti)|devi|dovete|bisogna|obbligatori[oa]|istruzion[ei]|prompt|in copia|in ccn|di nascosto|senza dir(?:lo|glielo)|ignore|disregard|always|never|must|instructions?|from now on|from here on|going forward|have to|mandatory|bcc|cc|in copy|secretly|without telling|forget|system prompt)(?!\p{L})/iu; // i18n-ignore
 /**
  * Verbs in the form of an order (tu, voi, infinito; English): what a page
  * would have a monster do with its memory. Not the ones a preference of the
  * user is said with ("ricorda", "preferisci", "cita le fonti").
  */
+// i18n-ignore: the words of an order, in the two languages (data, not copy)
 const ORDER_STEMS = [
   'mand',
   'invi',
@@ -106,14 +109,15 @@ const ORDER_STEMS = [
 ];
 /** Tu (-a, -i), voi (-ate, -ete, -ite), infinito (-are, -ere, -ire), "fidati"; the English verbs. */
 const ORDER_WORD = new RegExp(
-  String.raw`^(?:(?:${ORDER_STEMS.join('|')})(?:a|i|ate|ete|ite|are|ere|ire|ati)|send|upload|forward|use|run|execute|open|visit|reply|email|write|delete|contact|call|pay|buy|trust|follow)$`,
+  String.raw`^(?:(?:${ORDER_STEMS.join('|')})(?:a|i|ate|ete|ite|are|ere|ire|ati)|send|upload|forward|use|run|execute|open|visit|reply|email|write|delete|contact|call|pay|buy|trust|follow|publish|post|share|download|install|attach|add|include|tell|say|hide|ask|search|remove|skip|ignore|forget|cc|bcc|message|transfer|grant|click|sign|connect)$`, // i18n-ignore
   'iu',
 );
 /** A clause starts the line, follows a punctuation mark, "allora" or "poi". */
-const CLAUSE_START =
-  /(?:^|[.:;!?,(]|\ballora\b|\bpoi\b)\s*(?:[-*•]\s*)?(?:(?:sempre|mai|solo|tu|voi|per favore|please)\s+)?(non\s+)?(\p{L}+)/giu;
+const CLAUSE_START = // i18n-ignore
+  /(?:^|[.:;!?,(]|\ballora\b|\bpoi\b|\bthen\b)\s*(?:[-*•]\s*)?(?:(?:sempre|mai|solo|tu|voi|per favore|please|always|never|only|you)\s+)?(non\s+|do\s+not\s+|don['’]t\s+)?(\p{L}+)/giu;
 /** A verb with "sempre", "mai", "solo" after it, wherever it is ("per le ricerche usa sempre…"). */
-const ORDER_THEN_RULE = /(\p{L}+)\s+(?:sempre|mai|solo|soltanto|unicamente)(?!\p{L})/giu;
+const ORDER_THEN_RULE =
+  /(\p{L}+)\s+(?:sempre|mai|solo|soltanto|unicamente|always|never|only|exclusively)(?!\p{L})/giu; // i18n-ignore
 
 /**
  * The line waits for the user even when its run may write the memory by
@@ -126,8 +130,9 @@ export function memoryLineNeedsReview(line: string): boolean {
   if (RULE_WORDS.test(text)) return true;
   for (const m of text.matchAll(CLAUSE_START)) {
     const word = m[2]!;
-    // "non" with any verb is an order ("non dire", "non usare"); without it, the verbs above.
-    if (m[1] && /(?:are|ere|ire)$/iu.test(word)) return true;
+    // "non" with any verb is an order ("non dire", "non usare"), and "do not" / "don't" too;
+    // without them, the verbs above.
+    if (m[1] && (/^(?:do|don)/iu.test(m[1]) || /(?:are|ere|ire)$/iu.test(word))) return true;
     if (ORDER_WORD.test(word)) return true;
   }
   for (const m of text.matchAll(ORDER_THEN_RULE)) {
@@ -164,8 +169,7 @@ export function memoryWindow(content: string, max = MAX_MEMORY_CHARS): MemoryWin
     .map((l) => l.slice(0, MAX_REMEMBER_LINE_CHARS))
     .join('\n');
   const body = lines.slice(HEAD_LINES).join('\n');
-  const marker = (n: number) =>
-    `[… ${n} caratteri più vecchi non mostrati: la memoria va compattata]`;
+  const marker = (n: number) => memoryPrompts().olderNotShown(n);
   const budget = Math.max(0, max - head.length - marker(body.length).length - 2);
   let tail = body.slice(-budget);
   // Whole lines only: the first one may start in the middle.
@@ -174,19 +178,36 @@ export function memoryWindow(content: string, max = MAX_MEMORY_CHARS): MemoryWin
   return { text: `${head}\n${marker(dropped)}\n${tail}`, dropped };
 }
 
+/** The words of the heading in either family, as a pattern ("Da\s+ricordare|To\s+remember"). */
+const REMEMBER_WORDS = Object.values(REMEMBER_MARKER)
+  .map((m) => m.trim().split(/\s+/).join('\\s+'))
+  .join('|');
+const QUOTE = '["“”]';
+const REMEMBER_HEADING = new RegExp(
+  `^\\s*#{1,6}\\s*${QUOTE}?(?:${REMEMBER_WORDS})${QUOTE}?\\s*:?${QUOTE}?\\s*$`,
+  'iu',
+);
+const REMEMBER_LINE = new RegExp(`^(?:${REMEMBER_WORDS})\\s*:\\s*(.*)$`, 'iu');
+/** The heading between double quotes ("“To remember:” …", "“To remember”: …"). */
+const REMEMBER_QUOTED = new RegExp(
+  `^${QUOTE}\\s*(?:${REMEMBER_WORDS})\\s*(?::${QUOTE}?|${QUOTE}\\s*:)\\s*(.*)$`,
+  'iu',
+);
+
 /**
- * The «Da ricordare:» line (with Markdown or guillemets around it, the colon
- * required unless it is a heading): what follows it on the same line, or null.
+ * The «Da ricordare:» or “To remember:” line (with Markdown, guillemets or double quotes around
+ * it, the colon required unless it is a heading): what follows it on the same line, or null.
  */
 function rememberHeader(line: string): string | null {
-  if (/^\s*#{1,6}\s*da\s+ricordare\s*:?\s*$/iu.test(line)) return '';
+  if (REMEMBER_HEADING.test(line)) return '';
   const plain = line.replace(/[*_«»]/g, '').replace(/^\s*(?:[->]\s*)?/, '');
-  const m = /^da\s+ricordare\s*:\s*(.*)$/iu.exec(plain);
+  const m = REMEMBER_LINE.exec(plain) ?? REMEMBER_QUOTED.exec(plain);
   return m ? m[1]!.trim() : null;
 }
 const ITEM = /^\s*(?:[-*+•]|\d+[.)])\s+/u;
-/** "Da ricordare: niente": nothing to save. */
-const NOTHING = /^(nessun[ao]?|niente|nulla|n\/a|none|nothing|-)\s*\.?$/iu;
+/** "Da ricordare: niente", "To remember: nothing": nothing to save. */
+const NOTHING = // i18n-ignore
+  /^(nessun[ao]?|niente|nulla|n\/a|none|nothing(?:\s+(?:to\s+(?:save|remember|add)|new|more))?|no\s+new\s+(?:notes?|lines?|memories)|-)\s*\.?$/iu;
 
 function cleanItem(line: string): string {
   const text = line.replace(ITEM, '').replace(/\s+/g, ' ').trim();
@@ -196,7 +217,7 @@ function cleanItem(line: string): string {
 }
 
 /**
- * Takes the last «Da ricordare:» section out of a report: its items (one per
+ * Takes the last «Da ricordare:» (“To remember:”) section out of a report: its items (one per
  * line, bullets or not) and the report without them. The section ends at the
  * first blank line after an item or at a heading; what follows stays in the
  * report.
@@ -330,7 +351,7 @@ export function instinctRememberFilter(
 }
 
 /**
- * After a turn: saves the «Da ricordare:» lines with `save` (not for a turn
+ * After a turn: saves the «Da ricordare:» (“To remember:”) lines with `save` (not for a turn
  * stopped or failed) and returns the result without them, so the report that
  * reaches the orchestrator has no memory section. `finalText` (the last
  * step's text, when the runtime gives it) is cleaned the same way.

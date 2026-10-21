@@ -5,8 +5,9 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serve } from '@hono/node-server';
 import { fake } from '@monsters/providers/testing';
+import { setAppLang } from '@monsters/shared';
 import type { LogEvent, McpServersResponse, McpTestResponse, MonstersTool } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   MAX_MCP_TOOLS_FREE,
   MAX_TOOL_NAME,
@@ -35,6 +36,9 @@ import { tempHome } from './helpers.ts';
 import { startFakeHttpServer } from './fixtures/fake-mcp-server.ts';
 import { sdkHttpHandler } from './fixtures/sdk-mcp-server.ts';
 import { deferred, startTestHub, toolResultsSeen, type TestHub } from './hub-helpers.ts';
+
+// A test that pins the Italian family restores the English one.
+afterEach(() => setAppLang('en'));
 
 const POSIX = process.platform !== 'win32';
 const FIXTURE = fileURLToPath(new URL('./fixtures/fake-mcp-server.ts', import.meta.url));
@@ -206,6 +210,7 @@ describe('MCP: names, schemas and results', () => {
   });
 
   it('turns results into text: images and resources as descriptions, long text cut', () => {
+    setAppLang('it');
     const text = resultText({
       content: [
         { type: 'text', text: 'ciao' },
@@ -221,6 +226,27 @@ describe('MCP: names, schemas and results', () => {
     expect(resultText({ content: [], structuredContent: { a: 1 } })).toBe('{"a":1}');
     expect(resultText({ content: [{ type: 'text', text: 'x'.repeat(50) }] }, 10)).toContain(
       'testo troncato: 40',
+    );
+  });
+
+  it('English family: images, resources and a cut text read in English (D-153)', () => {
+    setAppLang('en');
+    const text = resultText({
+      content: [
+        { type: 'text', text: 'hello' },
+        { type: 'image', data: Buffer.alloc(4096).toString('base64'), mimeType: 'image/png' },
+        { type: 'resource', resource: { uri: 'file:///a.md', text: '# A' } },
+        { type: 'resource', resource: { uri: 'file:///b.bin', blob: 'AAAA', mimeType: 'x/y' } },
+        { type: 'resource_link', name: 'a.txt', uri: 'file:///tmp/a.txt' },
+      ],
+    });
+    expect(text).toContain('[image image/png, 4 KB: not visible as text]');
+    expect(text).toContain('[resource file:///a.md]\n# A');
+    expect(text).toContain('[resource file:///b.bin, x/y');
+    expect(text).toContain('[resource: a.txt file:///tmp/a.txt]');
+    expect(text).not.toMatch(/immagine|risorsa/);
+    expect(resultText({ content: [{ type: 'text', text: 'x'.repeat(50) }] }, 10)).toContain(
+      'text truncated: 40 more characters',
     );
   });
 });
@@ -261,16 +287,19 @@ describe.skipIf(!POSIX)('MCP servers in the hub', () => {
   });
 
   it('an agent calls an MCP tool: logged, marked as external data, secrets redacted', async () => {
-    const t = await startTestHub({
-      titan: [
-        fake.toolCall('mcp__fake__echo', { text: 'ciao' }),
-        fake.toolCall('mcp__fake__whoami', {}),
-        fake.toolCall('mcp__fake__fail', {}),
-        fake.toolCall('mcp__fake__picture', {}),
-        fake.toolCall('mcp__fake__echo', { text: 42 }),
-        fake.text('fatto'),
-      ],
-    });
+    const t = await startTestHub(
+      {
+        titan: [
+          fake.toolCall('mcp__fake__echo', { text: 'ciao' }),
+          fake.toolCall('mcp__fake__whoami', {}),
+          fake.toolCall('mcp__fake__fail', {}),
+          fake.toolCall('mcp__fake__picture', {}),
+          fake.toolCall('mcp__fake__echo', { text: 42 }),
+          fake.text('fatto'),
+        ],
+      },
+      { lang: 'it' },
+    );
     await t.json('PUT', '/api/mcp-servers/fake', stdioServer());
     const sent = await t.json<{ runId: string }>('POST', '/api/messages', { text: 'usa fake' });
     const ended = await t.runEnded(sent.runId);

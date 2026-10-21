@@ -25,6 +25,7 @@ import {
 import { missedToolsNote } from '../src/agents/run-agent.ts';
 import { anteikuToolDefs } from './fixtures/fake-anteiku-server.ts';
 import { tempHome } from './helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 const opened: CoreServices[] = [];
 afterEach(() => {
@@ -172,6 +173,7 @@ describe('tools_search: the deferred tools of a run', () => {
   const tools = () => [own('vault_search'), own('result_read'), ...anteikuTools()];
 
   it('Monsters’ own rare tools always wait for a search, also with few MCP tools (D-098)', () => {
+    inLang('it');
     const mine = [
       own('vault_search'),
       own('project_propose'),
@@ -224,6 +226,7 @@ describe('tools_search: the deferred tools of a run', () => {
   });
 
   it('sends its own tools, the most used ones and the search; the set only grows, in a fixed order', () => {
+    inLang('it');
     const recent = recentToolUse(
       [
         'mcp__anteiku__anteiku_task_elenca',
@@ -292,6 +295,7 @@ describe('tools_search: the deferred tools of a run', () => {
   });
 
   it('the card says the services have more tools to find', () => {
+    inLang('it');
     const card = monstersCard({
       toolNames: ['vault_search', TOOL_SEARCH, 'mcp__anteiku__search'],
     });
@@ -305,6 +309,7 @@ describe('tools_search tells the truth (M6 of the review of 19/10, D-134)', () =
   const tools = () => [own('vault_search'), own('result_read'), ...anteikuTools()];
 
   it('a tool already sent is found as "pronto", never "nessuno strumento trovato"', () => {
+    inLang('it');
     const d = DeferredTools.plan(tools(), TOOL_SEARCH_DEFAULT, () => [
       'mcp__anteiku__anteiku_task_crea',
     ])!;
@@ -316,6 +321,7 @@ describe('tools_search tells the truth (M6 of the review of 19/10, D-134)', () =
   });
 
   it('a tool called by name while it waits is loaded, past the cap it says so (never silent)', () => {
+    inLang('it');
     const d = DeferredTools.plan(tools(), { ...TOOL_SEARCH_DEFAULT, maxLoaded: 1 })!;
     expect(d.loadCalled(['mcp__anteiku__anteiku_task_crea', 'vault_search'])).toEqual([
       { name: 'mcp__anteiku__anteiku_task_crea', state: 'loaded' },

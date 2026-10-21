@@ -62,7 +62,9 @@ function jev(tier: number | ((text: string) => number)): DecisionPort {
   return {
     id: 'jev',
     decide: (request) => {
-      const asked = (request.state as { richiesta?: unknown }).richiesta;
+      // The field of the state in either family of the questions (D-153).
+      const state = request.state as { richiesta?: unknown; request?: unknown };
+      const asked = state.richiesta ?? state.request;
       const text = typeof asked === 'string' ? asked : '';
       const answers: SystemOneAnswer[] = request.questions.map((q) => {
         const value =

@@ -4,7 +4,8 @@ import { coordinates, type AgentDefinition } from '../../agents/definition.ts';
 import type { EventLog } from '../../log/event-log.ts';
 import { matchRule, type DecisionRule } from '../decision.ts';
 import { instinctStrings } from './instinct.strings.ts';
-import { BANDS, ROUTE_LEAD, ROUTE_TEAM, tierOf, triageRequest } from './questions.ts';
+import { instinctPrompts } from './instinct.prompts.ts';
+import { BANDS, isRouteLead, isRouteTeam, tierOf, triageRequest } from './questions.ts';
 import { choiceOf, pOf, type QuestionLog, type System1 } from './system1.ts';
 
 /*
@@ -145,22 +146,22 @@ export class Triage {
 
     if (route && stable && route.confidence >= BANDS.route.hint && this.#on('route_hint')) {
       const member = input.members.find((m) => m.config.name === route.value);
-      out.hint =
-        route.value === ROUTE_LEAD
-          ? '[Suggerimento del sistema] La richiesta sembra semplice: puoi rispondere da solo, senza delegare.'
-          : route.value === ROUTE_TEAM
-            ? '[Suggerimento del sistema] La richiesta sembra chiedere il lavoro di più mostri, uno dopo l’altro.'
-            : member
-              ? `[Suggerimento del sistema] Per questa richiesta sembra adatto: ${memberLine(member)}. Ignoralo se non torna con quello che chiede l’utente.`
-              : undefined;
+      const hints = instinctPrompts();
+      out.hint = isRouteLead(route.value)
+        ? hints.hintLead
+        : isRouteTeam(route.value)
+          ? hints.hintTeam
+          : member
+            ? hints.hintMember(memberLine(member))
+            : undefined;
       if (out.hint) {
         this.#event(
           input,
           'route_hint',
           'route_hint',
-          route.value === ROUTE_LEAD
+          isRouteLead(route.value)
             ? instinctStrings().routeLead
-            : route.value === ROUTE_TEAM
+            : isRouteTeam(route.value)
               ? instinctStrings().routeTeam
               : instinctStrings().routeMember(route.value),
           route.confidence,
@@ -188,7 +189,7 @@ export class Triage {
         input,
         'shortcut',
         'shortcut',
-        `In prova: avrei passato la richiesta direttamente a ${member.config.name}.`,
+        instinctStrings().shortcutTrial(member.config.name),
         route.confidence,
         { route: member.config.name, tier: tier ?? null, applied: false },
       );

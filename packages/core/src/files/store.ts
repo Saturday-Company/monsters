@@ -40,7 +40,9 @@ const THUMBS_DIR = '.thumbs';
 export const FILES_DIR_ALT = 'File di Monsters';
 /** The file that says a folder is the files folder of Monsters (never a folder of the user). */
 export const FILES_MARKER = '.monsters';
+// Written once in the user's notes folder, with the folder names (a later wave).
 const MARKER_TEXT =
+  // i18n-ignore
   'Questa cartella è di Monsters: qui ci sono gli allegati, gli screenshot e le pagine dei mostri.\n';
 
 /**
@@ -59,7 +61,9 @@ export function filesDirFor(notes: string): string {
   return `${FILES_DIR_ALT} ${Date.now()}`;
 }
 
+// Written once in the user's notes folder, with the folder names (a later wave).
 export const FILES_GITIGNORE =
+  // i18n-ignore
   '# Monsters: i file allegati e creati dai mostri non entrano nella cronologia delle note\n*\n';
 
 export const filesMigrations: readonly Migration[] = [

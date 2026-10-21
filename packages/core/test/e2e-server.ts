@@ -58,7 +58,8 @@ const provider = new FakeProvider({
   models: {
     team: (call: FakeCall) => {
       const prompt = JSON.stringify(call.options.prompt);
-      if (prompt.includes('Progetti la squadra')) {
+      // The system prompt of the team proposal, in either family (D-153).
+      if (prompt.includes('Progetti la squadra') || prompt.includes('You design the squad')) {
         // The first answer is not valid: the core retries with the errors.
         return proposals++ === 0
           ? fake.text('Sure! Here’s the squad: Rhea, Dione and Tethys.')

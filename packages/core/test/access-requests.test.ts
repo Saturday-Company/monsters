@@ -1,6 +1,7 @@
 import { fake } from '@monsters/providers/testing';
 import type { LogEvent, MonstersTool, ProjectView, Question } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   classifyOutbound,
   createCoreServices,
@@ -14,7 +15,19 @@ import {
 } from '../src/index.ts';
 import { accessLines } from '../src/projects/context.ts';
 import { tempHome } from './helpers.ts';
-import { promptText, startTestHub, type TestHub } from './hub-helpers.ts';
+import { promptText, startTestHub as startHub, type TestHub } from './hub-helpers.ts';
+
+// The texts the models read are tested in Italian (the family of the app language, byte for byte
+// what they were); the English ones are checked in the blocks that switch the language.
+beforeEach(() => setAppLang('it'));
+afterEach(() => setAppLang('en'));
+
+// Starting a core picks the language of the system: the test says which one it wants.
+const startTestHub: typeof startHub = async (...args) => {
+  const hub = await startHub(...args);
+  setAppLang('it');
+  return hub;
+};
 
 /*
  * Accesses (D-128…D-131): the web follows the permission, a new project gets
@@ -189,6 +202,9 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     );
     canvaForTeam(t);
     await project(t, { connections: { mcp: [], claude: [] } });
+    // The card is the person's (English here); the note after the answer is the model's, in
+    // the language of the moment: the language changes between the two.
+    setAppLang('en');
     const sent = await t.json<{ runId: string }>('POST', '/api/projects/saturday/messages', {
       text: 'Prendi le grafiche da Canva',
     });
@@ -198,6 +214,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     );
     expect(q.options.map((o) => o.label)).toEqual(['Yes, grant', 'No']);
     expect(q.options[0]!.description).toContain('“Saturday” → Connections: Canva turned on');
+    setAppLang('it');
     await t.json('POST', `/api/questions/${q.id}/answer`, { optionId: 'grant' });
     await t.runEnded(sent.runId);
     expect(t.core.hub.team.project('saturday')!.connections.claude).toEqual(['canva']);
@@ -270,6 +287,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     await t.json('POST', '/api/projects/saturday/members', { copyOf: 'dione', name: 'Mira' });
     const copy = t.core.hub.team.byId('mira')!;
     await t.json('PUT', '/api/permissions', { agents: { mira: { vault: true, web: false } } });
+    setAppLang('en');
     const sent = await t.json<{ runId: string }>('POST', '/api/projects/saturday/messages', {
       text: 'Guarda gli altri club',
     });
@@ -278,6 +296,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     expect(q.parked).toBe(true);
     expect(q.options[0]!.description).toContain(`Permissions: web access for ${copy.config.name}`);
     expect(q.options[0]!.description).toContain('web search turned on');
+    setAppLang('it');
     await t.json('POST', `/api/questions/${q.id}/answer`, { optionId: 'grant' });
     // The capo's next turn starts after the grant, and reads how it went.
     const next = await t.waitEvent(
@@ -334,6 +353,8 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     );
     await project(t);
     await t.json('PUT', '/api/mcp-servers/browser', { preset: 'browser', agents: ['rhea'] });
+    // The card the person reads is in English here.
+    setAppLang('en');
     const sent = await t.json<{ runId: string }>('POST', '/api/projects/saturday/messages', {
       text: 'Pubblica',
     });

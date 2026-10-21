@@ -19,6 +19,7 @@ import {
 import { z } from 'zod';
 import type { StateStore } from '../db/state-store.ts';
 import type { EventLog } from '../log/event-log.ts';
+import { teamSpendStrings } from './spend.strings.ts';
 import { teamStrings } from './team.strings.ts';
 
 /*
@@ -353,12 +354,13 @@ export class SpendMeter {
       for (const scope of this.#scopes(agentId)) {
         const cap = this.#cap(period, scope);
         if (cap === null || this.#spent(period, scope) < cap) continue;
+        const t = teamSpendStrings();
         const whose = scope.key.startsWith(PROJECT_SCOPE)
-          ? ` del progetto ${scope.name}`
+          ? t.projectCap(scope.name ?? '')
           : scope.name
-            ? ` di ${scope.name}`
-            : ' della squadra';
-        return `raggiunto il tetto di spesa${whose} ${SPEND_PERIOD_WORDS[period]} (${formatEur(cap)})`;
+            ? t.agentCap(scope.name)
+            : t.squadCap;
+        return t.capReached(whose, SPEND_PERIOD_WORDS[period], formatEur(cap));
       }
     }
     return null;
@@ -406,7 +408,7 @@ export class SpendMeter {
             message: spendSentence({
               action,
               scopeName: scope.key.startsWith(PROJECT_SCOPE)
-                ? `progetto ${scope.name}`
+                ? teamSpendStrings().projectScope(scope.name ?? '')
                 : scope.name,
               period,
               spentEur,

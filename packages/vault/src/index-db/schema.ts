@@ -10,6 +10,7 @@ export const vaultMigrations: readonly Migration[] = [
   {
     version: 1,
     name: 'index',
+    // i18n-ignore: SQL (data), not copy
     up: `
       CREATE TABLE vault_notes (
         nid       INTEGER PRIMARY KEY,

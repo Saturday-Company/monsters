@@ -1,6 +1,7 @@
 import type { LogEvent } from '@monsters/shared';
 import type { FinalAnswerHook } from '../agents/run-agent.ts';
 import type { EventLog } from '../log/event-log.ts';
+import { accessPrompts } from './access.prompts.ts';
 import { accessStrings } from './access.strings.ts';
 import { unicodeWords } from './word-boundary.ts';
 
@@ -88,42 +89,45 @@ export interface UnbackedClaim {
   truth: string[];
 }
 
-const USER_REFUSAL_SRC = String.raw`(?:mi |me lo |me l'|l'|lo |la )?hai (?:detto|risposto) (?:di )?no\b|\bhai (?:rifiutato|negato|bocciato|bloccato|vietato|tolto)|\bnon (?:mi |ci |gli |le )?hai (?:dato|concesso|autorizzato|permesso|abilitato)|\b(?:rifiutat|negat|vietat|bloccat)\w* (?:dall'utente|da te)\b|\bl'utente (?:ha|aveva) (?:rifiutato|negato|vietato|bloccato|detto (?:di )?no|risposto (?:di )?no)|\bthe user (?:refused|denied|declined|said no)\b|\byou (?:refused|denied|declined|said no)\b`;
+// The words of a refusal of the user, in both families (data, not copy).
+const USER_REFUSAL_SRC = String.raw`(?:mi |me lo |me l'|l'|lo |la )?hai (?:detto|risposto) (?:di )?no\b|\bhai (?:rifiutato|negato|bocciato|bloccato|vietato|tolto)|\bnon (?:mi |ci |gli |le )?hai (?:dato|concesso|autorizzato|permesso|abilitato)|\b(?:rifiutat|negat|vietat|bloccat)\w* (?:dall'utente|da te)\b|\bl'utente (?:ha|aveva) (?:rifiutato|negato|vietato|bloccato|detto (?:di )?no|risposto (?:di )?no)|\bthe user (?:has |had )?(?:refused|denied|declined|blocked|forbade|rejected|revoked|said no|answered no)\b|\byou (?:have |had |already )?(?:refused|denied|declined|blocked|forbade|rejected|revoked|said no|answered no|told me no)\b|\b(?:you|the user) (?:did not|didn't|have not|haven't|has not|hasn't|never) (?:give|given|grant|granted|allow|allowed|authorize|authorized|permit|permitted|enable|enabled)\b|\b(?:refused|denied|declined|blocked|rejected|forbidden|revoked) by (?:the user|you)\b`; // i18n-ignore
 
 /** A cause: denied, blocked, off, not connected, no permission. */
 const CAUSE = unicodeWords(
-  /\b(?:negat[oaie]|rifiutat[oaie]|bloccat[oaie]|vietat[oaie]|disattivat[oaie]|disabilitat[oaie]|spent[oaie]|revocat[oaie]|scollegat[oaie]|non (?:ho|hai|ha|abbiamo|hanno|avete|avevo|aveva|avevano) (?:avuto )?(?:il |i |un |alcun |nessun )?permess\w*|senza (?:il |i |alcun )?permess\w*|non (?:mi |gli |le |ci |ti )?(?:è|e'|era|sono|erano) (?:stat[oaie] )?(?:permess|consentit|concess|autorizzat)\w*|non (?:è|e'|sono|era|erano|risulta|risultano) (?:più |ancora )?(?:collegat|connes|attiv|abilitat|concess)\w*|not (?:connected|allowed|permitted|enabled|granted)|denied|blocked|refused|disabled)\b/iu,
+  /\b(?:negat[oaie]|rifiutat[oaie]|bloccat[oaie]|vietat[oaie]|disattivat[oaie]|disabilitat[oaie]|spent[oaie]|revocat[oaie]|scollegat[oaie]|non (?:ho|hai|ha|abbiamo|hanno|avete|avevo|aveva|avevano) (?:avuto )?(?:il |i |un |alcun |nessun )?permess\w*|senza (?:il |i |alcun )?permess\w*|non (?:mi |gli |le |ci |ti )?(?:è|e'|era|sono|erano) (?:stat[oaie] )?(?:permess|consentit|concess|autorizzat)\w*|non (?:è|e'|sono|era|erano|risulta|risultano) (?:più |ancora )?(?:collegat|connes|attiv|abilitat|concess)\w*|not (?:connected|allowed|permitted|enabled|granted)|denied|blocked|refused|disabled|rejected|forbidden|prohibited|restricted|unauthori[sz]ed|revoked|disconnected|unlinked|unavailable|(?:turned|switched) off|(?:isn't|aren't|wasn't|weren't|is not|are not|was not|were not|has not been|hasn't been|have not been|haven't been|not yet) (?:\w+ )?(?:connected|allowed|permitted|enabled|granted|given|linked|available|turned on|switched on|active|authori[sz]ed)|(?:don't|do not|doesn't|does not|didn't|did not|haven't|have not|hasn't|has not) (?:have|had|got) (?:the |any |a |an )?permission\w*|(?:no|without|lack(?:s|ed|ing)?) (?:the |any )?permission\w*|permission\w* (?:is |was |has been |were |are )?(?:off|denied|missing|revoked))\b/iu, // i18n-ignore
 );
 
 /** A lack, without a cause: "non ho accesso al web", "non riesco a cercare online". */
 const PLAIN = unicodeWords(
-  /\b(?:non (?:ho|hai|ha|abbiamo|hanno|avevo|aveva|avevamo|avevano) (?:più |ancora |avuto |mai )?(?:(?:il|lo|la|l'|un|uno|una|gli|i|alcun|alcuno|nessun|nessuno) ?)?(?:accesso|accessi|strument\w*|web|internet|terminale|browser|collegament\w*)|non (?:posso|puoi|può|possiamo|possono|riesco|riesce|riusciamo|riescono|sono riuscit\w*|è riuscit\w*|ho potuto|ha potuto|abbiamo potuto)(?: a| ad)? (?:accedere|cercare|navigare|usare|utilizzare|collegarmi|collegarsi|raggiungere|aprire|vedere|leggere|entrare)|non vedo|non (?:è|e'|sono) (?:tra i miei|tra i suoi|tra gli|fra i miei|fra gli) strumenti|non (?:è|e'|sono) disponibil\w*|nessun\w*(?: \w+){0,3} (?:può|possono|riesce|riescono)(?: a| ad)? (?:accedere|cercare|navigare|usare)|nessun\w*(?: \w+){0,3} (?:ha|hanno) (?:il |l')?(?:web|accesso)|(?:can(?:no|')t|cannot) (?:access|search|browse|use|reach)|no access)\b/iu,
+  /\b(?:non (?:ho|hai|ha|abbiamo|hanno|avevo|aveva|avevamo|avevano) (?:più |ancora |avuto |mai )?(?:(?:il|lo|la|l'|un|uno|una|gli|i|alcun|alcuno|nessun|nessuno) ?)?(?:accesso|accessi|strument\w*|web|internet|terminale|browser|collegament\w*)|non (?:posso|puoi|può|possiamo|possono|riesco|riesce|riusciamo|riescono|sono riuscit\w*|è riuscit\w*|ho potuto|ha potuto|abbiamo potuto)(?: a| ad)? (?:accedere|cercare|navigare|usare|utilizzare|collegarmi|collegarsi|raggiungere|aprire|vedere|leggere|entrare)|non vedo|non (?:è|e'|sono) (?:tra i miei|tra i suoi|tra gli|fra i miei|fra gli) strumenti|non (?:è|e'|sono) disponibil\w*|nessun\w*(?: \w+){0,3} (?:può|possono|riesce|riescono)(?: a| ad)? (?:accedere|cercare|navigare|usare)|nessun\w*(?: \w+){0,3} (?:ha|hanno) (?:il |l')?(?:web|accesso)|(?:can(?:no|')t|cannot|can not|couldn't|could not|(?:am|are|is|was|were) (?:un|not )able to|wasn't able to|isn't able to|unable to) (?:access|search|browse|use|reach|connect|open|see|read|enter|fetch|get)|no access|no (?:web|internet|terminal|browser|network|online) access|(?:don't|do not|doesn't|does not|didn't|did not|haven't|have not|hasn't|has not|no longer have|no longer has) (?:have |had |get |got )?(?:any |the |an? )?(?:access|accessible|tools?|web|internet|terminal|browser|connections?|connectors?)|(?:have|has|had|got) no (?:access|tools?|web|internet|terminal|browser|connections?)|(?:isn't|aren't|is not|are not) (?:available|among my tools|in my tools|one of my tools)|(?:nobody|no ?one|none|no \w+)(?: \w+){0,3} (?:can|could|is able to|are able to)(?: to)? (?:access|search|browse|use))\b/iu, // i18n-ignore
 );
 
 /** "Non è un no dell'utente", "non l'hai negato tu": the opposite of a claim, taken out first. */
 const NEGATED = unicodeWords(
-  /\bnon (?:(?:mi|ti|gli|le|ci|vi|l'|lo|la)\s*)?(?:è|e'|sono|era|erano|hai|ha|ho|abbiamo|hanno)\s+(?:stat[oaie]\s+)?(?:mai\s+)?(?:negat|rifiutat|bloccat|vietat)\w*(?:\s+tu)?|\bnessun\w* (?:mi |ti |ci |gli |l')?ha (?:negat|rifiutat|bloccat|vietat)\w*|\bnon (?:è|e'|si tratta di|era) (?:un |il |una )?(?:rifiuto|divieto|blocco|no|permesso|limite)\b(?: (?:dell'utente|tuo|dei permessi))?|\bnot (?:a |the )?(?:refusal|denial)\b/giu,
+  /\bnon (?:(?:mi|ti|gli|le|ci|vi|l'|lo|la)\s*)?(?:è|e'|sono|era|erano|hai|ha|ho|abbiamo|hanno)\s+(?:stat[oaie]\s+)?(?:mai\s+)?(?:negat|rifiutat|bloccat|vietat)\w*(?:\s+tu)?|\bnessun\w* (?:mi |ti |ci |gli |l')?ha (?:negat|rifiutat|bloccat|vietat)\w*|\bnon (?:è|e'|si tratta di|era) (?:un |il |una )?(?:rifiuto|divieto|blocco|no|permesso|limite)\b(?: (?:dell'utente|tuo|dei permessi))?|\bnot (?:a |the )?(?:refusal|denial|block|ban|veto|limit)\b|\b(?:wasn't|isn't|was not|is not|weren't|were not|hasn't been|has not been|never been|not been|never) (?:denied|refused|blocked|forbidden|a no)\b|\b(?:nobody|no ?one|the user didn't|the user did not|the user has not|the user hasn't|you didn't|you did not|you never) (?:has |have )?(?:denied|refused|blocked|forbidden|said no)\b/giu, // i18n-ignore
 );
 
 /** "modalità don't ask", "i permessi di questa sessione": a cause that does not exist in Monsters. */
 const SESSION = unicodeWords(
-  /\b(?:don'?t ?ask|dontask|non chiedere|questa sessione|della sessione|sessione corrente|this session)\b/iu,
+  /\b(?:don'?t ?ask|dontask|non chiedere|questa sessione|della sessione|sessione corrente|this session|current session|(?:of|for|in) the session|session (?:permissions?|mode))\b/iu, // i18n-ignore
 );
 
 /** "nessun mostro può accedere al web", "nessuno della squadra". */
 const SQUAD = unicodeWords(
-  /\b(?:nessun(?:o|a)? (?:mostr\w*|di noi|dei mostri|della squadra|nella squadra|del team|nel team)|nessun mostro|tutti i mostri|i mostri non|no monster)\b/iu,
+  /\b(?:nessun(?:o|a)? (?:mostr\w*|di noi|dei mostri|della squadra|nella squadra|del team|nel team)|nessun mostro|tutti i mostri|i mostri non|no monsters?|no ?one (?:in|on|of) (?:the |our )?(?:squad|team|monsters)|nobody (?:in|on|of) (?:the |our )?(?:squad|team|monsters)|none of (?:us|the monsters)|(?:all|every) (?:the )?monsters?|the monsters (?:don't|do not|can't|cannot|have no)|the (?:whole |entire )?(?:squad|team) (?:doesn't|does not|has no|can't|cannot))\b/iu, // i18n-ignore
 );
 
 const WEB = unicodeWords(
-  /\b(?:web|internet|online|on-line|ricerc\w*\b(?!\s+(?:nelle|nel|tra|fra|in|delle|della|dei) (?:note|vault|memoria|strumenti|cartell\w*|file))|websearch|webfetch|web_search|web_fetch|navigare|navigazione)\b/iu,
+  /\b(?:web|internet|online|on-line|ricerc\w*\b(?!\s+(?:nelle|nel|tra|fra|in|delle|della|dei) (?:note|vault|memoria|strumenti|cartell\w*|file))|websearch|webfetch|web_search|web_fetch|navigare|navigazione|web ?pages?|search(?:es|ing)?\b(?!\s+(?:in|within|through|across|among|the|my|your) (?:the |my |your )?(?:notes|vault|memory|tools|folders?|files?))|browsing|browse|navigat\w*)\b/iu, // i18n-ignore
 );
-const TERMINAL = unicodeWords(/\b(?:terminale|shell|bash|riga di comando)\b/iu);
+const TERMINAL = unicodeWords(
+  /\b(?:terminale|shell|bash|riga di comando|terminal|command[- ]line)\b/iu,
+); // i18n-ignore
 const BROWSER = unicodeWords(/\bbrowser\b/iu);
 
 /** A third party refused (a site, a login wall): not an access of Monsters. */
 const THIRD_PARTY = unicodeWords(
-  /\b(?:(?:il|del|dal|al|un|dai|i|quel|questo) sit[oi]|40[13]|cloudflare|captcha|paywall|anti-?bot|robots\.txt|chiede il login|richiede (?:il )?login)\b/iu,
+  /\b(?:(?:il|del|dal|al|un|dai|i|quel|questo) sit[oi]|40[13]|cloudflare|captcha|paywall|anti-?bot|robots\.txt|chiede il login|richiede (?:il )?login|(?:the|this|that|a|some|those|these) (?:web)?sites?|(?:asks? for|requires?|needs?) (?:a |the )?(?:log-?in|sign-?in)|login wall)\b/iu, // i18n-ignore
 );
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -174,7 +178,7 @@ export interface ClaimContext {
 function userRefusal(userNames: readonly string[]): RegExp {
   const names = userNames.map((n) => n.trim()).filter((n) => n.length >= 2);
   const named = names.length
-    ? `|\\b(?:${names.map(escape).join('|')}) (?:ha|aveva) (?:rifiutato|negato|vietato|bloccato|detto (?:di )?no|risposto (?:di )?no)|\\b(?:rifiutat|negat|vietat)\\w* da (?:${names.map(escape).join('|')})\\b`
+    ? `|\\b(?:${names.map(escape).join('|')}) (?:ha|aveva) (?:rifiutato|negato|vietato|bloccato|detto (?:di )?no|risposto (?:di )?no)|\\b(?:rifiutat|negat|vietat)\\w* da (?:${names.map(escape).join('|')})\\b|\\b(?:${names.map(escape).join('|')}) (?:has |had )?(?:refused|denied|declined|blocked|forbade|rejected|revoked|said no|answered no)\\b|\\b(?:refused|denied|declined|blocked|rejected|forbidden|revoked) by (?:${names.map(escape).join('|')})\\b`
     : '';
   const key = `user\u0000${names.join('\u0000')}`;
   let re = cache.get(key);
@@ -189,12 +193,12 @@ const PROJECT = unicodeWords(/\bprogett\w*/iu);
 
 /** A lack of somebody else ("non ha il permesso", "non riesce a cercare"). */
 const THIRD_PERSON = unicodeWords(
-  /\bnon (?:gli |le )?(?:ha|hanno|aveva|avevano|può|possono|poteva|potevano|riesce|riescono|è riuscit\w*|ha potuto|hanno potuto|ha avuto|hanno avuto)\b/iu,
+  /\b(?:non (?:gli |le )?(?:ha|hanno|aveva|avevano|può|possono|poteva|potevano|riesce|riescono|è riuscit\w*|ha potuto|hanno potuto|ha avuto|hanno avuto)|doesn't|does not|hasn't|has not|has no|had no)\b/iu, // i18n-ignore
 );
 
 /** Where a clause ends inside a sentence. */
 const CLAUSE_BREAK = unicodeWords(
-  /[,:()[\]]|\s[-–—]\s|\b(?:quindi|perché|perciò|però|mentre|così|ma|so|because|but)\b/iu,
+  /[,:()[\]]|\s[-–—]\s|\b(?:quindi|perché|perciò|però|mentre|così|ma|so|because|but|while|whereas|although|though)\b/iu, // i18n-ignore
 );
 
 interface Subjects {
@@ -328,7 +332,7 @@ export function isAccessClaim(line: string, ctx: ClaimContext = {}): boolean {
 
 /** What a line about accesses talks about, whatever the service. */
 const ACCESS_WORDS = unicodeWords(
-  /\b(?:permess\w*|accesso|accessi|collegament\w*|collegat\w*|strument\w*|connettor\w*|servizi|integrazion\w*|don'?t ?ask|sessione|web|internet|terminale|browser|tool|tools|permission\w*|access)\b/iu,
+  /\b(?:permess\w*|accesso|accessi|collegament\w*|collegat\w*|strument\w*|connettor\w*|servizi|integrazion\w*|don'?t ?ask|sessione|web|internet|terminale|browser|tool|tools|permission\w*|access|connect\w*|link\w*|integration\w*|terminal|session|service|services)\b/iu, // i18n-ignore
 );
 
 /** The text without the lines about accesses (a summary, D-141); the lines taken out. */
@@ -341,7 +345,10 @@ export function withoutAccessClaims(
     if (!line.trim() || /^\s*#/.test(line)) return true;
     // "L'utente ha deciso di non collegare Canva": a decision of the user stays.
     if (
-      /\bl'utente (?:ha deciso|ha chiesto|vuole|preferisce)\b/iu.test(line.replace(/[’`´]/g, "'"))
+      /\b(?:l'utente (?:ha deciso|ha chiesto|vuole|preferisce)|the user (?:has )?(?:decided|asked|wants|prefers|chose|has chosen))\b/iu.test(
+        // i18n-ignore
+        line.replace(/[’`´]/g, "'"),
+      )
     )
       return true;
     if (!isAccessClaim(line, ctx)) return true;
@@ -360,7 +367,7 @@ function judge(fact: AccessFact | undefined, claim: AccessClaim): boolean | null
 }
 
 const label = (fact: AccessFact, what: string, has: string) =>
-  fact.has ? `${what}: ${has}` : `${what}: ${fact.why ?? 'non ce l’hai in questo lavoro'}`;
+  fact.has ? `${what}: ${has}` : `${what}: ${fact.why ?? accessPrompts().defaultWhy}`;
 
 /**
  * The claims of a text the facts do not back, each with what is true instead. A refusal of
@@ -374,62 +381,52 @@ export function judgeAccessClaims(
   facts: RunAccessFacts,
 ): UnbackedClaim[] {
   const out: UnbackedClaim[] = [];
+  const t = accessPrompts();
   const service = (name: string) => state.services.find((s) => s.name === name);
   for (const claim of claims) {
     const subjects: { what: string; fact: AccessFact | undefined; has: string }[] = [];
     if (claim.member && claim.web) {
       const m = state.members.find((x) => x.name === claim.member);
       subjects.push({
-        what: `il web di ${claim.member}`,
+        what: t.webOf(claim.member),
         fact: m?.web,
-        has: `${claim.member} ce l’ha`,
+        has: t.hasIt(claim.member),
       });
     } else if (!claim.member) {
-      if (claim.web)
-        subjects.push({ what: 'il web', fact: state.web, has: 'ce l’hai in questo lavoro' });
-      if (claim.terminal)
-        subjects.push({
-          what: 'terminale e file',
-          fact: state.terminal,
-          has: 'ce li hai in questo lavoro',
-        });
-      if (claim.browser && state.browser)
-        subjects.push({
-          what: 'il browser di Monsters',
-          fact: state.browser,
-          has: 'ce l’hai in questo lavoro',
-        });
+      if (claim.web) subjects.push({ what: t.whatWeb, fact: state.web, has: t.youHaveIt });
+      if (claim.terminal) {
+        subjects.push({ what: t.whatTerminal, fact: state.terminal, has: t.youHaveThem });
+      }
+      if (claim.browser && state.browser) {
+        subjects.push({ what: t.whatBrowser, fact: state.browser, has: t.youHaveIt });
+      }
     }
     // The services of another monster are not known here.
     for (const name of claim.member ? [] : claim.services) {
-      subjects.push({ what: name, fact: service(name), has: 'ce l’hai in questo lavoro' });
+      subjects.push({ what: name, fact: service(name), has: t.youHaveIt });
     }
     const truth: string[] = [];
     if (claim.user) {
       if (facts.userNo.length > 0) continue;
       if (subjects.some((x) => x.fact && !x.fact.has && x.fact.off)) continue;
-      truth.push(
-        'Nel registro di questo lavoro non c’è nessun no dell’utente: non ha rifiutato né negato niente.',
-      );
+      truth.push(t.noUserNo);
       for (const x of subjects) if (x.fact) truth.push(label(x.fact, x.what, x.has));
       out.push({ claim, truth });
       continue;
     }
     if (claim.session) {
-      truth.push(
-        'In Monsters non c’è una «modalità don’t ask» né una sessione che nega accessi: gli accessi sono quelli della sezione «## Monsters», e un rifiuto di Claude Code o Codex è una regola della configurazione, non un permesso dell’utente.',
-      );
+      truth.push(t.noSession);
       for (const x of subjects) if (x.fact) truth.push(label(x.fact, x.what, x.has));
       out.push({ claim, truth });
       continue;
     }
     if (claim.squad && claim.web) {
       const who = [
-        ...(state.web.has ? ['tu'] : []),
+        ...(state.web.has ? [t.squadYou] : []),
         ...state.members.filter((m) => m.squad !== false && m.web.has).map((m) => m.name),
       ];
       if (who.length > 0) {
-        truth.push(`Il web nella squadra ce l’hanno: ${who.join(', ')}.`);
+        truth.push(t.squadWeb(who));
         out.push({ claim, truth });
       }
       continue;
@@ -447,10 +444,12 @@ export function judgeAccessClaims(
   return out;
 }
 
-const NO_OPTION = /^\s*(?:no|non\b|annulla|rifiuta|nega)/iu;
-/** "No", "no, aspetta", "Risposta alla tua domanda «…»: No". */
+// The words of a no, in both families (data, not copy).
+const NO_OPTION =
+  /^\s*(?:no\b|non\b|annulla|rifiuta|nega|don[’']t\b|do not\b|cancel|refuse|deny|decline|never mind)/iu; // i18n-ignore
+/** "No", "no, aspetta", "Risposta alla tua domanda «…»: No", "No, wait", "Answer to your question: No". */
 const NO_WORDS =
-  /(?:^|[:\n]\s*)no\b|\bnon (?:farlo|mandarl\w*|inviarl\w*|pubblicarl\w*|procedere)\b/iu;
+  /(?:^|[:\n]\s*)no\b|\bnon (?:farlo|mandarl\w*|inviarl\w*|pubblicarl\w*|procedere)\b|\b(?:don[’']t|do not|dont) (?:do it|send|publish|post|proceed|go ahead)\b/iu; // i18n-ignore
 
 /** The causes and the no's of the user in the log of a run (and recent answers to the monster). */
 export function runAccessFacts(
@@ -488,7 +487,7 @@ export function runAccessFacts(
     const q = questions.get(a.data.questionId);
     const option = q?.data.options.find((o) => o.id === a.data.optionId);
     const no = option ? NO_OPTION.test(option.label) : NO_WORDS.test(a.data.text ?? '');
-    if (no) userNo.push(`«${q?.data.question.slice(0, 120) ?? 'una domanda'}»: no`);
+    if (no) userNo.push(accessPrompts().userNoQuestion(q?.data.question.slice(0, 120)));
   }
   for (const e of inRun) {
     if (
@@ -503,7 +502,7 @@ export function runAccessFacts(
   }
   for (const e of log.query({ type: 'access_grant', since, limit: 200 })) {
     if (e.type === 'access_grant' && e.data.from === params.agentId && e.data.outcome === 'denied')
-      userNo.push(`accesso «${e.data.summary}»: no`);
+      userNo.push(accessPrompts().userNoAccess(e.data.summary));
   }
   const causes = new Set<string>();
   for (const e of inRun) {
@@ -521,29 +520,21 @@ const clip = (s: string, n = 160) => (s.length > n ? `${s.slice(0, n - 1)}…` :
 
 /** The reminder of the end of the turn: the claims, what is true, the causes of the tools. */
 export function accessReminder(unbacked: readonly UnbackedClaim[], facts: RunAccessFacts): string {
-  const said = [...new Set(unbacked.map((u) => `«${clip(u.claim.sentence)}»`))].slice(0, 4);
+  const p = accessPrompts();
+  const said = [...new Set(unbacked.map((u) => p.quote(clip(u.claim.sentence))))].slice(0, 4);
   const truth = [...new Set(unbacked.flatMap((u) => u.truth))];
-  const lines = [
-    `[Controllo del sistema] La tua risposta dice cose sugli accessi che il registro di questo lavoro non conferma: ${said.join(' ')}`,
-    'Come stanno davvero:',
-    ...truth.map((t) => `- ${t}`),
-  ];
+  const lines = [p.reminderHead(said.join(' ')), p.reminderTruth, ...truth.map((t) => `- ${t}`)];
   if (facts.toolCauses.length > 0) {
-    lines.push('Cosa hanno risposto gli strumenti:', ...facts.toolCauses.map((c) => `- ${c}`));
+    lines.push(p.reminderTools, ...facts.toolCauses.map((c) => `- ${c}`));
   }
-  lines.push(
-    'Riscrivi la risposta con queste cause, come te le ha date il sistema: non attribuire rifiuti all’utente e non dire che un accesso è negato, bloccato o non collegato se non è così. Se ora puoi fare quello che mancava con gli strumenti che hai, fallo.',
-  );
+  lines.push(p.reminderTail);
   return lines.join('\n');
 }
 
 /** The note after the answer of a harness without a stop hook (Codex): the core corrects it. */
 export function accessCorrection(unbacked: readonly UnbackedClaim[]): string {
   const truth = [...new Set(unbacked.flatMap((u) => u.truth))];
-  return [
-    '[Nota di Monsters] Quello che questa risposta dice sugli accessi non risulta dal registro. Come stanno davvero:',
-    ...truth.map((t) => `- ${t}`),
-  ].join('\n');
+  return [accessPrompts().correctionHead, ...truth.map((t) => `- ${t}`)].join('\n');
 }
 
 /**

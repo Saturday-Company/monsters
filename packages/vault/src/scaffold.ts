@@ -4,6 +4,8 @@
  * and the .gitignore. Only used when creating a vault, never on an existing one.
  */
 
+import { scaffoldPrompts } from './scaffold.prompts.ts';
+
 export const VAULT_FOLDERS = [
   'Inbox',
   'Diario',
@@ -122,9 +124,7 @@ tags: []
 `,
 };
 
+/** The text a new `MEMORY.md` starts with, in the app's language at the moment. */
 export function memoryNote(name: string): string {
-  return `# Memoria di ${name}
-
-Indice corto della memoria di ${name}: una riga per voce, con il link alla nota di dettaglio.
-`;
+  return scaffoldPrompts().memoryNote(name);
 }

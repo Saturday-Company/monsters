@@ -58,6 +58,33 @@ const en = {
   taskLimit: 'task limit reached',
   tokenLimit: (name: string, n: number) => `${name} went over the limit of ${n} tokens`,
   reportAtLastStep: ' (report written at the last step)',
+  invisibleRemoved: (chars: number, source: string) =>
+    `I removed ${chars} invisible characters from ${source}: they were hiding text.`,
+  // A job on a harness (Claude Code, Codex)
+  harnessUnavailable: (name: string, harness: string, where: string) =>
+    `${name} works with ${harness}, which isn’t on now: turn it back on in ${where} or change the monster’s model.`,
+  modelWord: 'model',
+  planLimitFallback: (from: string, to: string, error: string | undefined) =>
+    `${from} → ${to} (plan usage limit)${error ? `: ${error}` : ''}`,
+  harnessRefused: (tool: string) =>
+    `Claude Code’s ${tool} was refused by the rules of this job, not by you.`,
+  harnessStalled: (name: string, minutes: number) =>
+    `${name} has given no signal for ${minutes} minutes: the program is stuck and I stopped it`,
+  harnessClosed: (name: string) => `${name}: the program closed without an answer`,
+  harnessNoSignal: 'no signal from the program',
+  configWriteStopped:
+    'A monster wanted to change Claude Code’s configuration in its folder: stopped.',
+  internalFilesStopped: 'A monster wanted to use Monsters’ internal files: stopped.',
+  monstersRuleRefusal: (tool: string) =>
+    `Claude Code’s ${tool}: it doesn’t get there because of a fixed Monsters rule (its data, Claude Code and Codex configuration, the folders closed to this job), not because of a permission of yours.`,
+  builtinOnlyAttached:
+    'In this job Claude Code’s Read opens only the attached files: you didn’t deny it.',
+  builtinNotInJob: (tool: string) =>
+    `Claude Code’s ${tool} is not among this job’s tools: you didn’t deny it.`,
+  builtinWebTools: ' For the web it has Monsters’ tools.',
+  builtinWebElsewhere: (who: string, n: number) =>
+    ` In this squad ${who} ${n > 1 ? 'have' : 'has'} the web.`,
+  builtinNoWeb: ' This monster has no web.',
 };
 
 const it: typeof en = {
@@ -110,6 +137,31 @@ const it: typeof en = {
   taskLimit: 'limite del compito raggiunto',
   tokenLimit: (name, n) => `${name} ha superato il limite di ${n} token`,
   reportAtLastStep: ' (rapporto scritto all’ultimo passo)',
+  invisibleRemoved: (chars, source) =>
+    `Ho tolto ${chars} caratteri invisibili da ${source}: nascondevano un testo.`,
+  harnessUnavailable: (name, harness, where) =>
+    `${name} lavora con ${harness}, che ora non è attivo: riattivalo in ${where} o cambia il modello del mostro.`,
+  modelWord: 'modello',
+  planLimitFallback: (from, to, error) =>
+    `${from} → ${to} (limite d’uso del piano)${error ? `: ${error}` : ''}`,
+  harnessRefused: (tool) =>
+    `${tool} di Claude Code è stato rifiutato dalle regole di questo lavoro, non da te.`,
+  harnessStalled: (name, minutes) =>
+    `${name} non dà più segnali da ${minutes} minuti: il programma è bloccato e l’ho fermato`,
+  harnessClosed: (name) => `${name}: il programma si è chiuso senza risposta`,
+  harnessNoSignal: 'nessun segnale dal programma',
+  configWriteStopped:
+    'Un mostro voleva cambiare la configurazione di Claude Code nella sua cartella: fermato.',
+  internalFilesStopped: 'Un mostro voleva usare i file interni di Monsters: fermato.',
+  monstersRuleRefusal: (tool) =>
+    `${tool} di Claude Code: lì non arriva per una regola fissa di Monsters (i suoi dati, la configurazione di Claude Code e Codex, le cartelle chiuse a questo lavoro), non per un tuo permesso.`,
+  builtinOnlyAttached:
+    'In questo lavoro Read di Claude Code apre solo i file allegati: non l’hai negato tu.',
+  builtinNotInJob: (tool) =>
+    `${tool} di Claude Code non è tra gli strumenti di questo lavoro: non l’hai negato tu.`,
+  builtinWebTools: ' Per il web ha gli strumenti di Monsters.',
+  builtinWebElsewhere: (who) => ` Il web in questa squadra ce l’ha ${who}.`,
+  builtinNoWeb: ' Questo mostro non ha il web.',
 };
 
 export const runAgentStrings = () => pick({ en, it });

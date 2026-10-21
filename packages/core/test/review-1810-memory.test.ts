@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { fake } from '@monsters/providers/testing';
-import { defineTool, type DraftView, type LogEvent } from '@monsters/shared';
+import { defineTool, setAppLang, type DraftView, type LogEvent } from '@monsters/shared';
 import { createWebFetchTool } from '@monsters/tools';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -60,6 +60,7 @@ afterAll(async () => {
 });
 const fakes: FakeTelegram[] = [];
 afterEach(async () => {
+  setAppLang('en');
   hits.length = 0;
   for (const f of fakes.splice(0)) await f.close();
 });
@@ -258,12 +259,15 @@ describe('A2 · memory of a tainted run', () => {
       ],
     });
     await memoryOf(t);
+    // What the monster reads is in the language of the app: Italian here.
+    setAppLang('it');
     const run = await ask(t, 'trova gli orari');
     const denied = t
       .events(run.runId!)
       .find(isType('tool_result', (e) => e.data.tool === 'vault_write' && !e.data.ok));
     expect(String(denied?.data.error)).toContain('BLOCKED_BY_POLICY');
     expect(String(denied?.data.error)).toContain('Da ricordare');
+    setAppLang('en');
     expect(await memoryOf(t)).not.toContain('/up');
   });
 
@@ -342,6 +346,7 @@ describe('A2 · notes written by a tainted run', () => {
     );
     expect(String(note.frontmatter[THIRD_PARTY_PROP])).toContain('web_fetch');
     fresh(t);
+    setAppLang('it');
     const read = await ask(t, 'leggi la nota degli orari');
     expect(read.data).toMatchObject({ tainted: true });
     expect(read.data.taintSource).toContain('scritta dopo testo di terzi');
@@ -349,6 +354,7 @@ describe('A2 · notes written by a tainted run', () => {
     const found = await ask(t, 'cerca la nota degli orari');
     expect(found.data).toMatchObject({ tainted: true });
     expect(found.data.taintSource).toContain('scritta dopo testo di terzi');
+    setAppLang('en');
   });
 
   it('normal use: notes of a clean run carry nothing, and reading them keeps the run clean', async () => {

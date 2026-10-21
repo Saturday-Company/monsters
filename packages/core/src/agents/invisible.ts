@@ -1,3 +1,5 @@
+import { runtimePrompts } from './runtime.prompts.ts';
+
 /*
  * Invisible characters in third-party text (D-070, research 07 \u00A75.2): a page
  * or a tool result can carry instructions the user never sees and the model
@@ -22,8 +24,11 @@ const HIDDEN_CHAR = /^[\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]$/u;
 /** Formatting that does not show: removed silently. */
 const FORMAT = /[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
 
-/** Where hidden characters were: the model reads this instead. */
-export const HIDDEN_TEXT_MARK = '[testo invisibile tolto]';
+/** Where hidden characters were, in the Italian family: the model reads a mark instead. */
+export const HIDDEN_TEXT_MARK = runtimePrompts('it').hiddenTextMark;
+
+/** The mark of the family of the app's language at the moment it is written (D-153). */
+export const hiddenTextMark = (): string => runtimePrompts().hiddenTextMark;
 
 export interface InvisibleResult {
   text: string;
@@ -42,7 +47,7 @@ export function stripInvisible(text: string): InvisibleResult {
     /[\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}][\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}\u200B-\u200D\u2060\uFEFF]*/gu,
     (run) => {
       hidden += [...run].filter((c) => HIDDEN_CHAR.test(c)).length;
-      return HIDDEN_TEXT_MARK;
+      return hiddenTextMark();
     },
   );
   out = out.replace(FORMAT, () => {

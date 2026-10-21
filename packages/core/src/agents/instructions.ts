@@ -1,15 +1,14 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AgentAreaSchema } from '@monsters/shared';
+import { AgentAreaSchema, appLang, LANGS, writingLanguage, type Lang } from '@monsters/shared';
 import { z } from 'zod';
 import { WEB_TOOLS } from './archetypes.ts';
 import { AGENTS_MD, type AgentConfig } from './definition.ts';
 import {
   BLUEPRINT_JSON,
-  CURRENT_TEMPLATES,
-  LEGACY_TEMPLATES,
-  SOURCES_RULE,
+  currentTemplates,
   renderAgentsMd,
+  TEMPLATE_FAMILIES,
   type AgentBlueprint,
   type AgentTemplates,
 } from './templates.ts';
@@ -23,6 +22,10 @@ import {
  * never rewritten silently: names are replaced in place, the rest needs `force`.
  * A file rendered by an older template is rendered again with the current one
  * when the team loads (`upgradeInstructions`, D-065).
+ *
+ * Two families of templates, Italian and English (D-153): a file keeps the family
+ * it was written in, whatever the app's language is now. Every reader here tries
+ * both, and a file is rendered again only with the templates of its own family.
  */
 
 /** Copy of an AGENTS.md edited by hand, kept when it is rewritten with `force`. */
@@ -127,29 +130,52 @@ export function blueprintOf(fields: InstructionFields, config: AgentConfig): Age
   };
 }
 
-/** AGENTS.md of `fields` (throws `TemplateError` or a zod error when they do not fit). */
+/**
+ * AGENTS.md of `fields` (throws `TemplateError` or a zod error when they do not fit), with the
+ * current templates of the app's language unless told otherwise: pass the file's family
+ * (`familyOf`) to render an existing agent again.
+ */
 export function renderFields(
   fields: InstructionFields,
   config: AgentConfig,
-  templates: AgentTemplates = CURRENT_TEMPLATES,
+  templates: AgentTemplates = currentTemplates(),
 ): string {
   return renderAgentsMd(blueprintOf(fields, config), templates);
 }
 
 const same = (a: string, b: string) => a.replace(/\s+$/, '') === b.replace(/\s+$/, '');
 
-/** True when `fields` render exactly `text` with `templates` (the file was not edited by hand). */
+const CURRENT_SETS: readonly AgentTemplates[] = LANGS.map((l) => TEMPLATE_FAMILIES[l].current);
+const LEGACY_SETS: readonly AgentTemplates[] = LANGS.flatMap((l) => TEMPLATE_FAMILIES[l].legacy);
+
+/**
+ * True when `fields` render exactly `text` (the file was not edited by hand): with `templates`,
+ * or else with the current templates of either family.
+ */
 export function rendersTo(
   fields: InstructionFields,
   config: AgentConfig,
   text: string,
-  templates: AgentTemplates = CURRENT_TEMPLATES,
+  templates?: AgentTemplates,
 ): boolean {
-  try {
-    return same(renderFields(fields, config, templates), text);
-  } catch {
-    return false;
+  return renderedWith(fields, config, text, templates ? [templates] : CURRENT_SETS) !== null;
+}
+
+/** The first of `sets` with which `fields` render exactly `text`, or null. */
+function renderedWith(
+  fields: InstructionFields,
+  config: AgentConfig,
+  text: string,
+  sets: readonly AgentTemplates[],
+): AgentTemplates | null {
+  for (const t of sets) {
+    try {
+      if (same(renderFields(fields, config, t), text)) return t;
+    } catch {
+      // Fields that do not fit these templates: not this one.
+    }
   }
+  return null;
 }
 
 /** `text` is what `fields` render with an older template (never edited by hand since). */
@@ -158,7 +184,27 @@ export function rendersToLegacy(
   config: AgentConfig,
   text: string,
 ): boolean {
-  return LEGACY_TEMPLATES.some((t) => rendersTo(fields, config, text, t));
+  return renderedWith(fields, config, text, LEGACY_SETS) !== null;
+}
+
+/**
+ * The family an AGENTS.md is written in: the one whose templates render it from `fields` when
+ * they do, else the one its first sentence reads as ("Sei …," / "You are …,"), else the app's.
+ * A file edited by hand keeps its language when it is rewritten.
+ */
+export function familyOf(
+  text: string,
+  fields?: InstructionFields | null,
+  config?: AgentConfig,
+): Lang {
+  if (fields && config) {
+    const t = renderedWith(fields, config, text, [...CURRENT_SETS, ...LEGACY_SETS]);
+    if (t) return t.lang;
+  }
+  const first = LANGS.map((l) => ({ l, at: TEMPLATE_FAMILIES[l].parse.looksLike.exec(text) }))
+    .filter((x) => x.at !== null)
+    .sort((a, b) => a.at!.index - b.at!.index)[0];
+  return first?.l ?? appLang();
 }
 
 /** `blueprint.json` of an agent folder, or null (missing or unreadable). */
@@ -187,33 +233,43 @@ function between(text: string, start: string, end: string): string | null {
 
 /**
  * Reads the fields back from an AGENTS.md rendered by the fixed template
- * (teams created before `blueprint.json`). Null unless they render the very
- * same text: a file edited by hand is never mistaken for a template.
+ * (teams created before `blueprint.json`), of either family. Null unless they
+ * render the very same text with one of `templates` (the current ones of both
+ * families by default): a file edited by hand is never mistaken for a template.
  */
 export function parseInstructions(
   text: string,
   config: AgentConfig,
-  templates: readonly AgentTemplates[] = [CURRENT_TEMPLATES],
+  templates: readonly AgentTemplates[] = CURRENT_SETS,
 ): InstructionFields | null {
   // A lead always has its blueprint.json (D-097): nothing older to read back.
   if (config.kind === 'lead') return null;
-  try {
-    const fields =
-      config.kind === 'orchestrator'
-        ? parseOrchestrator(text, config)
-        : parseSubagent(text, config);
-    if (!fields) return null;
-    return templates.some((t) => rendersTo(fields, config, text, t)) ? fields : null;
-  } catch {
-    return null;
+  for (const lang of LANGS) {
+    const sets = templates.filter((t) => t.lang === lang);
+    if (sets.length === 0) continue;
+    try {
+      const fields =
+        config.kind === 'orchestrator'
+          ? parseOrchestrator(text, config, lang)
+          : parseSubagent(text, config, lang);
+      if (fields && renderedWith(fields, config, text, sets)) return fields;
+    } catch {
+      // Not this family.
+    }
   }
+  return null;
 }
 
-function parseOrchestrator(text: string, config: AgentConfig): OrchestratorFields | null {
+function parseOrchestrator(
+  text: string,
+  config: AgentConfig,
+  lang: Lang,
+): OrchestratorFields | null {
+  const family = TEMPLATE_FAMILIES[lang];
   const name = config.name;
-  const user = between(text, `Sei ${name}, il coordinatore della squadra di `, '. Ricevi ogni');
-  const language = /niente gergo, in (.+)\.\s*$/.exec(text)?.[1];
-  const section = between(text, '## La squadra\n', '\n\n## ');
+  const user = between(text, ...family.parse.orchestratorUser(name));
+  const language = family.parse.orchestratorLanguage.exec(text)?.[1];
+  const section = between(text, `${family.teamHeading}\n`, '\n\n## ');
   if (user === null || !language || section === null) return null;
   const team: OrchestratorFields['team'] = [];
   for (const line of section.split('\n')) {
@@ -223,33 +279,29 @@ function parseOrchestrator(text: string, config: AgentConfig): OrchestratorField
   return { kind: 'orchestrator', name, user, language, team };
 }
 
-function parseSubagent(text: string, config: AgentConfig): SubagentFields | null {
+function parseSubagent(text: string, config: AgentConfig, lang: Lang): SubagentFields | null {
+  const family = TEMPLATE_FAMILIES[lang];
+  const p = family.parse;
   const lines = text.split('\n');
   const name = config.name;
-  const intro = lines.find((l) => l.startsWith(`Sei ${name}, `));
+  const start = p.subagentIntro(name);
+  const intro = lines.find((l) => l.startsWith(start));
   if (!intro) return null;
-  const rest = intro.slice(`Sei ${name}, `.length);
-  const marker = ' della squadra di ';
-  const at = rest.indexOf(marker);
-  if (at < 0) return null;
-  const title = rest.slice(0, at);
-  const afterTitle = rest.slice(at + marker.length);
-  const colon = afterTitle.indexOf(': ');
-  if (colon < 0) return null;
-  const user = afterTitle.slice(0, colon);
-  const sentence = afterTitle.slice(colon + 2);
+  const parts = p.subagentTitleUser(intro.slice(start.length));
+  if (!parts) return null;
+  const { title, user, sentence } = parts;
   const dot = sentence.indexOf('. ');
   const mission = dot >= 0 ? sentence.slice(0, dot) : sentence.replace(/\.$/, '');
   const context = dot >= 0 ? sentence.slice(dot + 2) : undefined;
 
-  const work = lines.indexOf('## Il tuo lavoro');
+  const work = lines.indexOf(p.workHeading);
   if (work < 0) return null;
-  const orchestrator = between(lines[work + 1] ?? '', '- Ricevi incarichi da ', ' e lavori fino');
+  const orchestrator = between(lines[work + 1] ?? '', ...p.orchestratorOfSubagent);
   if (orchestrator === null) return null;
   const duties: string[] = [];
   let area: string | null = null;
   for (const line of lines.slice(work + 2)) {
-    const save = between(line, '- Salvi i risultati in `', '/`');
+    const save = between(line, ...p.area);
     if (save !== null) {
       area = save;
       break;
@@ -257,11 +309,12 @@ function parseSubagent(text: string, config: AgentConfig): SubagentFields | null
     if (!line.startsWith('- ')) return null;
     duties.push(line.slice(2));
   }
-  const language = between(text, '- Sempre in ', ', anche quando');
-  const report =
-    between(text, `Il tuo ultimo messaggio è il rapporto per ${orchestrator}: `, '. Niente log') ??
-    // Template before D-065.
-    between(text, `Rispondi a ${orchestrator} con: `, '. Niente log.');
+  const language = between(text, ...p.language);
+  let report: string | null = null;
+  for (const [a, b] of p.report(orchestrator)) {
+    report = between(text, a, b);
+    if (report !== null) break;
+  }
   if (area === null || language === null || report === null) return null;
   return {
     kind: 'subagent',
@@ -276,7 +329,7 @@ function parseSubagent(text: string, config: AgentConfig): SubagentFields | null
     duties,
     outputArea: area,
     report,
-    web: text.includes(SOURCES_RULE),
+    web: text.includes(family.sourcesRule),
   };
 }
 
@@ -287,15 +340,28 @@ export interface Instructions {
   fields: InstructionFields | null;
   /** The file is exactly what the fields render: it can be re-rendered without losing anything. */
   pristine: boolean;
+  /** The family it is written in: it is rendered again in this one (D-153). */
+  lang: Lang;
+}
+
+/** The fields and the family of an AGENTS.md, from its `blueprint.json` (`stored`) or read back. */
+export function instructionsOf(
+  text: string,
+  stored: InstructionFields | null,
+  config: AgentConfig,
+): Instructions {
+  if (stored) {
+    const t = renderedWith(stored, config, text, CURRENT_SETS);
+    return { text, fields: stored, pristine: t !== null, lang: t?.lang ?? familyOf(text) };
+  }
+  const parsed = parseInstructions(text, config);
+  return { text, fields: parsed, pristine: parsed !== null, lang: familyOf(text, parsed, config) };
 }
 
 /** The AGENTS.md of an agent folder and the fields behind it. */
 export async function loadInstructions(dir: string, config: AgentConfig): Promise<Instructions> {
   const text = await readFile(join(dir, AGENTS_MD), 'utf8');
-  const stored = await readFields(dir);
-  if (stored) return { text, fields: stored, pristine: rendersTo(stored, config, text) };
-  const parsed = parseInstructions(text, config);
-  return { text, fields: parsed, pristine: parsed !== null };
+  return instructionsOf(text, await readFields(dir), config);
 }
 
 /**
@@ -311,13 +377,14 @@ export async function upgradeInstructions(
 ): Promise<string | null> {
   const text = await readFile(join(dir, AGENTS_MD), 'utf8');
   const stored = await readFields(dir);
-  const fields = stored ?? parseInstructions(text, config, LEGACY_TEMPLATES);
-  if (!fields || rendersTo(fields, config, text) || !rendersToLegacy(fields, config, text)) {
-    return null;
-  }
+  const fields = stored ?? parseInstructions(text, config, LEGACY_SETS);
+  if (!fields || rendersTo(fields, config, text)) return null;
+  // Again in the family it was written in, whatever the app's language is now.
+  const old = renderedWith(fields, config, text, LEGACY_SETS);
+  if (!old) return null;
   let next: string;
   try {
-    next = renderFields(fields, config);
+    next = renderFields(fields, config, TEMPLATE_FAMILIES[old.lang].current);
   } catch {
     return null;
   }
@@ -336,26 +403,48 @@ export function replaceWord(text: string, from: string, to: string): string {
 }
 
 /**
- * Replaces the bullets of the "## La squadra" section of an orchestrator's
- * AGENTS.md ("## La squadra del progetto" for a project's lead, D-097).
+ * Replaces the writing language `from` with `to` (codes or names in either family, D-153):
+ * `from` as written, then its name in each family with the name of `to` in the same family,
+ * so an Italian file says "spagnolo" and an English one "Spanish".
+ */
+export function replaceLanguage(text: string, from: string, to: string): string {
+  let out = replaceWord(text, from, to);
+  const a = writingLanguage(from);
+  const b = writingLanguage(to);
+  if (!a || !b) return out;
+  for (const lang of LANGS) out = replaceWord(out, a[lang], b[lang]);
+  return out;
+}
+
+/**
+ * Replaces the bullets of the team section of an orchestrator's AGENTS.md ("## La squadra",
+ * "## The squad"; a project lead's, `lead`, "## La squadra del progetto", "## The project’s
+ * squad", D-097), in the family the file is written in.
  */
 export function replaceTeamSection(
   text: string,
   team: readonly { name: string; summary: string }[],
-  heading = '## La squadra',
+  lead = false,
 ): string {
   const lines = text.split('\n');
-  const start = lines.indexOf(heading);
-  if (start < 0) return text;
-  let end = start + 1;
-  while (end < lines.length && !lines[end]!.startsWith('## ')) end++;
-  const body = teamBullets(team);
-  return [...lines.slice(0, start + 1), ...body.split('\n'), '', ...lines.slice(end)].join('\n');
+  for (const lang of LANGS) {
+    const family = TEMPLATE_FAMILIES[lang];
+    const start = lines.indexOf(lead ? family.leadTeamHeading : family.teamHeading);
+    if (start < 0) continue;
+    let end = start + 1;
+    while (end < lines.length && !lines[end]!.startsWith('## ')) end++;
+    const body = teamBullets(team, lang);
+    return [...lines.slice(0, start + 1), ...body.split('\n'), '', ...lines.slice(end)].join('\n');
+  }
+  return text;
 }
 
-/** Bullets of the team section (one line when the capo squadra works alone). */
-export function teamBullets(team: readonly { name: string; summary: string }[]): string {
+/** Bullets of the team section (one line when the capo squadra works alone), in a family. */
+export function teamBullets(
+  team: readonly { name: string; summary: string }[],
+  lang: Lang = appLang(),
+): string {
   return team.length > 0
     ? team.map((m) => `- **${m.name}**: ${m.summary}`).join('\n')
-    : '- Per ora nessuno: lavori da solo.';
+    : TEMPLATE_FAMILIES[lang].noTeam;
 }

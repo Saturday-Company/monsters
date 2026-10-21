@@ -6,6 +6,7 @@ import { telegramText } from '../channels/telegram/lines.ts';
 import { threadRuns } from '../channels/telegram/threads.ts';
 import type { EventLog } from '../log/event-log.ts';
 import { fromLine } from '../projects/lines.ts';
+import { conversationPrompts } from './conversation.prompts.ts';
 import type { QuestionStore } from './questions.ts';
 
 /*
@@ -37,13 +38,8 @@ export function projectReportText(d: {
   leadName: string;
   projectName: string;
 }): string {
-  const how =
-    d.status === 'completed'
-      ? 'ha finito'
-      : d.status === 'waiting_user'
-        ? 'aspetta una risposta dell’utente'
-        : 'si è fermato';
-  return `[Rapporto del progetto «${d.projectName}»: ${d.leadName} ${how}] ${d.summary}`;
+  const t = conversationPrompts();
+  return t.projectReport(d.projectName, d.leadName, t.reportStatus(d.status), d.summary);
 }
 
 export interface ConversationOptions {
@@ -74,15 +70,14 @@ export function answerText(
 ): string {
   const label = question.options.find((o) => o.id === answer.optionId)?.label;
   const parts = [label, answer.text].filter(Boolean).join(' — ');
-  return `Risposta alla tua domanda "${question.question}": ${parts}`;
+  return conversationPrompts().answer(question.question, parts);
 }
 
 /** What the capo squadra reads of the user's answer to its proposal (D-075). */
 export function proposalOutcomeText(d: { action: string; name?: string | undefined }): string {
-  const name = d.name ?? 'il mostro';
-  return d.action === 'created'
-    ? `[Dall'app] Ho creato ${name} dalla tua proposta: ora è nella squadra.`
-    : `[Dall'app] Ho lasciato stare la tua proposta di ${name}: non l'ho creato.`;
+  const t = conversationPrompts();
+  const name = d.name ?? t.theMonster;
+  return d.action === 'created' ? t.monsterCreated(name) : t.monsterDropped(name);
 }
 
 /** What the proposer reads of the user's answer to its draft of a project or an automation (D-098). */
@@ -91,21 +86,17 @@ export function draftOutcomeText(
   action: 'confirmed' | 'discarded',
   name: string,
 ): string {
+  const t = conversationPrompts();
   if (kind === 'project') {
-    return action === 'confirmed'
-      ? `[Dall'app] Ho confermato il progetto «${name}» che hai proposto: ora c'è, con il suo capo e i suoi mostri.`
-      : `[Dall'app] Ho lasciato stare il progetto «${name}» che hai proposto: non c'è.`;
+    return action === 'confirmed' ? t.projectConfirmed(name) : t.projectDropped(name);
   }
-  return action === 'confirmed'
-    ? `[Dall'app] Ho confermato l'automazione «${name}»: da ora gira al suo orario.`
-    : `[Dall'app] Ho lasciato stare l'automazione «${name}» che hai proposto.`;
+  return action === 'confirmed' ? t.automationConfirmed(name) : t.automationDropped(name);
 }
 
 /** What the proposer reads of the user's answer to its change of CLAUDE.md or AGENTS.md (D-113). */
 export function docsOutcomeText(d: { action: string; file: string; name: string }): string {
-  return d.action === 'applied'
-    ? `[Dall'app] Ho applicato la tua proposta per ${d.file} di «${d.name}»: ora il file è come l'hai scritto.`
-    : `[Dall'app] Ho lasciato stare la tua proposta per ${d.file} di «${d.name}»: il file resta com'era.`;
+  const t = conversationPrompts();
+  return d.action === 'applied' ? t.docsApplied(d.file, d.name) : t.docsDropped(d.file, d.name);
 }
 
 function toTurn(
@@ -227,8 +218,8 @@ function notesOfAnswers(
       from = answer.id;
       if (paths.length === 0) continue;
       const shown = paths.slice(0, MAX_NOTE_PATHS).join(', ');
-      const more = paths.length > MAX_NOTE_PATHS ? ` e altre ${paths.length - MAX_NOTE_PATHS}` : '';
-      out.set(answer.id, `[Note di questo lavoro: ${shown}${more}]`);
+      const more = Math.max(0, paths.length - MAX_NOTE_PATHS);
+      out.set(answer.id, conversationPrompts().notesOfJob(shown, more));
     }
   }
   return out;

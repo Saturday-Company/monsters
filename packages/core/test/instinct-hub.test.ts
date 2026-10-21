@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { fake } from '@monsters/providers/testing';
 import {
   defineTool,
+  setAppLang,
   type EventType,
   type InstinctView,
   type LogEvent,
@@ -10,7 +11,7 @@ import {
   type ScorecardView,
   type UndoRunResult,
 } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import type { DecisionPort, SystemOneAnswer } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
@@ -48,7 +49,38 @@ const optionOf = (o: unknown) => (typeof o === 'string' ? o : (o as { label: str
 const ofType = <T extends EventType>(events: LogEvent[], type: T): LogEvent<T>[] =>
   events.filter((e) => e.type === type) as LogEvent<T>[];
 
+afterEach(() => setAppLang('en'));
+
 describe('instinct in the core (D-067)', () => {
+  it('"finito davvero?": the reminder is English in an English app', async () => {
+    const t = await startTestHub({
+      titan: [
+        fake.toolCall('delegate', {
+          agent: 'Dione',
+          goal: 'A post about herbal teas',
+          done_when: 'draft saved in a note',
+        }),
+        fake.text('The draft is ready.'),
+      ],
+      dione: [
+        fake.text('I saved the draft in the note Inbox/Drafts/Teas.'),
+        fake.toolCall('vault_write', {
+          path: 'Inbox/Drafts/Teas',
+          content: '# Teas\n\nA warm post.\n',
+        }),
+        fake.text('Draft saved in Inbox/Drafts/Teas.md.'),
+      ],
+    });
+    setAppLang('en');
+    const sent = await t.json<Sent>('POST', '/api/messages', { text: 'Write a post about teas' });
+    expect((await t.runEnded(sent.runId)).data.status).toBe('completed');
+    const reminder = ofType(t.events(sent.runId), 'message').find(
+      (e) => e.agent === 'dione' && e.data.role === 'system',
+    );
+    expect(reminder?.data.text).toMatch(/^\[System check\] The work doesn’t look finished/);
+    expect(reminder?.data.text).not.toMatch(/Il lavoro non sembra finito/);
+  });
+
   it('"finito davvero?": a note declared and never saved gets a reminder; the receipt and "Annulla tutto"', async () => {
     const t = await startTestHub({
       titan: [
@@ -69,6 +101,8 @@ describe('instinct in the core (D-067)', () => {
         fake.text('Bozza salvata in Inbox/Bozze/Tisane.md.'),
       ],
     });
+    // The reminder is written in the language of the app at that moment: Italian here.
+    setAppLang('it');
     const sent = await t.json<Sent>('POST', '/api/messages', {
       text: 'Scrivi un post sulle tisane',
     });
@@ -151,13 +185,42 @@ describe('instinct in the core (D-067)', () => {
       { titan: [fake.text('Ciao!')] },
       { hub: { decisionPort: engine, settings: { instinct: { engine: 'jev' } } } },
     );
+    setAppLang('it');
     const sent = await t.json<Sent>('POST', '/api/messages', { text: 'Cerca i prezzi del caffè' });
     await t.runEnded(sent.runId);
     expect(promptText(t.provider.calls[0]!.options.prompt)).toContain('sembra adatto: Rhea');
     expect(ofType(t.events(sent.runId), 'instinct')[0]!.data).toMatchObject({
       use: 'route_hint',
+      message: 'Ho suggerito di affidare la richiesta a Rhea.',
+    });
+  });
+
+  it('the radiografia in an English app: the hint, the route labels and the state are English', async () => {
+    // The engine answers with the labels it was offered: the English "lead" is read as the lead.
+    const seen: string[] = [];
+    const engine = port({ route: 'Rhea', route_rev: 'Rhea' });
+    const decide = engine.decide.bind(engine);
+    engine.decide = (request, signal) => {
+      seen.push(JSON.stringify(request));
+      return decide(request, signal);
+    };
+    const t = await startTestHub(
+      { titan: [fake.text('Hi!')] },
+      { hub: { decisionPort: engine, settings: { instinct: { engine: 'jev' } } } },
+    );
+    setAppLang('en');
+    const sent = await t.json<Sent>('POST', '/api/messages', { text: 'Look up coffee prices' });
+    await t.runEnded(sent.runId);
+    expect(promptText(t.provider.calls[0]!.options.prompt)).toContain(
+      '[System hint] This request looks like a fit for: Rhea',
+    );
+    expect(ofType(t.events(sent.runId), 'instinct')[0]!.data).toMatchObject({
+      use: 'route_hint',
       message: 'I suggested handing the request to Rhea.',
     });
+    expect(seen[0]).toContain('"request":"Look up coffee prices"');
+    expect(seen[0]).toContain('"label":"lead"');
+    expect(seen[0]).toContain('Who should handle `request`?');
   });
 
   it('the brake: a web page with private data in the address waits for the user', async () => {

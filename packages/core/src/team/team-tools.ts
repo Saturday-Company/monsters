@@ -15,6 +15,7 @@ import { ActionKindSchema, type DecisionGate } from './decision.ts';
 import type { DoneChecker, DoneCheckResult } from './instinct/done-check.ts';
 import { instinctStrings } from './instinct/instinct.strings.ts';
 import { QuestionExpiredError, type QuestionOption, type QuestionStore } from './questions.ts';
+import { teamToolsPrompts } from './team-tools.prompts.ts';
 import {
   earlierDelegation,
   rememberDelegation,
@@ -161,7 +162,7 @@ export function truncateSummary(
   const cut = t.slice(0, max);
   const lastBreak = Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf('. '));
   return {
-    text: `${(lastBreak > max * 0.6 ? cut.slice(0, lastBreak + 1) : cut).trimEnd()}\n[…riassunto tagliato: i dettagli sono nelle note]`,
+    text: `${(lastBreak > max * 0.6 ? cut.slice(0, lastBreak + 1) : cut).trimEnd()}${teamToolsPrompts().summaryCut}`,
     truncated: true,
   };
 }
@@ -239,15 +240,11 @@ export function completeBrief(
     request && request.length > MAX_REQUEST_CHARS
       ? `${request.slice(0, MAX_REQUEST_CHARS - 1)}…`
       : request;
-  const asked = repeated
-    ? undefined
-    : `${defaults.user ? `Richiesta di ${defaults.user}` : 'Richiesta dell’utente'}: «${clipped}»`;
+  const t = teamToolsPrompts();
+  const asked = repeated ? undefined : t.requestOf(defaults.user, clipped!);
   const why = [input.why?.trim(), asked].filter(Boolean).join('\n');
   const doneWhen =
-    input.done_when?.trim() ||
-    (defaults.area
-      ? `il risultato è salvato in ${defaults.area}/ e il rapporto è pronto`
-      : 'il rapporto è pronto');
+    input.done_when?.trim() || (defaults.area ? t.doneWhenSaved(defaults.area) : t.doneWhenReport);
   const outputFormat = input.output_format?.trim() || defaults.report;
   return {
     brief: {
@@ -271,12 +268,13 @@ export function subtaskText(input: DelegateInputValue): string {
   const why = input.why?.trim();
   const format = input.output_format?.trim();
   const done = input.done_when?.trim();
+  const t = teamToolsPrompts();
   return [
     input.goal.trim(),
-    why ? `Perché: ${why}` : '',
-    input.constraints?.length ? `Vincoli: ${input.constraints.join('; ')}` : '',
-    format ? `Risultato: ${format}` : '',
-    done ? `Finito quando: ${done}` : '',
+    why ? t.subtaskWhy(why) : '',
+    input.constraints?.length ? t.subtaskConstraints(input.constraints.join('; ')) : '',
+    format ? t.subtaskResult(format) : '',
+    done ? t.subtaskDone(done) : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -570,10 +568,13 @@ function checkReport(check: DoneCheckResult | undefined): Record<string, string>
   if (!check) return {};
   if (check.verdict === 'verified') return { check: 'ok' };
   if (check.verdict === 'doubt') {
-    return { check: 'dubbio', check_reason: check.doubt ?? 'some criterion is not clear' };
+    return {
+      check: teamToolsPrompts().checkDoubt,
+      check_reason: check.doubt ?? 'some criterion is not clear',
+    };
   }
   if (check.verdict === 'incomplete') {
-    return { check: 'incompleto', check_reason: check.missing.join('; ') };
+    return { check: teamToolsPrompts().checkIncomplete, check_reason: check.missing.join('; ') };
   }
   return {};
 }
@@ -633,17 +634,10 @@ export function delegateTool(ctx: TeamToolsContext): MonstersTool {
     ctx.run,
     defineTool({
       name: 'delegate',
-      description:
-        'Give a task to a team member and wait for a short report (summary + notes created). ' +
-        'Use it when the work needs their skill: texts to deliver (posts, emails, documents) go to the writer, ' +
-        'web research to the researcher. Do quick things yourself: delegating is expensive. ' +
-        'For a creative text (post, slogan, newsletter) ask the writer for 2 variants of tone or cut, ' +
-        'even when the profile gives a tone: the user picks one. ' +
-        `Several delegate calls in the same step run in parallel (at most ${limits.maxParallelDelegations} at once, ` +
-        `${limits.maxDelegationsPerRun} per task). ` +
-        "Write the brief in the user's language: the agent writes its notes in the same language. " +
-        'Example: {"agent": "Dione", "goal": "La newsletter di novembre per i clienti, in 2 varianti", ' +
-        '"context_links": ["Risorse/Ricerche/Novità di novembre"], "done_when": "bozze salvate in una nota"}',
+      description: teamToolsPrompts().delegateDescription(
+        limits.maxParallelDelegations,
+        limits.maxDelegationsPerRun,
+      ),
       inputSchema: delegateInputSchema(members().map((a) => a.config.name)),
       async execute(input, tc) {
         const found = ctx.team.get(input.agent);
@@ -734,7 +728,7 @@ const CONSEQUENTIAL_KINDS = new Set(['publish', 'contact', 'spend', 'delete', 'g
  * "compreso", so a second choice of taste about "la pagina" passed the limit.
  */
 const CONSEQUENTIAL_WORDS = unicodeWords(
-  /\b(pubblic\w*|invi(a|ano|amo|are|arl[aeio]|ata|ate|ati|ato|i|iamo|o|erò|eremo)|sped\w*|pag(a|ano|are|arl[aeio]|ata|ate|ati|ato|amento|amenti|o|herò|heremo|hi\w*)|compr(a|ano|are|arl[aeio]|ata|ate|ati|ato|iamo|o|erò|eremo)|acquist\w*|cancell\w*|elimin\w*|publish\w*|send\w*|pay(s|ing|ment\w*)?|paid|buy\w*|delet\w*)\b/iu,
+  /\b(pubblic\w*|invi(a|ano|amo|are|arl[aeio]|ata|ate|ati|ato|i|iamo|o|erò|eremo)|sped\w*|pag(a|ano|are|arl[aeio]|ata|ate|ati|ato|amento|amenti|o|herò|heremo|hi\w*)|compr(a|ano|are|arl[aeio]|ata|ate|ati|ato|iamo|o|erò|eremo)|acquist\w*|cancell\w*|elimin\w*|publish\w*|send\w*|pay(s|ing|ment\w*)?|paid|buy\w*|delet\w*|purchas\w*|cancel\w*)\b/iu, // i18n-ignore
 );
 
 /**
@@ -769,22 +763,7 @@ function resolveRecommended(
 export function askUserTool(ctx: TeamToolsContext): MonstersTool {
   return defineTool({
     name: 'ask_user',
-    description:
-      'Ask the user a choice that is theirs: publishing, writing to others, spending, deleting for good, ' +
-      'changing the goal, or taste (tone, variant, which draft). Only for such a choice or a fact that blocks ' +
-      'the work: a question you can answer or look up yourself (a piece of information, a definition, a ' +
-      'simple request) is answered, never asked back. Use it instead of asking in your reply: ' +
-      'the user answers with one tap. One question, 2-4 short options, your recommendation, the kind. ' +
-      'Each option says what it contains (a short label and a description): the user chooses from the card, ' +
-      'without opening the notes, so never just "Variante A" / "Variante B". ' +
-      'Reversible choices may be decided for you: the result says so. ' +
-      'Without options it is an open question with a free answer: use it for facts only the user knows ' +
-      '(products, prices, names, dates) instead of making them up. ' +
-      'Examples: {"question": "Quale versione della newsletter?", "options": [' +
-      '{"label": "Breve e diretta", "description": "3 novità in elenco, invito a passare in negozio"}, ' +
-      '{"label": "Racconto personale", "description": "Una storia dal laboratorio, poi le novità"}], ' +
-      '"recommended": "Breve e diretta", "kind": "taste"}; ' +
-      '{"question": "Quali novità ci sono questo mese?"}',
+    description: teamToolsPrompts().askUserDescription,
     inputSchema: AskUserInput,
     async execute(input, tc) {
       const options: QuestionOption[] = (input.options ?? []).map((o, i) =>
@@ -798,9 +777,7 @@ export function askUserTool(ctx: TeamToolsContext): MonstersTool {
       );
       if (optionsWithoutContent(options)) {
         throw new ToolError('INVALID_INPUT', 'the options do not say what they contain', {
-          hint:
-            'Write the options again with their content: a short label that names it (e.g. "Tono caldo e familiare") ' +
-            'and a description of what that option contains, then call ask_user again.',
+          hint: teamToolsPrompts().optionsWithoutContentHint,
         });
       }
       const { run } = ctx;

@@ -33,6 +33,7 @@ export * from './ulid.ts';
 export * from './urls.ts';
 export * from './usage.ts';
 export * from './vault.ts';
+export * from './writing-languages.ts';
 
 /** Default port of the local core. */
 export const DEFAULT_PORT = 4747;

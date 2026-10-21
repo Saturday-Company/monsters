@@ -2,7 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
 import { URL_IN_TEXT, WEB_SEARCH_USAGE_PROVIDER, type LogEvent } from '@monsters/shared';
 import { stableJson } from '../src/agents/call-tracker.ts';
-import { endsWithQuestion, FINAL_QUESTION_REMINDER } from '../src/team/final-question.ts';
+import { endsWithQuestion } from '../src/team/final-question.ts';
+import { FINAL_QUESTION_REMINDERS } from '../src/team/final-question.prompts.ts';
 import { DISH_WORDS } from './cases.ts';
 
 /*
@@ -373,8 +374,9 @@ type Ev = LogEvent;
 /** A question of taste: tone, variant, version, style, which draft; not "shall I publish/send?". */
 export function isTasteQuestion(text: string): boolean {
   return (
-    /(ton[oi]\b|varian|version|stile|prefer|taglio|bozz|quale|approcc)/i.test(text) &&
-    !/(pubblic|invi[ao]|spedi|programm)/i.test(text)
+    /(ton[oei]s?\b|varian|version|stile|style|prefer|taglio|angle|bozz|draft|quale|which|approcc|approach)/i.test(
+      text,
+    ) && !/(pubblic|invi[ao]|spedi|programm|publish|send|schedul)/i.test(text)
   );
 }
 
@@ -418,7 +420,7 @@ export function evaluateRun(params: {
     (m) => endsWithQuestion(m.data.text) && !askCalls.some((c) => c.id > m.id),
   );
   const reminders = of('message').filter(
-    (e) => e.data.role === 'system' && e.data.text === FINAL_QUESTION_REMINDER,
+    (e) => e.data.role === 'system' && FINAL_QUESTION_REMINDERS.includes(e.data.text),
   );
   const answers = of('answer');
   const final = of('message').findLast(

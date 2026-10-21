@@ -7,6 +7,7 @@ import {
 } from '@monsters/shared';
 import { splitAgentToolName } from '../../mcp/convert.ts';
 import { unicodeWords } from '../word-boundary.ts';
+import { instinctPrompts } from './instinct.prompts.ts';
 import { instinctStrings } from './instinct.strings.ts';
 import { NOTE_LEAK_CHARS, type RunTaint } from './taint.ts';
 
@@ -899,7 +900,7 @@ function codeCall(
     markAlways: true,
     // The server's word goes to the instinct, which weighs it with the code.
     ...(t.destructive === true && t.readOnly !== true
-      ? { hint: `${server} segna questo strumento come distruttivo (destructiveHint).` }
+      ? { hint: instinctPrompts().destructiveHint(server) }
       : {}),
   };
 }

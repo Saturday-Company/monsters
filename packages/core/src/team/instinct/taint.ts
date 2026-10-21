@@ -1,5 +1,6 @@
 import { trimUrlEnd, URL_IN_TEXT } from '@monsters/shared';
 import { getDomain } from 'tldts';
+import { instinctStrings } from './instinct.strings.ts';
 
 /*
  * What may leave the computer once a run has read third-party text (D-070,
@@ -186,7 +187,7 @@ export class RunTaint {
    * sites (from the user's own words there) and links, its sensitive text.
    */
   absorb(other: RunTaint): void {
-    if (other.#tainted) this.taint(other.#source ?? 'lavoro di un altro mostro');
+    if (other.#tainted) this.taint(other.#source ?? instinctStrings().otherMonsterWork);
     if (other.#guarded) this.guard(other.#guarded);
     for (const s of other.#sites) this.#sites.add(s);
     for (const s of other.#read) this.#read.add(s);
@@ -288,7 +289,7 @@ export class RunTaint {
         this.sensitive(o.content, isPrivate ? 'private' : 'note', path);
       }
       if (props[THIRD_PARTY_PROP] !== undefined) {
-        this.taint(`nota ${path || 'del vault'} scritta dopo testo di terzi`);
+        this.taint(instinctStrings().noteAfterThirdParty(path));
       }
       return;
     }
@@ -307,9 +308,7 @@ export class RunTaint {
         : undefined;
       if (hit) {
         const path = (hit as { path?: unknown }).path;
-        this.taint(
-          `nota ${typeof path === 'string' ? path : 'del vault'} scritta dopo testo di terzi`,
-        );
+        this.taint(instinctStrings().noteAfterThirdParty(typeof path === 'string' ? path : ''));
       }
     }
     // A file read again (`file_read`): the user's are the user's data, like a note; one a

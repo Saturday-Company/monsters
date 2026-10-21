@@ -2,6 +2,7 @@ import { posix } from 'node:path';
 import { ToolError, type MonstersTool, type ToolContext } from '@monsters/shared';
 import type { VaultService } from '@monsters/vault';
 import { THIRD_PARTY_PROP } from './instinct/taint.ts';
+import { vaultProvenancePrompts } from './vault-provenance.prompts.ts';
 
 /*
  * Where the notes come from (review of 18/10, A2). A run that read
@@ -12,20 +13,12 @@ import { THIRD_PARTY_PROP } from './instinct/taint.ts';
  *   carries the property `THIRD_PARTY_PROP` with its reason, and `vault_search`
  *   says which hits carry it: a run that reads them is tainted (`RunTaint`);
  * - such a run, or a run of a Telegram chat, never writes a monster's
- *   MEMORY.md with the vault tools: its «Da ricordare:» lines wait for the
+ *   MEMORY.md with the vault tools: its «Da ricordare:» (“To remember:”) lines wait for the
  *   user (`MemoryProposals`), since the memory reaches every later prompt.
  */
 
 /** A monster's memory note (`TeamService.memoryPath`): `Agenti/<Name>/MEMORY.md`. */
 const MEMORY_NOTE = /^agenti\/[^/]+\/memory(?:\.md)?$/i;
-
-/** A line about accesses written into a memory (D-141). */
-export const MEMORY_ACCESS_REFUSED =
-  'These lines are about permissions, connections or tools: they do not go in a memory. Monsters tells every monster its accesses at every job (the "## Monsters" section), and what was true once may be false now';
-
-export const MEMORY_WRITE_DENIED =
-  'In this work your memory is not written with the vault tools: it read third-party text, or someone who is not the user asked. ' +
-  'End your report with a «Da ricordare:» section: the user confirms those lines.';
 
 function cleanPath(raw: string): string {
   return posix.normalize(raw.trim().replace(/\\/g, '/')).replace(/^(?:\.\/|\/)+/, '');
@@ -164,7 +157,7 @@ export function withProvenance(t: MonstersTool, o: VaultProvenanceOptions): Mons
       const memoryNote = async () =>
         (paths ??= await targets(t.name, input, o.vault)).find(isMemoryNote);
       if (o.memoryHeld(ctx.runId) && (await memoryNote())) {
-        throw new ToolError('BLOCKED_BY_POLICY', MEMORY_WRITE_DENIED);
+        throw new ToolError('BLOCKED_BY_POLICY', vaultProvenancePrompts().memoryWriteDenied);
       }
       if (o.accessLine && WRITTEN.has(t.name)) {
         const note = await memoryNote();
@@ -173,7 +166,7 @@ export function withProvenance(t: MonstersTool, o: VaultProvenanceOptions): Mons
             o.accessLine!(l, ctx.agentId),
           );
           if (lines.length > 0) {
-            throw new ToolError('INVALID_INPUT', MEMORY_ACCESS_REFUSED, {
+            throw new ToolError('INVALID_INPUT', vaultProvenancePrompts().memoryAccessRefused, {
               hint: `Write the memory again without these lines: ${lines.map((l) => `«${l.slice(0, 160)}»`).join(' ')}`,
               details: { lines },
             });

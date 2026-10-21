@@ -1,6 +1,6 @@
 import {
   ClaudeAgentHarness,
-  CODEX_USER_INPUT_ANSWER,
+  codexUserInputAnswer,
   codexUserInputResult,
   type HarnessTask,
 } from '@monsters/providers';
@@ -15,6 +15,7 @@ import {
   probeCases,
   requestSigns,
 } from './fixtures/probe-harness-tools.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * The comparison of the harness tools probe (D5, D-127), without any binary: argv of a
@@ -210,12 +211,13 @@ describe('Codex', () => {
   });
 
   it('request_user_input is visible and answered by codex.ts, never refused (D-135)', () => {
+    inLang('it');
     expect(CODEX_HANDLED_CLIENT_TOOLS).toContain('request_user_input');
     expect(checkCodexTools(['request_user_input'], { systemTools: true }).errors).toEqual([]);
     const answer = codexUserInputResult({ questions: [{ id: 'q1', question: 'Procedo?' }] });
-    expect(answer).toEqual({ answers: { q1: { answers: [CODEX_USER_INPUT_ANSWER] } } });
-    expect(CODEX_USER_INPUT_ANSWER).toContain('non l’utente');
-    expect(CODEX_USER_INPUT_ANSWER).toContain('ask_user');
+    expect(answer).toEqual({ answers: { q1: { answers: [codexUserInputAnswer()] } } });
+    expect(codexUserInputAnswer()).toContain('non l’utente');
+    expect(codexUserInputAnswer()).toContain('ask_user');
   });
 
   it('fails on a tool it does not know, and notes a web run without web_search', () => {

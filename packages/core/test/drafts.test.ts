@@ -15,6 +15,7 @@ import {
 import { createWebFetchTool } from '@monsters/tools';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { deferred, never, promptText, startTestHub, type TestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * D-098: the orchestrator proposes whole projects and automations as drafts
@@ -119,7 +120,8 @@ describe('project_propose: a whole project as a draft', () => {
     expect(view.spend.monthlyEur).toBe(20);
     expect(existsSync(draft.folder!)).toBe(true);
     const lead = team.lead('social-di-saturday')!;
-    expect(lead.instructions).toContain("L'obiettivo del progetto: i post della pagina");
+    // A new lead of an English app: the English family (the Italian goal line: template-families).
+    expect(lead.instructions).toContain('The project’s goal: i post della pagina');
     expect(team.byId('sofia')!.config.project).toBe('social-di-saturday');
     // The first automation is a draft of its own: it runs only after a second tap.
     const autos = await t.json<AutomationView[]>('GET', '/api/automations');
@@ -141,7 +143,8 @@ describe('project_propose: a whole project as a draft', () => {
       from: 'titan',
       agents: expect.arrayContaining(['sofia', 'grafo']) as unknown,
     });
-    // The orchestrator reads the outcome at its next turn.
+    // The orchestrator reads the outcome at its next turn, in the language of the moment.
+    inLang('it');
     await ask(t, 'fatto?');
     expect(promptText(t.provider.callsTo('titan').at(-1)!.options.prompt)).toContain(
       "[Dall'app] Ho confermato il progetto «Social di Saturday»",
@@ -152,23 +155,30 @@ describe('project_propose: a whole project as a draft', () => {
   });
 
   it('a draft left aside goes away; a failure while confirming leaves nothing behind', async () => {
-    const t = await startTestHub({
-      titan: [
-        fake.toolCall('tools_search', { query: 'progetto' }),
-        fake.toolCall('project_propose', { ...SOCIAL, folder: undefined, automations: undefined }),
-        fake.text('Bozza pronta.'),
-        fake.toolCall('tools_search', { query: 'progetto' }),
-        fake.toolCall('project_propose', {
-          name: 'Ricette',
-          goal: 'le ricette della trattoria',
-          monsters: [
-            { copy_of: 'rhea' },
-            { name: 'Cuoca', role: 'scrive le ricette', mission: 'scrivi le ricette' },
-          ],
-        }),
-        fake.text('Altra bozza.'),
-      ],
-    });
+    const t = await startTestHub(
+      {
+        titan: [
+          fake.toolCall('tools_search', { query: 'progetto' }),
+          fake.toolCall('project_propose', {
+            ...SOCIAL,
+            folder: undefined,
+            automations: undefined,
+          }),
+          fake.text('Bozza pronta.'),
+          fake.toolCall('tools_search', { query: 'progetto' }),
+          fake.toolCall('project_propose', {
+            name: 'Ricette',
+            goal: 'le ricette della trattoria',
+            monsters: [
+              { copy_of: 'rhea' },
+              { name: 'Cuoca', role: 'scrive le ricette', mission: 'scrivi le ricette' },
+            ],
+          }),
+          fake.text('Altra bozza.'),
+        ],
+      },
+      { lang: 'it' },
+    );
     await ask(t, 'apri un progetto per i social');
     await t.json('POST', '/api/drafts/project/social-di-saturday/discard');
     expect(t.core.hub.team.project('social-di-saturday')).toBeUndefined();
@@ -193,13 +203,20 @@ describe('project_propose: a whole project as a draft', () => {
   });
 
   it('Automatica where the models come from it: the lead and the new monsters Media (D-110)', async () => {
-    const t = await startTestHub({
-      titan: [
-        fake.toolCall('tools_search', { query: 'progetto' }),
-        fake.toolCall('project_propose', { ...SOCIAL, folder: undefined, automations: undefined }),
-        fake.text('Bozza.'),
-      ],
-    });
+    const t = await startTestHub(
+      {
+        titan: [
+          fake.toolCall('tools_search', { query: 'progetto' }),
+          fake.toolCall('project_propose', {
+            ...SOCIAL,
+            folder: undefined,
+            automations: undefined,
+          }),
+          fake.text('Bozza.'),
+        ],
+      },
+      { lang: 'it' },
+    );
     await ask(t, 'apri il progetto');
     await t.core.hub.team.setModels('titan', autoChain('medium'), { base: 'medium' });
     await t.json('POST', '/api/projects/social-di-saturday/confirm');
@@ -295,23 +312,26 @@ describe('automation_propose: a schedule in words, checked, as a draft', () => {
   });
 
   it('a lead proposes for its own project only', async () => {
-    const t = await startTestHub({
-      leda: [
-        fake.toolCall('tools_search', { query: 'automazione' }),
-        fake.toolCall('automation_propose', {
-          name: 'Fuori',
-          cron: '0 9 * * 1',
-          objective: 'Lavoro di Rhea.',
-          participants: ['Rhea'],
-        }),
-        fake.toolCall('automation_propose', {
-          name: 'Piano',
-          cron: '0 9 * * 1',
-          objective: 'Il piano della settimana.',
-        }),
-        fake.text('Proposta.'),
-      ],
-    });
+    const t = await startTestHub(
+      {
+        leda: [
+          fake.toolCall('tools_search', { query: 'automazione' }),
+          fake.toolCall('automation_propose', {
+            name: 'Fuori',
+            cron: '0 9 * * 1',
+            objective: 'Lavoro di Rhea.',
+            participants: ['Rhea'],
+          }),
+          fake.toolCall('automation_propose', {
+            name: 'Piano',
+            cron: '0 9 * * 1',
+            objective: 'Il piano della settimana.',
+          }),
+          fake.text('Proposta.'),
+        ],
+      },
+      { lang: 'it' },
+    );
     await t.json('POST', '/api/projects', { name: 'Saturday', lead: { name: 'Leda' } });
     await t.core.hub.team.setModels('leda', [{ provider: 'fake', model: 'leda' }]);
     const sent = await t.json<{ runId: string }>('POST', '/api/projects/saturday/messages', {
@@ -329,16 +349,19 @@ describe('automation_propose: a schedule in words, checked, as a draft', () => {
 
 describe('drafts in one list', () => {
   it('a monster proposal is there too, and is confirmed or discarded from the list', async () => {
-    const t = await startTestHub({
-      titan: [
-        fake.toolCall('team_propose_monster', {
-          name: 'Ordina',
-          role: 'tiene in ordine le idee',
-          mission: 'raccogli le idee e le metti in ordine',
-        }),
-        fake.text('Proposto.'),
-      ],
-    });
+    const t = await startTestHub(
+      {
+        titan: [
+          fake.toolCall('team_propose_monster', {
+            name: 'Ordina',
+            role: 'tiene in ordine le idee',
+            mission: 'raccogli le idee e le metti in ordine',
+          }),
+          fake.text('Proposto.'),
+        ],
+      },
+      { lang: 'it' },
+    );
     await ask(t, 'crea un mostro per le idee');
     const [d] = await t.json<DraftView[]>('GET', '/api/drafts');
     expect(d).toMatchObject({ kind: 'monster', title: 'Ordina', from: 'titan' });
@@ -440,7 +463,7 @@ describe('project_send: never inside the lead’s work (D-097 → D-098)', () =>
     const home = t.home;
     await t.core.close();
 
-    const again = await startTestHub({ leda: [fake.text('Secondo fatto.')] }, { home });
+    const again = await startTestHub({ leda: [fake.text('Secondo fatto.')] }, { lang: 'it', home });
     const reports: Extract<LogEvent, { type: 'project_report' }>[] = [];
     for (;;) {
       reports.splice(0, reports.length, ...again.events().filter(isType('project_report')));

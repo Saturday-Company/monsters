@@ -1,4 +1,5 @@
 import type { EventLog } from '../log/event-log.ts';
+import { FINAL_QUESTION_REMINDERS, finalQuestionPrompts } from './final-question.prompts.ts';
 import { instinctStrings } from './instinct/instinct.strings.ts';
 import { BANDS, pendingRequest } from './instinct/questions.ts';
 import { pOf, type System1 } from './instinct/system1.ts';
@@ -13,14 +14,13 @@ import { unicodeWords } from './word-boundary.ts';
  * `ask_user`, it gets one more chance with a short reminder (once per run).
  */
 
-export const FINAL_QUESTION_REMINDER =
-  'Hai fatto una domanda in testo: se ci sono opzioni chiare, usa ask_user con 2-4 opzioni; ' +
-  "se manca un fatto che solo l'utente sa, ask_user senza opzioni; altrimenti la domanda in testo " +
-  "va bene così e rispondi solo OK. Non ripetere la risposta: l'utente l'ha già letta.";
+/** The reminder in Italian (the family of an Italian app); the one sent follows the app's language. */
+export const FINAL_QUESTION_REMINDER = finalQuestionPrompts('it').reminder;
 
 /** Openings of a question without "?": "vuoi che…", "preferisci…", "dimmi…". */
+// i18n-ignore: the openings of a question, in the two languages (data, not copy)
 const CUE = unicodeWords(
-  /(?:^|[,;:]\s+)(vuoi|volete|preferisci|preferite|dimmi|ditemi|fammi sapere|fatemi sapere|scegli|scegliete|let me know|tell me|would you like|do you want|shall i|should i|which (one )?do you)\b/iu,
+  /(?:^|[,;:]\s+)(vuoi|volete|preferisci|preferite|dimmi|ditemi|fammi sapere|fatemi sapere|scegli|scegliete|let me know|tell me|would you like|do you want|shall i|should i|which (one )?do you|please (let me know|tell me|confirm)|i need to know|would you prefer|do you prefer|do you need|which would you|what would you|what do you|choose|decide)\b/iu,
 );
 
 /**
@@ -30,16 +30,24 @@ const CUE = unicodeWords(
  * article must follow, so "mancano tre giorni" and "manca solo da rileggere"
  * are not; "lo faccio io" takes it back.
  */
+// i18n-ignore: words of the two languages (data, not copy)
 const ARTICLE = "(?:(?:il|lo|la|i|gli|le|un|uno|una|del|della|dei|delle|degli)\\b|l['’]|un['’])";
 const MISSING = unicodeWords(
   new RegExp(
     [
+      // i18n-ignore: words of the two languages (data, not copy)
       `(?:^|[,;:]\\s+|\\bma\\s+|\\bperò\\s+)(?:mi\\s+)?manca(?:no)?\\s+(?:solo\\s+|soltanto\\s+|ancora\\s+|però\\s+)*${ARTICLE}`,
       `\\bmi\\s+serv(?:e|ono)\\s+(?:sapere\\s+|conoscere\\s+|ancora\\s+)*${ARTICLE}`,
+      // i18n-ignore: words of the two languages (data, not copy)
       `\\bho\\s+bisogno\\s+(?:di\\s+sapere\\s+|di\\s+conoscere\\s+|del|della|dei|delle|degli|di)`,
       `\\bnon\\s+(?:so|conosco|trovo|ho)\\s+(?:ancora\\s+)?${ARTICLE}`,
       '\\bi\\s+(?:still\\s+)?need\\s+(?:to\\s+know\\s+)?(?:the|your|a|an)\\b',
       "\\b(?:i\\s+don't|i\\s+do\\s+not)\\s+(?:know|have)\\s+(?:the|your)\\b",
+      "(?:^|[,;:]\\s+|\\bbut\\s+)(?:i(?:['’]m|\\s+am)\\s+)?(?:only\\s+|just\\s+|still\\s+)*missing\\s+(?:the|your|a|an)\\b",
+      "\\bi\\s+(?:still\\s+)?(?:don['’]t|do\\s+not)\\s+(?:yet\\s+)?(?:know|have)\\s+(?:the|your|a|an)\\b",
+      "\\bi['’]d\\s+need\\s+(?:to\\s+know\\s+)?(?:the|your|a|an)\\b",
+      "\\bi\\s+(?:can['’]?t|cannot)\\s+find\\s+(?:the|your)\\b",
+      '\\bonly\\s+(?:the|your)\\s+\\S+(?:\\s+\\S+){0,4}\\s+(?:is|are)\\s+(?:still\\s+)?missing\\b',
     ].join('|'),
     'iu',
   ),
@@ -87,7 +95,7 @@ function asksForMissing(sentence: string): boolean {
 
 /** The agent says it will see to it itself ("lo faccio io", "lo cerco io"). */
 const SELF = unicodeWords(
-  /\b(?:l[oae]\s+|ci\s+)?(?:faccio|cerco|chiedo|penso|sistemo|trovo)\s+io\b|\bi'?ll\b/iu,
+  /\b(?:l[oae]\s+|ci\s+)?(?:faccio|cerco|chiedo|penso|sistemo|trovo)\s+io\b|\bi['’]?ll\b|\bi\s+will\b|\bmyself\b/iu,
 );
 
 /**
@@ -97,15 +105,23 @@ const SELF = unicodeWords(
 const SMALL_TALK = unicodeWords(
   new RegExp(
     [
+      // i18n-ignore: words of the two languages (data, not copy)
       '^(come|in cosa|cosa) (posso|possiamo) (fare|aiutar\\w*)',
       '\\b(posso|possiamo) (fare|aiutar\\w*) (altro|in altro|ancora)\\b',
       "\\b(ti|vi|le) serv(e|ono) (altro|qualcos'altro|qualcosa)\\b",
+      // i18n-ignore: words of the two languages (data, not copy)
       "^(serve|c'è) (altro|qualcos'altro)",
       // "fammi sapere se vuoi apportare modifiche", "se desideri cambiare qualcosa"
       '\\bse (vuoi|volete|desideri|desiderate)\\b.{0,25}\\b(modific\\w*|cambi\\w*|ritocc\\w*|aggiust\\w*)',
       '^(how|what) (else )?can i (help|do)',
       '\\banything else\\b',
       "\\bif you (want|need|'d like)\\b.{0,25}\\b(changes|tweaks|edits)\\b",
+      "\\bif you (want|need|['’]d like|would like)\\b.{0,25}\\b(changes|tweaks|edits|adjustments|modifications|revisions)\\b",
+      '\\bfeel free to\\b',
+      '\\bhappy to help\\b',
+      '\\bhope this helps\\b',
+      '^(is there|do you need) anything\\b',
+      '\\bneed anything else\\b',
       '^(can|may) i help',
     ].join('|'),
     'iu',
@@ -199,7 +215,9 @@ export function finalQuestionHook(
     const asked = events.some((e) => e.type === 'tool_call' && e.data.tool === 'ask_user');
     const reminded = events.some(
       (e) =>
-        e.type === 'message' && e.data.role === 'system' && e.data.text === FINAL_QUESTION_REMINDER,
+        e.type === 'message' &&
+        e.data.role === 'system' &&
+        FINAL_QUESTION_REMINDERS.includes(e.data.text),
     );
     if (asked || reminded) return null;
     const answer = system1
@@ -215,7 +233,7 @@ export function finalQuestionHook(
           .catch(() => null)
       : null;
     const p = answer?.mode === 'on' ? pOf(answer, 'pending') : undefined;
-    if (p === undefined) return regex ? FINAL_QUESTION_REMINDER : null;
+    if (p === undefined) return regex ? finalQuestionPrompts().reminder : null;
     const remind = (regex && p >= BANDS.finalQuestion.low) || p >= BANDS.finalQuestion.high;
     if (remind && !regex) {
       log.append({
@@ -231,6 +249,6 @@ export function finalQuestionHook(
         },
       });
     }
-    return remind ? FINAL_QUESTION_REMINDER : null;
+    return remind ? finalQuestionPrompts().reminder : null;
   };
 }

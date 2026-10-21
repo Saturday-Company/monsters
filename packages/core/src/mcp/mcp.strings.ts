@@ -7,6 +7,8 @@ import { pick } from '@monsters/shared';
  */
 
 const en = {
+  /** The card's sign-in button, as the hints for the model quote it. */
+  connectButton: 'Connect',
   // sign-in and card errors
   signInNeeded: 'Sign-in needed: press “Connect” and confirm in the browser.',
   oauthUnreachable:
@@ -95,6 +97,7 @@ const en = {
 };
 
 const it: typeof en = {
+  connectButton: 'Collega',
   signInNeeded: 'Serve l’accesso: premi “Collega” e conferma nel browser.',
   oauthUnreachable:
     'Servizio non raggiungibile: non riesco a rinnovare l’accesso (l’accesso resta valido). Riprovo alla prossima chiamata.',

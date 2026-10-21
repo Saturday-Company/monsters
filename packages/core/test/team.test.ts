@@ -18,12 +18,14 @@ import {
 import { TeamService } from '../src/team/team-service.ts';
 import { tempHome } from './helpers.ts';
 import { deferred, promptText, startTestHub } from './hub-helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /** POSIX file modes do not exist on Windows. */
 const posix = process.platform !== 'win32';
 
 describe('team', () => {
   it('bootstraps Titan, Rhea and Dione with the roster genomes and a fresh vault', async () => {
+    inLang('it');
     const t = await startTestHub({}, { withoutTeam: true, hub: { bootstrap: true } });
     const agents = await t.json<AgentSummary[]>('GET', '/api/agents');
     expect(agents.map((a) => [a.id, a.name, a.isOrchestrator, a.state])).toEqual([
@@ -107,7 +109,8 @@ describe('team', () => {
   });
 
   it('creates a missing MEMORY.md on first use and reads an existing one', async () => {
-    const t = await startTestHub({ rhea: [fake.text('ok')] });
+    inLang('it');
+    const t = await startTestHub({ rhea: [fake.text('ok')] }, { lang: 'it' });
     const vault = t.core.hub.vault.root;
     expect(await t.core.hub.team.memory('Rhea')).toContain('Memoria di Rhea');
     expect(readFileSync(join(vault, 'Agenti/Rhea/MEMORY.md'), 'utf8')).toContain('author: rhea');

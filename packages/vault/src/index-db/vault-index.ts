@@ -108,15 +108,23 @@ export function ftsQuery(text: string): string {
 
 /** Short words that would make the fallback match almost everything. */
 const STOPWORDS = new Set(
-  (
-    'il lo la le gli un una uno di da in con su per tra fra del della dei delle dello degli al alla ' +
-    'ai alle nel nella nei nelle sul sulla sui che chi cosa come non più ma anche sono è ' +
+  [
+    // Italian (the notes can be in any language: both lists always apply, D-153).
+    'il lo la le gli un una uno di da in con su per tra fra del della dei delle dello degli al alla ', // i18n-ignore
+    'ai alle nel nella nei nelle sul sulla sui che chi cosa come non più ma anche sono è ', // i18n-ignore
     // Question words and common verbs: in a question they match almost any note.
-    'quando dove quale quali quanto quanta quanti quante perché mio mia miei mie tuo tua suo sua ' +
-    'nostro nostra questo questa quello quella posso puoi può possiamo devo deve dobbiamo fare ' +
-    'faccio fa serve servono vorrei voglio stato stata essere avere abbiamo hanno ' +
-    'the of and for with from that this are was what how'
-  ).split(' '),
+    'quando dove quale quali quanto quanta quanti quante perché mio mia miei mie tuo tua suo sua ', // i18n-ignore
+    'nostro nostra questo questa quello quella posso puoi può possiamo devo deve dobbiamo fare ', // i18n-ignore
+    'faccio fa serve servono vorrei voglio stato stata essere avere abbiamo hanno ', // i18n-ignore
+    // English.
+    'the of and for with from that this are was what how ', // i18n-ignore
+    'these those which who whom whose when where why was were been being have has had ', // i18n-ignore
+    'does did can could should would will shall might must not but about into over also ', // i18n-ignore
+    'than then there here your yours their theirs our ours its they them you his her ', // i18n-ignore
+    'need needs want wants make made find tell show give', // i18n-ignore
+  ]
+    .join('')
+    .split(' '),
 );
 
 /** "autunnale" → "autunn": crude stem so that "autunno", "autunnale" and "autunnali" meet. */

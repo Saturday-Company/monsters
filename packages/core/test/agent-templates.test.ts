@@ -10,26 +10,29 @@ import {
   renderAgentFiles,
   renderAgentsMd,
   rheaBlueprint,
-  SOURCES_RULE,
+  sourcesRule,
   writeAgentFolder,
 } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 const ctx = {
   user: 'Giulio',
   context: 'Giulio guida Saturday Company, uno studio digitale a Milano.',
 };
 
-describe('AGENTS.md templates', () => {
-  const blueprints = {
-    orchestrator: orchestratorBlueprint({ ...ctx, name: 'Titan' }),
-    rhea: rheaBlueprint(ctx),
-    dione: dioneBlueprint(ctx),
-  };
+const make = () => ({
+  orchestrator: orchestratorBlueprint({ ...ctx, name: 'Titan' }),
+  rhea: rheaBlueprint(ctx),
+  dione: dioneBlueprint(ctx),
+});
 
-  for (const [name, bp] of Object.entries(blueprints)) {
+// The Italian family (D-153): these assertions are the proof that its texts did not move.
+describe('AGENTS.md templates', () => {
+  for (const name of ['orchestrator', 'rhea', 'dione'] as const) {
     it(`${name}: under 40 lines, no placeholders left, in Italian`, () => {
-      const md = renderAgentsMd(bp);
+      inLang('it');
+      const md = renderAgentsMd(make()[name]);
       expect(checkAgentsMd(md)).toEqual([]);
       expect(md.split('\n').length).toBeLessThan(40);
       expect(md).not.toMatch(/\{\{|\}\}/);
@@ -39,6 +42,8 @@ describe('AGENTS.md templates', () => {
   }
 
   it('fills the subagent template with role, context, duties and area', () => {
+    inLang('it');
+    const blueprints = make();
     const md = renderAgentsMd(blueprints.rhea);
     expect(md).toContain(
       'Sei Rhea, la ricercatrice della squadra di Giulio: trovi informazioni affidabili e aggiornate e le trasformi in note utili. Giulio guida Saturday Company',
@@ -48,6 +53,8 @@ describe('AGENTS.md templates', () => {
   });
 
   it('sub-agents: one note per task, decisions in the report, memory through «Da ricordare:» (D-065)', () => {
+    inLang('it');
+    const blueprints = make();
     const md = renderAgentsMd(blueprints.dione);
     expect(md).toContain('una nota per lavoro');
     expect(md).toContain('le varianti stanno nella stessa nota');
@@ -61,6 +68,8 @@ describe('AGENTS.md templates', () => {
   });
 
   it('orchestrator: vault before delegating, how much to delegate, no dead stato.md (D-065)', () => {
+    inLang('it');
+    const blueprints = make();
     const md = renderAgentsMd(blueprints.orchestrator);
     expect(md).toContain('Prima di far cercare qualcosa guardi nel vault');
     expect(md).toContain('Mai due deleghe con lo stesso obiettivo');
@@ -71,6 +80,8 @@ describe('AGENTS.md templates', () => {
   });
 
   it('lists the team in the orchestrator file', () => {
+    inLang('it');
+    const blueprints = make();
     const md = renderAgentsMd(blueprints.orchestrator);
     expect(md).toContain('- **Rhea**: ricerche online e sintesi con fonti');
     expect(md).toContain('- **Dione**:');
@@ -78,6 +89,8 @@ describe('AGENTS.md templates', () => {
   });
 
   it('tells the orchestrator who writes and how to ask (eval of 14/10/2026)', () => {
+    inLang('it');
+    const blueprints = make();
     const md = renderAgentsMd(blueprints.orchestrator);
     expect(md).toMatch(
       /I testi da consegnare .* li scrive l'agente della squadra che scrive testi/,
@@ -87,6 +100,8 @@ describe('AGENTS.md templates', () => {
   });
 
   it('gives every sub-agent the note rules: language, links, file names', () => {
+    inLang('it');
+    const blueprints = make();
     const md = renderAgentsMd(blueprints.rhea);
     expect(md).toContain('Sempre in italiano, anche quando le fonti sono in altre lingue');
     expect(md).toContain('`[testo](https://…)`');
@@ -94,8 +109,10 @@ describe('AGENTS.md templates', () => {
   });
 
   it('tells only the agents with web tools to cite the links they saw (D-026)', () => {
-    expect(renderAgentsMd(blueprints.rhea)).toContain(SOURCES_RULE);
-    expect(renderAgentsMd(blueprints.dione)).not.toContain(SOURCES_RULE);
+    inLang('it');
+    const blueprints = make();
+    expect(renderAgentsMd(blueprints.rhea)).toContain(sourcesRule('it'));
+    expect(renderAgentsMd(blueprints.dione)).not.toContain(sourcesRule('it'));
     // The orchestrator's file holds whether or not it gets the web at runtime.
     expect(renderAgentsMd(blueprints.orchestrator)).toContain(
       "li cerca chi fa ricerche, se c'è; se non c'è, cerchi tu.",
@@ -103,6 +120,8 @@ describe('AGENTS.md templates', () => {
   });
 
   it('rejects blueprints that would break the template', () => {
+    inLang('it');
+    const blueprints = make();
     expect(() =>
       renderAgentsMd({ ...blueprints.rhea, mission: 'riga uno\n## Nuova sezione' }),
     ).toThrow(/single line/);
@@ -121,6 +140,8 @@ describe('AGENTS.md templates', () => {
   });
 
   it('writes an agent folder that loads back as a valid definition', async () => {
+    inLang('it');
+    const blueprints = make();
     const dir = join(tempHome(), 'agents', 'rhea');
     await writeAgentFolder(dir, { ...blueprints.rhea, genome: { hue: 220, eyes: 2 } });
     const def = await loadAgentDefinition(dir);
@@ -140,6 +161,8 @@ describe('AGENTS.md templates', () => {
   });
 
   it('renders every file of the archetypes', () => {
+    inLang('it');
+    const blueprints = make();
     const files = renderAgentFiles(blueprints.dione);
     expect(Object.keys(files)).toEqual(['AGENTS.md', 'agent.yaml']);
   });

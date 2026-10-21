@@ -41,6 +41,7 @@ import {
 } from './fixtures/probe-harness-tools.ts';
 import { fakeWebSearch, startTestHub, type TestHub } from './hub-helpers.ts';
 import { FAKE_TOKEN, FakeTelegram, type FakeUser } from './telegram-fake.ts';
+import { inLang } from './prompt-lang.ts';
 
 /*
  * Defence D1 of the review of 19/10 (D-136): "visible == executable", for every harness
@@ -379,6 +380,7 @@ describe.each(MODES)('visible == executable on %s (D1, D-136)', (mode) => {
   });
 
   it('a project’s capo whose squad researches (D-026), and a member', async () => {
+    inLang('it');
     const { t, seen } = await hubFor(mode, []);
     await t.json<ProjectView>('POST', '/api/projects', {
       name: 'Saturday',
@@ -398,6 +400,7 @@ describe.each(MODES)('visible == executable on %s (D1, D-136)', (mode) => {
   });
 
   it('a member of the personal squad, and one with the web permission off', async () => {
+    inLang('it');
     const { t, seen } = await hubFor(mode, ['rhea', 'dione']);
     await send(t, { to: 'rhea', text: 'Le lune di Saturno' });
     await t.json('PUT', '/api/permissions', {
@@ -489,6 +492,7 @@ describe.each(MODES)('visible == executable on %s (D1, D-136)', (mode) => {
   });
 
   it('a project with its web search off', async () => {
+    inLang('it');
     const { t, seen } = await hubFor(mode, []);
     await t.json<ProjectView>('POST', '/api/projects', {
       name: 'Nebula',
@@ -504,6 +508,7 @@ describe.each(MODES)('visible == executable on %s (D1, D-136)', (mode) => {
 
 describe('visible == executable where only one harness goes (D1, D-136)', () => {
   it('a free chain whose request needs no web: the web waits for tools_search, never gone', async () => {
+    inLang('it');
     const seen: Seen[] = [];
     const free = new FakeProvider({
       id: 'openrouter',
@@ -556,7 +561,7 @@ describe('visible == executable where only one harness goes (D1, D-136)', () => 
     const instinct = t
       .events(runId)
       .find((e): e is LogEvent<'instinct'> => e.type === 'instinct' && e.data.action === 'tools');
-    expect(instinct?.data.message).toContain('on hold');
+    expect(instinct?.data.message).toContain('aspettano');
   });
 
   it('Opus at the plan’s limit goes on Sonnet with the same tools (D-093)', async () => {

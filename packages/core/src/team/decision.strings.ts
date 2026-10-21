@@ -1,4 +1,4 @@
-import { pick } from '@monsters/shared';
+import { pick, type Lang } from '@monsters/shared';
 
 /*
  * The reasons of the gate's decisions, the errors of the engine and of Jev (D-153): what
@@ -19,6 +19,18 @@ const en = {
   askAlways: (rule: string, inferred: string | undefined) =>
     `always ask: ${rule}${inferred ? ` (inferred kind: ${inferred})` : ''}`,
   proceedRule: (rule: string) => `going ahead: ${rule}`,
+  // The descriptions of the default rules, by id (a reason says them: "always ask: …").
+  ruleDescriptions: {
+    publish: 'publishing something',
+    contact: 'writing to third parties',
+    spend: 'spending money',
+    delete: 'deleting irreversibly',
+    goal: 'changing the goal',
+    taste:
+      'matters of taste (tone, variant, length, design, which draft), unless the profile says otherwise',
+    facts: 'facts only the user knows (dates, days, times, people, personal data)',
+    local: 'local, reversible actions (notes, drafts, research)',
+  } as Record<string, string>,
   grayNoModel: 'gray area without a model: asking',
   modelNoAnswer: (code: string) => `the model didn’t answer (${code}): asking`,
   grayTrial: 'gray area: asking (instinct on trial)',
@@ -69,6 +81,17 @@ const it: typeof en = {
   askAlways: (rule, inferred) =>
     `chiedere sempre: ${rule}${inferred ? ` (tipo dedotto: ${inferred})` : ''}`,
   proceedRule: (rule) => `si procede: ${rule}`,
+  ruleDescriptions: {
+    publish: 'pubblicare qualcosa',
+    contact: 'scrivere a terzi',
+    spend: 'spendere soldi',
+    delete: 'cancellare in modo irreversibile',
+    goal: "cambiare l'obiettivo",
+    taste:
+      'scelte di gusto (tono, variante, lunghezza, design, quale bozza), salvo preferenza esplicita nel profilo',
+    facts: 'fatti che solo l’utente conosce (date, giorni, orari, persone, dati personali)',
+    local: 'azioni locali e reversibili (note, bozze, ricerche)',
+  },
   grayNoModel: 'zona grigia senza modello: si chiede',
   modelNoAnswer: (code) => `il modello non ha risposto (${code}): si chiede`,
   grayTrial: 'zona grigia: si chiede (istinto in prova)',
@@ -108,3 +131,5 @@ const it: typeof en = {
 };
 
 export const decisionStrings = () => pick({ en, it });
+/** The same dictionary in a given language (the stored descriptions of the default rules). */
+export const decisionStringsIn = (lang: Lang) => pick({ en, it }, lang);

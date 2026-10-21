@@ -37,6 +37,7 @@ import {
   type FakeUser,
   type SentMessage,
 } from './telegram-fake.ts';
+import { inLang } from './prompt-lang.ts';
 
 const GIULIO: FakeUser = { id: 1001, first_name: 'Giulio', username: 'giulio' };
 const STRANGER: FakeUser = { id: 6666, first_name: 'Mallory', username: 'mallory' };
@@ -983,6 +984,8 @@ describe('telegram: questions', () => {
       { titan: [fake.text('Pubblicato, come chiedi.')] },
       { tg, home: first.t.home, pair: false },
     );
+    // What the monster reads of the answer is in the language of the moment: Italian here.
+    inLang('it');
     tg.text(GIULIO, 'Sì, pubblica', { replyTo: question.message_id });
     // The run the answer starts replies in this chat.
     await tg.waitMessage((m) => m.text.includes('Pubblicato, come chiedi.'));
@@ -992,6 +995,7 @@ describe('telegram: questions', () => {
       'Risposta alla tua domanda \\"Pubblico?\\": Sì, pubblica',
     );
     // Answered once: a second reply is told the question is over, nothing new starts.
+    setAppLang('en');
     tg.text(GIULIO, 'No', { replyTo: question.message_id });
     await tg.waitMessage((m) => m.text.includes('no longer waiting for an answer'));
     expect(again.t.provider.calls).toHaveLength(1);
