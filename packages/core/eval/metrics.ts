@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
 import {
-  PROFILE_NOTE_PATH,
+  vaultLayoutOf,
   URL_IN_TEXT,
   WEB_SEARCH_USAGE_PROVIDER,
   type LogEvent,
@@ -512,10 +512,14 @@ export function evaluateRun(params: {
 
   // Facts the user gave: the profile, the request, the answers to the questions.
   let profile = '';
-  try {
-    profile = readFileSync(join(vaultRoot, PROFILE_NOTE_PATH), 'utf8');
-  } catch {
-    // no profile note
+  // The profile of either vault layout (D-154): the eval may read a vault after its core closed.
+  for (const name of [vaultLayoutOf('it').profile, vaultLayoutOf('en').profile]) {
+    try {
+      profile = readFileSync(join(vaultRoot, name), 'utf8');
+      break;
+    } catch {
+      // not this layout's profile
+    }
   }
   const given = [
     profile,
