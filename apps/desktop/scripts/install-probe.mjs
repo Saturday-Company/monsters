@@ -11,16 +11,16 @@
  * (a Chromium switch: the fuses turn off Node's --inspect, not this; the port listens on
  * 127.0.0.1 only). Checks, in order:
  *   0. first start (audit UX 1.2, `--first-start ask`, the default): the window asks "Dove
- *      lavorano i tuoi mostri?" with "Su questo computer" focused, and no core is running yet;
+ *      lavorano i tuoi mostri?" with "This computer" focused, and no core is running yet;
  *      Enter (a real key event) picks this computer. `skip`: the user data folder already has
  *      a connections.json (install-test.ts writes one only for `--window optional`, where no
  *      window may ever appear) and the core starts by itself;
  *   1. core: `server.json` in the home, `/api/health` ok with the expected version;
  *   2. first start: `/api/setup-status` says needsSetup, the one-time `setup-code` file exists;
- *   3. window: a page of the app shows the core's registration screen ("Crea account"), with the
+ *   3. window: a page of the app shows the core's registration screen ("Create account" / "Crea account"), with the
  *      setup code handed over by the app (data-testid=setup-code-from-app, no code to type);
  *   4. registration: email and password typed into that window (DevTools protocol, real input
- *      events), "Crea account" clicked; then the core has an account and the window shows the
+ *      events), the submit key clicked; then the core has an account and the window shows the
  *      onboarding.
  * Prints one line per check; exit 0 when all pass, 1 otherwise.
  *
@@ -131,11 +131,11 @@ async function devtools(wsUrl) {
   return { send, evaluate, close: () => ws.close() };
 }
 
-/** 0. The first-start page: nothing running yet, Enter on "Su questo computer". */
+/** 0. The first-start page: nothing running yet, Enter on "This computer". */
 async function chooseThisComputer() {
   const serverJson = join(home, 'server.json');
   const target = await until(
-    'the first-start page of the app ("Dove lavorano i tuoi mostri?")',
+    'the first-start page of the app ("Where do your monsters work?")',
     async () => {
       const list = await getJson(`http://127.0.0.1:${cdpPort}/json/list`);
       return list.find((t) => t.type === 'page' && t.url.startsWith('data:text/html'));
@@ -143,12 +143,14 @@ async function chooseThisComputer() {
   );
   const page = await devtools(target.webSocketDebuggerUrl);
   try {
-    await until('the choice of the first start, "Su questo computer" focused', () =>
+    await until('the choice of the first start, "This computer" focused', () =>
       page.evaluate(`(() => {
         const main = document.querySelector('main[data-status="welcome"]');
         const local = main && main.querySelector('button[data-action="local"]');
         return !!local && document.activeElement === local
-          && document.querySelector('h1').textContent.trim() === 'Dove lavorano i tuoi mostri?';
+          // Either language (D-153): a clean chroot or runner may have no locale at all.
+          && ['Where do your monsters work?', 'Dove lavorano i tuoi mostri?']
+            .includes(document.querySelector('h1').textContent.trim());
       })()`),
     );
     if (existsSync(serverJson)) fail('a core is running before the choice of the first start');
@@ -163,7 +165,7 @@ async function chooseThisComputer() {
         ...(type === 'keyDown' ? { text: '\r' } : {}),
       });
     }
-    say('Enter: "Su questo computer"');
+    say('Enter: "This computer"');
   } finally {
     page.close();
   }
@@ -227,8 +229,7 @@ async function main() {
   try {
     await until('the registration screen with the setup code from the app', () =>
       page.evaluate(`(() => {
-        const button = [...document.querySelectorAll('button[type=submit]')]
-          .find((b) => b.textContent.trim() === 'Crea account');
+        const button = document.querySelector('form button[type=submit]');
         return !!button && !!document.querySelector('[data-testid="setup-code-from-app"]')
           && !!document.querySelector('input[type=email]');
       })()`),
@@ -246,8 +247,7 @@ async function main() {
       await page.evaluate(`document.querySelector(${JSON.stringify(selector)}).focus()`);
       await page.send('Input.insertText', { text });
     }
-    await page.evaluate(`[...document.querySelectorAll('button[type=submit]')]
-      .find((b) => b.textContent.trim() === 'Crea account').click()`);
+    await page.evaluate(`document.querySelector('form button[type=submit]').click()`);
     await until('the account created by the window', async () => {
       const s = await getJson(`${url}/api/setup-status`);
       return s.needsSetup === false;
