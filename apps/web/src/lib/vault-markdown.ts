@@ -1,3 +1,4 @@
+import { compareText } from '@monsters/shared';
 import { isExternalUrl, mapProse, noteKey, noteTargetOf, prepareMarkdown } from './markdown.ts';
 
 /*
@@ -78,7 +79,7 @@ export function linkNote(target: string): string {
 export function linkIndex(paths: readonly string[]): (target: string) => string | null {
   const byKey = new Map<string, string>();
   for (const p of paths) {
-    const lower = p.toLocaleLowerCase('it-IT');
+    const lower = p.toLowerCase();
     byKey.set(lower, p);
     byKey.set(lower.replace(/\.md$/, ''), p);
     const name = noteKey(p);
@@ -87,7 +88,7 @@ export function linkIndex(paths: readonly string[]): (target: string) => string 
   return (target) => {
     const t = linkNote(target)
       .replace(/^\.?\//, '')
-      .toLocaleLowerCase('it-IT');
+      .toLowerCase();
     return byKey.get(t) ?? byKey.get(t.replace(/\.md$/, '')) ?? byKey.get(noteKey(t)) ?? null;
   };
 }
@@ -111,14 +112,13 @@ export function foldersOf(paths: Iterable<string>): string[] {
     const parts = folderOf(p).split('/').filter(Boolean);
     for (let i = 1; i <= parts.length; i++) set.add(parts.slice(0, i).join('/'));
   }
-  return [...set].sort((a, b) => a.localeCompare(b, 'it'));
+  return [...set].sort((a, b) => compareText(a, b));
 }
 
 /** The body without a first `# Heading` equal to the title (the reader shows the title already). */
 export function withoutTitle(text: string, title: string): string {
   const m = /^\s*#[ \t]+(.+?)[ \t#]*(?:\n|$)/.exec(text);
-  if (!m || m[1]!.trim().toLocaleLowerCase('it-IT') !== title.trim().toLocaleLowerCase('it-IT'))
-    return text;
+  if (!m || m[1]!.trim().toLowerCase() !== title.trim().toLowerCase()) return text;
   return text.slice(m[0].length).replace(/^\s*\n/, '');
 }
 

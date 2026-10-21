@@ -1,9 +1,11 @@
 import {
   FILE_MAX_BYTES,
+  formatNumber,
   MESSAGE_MAX_ATTACHMENTS,
   type FileKind,
   type FileMeta,
 } from '@monsters/shared';
+import { filesLibStrings } from './files.strings.ts';
 
 /*
  * Files in the web app (D-075): what the composer accepts, the thumbnail the
@@ -46,20 +48,21 @@ const extOf = (name: string) => {
 
 /** Why a file cannot be attached, before sending it; null when it may go. */
 export function precheck(file: { name: string; size: number; type: string }): string | null {
-  if (file.size === 0) return 'Il file è vuoto.';
-  if (file.size > FILE_MAX_BYTES) return 'Troppo grande: al massimo 25 MB.';
+  const s = filesLibStrings();
+  if (file.size === 0) return s.empty;
+  if (file.size > FILE_MAX_BYTES) return s.tooBig;
   const ext = extOf(file.name);
   if (ext === 'heic' || ext === 'heif' || /heic|heif/.test(file.type)) {
-    return 'Le foto HEIC non si leggono ancora: esportala in JPEG.';
+    return s.heic;
   }
   if (ext === 'html' || ext === 'htm' || file.type === 'text/html') {
-    return 'Le pagine HTML non si allegano.';
+    return s.html;
   }
   // A pasted image has a type and often no name worth trusting.
   if (/^image\/(png|jpeg|webp|gif)$/.test(file.type)) return null;
   if (ext && ALLOWED_EXT.has(ext)) return null;
   if (!ext && /^text\//.test(file.type)) return null;
-  return 'Questo tipo di file non si allega: immagini, PDF, testo e documenti Office sì.';
+  return s.notAllowed;
 }
 
 /** Longest side of a thumbnail. */
@@ -90,23 +93,15 @@ export async function makeThumb(file: Blob): Promise<Blob | null> {
   }
 }
 
-/** "240 KB", "1,2 MB". */
+/** "240 KB", "1.2 MB" ("1,2 MB" in Italian). */
 export function formatSize(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
+  if (bytes >= 1024 * 1024) {
+    return `${formatNumber(bytes / 1024 / 1024, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB`;
+  }
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-const KIND_LABEL: Record<FileKind, string> = {
-  image: 'Immagine',
-  pdf: 'PDF',
-  document: 'Documento',
-  sheet: 'Foglio',
-  text: 'Testo',
-  html: 'Pagina',
-  other: 'File',
-};
-
-export const kindLabel = (kind: FileKind): string => KIND_LABEL[kind];
+export const kindLabel = (kind: FileKind): string => filesLibStrings().kinds[kind];
 
 /** The short tag on a file's small screen: the extension ("PDF", "DOCX"). */
 export function fileTag(name: string, kind: FileKind): string {
@@ -125,22 +120,23 @@ export function guessKind(file: { name: string; type: string }): FileKind {
   return 'text';
 }
 
-/** A name for a pasted image ("immagine incollata 17.42.png"). */
+/** A name for a pasted image ("pasted image 17.42.png"). */
 export function pastedName(file: File, now = new Date()): string {
   if (file.name && file.name !== 'image.png') return file.name;
   const ext = file.type === 'image/jpeg' ? 'jpg' : (file.type.split('/')[1] ?? 'png');
   const hh = String(now.getHours()).padStart(2, '0');
   const mm = String(now.getMinutes()).padStart(2, '0');
-  return `immagine incollata ${hh}.${mm}.${ext}`;
+  return `${filesLibStrings().pasted} ${hh}.${mm}.${ext}`;
 }
 
-/** Who made a file, in a few words ("Da te", "Screenshot di Rhea", "Pagina di Dione"). */
+/** Who made a file, in a few words ("From you", "Screenshot by Rhea", "Page by Dione"). */
 export function sourceText(
   meta: Pick<FileMeta, 'source' | 'kind' | 'agent'>,
   nameOf: (id: string) => string,
 ): string {
-  if (meta.source === 'user') return 'Da te';
-  const who = meta.agent ? nameOf(meta.agent) : 'un mostro';
-  if (meta.source === 'tool') return meta.kind === 'image' ? `Screenshot di ${who}` : `Da ${who}`;
-  return meta.kind === 'html' ? `Pagina di ${who}` : `Da ${who}`;
+  const s = filesLibStrings();
+  if (meta.source === 'user') return s.fromYou;
+  const who = meta.agent ? nameOf(meta.agent) : s.aMonster;
+  if (meta.source === 'tool') return meta.kind === 'image' ? s.screenshotOf(who) : s.fromWho(who);
+  return meta.kind === 'html' ? s.pageOf(who) : s.fromWho(who);
 }

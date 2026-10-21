@@ -27,13 +27,21 @@ import { noteActivityPath } from '../log/activity.ts';
 import { Button, LabeledKey } from '../ui/button.tsx';
 import { vaultApi, vaultError } from './api.ts';
 import { Diff, NoteHistory } from './NoteHistory.tsx';
+import { folderLabel } from './NoteList.tsx';
+import { noteStrings } from './note.strings.ts';
+import { vaultStrings } from './vault.strings.ts';
 import { agoText, AuthorScreen, isAgentNote, longDate, PrivateMark, stampDate } from './shared.tsx';
 import { VaultMarkdown } from './VaultMarkdown.tsx';
+
+function goTo(hash: string): void {
+  window.location.hash = hash;
+}
 
 /** Frontmatter keys shown elsewhere in the header (not repeated in the properties). */
 const HEADER_KEYS = new Set(['private']);
 
 function Properties({ note, onTag }: { note: VaultNote; onTag: (t: string) => void }) {
+  const s = noteStrings();
   const entries = Object.entries(note.frontmatter).filter(([k]) => !HEADER_KEYS.has(k));
   if (entries.length === 0 && !note.frontmatterError) return null;
   return (
@@ -45,13 +53,9 @@ function Properties({ note, onTag }: { note: VaultNote; onTag: (t: string) => vo
           aria-hidden
           className="turn group-open/props:rotate-90"
         />
-        Proprietà ({entries.length})
+        {s.properties(entries.length)}
       </summary>
-      {note.frontmatterError && (
-        <p className="mt-2 text-footnote text-stop-ink">
-          Le proprietà non si leggono (YAML non valido): la nota è letta come testo.
-        </p>
-      )}
+      {note.frontmatterError && <p className="mt-2 text-footnote text-stop-ink">{s.yamlBroken}</p>}
       <dl className="well mt-2.5 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] items-baseline gap-x-5 gap-y-2 rounded-[10px] px-4 py-3 text-body">
         {entries.map(([k, v]) => (
           <div key={k} className="contents">
@@ -100,7 +104,7 @@ function LinkList({
       </h3>
       {items === null ? (
         <p className="text-body text-ink-faint" aria-busy="true">
-          Carico…
+          {noteStrings().loading}
         </p>
       ) : items.length === 0 ? (
         <p className="text-body text-ink-muted">{empty}</p>
@@ -130,7 +134,7 @@ function LinkList({
 
 /**
  * The lines of a monster's memory written after third-party text (review of the waves 3 and
- * 4): the monster reads them as data, and the runs that read them keep the defenses on. «È mia»
+ * 4): the monster reads them as data, and the runs that read them keep the defenses on. "It's mine"
  * takes the mark away when the line says what the user said or wants.
  */
 export function MarkedMemoryLines({
@@ -143,6 +147,7 @@ export function MarkedMemoryLines({
   agents: readonly { id: string; name: string }[];
   onChanged: () => void;
 }) {
+  const s = noteStrings().marked;
   const id = domId(useId());
   const [busy, setBusy] = useState<string | null>(null);
   const file = agentFileOf(note.path);
@@ -154,7 +159,7 @@ export function MarkedMemoryLines({
     setBusy(line);
     try {
       await getApi().ownMemoryLine(agent.id, line);
-      notify('Fatto: la riga è tua, senza segno.', 'success');
+      notify(s.owned, 'success');
       onChanged();
     } catch (err) {
       notify(vaultError(err), 'error');
@@ -169,13 +174,9 @@ export function MarkedMemoryLines({
       data-testid="memory-marked"
     >
       <h3 id={id} className="label mb-1 text-ink-faint">
-        Righe da testo di terzi
+        {s.title}
       </h3>
-      <p className="mb-2.5 text-footnote text-ink-muted">
-        {agent.name} le ha scritte dopo aver letto pagine o messaggi di altri: le legge come dati,
-        non come cose tue, e i lavori che le leggono hanno le difese accese. Se una riga dice una
-        cosa tua, toccala con «È mia».
-      </p>
+      <p className="mb-2.5 text-footnote text-ink-muted">{s.text(agent.name)}</p>
       <ul className="flex flex-col gap-2">
         {lines.map((l) => {
           const text = unmarkedMemoryLine(l).replace(/^\s*[-*+]\s+/, '');
@@ -187,9 +188,9 @@ export function MarkedMemoryLines({
                 size="sm"
                 disabled={busy !== null}
                 onClick={() => void own(l)}
-                aria-label={`È mia: ${text}`}
+                aria-label={s.mineLabel(text)}
               >
-                È mia
+                {s.mine}
               </Button>
             </li>
           );
@@ -219,6 +220,7 @@ function Editor({
   /** The core refused a stale save: read the note again. */
   onStale: () => void;
 }) {
+  const s = noteStrings().editor;
   const id = domId(useId());
   const [base, setBase] = useState(note);
   const [text, setText] = useState(note.content ?? '');
@@ -232,7 +234,7 @@ function Editor({
     setError(null);
     try {
       await vaultApi.save(from.path, text, from.hash);
-      notify('Salvata. La trovi in Attività e si può annullare.', 'success');
+      notify(s.saved, 'success');
       onSaved();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'conflict') onStale();
@@ -250,15 +252,14 @@ function Editor({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <label htmlFor={`${id}-text`} className="sr-only">
-        Testo della nota
+        {s.label}
       </label>
       {note.frontmatterError && (
         <p
           className="well rounded-[10px] px-3.5 py-2.5 text-body text-ink-muted"
           data-testid="vault-editor-broken-props"
         >
-          Le proprietà di questa nota non sono scritte bene: salvo solo il testo e le lascio
-          esattamente come sono. Per correggerle aprila in Obsidian.
+          {s.brokenProps}
         </p>
       )}
       {changed && (
@@ -270,8 +271,7 @@ function Editor({
           <p className="flex items-baseline gap-2.5 text-body text-ink">
             <span aria-hidden className="led translate-y-[-1px]" data-tone="signal" />
             <span>
-              <span className="font-semibold">La nota è cambiata mentre la modificavi.</span> La tua
-              bozza è qui sotto, intatta: scegli cosa tenere.
+              <span className="font-semibold">{s.changedTitle}</span> {s.changedText}
             </span>
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -281,19 +281,19 @@ function Editor({
               aria-expanded={showChanges}
               onClick={() => setShowChanges((v) => !v)}
             >
-              Vedi le differenze
+              {s.seeChanges}
             </Button>
             <Button size="sm" variant="secondary" disabled={busy} onClick={overwrite}>
-              Sovrascrivi con la mia versione
+              {s.overwrite}
             </Button>
             <Button size="sm" variant="ghost" disabled={busy} onClick={onCancel}>
-              Scarta la mia modifica
+              {s.discard}
             </Button>
           </div>
           {showChanges && (
             <Diff
               diff={lineDiff(base.content ?? '', note.content ?? '')}
-              empty="Il testo è lo stesso: sono cambiate solo le proprietà."
+              empty={s.onlyProperties}
             />
           )}
         </div>
@@ -304,7 +304,7 @@ function Editor({
         onChange={(e) => setText(e.target.value)}
         data-testid="vault-editor"
         spellCheck
-        placeholder="Scrivi qui. Per collegare un’altra nota scrivi [[ e il suo titolo."
+        placeholder={s.placeholder}
         className="well min-h-[360px] flex-1 resize-none rounded-[12px] px-5 py-4 text-large leading-[28px] text-ink placeholder:text-ink-muted focus:outline-2 focus:outline-offset-0 focus:outline-signal-ink"
       />
       {error && (
@@ -317,7 +317,7 @@ function Editor({
       )}
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="ghost" onClick={onCancel} disabled={busy}>
-          {error ? 'Lascia stare e ricarica' : 'Annulla'}
+          {error ? s.leaveReload : s.cancel}
         </Button>
         <Button
           onClick={() => {
@@ -327,7 +327,7 @@ function Editor({
           disabled={busy || changed || text === base.content}
           data-testid="vault-save"
         >
-          {busy ? 'Salvo…' : 'Salva'}
+          {busy ? s.saving : s.save}
         </Button>
       </div>
     </div>
@@ -399,6 +399,7 @@ export function NoteReader({
   onBack,
   onChanged,
 }: NoteReaderProps) {
+  const s = noteStrings().reader;
   const nameOf = useNameOf();
   const agents = useAgents();
   const [note, setNote] = useState<VaultNote | null>(null);
@@ -452,9 +453,9 @@ export function NoteReader({
     setBusy(true);
     try {
       await vaultApi.remove(note.path);
-      notify(`“${note.title}” è nel cestino: puoi rimetterla a posto da lì.`, 'success');
+      notify(s.inTrash(note.title), 'success');
       onChanged();
-      window.location.hash = vaultPath(null, 'cestino');
+      goTo(vaultPath(null, 'cestino'));
     } catch (err) {
       notify(vaultError(err), 'error');
     } finally {
@@ -465,7 +466,7 @@ export function NoteReader({
 
   const back = onBack && (
     <Button variant="ghost" size="sm" onClick={onBack} className="-ml-1.5 px-2.5 text-signal-ink">
-      <ArrowLeft size={16} weight="bold" aria-hidden /> Note
+      <ArrowLeft size={16} weight="bold" aria-hidden /> {s.back}
     </Button>
   );
 
@@ -473,23 +474,19 @@ export function NoteReader({
     return (
       <div className="vault-sheet flex min-h-0 flex-1 flex-col gap-3 px-5 py-4 sm:px-10">
         {back && <div>{back}</div>}
-        <p className="label pt-6 text-ink-faint">
-          {error.missing ? 'Nota assente' : 'Errore di lettura'}
-        </p>
+        <p className="label pt-6 text-ink-faint">{error.missing ? s.missingKind : s.errorKind}</p>
         <h2 className="text-title1 font-semibold tracking-[-0.015em] text-ink">
-          {error.missing ? 'Questa nota non c’è' : 'Non riesco ad aprire la nota'}
+          {error.missing ? s.missingTitle : s.errorTitle}
         </h2>
         <p className="max-w-[560px] text-large text-ink-muted">
-          {error.missing
-            ? `“${path}” non esiste (ancora): magari è un collegamento a una nota da scrivere, o è nel cestino.`
-            : error.text}
+          {error.missing ? s.missingText(path) : error.text}
         </p>
         <div>
           <a
             href={vaultPath(null, 'cestino')}
             className="text-body font-medium text-signal-ink underline underline-offset-3"
           >
-            Guarda nel cestino
+            {s.lookTrash}
           </a>
         </div>
       </div>
@@ -498,13 +495,13 @@ export function NoteReader({
     return (
       <div className="vault-sheet flex min-h-0 flex-1">
         <p className="label px-10 py-10 text-ink-faint" aria-busy="true">
-          Apro la nota…
+          {s.opening}
         </p>
       </div>
     );
 
   const folder = folderOf(note.path);
-  const folderPath = folder ? folder.split('/').join(' › ') : 'Cartella principale';
+  const folderPath = folderLabel(folder);
   const updated =
     typeof note.frontmatter['updated'] === 'string'
       ? note.frontmatter['updated']
@@ -529,10 +526,10 @@ export function NoteReader({
           (confirmDelete ? (
             <>
               <span className="mr-2 hidden text-footnote text-ink-muted sm:inline">
-                La sposto nel cestino?
+                {s.moveQuestion}
               </span>
               <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>
-                Lascia stare
+                {s.leave}
               </Button>
               <Button
                 size="sm"
@@ -544,15 +541,15 @@ export function NoteReader({
                 }}
                 data-testid="vault-trash-confirm"
               >
-                Sì, nel cestino
+                {s.moveYes}
               </Button>
             </>
           ) : (
             <>
               {!history && note.content !== null && !note.truncated && (
                 <Action
-                  label="Modifica"
-                  short="Modifica"
+                  label={s.edit}
+                  short={s.edit}
                   layout={layout}
                   onClick={() => setEditing(true)}
                   testId="vault-edit"
@@ -561,8 +558,8 @@ export function NoteReader({
                 </Action>
               )}
               <Action
-                label="Cronologia"
-                short="Cronologia"
+                label={s.history}
+                short={s.history}
                 layout={layout}
                 pressed={history}
                 onClick={() => setPane(history ? 'nota' : 'cronologia')}
@@ -571,19 +568,19 @@ export function NoteReader({
                 <ClockCounterClockwise size={20} aria-hidden />
               </Action>
               <Action
-                label="Attività sulla nota"
-                short="Attività"
+                label={s.activityLabel}
+                short={s.activity}
                 layout={layout}
                 onClick={() => {
-                  window.location.hash = noteActivityPath(note.path);
+                  goTo(noteActivityPath(note.path));
                 }}
                 testId="vault-activity"
               >
                 <ListBullets size={20} aria-hidden />
               </Action>
               <Action
-                label="Sposta nel cestino"
-                short="Cestino"
+                label={s.trashLabel}
+                short={s.trash}
                 layout={layout}
                 onClick={() => setConfirmDelete(true)}
                 testId="vault-trash"
@@ -616,7 +613,7 @@ export function NoteReader({
           {note.author && (
             <p className="mt-3.5 inline-flex items-center gap-2.5 text-footnote text-ink-muted">
               <AuthorScreen id={note.author} width={30} height={26} />
-              {note.author === 'user' ? 'Scritta da te' : `Scritta da ${nameOf(note.author)}`}
+              {s.writtenBy(note.author === 'user' ? null : nameOf(note.author))}
             </p>
           )}
           <div className="mt-7 flex flex-col gap-6">
@@ -624,14 +621,14 @@ export function NoteReader({
               <>
                 {/* The way out of the history in words, not only the pressed clock (UI-44). */}
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="label text-ink-faint">Cronologia</h3>
+                  <h3 className="label text-ink-faint">{s.historyTitle}</h3>
                   <Button
                     variant="secondary"
                     size="sm"
                     onClick={() => setPane('nota')}
                     data-testid="vault-history-close"
                   >
-                    <ArrowLeft size={15} weight="bold" aria-hidden /> Torna alla nota
+                    <ArrowLeft size={15} weight="bold" aria-hidden /> {s.backToNote}
                   </Button>
                 </div>
                 <NoteHistory
@@ -660,11 +657,9 @@ export function NoteReader({
             ) : (
               <>
                 {note.content === null ? (
-                  <p className="text-large text-ink-muted">
-                    Questo file non è una nota di testo: aprilo con Obsidian o con il suo programma.
-                  </p>
+                  <p className="text-large text-ink-muted">{s.notText}</p>
                 ) : note.content.trim() === '' ? (
-                  <p className="text-large text-ink-muted">La nota è vuota.</p>
+                  <p className="text-large text-ink-muted">{s.empty}</p>
                 ) : (
                   <VaultMarkdown
                     text={withoutTitle(note.content, note.title)}
@@ -672,12 +667,7 @@ export function NoteReader({
                     onTag={onTag}
                   />
                 )}
-                {note.truncated && (
-                  <p className="text-footnote text-ink-muted">
-                    La nota è molto lunga: qui ne vedi solo l’inizio. Aprila in Obsidian per il
-                    resto.
-                  </p>
-                )}
+                {note.truncated && <p className="text-footnote text-ink-muted">{s.truncated}</p>}
                 <MarkedMemoryLines
                   note={note}
                   agents={agents}
@@ -689,21 +679,21 @@ export function NoteReader({
                 <Properties note={note} onTag={onTag} />
                 <div className="seam-t mt-3 grid gap-7 pt-6 sm:grid-cols-2">
                   <LinkList
-                    title="Note che la citano"
-                    empty="Nessuna nota la collega ancora."
+                    title={s.backlinks}
+                    empty={s.noBacklinks}
                     items={note.backlinks.filter((b) => !isAgentNote(b.path))}
                     testId="vault-backlinks"
                   />
                   <LinkList
-                    title="Note simili"
-                    empty="Niente di simile, per ora."
+                    title={s.similar}
+                    empty={s.noSimilar}
                     items={
                       related
                         ?.filter((h) => !isAgentNote(h.path))
                         .map((h) => ({
                           path: h.path,
                           title: h.title,
-                          detail: folderOf(h.path) || 'Cartella principale',
+                          detail: folderOf(h.path) || vaultStrings().mainFolder,
                         })) ?? null
                     }
                     testId="vault-related"

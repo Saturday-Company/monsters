@@ -1,4 +1,4 @@
-import type { ProjectView } from '@monsters/shared';
+import { formatDate, type ProjectView } from '@monsters/shared';
 import { useId, useState, type FormEvent } from 'react';
 import { describeError } from '../../lib/api.ts';
 import { projectNameProblem } from '../../lib/projects.ts';
@@ -14,6 +14,7 @@ import { Input } from '../ui/field.tsx';
 import { confirmDraft, discardDraft, PlanLines, planMonsters } from './DraftCards.tsx';
 import { CrewScreen } from '../monster/CrewScreen.tsx';
 import { ProjectFolder, ProjectLinks, ProjectSpend } from './ProjectSections.tsx';
+import { viewStrings } from './view.strings.ts';
 
 /*
  * A project that is not in use (D-098, D-100): a draft shows its plan with
@@ -51,6 +52,7 @@ function Page({
 }
 
 function Rename({ p }: { p: ProjectView }) {
+  const s = viewStrings().draft;
   const id = domId(useId());
   const projects = useProjects();
   const [name, setName] = useState(p.name);
@@ -65,7 +67,7 @@ function Rename({ p }: { p: ProjectView }) {
     setError(null);
     try {
       putProject(await getApi().updateProject(p.id, { name: name.replace(/\s+/g, ' ').trim() }));
-      notify('Nome della bozza salvato.', 'success');
+      notify(s.saved, 'success');
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -73,15 +75,10 @@ function Rename({ p }: { p: ProjectView }) {
     }
   };
   return (
-    <Group title="Nome">
+    <Group title={s.nameGroup}>
       <form onSubmit={(e) => void save(e)} noValidate>
         <RowBody className="sm:max-w-[520px]">
-          <FormField
-            id={id}
-            label="Nome del progetto"
-            hint={`Le sue note andranno in ${p.vaultArea}/.`}
-            error={error}
-          >
+          <FormField id={id} label={s.nameLabel} hint={s.nameHint(p.vaultArea)} error={error}>
             <Input
               id={id}
               value={name}
@@ -92,7 +89,7 @@ function Rename({ p }: { p: ProjectView }) {
           </FormField>
           <div>
             <Button type="submit" size="sm" variant="secondary" disabled={busy || !changed}>
-              Salva il nome
+              {s.saveName}
             </Button>
           </div>
         </RowBody>
@@ -102,6 +99,7 @@ function Rename({ p }: { p: ProjectView }) {
 }
 
 export function DraftPage({ p }: { p: ProjectView }) {
+  const s = viewStrings().draft;
   const nameOf = useNameOf();
   const [busy, setBusy] = useState<'confirm' | 'discard' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -126,21 +124,17 @@ export function DraftPage({ p }: { p: ProjectView }) {
     }
   };
   return (
-    <Page title={`Bozza: ${p.name}`} testId="project-draft-page">
+    <Page title={s.title(p.name)} testId="project-draft-page">
       <section
-        aria-label="Bozza da confermare"
+        aria-label={s.banner}
         data-testid="project-draft-banner"
         className="set-module grid gap-4 px-4 py-4 shadow-[inset_0_0_0_1.5px_var(--signal)]"
       >
         <div className="flex items-start gap-3">
           <span aria-hidden className="led mt-2" data-tone="signal" data-blink="" />
           <div className="min-w-0 flex-1">
-            <p className="text-large font-semibold text-ink">Bozza: conferma</p>
-            <p className="text-body text-ink-muted">
-              {proposer ? `L’ha proposta ${proposer}. ` : ''}Non c’è ancora niente: alla conferma
-              nascono il capo, i mostri e la cartella, tutti insieme. Le automazioni restano bozze
-              da confermare a parte.
-            </p>
+            <p className="text-large font-semibold text-ink">{s.bannerTitle}</p>
+            <p className="text-body text-ink-muted">{s.bannerText(proposer)}</p>
           </div>
         </div>
         {/* The squad it will be, the lead first with the look it will have (D-102). */}
@@ -148,7 +142,7 @@ export function DraftPage({ p }: { p: ProjectView }) {
           <CrewScreen monsters={planMonsters(p)} height={52} max={5} />
         </div>
         <PlanLines d={p} className="text-body" />
-        {p.plan?.why && <p className="text-footnote text-ink-muted">Perché: {p.plan.why}</p>}
+        {p.plan?.why && <p className="text-footnote text-ink-muted">{s.why(p.plan.why)}</p>}
         {error && (
           <p className="text-footnote text-stop-ink" role="alert">
             {error}
@@ -162,7 +156,7 @@ export function DraftPage({ p }: { p: ProjectView }) {
             onClick={() => void run('discard')}
             data-testid="project-draft-discard"
           >
-            Scarta
+            {s.discard}
           </Button>
           <Button
             size="sm"
@@ -170,7 +164,7 @@ export function DraftPage({ p }: { p: ProjectView }) {
             onClick={() => void run('confirm')}
             data-testid="project-draft-confirm"
           >
-            {busy === 'confirm' ? 'Confermo…' : 'Conferma'}
+            {busy === 'confirm' ? s.confirming : s.confirm}
           </Button>
         </div>
       </section>
@@ -182,9 +176,8 @@ export function DraftPage({ p }: { p: ProjectView }) {
   );
 }
 
-const dayFmt = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
-
 export function ArchivedPage({ p }: { p: ProjectView }) {
+  const s = viewStrings().archived;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const restore = async () => {
@@ -192,7 +185,7 @@ export function ArchivedPage({ p }: { p: ProjectView }) {
     setError(null);
     try {
       putProject(await getApi().restoreProject(p.id));
-      notify(`${p.name} è tornato con i suoi mostri.`, 'success');
+      notify(s.restored(p.name), 'success');
       void refreshAgents().catch(() => {});
       void refreshProjects();
     } catch (err) {
@@ -203,24 +196,27 @@ export function ArchivedPage({ p }: { p: ProjectView }) {
   return (
     <Page title={p.name} testId="project-archived-page">
       <section
-        aria-label="Progetto archiviato"
+        aria-label={s.label}
         className="set-module grid gap-3 px-4 py-4"
         data-testid="project-archived"
       >
         <p className="label flex items-center gap-2 text-ink-muted">
           <span aria-hidden className="led" />
-          Archiviato{p.archivedAt ? ` il ${dayFmt.format(p.archivedAt)}` : ''}
+          {s.on(
+            p.archivedAt
+              ? formatDate(p.archivedAt, { day: 'numeric', month: 'long', year: 'numeric' })
+              : null,
+          )}
         </p>
         <p className="text-body text-ink">
-          I suoi mostri sono nell’archivio e non lavorano. Le note in{' '}
-          <span className="font-mono">{p.vaultArea}/</span>
+          {s.intro} <span className="font-mono">{p.vaultArea}/</span>
           {p.folder ? (
             <>
               {' '}
-              e la cartella <span className="font-mono break-all">{p.folder}</span>
+              {s.andFolder} <span className="font-mono break-all">{p.folder}</span>
             </>
           ) : null}{' '}
-          sono dove le hai lasciate.
+          {s.outro}
         </p>
         {error && (
           <p className="text-footnote text-stop-ink" role="alert">
@@ -234,7 +230,7 @@ export function ArchivedPage({ p }: { p: ProjectView }) {
             onClick={() => void restore()}
             data-testid="project-restore"
           >
-            {busy ? 'Lo riporto…' : 'Ripristina'}
+            {busy ? s.restoring : s.restore}
           </Button>
         </div>
       </section>

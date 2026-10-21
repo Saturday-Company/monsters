@@ -2,9 +2,10 @@ import { FolderOpen } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 import { desktop } from '../../lib/desktop.ts';
 import { Button } from '../ui/button.tsx';
+import { projectsStrings } from './projects.strings.ts';
 
 /*
- * "Scegli…" next to a folder's path: the system's folder dialog of the desktop app
+ * "Choose…" next to a folder's path: the system's folder dialog of the desktop app
  * (`pickFolder`, apps/desktop/src/preload/index.ts). Only when the window shows this
  * computer's core: a browser gives no paths, and a path of this computer means nothing to a
  * remote core. Elsewhere the path is typed by hand, as before.
@@ -64,7 +65,7 @@ export function FolderPickButton({
       data-testid={testId}
     >
       <FolderOpen size={18} aria-hidden />
-      Scegli…
+      {projectsStrings().pickFolder}
     </Button>
   );
 }

@@ -1,4 +1,4 @@
-import type { LogEvent, VaultNoteSummary } from '@monsters/shared';
+import { setAppLang, type LogEvent, type VaultNoteSummary } from '@monsters/shared';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -82,8 +82,8 @@ describe('note Markdown', () => {
 
   it('renders embeds as cards, attachments as labels, tags as buttons', () => {
     const html = render('![[Tram 28]]\n\n![[Allegati/foto.png]]\n\n#viaggi');
-    expect(html).toContain('Nota incorporata: </span>Tram 28');
-    expect(html).toContain('Allegato: foto.png');
+    expect(html).toContain('Embedded note: </span>Tram 28');
+    expect(html).toContain('Attachment: foto.png');
     expect(html).toMatch(/<button[^>]*class="vault-tag"[^>]*>#viaggi<\/button>/);
     expect(isAttachment('Allegati/x.PDF')).toBe(true);
     expect(isAttachment('Nota.md')).toBe(false);
@@ -156,17 +156,17 @@ describe('list helpers', () => {
       '…Spunti su **Lisbona** e Tram 28 volo',
     );
     expect(folderLabel('Aree/Salute')).toBe('Aree › Salute');
-    expect(folderLabel('')).toBe('Cartella principale');
+    expect(folderLabel('')).toBe('Main folder');
   });
 
   it('checks the name of a new note and of a new folder', () => {
     expect(titleProblem('Porto')).toBeNull();
-    expect(titleProblem('Porto: idee')).toMatch(/non può contenere/);
+    expect(titleProblem('Porto: idee')).toMatch(/can’t contain/);
     expect(folderProblem('Viaggi/Portogallo')).toBeNull();
-    expect(folderProblem('')).toMatch(/Scrivi/);
-    expect(folderProblem('Viaggi?')).toMatch(/non può contenere/);
-    expect(folderProblem('.nascosta')).toMatch(/non è valido/);
-    expect(folderProblem('Agenti/Io')).toMatch(/dei mostri/);
+    expect(folderProblem('')).toMatch(/Type the folder/);
+    expect(folderProblem('Viaggi?')).toMatch(/can’t contain/);
+    expect(folderProblem('.nascosta')).toMatch(/isn’t valid/);
+    expect(folderProblem('Agenti/Io')).toMatch(/belongs to the monsters/);
   });
 
   it('groups by folder, root first, notes by title', () => {
@@ -178,9 +178,23 @@ describe('list helpers', () => {
   });
 
   it('names the history entries in words', () => {
-    expect(actionLabel('vault_edit: Risorse/x.md [agent=rhea action=1]')).toBe('Modificata');
-    expect(actionLabel('vault_undo: x.md')).toBe('Modifica annullata');
-    expect(actionLabel('snapshot: modifiche esterne')).toBe('Modificata fuori da Monsters');
+    expect(actionLabel('vault_edit: Risorse/x.md [agent=rhea action=1]')).toBe('Edited');
+    expect(actionLabel('vault_undo: x.md')).toBe('Change undone');
+    expect(actionLabel('snapshot: modifiche esterne')).toBe('Edited outside Monsters');
+  });
+
+  it('says it in Italian when the app does', () => {
+    setAppLang('it');
+    try {
+      expect(actionLabel('vault_edit: Risorse/x.md [agent=rhea action=1]')).toBe('Modificata');
+      expect(actionLabel('vault_undo: x.md')).toBe('Modifica annullata');
+      expect(folderLabel('')).toBe('Cartella principale');
+      expect(titleProblem('Porto: idee')).toMatch(/non può contenere/);
+      expect(folderProblem('')).toMatch(/Scrivi/);
+      expect(hunkText('@@ riga 4 @@')).toBe('· riga 4 ·');
+    } finally {
+      setAppLang('en');
+    }
   });
 
   it('finds the newest vault change among the last events', () => {
@@ -287,8 +301,8 @@ describe('instrument details', () => {
 
 describe('the changes of a version, for people (audit UI-24)', () => {
   it('reads the hunk headers as lines, the bare one of the core as a pause', () => {
-    expect(hunkText('@@ riga 4 @@')).toBe('· riga 4 ·');
-    expect(hunkText('@@ -1,3 +7,5 @@')).toBe('· riga 7 ·');
+    expect(hunkText('@@ riga 4 @@')).toBe('· line 4 ·');
+    expect(hunkText('@@ -1,3 +7,5 @@')).toBe('· line 7 ·');
     expect(hunkText('@@')).toBe('· · ·');
     expect(hunkText('+@@ non è un blocco')).toBeNull();
   });

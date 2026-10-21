@@ -4,9 +4,10 @@ import { describeError } from '../../lib/api.ts';
 import { getApi, notify, refreshAgents } from '../../store/app.ts';
 import { refreshProjects } from '../../store/projects.ts';
 import { ConfirmButton, Group, Row } from '../settings/parts.tsx';
+import { projectsStrings } from './projects.strings.ts';
 
 /**
- * "Archivia il progetto" (D-100), at the foot of the Cartella tab: the squad
+ * "Archive the project" (D-100), at the foot of the Folder tab: the squad
  * tab is for who works in the project, not for taking it away. Archived, never
  * deleted: its monsters go with it and stop working.
  */
@@ -17,15 +18,13 @@ export function ArchiveProject({
   p: ProjectView;
   onChanged: (p: ProjectView) => void;
 }) {
+  const s = projectsStrings().archive;
   const [archiving, setArchiving] = useState(false);
   const archive = async () => {
     setArchiving(true);
     try {
       onChanged(await getApi().archiveProject(p.id));
-      notify(
-        `${p.name} è nell’archivio con i suoi mostri. Note e cartella restano dove sono.`,
-        'success',
-      );
+      notify(s.done(p.name), 'success');
       void refreshAgents().catch(() => {});
       void refreshProjects();
     } catch (err) {
@@ -35,16 +34,12 @@ export function ArchiveProject({
   };
 
   return (
-    <Group
-      title="Archivia il progetto"
-      testId="project-archive"
-      description="I suoi mostri vanno nell’archivio con lui e smettono di lavorare; le note e la cartella restano dove sono. Lo puoi ripristinare quando vuoi."
-    >
-      <Row label={p.name} description="Se lo ripristini, ritrova i suoi mostri con compiti e note.">
+    <Group title={s.title} testId="project-archive" description={s.description}>
+      <Row label={p.name} description={s.rowDescription}>
         <ConfirmButton
-          label="Archivia"
-          question="Archiviare il progetto?"
-          confirm="Sì, archivia"
+          label={s.label}
+          question={s.question}
+          confirm={s.confirm}
           busy={archiving}
           onConfirm={() => void archive()}
         />

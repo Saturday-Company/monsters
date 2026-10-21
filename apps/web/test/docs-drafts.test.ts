@@ -1,5 +1,7 @@
-import { textDiff, type DraftView } from '@monsters/shared';
+import { setAppLang, textDiff, type DraftView } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
+import { draftStrings } from '../src/components/projects/draft.strings.ts';
+import { viewStrings } from '../src/components/projects/view.strings.ts';
 import { docsDiff } from '../src/lib/docs-diff.ts';
 import { MockCore } from '../src/lib/mock/core.ts';
 
@@ -55,5 +57,44 @@ describe('the docs proposals of the mock core', () => {
     expect(
       core.events.filter((e) => e.type === 'project_docs_proposal').map((e) => e.data.action),
     ).toEqual(['proposed', 'proposed', 'applied', 'discarded']);
+  });
+});
+
+describe('the words of the drafts and of a project’s page', () => {
+  it('speaks English by default, with plurals and the subject of a title', () => {
+    const s = draftStrings();
+    expect(s.projectReady('Social', 1)).toContain('Its first automation is waiting');
+    expect(s.projectReady('Social', 3)).toContain('Its 3 automations are waiting');
+    expect(s.projectReady('Social', 0)).toBe(
+      'Social is ready: write to its lead from the project page.',
+    );
+    expect(s.docsSubject('Instructions of Social (CLAUDE.md)')).toBe('Social (CLAUDE.md)');
+    expect(s.memorySubject('Memory of Rhea')).toBe('Rhea’s memory');
+    expect(s.card.proposes('Rhea', s.kindWords.memory)).toBe('Rhea proposes to remember');
+    expect(s.grant(false)).toBe(
+      'All the project’s monsters will be able to read and write here, with everything that’s already in it.',
+    );
+    expect(viewStrings().stop.stopped('Social', 1, 2, 0)).toBe(
+      'I stopped the work of Social: 1 job, 2 requests from your lead.',
+    );
+    expect(viewStrings().archived.on(null)).toBe('Archived');
+  });
+
+  it('speaks Italian when the app does, with the same words as before', () => {
+    setAppLang('it');
+    try {
+      const s = draftStrings();
+      expect(s.projectReady('Social', 1)).toContain('La sua prima automazione aspetta');
+      expect(s.projectReady('Social', 3)).toContain('Le sue 3 automazioni aspettano');
+      expect(s.docsSubject('Istruzioni di Social (CLAUDE.md)')).toBe('Social (CLAUDE.md)');
+      expect(s.memorySubject('Memoria di Rhea')).toBe('la memoria di Rhea');
+      expect(s.card.proposes('Rhea', s.kindWords.monster)).toBe('Rhea propone un nuovo mostro');
+      expect(viewStrings().stop.stopped('Social', 1, 2, 1)).toBe(
+        'Ho fermato il lavoro di Social: 1 lavoro, 2 richieste del tuo capo, 1 giro.',
+      );
+      expect(viewStrings().archived.on('21 ottobre 2026')).toBe('Archiviato il 21 ottobre 2026');
+    } finally {
+      setAppLang('en');
+    }
   });
 });

@@ -2,8 +2,8 @@ import type { ProjectView, TeamMemberView } from '@monsters/shared';
 import { ChatCircle, Copy, Plus } from '@phosphor-icons/react';
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { describeError } from '../../lib/api.ts';
-import { PERSONAL_SQUAD } from '../../lib/automations.ts';
 import { freeCopyName, isLive } from '../../lib/projects.ts';
+import { projectsLibStrings } from '../../lib/projects.strings.ts';
 import { openChat } from '../../lib/router.ts';
 import { domId } from '../../lib/utils.ts';
 import { getApi, notify, refreshAgents } from '../../store/app.ts';
@@ -16,19 +16,20 @@ import { ConfirmButton, FormField, Group, Row, RowBody } from '../settings/parts
 import { AddMonster, MemberRow } from '../settings/TeamMembers.tsx';
 import { Button } from '../ui/button.tsx';
 import { Input } from '../ui/field.tsx';
+import { squadStrings } from './squad.strings.ts';
 import { SquadChart } from './SquadChart.tsx';
 
 /*
- * Squadra of a project (D-100): who is in it (the lead first, "CAPO"), each
+ * Squadra of a project (D-100): who is in it (the lead first, "LEAD"), each
  * a row as in Impostazioni → Squadra (name, look, role and duties), with its
- * chat and "Togli" (archived, never deleted; the lead stays); a copy
+ * chat and "Remove" (archived, never deleted; the lead stays); a copy
  * of a monster of another squad, with the free name the core will give it
  * ("Rhea · Saturday", editable); a new monster through the same flow as
  * Impostazioni → Squadra, its colour kept away from this squad's; and at the
- * foot a note on where "Archivia il progetto" went (the Cartella tab).
+ * foot a note on where "Archive the project" went (the Folder tab).
  */
 
-/** A member before its fields are read: the name, the chat and "Togli". */
+/** A member before its fields are read: the name, the chat and "Remove". */
 function PlainMember({
   agent,
   remove,
@@ -39,6 +40,7 @@ function PlainMember({
   busy: boolean;
 }) {
   const live = useLive(agent.id);
+  const s = squadStrings();
   return (
     <Row
       as="li"
@@ -55,12 +57,12 @@ function PlainMember({
       label={
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-large font-semibold">{agent.name}</span>
-          {agent.isLead && <span className="label shrink-0 text-signal-ink">Capo</span>}
+          {agent.isLead && <span className="label shrink-0 text-signal-ink">{s.lead}</span>}
         </span>
       }
       description={
         <>
-          {agent.isLead ? 'Coordina il progetto e passa i compiti agli altri.' : agent.role}
+          {agent.isLead ? s.leadDuty : agent.role}
           <span className="sr-only">, {statusText(live)}</span>
         </>
       }
@@ -70,15 +72,15 @@ function PlainMember({
         variant="secondary"
         size="sm"
         onClick={() => openChat(agent.id)}
-        aria-label={`Scrivi a ${agent.name}`}
+        aria-label={s.messageLabel(agent.name)}
       >
-        <ChatCircle size={16} aria-hidden /> Scrivi
+        <ChatCircle size={16} aria-hidden /> {s.message}
       </Button>
       {!agent.isLead && (
         <ConfirmButton
-          label="Togli"
-          question={`Togliere ${agent.name}?`}
-          confirm="Sì, togli"
+          label={s.remove}
+          question={s.removeQuestion(agent.name)}
+          confirm={s.removeConfirm}
           busy={busy}
           onConfirm={remove}
         />
@@ -89,7 +91,7 @@ function PlainMember({
 
 /**
  * A monster of the project: the same row as in Impostazioni → Squadra (name,
- * look, role and duties), plus its chat; "Togli" leaves the project, the lead stays.
+ * look, role and duties), plus its chat; "Remove" leaves the project, the lead stays.
  */
 function Member({
   agent,
@@ -128,7 +130,7 @@ function Member({
   };
   const run = async () => {
     onChanged(await getApi().removeProjectMember(p.id, agent.id));
-    notify(`${agent.name} è nell’archivio: la sua chat resta in Attività.`);
+    notify(squadStrings().archived(agent.name));
     void refreshAgents().catch(() => {});
   };
   const remove = async () => {
@@ -152,7 +154,7 @@ function Member({
       chat
       live
       removal={{
-        description: 'Va nell’archivio: la sua chat resta in Attività.',
+        description: squadStrings().removalDescription,
         run,
       }}
     />
@@ -161,11 +163,11 @@ function Member({
 
 /** Where a monster to copy comes from, in words. */
 function squadOf(a: AgentView, projects: readonly ProjectView[] | null): string {
-  if (!a.project) return PERSONAL_SQUAD;
+  if (!a.project) return projectsLibStrings().personalSquad;
   return projects?.find((p) => p.id === a.project)?.name ?? a.project;
 }
 
-/** One monster of another squad: "Copia" opens its name, as the core would give it. */
+/** One monster of another squad: "Copy" opens its name, as the core would give it. */
 function CopyRow({
   source,
   p,
@@ -180,6 +182,7 @@ function CopyRow({
   onCopied: (p: ProjectView) => void;
 }) {
   const id = domId(useId());
+  const s = squadStrings();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -194,17 +197,12 @@ function CopyRow({
     const n = name.replace(/\s+/g, ' ').trim();
     const problem =
       nameProblem(n) ??
-      (taken.some((t) => t.toLowerCase() === n.toLowerCase())
-        ? 'C’è già un mostro con questo nome, in questa o in un’altra squadra.'
-        : null);
+      (taken.some((t) => t.toLowerCase() === n.toLowerCase()) ? s.nameTaken : null);
     if (problem) return setError(problem);
     setBusy(true);
     try {
       onCopied(await getApi().addProjectMember(p.id, { copyOf: source.id, name: n }));
-      notify(
-        `${n} è nel progetto: ha i compiti di ${source.name} e una memoria tutta sua.`,
-        'success',
-      );
+      notify(s.copied(n, source.name), 'success');
       void refreshAgents().catch(() => {});
       setOpen(false);
     } catch (err) {
@@ -227,21 +225,16 @@ function CopyRow({
             variant="secondary"
             size="sm"
             onClick={start}
-            aria-label={`Copia ${source.name} nel progetto`}
+            aria-label={s.copyLabel(source.name)}
           >
-            <Copy size={16} aria-hidden /> Copia
+            <Copy size={16} aria-hidden /> {s.copy}
           </Button>
         )}
       </Row>
       {open && (
         <form onSubmit={(e) => void submit(e)} noValidate className="bg-panel set-seam-t">
           <RowBody className="sm:max-w-[520px]">
-            <FormField
-              id={id}
-              label="Nome della copia"
-              hint="I nomi valgono in tutte le squadre: due mostri non si chiamano mai uguale."
-              error={error}
-            >
+            <FormField id={id} label={s.copyName} hint={s.copyNameHint} error={error}>
               <Input
                 id={id}
                 value={name}
@@ -253,10 +246,10 @@ function CopyRow({
             </FormField>
             <div className="flex flex-wrap gap-2">
               <Button type="submit" size="sm" disabled={busy} data-testid="project-copy-save">
-                {busy ? 'Lo copio…' : 'Copia nel progetto'}
+                {busy ? s.copying : s.copyToProject}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-                Annulla
+                {s.cancel}
               </Button>
             </div>
           </RowBody>
@@ -273,9 +266,10 @@ export function ProjectSquad({
   p: ProjectView;
   onChanged: (p: ProjectView) => void;
 }) {
+  const s = squadStrings();
   const agents = useAgents();
   const projects = useProjects();
-  // "Modifica" on a monster proposed by the lead (Da rivedere): the form opens with its draft.
+  // "Edit" on a monster proposed by the lead (To review): the form opens with its draft.
   const [handoff] = useState(peekDraft);
   const [adding, setAdding] = useState<'new' | 'copy' | null>(handoff ? 'new' : null);
   useEffect(() => clearDraft(), []);
@@ -296,7 +290,7 @@ export function ProjectSquad({
       (!a.project || projects?.some((x) => x.id === a.project && isLive(x))),
   );
 
-  // The first project, or a squad with only its capo: the hierarchy in one line (U-5).
+  // The first project, or a squad with only its lead: the hierarchy in one line (U-5).
   const liveProjects = (projects ?? []).filter(isLive).length;
   const showChart = others === 0 || liveProjects <= 1;
 
@@ -304,14 +298,10 @@ export function ProjectSquad({
     <>
       {showChart && <SquadChart className="px-1" />}
       <Group
-        title={`Squadra · ${members.length}`}
+        title={s.squadTitle(members.length)}
         as="ul"
         testId="project-members"
-        footer={
-          full
-            ? `Il progetto è al completo: al massimo ${p.maxMembers} mostri oltre al capo.`
-            : 'I mostri del progetto sono suoi: una memoria, dei permessi e una spesa che restano qui.'
-        }
+        footer={full ? s.full(p.maxMembers) : s.footer}
       >
         {members.map((a) => (
           <Member key={a.id} agent={a} p={p} taken={takenBy} onChanged={onChanged} />
@@ -325,7 +315,7 @@ export function ProjectSquad({
               onClick={() => setAdding('copy')}
               data-testid="project-add-copy"
             >
-              <Copy size={16} aria-hidden /> Copia un mostro
+              <Copy size={16} aria-hidden /> {s.copyAMonster}
             </Button>
             <Button
               variant="secondary"
@@ -334,7 +324,7 @@ export function ProjectSquad({
               onClick={() => setAdding('new')}
               data-testid="project-add-new"
             >
-              <Plus size={16} aria-hidden /> Nuovo mostro
+              <Plus size={16} aria-hidden /> {s.newMonster}
             </Button>
           </li>
         )}
@@ -342,13 +332,13 @@ export function ProjectSquad({
 
       {adding === 'copy' && (
         <Group
-          title="Copia un mostro"
+          title={s.copyAMonster}
           as="ul"
           testId="project-copy"
-          description="La copia ha il ruolo, le regole e i modelli dell’originale; nome, aspetto e memoria sono suoi: l’originale resta nella sua squadra."
+          description={s.copyDescription}
           footer={
             <Button variant="ghost" size="sm" onClick={() => setAdding(null)}>
-              Chiudi
+              {s.close}
             </Button>
           }
         >

@@ -10,6 +10,7 @@ import { vaultApi, vaultError } from './api.ts';
 import { folderLabel } from './NoteList.tsx';
 import { agoText, PrivateMark } from './shared.tsx';
 import { folderOf } from '../../lib/vault-markdown.ts';
+import { vaultStrings } from './vault.strings.ts';
 
 const titleOfPath = (path: string) => (path.split('/').pop() ?? path).replace(/\.md$/i, '');
 
@@ -21,18 +22,20 @@ export function trashedByUndo(actionId: string | null, events: readonly LogEvent
   );
 }
 
-/** "cancellata da te", "cancellata da Dione", "tolta annullando la creazione". */
+/** "deleted by you", "deleted by Dione", "removed by undoing its creation". */
 export function trashedText(
   item: Pick<VaultTrashItem, 'deletedBy'>,
   byUndo: boolean,
   nameOf: (id: string) => string,
 ): string {
-  if (byUndo) return 'tolta annullando la creazione';
-  if (!item.deletedBy) return 'cancellata';
-  return item.deletedBy === 'user' ? 'cancellata da te' : `cancellata da ${nameOf(item.deletedBy)}`;
+  const s = vaultStrings().trash;
+  if (byUndo) return s.byUndo;
+  if (!item.deletedBy) return s.deleted;
+  return item.deletedBy === 'user' ? s.byYou : s.by(nameOf(item.deletedBy));
 }
 
 function Item({ item, onRestored }: { item: VaultTrashItem; onRestored: (path: string) => void }) {
+  const s = vaultStrings().trash;
   const nameOf = useNameOf();
   const byUndo = useApp((s) => trashedByUndo(item.actionId, s.events));
   const [busy, setBusy] = useState(false);
@@ -44,8 +47,8 @@ function Item({ item, onRestored }: { item: VaultTrashItem; onRestored: (path: s
       const res = await vaultApi.restoreTrash(item.trashPath);
       notify(
         res.path === item.originalPath
-          ? `“${item.title}” è tornata al suo posto.`
-          : `“${item.title}” è tornata come “${titleOfPath(res.path)}”: al suo posto c’è un’altra nota.`,
+          ? s.backInPlace(item.title)
+          : s.backAs(item.title, titleOfPath(res.path)),
         'success',
       );
       onRestored(res.path);
@@ -70,8 +73,8 @@ function Item({ item, onRestored }: { item: VaultTrashItem; onRestored: (path: s
         </p>
         <p className="mt-0.5 text-footnote text-ink-muted">
           {item.originalPath
-            ? `Era in ${folderLabel(folderOf(item.originalPath))} · ${trashedText(item, byUndo, nameOf)}`
-            : 'Cancellata fuori da Monsters (per esempio in Obsidian)'}
+            ? s.wasIn(folderLabel(folderOf(item.originalPath)), trashedText(item, byUndo, nameOf))
+            : s.outside}
           {item.deletedAt && ` · ${agoText(item.deletedAt)}`}
         </p>
       </div>
@@ -83,11 +86,11 @@ function Item({ item, onRestored }: { item: VaultTrashItem; onRestored: (path: s
           onClick={() => void restore()}
           data-testid="vault-trash-restore"
         >
-          Rimetti a posto
+          {s.restore}
         </Button>
       ) : (
         <span className="max-w-[220px] text-right text-footnote text-ink-muted">
-          Rimettila a posto da Obsidian: qui non so dove stava.
+          {s.restoreElsewhere}
         </span>
       )}
     </li>
@@ -105,6 +108,7 @@ export function TrashView({
   /** Narrow screens: back to the list. */
   onBack?: (() => void) | undefined;
 }) {
+  const s = vaultStrings();
   const [items, setItems] = useState<VaultTrashItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -138,29 +142,27 @@ export function TrashView({
               onClick={onBack}
               className="mb-3 -ml-2.5 px-2.5 text-signal-ink"
             >
-              <ArrowLeft size={16} weight="bold" aria-hidden /> Note
+              <ArrowLeft size={16} weight="bold" aria-hidden /> {s.notes}
             </Button>
           )}
           <p className="label text-ink-faint">
-            {items ? `${items.length} ${items.length === 1 ? 'nota' : 'note'}` : 'Cestino'}
+            {items ? s.noteCount(items.length) : s.trash.label}
           </p>
           <h2
             id="vault-trash-title"
             className="mt-2 text-display leading-[36px] font-semibold tracking-[-0.02em] text-ink"
           >
-            Cestino
+            {s.trash.title}
           </h2>
-          <p className="mt-1.5 text-body text-ink-muted">
-            Le note cancellate restano qui: puoi rimetterle dov’erano.
-          </p>
+          <p className="mt-1.5 text-body text-ink-muted">{s.trash.text}</p>
           {error ? (
             <p className="py-8 text-body text-ink-muted">{error}</p>
           ) : !items ? (
             <p className="py-8 text-body text-ink-muted" aria-busy="true">
-              Guardo nel cestino…
+              {s.trash.looking}
             </p>
           ) : items.length === 0 ? (
-            <p className="py-12 text-center text-large text-ink-muted">Il cestino è vuoto.</p>
+            <p className="py-12 text-center text-large text-ink-muted">{s.trash.empty}</p>
           ) : (
             <ul className="vault-rules seam-t mt-6">
               {items.map((i) => (

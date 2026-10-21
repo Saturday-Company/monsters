@@ -7,33 +7,36 @@ import { Button } from '../ui/button.tsx';
 import { Field, Input } from '../ui/field.tsx';
 import { vaultApi, vaultError } from './api.ts';
 import { folderLabel } from './NoteList.tsx';
+import { vaultStrings } from './vault.strings.ts';
 
 /** Characters Obsidian does not accept in a note name (as the vault checks them). */
 const FORBIDDEN = /[#|^:%[\]\\/?*"<>]/;
 /** The same for a folder, where `/` separates the folders inside it. */
 const FORBIDDEN_FOLDER = /[#|^:%[\]\\?*"<>]/;
-/** Value of the "Nuova cartella…" entry of the menu (never a real folder: it has a `:`). */
+/** Value of the "New folder…" entry of the menu (never a real folder: it has a `:`). */
 const NEW_FOLDER = ':nuova';
 
 export function titleProblem(title: string): string | null {
-  if (FORBIDDEN.test(title)) return 'Il titolo non può contenere # | ^ : % [ ] \\ / ? * " < >.';
+  if (FORBIDDEN.test(title)) return vaultStrings().newNote.forbiddenTitle;
   return null;
 }
 
 export function folderProblem(folder: string): string | null {
   const f = folder.trim();
-  if (!f) return 'Scrivi il nome della cartella.';
-  if (FORBIDDEN_FOLDER.test(f)) return 'Il nome non può contenere # | ^ : % [ ] \\ ? * " < >.';
+  const s = vaultStrings().newNote;
+  if (!f) return s.folderEmpty;
+  if (FORBIDDEN_FOLDER.test(f)) return s.forbiddenFolder;
   if (f.split('/').some((part) => part.trim() === '' || part.startsWith('.')))
-    return 'Il nome non è valido.';
-  if (/^agenti(\/|$)/i.test(f)) return 'Questa cartella è dei mostri: scegline un’altra.';
+    return s.folderInvalid;
+  // i18n-ignore: the vault's folder of the monsters, data
+  if (/^agenti(\/|$)/i.test(f)) return s.folderAgents;
   return null;
 }
 
 /**
  * A new note written by the user: title, a folder (an existing one or a new
  * one) and the text. It goes through the core like every change of the user
- * (commit, `vault_change` in Attività, undoable) and never replaces a note.
+ * (commit, `vault_change` in Activity, undoable) and never replaces a note.
  */
 export function NewNote({
   folders,
@@ -45,6 +48,7 @@ export function NewNote({
   onCreated: (path: string) => void;
   onCancel: () => void;
 }) {
+  const s = vaultStrings().newNote;
   const id = domId(useId());
   const [title, setTitle] = useState('');
   // Inbox/ until the user picks a folder (the list may arrive after the form opens).
@@ -71,7 +75,7 @@ export function NewNote({
     setError(null);
     try {
       const res = await vaultApi.create(folder, title.trim(), text);
-      notify('Nota creata. La trovi in Attività e si può annullare.', 'success');
+      notify(s.created, 'success');
       onCreated(res.path);
     } catch (err) {
       setError(vaultError(err));
@@ -93,21 +97,21 @@ export function NewNote({
           onClick={onCancel}
           className="-ml-2.5 self-start px-2.5 text-signal-ink min-[900px]:hidden"
         >
-          <ArrowLeft size={16} weight="bold" aria-hidden /> Note
+          <ArrowLeft size={16} weight="bold" aria-hidden /> {vaultStrings().notes}
         </Button>
         <div>
           <p className="label text-ink-faint">
-            Va in {creatingFolder && !folder ? 'una cartella nuova' : folderLabel(folder)}
+            {s.goesIn(creatingFolder && !folder ? null : folderLabel(folder))}
           </p>
           <h2
             id={`${id}-heading`}
             className="mt-2 text-display leading-[36px] font-semibold tracking-[-0.02em] text-ink"
           >
-            Nuova nota
+            {s.heading}
           </h2>
         </div>
         <div className="grid items-start gap-4 min-[700px]:grid-cols-[minmax(0,1fr)_minmax(0,240px)]">
-          <Field id={`${id}-title`} label="Titolo" error={title ? problem : null}>
+          <Field id={`${id}-title`} label={s.title} error={title ? problem : null}>
             <Input
               id={`${id}-title`}
               value={title}
@@ -115,13 +119,13 @@ export function NewNote({
               maxLength={200}
               required
               autoFocus
-              placeholder="Es. Idee per il weekend"
+              placeholder={s.titlePlaceholder}
               aria-invalid={problem ? true : undefined}
               aria-describedby={problem ? `${id}-title-error` : undefined}
               data-testid="vault-new-title"
             />
           </Field>
-          <Field id={`${id}-folder`} label="Cartella">
+          <Field id={`${id}-folder`} label={s.folder}>
             <select
               id={`${id}-folder`}
               value={picked}
@@ -129,25 +133,25 @@ export function NewNote({
               data-testid="vault-new-folder"
               className="well h-11 w-full rounded-[10px] px-3 text-body text-ink focus:outline-2 focus:outline-offset-0 focus:outline-signal-ink"
             >
-              <option value="">Cartella principale</option>
+              <option value="">{vaultStrings().mainFolder}</option>
               {options.map((f) => (
                 <option key={f} value={f}>
                   {folderLabel(f)}
                 </option>
               ))}
-              <option value={NEW_FOLDER}>Nuova cartella…</option>
+              <option value={NEW_FOLDER}>{s.newFolder}</option>
             </select>
           </Field>
         </div>
         {creatingFolder && (
-          <Field id={`${id}-new-folder`} label="Nome della nuova cartella" error={folderError}>
+          <Field id={`${id}-new-folder`} label={s.newFolderName} error={folderError}>
             <Input
               id={`${id}-new-folder`}
               value={newFolder}
               onChange={(e) => setNewFolder(e.target.value)}
               maxLength={200}
               autoFocus
-              placeholder="Es. Viaggi"
+              placeholder={s.newFolderPlaceholder}
               aria-invalid={folderError ? true : undefined}
               aria-describedby={folderError ? `${id}-new-folder-error` : undefined}
               data-testid="vault-new-folder-name"
@@ -156,7 +160,7 @@ export function NewNote({
         )}
         <div className="flex flex-1 flex-col gap-1.5">
           <label htmlFor={`${id}-text`} className="text-footnote font-medium text-ink">
-            Testo
+            {s.text}
           </label>
           <textarea
             id={`${id}-text`}
@@ -168,7 +172,7 @@ export function NewNote({
             className="well min-h-[260px] flex-1 resize-none rounded-[12px] px-5 py-4 text-large leading-[28px] text-ink focus:outline-2 focus:outline-offset-0 focus:outline-signal-ink"
           />
           <p id={`${id}-text-hint`} className="text-footnote text-ink-muted">
-            Per collegare un’altra nota scrivi [[ e il suo titolo.
+            {s.hint}
           </p>
         </div>
         {error && (
@@ -181,10 +185,10 @@ export function NewNote({
         )}
         <div className="flex flex-wrap justify-end gap-2">
           <Button variant="ghost" onClick={onCancel} disabled={busy}>
-            Annulla
+            {s.cancel}
           </Button>
           <Button type="submit" disabled={busy || !ready} data-testid="vault-new-save">
-            {busy ? 'Creo…' : 'Crea la nota'}
+            {busy ? s.creating : s.create}
           </Button>
         </div>
       </div>

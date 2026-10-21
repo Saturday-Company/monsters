@@ -1,4 +1,4 @@
-import type { FileMeta } from '@monsters/shared';
+import { formatNumber, type FileMeta } from '@monsters/shared';
 import { File as FileIcon } from '@phosphor-icons/react';
 import {
   useEffect,
@@ -12,6 +12,7 @@ import {
 import { desktop } from '../../lib/desktop.ts';
 import { getApi, notify } from '../../store/app.ts';
 import { formatBytes, kindWord, replaceFileMeta, textFlavor } from './files.ts';
+import { previewStrings } from './preview.strings.ts';
 import {
   commentMarks,
   parseCsv,
@@ -22,7 +23,7 @@ import {
 } from './text.ts';
 
 /*
- * The renderers of Anteprima by kind (docs/design.md, "Pannello a destra"):
+ * The renderers of the preview by kind (docs/design.md, "Pannello a destra"):
  * images fitted on a checkerboard, a click for the real size with panning;
  * text and code in monospace with line numbers and a few colours, CSV as a
  * table; the HTML pages of the monsters in a sandbox with no network and no
@@ -47,6 +48,7 @@ function useBox(ref: React.RefObject<HTMLElement | null>): { w: number; h: numbe
 const PAD = 24;
 
 export function ImageView({ meta, url }: { meta: FileMeta; url: string }) {
+  const s = previewStrings().image;
   const area = useRef<HTMLDivElement>(null);
   const box = useBox(area);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(
@@ -80,7 +82,7 @@ export function ImageView({ meta, url }: { meta: FileMeta; url: string }) {
   if (failed)
     return (
       <p className="px-5 py-10 text-center text-screen-muted" data-testid="preview-image-failed">
-        Questa immagine non si apre: forse il file è rovinato. Scaricala per provarla altrove.
+        {s.failed}
       </p>
     );
 
@@ -158,11 +160,7 @@ export function ImageView({ meta, url }: { meta: FileMeta; url: string }) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        aria-label={
-          zoom
-            ? `${meta.name} a grandezza reale: trascina per spostarti, Esc per tornare`
-            : undefined
-        }
+        aria-label={zoom ? s.real(meta.name) : undefined}
         role={zoom ? 'group' : undefined}
       >
         {zoom ? (
@@ -185,8 +183,8 @@ export function ImageView({ meta, url }: { meta: FileMeta; url: string }) {
             style={
               shownW ? { width: shownW, height: shownH } : { maxWidth: '100%', maxHeight: '100%' }
             }
-            aria-label={`Ingrandisci ${meta.name}`}
-            title="Clic: grandezza reale"
+            aria-label={s.zoom(meta.name)}
+            title={s.zoomTitle}
             data-testid="preview-image-fit"
           >
             <img
@@ -210,7 +208,7 @@ export function ImageView({ meta, url }: { meta: FileMeta; url: string }) {
         className="label pointer-events-none absolute right-3 bottom-3 rounded-[6px] bg-screen/80 px-2 py-1 text-screen-muted"
         data-testid="preview-zoom"
       >
-        {zoom ? `${percent}%` : `Adattata · ${percent}%`}
+        {zoom ? `${percent}%` : s.fitted(percent)}
         {natural ? ` · ${natural.w}×${natural.h}` : ''}
       </p>
     </div>
@@ -245,6 +243,7 @@ function useText(url: string): TextState {
 }
 
 function CodeLines({ text, comments }: { text: string; comments: string[] | null }) {
+  const s = previewStrings().text;
   const lines = useMemo(() => {
     const all = text.replace(/\r\n?/g, '\n').split('\n');
     if (all.length > 1 && all.at(-1) === '') all.pop();
@@ -273,8 +272,7 @@ function CodeLines({ text, comments }: { text: string; comments: string[] | null
       </pre>
       {lines.more && (
         <p className="mt-3 text-caption text-screen-muted">
-          Qui ci sono le prime {TEXT_MAX_LINES.toLocaleString('it-IT')} righe: scarica il file per
-          il resto.
+          {s.firstLines(formatNumber(TEXT_MAX_LINES))}
         </p>
       )}
     </>
@@ -282,9 +280,10 @@ function CodeLines({ text, comments }: { text: string; comments: string[] | null
 }
 
 function CsvTable({ text }: { text: string }) {
+  const s = previewStrings().text;
   const { rows, more } = useMemo(() => parseCsv(text), [text]);
   const [head, ...body] = rows;
-  if (!head) return <p className="text-screen-muted">Il file è vuoto.</p>;
+  if (!head) return <p className="text-screen-muted">{s.csvEmpty}</p>;
   return (
     <>
       <table className="pv-table text-screen-ink" data-testid="preview-table">
@@ -307,38 +306,29 @@ function CsvTable({ text }: { text: string }) {
           ))}
         </tbody>
       </table>
-      {more && (
-        <p className="mt-3 text-caption text-screen-muted">
-          Qui ci sono le prime righe: scarica il file per vederlo tutto.
-        </p>
-      )}
+      {more && <p className="mt-3 text-caption text-screen-muted">{s.csvMore}</p>}
     </>
   );
 }
 
 export function TextView({ meta, url }: { meta: FileMeta; url: string }) {
+  const s = previewStrings().text;
   const loaded = useText(url);
   const flavor = textFlavor(meta);
   const [asTable, setAsTable] = useState(true);
-  if (loaded.state === 'loading') return <p className="sr-only">Carico il testo…</p>;
+  if (loaded.state === 'loading') return <p className="sr-only">{s.loading}</p>;
   if (loaded.state === 'error')
-    return (
-      <p className="px-5 py-10 text-center text-screen-muted">Non riesco a leggere questo file.</p>
-    );
+    return <p className="px-5 py-10 text-center text-screen-muted">{s.error}</p>;
   const text = flavor === 'json' ? prettyJsonText(loaded.text) : loaded.text;
   const comments = flavor === 'code' ? commentMarks(meta.name) : flavor === 'json' ? [] : null;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {flavor === 'csv' && (
-        <div
-          role="radiogroup"
-          aria-label="Come mostrarlo"
-          className="flex shrink-0 gap-1 px-4 pb-2"
-        >
+        <div role="radiogroup" aria-label={s.how} className="flex shrink-0 gap-1 px-4 pb-2">
           {(
             [
-              [true, 'Tabella'],
-              [false, 'Testo'],
+              [true, s.table],
+              [false, s.text],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -365,7 +355,7 @@ export function TextView({ meta, url }: { meta: FileMeta; url: string }) {
         )}
         {loaded.cut && (
           <p className="mt-3 text-caption text-screen-muted">
-            Il file è lungo: qui ne vedi l’inizio ({formatBytes(TEXT_MAX_BYTES)}).
+            {s.long(formatBytes(TEXT_MAX_BYTES))}
           </p>
         )}
       </div>
@@ -385,13 +375,14 @@ export function TextView({ meta, url }: { meta: FileMeta; url: string }) {
  * scripts: the user turns them on here, with a click and a second one.
  */
 export function HtmlView({ meta, url, who }: { meta: FileMeta; url: string; who: string }) {
+  const s = previewStrings().html;
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const allow = () => {
     setBusy(true);
     getApi()
       .allowFileScripts(meta.id)
-      .then(replaceFileMeta, () => notify('Non sono riuscito ad attivare gli script', 'error'))
+      .then(replaceFileMeta, () => notify(s.scriptsFailed, 'error'))
       .finally(() => {
         setBusy(false);
         setAsking(false);
@@ -402,9 +393,7 @@ export function HtmlView({ meta, url, who }: { meta: FileMeta; url: string; who:
       {meta.inert && (
         <div className="flex shrink-0 flex-wrap items-center gap-2" data-testid="preview-inert">
           <p className="min-w-0 flex-1 text-caption leading-5 text-screen-muted">
-            {asking
-              ? 'Gli script della pagina partono solo dentro la scatola, senza rete. Se non ti fidi del contenuto che il mostro ha letto, lasciali spenti.'
-              : 'Pagina con script disattivati: è stata creata dopo aver letto contenuti esterni.'}
+            {asking ? s.askingScripts : s.inert}
           </p>
           <button
             type="button"
@@ -413,7 +402,7 @@ export function HtmlView({ meta, url, who }: { meta: FileMeta; url: string; who:
             onClick={() => (asking ? allow() : setAsking(true))}
             data-testid="preview-allow-scripts"
           >
-            {asking ? 'Sì, attivali' : 'Attiva gli script'}
+            {asking ? s.yes : s.turnOn}
           </button>
           {asking && (
             <button
@@ -421,7 +410,7 @@ export function HtmlView({ meta, url, who }: { meta: FileMeta; url: string; who:
               className="screen-key h-8 px-2.5"
               onClick={() => setAsking(false)}
             >
-              Lascia spenti
+              {s.leaveOff}
             </button>
           )}
         </div>
@@ -429,7 +418,7 @@ export function HtmlView({ meta, url, who }: { meta: FileMeta; url: string; who:
       <iframe
         key={meta.inert ? 'inert' : 'scripts'}
         src={url}
-        title={`Pagina: ${meta.name}`}
+        title={s.frame(meta.name)}
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
         allow="camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'; fullscreen 'none'; payment 'none'; usb 'none'"
@@ -437,14 +426,14 @@ export function HtmlView({ meta, url, who }: { meta: FileMeta; url: string; who:
         data-testid="preview-html"
       />
       <p className="label shrink-0 text-screen-muted" data-testid="preview-sandbox-note">
-        Pagina {who} · in una scatola chiusa: niente rete, niente accesso a Monsters
-        {meta.inert ? ' · script spenti' : ''}
+        {s.note(who, Boolean(meta.inert))}
       </p>
     </div>
   );
 }
 
 export function OtherView({ meta }: { meta: FileMeta }) {
+  const s = previewStrings().other;
   const bridge = desktop();
   return (
     <div
@@ -459,9 +448,7 @@ export function OtherView({ meta }: { meta: FileMeta }) {
         {kindWord(meta.kind)} · {formatBytes(meta.size)}
       </p>
       <p className="max-w-[340px] text-caption leading-5 text-screen-muted">
-        {bridge?.openFile
-          ? 'Monsters non sa mostrarlo qui: aprilo con il suo programma o scaricalo.'
-          : 'Monsters non sa mostrarlo qui: scaricalo per aprirlo con il suo programma.'}
+        {bridge?.openFile ? s.withBridge : s.withoutBridge}
       </p>
     </div>
   );

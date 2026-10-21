@@ -8,44 +8,50 @@ import { SCREEN_DIFF } from '../../theme/vault.ts';
 import { cn, domId } from '../../lib/utils.ts';
 import { Button } from '../ui/button.tsx';
 import { vaultApi, vaultError } from './api.ts';
+import { noteStrings } from './note.strings.ts';
 import { agoText, AuthorScreen, stampDate } from './shared.tsx';
 
-/** What a commit message says, in words: "vault_edit: Risorse/x.md [agent=…]" → "Modifica". */
+/** What a commit message says, in words: "vault_edit: Risorse/x.md [agent=…]" → "Edited". */
 export function actionLabel(message: string): string {
+  const s = noteStrings().history;
   const tool = /^(\w+):/.exec(message)?.[1] ?? '';
   switch (tool) {
     case 'vault_write':
-      return 'Scritta';
+      return s.written;
     case 'vault_edit':
-      return 'Modificata';
+      return s.edited;
     case 'vault_move':
-      return 'Spostata o rinominata';
+      return s.moved;
     case 'vault_delete':
-      return 'Spostata nel cestino';
+      return s.deleted;
     case 'vault_restore':
-      return 'Versione ripristinata';
+      return s.restored;
     case 'vault_undo':
-      return 'Modifica annullata';
+      return s.undone;
     case 'vault_apply_proposal':
-      return 'Proposta applicata';
+      return s.applied;
     case 'vault_propose':
-      return 'Proposta';
+      return s.proposal;
     default:
-      return /snapshot|esterna|outside/i.test(message)
-        ? 'Modificata fuori da Monsters'
-        : 'Modificata';
+      // i18n-ignore: words of the core's commit messages
+      return /snapshot|esterna|outside/i.test(message) ? s.outside : s.edited;
   }
 }
 
+/** The line a hunk header points at ("@@ -1,3 +4,5 @@" → "4"); null for the bare "@@"; undefined for any other line. */
+function hunkLine(line: string): string | null | undefined {
+  if (!line.startsWith('@@')) return undefined;
+  return /\+(\d+)/.exec(line)?.[1] ?? /(\d+)/.exec(line)?.[1] ?? null;
+}
+
 /**
- * A hunk header read for people: "@@ riga 4 @@" (or "@@ -1,3 +4,5 @@") becomes
- * "· riga 4 ·"; the bare "@@" of the core (lines skipped) a quiet "· · ·".
- * Null for any other line.
+ * A hunk header read for people: "@@ -1,3 +4,5 @@" becomes "· line 4 ·"; the
+ * bare "@@" of the core (lines skipped) a quiet "· · ·". Null for any other line.
  */
 export function hunkText(line: string): string | null {
-  if (!line.startsWith('@@')) return null;
-  const at = /\+(\d+)/.exec(line)?.[1] ?? /(\d+)/.exec(line)?.[1];
-  return at ? `· riga ${at} ·` : '· · ·';
+  const at = hunkLine(line);
+  if (at === undefined) return null;
+  return at ? noteStrings().history.atLine(at) : '· · ·';
 }
 
 /**
@@ -58,13 +64,13 @@ export function splitDiff(diff: string): { body: string[]; meta: string[] } {
   const meta: string[] = [];
   /** Where the YAML block is: before it, inside it, after it (or no block at all). */
   let state: 'start' | 'in' | 'out' = 'start';
-  /** "@@ riga 1 @@" at the top: it goes with the properties if they come next. */
+  /** The hunk header of line 1 at the top: it goes with the properties if they come next. */
   let first: string | null = null;
   for (const line of diff.split('\n')) {
-    const hunk = hunkText(line);
-    if (hunk !== null) {
+    const at = hunkLine(line);
+    if (at !== undefined) {
       // A hunk past the top of the note cannot be in the properties.
-      if (state === 'start' && hunk === '· riga 1 ·' && first === null) first = line;
+      if (state === 'start' && at === '1' && first === null) first = line;
       else {
         if (state === 'start') state = 'out';
         if (state !== 'in') body.push(line);
@@ -100,6 +106,7 @@ export function DiffLines({
   testId?: string;
 }) {
   const c = SCREEN_DIFF;
+  const s = noteStrings().history;
   return (
     <pre
       className="screen scroll-soft max-h-[360px] overflow-auto rounded-[10px] py-2.5 font-mono text-micro leading-[1.7] text-screen-ink [scrollbar-color:rgba(255,255,255,.2)_transparent]"
@@ -127,7 +134,7 @@ export function DiffLines({
                   : undefined
             }
           >
-            <span className="sr-only">{add ? 'Aggiunto: ' : del ? 'Tolto: ' : ''}</span>
+            <span className="sr-only">{add ? s.added : del ? s.removed : ''}</span>
             {line || ' '}
           </span>
         );
@@ -138,11 +145,11 @@ export function DiffLines({
 
 /**
  * A line diff (`-`/`+` lines) on a small black screen, in Martian Mono: the
- * hunk headers become "· riga N ·", the properties of the note fold under it.
+ * hunk headers become "· line N ·", the properties of the note fold under it.
  */
 export function Diff({
   diff,
-  empty = 'In questa versione il testo non è cambiato.',
+  empty = noteStrings().history.unchanged,
 }: {
   diff: string;
   empty?: string;
@@ -166,7 +173,7 @@ export function Diff({
               aria-hidden
               className="turn group-open/meta:rotate-90"
             />
-            Proprietà cambiate
+            {noteStrings().history.changedProps}
           </summary>
           <div className="mt-2">
             <DiffLines lines={meta} />
@@ -188,6 +195,7 @@ function Entry({
   latest: boolean;
   onRestored: () => void;
 }) {
+  const s = noteStrings().history;
   const nameOf = useNameOf();
   const id = domId(useId());
   const [open, setOpen] = useState(false);
@@ -211,7 +219,7 @@ function Entry({
     setBusy(true);
     try {
       await vaultApi.restore(path, entry.commit);
-      notify('Fatto: la nota è tornata a quella versione.', 'success');
+      notify(s.restoredDone, 'success');
       onRestored();
     } catch (err) {
       notify(vaultError(err), 'error');
@@ -237,14 +245,14 @@ function Entry({
             <span
               className="vault-date text-ink-faint"
               // The version id is for whoever looks for it in git: in the tooltip only.
-              title={`${agoText(entry.date)} · versione ${entry.commit.slice(0, 7)}`}
+              title={s.version(agoText(entry.date), entry.commit.slice(0, 7))}
             >
               {stampDate(entry.date)}
             </span>
             {latest && (
               <span className="label inline-flex items-center gap-2 text-ink-muted">
                 <span aria-hidden className="led size-1.5" data-tone="ok" />
-                versione attuale
+                {s.current}
               </span>
             )}
           </p>
@@ -260,7 +268,7 @@ function Entry({
             }}
             data-testid="vault-restore-version"
           >
-            Torna a questa versione
+            {s.goBack}
           </Button>
         )}
       </div>
@@ -278,7 +286,7 @@ function Entry({
             aria-hidden
             className={cn('turn', open && 'rotate-90')}
           />
-          Dettagli
+          {s.details}
         </button>
         {open && (
           <div id={`${id}-diff`} className="mt-2 flex flex-col gap-2">
@@ -288,7 +296,7 @@ function Entry({
               <Diff diff={version.diff} />
             ) : (
               <p className="text-footnote text-ink-muted" aria-busy="true">
-                Carico le modifiche…
+                {s.loadingChanges}
               </p>
             )}
           </div>
@@ -299,8 +307,8 @@ function Entry({
 }
 
 /**
- * Versions of a note, newest first: what changed in each (under "Dettagli") and
- * one action, back to that version. Undoing a single change lives in Attività.
+ * Versions of a note, newest first: what changed in each (under "Details") and
+ * one action, back to that version. Undoing a single change lives in Activity.
  */
 export function NoteHistory({
   path,
@@ -315,6 +323,7 @@ export function NoteHistory({
   const [loaded, setLoaded] = useState<{ path: string; entries: VaultHistoryEntry[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const entries = loaded?.path === path ? loaded.entries : null;
+  const s = noteStrings().history;
 
   useEffect(() => {
     let alive = true;
@@ -335,17 +344,12 @@ export function NoteHistory({
   if (!entries)
     return (
       <p className="py-6 text-body text-ink-muted" aria-busy="true">
-        Carico la cronologia…
+        {s.loadingHistory}
       </p>
     );
-  if (entries.length === 0)
-    return (
-      <p className="py-6 text-body text-ink-muted">
-        Nessuna versione salvata: la nota non è ancora nella cronologia.
-      </p>
-    );
+  if (entries.length === 0) return <p className="py-6 text-body text-ink-muted">{s.none}</p>;
   return (
-    <ol className="vault-rules" aria-label="Versioni della nota" data-testid="vault-history">
+    <ol className="vault-rules" aria-label={s.versions} data-testid="vault-history">
       {entries.map((e, i) => (
         <Entry
           key={`${path}@${e.commit}`}

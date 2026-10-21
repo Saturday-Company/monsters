@@ -1,4 +1,4 @@
-import type { DraftView } from '@monsters/shared';
+import { setAppLang, type DraftView } from '@monsters/shared';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -30,7 +30,7 @@ describe('a project in "Da rivedere" shows the folder it grants', () => {
     expect(html).toContain('data-testid="draft-plan-folder"');
     expect(html).toContain('Documenti');
     expect(html).toContain(
-      'Tutti i mostri del progetto potranno leggere e scrivere qui, con tutto quello che c’è già.',
+      'All the project’s monsters will be able to read and write here, with everything that’s already in it.',
     );
   });
 
@@ -39,12 +39,32 @@ describe('a project in "Da rivedere" shows the folder it grants', () => {
       folder: '/home/andrea/Monsters Progetti/Documenti',
       plan: { lead: { name: 'Ade' }, members: [], automations: [], createFolder: true },
     });
-    expect(folderGrant(made)).toBe('Tutti i mostri del progetto potranno leggere e scrivere qui.');
+    expect(folderGrant(made)).toBe(
+      'All the project’s monsters will be able to read and write here.',
+    );
     expect(renderToStaticMarkup(createElement(PlanSummary, { d: made }))).toContain(
-      'la creo alla conferma',
+      'I’ll create it when you confirm',
     );
     expect(renderToStaticMarkup(createElement(PlanSummary, { d: draft() }))).not.toContain(
       'draft-plan-folder',
     );
+  });
+
+  it('says it in Italian too', () => {
+    setAppLang('it');
+    try {
+      expect(
+        folderGrant(
+          draft({ plan: { lead: {}, members: [], automations: [], createFolder: true } }),
+        ),
+      ).toBe('Tutti i mostri del progetto potranno leggere e scrivere qui.');
+      expect(
+        renderToStaticMarkup(createElement(PlanSummary, { d: draft({ folder: '/home/a/D' }) })),
+      ).toContain(
+        'Tutti i mostri del progetto potranno leggere e scrivere qui, con tutto quello che c’è già.',
+      );
+    } finally {
+      setAppLang('en');
+    }
   });
 });

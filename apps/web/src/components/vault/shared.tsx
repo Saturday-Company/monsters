@@ -1,3 +1,4 @@
+import { formatDate } from '@monsters/shared';
 import { Gear, LockSimple, User } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
 import { noteName, plainText } from '../../lib/markdown.ts';
@@ -6,6 +7,7 @@ import { useApp } from '../../store/app.ts';
 import { useAgent } from '../../store/hooks.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { cn, formatAgo, formatListTime } from '../../lib/utils.ts';
+import { vaultStrings } from './vault.strings.ts';
 
 /** Id of the newest `vault_change` among the last events (the view reloads on a change). */
 export function lastVaultChange(s: Pick<AppState, 'events'>): string | null {
@@ -32,24 +34,24 @@ export function agoText(date: string | null | undefined, now = Date.now()): stri
   return t === null ? '' : formatAgo(t, now);
 }
 
-/** The date of a list row, as Notes shows it: the time today, "Ieri", the weekday, the day. */
+/** The date of a list row, as Notes shows it: the time today, "Yesterday", the weekday, the day. */
 export function listDate(date: string | null | undefined, now = Date.now()): string {
   const t = vaultTime(date);
   return t === null ? '' : formatListTime(t, now);
 }
 
-const longDateFmt = new Intl.DateTimeFormat('it-IT', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
-/** "15 ottobre 2026 alle ore 15:31": the date above a note, as Notes shows it. */
+/** "October 15, 2026 at 3:31 PM": the date above a note, as Notes shows it. */
 export function longDate(date: string | null | undefined): string {
   const t = vaultTime(date);
-  return t === null ? '' : longDateFmt.format(t);
+  return t === null
+    ? ''
+    : formatDate(t, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -100,7 +102,7 @@ export function cleanSnippet(text: string): string {
     .trim();
 }
 
-/** "Privata" mark: the owner sees private notes, the agents do not. */
+/** "Private" mark: the owner sees private notes, the agents do not. */
 export function PrivateMark({
   compact = false,
   className,
@@ -108,6 +110,7 @@ export function PrivateMark({
   compact?: boolean;
   className?: string;
 }) {
+  const s = vaultStrings().shared;
   return (
     <span
       className={cn(
@@ -115,11 +118,11 @@ export function PrivateMark({
         compact ? 'size-4 justify-center' : 'label well h-6 rounded-[6px] px-2 text-ink-muted',
         className,
       )}
-      title="Nota privata: la vedi solo tu (e il tuo capo)"
+      title={s.privateTitle}
       data-testid="private-mark"
     >
       <LockSimple size={compact ? 12 : 12} weight={compact ? 'fill' : 'bold'} aria-hidden />
-      {compact ? <span className="sr-only">Privata</span> : 'Privata'}
+      {compact ? <span className="sr-only">{s.private}</span> : s.private}
     </span>
   );
 }

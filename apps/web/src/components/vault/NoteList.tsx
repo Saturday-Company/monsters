@@ -12,6 +12,7 @@ import type {
   VaultSearchHit,
   VaultSearchMode,
 } from '@monsters/shared';
+import { compareText } from '@monsters/shared';
 import { memo, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { vaultPath } from '../../lib/router.ts';
 import { folderOf, foldersOf } from '../../lib/vault-markdown.ts';
@@ -20,6 +21,7 @@ import { KeyCap } from '../ui/button.tsx';
 import { Chip, Segmented, Switch } from '../ui/controls.tsx';
 import { vaultApi, vaultError } from './api.ts';
 import { cleanSnippet, isAgentNote, listDate, previewText, PrivateMark } from './shared.tsx';
+import { vaultStrings } from './vault.strings.ts';
 
 export interface Filters {
   query: string;
@@ -38,7 +40,7 @@ export const NO_FILTERS: Filters = {
   agents: false,
 };
 
-/** How many notes "Recenti" shows above the folders. */
+/** How many notes "Recent" shows above the folders. */
 export const RECENT_COUNT = 5;
 
 /** Notes matching the folder, tag and monsters' notes filters (no text query). */
@@ -66,16 +68,16 @@ export function groupByFolder(
     else map.set(f, [n]);
   }
   return [...map.entries()]
-    .sort(([a], [b]) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b, 'it')))
+    .sort(([a], [b]) => (a === '' ? -1 : b === '' ? 1 : compareText(a, b)))
     .map(([folder, list]) => ({
       folder,
-      notes: list.sort((a, b) => a.title.localeCompare(b.title, 'it')),
+      notes: list.sort((a, b) => compareText(a.title, b.title)),
     }));
 }
 
 /** A folder path for people: "Aree › Salute", the main folder by name. */
 export function folderLabel(folder: string): string {
-  return folder ? folder.split('/').join(' › ') : 'Cartella principale';
+  return folder ? folder.split('/').join(' › ') : vaultStrings().mainFolder;
 }
 
 export interface SearchState {
@@ -197,7 +199,9 @@ const NoteRow = memo(function NoteRow({
         ) : (
           <span className="mt-1 flex min-w-0 items-baseline gap-2 text-footnote leading-snug">
             {date && <span className="label shrink-0 font-normal text-ink-faint">{date}</span>}
-            <span className="min-w-0 truncate text-ink-muted">{preview || 'Nessun testo'}</span>
+            <span className="min-w-0 truncate text-ink-muted">
+              {preview || vaultStrings().list.noText}
+            </span>
           </span>
         )}
         {(showFolder || shown.length > 0) && (
@@ -252,6 +256,7 @@ export function NoteList({
   search,
   trashOpen = false,
 }: NoteListProps) {
+  const s = vaultStrings().list;
   const id = domId(useId());
   const [panel, setPanel] = useState(false);
   const query = filters.query.trim();
@@ -298,7 +303,7 @@ export function NoteList({
       <div className="flex flex-col gap-2 px-3 pt-3 pb-2">
         <div className="flex items-center gap-1.5">
           <label className="relative block min-w-0 flex-1">
-            <span className="sr-only">Cerca nelle note</span>
+            <span className="sr-only">{s.search}</span>
             <MagnifyingGlass
               size={15}
               aria-hidden
@@ -308,7 +313,7 @@ export function NoteList({
               type="search"
               value={filters.query}
               onChange={(e) => set({ query: e.target.value })}
-              placeholder="Cerca"
+              placeholder={s.searchPlaceholder}
               title={overview?.semanticReason}
               data-testid="vault-search"
               className="well h-10 w-full rounded-[10px] pr-9 pl-9.5 text-body text-ink placeholder:text-ink-muted focus:outline-2 focus:outline-offset-0 focus:outline-signal-ink [&::-webkit-search-cancel-button]:hidden"
@@ -317,7 +322,7 @@ export function NoteList({
               <button
                 type="button"
                 onClick={() => set({ query: '' })}
-                aria-label="Cancella la ricerca"
+                aria-label={s.clearSearch}
                 className="absolute top-1/2 right-1.5 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-[7px] text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-signal-ink"
               >
                 <X size={12} weight="bold" aria-hidden />
@@ -329,7 +334,7 @@ export function NoteList({
             onClick={() => setPanel((v) => !v)}
             aria-expanded={panel}
             aria-controls={`${id}-filters`}
-            title="Filtri"
+            title={s.filters}
             data-testid="vault-filters-toggle"
             data-pressed={panel ? 'true' : undefined}
             className={cn(
@@ -338,9 +343,7 @@ export function NoteList({
             )}
           >
             <SlidersHorizontal size={19} aria-hidden />
-            <span className="sr-only">
-              Filtri{active > 0 ? ` (${active} attiv${active === 1 ? 'o' : 'i'})` : ''}
-            </span>
+            <span className="sr-only">{active > 0 ? s.filtersActive(active) : s.filters}</span>
             {active > 0 && (
               <span
                 aria-hidden
@@ -359,7 +362,7 @@ export function NoteList({
           >
             <div className="flex items-center gap-2">
               <label htmlFor={`${id}-folder`} className="label w-[72px] shrink-0 text-ink-faint">
-                Cartella
+                {s.folder}
               </label>
               <select
                 id={`${id}-folder`}
@@ -368,7 +371,7 @@ export function NoteList({
                 data-testid="vault-folder"
                 className="well h-10 min-w-0 flex-1 rounded-[10px] px-2.5 text-body text-ink focus:outline-2 focus:outline-offset-0 focus:outline-signal-ink"
               >
-                <option value="">Tutte</option>
+                <option value="">{s.all}</option>
                 {folders.map((f) => (
                   <option key={f} value={f}>
                     {folderLabel(f)}
@@ -377,7 +380,7 @@ export function NoteList({
               </select>
             </div>
             {tags.length > 0 && (
-              <div role="group" aria-label="Filtra per tag" className="flex flex-wrap gap-1.5">
+              <div role="group" aria-label={s.filterByTag} className="flex flex-wrap gap-1.5">
                 {tags.map((t) => (
                   <Chip
                     key={t.tag}
@@ -393,28 +396,28 @@ export function NoteList({
             )}
             {semantic && (
               <div className="flex flex-col gap-1.5">
-                <span className="label text-ink-faint">Cerca</span>
+                <span className="label text-ink-faint">{s.searchMode}</span>
                 <Segmented
                   value={filters.mode === 'text' ? 'text' : 'hybrid'}
                   onChange={(v) => set({ mode: v })}
-                  label="Tipo di ricerca"
+                  label={s.searchType}
                   size="sm"
                   fill
                   options={[
-                    { value: 'hybrid', label: 'Anche simili' },
-                    { value: 'text', label: 'Parole esatte' },
+                    { value: 'hybrid', label: s.similar },
+                    { value: 'text', label: s.exact },
                   ]}
                 />
               </div>
             )}
             <div className="seam-t -mx-3.5 flex items-center justify-between gap-3 px-3.5 pt-3.5">
               <span id={`${id}-agents`} className="text-footnote text-ink">
-                Mostra le note dei mostri
+                {s.showAgents}
               </span>
               <Switch
                 checked={filters.agents}
                 onCheckedChange={(v) => set({ agents: v })}
-                label="Mostra le note dei mostri"
+                label={s.showAgents}
               />
             </div>
           </div>
@@ -435,7 +438,7 @@ export function NoteList({
             onClick={clear}
             className="self-start rounded px-1 text-footnote font-medium text-signal-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-signal-ink"
           >
-            Togli i filtri
+            {s.clearFilters}
           </button>
         )}
       </div>
@@ -447,19 +450,19 @@ export function NoteList({
         {error && <p className="px-3 py-6 text-body text-ink-muted">{error}</p>}
         {!overview && !error && (
           <p className="px-3 py-6 text-body text-ink-muted" aria-busy="true">
-            Carico le note…
+            {s.loading}
           </p>
         )}
         {overview && query && (
-          <section aria-label="Risultati della ricerca">
+          <section aria-label={s.results}>
             <p className="label px-3 pt-3 pb-1.5 text-ink-faint" role="status">
               {search.searching && !search.hits
-                ? 'Cerco…'
+                ? s.searching
                 : search.error
                   ? search.error
                   : search.hits?.length === 0
-                    ? 'Nessuna nota trovata.'
-                    : `${search.hits?.length ?? 0} ${search.hits?.length === 1 ? 'nota' : 'note'}`}
+                    ? s.none
+                    : vaultStrings().noteCount(search.hits?.length ?? 0)}
             </p>
             <ul className="flex flex-col gap-px" data-testid="vault-results">
               {search.hits?.map((h) => {
@@ -485,7 +488,7 @@ export function NoteList({
           <>
             {!filtering && recent.length > 0 && (
               <section aria-labelledby={`${id}-recent`}>
-                <SectionTitle id={`${id}-recent`}>Recenti</SectionTitle>
+                <SectionTitle id={`${id}-recent`}>{s.recent}</SectionTitle>
                 <ul className="flex flex-col gap-px" data-testid="vault-recent">
                   {recent.map((n) => rowOf(n, true))}
                 </ul>
@@ -494,11 +497,11 @@ export function NoteList({
             {filtering ? (
               <p className="label px-3 pt-3 pb-1.5 text-ink-faint" role="status">
                 {filtered.length === 0
-                  ? 'Nessuna nota con questi filtri.'
-                  : `${filtered.length} ${filtered.length === 1 ? 'nota' : 'note'}`}
+                  ? s.noFilterMatch
+                  : vaultStrings().noteCount(filtered.length)}
               </p>
             ) : (
-              groups.length > 0 && <SectionTitle id={`${id}-folders`}>Cartelle</SectionTitle>
+              groups.length > 0 && <SectionTitle id={`${id}-folders`}>{s.folders}</SectionTitle>
             )}
             <div aria-labelledby={filtering ? undefined : `${id}-folders`} role="group">
               {groups.map((g) => (
@@ -536,13 +539,12 @@ export function NoteList({
                 )}
               >
                 <Trash size={18} aria-hidden className="shrink-0 text-ink-muted" />
-                Cestino
+                {s.trash}
               </a>
             )}
             {overview.total > overview.notes.length && (
               <p className="px-3 pt-3 text-footnote text-ink-muted">
-                Mostro le {overview.notes.length} note più recenti su {overview.total}: usa la
-                ricerca per le altre.
+                {s.capped(overview.notes.length, overview.total)}
               </p>
             )}
           </>
@@ -550,10 +552,8 @@ export function NoteList({
       </div>
       {overview && (
         <p className="seam-t flex items-center justify-between gap-3 px-4 pt-3 pb-2.5 text-caption text-ink-muted">
-          <span className="label text-ink-faint">
-            {visible.length} {visible.length === 1 ? 'nota' : 'note'}
-          </span>
-          <span>Puoi aprirle anche con Obsidian.</span>
+          <span className="label text-ink-faint">{vaultStrings().noteCount(visible.length)}</span>
+          <span>{s.footer}</span>
         </p>
       )}
     </div>

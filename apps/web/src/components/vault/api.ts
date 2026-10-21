@@ -19,6 +19,7 @@ import {
 import type { z } from 'zod';
 import { ApiError, describeError } from '../../lib/api.ts';
 import { getApi } from '../../store/app.ts';
+import { vaultStrings } from './vault.strings.ts';
 
 /* Client of the vault view API (contract in packages/shared/src/vault.ts). */
 
@@ -93,27 +94,27 @@ export const vaultApi = {
 
 /** Friendly text for the errors of the vault view. */
 export function vaultError(err: unknown): string {
+  const s = vaultStrings().errors;
   if (err instanceof ApiError) {
     switch (err.code) {
       case 'not_found':
-        return 'Questa nota non c’è (forse è stata spostata o cancellata).';
+        return s.notFound;
       case 'conflict':
-        return 'La nota è cambiata mentre la modificavi. Ricaricala e rifai la modifica.';
+        return s.conflict;
       case 'exists':
-        return 'C’è già una nota con questo nome.';
+        return s.exists;
       case 'permission_denied':
-        return 'Questa cartella la gestisce Monsters: non si tocca da qui.';
+        return s.permissionDenied;
       case 'unavailable':
-        return 'Queste note non hanno la cronologia: non posso farlo.';
+        return s.unavailable;
       case 'invalid_input':
-        if (err.message && /exists: pass the commit/.test(err.message))
-          return 'Esiste già una nota con questo percorso: spostala o rinominala, poi riprova.';
+        if (err.message && /exists: pass the commit/.test(err.message)) return s.pathExists;
         if (
           err.message &&
           /invalid characters|reserved by Windows|cannot contain/.test(err.message)
         )
-          return 'Il nome non può contenere # | ^ : % [ ] \\ / ? * " < > e non può essere un nome riservato di Windows.';
-        return 'Non posso farlo con questi dati.';
+          return s.badName;
+        return s.invalid;
       default:
         break;
     }

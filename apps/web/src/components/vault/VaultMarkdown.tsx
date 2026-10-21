@@ -13,6 +13,7 @@ import {
   tagOf,
 } from '../../lib/vault-markdown.ts';
 import { cn } from '../../lib/utils.ts';
+import { vaultStrings } from './vault.strings.ts';
 
 const PLUGINS = [remarkGfm];
 
@@ -35,8 +36,9 @@ export const VaultMarkdown = memo(function VaultMarkdown({
   onTag,
   className,
 }: VaultMarkdownProps) {
-  const components = useMemo<Components>(
-    () => ({
+  const components = useMemo<Components>(() => {
+    const s = vaultStrings().markdown;
+    return {
       a({ href, children }) {
         const url = href ?? '';
         if (isExternalUrl(url))
@@ -44,7 +46,7 @@ export const VaultMarkdown = memo(function VaultMarkdown({
             <a href={url} target="_blank" rel="noopener noreferrer" className="md-link">
               {children}
               <ArrowSquareOut size={13} weight="bold" aria-hidden className="md-ext" />
-              <span className="sr-only"> (si apre in una nuova scheda)</span>
+              <span className="sr-only">{s.newTab}</span>
             </a>
           );
         const tag = tagOf(url);
@@ -54,7 +56,7 @@ export const VaultMarkdown = memo(function VaultMarkdown({
               type="button"
               className="vault-tag"
               onClick={() => onTag(tag)}
-              title={`Mostra le note con #${tag}`}
+              title={s.showTag(tag)}
             >
               {children}
             </button>
@@ -66,7 +68,7 @@ export const VaultMarkdown = memo(function VaultMarkdown({
             return (
               <span className="vault-embed" data-testid="vault-embed">
                 <Image size={17} weight="bold" aria-hidden />
-                <span>Allegato: {name}</span>
+                <span>{s.attachment(name)}</span>
               </span>
             );
           const path = resolve(embed);
@@ -74,14 +76,14 @@ export const VaultMarkdown = memo(function VaultMarkdown({
             <a href={vaultPath(path)} className="vault-embed" data-testid="vault-embed">
               <FileText size={17} weight="fill" aria-hidden />
               <span>
-                <span className="sr-only">Nota incorporata: </span>
+                <span className="sr-only">{s.embedded}</span>
                 {name}
               </span>
             </a>
           ) : (
             <span className="vault-embed vault-missing" data-testid="vault-embed">
               <LinkBreak size={17} weight="bold" aria-hidden />
-              <span>{name} (non esiste ancora)</span>
+              <span>{s.notYet(name)}</span>
             </span>
           );
         }
@@ -92,7 +94,7 @@ export const VaultMarkdown = memo(function VaultMarkdown({
             return (
               <span
                 className="md-note vault-missing"
-                title="Questa nota non esiste ancora"
+                title={s.missing}
                 data-testid="vault-link-missing"
               >
                 <span>{children}</span>
@@ -102,7 +104,7 @@ export const VaultMarkdown = memo(function VaultMarkdown({
             <a
               href={vaultPath(path)}
               className="md-note"
-              title={`Apri “${noteName(linkNote(path))}”`}
+              title={s.open(noteName(linkNote(path)))}
               data-testid="vault-link"
             >
               <span>{children}</span>
@@ -113,7 +115,7 @@ export const VaultMarkdown = memo(function VaultMarkdown({
       },
       img({ src, alt }) {
         const url = typeof src === 'string' ? src : '';
-        const label = alt?.trim() ? `Immagine: ${alt.trim()}` : 'Immagine';
+        const label = s.image(alt?.trim() || null);
         return isExternalUrl(url) ? (
           <a href={url} target="_blank" rel="noopener noreferrer" className="md-link">
             {label}
@@ -133,9 +135,8 @@ export const VaultMarkdown = memo(function VaultMarkdown({
         if (type !== 'checkbox') return null;
         return <input type="checkbox" checked={!!checked} disabled readOnly className="md-check" />;
       },
-    }),
-    [resolve, onTag],
-  );
+    };
+  }, [resolve, onTag]);
   const prepared = useMemo(() => prepareNoteMarkdown(text), [text]);
   return (
     <div className={cn('md vault-md', className)} data-testid="vault-note-body">

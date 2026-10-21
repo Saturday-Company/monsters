@@ -1,4 +1,4 @@
-import type { LogEvent } from '@monsters/shared';
+import { setAppLang, type LogEvent } from '@monsters/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { previewChat } from '../src/components/dock/follow.ts';
 import { clampDockWidth, dockMaxWidth, dockMode } from '../src/components/dock/layout.ts';
@@ -154,11 +154,18 @@ describe('files named in messages and tool results', () => {
     expect(textFlavor({ name: 'note.txt', mime: 'text/plain' })).toBe('plain');
   });
 
-  it('says sizes the Italian way', () => {
-    expect(formatBytes(512)).toBe('512 byte');
+  it('says sizes in the language of the app', () => {
+    expect(formatBytes(512)).toBe('512 bytes');
     expect(formatBytes(48_213)).toBe('47 KB');
-    expect(formatBytes(2_871)).toBe('2,8 KB');
+    expect(formatBytes(2_871)).toBe('2.8 KB');
     expect(formatBytes(18_400_000)).toBe('18 MB');
+    setAppLang('it');
+    try {
+      expect(formatBytes(512)).toBe('512 byte');
+      expect(formatBytes(2_871)).toBe('2,8 KB');
+    } finally {
+      setAppLang('en');
+    }
   });
 });
 

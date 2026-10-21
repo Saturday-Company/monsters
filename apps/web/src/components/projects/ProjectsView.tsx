@@ -33,6 +33,7 @@ import {
   ProjectSpend,
 } from './ProjectSections.tsx';
 import { ProjectSquad } from './ProjectSquad.tsx';
+import { viewStrings } from './view.strings.ts';
 import '../settings/settings.css';
 
 /*
@@ -64,6 +65,7 @@ const ARMED_MS = 5000;
  * the first arms it for five seconds.
  */
 function StopProjectKey({ p }: { p: ProjectView }) {
+  const s = viewStrings().stop;
   const [armed, setArmed] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -79,20 +81,8 @@ function StopProjectKey({ p }: { p: ProjectView }) {
       const stopped = r.runsStopped + r.sendsDropped + r.giriSkipped;
       notify(
         stopped === 0
-          ? `Nel progetto ${p.name} non lavorava nessuno: niente da fermare.`
-          : `Ho fermato il lavoro di ${p.name}: ${[
-              r.runsStopped > 0
-                ? `${r.runsStopped} ${r.runsStopped === 1 ? 'lavoro' : 'lavori'}`
-                : null,
-              r.sendsDropped > 0
-                ? `${r.sendsDropped} ${r.sendsDropped === 1 ? 'richiesta' : 'richieste'} del tuo capo`
-                : null,
-              r.giriSkipped > 0
-                ? `${r.giriSkipped} ${r.giriSkipped === 1 ? 'giro' : 'giri'}`
-                : null,
-            ]
-              .filter(Boolean)
-              .join(', ')}.`,
+          ? s.nobody(p.name)
+          : s.stopped(p.name, r.runsStopped, r.sendsDropped, r.giriSkipped),
         'success',
       );
     } catch (err) {
@@ -105,19 +95,15 @@ function StopProjectKey({ p }: { p: ProjectView }) {
     <Button
       variant={armed ? 'danger' : 'secondary'}
       size="sm"
-      aria-label={armed ? `Premi di nuovo per fermare ${p.name}` : `Ferma i mostri di ${p.name}`}
-      title={
-        armed
-          ? 'Premi di nuovo per fermare il lavoro dei mostri del progetto'
-          : 'Ferma il lavoro dei mostri del progetto (non gli altri)'
-      }
+      aria-label={armed ? s.armedLabel(p.name) : s.label(p.name)}
+      title={armed ? s.armedTitle : s.title}
       disabled={busy}
       onClick={() => (armed ? void stop() : setArmed(true))}
       data-testid="project-stop"
       data-armed={armed ? 'true' : undefined}
     >
       <HandPalm size={18} aria-hidden />
-      {armed ? 'Di nuovo per fermare' : 'Ferma i mostri di questo progetto'}
+      {armed ? s.armedText : s.text}
     </Button>
   );
 }
@@ -154,7 +140,7 @@ function LeadChat({ p }: { p: ProjectView }) {
   const first = useRef(events.at(-1)?.id ?? '');
   useEffect(() => initBaseline(first.current), []);
   useEffect(() => checkModel(), []);
-  if (!p.lead) return <Message>Il progetto non ha ancora un capo.</Message>;
+  if (!p.lead) return <Message>{viewStrings().noLead}</Message>;
   return (
     <div
       className={cn(
@@ -246,7 +232,7 @@ function ProjectPage({ p, tab }: { p: ProjectView; tab: ProjectTab }) {
           items={TABS}
           value={tab}
           onChange={(t) => replaceHash(projectPath(p.id, t))}
-          label={`Sezioni di ${p.name}`}
+          label={viewStrings().sectionsOf(p.name)}
         />
         <StopProjectKey p={p} />
       </header>
@@ -283,7 +269,7 @@ export default function ProjectsView() {
         data-testid="project-new-page"
       >
         <ToolbarContent>
-          <ToolbarTitle id="project-new-title">Nuovo progetto</ToolbarTitle>
+          <ToolbarTitle id="project-new-title">{viewStrings().newProject}</ToolbarTitle>
         </ToolbarContent>
         <Scroll>
           <ProjectForm />
@@ -292,12 +278,12 @@ export default function ProjectsView() {
     );
   }
   if (!projects) {
-    return error ? <Message alert>{error}</Message> : <Message>Carico…</Message>;
+    return error ? <Message alert>{error}</Message> : <Message>{viewStrings().loading}</Message>;
   }
   if (!p) {
     return (
       <Scroll testId="project-missing">
-        <p className="text-large font-semibold text-ink">Questo progetto non c’è più.</p>
+        <p className="text-large font-semibold text-ink">{viewStrings().missing}</p>
       </Scroll>
     );
   }

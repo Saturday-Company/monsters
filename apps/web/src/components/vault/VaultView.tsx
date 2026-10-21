@@ -27,6 +27,7 @@ import { filterNotes, NO_FILTERS, NoteList, useVaultSearch, type Filters } from 
 import { NoteReader } from './NoteReader.tsx';
 import { GroupDot, isAgentNote, useLastVaultChange } from './shared.tsx';
 import { TrashView } from './TrashView.tsx';
+import { vaultStrings } from './vault.strings.ts';
 
 /* The graph (canvas and force layout) has a chunk of its own: loaded on the first visit. */
 const GraphView = lazy(() => import('./GraphView.tsx'));
@@ -36,19 +37,16 @@ function go(note: string | null, tab: VaultTab = 'note') {
 }
 
 function Empty({ overview }: { overview: VaultOverview | null }) {
+  const s = vaultStrings().view;
   const none = overview !== null && overview.notes.length === 0;
   return (
     <EmptyScreen
-      title={none ? 'Non ci sono ancora note' : 'Nessuna nota aperta'}
-      text={
-        none
-          ? 'Quando tu o i mostri scrivete una nota, la trovi qui.'
-          : 'Scegline una dall’elenco, o scrivine una nuova.'
-      }
+      title={none ? s.emptyNone : s.emptyNoNote}
+      text={none ? s.emptyNoneText : s.emptyNoNoteText}
     >
       {none && (
         <Button size="sm" onClick={() => go(null, 'nuova')}>
-          Nuova nota
+          {s.newNote}
         </Button>
       )}
     </EmptyScreen>
@@ -98,6 +96,7 @@ export default function VaultView() {
   const vista = useHashParam('vista');
   const tab: VaultTab =
     vista === 'grafo' || vista === 'cestino' || vista === 'nuova' ? vista : 'note';
+  const s = vaultStrings().view;
   const systemReduce = useReducedMotionPref();
   const appReduce = usePrefs((p) => p.reduceMotion);
   const reduceMotion = systemReduce || appReduce;
@@ -190,7 +189,7 @@ export default function VaultView() {
       if (entry) entry.count++;
       else
         counts.set(key, {
-          label: agent ? nameOf(agent) : 'Tue e altre',
+          label: agent ? nameOf(agent) : s.others,
           color: colorOf(n),
           count: 1,
         });
@@ -199,7 +198,7 @@ export default function VaultView() {
       (a, b) =>
         Number(a.color === SCREEN_INK) - Number(b.color === SCREEN_INK) || b.count - a.count,
     );
-  }, [graphNotes, colorOf, nameOf, agentColors]);
+  }, [graphNotes, colorOf, nameOf, agentColors, s]);
   const linkCount = useMemo(() => {
     if (!overview) return 0;
     const shown = new Set(graphNotes.map((n) => n.path));
@@ -209,7 +208,7 @@ export default function VaultView() {
 
   /*
    * Under 1200 px three columns are too narrow: with a note open the list leaves the page and
-   * comes back as a drawer over it, from the "Elenco" key of the rail (UX 17).
+   * comes back as a drawer over it, from the "List" key of the rail (UX 17).
    */
   const roomy1200 = useMediaQuery('(min-width: 1200px)');
   const drawerMode = wide && !roomy1200 && tab === 'note' && !!note;
@@ -230,13 +229,13 @@ export default function VaultView() {
   const showMain = wide || tab !== 'note' || !!note;
   /*
    * On a phone a note (or the graph, the trash, a new note) opens over the
-   * list: the rail's back key says "Note" and goes back to the list, the only
+   * list: the rail's back key says "Notes" and goes back to the list, the only
    * back on screen (audit UI-19). Between 768 and 900 px the rail has no back:
    * the sheet keeps its own.
    */
   const phone = useMediaQuery('(max-width: 767px)');
   const inside = !wide && showMain;
-  useToolbarBack(phone && inside ? { label: 'Note', run: () => go(null) } : null);
+  useToolbarBack(phone && inside ? { label: vaultStrings().notes, run: () => go(null) } : null);
   const roomy = useMediaQuery('(min-width: 1280px)');
   const keyLayout = phone ? 'stacked' : roomy ? 'inline' : 'icon';
   const sheetBack = inside && !phone ? () => go(null) : undefined;
@@ -248,15 +247,15 @@ export default function VaultView() {
       data-testid="vault-view"
     >
       <ToolbarContent>
-        {/* On a phone inside a note the back key already says "Note". */}
+        {/* On a phone inside a note the back key already says "Notes". */}
         <ToolbarTitle id="vault-title" className={cn(phone && inside && 'sr-only')}>
-          Note
+          {vaultStrings().notes}
         </ToolbarTitle>
         <ToolbarActions>
           {drawerMode && (
             <ToolButton
-              label="Elenco"
-              short="Elenco"
+              label={s.list}
+              short={s.list}
               layout={keyLayout}
               pressed={drawerOpen}
               onClick={() => setDrawer(!drawerOpen)}
@@ -266,8 +265,8 @@ export default function VaultView() {
             </ToolButton>
           )}
           <ToolButton
-            label="Grafo"
-            short="Grafo"
+            label={s.graph}
+            short={s.graph}
             layout={keyLayout}
             pressed={tab === 'grafo'}
             onClick={() => go(tab === 'grafo' ? note : null, tab === 'grafo' ? 'note' : 'grafo')}
@@ -276,8 +275,8 @@ export default function VaultView() {
             <Graph size={20} aria-hidden />
           </ToolButton>
           <ToolButton
-            label="Nuova nota"
-            short="Nuova"
+            label={s.newNote}
+            short={s.newShort}
             layout={keyLayout}
             pressed={tab === 'nuova'}
             onClick={() => go(null, 'nuova')}
@@ -292,13 +291,13 @@ export default function VaultView() {
           <>
             <button
               type="button"
-              aria-label="Chiudi l’elenco"
+              aria-label={s.closeList}
               tabIndex={-1}
               onClick={() => setDrawerFor(null)}
               className="absolute inset-0 z-20 cursor-default bg-transparent"
             />
             <aside
-              aria-label="Elenco delle note"
+              aria-label={s.listLabel}
               data-testid="vault-list-drawer"
               className="raised slide-in absolute inset-y-2 left-2 z-30 flex w-[min(360px,calc(100%-16px))] flex-col overflow-hidden rounded-[14px]"
             >
@@ -316,7 +315,7 @@ export default function VaultView() {
         )}
         {showList && (
           <aside
-            aria-label="Elenco delle note"
+            aria-label={s.listLabel}
             className="flex min-h-0 w-full flex-col min-[900px]:w-[328px] min-[900px]:shrink-0"
           >
             <NoteList
@@ -355,7 +354,7 @@ export default function VaultView() {
                   <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] flex flex-wrap items-start justify-between gap-x-6 gap-y-2 px-4 pt-3.5">
                     <ul
                       className="flex flex-wrap gap-x-4 gap-y-1.5 text-screen-muted"
-                      aria-label="Legenda"
+                      aria-label={s.legend}
                     >
                       {legend.map((l) => (
                         <li key={l.label} className="label inline-flex items-center gap-2">
@@ -369,8 +368,7 @@ export default function VaultView() {
                       className="label text-screen-muted max-sm:hidden"
                       data-testid="vault-graph-count"
                     >
-                      {graphNotes.length} {graphNotes.length === 1 ? 'nota' : 'note'} · {linkCount}{' '}
-                      {linkCount === 1 ? 'collegamento' : 'collegamenti'}
+                      {s.graphCount(graphNotes.length, linkCount)}
                     </p>
                   </div>
                   {overview ? (
@@ -378,7 +376,7 @@ export default function VaultView() {
                       <Suspense
                         fallback={
                           <p className="label p-6 text-screen-muted" aria-busy="true">
-                            Preparo il grafo…
+                            {s.preparing}
                           </p>
                         }
                       >
@@ -395,17 +393,13 @@ export default function VaultView() {
                     </ErrorBoundary>
                   ) : (
                     <p className="label p-6 text-screen-muted" aria-busy="true">
-                      {error ?? 'Carico le note…'}
+                      {error ?? s.loading}
                     </p>
                   )}
                 </div>
                 <p className="px-1 text-footnote text-ink-muted">
-                  {highlight
-                    ? highlight.size === 1
-                      ? 'In evidenza la nota trovata. '
-                      : `In evidenza le ${highlight.size} note trovate. `
-                    : 'Trascina per spostarti, rotella o due dita per lo zoom. '}
-                  Clic su un punto per aprire la nota; da tastiera frecce e Invio.
+                  {highlight ? s.hintFound(highlight.size) : s.hintDrag}
+                  {s.hintClick}
                 </p>
               </div>
             )}

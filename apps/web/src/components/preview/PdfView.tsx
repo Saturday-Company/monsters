@@ -2,9 +2,10 @@ import type { FileMeta } from '@monsters/shared';
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { previewStrings } from './preview.strings.ts';
 
 /*
- * PDFs in Anteprima, drawn by pdf.js in a chunk of their own (~450 kB, plus its
+ * PDFs in the preview, drawn by pdf.js in a chunk of their own (~450 kB, plus its
  * worker ~1.3 MB, fetched only when a PDF opens). Why not the browser's viewer
  * in an iframe: in the desktop app it needs `plugins: true` in Electron, and
  * its frame could not keep the sandbox CSP every file is served with. Here the
@@ -91,6 +92,7 @@ function PdfPage({
 }
 
 export default function PdfView({ meta, url }: { meta: FileMeta; url: string }) {
+  const s = previewStrings().pdf;
   const area = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [doc, setDoc] = useState<{ doc: PDFDocumentProxy; ratio: number } | null>(null);
@@ -138,7 +140,7 @@ export default function PdfView({ meta, url }: { meta: FileMeta; url: string }) 
   if (failed)
     return (
       <p className="px-5 py-10 text-center text-screen-muted" data-testid="preview-pdf-failed">
-        Questo PDF non si apre qui: scaricalo per leggerlo con il suo programma.
+        {s.failed}
       </p>
     );
 
@@ -150,7 +152,7 @@ export default function PdfView({ meta, url }: { meta: FileMeta; url: string }) 
         className="scroll-screen min-h-0 flex-1 overflow-y-auto pb-6"
         style={{ paddingInline: SIDE }}
         data-testid="preview-pdf"
-        aria-label={`${meta.name}, ${pages} ${pages === 1 ? 'pagina' : 'pagine'}`}
+        aria-label={s.label(meta.name, pages)}
         role="document"
       >
         {doc && width > 0 && (
@@ -167,14 +169,14 @@ export default function PdfView({ meta, url }: { meta: FileMeta; url: string }) 
             ))}
           </div>
         )}
-        {!doc && <p className="px-5 py-10 text-center text-screen-muted">Carico il PDF…</p>}
+        {!doc && <p className="px-5 py-10 text-center text-screen-muted">{s.loading}</p>}
       </div>
       {pages > 0 && (
         <p
           className="label pointer-events-none absolute right-4 bottom-3 rounded-[6px] bg-screen/80 px-2 py-1 text-screen-muted"
           data-testid="preview-pdf-pages"
         >
-          Pagina {page} / {pages}
+          {s.page(page, pages)}
         </p>
       )}
     </div>
