@@ -1,5 +1,11 @@
 import { Copy, Desktop, Moon, SignOut, Sun } from '@phosphor-icons/react';
-import { LANGS, PASSWORD_MIN_LENGTH, type Lang, type SettingsResponse } from '@monsters/shared';
+import {
+  LANGS,
+  PASSWORD_MIN_LENGTH,
+  setVaultLayout,
+  type Lang,
+  type SettingsResponse,
+} from '@monsters/shared';
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { desktop, loginItemState, type DesktopLoginItem } from '../../lib/desktop.ts';
 import { playSound } from '../../lib/sound.ts';
@@ -29,7 +35,9 @@ function Language() {
     if (next === lang) return;
     setBusy(true);
     try {
-      await getApi().setLanguage(next);
+      const settings = await getApi().setLanguage(next);
+      // A vault not used yet takes the language's folder names (D-154).
+      if (settings.vaultLayout) setVaultLayout(settings.vaultLayout);
       // Remounts the UI in the new language: this row goes with it.
       applyLang(next);
     } catch {

@@ -255,6 +255,7 @@ export async function startCore(options: StartCoreOptions = {}): Promise<CoreSer
     // `stream` is assigned below, before the server accepts any request.
     onSessionEnded: (sessionId) => stream.closeSession(sessionId),
     onSetupCompleted: () => rmSync(paths.setupCode, { force: true }),
+    onLanguageChosen: () => hub.adoptVaultLayout(),
     continueWork: {
       pending: () => hub.haltedRequests(),
       start: (requests, by) => hub.continueRequests(requests, by),

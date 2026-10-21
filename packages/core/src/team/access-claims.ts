@@ -327,13 +327,37 @@ export function isAccessClaim(line: string, ctx: ClaimContext = {}): boolean {
   if (findAccessClaims(line, ctx).length > 0) return true;
   const s = line.replace(/[’`´]/g, "'").replace(NEGATED, ' ');
   if (!(CAUSE.test(s) || PLAIN.test(s) || SESSION.test(s))) return false;
-  return ACCESS_WORDS.test(s);
+  if (ACCESS_WORDS.test(s)) return true;
+  return WORDS_WITH_SUBJECT.test(s) && hasAccessSubject(s, ctx);
 }
 
 /** What a line about accesses talks about, whatever the service. */
 const ACCESS_WORDS = unicodeWords(
-  /\b(?:permess\w*|accesso|accessi|collegament\w*|collegat\w*|strument\w*|connettor\w*|servizi|integrazion\w*|don'?t ?ask|sessione|web|internet|terminale|browser|tool|tools|permission\w*|access|connect\w*|link\w*|integration\w*|terminal|session|service|services)\b/iu, // i18n-ignore
+  /\b(?:permess\w*|accesso|accessi|collegament\w*|collegat\w*|strument\w*|connettor\w*|servizi|integrazion\w*|don'?t ?ask|sessione|web|internet|terminale|browser|tool|tools|permission\w*|access|connectors?|integration\w*|terminal)\b/iu, // i18n-ignore
 );
+
+/**
+ * English words of everyday life too ("the link to the venue", "the Tuesday session", "the
+ * customer service"): about accesses only with an access subject in the line (S3).
+ */
+const WORDS_WITH_SUBJECT = unicodeWords(
+  /\b(?:connect\w*|link\w*|sessions?|services?)\b/iu, // i18n-ignore
+);
+
+/** The monster speaking of itself (case matters: the Italian article "i" is no "I"). */
+const FIRST_PERSON = unicodeWords(
+  /\b(?:I|I'm|I've|I'd|I'll)\b|\b(?:me|my|myself|we|we're|we've|our|us)\b/u, // i18n-ignore
+);
+const MCP_WORD = /\bmcp\b/i; // i18n-ignore
+
+/** An access subject: the monster itself, web, terminal, browser, a known service, MCP, the session. */
+function hasAccessSubject(s: string, ctx: ClaimContext): boolean {
+  if (FIRST_PERSON.test(s) || MCP_WORD.test(s) || SESSION.test(s)) return true;
+  if (WEB.test(s) || TERMINAL.test(s) || BROWSER.test(s) || SQUAD.test(s)) return true;
+  const names = (ctx.services ?? []).flatMap((x) => [x.name, ...(x.aliases ?? [])]);
+  const re = namesRegex(names);
+  return re !== null && re.test(s);
+}
 
 /** The text without the lines about accesses (a summary, D-141); the lines taken out. */
 export function withoutAccessClaims(

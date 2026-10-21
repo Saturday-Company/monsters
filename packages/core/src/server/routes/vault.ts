@@ -1,5 +1,6 @@
 import {
   EventInputSchema,
+  inAnyPrivateFolder,
   ToolError,
   VaultCreateRequestSchema,
   VaultDeleteRequestSchema,
@@ -180,7 +181,8 @@ export function registerVaultRoutes(
         frontmatter: note.frontmatter,
         content: note.content,
         hash: note.hash,
-        private: note.frontmatter['private'] === true || /^privato\//i.test(note.path),
+        // The private folder of either layout (`Privato/`, `Private/`, D-154), as the guards.
+        private: note.frontmatter['private'] === true || inAnyPrivateFolder(note.path),
         author: typeof author === 'string' ? author : null,
         backlinks,
         ...(note.truncated ? { truncated: true } : {}),
@@ -245,14 +247,15 @@ export function registerVaultRoutes(
     const body = await parseBody(c, VaultRestoreRequestSchema);
     if (!body.ok) return body.res;
     const req = body.data;
-    let target = 'trashPath' in req ? req.trashPath : req.path;
+    let target: string | null = 'trashPath' in req ? req.trashPath : req.path;
     if ('trashPath' in req && !h.isOwner(c.get('auth'))) {
-      // The trash keeps only the name: where the note goes back is in its entry.
+      // The trash keeps only the name: where the note goes back is in its entry. No entry:
+      // nothing goes back, the vault says why (not in the trash, not a file of the trash).
       const items = await vault().trash(user);
       const item = items.find((i) => i.trash_path === req.trashPath);
-      target = item?.original_path ?? req.trashPath;
+      target = item ? item.original_path : null;
     }
-    const refused = notForToken(c, target);
+    const refused = target === null ? null : notForToken(c, target);
     if (refused) return refused;
     return run(c, async () =>
       writeResponse(

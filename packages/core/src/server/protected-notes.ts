@@ -23,12 +23,15 @@ function normalVaultPath(raw: string): string {
 export const TOKEN_CLOSED_VAULT_TOOLS: ReadonlySet<string> = new Set(['vault_undo']);
 
 /**
- * True for a monster's memory, the user's profile and the private folder, with the names of
+ * True for a hidden path, a monster's memory, the user's profile and the private folder, with the names of
  * either layout (D-154: `profilo.md`, `Privato/`, `Agenti/<Name>/MEMORY.md` and `profile.md`,
  * `Private/`, `Agents/<Name>/MEMORY.md`): whatever the vault's, the token never writes them.
  */
 export function protectedNote(raw: string): boolean {
   const p = normalVaultPath(raw);
+  // Hidden files and folders (`.monsters/vault.json`, the layout record, D-154): the vault
+  // refuses them to everyone; the token is refused before it asks.
+  if (p.split('/').some((seg) => seg.startsWith('.'))) return true;
   return VAULT_LAYOUT_IDS.some((id) => {
     const l = VAULT_LAYOUTS[id];
     // The vault takes a note's path with or without `.md`.

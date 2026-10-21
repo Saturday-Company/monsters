@@ -1,6 +1,6 @@
 import { posix } from 'node:path';
 import type { Db } from '@monsters/db';
-import { VAULT_LAYOUTS, type VaultLayout } from '@monsters/shared';
+import { PRIVATE_FOLDERS, VAULT_LAYOUTS, type VaultLayout } from '@monsters/shared';
 import { linkKey, titleOf } from '../paths.ts';
 import { expandTag, type ParsedNote } from '../markdown/parse.ts';
 import { chunkNote } from '../semantic/chunk.ts';
@@ -566,8 +566,9 @@ export class VaultIndex {
     const where: string[] = ['n.is_md = 1'];
     const params: (string | number)[] = [];
     if (f.hidePrivate) {
-      where.push("n.private = 0 AND n.path NOT LIKE ? || '/%'");
-      params.push(this.layout.private);
+      const hidden = this.#hidePrivate();
+      where.push(hidden.sql);
+      params.push(...hidden.params);
     }
     for (const tag of f.tags ?? []) {
       where.push('EXISTS (SELECT 1 FROM vault_tags t WHERE t.nid = n.nid AND t.tag = ?)');
@@ -671,15 +672,30 @@ export class VaultIndex {
 
   tags(prefix: string | undefined, hidePrivate: boolean): { tag: string; count: number }[] {
     const p = (prefix ?? '').replace(/^#/, '').toLowerCase();
+    const hidden = hidePrivate ? this.#hidePrivate() : null;
     return this.db.all<{ tag: string; count: number }>(
       `SELECT t.tag, COUNT(*) AS count FROM vault_tags t JOIN vault_notes n ON n.nid = t.nid
        WHERE substr(t.tag, 1, length(?)) = ?
-         ${hidePrivate ? "AND n.private = 0 AND n.path NOT LIKE ? || '/%'" : ''}
+         ${hidden ? `AND ${hidden.sql}` : ''}
        GROUP BY t.tag ORDER BY count DESC, t.tag`,
       p,
       p,
-      ...(hidePrivate ? [this.layout.private] : []),
+      ...(hidden?.params ?? []),
     );
+  }
+
+  /**
+   * The clause (on `vault_notes n`) that hides the private notes: `private: true`, the private
+   * folder of the vault's layout and of the other one (D-154: a vault with traces of both, or a
+   * rewritten record, never shows `Privato/` or `Private/`). LIKE ignores ASCII case, as the
+   * disks that open `privato/` as `Privato/`.
+   */
+  #hidePrivate(): { sql: string; params: string[] } {
+    const folders = [...new Set([this.layout.private, ...PRIVATE_FOLDERS])];
+    return {
+      sql: ['n.private = 0', ...folders.map(() => "n.path NOT LIKE ? || '/%'")].join(' AND '),
+      params: folders,
+    };
   }
 
   /** Explicit tags of every note, in one query (the UI list of notes). */

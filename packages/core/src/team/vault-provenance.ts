@@ -1,5 +1,11 @@
 import { posix } from 'node:path';
-import { ToolError, type MonstersTool, type ToolContext } from '@monsters/shared';
+import {
+  ToolError,
+  VAULT_LAYOUT_IDS,
+  VAULT_LAYOUTS,
+  type MonstersTool,
+  type ToolContext,
+} from '@monsters/shared';
 import type { VaultService } from '@monsters/vault';
 import { THIRD_PARTY_PROP } from './instinct/taint.ts';
 import { vaultProvenancePrompts } from './vault-provenance.prompts.ts';
@@ -17,15 +23,30 @@ import { vaultProvenancePrompts } from './vault-provenance.prompts.ts';
  *   user (`MemoryProposals`), since the memory reaches every later prompt.
  */
 
-/** A monster's memory note (`TeamService.memoryPath`): `Agenti/<Name>/MEMORY.md`. */
-const MEMORY_NOTE = /^agenti\/[^/]+\/memory(?:\.md)?$/i;
-
 function cleanPath(raw: string): string {
-  return posix.normalize(raw.trim().replace(/\\/g, '/')).replace(/^(?:\.\/|\/)+/, '');
+  return posix
+    .normalize(raw.trim().replace(/\\/g, '/'))
+    .replace(/^(?:\.\/|\/)+/, '')
+    .normalize('NFC')
+    .toLowerCase();
 }
 
+/**
+ * A monster's memory note (`TeamService.memoryPath`), with the names of either layout
+ * (`Agenti/<Name>/MEMORY.md`, `Agents/<Name>/MEMORY.md`, D-154), in any case: whatever the
+ * vault's layout says, a held run never writes either (a vault with traces of both, a record
+ * rewritten), as `protectedNote` does for the CLI token.
+ */
 export function isMemoryNote(path: string): boolean {
-  return MEMORY_NOTE.test(cleanPath(path));
+  const parts = cleanPath(path).split('/');
+  if (parts.length !== 3 || parts[1] === '') return false;
+  return VAULT_LAYOUT_IDS.some((id) => {
+    const l = VAULT_LAYOUTS[id];
+    const memory = l.memory.toLowerCase();
+    return (
+      parts[0] === l.agents.toLowerCase() && (parts[2] === memory || `${parts[2]}.md` === memory)
+    );
+  });
 }
 
 export interface VaultProvenanceOptions {

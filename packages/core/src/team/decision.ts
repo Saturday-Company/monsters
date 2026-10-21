@@ -460,11 +460,14 @@ export const DEFAULT_DECISION_RULES: DecisionRule[] = (
       id: 'local',
       effect: 'proceed',
       kinds: ['local'],
+      // Whole words in English (S4): a prefix took "ready" for "read". The Italian stems stay
+      // stems (the verbs have many endings) but not the words of another meaning they begin:
+      // "appuntamento", "leggero", "leggerezza", "cerchio".
       patterns: [
-        '\\b(bozz|appunt|riassun|sintes|ricerc|cerc|legg|salv|archivi|rinomin|sposta|organizz|tagg)',
+        '\\b(bozz|appunt(?!ament)|riassun|sintes|ricerc|cerc(?!hio\\b)|legg(?!er[oai]\\b|erezz|ermente)|salv|archivi|rinomin|sposta|organizz|tagg)',
         '\\bnot[ae]\\b',
-        '\\b(draft|summar|research|search|read|save|rename|note)',
-        '\\b(archiv|organi[sz])',
+        '\\b(drafts?|drafted|drafting|summary|summaries|summari[sz](e|es|ed|ing)|research(es|ed|ing)?|search(es|ed|ing)?|read(s|ing)?|save[sd]?|saving|rename[sd]?|renaming|notes?)\\b',
+        '\\b(archive[sd]?|archiving|organi[sz](e|es|ed|ing|ation|ations))\\b',
       ],
       description: ITALIAN.local,
     },

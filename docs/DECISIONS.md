@@ -5014,6 +5014,39 @@ and nobody who already has a vault may lose a link, a memory or the guard of `Pr
 choice in the vault (not in settings) keeps it right when the vault moves or is opened by another install, and the
 detection keeps every vault made before working with no migration.
 **Consequence:** a new persisted name goes into `VaultLayout`, in both instances; a guard takes the layout of its
-vault, and `vaultLayout()` only where nothing else can reach the vault (the area schema). Known limit: the layout is decided when the core first starts; a language picked on the
-first screen afterwards does not change the vault already created.
+vault, and `vaultLayout()` only where nothing else can reach the vault (the area schema).
+**Review of 21/10/2026 (S1, S2, S5, C16, C21):**
+- **Guards hold for both layouts, whatever the record says.** The record is a hidden file, so it must not be the only
+  thing between a sub-agent and `Privato/`. (1) No actor, the user and the orchestrator included, writes, edits,
+  moves, deletes or restores a hidden path (`VaultPermissions`: `isHidden` with the system folders, refused in every
+  mode of `vault_write` before the note is read, so a CONFLICT never tells the record's hash); the CLI token is
+  refused any hidden path first (`protectedNote`). (2) For the readers that are not privileged the private folders of
+  both layouts are private (`inAnyPrivateFolder`, case-insensitive): `VaultPermissions.canRead`, the index without
+  the private notes (search, tags), the folder list, the trash, the runs of a Telegram chat (both folders closed to
+  the terminal and the files). A user's own folder named `Private/` in an Italian vault is therefore hidden from the
+  sub-agents too: accepted, the safe side. (3) A held run (Telegram chat, third-party text) never writes the memory
+  of either layout (`isMemoryNote`: `Agenti|Agents/<Name>/MEMORY.md`, any case). The agent areas exclude the other
+  layout's agents' and private folders too; the UI never creates a note in either agents' folder and shows the lock
+  of a note in either private folder.
+- **The vault takes the language picked before any use.** The vault is created at the core's first start, in the
+  machine's language; the first screen may pick the other one (an Italian on an English system). When the language
+  is saved by `POST /api/setup` or `PUT /api/settings/language`, `Hub.adoptVaultLayout` makes the vault again in that
+  language's layout only if nothing was made with its names: no monster on disk, no file kept, and the vault exactly
+  as `create` left it (`VaultService.isUntouched`: history on, one commit `vault_create`, every file on disk the
+  committed one byte for byte, no other file or folder but the empty scaffold folders and the files folder's marker
+  and `.gitignore`; a symbolic link, Obsidian's `workspace.json`, an empty folder of the user, a failed read: kept).
+  The default folder of the old layout takes the new default name when that is free (`~/Monsters Notes` →
+  `~/Monsters Note`; `settings.json` is not written: the default resolves to it at the next start); a folder the user
+  chose (settings, `MONSTERS_VAULT`) is made again in place. Same service, same index database (`recreate` swaps
+  root, history, layout, permissions and index in place, then reindexes), so every holder of the vault goes on with
+  the new names. A vault in doubt is never touched: the language changes, the folder names stay.
+- **The Italian family is pinned whole** (C21): `packages/core/test/italian-prompts.test.ts` hashes every entry of
+  every `*.prompts.ts` in Italian (strings as they are, functions rendered with a fixed sample argument) against
+  `test/fixtures/italian-prompts.json`; a new prompts file fails until recorded. An intended change updates it with
+  `MONSTERS_UPDATE_ITALIAN_PROMPTS=1`.
+- **English word lists (D-153, S3, S4).** The English words of everyday life added to the access words (`link`,
+  `connect…`, `session`, `service`) make a line about accesses only with an access subject in it (the monster in the
+  first person, web, terminal, browser, a known service, MCP, the session); the Italian list is unchanged. The
+  `local` rule of the decision gate takes whole English words (`ready` is no `read`, `notably` no `note`); the
+  Italian stems stay stems but skip the words of another meaning they begin (`appuntamento`, `leggero`, `cerchio`).
 

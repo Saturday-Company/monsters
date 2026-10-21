@@ -1,6 +1,6 @@
-import { mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import {
   claudePlanFallback,
   fetchOpenRouterPrices,
@@ -21,6 +21,7 @@ import {
   MCP_CATALOG,
   OPENROUTER_FREE_ROUTER,
   ToolError,
+  PRIVATE_FOLDERS,
   VAULT_LAYOUTS,
   setVaultLayout,
   type Channel,
@@ -67,7 +68,7 @@ import { DEFAULT_FREE_CHAIN, isDefaultChain, WEB_TOOLS } from './agents/archetyp
 import { automationRunOf } from './automations/run-index.ts';
 import { AutomationService, type AutomationServiceOptions } from './automations/service.ts';
 import { AUTOMATIONS_DIR } from './automations/store.ts';
-import { FileStore, filesDirFor, filesMigrations } from './files/store.ts';
+import { FILES_MARKER, FileStore, filesDirFor, filesMigrations } from './files/store.ts';
 import {
   ARTIFACT_TOOL,
   artifactTool,
@@ -111,7 +112,7 @@ import { REPLY_KEY_REASON, TelegramBots } from './channels/telegram/bots.ts';
 import { isGroupThread, runsOfThread, threadOfRun } from './channels/telegram/threads.ts';
 import { isUserWords } from './team/user-words.ts';
 import { saveAppLanguage } from './i18n.ts';
-import { patchSettingsFile } from './onboarding/settings-file.ts';
+import { patchSettingsFile, readSettingsFile } from './onboarding/settings-file.ts';
 import { migrate } from './db/migrations.ts';
 import { KilledError } from './kill/control-scope.ts';
 import { McpManager } from './mcp/manager.ts';
@@ -395,6 +396,14 @@ export interface Hub {
   settingsView(): SettingsResponse;
   /** The app's language (D-153): saved and applied at once to the texts written from now on. */
   setLanguage(language: Lang): SettingsResponse;
+  /**
+   * The vault made again in the layout of the app's language (D-154), when it differs and
+   * nothing was made with the vault's names yet: no monster, no file, the vault as `create`
+   * left it (`VaultService.isUntouched`). Called when the language is picked before the
+   * onboarding (`POST /api/setup`, the language of the settings). True when it was recreated;
+   * never throws (a failure is in the log, the vault stays as it is).
+   */
+  adoptVaultLayout(): Promise<boolean>;
   /** Verifies, saves and activates an OpenRouter key. The key is never logged. */
   setOpenRouterKey(key: string): Promise<VerifyResult>;
   /**
@@ -1170,7 +1179,10 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         { path: claudeTranscriptsDir(), message: hubPrompts().transcriptsClosed },
         ...desktopUserDataDirs().map((path) => ({ path, message: hubPrompts().desktopDataClosed })),
         ...(threadOfRun(log, o.runId)
-          ? [{ path: privateFolder(), message: hubPrompts().privateInChat(vault.layout.private) }]
+          ? privateFolders().map((path) => ({
+              path,
+              message: hubPrompts().privateInChat(vault.layout.private),
+            }))
           : []),
       ],
       ...(o.memory !== undefined ? { memory: o.memory } : {}),
@@ -1501,13 +1513,11 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
           hint: 'Work in another folder.',
         })),
         ...(threadOfRun(log, runId)
-          ? [
-              {
-                lock: { dataDir: privateFolder(), allowed: [] },
-                message: hubPrompts().privateInChat(vault.layout.private),
-                hint: 'Use the vault_* tools for the notes you may read.',
-              },
-            ]
+          ? privateFolders().map((dataDir) => ({
+              lock: { dataDir, allowed: [] },
+              message: hubPrompts().privateInChat(vault.layout.private),
+              hint: 'Use the vault_* tools for the notes you may read.',
+            }))
           : []),
       ],
       instructionFolders: projectFolders,
@@ -1587,9 +1597,12 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     previewShowTool({ vault, files: { get: (id) => files.get(id) ?? null } }),
   ];
 
-  /** The vault's private folder, closed to the runs of a Telegram chat (D-107). */
-  function privateFolder(): string {
-    return join(vault.root, vault.layout.private);
+  /**
+   * The vault's private folder, closed to the runs of a Telegram chat (D-107), with the other
+   * layout's (D-154): a vault with traces of both, or a rewritten record, keeps both closed.
+   */
+  function privateFolders(): string[] {
+    return [...new Set([vault.layout.private, ...PRIVATE_FOLDERS])].map((f) => join(vault.root, f));
   }
   const system: VaultActor = { agentId: 'system' };
   const readProfile = async (signal: AbortSignal): Promise<string | undefined> => {
@@ -2931,6 +2944,53 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     return { commit: result.commit, files: result.files };
   };
 
+  /** What the files folder of a vault just created holds (`FileStore.ensureDir`). */
+  const FRESH_FILES_FOLDER = [FILES_MARKER, '.gitignore'];
+  const adoptVaultLayout = async (): Promise<boolean> => {
+    const target = VAULT_LAYOUTS[newVaultLayout(env)];
+    if (target.id === vault.layout.id) return false;
+    // Strict (never delete what a person or a monster wrote): no monster made with the old
+    // names, no file kept, the vault exactly as created. In doubt, the vault stays.
+    if (team.list().length > 0 || !files.isEmpty()) return false;
+    if (!(await vault.isUntouched(FRESH_FILES_FOLDER))) return false;
+    // The default folder of the old layout (`~/Monsters Notes`) takes the new default name
+    // when that is free; a folder the user chose (settings, MONSTERS_VAULT) keeps its path.
+    const chosen =
+      options.settings?.vault !== undefined ||
+      env['MONSTERS_VAULT'] !== undefined ||
+      readSettingsFile(paths.home)['vault'] !== undefined;
+    let root = vault.root;
+    if (!chosen && basename(root) === vault.layout.notesDir) {
+      const named = join(dirname(root), target.notesDir);
+      if (!existsSync(named)) root = named;
+    }
+    try {
+      await vault.recreate({
+        root,
+        layout: target.id,
+        filesDir: target.files,
+        filesFolderFiles: FRESH_FILES_FOLDER,
+        orchestratorName: settings.orchestratorName,
+        agentNames: [],
+      });
+      files.relocate(vault.root, target.files, target);
+      settings.vault = vault.root;
+      setVaultLayout(vault.layout);
+      if (settings.watchVault) await vault.watch();
+      return true;
+    } catch (err) {
+      log.append({
+        agent: 'system',
+        type: 'error',
+        data: {
+          code: 'vault_layout',
+          message: err instanceof Error ? err.message : String(err),
+        },
+      });
+      return false;
+    }
+  };
+
   const settingsView = (): SettingsResponse => {
     const label = state.get<OpenRouterKeyInfo>(OPENROUTER_INFO_KEY)?.label;
     return {
@@ -2996,6 +3056,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       settings.language = language;
       return settingsView();
     },
+    adoptVaultLayout,
     setBraveKey(key) {
       const trimmed = key.trim();
       log.redactor.addSecret(trimmed);

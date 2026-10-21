@@ -1,5 +1,5 @@
-import { ToolError, VAULT_LAYOUTS, type VaultLayout } from '@monsters/shared';
-import { isInside, isSystemPath, matchesAnyGlob } from './paths.ts';
+import { inAnyPrivateFolder, ToolError, VAULT_LAYOUTS, type VaultLayout } from '@monsters/shared';
+import { isHidden, isInside, isSystemPath, matchesAnyGlob } from './paths.ts';
 import { currentVaultScope } from './scope.ts';
 
 /** Inside the folders the current work may reach (`withVaultScope`, D-114); true without one. */
@@ -60,6 +60,21 @@ export interface WriteCheck {
 
 /** Actors with full access besides the orchestrator. */
 const PRIVILEGED = new Set(['user', 'system']);
+
+/**
+ * Paths no actor writes, moves or deletes, the user and the orchestrator included: the system
+ * folders and every hidden one (`.monsters/vault.json` records the vault's layout, D-154; a
+ * rewritten record would take the guard away from `Privato/`).
+ */
+function managedBySystem(path: string): boolean {
+  return isSystemPath(path) || isHidden(path);
+}
+
+const managedError = (path: string) =>
+  new ToolError(
+    'BLOCKED_BY_POLICY',
+    `${path}: hidden and system folders are managed by the system`,
+  );
 
 const proposeHint = (inbox: string) =>
   `Use vault_propose to suggest this change: it creates a proposal in ${inbox}/ that the orchestrator can apply.`;
@@ -157,10 +172,15 @@ export class VaultPermissions {
     ];
   }
 
+  /**
+   * The private folder is the vault's (`this.layout.private`) and, for whoever is not
+   * privileged, the other layout's too (`inAnyPrivateFolder`, D-154): what the layout record
+   * says never opens `Privato/` or `Private/` to a sub-agent.
+   */
   canRead(agent: string, path: string, isPrivate: boolean): boolean {
     if (isSystemPath(path) || !inScope(path)) return false;
     if (this.isPrivileged(agent)) return true;
-    return !isPrivate && !isInside(path, this.layout.private);
+    return !isPrivate && !isInside(path, this.layout.private) && !inAnyPrivateFolder(path);
   }
 
   assertRead(agent: string, path: string, isPrivate: boolean): void {
@@ -180,7 +200,7 @@ export class VaultPermissions {
    * of other agents (proposals included) are not its to change.
    */
   canWrite(agent: string, path: string, author: string | null, opts: WriteCheck = {}): boolean {
-    if (isSystemPath(path) || !inScope(path)) return false;
+    if (managedBySystem(path) || !inScope(path)) return false;
     if (this.isPrivileged(agent)) return true;
     if (isInside(path, this.areaOf(agent))) return true;
     if (isInside(path, this.layout.inbox) && (opts.isNew || author === agent)) return true;
@@ -190,12 +210,7 @@ export class VaultPermissions {
   }
 
   assertWrite(agent: string, path: string, author: string | null, opts: WriteCheck = {}): void {
-    if (isSystemPath(path)) {
-      throw new ToolError(
-        'BLOCKED_BY_POLICY',
-        `${path}: .obsidian, .git and .trash are managed by the system`,
-      );
-    }
+    if (managedBySystem(path)) throw managedError(path);
     const out = outOfScope(path);
     if (out) throw out;
     if (!this.canWrite(agent, path, author, opts)) {
@@ -211,7 +226,7 @@ export class VaultPermissions {
   }
 
   canDelete(agent: string, path: string, author: string | null): boolean {
-    if (isSystemPath(path) || !inScope(path)) return false;
+    if (managedBySystem(path) || !inScope(path)) return false;
     if (this.isPrivileged(agent)) return true;
     if (isInside(path, this.areaOf(agent))) return true;
     if (isInside(path, this.layout.inbox) && author === agent) return true;
@@ -219,6 +234,7 @@ export class VaultPermissions {
   }
 
   assertDelete(agent: string, path: string, author: string | null): void {
+    if (managedBySystem(path)) throw managedError(path);
     const out = outOfScope(path);
     if (out) throw out;
     if (!this.canDelete(agent, path, author)) {
@@ -232,11 +248,8 @@ export class VaultPermissions {
     this.assertDelete(agent, from, author);
     const out = outOfScope(to);
     if (out) throw out;
-    if (this.isPrivileged(agent)) {
-      if (isSystemPath(to))
-        throw new ToolError('BLOCKED_BY_POLICY', `${to} is managed by the system`);
-      return;
-    }
+    if (managedBySystem(to)) throw managedError(to);
+    if (this.isPrivileged(agent)) return;
     const inArea = isInside(to, this.areaOf(agent));
     const granted = matchesAnyGlob(to, this.#profile(agent)?.delete ?? []);
     if (!inArea && !granted) {

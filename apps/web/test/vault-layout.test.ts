@@ -1,5 +1,6 @@
 import { setVaultLayout, type VaultNoteSummary } from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
+import { folderProblem } from '../src/components/vault/NewNote.tsx';
 import { filterNotes } from '../src/components/vault/NoteList.tsx';
 import { isAgentNote } from '../src/components/vault/shared.tsx';
 import { newFolderIn, newFolderPath } from '../src/lib/projects.ts';
@@ -64,5 +65,22 @@ describe('an Italian vault in the UI', () => {
     expect(isAgentNote('Agents/Rhea/MEMORY.md')).toBe(false);
     expect(agentFileOf('Agenti/Rhea/stato.md')).toEqual({ owner: 'Rhea', kind: 'state' });
     expect(newFolderPath('  ')).toBe('~/Monsters Progetti/Progetto');
+  });
+});
+
+describe('a new note of the user', () => {
+  it('never goes in the monsters’ folder of either layout (S5, D-154)', () => {
+    for (const layout of ['en', 'it'] as const) {
+      setVaultLayout(layout);
+      for (const folder of ['Agents', 'agents/Rhea', 'Agenti', 'AGENTI/x']) {
+        expect({ layout, folder, ok: folderProblem(folder) === null }).toEqual({
+          layout,
+          folder,
+          ok: false,
+        });
+      }
+      expect(folderProblem('Inbox/Ideas')).toBeNull();
+      expect(folderProblem('Agent notes')).toBeNull();
+    }
   });
 });

@@ -192,14 +192,22 @@ export function agentOfPath(path: string, layout?: VaultLayout): string | null {
   return null;
 }
 
+/** The private folders of both layouts (`Privato`, `Private`). */
+export const PRIVATE_FOLDERS: readonly string[] = VAULT_LAYOUT_IDS.map(
+  (id) => VAULT_LAYOUTS[id].private,
+);
+
 /**
- * In the private folder of either layout (`Privato/`, `Private/`): for the checks that must
- * hold whatever the vault (what a run read is private data, D-154), never for the vault's own
- * permissions, which follow its layout exactly.
+ * In the private folder of either layout (`Privato/`, `Private/`, any case: a disk that ignores
+ * case opens `private/` as `Private/`), whatever the vault's layout (D-154). The guards of the
+ * private notes take it for the readers that are not privileged (sub-agents, MCP clients, the
+ * index without the private notes, the runs of a Telegram chat): a vault with traces of both
+ * layouts, or whose record was rewritten, never loses the guard of either folder.
  */
 export function inAnyPrivateFolder(path: string): boolean {
-  return VAULT_LAYOUT_IDS.some((id) => {
-    const folder = VAULT_LAYOUTS[id].private;
-    return path === folder || path.startsWith(`${folder}/`);
+  const p = path.normalize('NFC').toLowerCase();
+  return PRIVATE_FOLDERS.some((name) => {
+    const folder = name.toLowerCase();
+    return p === folder || p.startsWith(`${folder}/`);
   });
 }
