@@ -14,16 +14,16 @@ test('sidebar: monsters, Note, Attività and Impostazioni; the toolbar names the
 }) => {
   await page.goto('/?mock=demo');
   const sidebar = page.getByTestId('sidebar');
-  await expect(sidebar.getByRole('navigation', { name: 'Chat dei mostri' })).toBeVisible();
+  await expect(sidebar.getByRole('navigation', { name: 'Monsters’ chats' })).toBeVisible();
   const toolbar = page.getByTestId('toolbar');
   // Wide window, no chat in the address: the orchestrator's chat.
   await expect(toolbar.getByRole('heading', { name: 'Titan', level: 1 })).toBeVisible();
 
   for (const [label, heading] of [
-    ['Automazioni', 'Automazioni'],
-    ['Note', 'Note'],
-    ['Attività', 'Attività'],
-    ['Impostazioni', 'Impostazioni'],
+    ['Automations', 'Automations'],
+    ['Notes', 'Notes'],
+    ['Activity', 'Activity'],
+    ['Settings', 'Settings'],
   ] as const) {
     await sidebar.getByRole('link', { name: label, exact: true }).click();
     await expect(toolbar.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
@@ -46,13 +46,13 @@ test('sidebar: monsters, Note, Attività and Impostazioni; the toolbar names the
   expect(Math.round(module!.x + module!.width)).toBe(page.viewportSize()!.width);
   // Shortcuts of the sidebar: ⌘2 / Ctrl+2 Automazioni, 3 Note, 4 File, 5 Attività, 1 the team leader.
   await page.keyboard.press('ControlOrMeta+2');
-  await expect(toolbar.getByRole('heading', { name: 'Automazioni', level: 1 })).toBeVisible();
+  await expect(toolbar.getByRole('heading', { name: 'Automations', level: 1 })).toBeVisible();
   await page.keyboard.press('ControlOrMeta+3');
-  await expect(toolbar.getByRole('heading', { name: 'Note', level: 1 })).toBeVisible();
+  await expect(toolbar.getByRole('heading', { name: 'Notes', level: 1 })).toBeVisible();
   await page.keyboard.press('ControlOrMeta+4');
-  await expect(toolbar.getByRole('heading', { name: 'File', level: 1 })).toBeVisible();
+  await expect(toolbar.getByRole('heading', { name: 'Files', level: 1 })).toBeVisible();
   await page.keyboard.press('ControlOrMeta+5');
-  await expect(toolbar.getByRole('heading', { name: 'Attività', level: 1 })).toBeVisible();
+  await expect(toolbar.getByRole('heading', { name: 'Activity', level: 1 })).toBeVisible();
   await page.keyboard.press('ControlOrMeta+1');
   await expect(page).toHaveURL(/#\/\?chat=titan$/);
   // The god's bar is its chat in the sidebar (D-102): chosen, with the shortcut for ARIA.
@@ -72,7 +72,7 @@ test('Ferma: its light is on while a monster works, blinks only when armed (D-08
   await expect(light).toHaveAttribute('data-tone', 'signal');
   // Work is a state, not a call: the light is steady (only what waits for the user blinks).
   await expect(light).not.toHaveAttribute('data-blink', /.*/);
-  await expect(kill).toHaveAccessibleName('Ferma tutti i mostri');
+  await expect(kill).toHaveAccessibleName('Stop all monsters');
   // Rhea's work ends: nobody works any more.
   await page.evaluate(async (src) => {
     const { useApp } = (await import(/* @vite-ignore */ src)) as typeof AppStore;
@@ -91,7 +91,7 @@ test('Ferma: its light is on while a monster works, blinks only when armed (D-08
   await kill.click();
   const resume = page.getByTestId('resume');
   await expect(resume).toHaveAttribute('data-state', 'halted');
-  await expect(resume).toHaveAccessibleName('Riprendi');
+  await expect(resume).toHaveAccessibleName('Resume');
   await expect(resume.getByTestId('kill-light')).toHaveAttribute('data-tone', 'stop');
   await expect(page.getByTestId('status-display')).toHaveAttribute('data-state', 'halted');
   await resume.click();
@@ -102,7 +102,7 @@ test('status display: the open question first, a click opens its chat', async ({
   await page.goto('/?mock=demo#/note');
   const display = page.getByTestId('status-display');
   await expect(display).toHaveAttribute('data-state', 'questions');
-  await expect(display).toHaveAccessibleName(/^Stato della squadra: Titan chiede/);
+  await expect(display).toHaveAccessibleName(/^Squad status: Titan asks/);
   await display.click();
   await expect(page).toHaveURL(/#\/\?chat=titan$/);
 });
@@ -133,7 +133,7 @@ test('desktop app: overlay chrome, and the colours of its buttons follow the the
   // The chassis of the rail, with the ink of the theme.
   await expect.poll(calls).toEqual([{ background: '#e3e1db', symbol: '#1a1a18' }]);
 
-  await page.getByRole('radio', { name: 'Scuro' }).click();
+  await page.getByRole('radio', { name: 'Dark' }).click();
   await expect.poll(calls).toEqual([
     { background: '#e3e1db', symbol: '#1a1a18' },
     { background: '#151514', symbol: '#ecebe5' },
@@ -239,12 +239,12 @@ async function fakeTargetBridge(page: Page, first: { kind: string; name: string;
 test('desktop app: the computer switcher shows where the monsters work and opens Connessioni', async ({
   page,
 }) => {
-  await fakeTargetBridge(page, { kind: 'local', name: 'Questo computer', state: 'ready' });
+  await fakeTargetBridge(page, { kind: 'local', name: 'This computer', state: 'ready' });
   await page.goto('/?mock=demo');
   const sw = page.getByTestId('computer-switcher');
   await expect(sw).toBeVisible();
-  await expect(sw).toHaveText(/Questo computer/);
-  await expect(sw).toHaveAccessibleName('Computer: Questo computer, pronto. Cambia computer');
+  await expect(sw).toHaveText(/This computer/);
+  await expect(sw).toHaveAccessibleName('Computer: This computer, ready. Switch computer');
   await expect(sw.getByTestId('computer-dot')).toHaveAttribute('data-tone', 'ready');
 
   await sw.click();
@@ -254,21 +254,21 @@ test('desktop app: the computer switcher shows where the monsters work and opens
   await page.evaluate(() =>
     (window as unknown as { pushTarget: (t: unknown) => void }).pushTarget({
       kind: 'remote',
-      name: 'PC di casa',
+      name: 'Home PC',
       state: 'reconnecting',
     }),
   );
-  await expect(sw).toHaveText(/PC di casa · mi ricollego…/);
+  await expect(sw).toHaveText(/Home PC · reconnecting…/);
   await expect(sw.getByTestId('computer-dot')).toHaveAttribute('data-tone', 'busy');
   await page.evaluate(() =>
     (window as unknown as { pushTarget: (t: unknown) => void }).pushTarget({
       kind: 'remote',
-      name: 'PC di casa',
+      name: 'Home PC',
       state: 'offline',
     }),
   );
   await expect(sw.getByTestId('computer-dot')).toHaveAttribute('data-tone', 'off');
-  await expect(sw).toHaveText(/non raggiungibile/);
+  await expect(sw).toHaveText(/unreachable/);
 });
 
 test('desktop app without the calls (older app): no switcher', async ({ page }) => {

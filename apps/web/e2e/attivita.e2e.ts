@@ -4,7 +4,7 @@ import { expect, test } from './fixtures.ts';
 
 test('a question still open in Attività: "Rispondi" opens its chat', async ({ page }) => {
   await page.goto('/?mock=demo#/log');
-  const row = page.getByTestId('event-row').filter({ hasText: 'Titan ti ha fatto una domanda' });
+  const row = page.getByTestId('event-row').filter({ hasText: 'Titan asked you a question' });
   await expect(row).toBeVisible();
   await row.getByTestId('answer-question').click();
   await expect(page).toHaveURL(/#\/\?chat=titan$/);
@@ -15,7 +15,7 @@ test('the filters line up: "Chi" and the keys start on the same top edge', async
   await page.goto('/?mock=demo#/log');
   const who = await page.getByTestId('activity-who').boundingBox();
   const types = await page
-    .getByRole('group', { name: 'Filtra per tipo' })
+    .getByRole('group', { name: 'Filter by type' })
     .getByRole('button')
     .first()
     .boundingBox();
@@ -29,23 +29,23 @@ test.describe('phone', () => {
   test('one "Filtri" key opens a drawer with who, the types and the period', async ({ page }) => {
     await page.goto('/?mock=demo#/log');
     await expect(page.getByTestId('activity-who')).toBeHidden();
-    await page.getByRole('button', { name: /^Filtri/ }).click();
+    await page.getByRole('button', { name: /^Filters/ }).click();
     const drawer = page.getByTestId('activity-more');
     await expect(drawer.getByTestId('activity-who')).toBeVisible();
-    await drawer.getByRole('button', { name: 'Errori' }).click();
+    await drawer.getByRole('button', { name: 'Errors' }).click();
     // The count of the filters on is on the key.
-    await expect(page.getByRole('button', { name: /^Filtri/ })).toContainText('1');
+    await expect(page.getByRole('button', { name: /^Filters/ })).toContainText('1');
     for (const text of await page.getByTestId('event-row').allInnerTexts())
-      expect(text).toMatch(/ERRORI/i);
-    await drawer.getByRole('button', { name: 'Togli i filtri' }).click();
-    await expect(page.getByRole('button', { name: /^Filtri/ })).not.toContainText('1');
+      expect(text).toMatch(/ERRORS/i);
+    await drawer.getByRole('button', { name: 'Clear filters' }).click();
+    await expect(page.getByRole('button', { name: /^Filters/ })).not.toContainText('1');
   });
 
   test('a note named by date never breaks on its dash', async ({ page }) => {
     await page.goto('/?mock=demo#/log');
     const date = page
       .getByTestId('event-row')
-      .filter({ hasText: 'la nota 2026-10-14' })
+      .filter({ hasText: 'the note 2026-10-14' })
       .locator('span.whitespace-nowrap', { hasText: '2026-10-14' });
     await expect(date).toBeVisible();
     const box = await date.boundingBox();

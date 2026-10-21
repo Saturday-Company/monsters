@@ -45,7 +45,7 @@ test('the bar heads the sidebar: the god, what it does, the colours of the team 
   const bar = page.getByTestId('god-bar');
   await expect(bar).toBeVisible();
   await expect(page.getByTestId('god-name')).toHaveText('Titan');
-  await expect(page.getByTestId('god-line')).toHaveText('Aspetta una tua risposta');
+  await expect(page.getByTestId('god-line')).toHaveText('Waiting for your answer');
 
   // Above the search and the squad.
   const barBox = (await bar.boundingBox())!;
@@ -99,8 +99,8 @@ test('stopped: the colours stand still and dim, the bar says it; after Riprendi 
   await stop(page);
   await expect(bar).toHaveAttribute('data-state', 'halted');
   await expect(bar).toHaveAttribute('data-motion', 'still');
-  await expect(page.getByTestId('god-label')).toHaveText('Fermi');
-  await expect(page.getByTestId('god-line')).toHaveText('I mostri sono fermi');
+  await expect(page.getByTestId('god-label')).toHaveText('Stopped');
+  await expect(page.getByTestId('god-line')).toHaveText('The monsters are stopped');
   const a = await frame(page);
   await page.waitForTimeout(600);
   expect(await frame(page)).toBe(a);
@@ -109,8 +109,8 @@ test('stopped: the colours stand still and dim, the bar says it; after Riprendi 
   await expect(bar).toHaveAttribute('data-state', 'idle');
   await expect(bar).toHaveAttribute('data-speed', '1.5');
   // The demo has the Squadra personale and the project "Social di Saturday" (D-100).
-  await expect(page.getByTestId('god-line')).toHaveText('A capo di tutte le squadre');
-  await expect(page.getByTestId('god-label')).toHaveText('8 con Titan');
+  await expect(page.getByTestId('god-line')).toHaveText('Leading all the squads');
+  await expect(page.getByTestId('god-label')).toHaveText('8 with Titan');
 });
 
 test('Riduci movimento: a still arrangement of every colour, no steps', async ({ page }) => {
