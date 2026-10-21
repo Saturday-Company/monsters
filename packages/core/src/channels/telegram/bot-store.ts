@@ -217,12 +217,12 @@ export class TelegramBotStore {
     );
   }
 
-  /** The requests still waiting of a bot, oldest first, with where they come from. */
+  /** The requests still waiting of a bot, oldest first (same millisecond: in arrival order), with where they come from. */
   pendingRequests(bot: string, kind: 'chats' | 'people'): PendingRequest[] {
     const sql =
       kind === 'chats'
-        ? `SELECT chat_id AS id, added_at, source, vouched FROM telegram_bot_chats WHERE bot = ? AND status = 'pending' ORDER BY added_at`
-        : `SELECT user_id AS id, added_at, source, vouched FROM telegram_bot_people WHERE bot = ? AND status = 'pending' ORDER BY added_at`;
+        ? `SELECT chat_id AS id, added_at, source, vouched FROM telegram_bot_chats WHERE bot = ? AND status = 'pending' ORDER BY added_at, rowid`
+        : `SELECT user_id AS id, added_at, source, vouched FROM telegram_bot_people WHERE bot = ? AND status = 'pending' ORDER BY added_at, rowid`;
     return this.#db
       .all<{ id: number; added_at: number; source: number | null; vouched: number }>(sql, bot)
       .map((r) => ({

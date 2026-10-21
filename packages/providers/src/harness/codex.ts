@@ -1,6 +1,8 @@
 import type { ChildProcess } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
+import { settingsPath } from '@monsters/shared';
 import { chatgptUnreachableText, SiwcError } from '../chatgpt/siwc.ts';
+import { providerTexts } from '../providers.strings.ts';
 import { filterModels } from '../http.ts';
 import { RateBudget } from '../rate-budget.ts';
 import { parseCodexRateLimits } from './limits.ts';
@@ -179,11 +181,7 @@ class RpcPeer {
           ? undefined
           : setTimeout(() => {
               this.#pending.delete(id);
-              reject(
-                new Error(
-                  `codex app-server non risponde a ${method} (${Math.round(timeoutMs / 1000)} s)`,
-                ),
-              );
+              reject(new Error(providerTexts().codexNoReply(method, Math.round(timeoutMs / 1000))));
             }, timeoutMs);
       timer?.unref();
       this.#pending.set(id, {
@@ -335,7 +333,7 @@ export class CodexHarness implements HarnessProvider {
         type: 'done',
         reason: 'error',
         code: 'not_found',
-        error: 'Codex non è installato: attivalo in Impostazioni → Modelli.',
+        error: providerTexts().codexMissing(settingsPath('modelli')),
       };
       return;
     }
@@ -422,7 +420,7 @@ export class CodexHarness implements HarnessProvider {
         signals.wake = null;
         if (openActions.size > 0) quietSince = Date.now();
         else if (timedOut && Date.now() - quietSince >= idleMs) {
-          throw new Error(`codex app-server non dà segnali da ${Math.round(idleMs / 1000)} s`);
+          throw new Error(providerTexts().codexIdle(Math.round(idleMs / 1000)));
         }
       }
       return queue.shift()!;
@@ -638,9 +636,7 @@ export class CodexHarness implements HarnessProvider {
                 reason: 'error',
                 // Codex reads the token once: a turn longer than its validity ends here.
                 error:
-                  code === 'unauthorized'
-                    ? `Il token di ChatGPT non vale più a metà del turno: riprova (${message})`
-                    : message,
+                  code === 'unauthorized' ? providerTexts().codexTokenExpired(message) : message,
                 ...(code ? { code } : {}),
               };
             }
@@ -664,7 +660,7 @@ export class CodexHarness implements HarnessProvider {
         yield {
           type: 'done',
           reason: 'error',
-          error: `Codex si è chiuso prima della fine del turno${tail ? `: ${tail.slice(-500)}` : ''}`,
+          error: providerTexts().codexClosed(tail.slice(-500)),
         };
       }
     } catch (err) {

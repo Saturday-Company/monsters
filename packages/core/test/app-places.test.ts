@@ -4,10 +4,11 @@ import {
   projectPagePath,
   SETTINGS_SECTIONS,
   SETTINGS_TABS,
+  setAppLang,
   settingsPath,
   spendCapPath,
 } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 /*
  * Every place of the app a monster or a message names is a real one (D-133). The texts built
@@ -42,7 +43,11 @@ const UNDER: Record<string, readonly string[]> = { 'Altri programmi': ['Browser'
 const ENGLISH_TABS = new Set(['General', 'Squad', 'Models', 'Permissions', 'Connections']);
 
 describe('the places of the app in the texts (D-133)', () => {
+  afterEach(() => setAppLang('en'));
+
   it('every "Impostazioni → …" written in the code is a tab and a section of the app', () => {
+    // The Italian places written by hand are checked against the Italian names of the app.
+    setAppLang('it');
     const tabs = new Set<string>(Object.values(SETTINGS_TABS));
     const wrong: string[] = [];
     let seen = 0;
@@ -78,7 +83,8 @@ describe('the places of the app in the texts (D-133)', () => {
     expect(wrong).toEqual([]);
   });
 
-  it('the helpers write the places as the app shows them', () => {
+  it('the helpers write the places as the app shows them, in the language in use', () => {
+    setAppLang('it');
     expect(settingsPath('collegamenti')).toBe('Impostazioni → Collegamenti');
     expect(settingsPath('altriProgrammi')).toBe('Impostazioni → Collegamenti → Altri programmi');
     expect(settingsPath('altriProgrammi', 'Browser')).toBe(
@@ -92,5 +98,17 @@ describe('the places of the app in the texts (D-133)', () => {
     // A project's cap is raised on its page, the others in Modelli (§2.3 of the review).
     expect(spendCapPath('Saturday')).toBe('pagina del progetto «Saturday», scheda Spesa');
     expect(spendCapPath()).toBe('Impostazioni → Modelli → Tetto di spesa');
+
+    setAppLang('en');
+    expect(settingsPath('collegamenti')).toBe('Settings → Connections');
+    expect(settingsPath('altriProgrammi')).toBe('Settings → Connections → Other apps');
+    expect(settingsPath('altriProgrammi', 'Browser')).toBe(
+      'Settings → Connections → Other apps → Browser',
+    );
+    expect(settingsPath('ilWeb')).toBe('Settings → Permissions → The web');
+    expect(settingsPath('abbonamenti')).toBe('Settings → Models → A subscription you already have');
+    expect(projectPagePath('Saturday', 'spesa')).toBe('“Saturday” project page, Spending tab');
+    expect(spendCapPath('Saturday')).toBe('“Saturday” project page, Spending tab');
+    expect(spendCapPath()).toBe('Settings → Models → Spending cap');
   });
 });

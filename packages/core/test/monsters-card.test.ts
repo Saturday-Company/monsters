@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { parseAgentConfig } from '../src/agents/definition.ts';
 import { monstersCard } from '../src/agents/monsters-card.ts';
 import { buildSystemPrompt } from '../src/agents/run-agent.ts';
@@ -15,6 +16,10 @@ import {
  * The "## Monsters" card (D-075): what the monster can do, from its tools, and
  * what only the user does from the app. Stable for the cache, short.
  */
+
+// The card is written in Italian for the model (wave 3) with the places of the app inside: in Italian.
+beforeEach(() => setAppLang('it'));
+afterEach(() => setAppLang('en'));
 
 const user = { user: 'Giulio' };
 const orchestrator = orchestratorTools(orchestratorBlueprint(user).tools ?? [], true);

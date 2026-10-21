@@ -10,6 +10,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { netCause, netFailureOf, netHint, type NetFailure } from '@monsters/shared';
+import { providerTexts } from '../providers.strings.ts';
 
 /*
  * Sign in with ChatGPT for open-source local apps (D-005, research 06 §2.1),
@@ -151,12 +152,10 @@ export function chatgptUnreachableText(
 ): string | undefined {
   const network = siwcErrorOf(err)?.network;
   if (!network) return undefined;
-  const then =
-    when === 'in_use'
-      ? 'L’accesso a ChatGPT resta valido: riprova tra poco.'
-      : 'Riprova il collegamento tra poco.';
+  const t = providerTexts();
+  const then = when === 'in_use' ? t.unreachableInUse : t.unreachableSignIn;
   const hint = network.kind === 'unknown' ? '' : ` ${netHint(network, network.host)}`;
-  return `Non riesco a raggiungere OpenAI (${network.host}): ${netCause(network)}. ${then}${hint}`;
+  return t.unreachable(network.host, netCause(network), then, hint);
 }
 
 /** Waits between attempts of a request that could not leave (`SiwcClientOptions.retryDelaysMs`). */
@@ -292,10 +291,14 @@ export interface SiwcLogin {
   cancel(): void;
 }
 
-const CALLBACK_PAGE = (ok: boolean, text: string) =>
-  `<!doctype html><html lang="it"><meta charset="utf-8"><title>Monsters</title>` +
-  `<body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem">` +
-  `<h1 style="font-size:1.4rem">${ok ? 'Fatto' : 'Accesso non completato'}</h1><p>${text}</p></body></html>`;
+const CALLBACK_PAGE = (ok: boolean, text: string) => {
+  const t = providerTexts();
+  return (
+    `<!doctype html><html lang="${t.pageLang}"><meta charset="utf-8"><title>Monsters</title>` +
+    `<body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem">` +
+    `<h1 style="font-size:1.4rem">${ok ? t.pageDone : t.pageFailed}</h1><p>${text}</p></body></html>`
+  );
+};
 
 export class SiwcClient {
   readonly #store: CredentialStore;
@@ -388,19 +391,19 @@ export class SiwcClient {
         res.end(CALLBACK_PAGE(ok, text));
       };
       if (finished) {
-        reply(false, 'Questo accesso è già chiuso: riprova da Monsters.');
+        reply(false, providerTexts().pageClosed);
         return;
       }
       const p = url.searchParams;
       // State first: a request with a foreign state is refused and the sign-in
       // stays open (any local page or process could send one to close it).
       if (p.get('state') !== state) {
-        reply(false, 'Risposta non valida (state). Riprova da Monsters.');
+        reply(false, providerTexts().pageBadState);
         return;
       }
       const error = p.get('error');
       if (error) {
-        reply(false, 'Accesso annullato. Puoi chiudere questa scheda.');
+        reply(false, providerTexts().pageCancelled);
         finish(
           new SiwcError(
             error === 'access_denied' ? 'access_denied' : 'unavailable',
@@ -415,34 +418,31 @@ export class SiwcClient {
       if (registration) {
         // Reauthorization: the id may be absent; a different one is refused.
         if (returned && returned !== registration.client_id) {
-          reply(false, 'Risposta non valida (client). Riprova da Monsters.');
+          reply(false, providerTexts().pageBadClient);
           finish(new SiwcError('client_mismatch', 'the issued client id changed'));
           return;
         }
         clientId = registration.client_id;
       } else {
         if (!returned || returned === SIWC_DYNAMIC_CLIENT || !returned.startsWith('oaiapp_')) {
-          reply(false, 'Registrazione non completata. Riprova da Monsters.');
+          reply(false, providerTexts().pageNoRegistration);
           finish(new SiwcError('registration_incomplete', 'no issued client id in the callback'));
           return;
         }
         clientId = returned;
       }
       if (!code) {
-        reply(false, 'Risposta senza codice. Riprova da Monsters.');
+        reply(false, providerTexts().pageNoCode);
         finish(new SiwcError('unavailable', 'the callback has no code'));
         return;
       }
       this.#exchange({ code, clientId, verifier, redirectUri, nonce, registration })
         .then((creds) => {
-          reply(
-            true,
-            'Accesso a ChatGPT completato. Puoi chiudere questa scheda e tornare a Monsters.',
-          );
+          reply(true, providerTexts().pageOk);
           finish(null, creds);
         })
         .catch((err: Error) => {
-          reply(false, 'Accesso non completato. Torna a Monsters per i dettagli.');
+          reply(false, providerTexts().pageError);
           finish(err);
         });
     };

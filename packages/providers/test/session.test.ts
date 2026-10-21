@@ -149,7 +149,7 @@ describe('ModelSession', () => {
     expect(session.lastServed?.ref.model).toBe('b');
   });
 
-  it('a chain that only answers empty fails with every attempt, in Italian', async () => {
+  it('a chain that only answers empty fails with every attempt', async () => {
     const provider = new FakeProvider({ models: { a: [fake.empty(), fake.empty()] } });
     const session = new ProviderRegistry()
       .register(provider)
@@ -158,7 +158,7 @@ describe('ModelSession', () => {
     let failure: unknown;
     for await (const part of result.stream) if (part.type === 'error') failure = part.error;
     expect(failure).toBeInstanceOf(AllModelsFailedError);
-    expect((failure as Error).message).toMatch(/^nessun modello disponibile: .*risposta vuota/);
+    expect((failure as Error).message).toMatch(/^no model available: .*empty response/);
     expect((failure as Error).cause).toBeInstanceOf(EmptyResponseError);
     expect(provider.calls).toHaveLength(2);
   });

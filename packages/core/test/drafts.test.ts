@@ -77,7 +77,7 @@ describe('project_propose: a whole project as a draft', () => {
       .events(runId)
       .find(isType('tool_result', (e) => e.data.tool === 'project_propose'))!;
     expect(result.data.ok).toBe(true);
-    expect(JSON.stringify(result.data.output)).toContain('ogni domenica alle 23:00');
+    expect(JSON.stringify(result.data.output)).toContain('every Sunday at 11:00 PM');
     // Nothing exists yet: a draft project, no monster, no folder, no automation.
     const team = t.core.hub.team;
     expect(team.list().map((a) => a.config.id)).toEqual(['titan', 'dione', 'rhea']);
@@ -131,7 +131,7 @@ describe('project_propose: a whole project as a draft', () => {
       participants: ['sofia', 'grafo'],
     });
     // "(ora di Europe/Rome)" follows where the machine's time zone is another (the CI's Windows VM).
-    expect(autos[0]!.scheduleText).toMatch(/^ogni domenica alle 23:00/);
+    expect(autos[0]!.scheduleText).toMatch(/^every Sunday at 11:00 PM/);
     expect(confirmed.automationDrafts).toEqual([autos[0]!.id]);
     const left = await t.json<DraftView[]>('GET', '/api/drafts');
     expect(left.map((d) => d.kind)).toEqual(['automation']);
@@ -270,7 +270,7 @@ describe('automation_propose: a schedule in words, checked, as a draft', () => {
     expect(results[0]!.data.ok).toBe(true);
     expect(results[0]!.data.output).toMatchObject({
       status: 'proposed',
-      when: 'dal lunedì al venerdì alle 8:00',
+      when: 'Monday to Friday at 8:00 AM',
     });
     expect(results[1]!.data.ok).toBe(false);
     const [a] = await t.json<AutomationView[]>('GET', '/api/automations');

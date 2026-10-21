@@ -86,7 +86,7 @@ describe('semantic search in the hub', () => {
       '/api/vault/notes',
     );
     expect(overview.semantic).toBe('unavailable');
-    expect(overview.semanticReason).toMatch(/non è disponibile in questa installazione/);
+    expect(overview.semanticReason).toMatch(/isn’t available in this installation/);
 
     const off = events().filter((e) => e.type === 'error' && e.agent === 'system');
     expect(off.map((e) => e.data)).toEqual([

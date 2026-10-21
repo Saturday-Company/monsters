@@ -4,7 +4,7 @@ import {
   draftTaint,
   extractTelegramToken,
   onAppLang,
-  TELEGRAM_TOKEN_SHAPE_MESSAGE,
+  telegramTokenShapeMessage,
   type Channel,
   type DraftKind,
   type DraftView,
@@ -450,7 +450,7 @@ export class TelegramChannel {
    */
   async setToken(pasted: string): Promise<TelegramView> {
     const trimmed = extractTelegramToken(pasted);
-    if (!trimmed) throw new TelegramError('invalid_token', TELEGRAM_TOKEN_SHAPE_MESSAGE);
+    if (!trimmed) throw new TelegramError('invalid_token', telegramTokenShapeMessage());
     const generation = ++this.#tokenGeneration;
     this.#o.log.redactor.addSecret(trimmed);
     const api = new Api(trimmed, telegramClient(this.#o.apiRoot, 15));

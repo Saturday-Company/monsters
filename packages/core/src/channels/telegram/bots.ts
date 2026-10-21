@@ -3,7 +3,7 @@ import {
   extractTelegramToken,
   onAppLang,
   settingsPath,
-  TELEGRAM_TOKEN_SHAPE_MESSAGE,
+  telegramTokenShapeMessage,
   type Channel,
   type LogEvent,
   type Question,
@@ -1300,7 +1300,7 @@ export class TelegramBots {
   async add(params: { token: string; agent: string; dailyLimit?: number | undefined }) {
     // What the user pasted: the token alone or BotFather's whole message.
     const token = extractTelegramToken(params.token);
-    if (!token) throw new TelegramBotsError('invalid_token', TELEGRAM_TOKEN_SHAPE_MESSAGE);
+    if (!token) throw new TelegramBotsError('invalid_token', telegramTokenShapeMessage());
     this.#o.log.redactor.addSecret(token);
     const agent = this.#agentFor(params.agent);
     const main = this.#o.mainBot();
@@ -1361,7 +1361,7 @@ export class TelegramBots {
   async changeToken(id: string, tokenText: string) {
     const row = this.#bot(id);
     const token = extractTelegramToken(tokenText);
-    if (!token) throw new TelegramBotsError('invalid_token', TELEGRAM_TOKEN_SHAPE_MESSAGE);
+    if (!token) throw new TelegramBotsError('invalid_token', telegramTokenShapeMessage());
     this.#o.log.redactor.addSecret(token);
     const main = this.#o.mainBot();
     if (main.token && main.token === token) {

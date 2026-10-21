@@ -1,7 +1,7 @@
 import {
   DEFAULT_TELEGRAM_PREFS,
   extractTelegramToken,
-  TELEGRAM_TOKEN_SHAPE_MESSAGE,
+  telegramTokenShapeMessage,
   TelegramBotCreateRequestSchema,
   TelegramBotPersonRequestSchema,
   TelegramBotUpdateRequestSchema,
@@ -176,7 +176,7 @@ export class MockTelegram {
         if (!p.success) return fail(400, 'invalid_request', 'not a bot token');
         // Like the core: the token taken out of what was pasted.
         const pasted = extractTelegramToken(p.data.token);
-        if (!pasted) return fail(400, 'invalid_token', TELEGRAM_TOKEN_SHAPE_MESSAGE);
+        if (!pasted) return fail(400, 'invalid_token', telegramTokenShapeMessage());
         p.data.token = pasted;
         if (p.data.token.includes('000000')) {
           return fail(400, 'invalid_token', unknownToken());
@@ -304,7 +304,7 @@ export class MockTelegram {
       if (!p.success) return fail(400, 'invalid_request', 'not a bot token');
       // Like the core: the token taken out of what was pasted.
       const pasted = extractTelegramToken(p.data.token);
-      if (!pasted) return fail(400, 'invalid_token', TELEGRAM_TOKEN_SHAPE_MESSAGE);
+      if (!pasted) return fail(400, 'invalid_token', telegramTokenShapeMessage());
       p.data.token = pasted;
       if (p.data.token.includes('000000')) {
         return fail(400, 'invalid_token', unknownToken());
@@ -415,7 +415,7 @@ export class MockTelegram {
         if (!p.success) return fail(400, 'invalid_request', 'not a bot token');
         // Like the core: the token taken out of what was pasted.
         const pasted = extractTelegramToken(p.data.token);
-        if (!pasted) return fail(400, 'invalid_token', TELEGRAM_TOKEN_SHAPE_MESSAGE);
+        if (!pasted) return fail(400, 'invalid_token', telegramTokenShapeMessage());
         p.data.token = pasted;
         if (p.data.token.includes('000000')) {
           return fail(400, 'invalid_token', unknownToken());

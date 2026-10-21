@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AgentIdSchema } from './ids.ts';
+import { automationStrings } from './automations.strings.ts';
 
 /*
  * Automations (plan of 17/10 §3 B3, D-094): work that a capo squadra does on
@@ -273,7 +274,7 @@ export const AutomationRunDetailSchema = z.object({
 export type AutomationRunDetail = z.infer<typeof AutomationRunDetailSchema>;
 
 export const AutomationViewSchema = AutomationSchema.extend({
-  /** The schedule in Italian ("ogni domenica alle 23:00"), or the cron expression. */
+  /** The schedule in words in the app's language ("every Sunday at 11:00 PM"), or the cron expression. */
   scheduleText: z.string(),
   /** Next slot (epoch ms), null when it does not run on its own (draft, paused). */
   nextRunAt: z.number().nullable(),
@@ -290,37 +291,9 @@ export const AutomationRunNowResponseSchema = z.object({
 });
 export type AutomationRunNowResponse = z.infer<typeof AutomationRunNowResponseSchema>;
 
-// --- the schedule in Italian ------------------------------------------------------------------
-
-const WEEKDAYS = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
-const MONTHS = [
-  'gennaio',
-  'febbraio',
-  'marzo',
-  'aprile',
-  'maggio',
-  'giugno',
-  'luglio',
-  'agosto',
-  'settembre',
-  'ottobre',
-  'novembre',
-  'dicembre',
-];
+// --- the schedule in words --------------------------------------------------------------------
 
 const isInt = (s: string) => /^\d{1,2}$/.test(s);
-
-function list(items: string[]): string {
-  if (items.length <= 1) return items.join('');
-  return `${items.slice(0, -1).join(', ')} e ${items.at(-1)!}`;
-}
-
-/** "alle 23:00", "all'1:30", "a mezzanotte". */
-function at(h: number, m: number): string {
-  if (h === 0 && m === 0) return 'a mezzanotte';
-  const time = `${h}:${String(m).padStart(2, '0')}`;
-  return h === 1 ? `all'${time}` : `alle ${time}`;
-}
 
 /** Hours and minute of a daily pattern ("8", "8,20"); null when it is something else. */
 function times(min: string, hour: string): string | null {
@@ -328,7 +301,7 @@ function times(min: string, hour: string): string | null {
   const m = Number(min);
   const hours = hour.split(',').map(Number);
   if (m > 59 || hours.some((h) => h > 23)) return null;
-  return list(hours.map((h) => at(h, m)));
+  return automationStrings().atTimes(hours, m);
 }
 
 function weekday(d: string): number | null {
@@ -337,33 +310,30 @@ function weekday(d: string): number | null {
   return n <= 7 ? n % 7 : null;
 }
 
-/** "ogni lunedì", "ogni lunedì e venerdì", "dal lunedì al venerdì"; null when not plain. */
+/** "every Monday", "every Monday and Friday", "Monday to Friday"; null when not plain. */
 function weekdays(dow: string): string | null {
+  const t = automationStrings();
   const range = /^(\d)-(\d)$/.exec(dow);
   if (range) {
     const a = weekday(range[1]!);
     const b = weekday(range[2]!);
     if (a === null || b === null) return null;
-    if (dow === '0-6' || dow === '1-7') return 'ogni giorno';
-    return `${a === 0 ? 'dalla' : 'dal'} ${WEEKDAYS[a]!} ${b === 0 ? 'alla' : 'al'} ${WEEKDAYS[b]!}`;
+    if (dow === '0-6' || dow === '1-7') return t.everyDay;
+    return t.weekdayRange(a, b);
   }
   const days = dow.split(',').map(weekday);
   if (days.some((d) => d === null)) return null;
   const unique = [...new Set(days as number[])];
-  // Monday first, Sunday last: the Italian week.
+  // Monday first, Sunday last: the week of the app's first language.
   unique.sort((x, y) => ((x + 6) % 7) - ((y + 6) % 7));
-  return `ogni ${list(unique.map((d) => WEEKDAYS[d]!))}`;
-}
-
-function dayOfMonth(d: string): string {
-  return d === '1' ? '1°' : d;
+  return t.everyWeekdays(t.list(unique.map((d) => t.weekdays[d]!)));
 }
 
 /**
- * The schedule in Italian for the common patterns ("ogni domenica alle 23:00",
- * "ogni giorno alle 8:00", "il 1° di ogni mese alle 9:00", "ogni 15 minuti");
- * otherwise the cron expression as it is. With `timezone` different from
- * `userTimezone`, the zone is said in brackets.
+ * The schedule in words, in the app's language, for the common patterns ("every Sunday at 11:00 PM",
+ * "every day at 8:00 AM", "on the 1st of every month at 9:00 AM", "every 15 minutes"; Italian:
+ * "ogni domenica alle 23:00", "il 1° di ogni mese alle 9:00"); otherwise the cron expression as it
+ * is. With `timezone` different from `userTimezone`, the zone is said in brackets.
  */
 export function describeSchedule(
   cron: string,
@@ -371,46 +341,49 @@ export function describeSchedule(
 ): string {
   const text = describeCron(cron);
   const tz = options.timezone;
-  if (tz && options.userTimezone && tz !== options.userTimezone) return `${text} (ora di ${tz})`;
+  if (tz && options.userTimezone && tz !== options.userTimezone) {
+    return automationStrings().inZone(text, tz);
+  }
   return text;
 }
 
 function describeCron(cron: string): string {
+  const t = automationStrings();
   const raw = cron.trim();
   const fields = raw.split(/\s+/);
+  // i18n-ignore: "cron" is the name of the notation, the same in every language.
   const fallback = `cron: ${raw}`;
   if (fields.length !== 5) return fallback;
   const [min, hour, dom, mon, dow] = fields as [string, string, string, string, string];
   const everyMinutes = /^\*\/(\d{1,2})$/.exec(min);
   if (everyMinutes && hour === '*' && dom === '*' && mon === '*' && dow === '*') {
     const n = Number(everyMinutes[1]);
-    return n === 1 ? 'ogni minuto' : `ogni ${n} minuti`;
+    return n === 1 ? t.everyMinute : t.everyMinutes(n);
   }
   if (min === '*' && hour === '*' && dom === '*' && mon === '*' && dow === '*')
-    return 'ogni minuto';
+    return t.everyMinute;
   if (isInt(min) && Number(min) <= 59 && dom === '*' && mon === '*' && dow === '*') {
     const m = Number(min);
-    const suffix = m === 0 ? '' : ` al minuto ${m}`;
-    if (hour === '*') return `ogni ora${suffix}`;
+    if (hour === '*') return t.everyHour(m);
     const everyHours = /^\*\/(\d{1,2})$/.exec(hour);
     if (everyHours) {
       const n = Number(everyHours[1]);
-      return n === 1 ? `ogni ora${suffix}` : `ogni ${n} ore${suffix}`;
+      return n === 1 ? t.everyHour(m) : t.everyHours(n, m);
     }
   }
   const when = times(min, hour);
   if (!when) return fallback;
   if (dom === '*' && mon === '*') {
-    if (dow === '*') return `ogni giorno ${when}`;
+    if (dow === '*') return t.daily(t.everyDay, when);
     const days = weekdays(dow);
-    return days ? `${days} ${when}` : fallback;
+    return days ? t.daily(days, when) : fallback;
   }
   if (dow !== '*' || !/^\d{1,2}$/.test(dom) || Number(dom) < 1 || Number(dom) > 31) {
     return fallback;
   }
-  if (mon === '*') return `il ${dayOfMonth(dom)} di ogni mese ${when}`;
+  if (mon === '*') return t.monthly(Number(dom), when);
   if (isInt(mon) && Number(mon) >= 1 && Number(mon) <= 12) {
-    return `ogni anno il ${dayOfMonth(dom)} ${MONTHS[Number(mon) - 1]!} ${when}`;
+    return t.yearly(Number(dom), Number(mon), when);
   }
   return fallback;
 }

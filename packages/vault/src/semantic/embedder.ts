@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import type { ModelSpec } from './model-files.ts';
+import { vaultStrings } from '../vault.strings.ts';
 
 /*
  * Text embeddings for semantic search. The default model is IBM
@@ -87,9 +88,10 @@ export const TRANSFORMERS_PACKAGE = '@huggingface/transformers';
  */
 export class SemanticUnavailableError extends Error {
   readonly code = 'missing_dependency';
-  /** Short Italian text for the UI. */
-  readonly reason =
-    'La ricerca per significato non è disponibile in questa installazione: si cerca per parole.';
+  /** Short text for the UI, in the app's language. */
+  get reason(): string {
+    return vaultStrings().semanticOff;
+  }
   readonly missing: string;
 
   constructor(missing: string = TRANSFORMERS_PACKAGE) {

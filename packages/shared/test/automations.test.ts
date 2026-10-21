@@ -1,14 +1,45 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   AutomationCreateSchema,
   AutomationUpdateSchema,
   describeSchedule,
   EventInputSchema,
   isTimeZone,
+  setAppLang,
 } from '../src/index.ts';
 
 describe('describeSchedule', () => {
+  afterEach(() => setAppLang('en'));
+
+  it('says the common patterns in English', () => {
+    const cases: [string, string][] = [
+      ['0 23 * * 0', 'every Sunday at 11:00 PM'],
+      ['0 23 * * 7', 'every Sunday at 11:00 PM'],
+      ['0 8 * * *', 'every day at 8:00 AM'],
+      ['30 1 * * *', 'every day at 1:30 AM'],
+      ['0 0 * * *', 'every day at midnight'],
+      ['0 8,20 * * *', 'every day at 8:00 AM and 8:00 PM'],
+      ['0 9 * * 1-5', 'Monday to Friday at 9:00 AM'],
+      ['0 9 * * 0,1,5', 'every Monday, Friday, and Sunday at 9:00 AM'],
+      ['0 9 1 * *', 'on the 1st of every month at 9:00 AM'],
+      ['15 18 15 * *', 'on the 15th of every month at 6:15 PM'],
+      ['0 10 25 12 *', 'every year on December 25th at 10:00 AM'],
+      ['0 10 2 3 *', 'every year on March 2nd at 10:00 AM'],
+      ['0 10 23 3 *', 'every year on March 23rd at 10:00 AM'],
+      ['*/15 * * * *', 'every 15 minutes'],
+      ['0 * * * *', 'every hour'],
+      ['20 * * * *', 'every hour at minute 20'],
+      ['0 */2 * * *', 'every 2 hours'],
+    ];
+    for (const [cron, text] of cases) expect(describeSchedule(cron), cron).toBe(text);
+    expect(describeSchedule('0 9 L * *')).toBe('cron: 0 9 L * *');
+    expect(
+      describeSchedule('0 8 * * *', { timezone: 'America/New_York', userTimezone: 'Europe/Rome' }),
+    ).toBe('every day at 8:00 AM (America/New_York time)');
+  });
+
   it('says the common patterns in Italian', () => {
+    setAppLang('it');
     const cases: [string, string][] = [
       ['0 23 * * 0', 'ogni domenica alle 23:00'],
       ['0 23 * * 7', 'ogni domenica alle 23:00'],
@@ -29,6 +60,7 @@ describe('describeSchedule', () => {
   });
 
   it('falls back to the expression, and names a zone other than the user’s', () => {
+    setAppLang('it');
     expect(describeSchedule('0 9 L * *')).toBe('cron: 0 9 L * *');
     expect(describeSchedule('0 9 1-7 * 1')).toBe('cron: 0 9 1-7 * 1');
     expect(

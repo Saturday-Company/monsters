@@ -182,7 +182,7 @@ describe('fs tools', () => {
     expect(err.code).toBe('SETTING_OFF');
     expect(err.message).toContain('outside the folders granted to you');
     expect(err.hint).toContain(`Ask the user to grant "${s.outside}"`);
-    expect(err.hint).toContain('Impostazioni → Permessi');
+    expect(err.hint).toContain('Settings → Permissions');
     const up = await toolError(run(s, 'fs_read', { path: '../fuori/segreto.txt' }));
     expect(up.code).toBe('SETTING_OFF');
   });
@@ -404,7 +404,7 @@ describe('fs tools', () => {
     ]) {
       const err = await toolError(call());
       expect(err.code).toBe('SETTING_OFF');
-      expect(err.hint).toContain('Terminale');
+      expect(err.hint).toContain('"Terminal"');
     }
     // A folder prepared elsewhere and moved into place is checked file by file.
     await run(s, 'fs_write', { path: 'pronto/autostart/x.desktop', content: 'x' });
@@ -492,7 +492,7 @@ describe('files of a repo that run commands (review of 18/10, B1 and M9)', () =>
       run(s, 'fs_write', { path: 'package.json', mode: 'overwrite', content: evil }),
     );
     expect(refused.code).toBe('SETTING_OFF');
-    expect(refused.hint).toContain('Terminale');
+    expect(refused.hint).toContain('"Terminal"');
     expect(readFileSync(pkg, 'utf8')).not.toContain('pretest');
     // The same through a move.
     writeFileSync(join(s.work, 'nuovo.json'), evil);

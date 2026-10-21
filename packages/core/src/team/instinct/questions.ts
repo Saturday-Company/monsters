@@ -51,7 +51,14 @@ const TIMEOUTS: Readonly<Record<InstinctUse, number>> = {
 };
 
 export const INSTINCT_SPECS: Readonly<Record<InstinctUse, UseSpec>> = Object.fromEntries(
-  INSTINCT_USES.map((u) => [u, { ...INSTINCT_USE_INFO[u], timeoutMs: TIMEOUTS[u] }]),
+  // The texts of a use are getters that follow the app's language: copy the descriptors, not the values.
+  INSTINCT_USES.map((u) => [
+    u,
+    Object.defineProperties(
+      { timeoutMs: TIMEOUTS[u] },
+      Object.getOwnPropertyDescriptors(INSTINCT_USE_INFO[u]),
+    ),
+  ]),
 ) as Record<InstinctUse, UseSpec>;
 
 // --- thresholds ---------------------------------------------------------------------

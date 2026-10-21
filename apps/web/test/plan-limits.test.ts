@@ -149,9 +149,9 @@ describe('PlanLimitsBlock', () => {
         view: planLimitsView(claudeSnapshot(Date.now()), Date.now()),
       }),
     );
-    expect(html).toContain('Sessione');
-    expect(html).toContain('Settimana');
-    expect(html).toContain('Opus settimana');
+    expect(html).toContain('Session');
+    expect(html).toContain('Week');
+    expect(html).toContain('Opus week');
     expect(html).toMatch(/data-testid="plan-percent">9%</);
     expect(html).toMatch(/>83%</);
     expect(html).toContain('data-tone="warn"');
@@ -191,7 +191,7 @@ describe('PlanLimitsBlock', () => {
     );
     expect(html).toContain('data-tone="reset"');
     expect(html).toContain('reset · updates on next use');
-    expect(html).toContain('5 ore');
+    expect(html).toContain('5 hours');
     expect(html).toContain('Updated 6 h ago');
     expect(html).not.toContain('almost at the limit');
   });

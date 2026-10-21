@@ -225,7 +225,7 @@ describe('time limits and broken streams (AG-04, AG-21)', () => {
     const { result, events } = await run(env, { tools: [] });
     expect(Date.now() - started).toBeLessThan(3000);
     expect(result.status).toBe('failed');
-    expect(result.error).toMatch(/si è fermato a metà risposta: nessun dato da 0 s/);
+    expect(result.error).toMatch(/stopped halfway through its answer: no data for 0 s/);
     const codes = events.filter((e) => e.type === 'error').map((e) => e.data.code);
     expect(codes).toEqual(['stream_retry', 'agent_failed']);
     expect(env.provider.calls).toHaveLength(2);

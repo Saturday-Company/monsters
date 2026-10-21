@@ -1,5 +1,6 @@
 import {
   ONBOARDING_QUESTIONS,
+  onboardingQuestionsIn,
   checkOnboardingAnswer,
   type AgentPermissions,
   type OnboardingAnswer,
@@ -53,7 +54,9 @@ export function missingAnswers(answers: Answers): string[] {
 }
 
 function question(id: string) {
-  const q = ONBOARDING_QUESTIONS.find((x) => x.id === id);
+  // The profile is written in Italian (for the model and `profilo.md`: wave 3 and 4), with the
+  // labels of the options inside its sentences, whatever the language of the app.
+  const q = onboardingQuestionsIn('it').find((x) => x.id === id);
   if (!q) throw new Error(`unknown onboarding question ${id}`);
   return q;
 }

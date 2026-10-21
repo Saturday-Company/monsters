@@ -21,6 +21,7 @@ import type {
   ProjectView,
   TeamView,
 } from '@monsters/shared';
+import { SPEND_PERIOD_WORDS } from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parseAgentConfig, type AgentDefinition } from '../src/agents/definition.ts';
 import { HarnessToolSessions } from '../src/agents/harness-tools.ts';
@@ -837,7 +838,9 @@ describe('projects: spending, third level', () => {
     expect(m.stopReason('leda')).toBeNull();
     usage(s, 'rhea-saturday', 0.4); // 2,10 €
     expect(events().at(-1)!.data).toMatchObject({ scope: 'project:saturday', action: 'stopped' });
-    expect(m.stopReason('leda')).toMatch(/tetto di spesa del progetto Saturday di oggi/);
+    expect(m.stopReason('leda')).toContain(
+      `tetto di spesa del progetto Saturday ${SPEND_PERIOD_WORDS.day}`,
+    );
     expect(m.stopReason('rhea-saturday')).not.toBeNull();
     expect(m.stopReason('titan')).toBeNull();
     expect(m.view().projects?.[0]).toMatchObject({ id: 'saturday', status: 'stopped' });

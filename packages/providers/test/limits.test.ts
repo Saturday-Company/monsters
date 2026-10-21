@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
 import {
   claudeRejection,
   parseClaudeRateLimit,
@@ -211,7 +212,18 @@ describe('parseCodexRateLimits', () => {
 describe('resetPhrase', () => {
   it('says the hour within the day and the weekday later', () => {
     const soon = new Date(NOW + 2 * 3_600_000);
-    expect(resetPhrase(soon.getTime(), NOW)).toMatch(/^alle \d\d:\d\d$/);
-    expect(resetPhrase(NOW + 3 * 86_400_000, NOW)).toMatch(/^[a-zà-ù]{3} \d\d:\d\d$/);
+    expect(resetPhrase(soon.getTime(), NOW)).toMatch(/^at \d{1,2}:\d\d [AP]M$/);
+    expect(resetPhrase(NOW + 3 * 86_400_000, NOW)).toMatch(/^[A-Z][a-z]{2} \d{1,2}:\d\d [AP]M$/);
+  });
+
+  it('says it in Italian when the app is Italian', () => {
+    setAppLang('it');
+    try {
+      const soon = new Date(NOW + 2 * 3_600_000);
+      expect(resetPhrase(soon.getTime(), NOW)).toMatch(/^alle \d\d:\d\d$/);
+      expect(resetPhrase(NOW + 3 * 86_400_000, NOW)).toMatch(/^[a-zà-ù]{3} \d\d:\d\d$/);
+    } finally {
+      setAppLang('en');
+    }
   });
 });

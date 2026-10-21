@@ -254,7 +254,7 @@ describe.skipIf(!POSIX)('shell', () => {
     const { tool } = shellTool({ allowed: (id) => id === 'rhea' });
     const err = await toolError(tool.execute({ command: 'echo no' }, toolCtx('dione')));
     expect(err.code).toBe('SETTING_OFF');
-    expect(err.hint).toContain('Impostazioni → Permessi');
+    expect(err.hint).toContain('Settings → Permissions');
   });
 
   it('never runs sudo', async () => {

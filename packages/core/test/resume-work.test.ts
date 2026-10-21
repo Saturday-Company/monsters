@@ -60,7 +60,7 @@ describe('resume and continue', () => {
     expect(userMessages(t.events(titanRun))[0]?.data.text).toBe(resumeText('Tre post su Lisbona'));
     // The model reads the request as a request started again.
     const titanCall = t.provider.calls.filter((c) => c.model === 'titan').at(-1)!;
-    expect(promptText(titanCall.options.prompt)).toContain('Riprendi il lavoro che avevo fermato');
+    expect(promptText(titanCall.options.prompt)).toContain('Resume the work I stopped');
 
     // Not stopped any more: nothing starts again a second time.
     const again = await t.json<ResumeResponse>('POST', '/api/resume', { continue: true });

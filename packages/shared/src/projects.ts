@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { agentAreaStrings } from './agent-area.strings.ts';
 import { AgentAreaSchema } from './agent-area.ts';
 import { AgentStateSchema } from './api.ts';
 import { AgentIdSchema, ProjectIdSchema } from './ids.ts';
@@ -74,10 +75,9 @@ export const ProjectNameSchema = z
       .string()
       .min(1)
       .max(40)
-      .regex(
-        /^[\p{L}\p{N}][\p{L}\p{M}\p{N} '’-]*$/u,
-        'Solo lettere, numeri, spazi, apostrofi e trattini (al massimo 40).',
-      ),
+      .regex(/^[\p{L}\p{N}][\p{L}\p{M}\p{N} '’-]*$/u, {
+        error: () => agentAreaStrings().projectNameChars,
+      }),
   );
 
 /** `draft`: proposed, not confirmed (no monsters yet); `active`: in use. */

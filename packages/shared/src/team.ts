@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AgentAreaSchema, AgentDutySchema, MAX_DUTIES } from './agent-area.ts';
+import { agentAreaStrings } from './agent-area.strings.ts';
 import { AgentStateSchema, PasswordSchema } from './api.ts';
 import { AgentIdSchema, ProjectIdSchema } from './ids.ts';
 import { AGENT_NAME_PATTERN } from './onboarding.ts';
@@ -68,7 +69,7 @@ export const TeamNameSchema = z
       .string()
       .min(1)
       .max(24)
-      .regex(AGENT_NAME_PATTERN, 'Solo lettere, spazi, apostrofi e trattini (al massimo 24).'),
+      .regex(AGENT_NAME_PATTERN, { error: () => agentAreaStrings().nameChars }),
   );
 
 /** One line of the generated AGENTS.md: the same rules the generation follows. */
@@ -78,9 +79,9 @@ export function teamLine(min: number, max: number) {
     .trim()
     .min(min)
     .max(max)
-    .refine((s) => !/[\r\n]/.test(s), 'Una riga sola.')
-    .refine((s) => !/\{\{[^}]*\}\}/.test(s), 'Niente {{segnaposto}}.')
-    .refine((s) => !s.startsWith('#'), 'Non inizia con #.');
+    .refine((s) => !/[\r\n]/.test(s), { error: () => agentAreaStrings().dutyOneLine })
+    .refine((s) => !/\{\{[^}]*\}\}/.test(s), { error: () => agentAreaStrings().dutyPlaceholder })
+    .refine((s) => !s.startsWith('#'), { error: () => agentAreaStrings().dutyHash });
 }
 
 export const TeamTitleSchema = teamLine(3, 60);

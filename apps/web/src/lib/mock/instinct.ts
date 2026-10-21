@@ -1,7 +1,7 @@
 import {
-  INSTINCT_DESCRIPTION,
+  instinctDescription,
   INSTINCT_ENGINE_TEXTS,
-  INSTINCT_TITLE,
+  instinctTitle,
   INSTINCT_USE_INFO,
   INSTINCT_USES,
   InstinctUpdateSchema,
@@ -205,8 +205,8 @@ export class MockInstinct {
   private view(): InstinctView {
     const { engine, keySet } = this.deps.decisions.state();
     return {
-      title: INSTINCT_TITLE,
-      description: INSTINCT_DESCRIPTION,
+      title: instinctTitle(),
+      description: instinctDescription(),
       engine,
       engineSource: this.engineChosen ? 'user' : 'default',
       engines: (['rules', 'llm', 'jev'] as const).map((id) => ({

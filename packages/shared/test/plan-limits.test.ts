@@ -5,6 +5,7 @@ import {
   planPeak,
   planWindowLabel,
   planWindowTone,
+  setAppLang,
   windowLengthLabel,
   type PlanLimitsSnapshot,
 } from '../src/index.ts';
@@ -24,9 +25,9 @@ describe('planLimitsView', () => {
   it('orders Claude windows, rounds, names and tones them', () => {
     const view = planLimitsView(snapshot, NOW)!;
     expect(view.windows.map((w) => [w.id, w.label, w.usedPercent, w.tone, w.reset])).toEqual([
-      ['five_hour', 'Sessione', 95, 'high', false],
-      ['seven_day', 'Settimana', 63, 'ok', false],
-      ['seven_day_opus', 'Opus settimana', 41, 'ok', false],
+      ['five_hour', 'Session', 95, 'high', false],
+      ['seven_day', 'Week', 63, 'ok', false],
+      ['seven_day_opus', 'Opus week', 41, 'ok', false],
     ]);
     expect(view.observedAt).toBe(NOW - 60_000);
   });
@@ -59,8 +60,8 @@ describe('planLimitsView', () => {
       NOW,
     )!;
     expect(view.windows.map((w) => [w.label, w.tone])).toEqual([
-      ['5 ore', 'ok'],
-      ['Settimana', 'warn'],
+      ['5 hours', 'ok'],
+      ['Week', 'warn'],
     ]);
   });
 
@@ -110,13 +111,28 @@ describe('mergePlanReading', () => {
 
 describe('labels, tones, peak', () => {
   it('names windows by length', () => {
-    expect(windowLengthLabel(300)).toBe('5 ore');
-    expect(windowLengthLabel(60)).toBe('1 ora');
-    expect(windowLengthLabel(10080)).toBe('Settimana');
-    expect(windowLengthLabel(2880)).toBe('2 giorni');
+    expect(windowLengthLabel(300)).toBe('5 hours');
+    expect(windowLengthLabel(60)).toBe('1 hour');
+    expect(windowLengthLabel(90)).toBe('1.5 hours');
+    expect(windowLengthLabel(10080)).toBe('Week');
+    expect(windowLengthLabel(2880)).toBe('2 days');
     expect(windowLengthLabel(45)).toBe('45 min');
     expect(windowLengthLabel(null)).toBeNull();
-    expect(planWindowLabel('chatgpt', 'primary')).toBe('Finestra');
+    expect(planWindowLabel('chatgpt', 'primary')).toBe('Window');
+    expect(planWindowLabel('chatgpt', 'secondary')).toBe('Second window');
+    expect(planWindowLabel('claude', 'seven_day_opus')).toBe('Opus week');
+    setAppLang('it');
+    try {
+      expect(windowLengthLabel(300)).toBe('5 ore');
+      expect(windowLengthLabel(60)).toBe('1 ora');
+      expect(windowLengthLabel(90)).toBe('1,5 ore');
+      expect(windowLengthLabel(10080)).toBe('Settimana');
+      expect(windowLengthLabel(2880)).toBe('2 giorni');
+      expect(planWindowLabel('chatgpt', 'primary')).toBe('Finestra');
+      expect(planWindowLabel('claude', 'five_hour')).toBe('Sessione');
+    } finally {
+      setAppLang('en');
+    }
   });
 
   it('warns at 80% and 95%', () => {

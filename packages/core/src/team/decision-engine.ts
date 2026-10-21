@@ -1,8 +1,8 @@
 import type { ModelRef, ProviderRegistry } from '@monsters/providers';
 import {
-  INSTINCT_DESCRIPTION,
+  instinctDescription,
   INSTINCT_ENGINE_TEXTS,
-  INSTINCT_TITLE,
+  instinctTitle,
   INSTINCT_USES,
   type DecisionEngine,
   type DecisionsView,
@@ -282,8 +282,8 @@ export class DecisionEngineService {
   instinctView(): InstinctView {
     const engine = this.engine;
     return {
-      title: INSTINCT_TITLE,
-      description: INSTINCT_DESCRIPTION,
+      title: instinctTitle(),
+      description: instinctDescription(),
       engine,
       engineSource: this.#userEngine() !== undefined ? 'user' : 'default',
       engines: (['rules', 'llm', 'jev'] as const).map((id) => ({

@@ -266,7 +266,7 @@ describe('instinct in the core (D-067)', () => {
     const t = await startTestHub({}, { home, hub: { decisionPort: undefined } });
     const view = await t.json<InstinctView>('GET', '/api/settings/instinct');
     expect(view).toMatchObject({
-      title: 'Decisioni dei mostri',
+      title: 'Monsters’ decisions',
       engine: 'llm',
       engineSource: 'user',
     });

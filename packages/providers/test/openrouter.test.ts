@@ -1,5 +1,6 @@
 import { streamText } from 'ai';
 import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
 import {
   classifyProviderError,
   DAY_MS,
@@ -99,12 +100,20 @@ describe('OpenRouterProvider', () => {
     expect(provider.servedModelId('a/b:free', 'a/b:free')).toBeUndefined();
   });
 
-  it('refuses paid models when limited to free ones, in Italian, until paid models are turned on', () => {
+  it('refuses paid models when limited to free ones, saying where, until paid models are turned on', () => {
     const provider = new OpenRouterProvider({ apiKey: 'k', freeOnly: true });
     expect(() => provider.model('anthropic/claude-sonnet-5.5')).toThrow(PaidModelBlockedError);
     expect(() => provider.model('anthropic/claude-sonnet-5.5')).toThrow(
-      /a pagamento .*Usa anche modelli a pagamento/,
+      /paid model .*Also use paid models.* in Settings → Models \(OpenRouter\)/,
     );
+    setAppLang('it');
+    try {
+      expect(() => provider.model('anthropic/claude-sonnet-5.5')).toThrow(
+        /a pagamento .*Usa anche modelli a pagamento.* in Impostazioni → Modelli \(OpenRouter\)/,
+      );
+    } finally {
+      setAppLang('en');
+    }
     expect(classifyProviderError(new PaidModelBlockedError('x/y'))).toBe('paid_blocked');
     expect(() => provider.model('openrouter/free')).not.toThrow();
     expect(() => provider.model('a/b:free')).not.toThrow();

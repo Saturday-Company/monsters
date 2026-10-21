@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CLAUDE_PLAN_MODELS } from '@monsters/shared';
+import { CLAUDE_PLAN_MODELS, settingsPath } from '@monsters/shared';
+import { providerTexts } from '../providers.strings.ts';
 import { RateBudget } from '../rate-budget.ts';
 import type {
   HarnessEvent,
@@ -328,17 +329,22 @@ export function claudeRunSettings(task: HarnessTask): Record<string, unknown> {
  * claude-haiku-5-5, `sonnet` → claude-sonnet-5-5, `opus` → claude-opus-5-5,
  * each with a 1M window (the compaction at 75% counts on it).
  */
-const CLAUDE_MODELS: ModelInfo[] = [...CLAUDE_PLAN_MODELS]
-  // The default first (the onboarding and a new link take the first one): Sonnet.
-  .sort((a, b) => Number(b.id === 'sonnet') - Number(a.id === 'sonnet'))
-  .map((m) => ({
-    id: m.id,
-    name: m.name,
-    description: m.description,
-    tools: true,
-    free: false,
-    context: m.context,
-  }));
+function claudeModels(): ModelInfo[] {
+  return (
+    [...CLAUDE_PLAN_MODELS]
+      // The default first (the onboarding and a new link take the first one): Sonnet.
+      .sort((a, b) => Number(b.id === 'sonnet') - Number(a.id === 'sonnet'))
+      // The description follows the app's language: picked each time the list is asked.
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        description: m.description,
+        tools: true,
+        free: false,
+        context: m.context,
+      }))
+  );
+}
 
 /**
  * The model of the same plan to try when `model` reached the plan's limit
@@ -628,7 +634,7 @@ export class ClaudeAgentHarness implements HarnessProvider {
   }
 
   listModels(options: ListModelsOptions = {}): Promise<ModelInfo[]> {
-    return Promise.resolve(filterModels(CLAUDE_MODELS, options));
+    return Promise.resolve(filterModels(claudeModels(), options));
   }
 
   /** Asks the binary (`claude auth status`, `claude --version`): never reads its files. */
@@ -672,7 +678,7 @@ export class ClaudeAgentHarness implements HarnessProvider {
    */
   async connectorStatus(name: string, cwd: string): Promise<ClaudeConnectorStatus> {
     const binary = this.#o.binary();
-    if (!binary) return { state: 'error', message: 'Claude Code non è installato.' };
+    if (!binary) return { state: 'error', message: providerTexts().claudeMissing };
     try {
       const r = await runOnce(binary, ['mcp', 'get', `claude.ai ${name}`], {
         env: this.#env,
@@ -813,8 +819,7 @@ export class ClaudeAgentHarness implements HarnessProvider {
         type: 'done',
         reason: 'error',
         code: 'not_found',
-        error:
-          'Claude Code non è installato: installalo, o collega l’abbonamento Claude in Impostazioni → Modelli.',
+        error: providerTexts().claudeMissingRun(settingsPath('modelli')),
       };
       return;
     }
@@ -1052,7 +1057,7 @@ export class ClaudeAgentHarness implements HarnessProvider {
                 rejectedUntil &&
                 rejectedUntil > Date.now()
               ) {
-                error = `${error} (si ripristina ${resetPhrase(rejectedUntil, Date.now())})`;
+                error = `${error} ${providerTexts().resetsAt(resetPhrase(rejectedUntil, Date.now()))}`;
               }
               done = {
                 type: 'done',
@@ -1102,7 +1107,7 @@ export class ClaudeAgentHarness implements HarnessProvider {
         yield {
           type: 'done',
           reason: 'error',
-          error: `Claude Code si è chiuso senza risultato (${code ?? 'segnale'})${tail ? `: ${tail.slice(-500)}` : ''}`,
+          error: providerTexts().claudeClosed(code, tail.slice(-500)),
           ...(NOT_LOGGED_IN.test(tail) ? { code: 'not_logged_in' } : {}),
         };
       }

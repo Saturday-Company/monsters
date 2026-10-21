@@ -10,7 +10,7 @@
 
 import {
   PROJECT_TABS,
-  SETTINGS_LABEL,
+  settingsLabel,
   SETTINGS_TABS,
   projectPagePath,
   settingsPath,
@@ -222,7 +222,7 @@ export function monstersCard(options: MonstersCardOptions & CardContext): string
   // The names the app shows, word for word (review of 16/10: "sezione Mostri" does not exist).
   const t = SETTINGS_TABS;
   lines.push(
-    `Solo l’utente, in ${SETTINGS_LABEL}: ${t.squadra} (creare, cambiare e archiviare mostri; chi è lui per voi), ${t.modelli} (modelli e spesa; tu non la vedi), ${t.permessi}, ${t.collegamenti} (servizi, Telegram).${
+    `Solo l’utente, in ${settingsLabel()}: ${t.squadra} (creare, cambiare e archiviare mostri; chi è lui per voi), ${t.modelli} (modelli e spesa; tu non la vedi), ${t.permessi}, ${t.collegamenti} (servizi, Telegram).${
       options.project
         ? ` Per il progetto «${options.project}» la pagina del progetto: schede ${PROJECT_TABS.squadra}, ${PROJECT_TABS.collegamenti} (servizi e ricerca sul web) e ${PROJECT_TABS.spesa} (tetto di spesa).`
         : ''

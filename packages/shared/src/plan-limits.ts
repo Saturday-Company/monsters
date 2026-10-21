@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { planLimitStrings } from './plan-limits.strings.ts';
 
 /*
  * Utilizzo del piano (D-111): the limits of the plans the user already pays
@@ -78,24 +79,20 @@ export const PlanLimitsResponseSchema = z.object({
 export type PlanLimitsResponse = z.infer<typeof PlanLimitsResponseSchema>;
 
 const CLAUDE_ORDER = ['five_hour', 'seven_day', 'seven_day_opus', 'seven_day_sonnet'];
-const CLAUDE_LABELS: Record<string, string> = {
-  five_hour: 'Sessione',
-  seven_day: 'Settimana',
-  seven_day_opus: 'Opus settimana',
-  seven_day_sonnet: 'Sonnet settimana',
-};
+const CLAUDE_LABELS = ['five_hour', 'seven_day', 'seven_day_opus', 'seven_day_sonnet'] as const;
 const CLAUDE_MINUTES: Record<string, number> = { five_hour: 300, seven_day: 10_080 };
 
-/** A window named by its length: 300 → "5 ore", 10080 → "Settimana", 1440 → "Giorno". */
+/** A window named by its length: 300 → "5 hours", 10080 → "Week", 1440 → "Day" (Italian: "5 ore", "Settimana", "Giorno"). */
 export function windowLengthLabel(minutes: number | null | undefined): string | null {
   if (!minutes || !Number.isFinite(minutes) || minutes <= 0) return null;
+  const t = planLimitStrings();
   const m = Math.round(minutes);
-  if (m === 10_080) return 'Settimana';
-  if (m === 1440) return 'Giorno';
-  if (m >= 1440 && m % 1440 === 0) return `${m / 1440} giorni`;
-  if (m >= 60 && m % 60 === 0) return m === 60 ? '1 ora' : `${m / 60} ore`;
-  if (m >= 60) return `${Math.round((m / 60) * 10) / 10} ore`.replace('.', ',');
-  return `${m} min`;
+  if (m === 10_080) return t.week;
+  if (m === 1440) return t.day;
+  if (m >= 1440 && m % 1440 === 0) return t.days(m / 1440);
+  if (m >= 60 && m % 60 === 0) return t.hours(m / 60);
+  if (m >= 60) return t.hoursDecimal(Math.round((m / 60) * 10) / 10);
+  return t.minutes(m);
 }
 
 export function planWindowLabel(
@@ -103,9 +100,11 @@ export function planWindowLabel(
   id: string,
   windowMinutes?: number | null,
 ): string {
-  const known = plan === 'claude' ? CLAUDE_LABELS[id] : undefined;
-  if (known) return known;
-  return windowLengthLabel(windowMinutes) ?? (id === 'secondary' ? 'Seconda finestra' : 'Finestra');
+  const t = planLimitStrings();
+  if (plan === 'claude' && (CLAUDE_LABELS as readonly string[]).includes(id)) {
+    return t[id as (typeof CLAUDE_LABELS)[number]];
+  }
+  return windowLengthLabel(windowMinutes) ?? (id === 'secondary' ? t.secondWindow : t.window);
 }
 
 export function planWindowTone(percent: number): 'ok' | 'warn' | 'high' {

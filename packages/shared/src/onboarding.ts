@@ -1,3 +1,6 @@
+import type { Lang } from './i18n.ts';
+import { onboardingStrings, onboardingStringsOf } from './onboarding.strings.ts';
+
 /*
  * First start (ARCHITECTURE §7, research 03 §5): the fixed questions of the
  * starting agent. They are plain data shared by the core (validation, profile)
@@ -43,17 +46,84 @@ export interface OnboardingQuestion {
   reply: string;
 }
 
-export const ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = [
+/** An option: an id whose label is in the dictionary, or an id with a label that is a name (never translated). */
+type OptionShape = string | { id: string; label: string };
+
+interface GroupShape {
+  id: string;
+  kind: OnboardingGroup['kind'];
+  options: OptionShape[];
+  defaults: string[];
+  required: boolean;
+  /** The group has a label / a placeholder in the dictionary. */
+  label?: boolean;
+  placeholder?: boolean;
+}
+
+interface QuestionShape {
+  id: string;
+  hint?: boolean;
+  freeText?: boolean;
+  groups: GroupShape[];
+}
+
+/** Adds to `target` properties that read their value from the dictionary each time. */
+function words<T extends object>(target: T, getters: Record<string, () => string>): T {
+  const descriptors: PropertyDescriptorMap = {};
+  for (const [key, get] of Object.entries(getters)) {
+    descriptors[key] = { enumerable: true, configurable: true, get };
+  }
+  return Object.defineProperties(target, descriptors);
+}
+
+/** `lang`: the words of that language whatever the app's; none: the app's, read each time. */
+function buildQuestion(shape: QuestionShape, lang?: Lang): OnboardingQuestion {
+  const texts = () => {
+    const t = (lang ? onboardingStringsOf(lang) : onboardingStrings())[shape.id];
+    if (!t) throw new Error(`onboarding: no words for ${shape.id}`);
+    return t;
+  };
+  const groups = shape.groups.map((g): OnboardingGroup => {
+    const options = g.options.map((o): OnboardingOption => {
+      if (typeof o !== 'string') return { id: o.id, label: o.label };
+      return words({ id: o } as OnboardingOption, { label: () => texts().options?.[o] ?? o });
+    });
+    return words(
+      {
+        id: g.id,
+        kind: g.kind,
+        options,
+        defaults: g.defaults,
+        required: g.required,
+      },
+      {
+        ...(g.label ? { label: () => texts().groups?.[g.id]?.label ?? '' } : {}),
+        ...(g.placeholder ? { placeholder: () => texts().groups?.[g.id]?.placeholder ?? '' } : {}),
+      },
+    );
+  });
+  return words({ id: shape.id, groups } as OnboardingQuestion, {
+    title: () => texts().title,
+    ...(shape.hint ? { hint: () => texts().hint ?? '' } : {}),
+    ...(shape.freeText ? { freeText: () => texts().freeText ?? '' } : {}),
+    reply: () => texts().reply,
+  });
+}
+
+/**
+ * The questions as data: ids, kinds, defaults. The words (titles, hints, labels, replies) are
+ * read from `onboarding.strings.ts` each time, so they follow the app's language.
+ */
+const QUESTION_SHAPES: readonly QuestionShape[] = [
   {
     id: 'nomi',
-    title: 'Piacere! Come ti chiami? E come chiamiamo il tuo capo?',
-    hint: 'Il tuo capo coordina gli altri mostri: di solito scrivi a lui.',
+    hint: true,
     groups: [
       {
         id: 'user',
         kind: 'name',
-        label: 'Il tuo nome',
-        placeholder: 'Come vuoi che ti chiamino',
+        label: true,
+        placeholder: true,
         options: [],
         defaults: [],
         required: true,
@@ -61,8 +131,8 @@ export const ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = [
       {
         id: 'orchestrator',
         kind: 'name',
-        label: 'Il nome del tuo capo',
-        placeholder: 'Un altro nome',
+        label: true,
+        placeholder: true,
         options: [
           { id: 'Titan', label: 'Titan' },
           { id: 'Atlas', label: 'Atlas' },
@@ -73,90 +143,77 @@ export const ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = [
         required: true,
       },
     ],
-    reply: 'Bel nome! Da adesso {orchestrator} coordina la tua squadra, {user}.',
   },
   {
     id: 'lavoro',
-    title: 'Di cosa ti occupi?',
-    hint: 'Scegli anche più di una cosa.',
+    hint: true,
+    freeText: true,
     groups: [
       {
         id: 'cosa',
         kind: 'multi',
         options: [
-          { id: 'social', label: 'Social e contenuti' },
-          { id: 'sviluppo', label: 'Sviluppo software' },
-          { id: 'marketing', label: 'Marketing e vendite' },
-          { id: 'consulenza', label: 'Consulenza o freelance' },
-          { id: 'impresa', label: 'Gestisco un’attività' },
-          { id: 'studio', label: 'Studio e ricerca' },
-          { id: 'scrittura', label: 'Scrittura e comunicazione' },
+          'social',
+          'sviluppo',
+          'marketing',
+          'consulenza',
+          'impresa',
+          'studio',
+          'scrittura',
         ],
         defaults: [],
         required: false,
       },
     ],
-    freeText: 'Altro, o due parole in più',
-    reply: 'Bello! Così capisco quali mostri ti servono.',
   },
   {
     id: 'obiettivi',
-    title: 'Cosa vuoi ottenere nelle prossime settimane?',
+    freeText: true,
     groups: [
       {
         id: 'cosa',
         kind: 'multi',
-        options: [
-          { id: 'costanza', label: 'Pubblicare con costanza' },
-          { id: 'clienti', label: 'Trovare nuovi clienti' },
-          { id: 'lancio', label: 'Lanciare un progetto' },
-          { id: 'ordine', label: 'Mettere ordine nelle idee' },
-          { id: 'imparare', label: 'Imparare un argomento' },
-          { id: 'tempo', label: 'Liberare tempo' },
-        ],
+        options: ['costanza', 'clienti', 'lancio', 'ordine', 'imparare', 'tempo'],
         defaults: [],
         required: false,
       },
     ],
-    freeText: 'Un obiettivo preciso, se ce l’hai',
-    reply: 'Segnato. Lavoriamo su questo.',
   },
   {
     id: 'deleghe',
-    title: 'Quali attività ti rubano più tempo e vorresti delegare?',
+    freeText: true,
     groups: [
       {
         id: 'cosa',
         kind: 'multi',
         options: [
-          { id: 'ricerche', label: 'Ricerche online' },
-          { id: 'bozze', label: 'Bozze di post e mail' },
-          { id: 'riassunti', label: 'Riassumere documenti' },
-          { id: 'note', label: 'Organizzare note e idee' },
-          { id: 'piano', label: 'Pianificare i contenuti' },
-          { id: 'numeri', label: 'Analizzare numeri e dati' },
-          // For who writes software (the UI shows them when the work is "Sviluppo software").
-          { id: 'bug', label: 'Correggere bug' },
-          { id: 'test', label: 'Scrivere test' },
-          { id: 'docs', label: 'Documentazione' },
-          { id: 'review', label: 'Rivedere codice' },
-          { id: 'capire', label: 'Capire codice nuovo' },
+          'ricerche',
+          'bozze',
+          'riassunti',
+          'note',
+          'piano',
+          'numeri',
+          // For who writes software (the UI shows them when the work is "sviluppo").
+          'bug',
+          'test',
+          'docs',
+          'review',
+          'capire',
         ],
         defaults: [],
         required: false,
       },
     ],
-    freeText: 'Altro che ti pesa',
-    reply: 'Perfetto, queste le prendiamo noi.',
   },
   {
     id: 'strumenti',
-    title: 'Quali strumenti e account usi?',
-    hint: 'Per ora i mostri usano il web e le note; gli account arrivano presto.',
+    hint: true,
+    freeText: true,
     groups: [
       {
         id: 'cosa',
         kind: 'multi',
+        // Names of products: the same in every language.
         options: [
           { id: 'gmail', label: 'Gmail' },
           { id: 'calendar', label: 'Google Calendar' },
@@ -171,52 +228,38 @@ export const ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = [
         required: false,
       },
     ],
-    freeText: 'Altri strumenti',
-    reply: 'Me lo segno: quando arrivano gli account, partiamo da questi.',
   },
   {
     id: 'chiedi',
-    title: 'Cosa non devono mai fare senza chiederti?',
-    hint: 'Per tutto il resto lavorano da soli e ti avvisano alla fine.',
+    hint: true,
+    freeText: true,
     groups: [
       {
         id: 'cosa',
         kind: 'multi',
-        options: [
-          { id: 'publish', label: 'Pubblicare' },
-          { id: 'contact', label: 'Inviare messaggi o mail' },
-          { id: 'spend', label: 'Pagare o comprare' },
-          { id: 'delete', label: 'Cancellare' },
-          { id: 'goal', label: 'Cambiare un obiettivo' },
-        ],
+        options: ['publish', 'contact', 'spend', 'delete', 'goal'],
         defaults: ['publish', 'contact', 'spend', 'delete'],
         required: false,
       },
     ],
-    freeText: 'Altro da chiederti sempre',
-    reply: 'Promesso: su queste cose chiediamo sempre prima.',
   },
   {
     id: 'tono',
-    title: 'Che tono vuoi nei messaggi? E in che lingua?',
+    freeText: true,
     groups: [
       {
         id: 'tono',
         kind: 'single',
-        label: 'Tono',
-        options: [
-          { id: 'amichevole', label: 'Amichevole' },
-          { id: 'diretto', label: 'Diretto' },
-          { id: 'formale', label: 'Formale' },
-          { id: 'scherzoso', label: 'Scherzoso' },
-        ],
+        label: true,
+        options: ['amichevole', 'diretto', 'formale', 'scherzoso'],
         defaults: ['amichevole'],
         required: true,
       },
       {
         id: 'lingua',
         kind: 'single',
-        label: 'Lingua',
+        label: true,
+        // The languages by their own names, the same in every language.
         options: [
           { id: 'it', label: 'Italiano' },
           { id: 'en', label: 'English' },
@@ -228,10 +271,22 @@ export const ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = [
         required: true,
       },
     ],
-    freeText: 'Qualche preferenza in più sullo stile',
-    reply: 'Fatto! Ora vediamo cosa possono fare i mostri.',
   },
 ];
+
+/** The fixed questions; their texts follow the app's language each time they are read. */
+export const ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = QUESTION_SHAPES.map((q) =>
+  buildQuestion(q),
+);
+
+/**
+ * The questions with the words of one language, whatever the app's: for a text the core writes in
+ * a language of its own (the profile in Italian, for the model and `profilo.md`), which reads the
+ * labels of the options inside its sentences.
+ */
+export function onboardingQuestionsIn(lang: Lang): readonly OnboardingQuestion[] {
+  return QUESTION_SHAPES.map((q) => buildQuestion(q, lang));
+}
 
 /** Answer to one question: values per group (option ids, or the typed name) plus free text. */
 export interface OnboardingAnswer {

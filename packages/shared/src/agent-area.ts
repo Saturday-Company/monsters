@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { agentAreaStrings } from './agent-area.strings.ts';
 
 /*
  * The vault area of a generated agent: the folder where it saves its results.
@@ -29,24 +30,22 @@ export function normalizeAgentArea(raw: string): string {
     .join('/');
 }
 
-/** Why a (normalized) area is not acceptable, or null when it is. In Italian: the UI shows it. */
+/** Why a (normalized) area is not acceptable, or null when it is. In the app's language: the UI shows it. */
 export function agentAreaProblem(area: string): string | null {
-  if (area === '') return 'Serve una cartella: la radice del vault non va bene.';
-  if (area.length > MAX_AREA_LENGTH) return `Al massimo ${MAX_AREA_LENGTH} caratteri.`;
+  const t = agentAreaStrings();
+  if (area === '') return t.areaEmpty;
+  if (area.length > MAX_AREA_LENGTH) return t.areaTooLong(MAX_AREA_LENGTH);
   const parts = area.split('/');
-  if (parts.length > MAX_AREA_DEPTH) return `Al massimo ${MAX_AREA_DEPTH} livelli di cartelle.`;
+  if (parts.length > MAX_AREA_DEPTH) return t.areaTooDeep(MAX_AREA_DEPTH);
   for (const part of parts) {
-    if (part.length > MAX_SEGMENT_LENGTH)
-      return `Nomi di cartella fino a ${MAX_SEGMENT_LENGTH} caratteri.`;
-    if (!SEGMENT.test(part)) {
-      return 'Solo lettere, numeri, spazi, trattini e punti (niente * ? [ ] né cartelle nascoste).';
-    }
-    if (part.endsWith('.')) return 'Un nome di cartella non finisce con il punto.';
-    if (/\.md$/i.test(part)) return 'Serve una cartella, non una nota.';
+    if (part.length > MAX_SEGMENT_LENGTH) return t.segmentTooLong(MAX_SEGMENT_LENGTH);
+    if (!SEGMENT.test(part)) return t.segmentChars;
+    if (part.endsWith('.')) return t.segmentDot;
+    if (/\.md$/i.test(part)) return t.notANote;
   }
   const first = parts[0]!.toLowerCase();
   if (RESERVED_AREA_FOLDERS.some((f) => f.toLowerCase() === first)) {
-    return `${parts[0]} è una cartella riservata: scegline un'altra.`;
+    return t.reserved(parts[0]!);
   }
   return null;
 }
@@ -71,6 +70,6 @@ export const AgentDutySchema = z
   .trim()
   .min(MIN_DUTY_LENGTH)
   .max(MAX_DUTY_LENGTH)
-  .refine((s) => !/[\r\n]/.test(s), 'Una riga sola.')
-  .refine((s) => !/\{\{[^}]*\}\}/.test(s), 'Niente {{segnaposto}}.')
-  .refine((s) => !s.startsWith('#'), 'Non inizia con #.');
+  .refine((s) => !/[\r\n]/.test(s), { error: () => agentAreaStrings().dutyOneLine })
+  .refine((s) => !/\{\{[^}]*\}\}/.test(s), { error: () => agentAreaStrings().dutyPlaceholder })
+  .refine((s) => !s.startsWith('#'), { error: () => agentAreaStrings().dutyHash });

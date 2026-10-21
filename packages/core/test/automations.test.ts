@@ -250,7 +250,7 @@ describe('automations in the core', () => {
     expect(created).toMatchObject({
       id: 'post-della-settimana',
       status: 'active',
-      scheduleText: 'ogni domenica alle 23:00',
+      scheduleText: 'every Sunday at 11:00 PM',
       nextRunAt: Date.parse('2026-10-18T21:00:00Z'),
       current: null,
       last: null,
@@ -904,7 +904,7 @@ describe('automations in the core', () => {
     expect(d).toMatchObject({
       status: 'draft',
       nextRunAt: null,
-      scheduleText: 'ogni giorno alle 8:00',
+      scheduleText: 'every day at 8:00 AM',
       schedule: { timezone: 'Europe/Rome' },
     });
     expect((await t.api('POST', `/api/automations/${d.id}/run`)).status).toBe(409);

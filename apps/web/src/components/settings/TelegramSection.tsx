@@ -1,7 +1,7 @@
 import { ArrowSquareOut, TelegramLogo, UserPlus } from '@phosphor-icons/react';
 import {
   extractTelegramToken,
-  TELEGRAM_TOKEN_SHAPE_MESSAGE,
+  telegramTokenShapeMessage,
   type TelegramPairing,
   type TelegramPrefs,
   type TelegramPrefsUpdate,
@@ -94,7 +94,7 @@ function TokenForm({
     setError(null);
     const pasted = extractTelegramToken(token);
     if (!pasted) {
-      setError(TELEGRAM_TOKEN_SHAPE_MESSAGE);
+      setError(telegramTokenShapeMessage());
       return;
     }
     setSaving(true);

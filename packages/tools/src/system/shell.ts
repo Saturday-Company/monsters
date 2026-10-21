@@ -12,6 +12,7 @@ import {
 } from './instruction-files.ts';
 import { lockedCommand, lockedPath, type DataDirLock } from './lockout.ts';
 import { OutputCapture } from './output.ts';
+import { permissionsPlace, terminalName } from './places.ts';
 import { isInside } from './paths.ts';
 
 /*
@@ -172,8 +173,8 @@ export interface ShellOutput {
   note?: string;
 }
 
-export const SHELL_PERMISSION_HINT =
-  'Ask the user to turn on "Terminale" for you in Impostazioni → Permessi, or do the task with your other tools.';
+export const shellPermissionHint = (): string =>
+  `Ask the user to turn on "${terminalName()}" for you in ${permissionsPlace()}, or do the task with your other tools.`;
 
 export function createShellTool(options: ShellToolOptions): MonstersTool<ShellInput, ShellOutput> {
   const platform = options.platform ?? process.platform;
@@ -208,7 +209,7 @@ export function createShellTool(options: ShellToolOptions): MonstersTool<ShellIn
     async execute(input, ctx) {
       if (!options.allowed(ctx.agentId)) {
         throw new ToolError('SETTING_OFF', 'The terminal is not allowed for you.', {
-          hint: SHELL_PERMISSION_HINT,
+          hint: shellPermissionHint(),
         });
       }
       const elevated = elevationIn(input.command);

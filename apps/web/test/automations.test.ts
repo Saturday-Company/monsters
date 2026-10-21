@@ -233,7 +233,7 @@ describe('the automations of the mock core', () => {
       lead: 'iapetus',
       project: 'social-di-saturday',
       participants: ['calypso', 'pandora'],
-      scheduleText: 'ogni domenica alle 23:00',
+      scheduleText: 'every Sunday at 11:00 PM',
       status: 'active',
     });
     expect(a.last?.state).toBe('completed');

@@ -1,5 +1,8 @@
 import { z } from 'zod';
+import { settingsPath } from './app-places.ts';
+import { catalogStrings, catalogStringsOf } from './mcp-catalog.strings.ts';
 import { McpCatalogIdSchema } from './mcp.ts';
+import { LANGS } from './i18n.ts';
 
 /*
  * The gallery of apps and services to connect in a few clicks (D-063): a list
@@ -25,14 +28,29 @@ export const McpCatalogCategorySchema = z.enum([
 ]);
 export type McpCatalogCategory = z.infer<typeof McpCatalogCategorySchema>;
 
+/** The names of the categories: they follow the app's language when read. */
 export const MCP_CATEGORY_LABEL: Record<McpCatalogCategory, string> = {
-  sviluppo: 'Sviluppo',
-  lavoro: 'Lavoro e progetti',
-  dati: 'Dati',
-  pagamenti: 'Pagamenti',
-  ricerca: 'Ricerca',
-  automazioni: 'Automazioni',
-  design: 'Design',
+  get sviluppo() {
+    return catalogStrings().categories.sviluppo;
+  },
+  get lavoro() {
+    return catalogStrings().categories.lavoro;
+  },
+  get dati() {
+    return catalogStrings().categories.dati;
+  },
+  get pagamenti() {
+    return catalogStrings().categories.pagamenti;
+  },
+  get ricerca() {
+    return catalogStrings().categories.ricerca;
+  },
+  get automazioni() {
+    return catalogStrings().categories.automazioni;
+  },
+  get design() {
+    return catalogStrings().categories.design;
+  },
 };
 
 const HttpsUrl = z.url({ protocol: /^https$/ });
@@ -43,7 +61,7 @@ const HttpsUrl = z.url({ protocol: /^https$/ });
  */
 export const McpTenantSchema = z
   .string()
-  .regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/, 'solo lettere minuscole, numeri e trattini');
+  .regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/, { error: () => catalogStrings().tenantChars });
 
 /** Where the company goes in an address of the gallery. */
 export const TENANT_PLACEHOLDER = '{azienda}';
@@ -67,11 +85,11 @@ export const McpCatalogAuthSchema = z.discriminatedUnion('kind', [
     header: z.string().regex(/^[A-Za-z][A-Za-z0-9-]{0,63}$/),
     /** Written before the token, e.g. `Bearer `. */
     prefix: z.string().max(20).default(''),
-    /** What to call it in the panel ("Token personale", "Chiave API"). */
+    /** What to call it in the panel ("Personal token", "API key"). */
     label: z.string().min(3).max(40),
     /** Page where the user creates it (with `{azienda}` on a service per company). */
     createUrl: z.union([HttpsUrl, TenantUrl]),
-    /** Which permissions to give it, in plain Italian. */
+    /** Which permissions to give it, in plain words (in the app's language). */
     hint: z.string().max(200).optional(),
   }),
 ]);
@@ -165,9 +183,9 @@ export const McpCatalogEntrySchema = z
      * (`https://{azienda}.anteiku.it/mcp`); the panel asks the company first.
      */
     urlTemplate: TenantUrl.optional(),
-    /** What the panel calls the company ("La tua azienda"). */
+    /** What the panel calls the company ("Your company"). */
     tenantLabel: z.string().min(3).max(30).optional(),
-    /** Where the user finds it, in plain Italian. */
+    /** Where the user finds it, in plain words (in the app's language). */
     tenantHint: z.string().max(160).optional(),
     /** A company to show as an example in the field. */
     tenantExample: McpTenantSchema.optional(),
@@ -223,8 +241,29 @@ export const McpCatalogEntrySchema = z
 export type McpCatalogEntry = z.infer<typeof McpCatalogEntrySchema>;
 export type McpCatalogEntryInput = z.input<typeof McpCatalogEntrySchema>;
 
-const SOON_APPROVED =
-  'Accetta solo app approvate una per una e non ha un token da incollare. Con l’abbonamento Claude collegato lo usi tramite Claude.';
+/** Entries that cannot be connected yet, and why: the words are in `mcp-catalog.strings.ts`. */
+const SOON_KIND: Record<string, 'approved' | 'own' | 'claude-design'> = {
+  slack: 'approved',
+  google: 'own',
+  figma: 'approved',
+  canva: 'approved',
+  asana: 'approved',
+  hubspot: 'approved',
+  vercel: 'approved',
+  'claude-design': 'claude-design',
+};
+
+type TokenAuthData = Omit<
+  Extract<z.input<typeof McpCatalogAuthSchema>, { kind: 'token' }>,
+  'label' | 'hint'
+>;
+type AuthData = Exclude<z.input<typeof McpCatalogAuthSchema>, { kind: 'token' }> | TokenAuthData;
+
+/** An entry as data: everything but the words, which come from the dictionary of the language. */
+type EntryData = Omit<
+  McpCatalogEntryInput,
+  'description' | 'tenantLabel' | 'tenantHint' | 'note' | 'soon' | 'auth'
+> & { auth: AuthData[] };
 
 /** A service reached through one claude.ai connector (D-069). */
 const claudeAi = (name: string, url: string) => ({
@@ -240,17 +279,14 @@ const claudeAi = (name: string, url: string) => ({
  */
 export const UV_EXCLUDE_NEWER = '2026-10-18';
 
-const ENTRIES: McpCatalogEntryInput[] = [
+const ENTRIES: EntryData[] = [
   // Saturday's own products first (D-075): one server per company, OAuth 2.1 of the Saturday Standard (§12).
   {
     id: 'anteiku',
     name: 'Anteiku',
-    description: 'Clienti, progetti, task, agenda e preventivi',
     category: 'lavoro',
     transport: 'http',
     urlTemplate: 'https://{azienda}.anteiku.it/mcp',
-    tenantLabel: 'La tua azienda',
-    tenantHint: 'Il nome prima di .anteiku.it nell’indirizzo che usi (per Saturday: saturday).',
     tenantExample: 'saturday',
     auth: [
       { kind: 'oauth' },
@@ -258,43 +294,33 @@ const ENTRIES: McpCatalogEntryInput[] = [
         kind: 'token',
         header: 'Authorization',
         prefix: 'Bearer ',
-        label: 'Token personale',
         createUrl: 'https://{azienda}.anteiku.it/sistema/connessioni',
-        hint: 'In Sistema › Connessioni, dopo lo sblocco con la password: inizia con anteiku_pat_ e si vede una volta sola.',
       },
     ],
     icon: 'anteiku',
     docs: 'https://anteiku.it',
-    note: 'I mostri lavorano come te, con i tuoi permessi; ogni modifica resta nelle attività di Anteiku.',
   },
   {
     id: 'witdesk',
     name: 'WitDesk',
-    description: 'Ticket e richieste del servizio clienti',
     category: 'lavoro',
     transport: 'http',
     urlTemplate: 'https://{azienda}.witdesk.it/api/saturday/mcp',
-    tenantLabel: 'La tua azienda',
-    tenantHint: 'Il nome prima di .witdesk.it nell’indirizzo che usi.',
     auth: [
       { kind: 'oauth' },
       {
         kind: 'token',
         header: 'Authorization',
         prefix: 'Bearer ',
-        label: 'Token personale',
         createUrl: 'https://{azienda}.witdesk.it/preferenze',
-        hint: 'In Preferenze › Connessioni: inizia con witdesk_pat_ e si vede una volta sola.',
       },
     ],
     icon: 'witdesk',
     docs: 'https://witdesk.it',
-    note: 'Prima l’amministratore dell’azienda accende «Connettori» in WitDesk (Banco → Impostazioni → Collegamenti).',
   },
   {
     id: 'github',
     name: 'GitHub',
-    description: 'Leggi e crea issue e pull request',
     category: 'sviluppo',
     transport: 'http',
     url: 'https://api.githubcopilot.com/mcp/',
@@ -303,9 +329,7 @@ const ENTRIES: McpCatalogEntryInput[] = [
         kind: 'token',
         header: 'Authorization',
         prefix: 'Bearer ',
-        label: 'Token personale',
         createUrl: 'https://github.com/settings/personal-access-tokens/new',
-        hint: 'Scegli i repository e dai lettura e scrittura a Contents, Issues e Pull requests.',
       },
     ],
     icon: 'github',
@@ -314,7 +338,6 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'notion',
     name: 'Notion',
-    description: 'Cerca, leggi e scrivi pagine e database',
     category: 'lavoro',
     transport: 'http',
     url: 'https://mcp.notion.com/mcp',
@@ -325,7 +348,6 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'linear',
     name: 'Linear',
-    description: 'Leggi e crea issue, progetti e commenti',
     category: 'lavoro',
     transport: 'http',
     url: 'https://mcp.linear.app/mcp',
@@ -335,9 +357,7 @@ const ENTRIES: McpCatalogEntryInput[] = [
         kind: 'token',
         header: 'Authorization',
         prefix: 'Bearer ',
-        label: 'Chiave API',
         createUrl: 'https://linear.app/settings/account/security',
-        hint: 'Basta “Read” se i mostri devono solo leggere.',
       },
     ],
     icon: 'linear',
@@ -345,20 +365,17 @@ const ENTRIES: McpCatalogEntryInput[] = [
   },
   {
     id: 'atlassian',
-    name: 'Jira e Confluence',
-    description: 'Leggi e crea ticket Jira e pagine Confluence',
+    name: 'Jira and Confluence',
     category: 'lavoro',
     transport: 'http',
     url: 'https://mcp.atlassian.com/v2/mcp',
     auth: [{ kind: 'oauth' }],
     icon: 'atlassian',
     docs: 'https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/',
-    note: 'L’amministratore del tuo spazio Atlassian può dover approvare l’accesso.',
   },
   {
     id: 'sentry',
     name: 'Sentry',
-    description: 'Leggi errori e issue, analizza i crash',
     category: 'sviluppo',
     transport: 'http',
     url: 'https://mcp.sentry.dev/mcp',
@@ -369,19 +386,16 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'supabase',
     name: 'Supabase',
-    description: 'Gestisci database, tabelle e funzioni',
     category: 'dati',
     transport: 'http',
     url: 'https://mcp.supabase.com/mcp',
     auth: [{ kind: 'oauth' }],
     icon: 'supabase',
     docs: 'https://supabase.com/docs/guides/getting-started/mcp',
-    note: 'Su un progetto vero meglio un progetto di prova: i mostri possono cambiare i dati.',
   },
   {
     id: 'stripe',
     name: 'Stripe',
-    description: 'Leggi pagamenti, clienti, abbonamenti e fatture',
     category: 'pagamenti',
     transport: 'http',
     url: 'https://mcp.stripe.com',
@@ -391,19 +405,15 @@ const ENTRIES: McpCatalogEntryInput[] = [
         kind: 'token',
         header: 'Authorization',
         prefix: 'Bearer ',
-        label: 'Chiave per agenti',
         createUrl: 'https://dashboard.stripe.com/apikeys',
-        hint: 'Crea una chiave con il segno “Agent” e solo i permessi che servono.',
       },
     ],
     icon: 'stripe',
     docs: 'https://docs.stripe.com/mcp',
-    note: 'Rimborsi e pagamenti in uscita chiedono sempre una tua conferma su Stripe.',
   },
   {
     id: 'cloudflare',
     name: 'Cloudflare',
-    description: 'Gestisci Workers, DNS, R2 e l’API Cloudflare',
     category: 'sviluppo',
     transport: 'http',
     url: 'https://mcp.cloudflare.com/mcp',
@@ -413,9 +423,7 @@ const ENTRIES: McpCatalogEntryInput[] = [
         kind: 'token',
         header: 'Authorization',
         prefix: 'Bearer ',
-        label: 'Token API',
         createUrl: 'https://dash.cloudflare.com/profile/api-tokens',
-        hint: 'Dai al token solo i permessi sui servizi che vuoi far usare.',
       },
     ],
     icon: 'cloudflare',
@@ -424,7 +432,6 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'airtable',
     name: 'Airtable',
-    description: 'Leggi e modifica basi, tabelle e record',
     category: 'dati',
     transport: 'http',
     url: 'https://mcp.airtable.com/mcp',
@@ -435,19 +442,16 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'zapier',
     name: 'Zapier',
-    description: 'Fai azioni su migliaia di app collegate',
     category: 'automazioni',
     transport: 'http',
     url: 'https://mcp.zapier.com/api/v1/connect',
     auth: [{ kind: 'oauth' }],
     icon: 'zapier',
     docs: 'https://docs.zapier.com/mcp/home',
-    note: 'Ogni azione riuscita conta 2 task del tuo piano Zapier.',
   },
   {
     id: 'context7',
     name: 'Context7',
-    description: 'Documentazione aggiornata di librerie e API',
     category: 'sviluppo',
     transport: 'http',
     url: 'https://mcp.context7.com/mcp',
@@ -458,7 +462,6 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'huggingface',
     name: 'Hugging Face',
-    description: 'Cerca modelli, dataset, Spaces e paper',
     category: 'ricerca',
     transport: 'http',
     url: 'https://huggingface.co/mcp',
@@ -468,9 +471,7 @@ const ENTRIES: McpCatalogEntryInput[] = [
         kind: 'token',
         header: 'Authorization',
         prefix: 'Bearer ',
-        label: 'Token di accesso',
         createUrl: 'https://huggingface.co/settings/tokens',
-        hint: 'Basta un token di sola lettura.',
       },
     ],
     icon: 'huggingface',
@@ -479,7 +480,6 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'neon',
     name: 'Neon',
-    description: 'Gestisci database e branch Postgres',
     category: 'dati',
     transport: 'http',
     url: 'https://mcp.neon.tech/mcp',
@@ -490,7 +490,6 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'exa',
     name: 'Exa',
-    description: 'Cerca e leggi pagine web per le ricerche',
     category: 'ricerca',
     transport: 'http',
     url: 'https://mcp.exa.ai/mcp',
@@ -499,9 +498,7 @@ const ENTRIES: McpCatalogEntryInput[] = [
       {
         kind: 'token',
         header: 'x-api-key',
-        label: 'Chiave API',
         createUrl: 'https://dashboard.exa.ai/api-keys',
-        hint: 'Facoltativa: senza chiave ci sono limiti di uso.',
       },
     ],
     icon: 'exa',
@@ -510,7 +507,6 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'firecrawl',
     name: 'Firecrawl',
-    description: 'Estrai testo e dati da interi siti web',
     category: 'ricerca',
     transport: 'http',
     url: 'https://mcp.firecrawl.dev/v2/mcp-oauth',
@@ -521,7 +517,6 @@ const ENTRIES: McpCatalogEntryInput[] = [
         url: 'https://mcp.firecrawl.dev/v2/mcp',
         header: 'Authorization',
         prefix: 'Bearer ',
-        label: 'Chiave API',
         createUrl: 'https://www.firecrawl.dev/app/api-keys',
       },
     ],
@@ -531,7 +526,6 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'todoist',
     name: 'Todoist',
-    description: 'Leggi e crea attività e progetti',
     category: 'lavoro',
     transport: 'http',
     url: 'https://ai.todoist.net/mcp',
@@ -542,19 +536,16 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'monday',
     name: 'monday.com',
-    description: 'Gestisci board, elementi e aggiornamenti',
     category: 'lavoro',
     transport: 'http',
     url: 'https://mcp.monday.com/mcp',
     auth: [{ kind: 'oauth' }],
     icon: 'monday',
     docs: 'https://developer.monday.com/api-reference/docs/integrate-with-monday-mcp',
-    note: 'L’amministratore del tuo account monday può dover approvare l’accesso.',
   },
   {
     id: 'shopify',
     name: 'Shopify Dev',
-    description: 'Documentazione e schemi delle API Shopify',
     category: 'sviluppo',
     transport: 'stdio',
     command: 'npx',
@@ -562,7 +553,6 @@ const ENTRIES: McpCatalogEntryInput[] = [
     auth: [{ kind: 'none' }],
     icon: 'shopify',
     docs: 'https://shopify.dev/docs/apps/build/devmcp',
-    note: 'La prima volta il server si scarica da solo.',
   },
   // The official server of Blender Lab (D-092), not the community `blender-mcp` on PyPI: it is
   // not on PyPI, so uv takes it from Blender's repository at the commit of tag v1.0.3. The core
@@ -570,7 +560,6 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'blender',
     name: 'Blender',
-    description: 'Modella, anima e renderizza scene 3D',
     category: 'design',
     transport: 'stdio',
     command: 'uvx',
@@ -591,33 +580,28 @@ const ENTRIES: McpCatalogEntryInput[] = [
       readOnly: ['jump_to_*'],
       writesPath: [{ tool: 'render_*_to_path', arg: 'output_path' }],
     },
-    note: 'Serve Blender 5.1+ aperto con l’add-on MCP e l’accesso online attivo. I mostri eseguono codice Python in Blender: ogni esecuzione passa dal freno.',
   },
   // Only approved apps may sign in, no token to paste: shown as "Presto".
   {
     id: 'slack',
     name: 'Slack',
-    description: 'Leggi canali, cerca e manda messaggi',
     category: 'lavoro',
     transport: 'http',
     url: 'https://mcp.slack.com/mcp',
     auth: [{ kind: 'oauth' }],
     icon: 'slack',
     docs: 'https://docs.slack.dev/ai/mcp-server/',
-    soon: SOON_APPROVED,
     viaClaude: claudeAi('Slack', 'https://mcp.slack.com/*'),
   },
   {
     id: 'google',
-    name: 'Gmail, Drive e Calendar',
-    description: 'Leggi mail, file e appuntamenti',
+    name: 'Gmail, Drive and Calendar',
     category: 'lavoro',
     transport: 'http',
     url: 'https://gmailmcp.googleapis.com/mcp/v1',
     auth: [{ kind: 'oauth' }],
     icon: 'google',
     docs: 'https://developers.google.com/workspace/guides/configure-mcp-servers',
-    soon: 'I server di Google sono in anteprima e chiedono un progetto Google Cloud tuo. Con l’abbonamento Claude collegato li usi tramite Claude.',
     viaClaude: {
       connectors: [
         { name: 'Gmail', url: 'https://gmailmcp.googleapis.com/*' },
@@ -630,80 +614,68 @@ const ENTRIES: McpCatalogEntryInput[] = [
   {
     id: 'figma',
     name: 'Figma',
-    description: 'Leggi i design e trasformali in codice',
     category: 'design',
     transport: 'http',
     url: 'https://mcp.figma.com/mcp',
     auth: [{ kind: 'oauth' }],
     icon: 'figma',
     docs: 'https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/',
-    soon: SOON_APPROVED,
     viaClaude: claudeAi('Figma', 'https://mcp.figma.com/*'),
   },
   {
     id: 'canva',
     name: 'Canva',
-    description: 'Crea, modifica ed esporta design',
     category: 'design',
     transport: 'http',
     url: 'https://mcp.canva.com/mcp',
     auth: [{ kind: 'oauth' }],
     icon: 'canva',
     docs: 'https://www.canva.dev/docs/mcp/verify-integration/',
-    soon: SOON_APPROVED,
     viaClaude: claudeAi('Canva', 'https://mcp.canva.com/*'),
   },
   {
     id: 'asana',
     name: 'Asana',
-    description: 'Leggi e crea attività, progetti e commenti',
     category: 'lavoro',
     transport: 'http',
     url: 'https://mcp.asana.com/v2/mcp',
     auth: [{ kind: 'oauth' }],
     icon: 'asana',
     docs: 'https://developers.asana.com/docs/using-asanas-mcp-server',
-    soon: SOON_APPROVED,
     viaClaude: claudeAi('Asana', 'https://mcp.asana.com/*'),
   },
   {
     id: 'hubspot',
     name: 'HubSpot',
-    description: 'Leggi e aggiorna contatti, aziende e trattative',
     category: 'lavoro',
     transport: 'http',
     url: 'https://mcp.hubspot.com/',
     auth: [{ kind: 'oauth' }],
     icon: 'hubspot',
     docs: 'https://developers.hubspot.com/docs/apps/developer-platform/build-apps/integrate-with-the-remote-hubspot-mcp-server',
-    soon: SOON_APPROVED,
     viaClaude: claudeAi('HubSpot', 'https://mcp.hubspot.com/*'),
   },
   {
     id: 'vercel',
     name: 'Vercel',
-    description: 'Gestisci progetti, deploy e log',
     category: 'sviluppo',
     transport: 'http',
     url: 'https://mcp.vercel.com',
     auth: [{ kind: 'oauth' }],
     icon: 'vercel',
     docs: 'https://vercel.com/docs/agent-resources/vercel-mcp',
-    soon: SOON_APPROVED,
     viaClaude: claudeAi('Vercel', 'https://mcp.vercel.com*'),
   },
   // Only through Claude (D-069): Claude Code signs in to it with the user's Claude login.
   {
     id: 'claude-design',
     name: 'Claude Design',
-    description: 'Crea e modifica progetti di Claude Design',
     category: 'design',
     transport: 'http',
     url: 'https://api.anthropic.com/v1/design/mcp',
     auth: [{ kind: 'oauth' }],
     icon: 'claude',
     docs: 'https://claude.ai/design',
-    soon: 'Si collega solo tramite Claude: serve l’abbonamento Claude collegato in Impostazioni → Modelli.',
     viaClaude: {
       server: { name: 'claude-design', url: 'https://api.anthropic.com/v1/design/mcp' },
       login: 'design-login',
@@ -716,7 +688,12 @@ const ENTRIES: McpCatalogEntryInput[] = [
  * them: without it the panel and the start error say what to install (D-092).
  */
 export const STDIO_LAUNCHERS: Readonly<Record<string, { needs: string; url: string }>> = {
-  npx: { needs: 'Node.js', url: 'https://nodejs.org/it/download' },
+  npx: {
+    needs: 'Node.js',
+    get url() {
+      return catalogStrings().nodeDownload;
+    },
+  },
   uvx: { needs: 'uv', url: 'https://docs.astral.sh/uv/getting-started/installation/' },
   uv: { needs: 'uv', url: 'https://docs.astral.sh/uv/getting-started/installation/' },
 };
@@ -730,9 +707,91 @@ export function launcherOf(command: string): { needs: string; url: string } | un
   return Object.hasOwn(STDIO_LAUNCHERS, base) ? STDIO_LAUNCHERS[base] : undefined;
 }
 
-/** The gallery, parsed (and so checked) once. */
+/** The words of an entry in the language in use (undefined where the entry has none). */
+function textsOf(id: string, lang?: (typeof LANGS)[number]) {
+  const dict = lang ? catalogStringsOf(lang) : catalogStrings();
+  const texts = dict.entries[id];
+  if (!texts) throw new Error(`mcp-catalog: no words for ${id}`);
+  const kind = SOON_KIND[id];
+  const soon =
+    texts.soon ??
+    (kind === 'approved'
+      ? dict.soonApproved
+      : kind === 'claude-design'
+        ? dict.soonClaudeDesign(settingsPath('modelli'))
+        : undefined);
+  return { dict, texts, soon };
+}
+
+/** The entry as the schema reads it, with the words of one language (to check them). */
+function withTexts(e: EntryData, lang: (typeof LANGS)[number]): McpCatalogEntryInput {
+  const { texts, soon } = textsOf(e.id, lang);
+  return {
+    ...e,
+    ...(texts.name !== undefined ? { name: texts.name } : {}),
+    description: texts.description,
+    ...(texts.tenantLabel !== undefined ? { tenantLabel: texts.tenantLabel } : {}),
+    ...(texts.tenantHint !== undefined ? { tenantHint: texts.tenantHint } : {}),
+    ...(texts.note !== undefined ? { note: texts.note } : {}),
+    ...(soon !== undefined ? { soon } : {}),
+    auth: e.auth.map((a) =>
+      a.kind === 'token'
+        ? {
+            ...a,
+            label: texts.token?.label ?? '',
+            ...(texts.token?.hint !== undefined ? { hint: texts.token.hint } : {}),
+          }
+        : a,
+    ),
+  };
+}
+
+/**
+ * Makes the words of a parsed entry follow the language: `description`, `name` (where it has
+ * words), the company field, the token's label and hint, `note` and `soon` are read from the
+ * dictionary each time. Copy an entry with its descriptors, not a spread, to keep that.
+ */
+function localized(entry: McpCatalogEntry): McpCatalogEntry {
+  const text = () => textsOf(entry.id).texts;
+  const words: PropertyDescriptorMap = {
+    description: { enumerable: true, get: () => text().description },
+  };
+  const own = (key: 'tenantLabel' | 'tenantHint' | 'note') => {
+    if (entry[key] !== undefined) {
+      words[key] = { enumerable: true, get: () => text()[key] ?? entry[key] };
+    }
+  };
+  if (textsOf(entry.id).texts.name !== undefined) {
+    words['name'] = { enumerable: true, get: () => text().name ?? entry.name };
+  }
+  own('tenantLabel');
+  own('tenantHint');
+  own('note');
+  if (entry.soon !== undefined) {
+    words['soon'] = { enumerable: true, get: () => textsOf(entry.id).soon ?? entry.soon };
+  }
+  for (const auth of entry.auth) {
+    if (auth.kind !== 'token') continue;
+    Object.defineProperty(auth, 'label', {
+      enumerable: true,
+      get: () => text().token?.label ?? '',
+    });
+    if (auth.hint !== undefined) {
+      Object.defineProperty(auth, 'hint', {
+        enumerable: true,
+        get: () => text().token?.hint ?? auth.hint,
+      });
+    }
+  }
+  return Object.defineProperties(entry, words);
+}
+
+// Every language's words must pass the schema (lengths, the company field), not only the one in use.
+for (const lang of LANGS) for (const e of ENTRIES) McpCatalogEntrySchema.parse(withTexts(e, lang));
+
+/** The gallery, parsed (and so checked) once; the words follow the app's language when read. */
 export const MCP_CATALOG: readonly McpCatalogEntry[] = ENTRIES.map((e) =>
-  McpCatalogEntrySchema.parse(e),
+  localized(McpCatalogEntrySchema.parse(withTexts(e, 'en'))),
 );
 
 /** The entry asks for the company before connecting (one server per company). */

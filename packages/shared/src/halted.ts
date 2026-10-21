@@ -1,4 +1,5 @@
 import type { LogEvent } from './events.ts';
+import { haltedStrings, haltedStringsAll } from './halted.strings.ts';
 
 /*
  * The work Ferma left halfway (D-066, D-072), read from the event log: the
@@ -36,15 +37,12 @@ export interface HaltedWork {
   requests: StoppedRequest[];
 }
 
-const RESUME_LEAD = 'Riprendi il lavoro che avevo fermato: «';
-
 /** Longest message of a person (`SendMessageRequestSchema`, the composer). */
 export const MESSAGE_MAX_CHARS = 20_000;
 /** What the resume phrase adds around a request: a resumed message may be this much longer. */
-export const RESUME_EXTRA_CHARS = RESUME_LEAD.length + 1;
-/** Said where a request longer than a message (from another channel) was cut. */
-const CUT_NOTE =
-  ' […la richiesta continuava oltre il limite di un messaggio ed è stata tagliata qui]';
+export const RESUME_EXTRA_CHARS = Math.max(
+  ...haltedStringsAll.map((t) => t.resumeOpen.length + t.resumeClose.length),
+);
 
 /**
  * What the monster reads for a request Ferma stopped: the whole request, said
@@ -55,21 +53,29 @@ const CUT_NOTE =
  * which the composer never sends, is cut, and the cut is said.
  */
 export function resumeText(request: string): string {
+  const t = haltedStrings();
   const r = request.trim();
+  // The note says where a request longer than a message (from another channel) was cut.
   const body =
     r.length <= MESSAGE_MAX_CHARS
       ? r
-      : `${r.slice(0, MESSAGE_MAX_CHARS - CUT_NOTE.length)}${CUT_NOTE}`;
-  return `${RESUME_LEAD}${body}»`;
+      : `${r.slice(0, MESSAGE_MAX_CHARS - t.cutNote.length)}${t.cutNote}`;
+  return `${t.resumeOpen}${body}${t.resumeClose}`;
 }
 
-/** The request behind a resumed one ("Riprendi il lavoro…: «x»" → "x"), also when resumed twice. */
+/**
+ * The request behind a resumed one ("Resume the work I stopped: “x”" → "x"), also when resumed
+ * twice and whichever language wrote the phrase (the log keeps the ones of the past).
+ */
 export function originalRequest(text: string): string {
   let out = text;
-  while (out.startsWith(RESUME_LEAD) && out.endsWith('»')) {
-    out = out.slice(RESUME_LEAD.length, -1);
+  for (;;) {
+    const t = haltedStringsAll.find(
+      (x) => out.startsWith(x.resumeOpen) && out.endsWith(x.resumeClose),
+    );
+    if (!t) return out;
+    out = out.slice(t.resumeOpen.length, out.length - t.resumeClose.length);
   }
-  return out;
 }
 
 /**

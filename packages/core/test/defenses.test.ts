@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { fake } from '@monsters/providers/testing';
 import type { LogEvent, MonstersTool } from '@monsters/shared';
-import { MCP_CATALOG, ToolError } from '@monsters/shared';
+import { MCP_CATALOG, ToolError, SPEND_PERIOD_WORDS } from '@monsters/shared';
 import { createWebFetchTool } from '@monsters/tools';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -1024,10 +1024,10 @@ describe('spending caps', () => {
     expect(m.stopReason('rhea')).toBeNull();
     usage(s, 'rhea', 4); // 10.3 €
     expect(spendEvents(s).map((e) => e.data.action)).toEqual(['warning', 'stopped']);
-    expect(spendEvents(s)[1]!.data.message).toMatch(
-      /Raggiunto il tetto della squadra di oggi \(10 €\)/,
+    expect(spendEvents(s)[1]!.data.message).toMatch(/Reached the squad’s cap for today \(€10\)/);
+    expect(m.stopReason('rhea')).toContain(
+      `tetto di spesa della squadra ${SPEND_PERIOD_WORDS.day}`,
     );
-    expect(m.stopReason('rhea')).toMatch(/tetto di spesa della squadra di oggi/);
     expect(m.stopReason('titan')).not.toBeNull();
     // A monster on free models or a subscription never stops.
     expect(m.stopReason('dione')).toBeNull();
@@ -1062,7 +1062,7 @@ describe('spending caps', () => {
       type: 'provider_usage',
       data: { provider: 'anthropic', model: 'claude', inputTokens: 10, outputTokens: 5 },
     });
-    expect(m.stopReason('rhea')).toMatch(/tetto di spesa di Rhea di oggi/);
+    expect(m.stopReason('rhea')).toContain(`tetto di spesa di Rhea ${SPEND_PERIOD_WORDS.day}`);
     expect(m.stopReason('titan')).toBeNull();
     const v = m.view();
     expect(v.agents.find((a) => a.id === 'rhea')).toMatchObject({

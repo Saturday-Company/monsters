@@ -817,9 +817,9 @@ describe('Plan limits (D-111)', () => {
     expect(limits.chatgpt).toBeNull();
     const view = limits.claude!;
     expect(view.windows.map((w) => [w.label, w.usedPercent, w.reset])).toEqual([
-      ['Sessione', 9, false],
-      ['Settimana', 63, false],
-      ['Opus settimana', 41, false],
+      ['Session', 9, false],
+      ['Week', 63, false],
+      ['Opus week', 41, false],
     ]);
     expect(Date.now() - view.observedAt).toBeLessThan(30_000);
     expect(view.windows[0]!.resetsAt! - Date.now()).toBeGreaterThan(80 * 60_000);
@@ -863,9 +863,9 @@ describe('Plan limits (D-111)', () => {
     const sent = await t.json<Sent>('POST', '/api/messages', { text: '@Rhea trova le ricette' });
     await t.waitEvent(isRunEnd(sent.runId));
     const error = t.events(sent.runId).find((e) => e.type === 'error');
-    expect((error?.data as { message: string }).message).toMatch(/si ripristina alle \d\d:\d\d/);
+    expect((error?.data as { message: string }).message).toMatch(/resets at \d{1,2}:\d\d [AP]M/);
     const five = (await limitsOf(t)).claude!.windows[0]!;
-    expect(five).toMatchObject({ label: 'Sessione', usedPercent: 100, tone: 'high' });
+    expect(five).toMatchObject({ label: 'Session', usedPercent: 100, tone: 'high' });
   });
 
   it('Codex limits go to the ChatGPT plan, and signing out forgets them', async () => {
@@ -883,8 +883,8 @@ describe('Plan limits (D-111)', () => {
     const limits = await limitsOf(t);
     expect(limits.claude).toBeNull();
     expect(limits.chatgpt!.windows.map((w) => [w.label, w.usedPercent, w.tone])).toEqual([
-      ['5 ore', 24, 'ok'],
-      ['Settimana', 81, 'warn'],
+      ['5 hours', 24, 'ok'],
+      ['Week', 81, 'warn'],
     ]);
     expect(
       (await t.json<{ planLimits: unknown }>('GET', '/api/agents/dione/usage')).planLimits,

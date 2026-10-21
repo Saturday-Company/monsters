@@ -247,7 +247,7 @@ describe('Claude Agent harness', () => {
     const last = events.at(-1);
     expect(last).toMatchObject({ type: 'done', reason: 'error', code: 'usage_limit' });
     expect((last as { error: string }).error).toMatch(
-      /usage limit \(si ripristina alle \d\d:\d\d\)/,
+      /usage limit \(resets at \d{1,2}:\d\d [AP]M\)/,
     );
     const first = events.find((e) => e.type === 'plan-limits');
     expect(first).toMatchObject({
@@ -990,14 +990,14 @@ describe('Codex harness', () => {
     const { h } = harness('noinit', userEnv(join(dir, 'home')), [], { rpcTimeoutMs: 200 });
     const events = await collect(h.run(task({}), new AbortController().signal));
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'error' });
-    expect((events.at(-1) as { error: string }).error).toMatch(/non risponde a initialize/);
+    expect((events.at(-1) as { error: string }).error).toMatch(/isn’t answering initialize/);
   });
 
   it('ends a turn whose notifications stop for good (F-M3)', async () => {
     const { h } = harness('hang', userEnv(join(dir, 'home')), [], { idleTimeoutMs: 300 });
     const events = await collect(h.run(task({}), new AbortController().signal));
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'error' });
-    expect((events.at(-1) as { error: string }).error).toMatch(/non dà segnali/);
+    expect((events.at(-1) as { error: string }).error).toMatch(/no sign of life/);
   });
 
   it('waits for a long command: its open item stops the clock, its output is a sign of life', async () => {
@@ -1035,7 +1035,7 @@ describe('Codex harness', () => {
       make(new SiwcError('unavailable', 'refresh: 502')).run(task(), signal),
     );
     expect(down.at(-1)).toMatchObject({ reason: 'error', code: 'unavailable' });
-    // No answer at all from OpenAI: the user reads why, in Italian, and that the sign-in stays.
+    // No answer at all from OpenAI: the user reads why, and that the sign-in stays.
     const offline = await collect(
       make(
         new SiwcError('unavailable', 'auth.openai.com is unreachable (dns ENOTFOUND)', {
@@ -1046,7 +1046,7 @@ describe('Codex harness', () => {
     const last = offline.at(-1) as { reason?: string; code?: string; error?: string };
     expect(last).toMatchObject({ reason: 'error', code: 'unavailable' });
     expect(last.error).toMatch(
-      /^Non riesco a raggiungere OpenAI \(auth\.openai\.com\): il nome non si risolve .*resta valido/,
+      /^I can’t reach OpenAI \(auth\.openai\.com\): the name doesn’t resolve .*still valid/,
     );
   });
 });
@@ -1104,7 +1104,7 @@ describe('installing an official package on request', () => {
     const env = { PATH: '', MONSTERS_NODE_PATH: join(dir, 'missing', 'node') };
     await expect(
       installPackage(join(dir, 'x'), '@openai/codex@0.159.2', { integrity: 'x', env }),
-    ).rejects.toThrow(/npm non trovato.*nodejs\.org.*MONSTERS_NODE_PATH/);
+    ).rejects.toThrow(/npm not found.*nodejs\.org.*MONSTERS_NODE_PATH/);
   });
 
   it('runs a script binary with the variables of its runtime', async () => {

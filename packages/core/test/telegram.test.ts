@@ -159,7 +159,7 @@ describe('telegram: token and connection', () => {
     expect(none.status).toBe(400);
     const shape = (await none.json()) as { error: string; message: string };
     expect(shape.error).toBe('invalid_token');
-    expect(shape.message).toContain('Questo non sembra un token di Telegram');
+    expect(shape.message).toContain('That doesn’t look like a Telegram token');
     expect(tg.calls.some((c) => c.method === 'getMe')).toBe(false);
 
     const view = await t.json<TelegramView>('PUT', '/api/telegram/token', {
@@ -184,7 +184,7 @@ describe('telegram: token and connection', () => {
     const body = (await res.json()) as { error: string; message: string };
     expect(body.error).toBe('verification_failed');
     expect(body.message).toBe(
-      `La connessione a 127.0.0.1:${port} è stata rifiutata o interrotta. Se sei in VPN o dietro un proxy aziendale, prova senza o chiedi di consentire 127.0.0.1:${port}.`,
+      `The connection to 127.0.0.1:${port} was refused or dropped. If you’re on a VPN or behind a corporate proxy, try without it or ask for 127.0.0.1:${port} to be allowed.`,
     );
     const logged = t.events().find(isChannel('token_check_failed'));
     expect(logged?.data).toMatchObject({ reason: 'refused' });
@@ -747,12 +747,14 @@ describe('telegram: delivery', () => {
         data: { provider: 'fake', model: 'titan', costUsd },
       });
     spend(10); // 8,60 € of 10 €
-    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.includes('è l’86% del tetto'));
+    await tg.waitMessage(
+      (m) => m.chat_id === GIULIO.id && m.text.includes('that’s 86% of the squad’s cap'),
+    );
     spend(2);
     const stop = await tg.waitMessage(
-      (m) => m.chat_id === GIULIO.id && m.text.includes('Raggiunto il tetto della squadra di oggi'),
+      (m) => m.chat_id === GIULIO.id && m.text.includes('Reached the squad’s cap for today'),
     );
-    expect(stop.text).toContain('Impostazioni → Modelli → Tetto di spesa');
+    expect(stop.text).toContain('Settings → Models → Spending cap');
   });
 
   it('a service whose sign-in died reaches the phone (connettori 1)', async () => {
@@ -1045,7 +1047,7 @@ describe('telegram: drafts of the monsters (D-098)', () => {
 
     tg.text(GIULIO, 'ogni mattina feriale alle 8 la rassegna');
     const auto = await tg.waitMessage((m) => m.text.includes('“Rassegna”'));
-    expect(auto.text).toContain('dal lunedì al venerdì alle 8:00');
+    expect(auto.text).toContain('Monday to Friday at 8:00 AM');
     const [conferma, scarta] = auto.reply_markup!.inline_keyboard!.flat();
     tg.press(GIULIO, auto, scarta!.callback_data);
     await tg.waitMessage((m) => m.message_id === auto.message_id && m.text.includes('■ Discarded'));

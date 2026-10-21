@@ -1,3 +1,4 @@
+import { tunnelStrings } from './errors.strings.ts';
 import type { HostKeyInfo } from './host-keys.ts';
 
 export type TunnelErrorKind =
@@ -28,45 +29,6 @@ export type TunnelErrorKind =
   | 'forwarding-disabled'
   | 'ssh-error';
 
-const MESSAGES: Record<TunnelErrorKind, string> = {
-  'ssh-missing':
-    'Non trovo il comando ssh su questo computer. Su Windows installa "Client OpenSSH" da ' +
-    'Impostazioni → Sistema → Funzionalità facoltative; su Linux il pacchetto openssh-client.',
-  'host-key-unknown':
-    "È la prima connessione a questo computer: controlla che l'impronta della sua chiave sia quella giusta " +
-    'prima di fidarti.',
-  'host-key-changed':
-    'La chiave del computer remoto è cambiata rispetto a quella che conosci. Potrebbe essere stato ' +
-    'reinstallato, ma anche qualcuno che si mette in mezzo: Monsters non si collega. Verifica con chi ' +
-    'gestisce quel computer e, se il cambio è legittimo, togli la vecchia chiave dal file known_hosts.',
-  'host-key-scan-failed':
-    'Non riesco a leggere la chiave del computer remoto per fartela confermare. Collegati una volta da ' +
-    'un terminale con "ssh" e accetta lì la chiave, poi riprova.',
-  'auth-failed':
-    "Il computer remoto ha rifiutato l'accesso. Monsters usa solo chiavi SSH (niente password): " +
-    'controlla utente e chiave, e che la chiave pubblica sia in ~/.ssh/authorized_keys sul computer remoto.',
-  'host-not-found':
-    "Non trovo questo computer in rete: controlla il nome o l'indirizzo (e la VPN, se la usi).",
-  unreachable:
-    'Il computer remoto non risponde: è acceso e raggiungibile? Controlla indirizzo, porta SSH e VPN.',
-  'connection-lost': 'La connessione con il computer remoto si è interrotta.',
-  'forward-failed': 'Non riesco ad aprire la porta locale del tunnel.',
-  'core-unreachable':
-    'Il collegamento SSH funziona, ma Monsters non risponde sul computer remoto: è acceso? ' +
-    '(sul computer remoto: "monsters start")',
-  'core-unverified':
-    'Sul computer remoto, alla porta di Monsters, risponde qualcosa che non dimostra di essere il tuo ' +
-    'Monsters: non mi collego. Se il motore remoto si è appena riavviato basta riprovare; altrimenti ' +
-    'controlla sul computer remoto chi usa quella porta.',
-  'core-outdated':
-    'Monsters sul computer remoto è di una versione troppo vecchia per collegarsi in modo sicuro: ' +
-    'aggiornalo e riavvialo, poi riprova.',
-  'forwarding-disabled':
-    'Il server SSH del computer remoto non permette i tunnel: in /etc/ssh/sshd_config serve ' +
-    '"AllowTcpForwarding local" (o "yes") per il tuo utente.',
-  'ssh-error': 'Il collegamento SSH non è riuscito.',
-};
-
 /** Kinds that a new attempt can fix by itself (network, sleep, restarts). */
 const RETRYABLE = new Set<TunnelErrorKind>([
   'host-not-found',
@@ -91,7 +53,7 @@ export class TunnelError extends Error {
     kind: TunnelErrorKind,
     options: { detail?: string; message?: string; hostKey?: HostKeyInfo; cause?: unknown } = {},
   ) {
-    super(options.message ?? MESSAGES[kind], { cause: options.cause });
+    super(options.message ?? messageFor(kind), { cause: options.cause });
     this.name = 'TunnelError';
     this.kind = kind;
     this.detail = options.detail ?? '';
@@ -100,8 +62,9 @@ export class TunnelError extends Error {
   }
 }
 
+/** The text for the user, in the app's language. */
 export function messageFor(kind: TunnelErrorKind): string {
-  return MESSAGES[kind];
+  return tunnelStrings()[kind];
 }
 
 const PATTERNS: [RegExp, TunnelErrorKind][] = [
