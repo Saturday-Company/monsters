@@ -413,12 +413,12 @@ describe('menu entry', () => {
     expect(updateMenuEntry({ kind: 'disabled', reason: 'x' })).toBeNull();
     expect(updateMenuEntry({ kind: 'idle', checkedAt: null })).toMatchObject({ action: 'check' });
     expect(updateMenuEntry({ kind: 'downloading', version: '0.0.2', percent: 42.7 })).toEqual({
-      label: 'Scarico la versione 0.0.2 (42%)',
+      label: 'Downloading version 0.0.2 (42%)',
       enabled: false,
       action: null,
     });
     expect(updateMenuEntry({ kind: 'ready', version: '0.0.2' })).toEqual({
-      label: 'Riavvia per aggiornare (versione 0.0.2)',
+      label: 'Restart to update (version 0.0.2)',
       enabled: true,
       action: 'install',
     });
@@ -492,13 +492,13 @@ describe('Updater', () => {
     updater.stop();
   });
 
-  it('words the dialog after "Cerca aggiornamenti"', () => {
+  it('words the dialog after "Check for updates"', () => {
     expect(manualCheckDialog({ kind: 'latest' }, '0.1.0-alpha.3')).toMatchObject({
-      message: 'Monsters è aggiornato',
-      detail: 'Hai già l’ultima versione (0.1.0-alpha.3).',
+      message: 'Monsters is up to date',
+      detail: 'You already have the latest version (0.1.0-alpha.3).',
     });
     expect(manualCheckDialog({ kind: 'found', version: '0.2.0' }, '0.1.0').message).toBe(
-      'C’è la versione 0.2.0',
+      'Version 0.2.0 is available',
     );
     expect(manualCheckDialog({ kind: 'error', message: 'x' }, '0.1.0').type).toBe('warning');
   });
@@ -580,7 +580,7 @@ describe('Updater', () => {
     expect([...files.files]).toEqual([OLD]);
     expect(states.at(-1)).toMatchObject({
       kind: 'error',
-      message: expect.stringContaining('non è scrivibile') as string,
+      message: expect.stringContaining('isn’t writable') as string,
     });
     updater.stop();
   });
@@ -598,7 +598,7 @@ describe('Updater', () => {
   });
 });
 
-describe('Updater: Squirrel fails after "Riavvia ora" (review 18/10, item 20)', () => {
+describe('Updater: Squirrel fails after "Restart now" (review 18/10, item 20)', () => {
   it('an asynchronous error while installing restarts the current version', async () => {
     const { updater, backend, calls, states } = makeUpdater();
     updater.start();
@@ -795,8 +795,10 @@ describe('Updater, .deb: dependencies before ready (review 18/10, item 23)', () 
     });
     expect(dialog.command).toBe('sudo apt install -f');
     expect(dialog.detail).toContain('sudo apt install -f');
-    expect(dialog.detail).toContain('rimasto a metà');
-    expect(dialog.detail).not.toContain('si riavvia con la versione che è installata adesso');
+    expect(dialog.detail).toContain('half-installed');
+    expect(dialog.detail).not.toContain(
+      'Monsters is restarting with the version that is installed now',
+    );
   });
 });
 
@@ -876,7 +878,7 @@ describe('Updater, .deb (D-105)', () => {
         `updates: version 0.0.2 not installed (${failure.kind}), still running 0.0.1; ` +
           `by hand: sudo apt install ${PENDING}`,
       );
-      // "Riavvia per aggiornare" again from the menu: asked again.
+      // "Restart to update" again from the menu: asked again.
       expect(updateMenuEntry(updater.state)?.action).toBe('install');
       expect(await updater.install()).toBe('refused');
       expect(calls.filter((c) => c === 'password asked')).toHaveLength(2);
@@ -924,10 +926,8 @@ describe('Updater, .deb (D-105)', () => {
 describe('update dialogs', () => {
   it('says the password will be asked before asking it (.deb only)', () => {
     const deb = updateReadyDialog('0.0.2', { password: true });
-    expect(deb.detail).toContain(
-      'Ti chiederò la password del computer per installare l’aggiornamento',
-    );
-    expect(deb.buttons).toEqual(['Riavvia ora', 'Più tardi']);
+    expect(deb.detail).toContain('I’ll ask for your computer’s password to install the update');
+    expect(deb.buttons).toEqual(['Restart now', 'Later']);
     expect(updateReadyDialog('0.0.2').detail).not.toContain('password');
   });
 
@@ -945,13 +945,13 @@ describe('update dialogs', () => {
       currentVersion: '0.0.1',
       restarting: false,
     });
-    expect(d.message).toBe('Non ho installato Monsters 0.0.2');
-    expect(d.detail).toContain('sessione remota');
-    expect(d.detail).toContain('Monsters continua con la versione 0.0.1.');
+    expect(d.message).toBe('I didn’t install Monsters 0.0.2');
+    expect(d.detail).toContain('remote session');
+    expect(d.detail).toContain('Monsters keeps running version 0.0.1.');
     expect(d.detail).toContain(`sudo apt install ${PENDING}`);
     expect(d.detail).toContain(update.url);
     expect(d.command).toBe(`sudo apt install ${PENDING}`);
-    expect(d.buttons).toEqual(['Copia il comando', 'Apri il link', 'Chiudi']);
+    expect(d.buttons).toEqual(['Copy the command', 'Open the link', 'Close']);
     expect(d.cancelId).toBe(2);
   });
 
@@ -962,8 +962,8 @@ describe('update dialogs', () => {
       currentVersion: '0.0.1',
       restarting: true,
     });
-    expect(dpkg.detail).toContain('codice 2');
-    expect(dpkg.detail).toContain('si riavvia con la versione che è installata adesso');
+    expect(dpkg.detail).toContain('code 2');
+    expect(dpkg.detail).toContain('Monsters is restarting with the version that is installed now');
     const bad = debFailureDialog({
       failure: { kind: 'mismatch' },
       update: { ...update, url: null },
@@ -972,7 +972,7 @@ describe('update dialogs', () => {
     });
     expect(bad.command).toBeNull();
     expect(bad.detail).not.toContain('sudo apt');
-    expect(bad.buttons).toEqual(['Chiudi']);
+    expect(bad.buttons).toEqual(['Close']);
   });
 });
 
@@ -1006,10 +1006,10 @@ describe('Updater: the signature before the download (S-A4)', () => {
     expect(backend.downloads).toBe(0);
     expect(updater.state).toEqual({
       kind: 'error',
-      message: 'l’aggiornamento 0.0.2 non è firmato: non lo scarico',
+      message: 'update 0.0.2 isn’t signed: I’m not downloading it',
     });
     expect(told).toEqual([
-      { kind: 'error', message: 'l’aggiornamento 0.0.2 non è firmato: non lo scarico' },
+      { kind: 'error', message: 'update 0.0.2 isn’t signed: I’m not downloading it' },
     ]);
     expect(log).toContain('updates: version 0.0.2 refused: missing (alpha.yml.sig)');
     // A download that arrives anyway (it should not) is never offered.
@@ -1052,7 +1052,7 @@ describe('Updater: the signature before the download (S-A4)', () => {
     });
     expect(updater.state).toEqual({
       kind: 'error',
-      message: 'l’aggiornamento 0.0.2 non corrisponde a quello firmato: non lo scarico',
+      message: 'update 0.0.2 doesn’t match the signed one: I’m not downloading it',
     });
     expect(log.at(-1)).toContain('Monsters-0.0.2-evil.zip is not in the signed file');
     updater.stop();
@@ -1094,8 +1094,8 @@ describe('Updater: the signature before the download (S-A4)', () => {
         restarting: false,
       });
       expect(dialog.command).toBeNull();
-      expect(dialog.buttons).toEqual(['Chiudi']);
-      expect(dialog.detail).toContain('manomesso');
+      expect(dialog.buttons).toEqual(['Close']);
+      expect(dialog.detail).toContain('tampered');
       expect(dialog.detail).not.toContain('https://u.example/x.deb');
     }
   });
@@ -1123,7 +1123,7 @@ describe('Updater: one read of the feed, and the downloaded file (review of wave
     await vi.waitFor(() => expect(updater.state.kind).toBe('error'));
     expect(updater.state).toEqual({
       kind: 'error',
-      message: 'la firma dell’aggiornamento 0.0.2 non è valida: non lo scarico',
+      message: 'the signature of update 0.0.2 isn’t valid: I’m not downloading it',
     });
     expect(told).toHaveLength(1);
     expect(log.filter((l) => l.includes('refused: invalid'))).toHaveLength(1);

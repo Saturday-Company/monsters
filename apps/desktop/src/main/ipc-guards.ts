@@ -1,3 +1,4 @@
+import { connectionsStrings } from './connections-page.strings.ts';
 import { isCoreUrl } from './navigation.ts';
 import type { LinkState } from './remote-core.ts';
 
@@ -6,9 +7,9 @@ import type { LinkState } from './remote-core.ts';
  * Every handler checks the sender: the webContents of the right window, its main frame (never
  * a subframe), and the page it shows now:
  * - the core's page (web UI of the core the window shows, local or remote): setup code, links
- *   to the browser, title bar colours, "Connessioni…" and where the window is connected;
+ *   to the browser, title bar colours, "Connections…" and where the window is connected;
  * - a page of the app (data: URL built by the main process: status page, first start, the
- *   connections window): "Riprova" and the status actions; the connections API.
+ *   connections window): "Try again" and the status actions; the connections API.
  * A page of a core never reaches the API of the app's pages, and the other way round.
  */
 
@@ -63,10 +64,13 @@ export interface TargetInfo {
   state: 'ready' | 'starting' | 'connecting' | 'reconnecting' | 'offline';
 }
 
-export const LOCAL_NAME = 'Questo computer';
+/** The name of this computer for the web UI's switcher, in the app's language. */
+export function localName(): string {
+  return connectionsStrings().localName;
+}
 
 export function targetInfo(link: LinkState | null, localReady: boolean): TargetInfo {
-  if (!link) return { kind: 'local', name: LOCAL_NAME, state: localReady ? 'ready' : 'starting' };
+  if (!link) return { kind: 'local', name: localName(), state: localReady ? 'ready' : 'starting' };
   const state: TargetInfo['state'] =
     link.status === 'connected'
       ? 'ready'

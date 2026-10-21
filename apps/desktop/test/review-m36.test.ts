@@ -8,7 +8,7 @@ import type { LocatorDeps } from '../src/main/core-locator.ts';
 import { debugSwitchVerdict, type DebugSwitchInput } from '../src/main/debug-switches.ts';
 import { LocalCore, type CoreTarget } from '../src/main/local-core.ts';
 import { ExternalOpenLimiter } from '../src/main/navigation.ts';
-import { NEWER_FILE_MESSAGE, ProfileStore } from '../src/main/profiles.ts';
+import { newerFileMessage, ProfileStore } from '../src/main/profiles.ts';
 import { TargetSwitcher, type CoreHost } from '../src/main/target-switch.ts';
 import { UPDATE_CHANNEL } from '../src/main/updater.ts';
 import { tempDir } from './helpers.ts';
@@ -158,7 +158,7 @@ describe('M3.6 review: connections.json (C5)', () => {
     expect(store.last).toBe('local');
     expect(store.save({ name: 'Nuovo', host: 'nuovo' })).toEqual({
       ok: false,
-      errors: { name: NEWER_FILE_MESSAGE },
+      errors: { name: newerFileMessage() },
     });
     expect(store.remove('aaaaaaaa-1')).toBe(false);
     expect(readFileSync(file, 'utf8')).toBe(raw);

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { lstat, readdir, readFile, readlink } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
+import { coreIntegrityStrings } from './core-integrity.strings.ts';
 
 /*
  * The core of the packaged app runs from plain files in resources/core (D-045, D-046): its
@@ -243,20 +244,21 @@ export function manifestHashOf(
   return Object.hasOwn(manifest.files, toPosix(rel)) ? manifest.files[toPosix(rel)]! : null;
 }
 
-/** What the status page says of a failed check (Italian). */
+/** What the status page says of a failed check (in the app's language). */
 export function checkProblemText(check: Exclude<CoreCheck, { ok: true }>): string {
+  const t = coreIntegrityStrings();
   const where = check.problem === 'manifest' ? check.file : `resources/core/${check.file}`;
   switch (check.problem) {
     case 'changed':
-      return `${where} è cambiato`;
+      return t.changed(where);
     case 'extra':
-      return `${where} non fa parte del programma`;
+      return t.extra(where);
     case 'missing':
-      return `${where} manca`;
+      return t.missing(where);
     case 'not_a_file':
-      return `${where} non è un file`;
+      return t.notAFile(where);
     case 'manifest':
-      return `manca l’elenco dei file del programma (${where})`;
+      return t.manifest(where);
   }
 }
 

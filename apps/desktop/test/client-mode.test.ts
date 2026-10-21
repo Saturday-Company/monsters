@@ -377,28 +377,28 @@ describe('words of the client mode', () => {
     keys: [{ type: 'ssh-ed25519', key: 'AAAA', fingerprint: 'SHA256:QmFzZTY0' }],
   };
 
-  it('host key dialog: fingerprint, how to check it, "Annulla" by default', () => {
-    const d = hostKeyDialog(info, 'PC di casa');
-    expect(d.buttons[d.defaultId]).toBe('Annulla');
+  it('host key dialog: fingerprint, how to check it, "Cancel" by default', () => {
+    const d = hostKeyDialog(info, 'Home PC');
+    expect(d.buttons[d.defaultId]).toBe('Cancel');
     expect(d.cancelId).toBe(d.defaultId);
-    expect(d.buttons[TRUST_BUTTON]).toBe('Mi fido, collegati');
+    expect(d.buttons[TRUST_BUTTON]).toBe('I trust it, connect');
     // Reassuring first line; address, fingerprint and the check after it.
     expect(d.message).toBe(
-      'Stai collegando per la prima volta «PC di casa». Se l’hai configurato tu, è normale.',
+      'You’re connecting to “Home PC” for the first time. If you set it up yourself, that’s normal.',
     );
-    expect(d.detail).toContain('100.64.0.7, porta 2222');
+    expect(d.detail).toContain('100.64.0.7, port 2222');
     expect(d.detail).toContain('SHA256:QmFzZTY0');
     expect(d.detail).toContain('ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub');
-    expect(hostKeyChangedDialog('PC di casa')).toMatchObject({
+    expect(hostKeyChangedDialog('Home PC')).toMatchObject({
       type: 'error',
       buttons: ['OK'],
     });
   });
 
   it('tray, banner and connections page say where the app is connected', () => {
-    const name = 'PC di casa';
-    expect(trayTooltip(null)).toBe('Monsters · Questo computer');
-    expect(trayTooltip({ status: 'connected', name })).toBe('Monsters · Collegato a PC di casa');
+    const name = 'Home PC';
+    expect(trayTooltip(null)).toBe('Monsters · This computer');
+    expect(trayTooltip({ status: 'connected', name })).toBe('Monsters · Connected to Home PC');
     const reconnecting: LinkState = {
       status: 'reconnecting',
       name,
@@ -406,16 +406,14 @@ describe('words of the client mode', () => {
       delayMs: 2000,
       reason: 'x',
     };
-    expect(trayTooltip(reconnecting)).toBe('Monsters · Mi ricollego a PC di casa…');
+    expect(trayTooltip(reconnecting)).toBe('Monsters · Reconnecting to Home PC…');
     expect(trayTooltip({ status: 'failed', name, kind: 'auth-failed', message: '' })).toBe(
-      'Monsters · Scollegato da PC di casa',
+      'Monsters · Disconnected from Home PC',
     );
-    expect(bannerText(reconnecting)).toBe(
-      'Collegamento con PC di casa interrotto. Mi ricollego… (tentativo 2)',
-    );
+    expect(bannerText(reconnecting)).toBe('Link to Home PC interrupted. Reconnecting… (attempt 2)');
     expect(bannerText(null)).toBeNull();
-    expect(linkStatusText(null, true)).toBe('In uso');
-    expect(linkStatusText(reconnecting, false)).toBe('In uso · mi ricollego… (tentativo 2)');
+    expect(linkStatusText(null, true)).toBe('In use');
+    expect(linkStatusText(reconnecting, false)).toBe('In use · reconnecting… (attempt 2)');
     const html = bannerHtml('<b>casa</b>', 'busy');
     expect(html).toContain('&#60;b&#62;casa');
     expect(html).toContain("default-src 'none'");
@@ -431,18 +429,18 @@ describe('words of the client mode', () => {
       message: new TunnelError('auth-failed').message,
       detail: 'giulio@casa: Permission denied (publickey).',
     });
-    expect(html).toContain('Non riesco a collegarmi a PC &#60;casa&#62;');
+    expect(html).toContain('I can’t connect to PC &#60;casa&#62;');
     // The address tried, in plain words, and what to do.
-    expect(html).toContain('«casa.lan» ha rifiutato l’accesso');
+    expect(html).toContain('“casa.lan” refused the sign-in');
     // The tip depends on the system: ssh-copy-id does not exist on Windows.
     expect(html).toContain(process.platform === 'win32' ? 'authorized_keys' : 'ssh-copy-id');
     expect(html).toContain('data-action="fix"');
-    expect(html).toContain('<summary>Dettagli</summary>');
+    expect(html).toContain('<summary>Details</summary>');
     expect(html).toContain('data-action="local"');
     expect(html).toContain('data-action="connections"');
     expect(html).toContain('id="retry"');
     const connecting = statusPageHtml({ kind: 'remote-connecting', name: 'casa' });
     expect(connecting).not.toContain('id="retry"');
-    expect(connecting).toContain('Usa questo computer');
+    expect(connecting).toContain('Use this computer');
   });
 });

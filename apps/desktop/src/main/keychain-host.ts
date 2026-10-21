@@ -1,7 +1,13 @@
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import type { KeychainOp, KeychainReply, KeychainRequest } from '@monsters/shared';
+import {
+  appLang,
+  type KeychainOp,
+  type KeychainReply,
+  type KeychainRequest,
+} from '@monsters/shared';
+import { keychainHostStrings } from './keychain-host.strings.ts';
 import { isMonstersEntry, keyringTriple } from '../keychain-helper/entries.ts';
 import type { HelperReply, HelperRequest } from '../keychain-helper/index.ts';
 
@@ -81,17 +87,17 @@ export function parseKeychainRequest(
   const id = m['id'];
   const op = m['op'];
   if (typeof op !== 'string' || !OPS.includes(op as KeychainOp)) {
-    return { id, error: 'operazione del portachiavi non valida' };
+    return { id, error: keychainHostStrings().invalidOp };
   }
   if (!isName(m['service']) || !isName(m['account'])) {
-    return { id, error: 'voce del portachiavi non valida' };
+    return { id, error: keychainHostStrings().invalidEntry };
   }
   if (!isMonstersEntry(m['service'], m['account'])) {
-    return { id, error: 'voce del portachiavi che non è di Monsters' };
+    return { id, error: keychainHostStrings().notMonstersEntry };
   }
   const value = m['value'];
   if (op === 'set' ? typeof value !== 'string' || value.length > MAX_VALUE : value !== undefined) {
-    return { id, error: 'valore per il portachiavi non valido' };
+    return { id, error: keychainHostStrings().invalidValue };
   }
   const request: KeychainRequest = {
     type: 'keychain',
@@ -194,13 +200,18 @@ export class KeychainHost {
     const start = (request: KeychainRequest) => {
       const { id } = request;
       if (running.has(id))
-        return reply({ type: 'keychain', id, ok: false, message: 'richiesta già in corso' });
+        return reply({
+          type: 'keychain',
+          id,
+          ok: false,
+          message: keychainHostStrings().alreadyRunning,
+        });
       if (running.size >= o.maxPending) {
         return reply({
           type: 'keychain',
           id,
           ok: false,
-          message: 'troppe richieste al portachiavi',
+          message: keychainHostStrings().tooMany,
         });
       }
       const nativePath = o.nativePath();
@@ -209,7 +220,7 @@ export class KeychainHost {
           type: 'keychain',
           id,
           ok: false,
-          message: 'modulo del portachiavi non disponibile',
+          message: keychainHostStrings().moduleUnavailable,
         });
       }
       const sha256 = o.nativeHash?.(nativePath);
@@ -218,35 +229,36 @@ export class KeychainHost {
           type: 'keychain',
           id,
           ok: false,
-          message: 'il binario del portachiavi non è nell’elenco dei file del programma',
+          message: keychainHostStrings().notInManifest,
         });
       }
       const timer = setTimeout(() => {
         o.log(`keychain: no answer after ${o.timeoutMs} ms, helper killed`);
-        fail(id, `il portachiavi non ha risposto entro ${Math.round(o.timeoutMs / 1000)} s`);
+        fail(id, keychainHostStrings().noAnswer(Math.round(o.timeoutMs / 1000)));
       }, o.timeoutMs);
       running.set(id, { helper: null, timer });
       let helper: HelperProcess;
       try {
         helper = o.fork();
       } catch (err) {
-        return fail(id, `portachiavi non raggiungibile: ${(err as Error).message}`);
+        return fail(id, keychainHostStrings().unreachable((err as Error).message));
       }
       running.get(id)!.helper = helper;
       helper.onMessage((raw) => {
         const r = asHelperReply(raw);
         if (r) answer(id, r);
-        else fail(id, 'risposta del portachiavi non valida');
+        else fail(id, keychainHostStrings().invalidReply);
       });
       helper.onExit((code) => {
         // Killed after its answer: nothing left to do. Otherwise it died without one.
         if (running.get(id)?.helper === helper) {
-          fail(id, `portachiavi non raggiungibile: il processo è uscito (codice ${code})`);
+          fail(id, keychainHostStrings().exited(code));
         }
       });
       const message: HelperRequest = {
         nativePath,
         ...(sha256 !== undefined ? { sha256 } : {}),
+        lang: appLang(),
         op: request.op,
         service: request.service,
         account: request.account,

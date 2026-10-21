@@ -106,7 +106,7 @@ describe('where the file goes', () => {
   it('neither: the development app, or a path that cannot be written', () => {
     const dev = linuxLauncher({ env: {}, execPath: '/repo/electron', isPackaged: false });
     expect(dev.ok).toBe(false);
-    if (!dev.ok) expect(dev.reason).toMatch(/installata/);
+    if (!dev.ok) expect(dev.reason).toMatch(/installed app/);
     expect(
       linuxLauncher({
         env: { APPIMAGE: '/home/g/a\nb.AppImage' },
@@ -209,7 +209,7 @@ describe('Linux', () => {
     const state = item.set(true);
     expect(state.supported).toBe(false);
     expect(state.enabled).toBe(false);
-    expect(state.note).toMatch(/installata/);
+    expect(state.note).toMatch(/installed app/);
     expect(existsSync(dir)).toBe(false);
   });
 
@@ -278,7 +278,7 @@ describe('macOS and Windows', () => {
     expect(item.set(true)).toEqual({ supported: true, enabled: true });
     expect(calls).toEqual([{ openAtLogin: true }]);
     const pending = system('darwin', 'requires-approval');
-    expect(pending.item.state().note).toMatch(/Elementi login/);
+    expect(pending.item.state().note).toMatch(/Login Items/);
   });
 
   it('not in the development app (it would register Electron)', () => {

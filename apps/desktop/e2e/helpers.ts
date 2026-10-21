@@ -49,6 +49,9 @@ export function appEnv(home: string, userData: string, extra: Record<string, str
     MONSTERS_SECRETS: 'file',
     MONSTERS_EMBEDDINGS: 'off',
     MONSTERS_TELEGRAM: 'off',
+    // The suite asserts Italian texts: the app is English first (D-153), so it asks for Italian;
+    // a test of the English app passes `MONSTERS_LANG: 'en'` in `extra`.
+    MONSTERS_LANG: 'it',
     ...extra,
   };
 }

@@ -1,8 +1,9 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
+import { loginItemStrings } from './login-item.strings.ts';
 
 /*
- * "Apri all'accesso" (D-095): the app opens when the user logs in, hidden (only the tray icon,
+ * "Open at login" (D-095): the app opens when the user logs in, hidden (only the tray icon,
  * no window), and starts the core of its last choice, so the monsters (and the automations)
  * work without anyone opening the app. Off by default; the first start does not change it.
  * The system is the only place the choice lives, read back every time:
@@ -33,7 +34,7 @@ export interface LoginItemState {
   /** False where the app cannot open at login (the reason is in `note`). */
   supported: boolean;
   enabled: boolean;
-  /** What the user should know, in Italian: why not, or what is still missing. */
+  /** What the user should know, in the app's language: why not, or what is still missing. */
   note?: string;
 }
 
@@ -109,13 +110,12 @@ export function linuxLauncher(o: {
       ? { ok: true, kind, exec }
       : {
           ok: false,
-          reason:
-            'Il percorso di Monsters non si può scrivere nel file di avvio: sposta l’app in una cartella con un nome semplice.',
+          reason: loginItemStrings().pathNotWritable,
         };
   if (forced) return pick('installed', forced);
   if (appImage) return pick('appimage', appImage);
   if (o.isPackaged) return pick('installed', o.execPath);
-  return { ok: false, reason: 'Si può scegliere solo nell’app installata (.deb o AppImage).' };
+  return { ok: false, reason: loginItemStrings().onlyInstalledPackage };
 }
 
 export interface AutostartFile {
@@ -175,10 +175,6 @@ export interface LoginItemDeps {
   log(line: string): void;
 }
 
-const NOT_INSTALLED = 'Si può scegliere solo nell’app installata.';
-const MAC_APPROVAL =
-  'Da approvare in Impostazioni di Sistema → Generali → Elementi login: finché non lo approvi Monsters non si apre da solo.';
-
 export class LoginItem {
   readonly #d: LoginItemDeps;
 
@@ -198,13 +194,14 @@ export class LoginItem {
       return { supported: true, enabled: readAutostart(this.#dir).enabled };
     }
     if (d.platform !== 'darwin' && d.platform !== 'win32') {
-      return { supported: false, enabled: false, note: 'Non disponibile su questo sistema.' };
+      return { supported: false, enabled: false, note: loginItemStrings().notAvailable };
     }
-    if (!d.isPackaged) return { supported: false, enabled: false, note: NOT_INSTALLED };
+    if (!d.isPackaged)
+      return { supported: false, enabled: false, note: loginItemStrings().onlyInstalled };
     try {
       const s = d.backend.get(d.platform === 'win32' ? { args: [HIDDEN_ARG] } : {});
       if (d.platform === 'darwin' && s.status === 'requires-approval') {
-        return { supported: true, enabled: true, note: MAC_APPROVAL };
+        return { supported: true, enabled: true, note: loginItemStrings().macApproval };
       }
       return { supported: true, enabled: s.openAtLogin };
     } catch (err) {
@@ -243,7 +240,7 @@ export class LoginItem {
       d.log(`login item: ${enabled ? 'on' : 'off'}`);
     } catch (err) {
       d.log(`login item: cannot change it (${(err as Error).message})`);
-      return { ...this.state(), note: 'Il sistema non mi ha lasciato cambiarlo. Riprova.' };
+      return { ...this.state(), note: loginItemStrings().couldntChange };
     }
     return this.state();
   }

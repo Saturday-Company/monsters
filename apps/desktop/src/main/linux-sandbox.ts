@@ -5,10 +5,11 @@
  * starts the app with --no-sandbox, silently. The .deb installs a profile and keeps the sandbox.
  *
  * Here the app says it once instead: a dialog explains what is missing and how to get it back
- * (the .deb), the user continues or quits; "Non mostrare più" is remembered in the user data
+ * (the .deb), the user continues or quits; "Don't show again" is remembered in the user data
  * folder. The log notes it at every start.
  */
 import { join } from 'node:path';
+import { sandboxNoticeStrings } from './linux-sandbox.strings.ts';
 
 export const SANDBOX_NOTICE_FILE = 'sandbox-notice-accepted';
 
@@ -27,12 +28,5 @@ export function sandboxNoticePath(userData: string): string {
   return join(userData, SANDBOX_NOTICE_FILE);
 }
 
-export const SANDBOX_NOTICE = {
-  title: 'Monsters',
-  message: 'Questa versione di Monsters è un po’ meno protetta',
-  detail:
-    'Su questo sistema la versione AppImage non può usare una delle protezioni del browser ' +
-    'interno. Monsters funziona lo stesso; per la protezione completa installa il pacchetto .deb.',
-  buttons: ['Continua', 'Esci'],
-  checkboxLabel: 'Non mostrare più questo avviso',
-} as const;
+/** The dialog's texts, in the app's language. */
+export const sandboxNotice = sandboxNoticeStrings;

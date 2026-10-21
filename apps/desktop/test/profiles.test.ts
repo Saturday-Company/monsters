@@ -62,7 +62,7 @@ describe('profile form', () => {
     });
   });
 
-  it('says in Italian what is wrong, field by field', () => {
+  it('says what is wrong, field by field', () => {
     const r = parseProfileForm({
       name: 'x'.repeat(81),
       host: '-oProxyCommand=evil',
@@ -81,17 +81,17 @@ describe('profile form', () => {
       'sshPort',
       'user',
     ]);
-    expect(r.errors.sshPort).toMatch(/tra 1 e 65535/);
-    expect(r.errors.host).toMatch(/senza spazi/);
+    expect(r.errors.sshPort).toMatch(/between 1 and 65535/);
+    expect(r.errors.host).toMatch(/no spaces/);
     // Spaces: the name of the connection typed in the address field.
     expect(parseProfileForm({ name: 'x', host: 'casa con spazi' })).toMatchObject({
       ok: false,
-      errors: { host: /sembra il nome della connessione/ },
+      errors: { host: /looks like the connection’s name/ },
     });
     expect(parseProfileForm(null)).toMatchObject({ ok: false });
   });
 
-  it('shows the address as utente@computer:porta', () => {
+  it('shows the address as user@computer:port', () => {
     expect(profileAddress({ name: 'x', host: 'casa' })).toBe('casa');
     expect(profileAddress({ name: 'x', host: 'casa', user: 'g', sshPort: 2222 })).toBe(
       'g@casa:2222',

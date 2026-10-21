@@ -1,17 +1,19 @@
 import { createHash } from 'node:crypto';
+import { appLang } from '@monsters/shared';
 import { dotCss, dotPalette, monsterFor, renderDots, type Expression } from '@monsters/monster-kit';
 import type { TunnelErrorKind } from '@monsters/remote';
 import { INSTRUMENT_CSS, METER, pageThemeCss, SCREWS, WORDMARK } from './page-theme.ts';
 import { remoteFailureCopy } from './remote-copy.ts';
+import { statusPageStrings } from './status-page.strings.ts';
 import { TITLE_BAR_HEIGHT, type WindowChrome } from './title-bar.ts';
 
 /*
  * What the window shows while there is no core to load: the choice of the first start
- * ("Dove lavorano i tuoi mostri?", audit UX 1.2), starting, restarting after a crash, given
+ * ("Where do your monsters work?", audit UX 1.2), starting, restarting after a crash, given
  * up, or another core holding the data directory without answering; in the client mode
  * (M3.3, D-047) connecting to a remote core and why that failed. A self-contained page
  * (data: URL, strict CSP, fonts and the dot monster inline), loaded by the main process only;
- * "Riprova" calls the preload's `retryCore()`, the other buttons `statusAction()`.
+ * "Try again" calls the preload's `retryCore()`, the other buttons `statusAction()`.
  *
  * Drawn as the instrument (docs/design.md, D-062, D-089), like the sign-in of the web UI: the
  * top rail with the wordmark is the window's drag area (the rest of the page can be selected
@@ -38,11 +40,11 @@ export type StatusView =
       address?: string;
       errorKind: TunnelErrorKind;
       message: string;
-      /** Last lines of ssh, behind "Dettagli". */
+      /** Last lines of ssh, behind "Details". */
       detail: string;
     };
 
-/** Buttons of the status page besides "Riprova" (handled by the main process). */
+/** Buttons of the status page besides "Try again" (handled by the main process). */
 export const STATUS_ACTIONS = [
   'local',
   'connections',
@@ -67,26 +69,17 @@ interface Copy {
   detail?: string;
 }
 
-const ACTION_LABELS: Record<StatusAction, string> = {
-  local: 'Usa questo computer',
-  connections: 'Connessioni…',
-  'add-connection': 'Aggiungi un computer',
-  fix: 'Correggi la connessione',
-  'forget-key': 'Dimentica la vecchia chiave',
-  'open-log': 'Apri il log',
-};
-
 function seconds(ms: number): string {
-  const s = Math.max(1, Math.round(ms / 1000));
-  return s === 1 ? 'un secondo' : `${s} secondi`;
+  return statusPageStrings().seconds(Math.max(1, Math.round(ms / 1000)));
 }
 
 export function statusCopy(view: Exclude<StatusView, { kind: 'welcome' }>): Copy {
+  const t = statusPageStrings();
   switch (view.kind) {
     case 'starting':
       return {
-        title: 'Accendo Monsters…',
-        body: ['Un attimo: sta partendo su questo computer.'],
+        title: t.starting.title,
+        body: [t.starting.body],
         expression: 'think',
         retry: false,
         busy: true,
@@ -94,10 +87,10 @@ export function statusCopy(view: Exclude<StatusView, { kind: 'welcome' }>): Copy
       };
     case 'restarting':
       return {
-        title: 'Monsters si è fermato all’improvviso',
+        title: t.restarting.title,
         body: [
-          `Lo riavvio tra ${seconds(view.delayMs)} (tentativo ${view.attempt} di ${view.maxAttempts}).`,
-          'I lavori che erano in corso si sono interrotti: li ritrovi in Attività.',
+          t.restarting.restartIn(seconds(view.delayMs), view.attempt, view.maxAttempts),
+          t.restarting.interrupted,
         ],
         expression: 'error',
         retry: false,
@@ -105,23 +98,18 @@ export function statusCopy(view: Exclude<StatusView, { kind: 'welcome' }>): Copy
       };
     case 'failed':
       return {
-        title: 'Monsters non riparte',
-        body: [
-          'Ho provato più volte senza riuscirci. Riprova; se non basta, nel log c’è cosa è successo.',
-        ],
+        title: t.failed.title,
+        body: [t.failed.body],
         expression: 'error',
         retry: true,
         busy: false,
         actions: ['open-log', 'connections'],
-        detail: `Il log è in ${view.logPath}`,
+        detail: t.failed.detail(view.logPath),
       };
     case 'locked':
       return {
-        title: 'Monsters è già acceso, ma non risponde',
-        body: [
-          `Un altro Monsters sta usando i dati di questo computer (${view.home}) e non risponde.`,
-          'Chiudilo (se l’hai aperto da un terminale, con Ctrl+C), poi premi «Riprova».',
-        ],
+        title: t.locked.title,
+        body: [t.locked.body(view.home), t.locked.close],
         expression: 'error',
         retry: true,
         busy: false,
@@ -130,42 +118,39 @@ export function statusCopy(view: Exclude<StatusView, { kind: 'welcome' }>): Copy
     case 'missing':
       return view.dev
         ? {
-            title: 'Manca una parte di Monsters',
-            body: [
-              `Non trovo ${view.path}.`,
-              'Dalla cartella del progetto lancia pnpm build:core, poi riprova.',
-            ],
+            title: t.missing.title,
+            body: [t.missing.devNotFound(view.path), t.missing.devFix],
             expression: 'error',
             retry: true,
             busy: false,
             actions: ['connections'],
           }
         : {
-            title: 'Manca una parte di Monsters',
-            body: ['L’installazione sembra incompleta: installa di nuovo Monsters, poi riaprilo.'],
+            title: t.missing.title,
+            body: [t.missing.body],
             expression: 'error',
             retry: true,
             busy: false,
             actions: ['connections'],
-            detail: `Non trovo ${view.path}`,
+            detail: t.missing.detail(view.path),
           };
     case 'tampered':
       return {
-        title: 'Monsters non parte: i suoi file sono cambiati',
-        body: [
-          'Un file del motore di Monsters non è quello installato. Per sicurezza non lo avvio: potrebbe averlo cambiato un altro programma.',
-          'Installa di nuovo Monsters (i tuoi dati restano dove sono), poi riaprilo.',
-        ],
+        title: t.tampered.title,
+        body: [t.tampered.why, t.tampered.fix],
         expression: 'error',
         retry: true,
         busy: false,
         actions: ['open-log', 'connections'],
-        detail: `${view.detail[0]!.toUpperCase()}${view.detail.slice(1)}. Il log è in ${view.logPath}`,
+        detail: t.tampered.detail(
+          `${view.detail[0]!.toUpperCase()}${view.detail.slice(1)}`,
+          view.logPath,
+        ),
       };
     case 'remote-connecting':
       return {
-        title: `Mi collego a ${view.name}…`,
-        body: ['Un attimo: raggiungo il Monsters che gira su quel computer.'],
+        title: t.remoteConnecting.title(view.name),
+        body: [t.remoteConnecting.body],
         expression: 'think',
         retry: false,
         busy: true,
@@ -179,7 +164,7 @@ export function statusCopy(view: Exclude<StatusView, { kind: 'welcome' }>): Copy
         view.message,
       );
       return {
-        title: `Non riesco a collegarmi a ${view.name}`,
+        title: t.remoteFailed.title(view.name),
         body: copy.tip ? [copy.message, copy.tip] : [copy.message],
         expression: 'error',
         retry: true,
@@ -208,7 +193,7 @@ const SCRIPT =
  * from it, anchored at the top like the sign-in of the web UI, so a longer error grows it
  * downwards. Choices are keys of the keypad (docs/design.md, "Domanda con opzioni"): the
  * recommended one says so on the right with an orange light, the focused one shows the ↵ cap
- * (Enter chooses it). "Dettagli" open on a small screen, like "Dietro le quinte".
+ * (Enter chooses it). "Details" open on a small screen, like "Behind the scenes".
  */
 const STYLE = `
 .drag{position:fixed;z-index:1;top:0;left:0;right:0;height:${TITLE_BAR_HEIGHT}px;-webkit-app-region:drag}
@@ -259,67 +244,73 @@ interface Face {
 }
 
 function faceOf(view: StatusView): Face {
+  const f = statusPageStrings().face;
   switch (view.kind) {
     case 'welcome':
       return {
-        section: 'Prima accensione',
-        state: 'In attesa',
+        section: f.welcomeSection,
+        state: f.welcomeState,
         light: 'idle',
-        line: 'Pronto per la prima accensione',
+        line: f.welcomeLine,
       };
     case 'starting':
-      return { section: 'Accensione', state: 'Accendo', light: 'wait', line: 'Si accende…' };
+      return {
+        section: f.startupSection,
+        state: f.startingState,
+        light: 'wait',
+        line: f.startingLine,
+      };
     case 'restarting':
       return {
-        section: 'Accensione',
-        state: 'Riavvio',
+        section: f.startupSection,
+        state: f.restartingState,
         light: 'wait',
-        line: `Tentativo ${view.attempt} / ${view.maxAttempts}`,
+        line: f.restartingLine(view.attempt, view.maxAttempts),
       };
     case 'failed':
       return {
-        section: 'Accensione',
-        state: 'Fermo',
+        section: f.startupSection,
+        state: f.stoppedState,
         light: 'stop',
-        line: 'Non riparte',
+        line: f.failedLine,
         lineTone: 'stop',
       };
     case 'locked':
       return {
-        section: 'Accensione',
-        state: 'Occupato',
+        section: f.startupSection,
+        state: f.lockedState,
         light: 'stop',
-        line: 'Dati già in uso',
+        line: f.lockedLine,
         lineTone: 'stop',
       };
     case 'missing':
       return {
-        section: 'Accensione',
-        state: 'Incompleto',
+        section: f.startupSection,
+        state: f.missingState,
         light: 'stop',
-        line: 'Manca un pezzo',
+        line: f.missingLine,
         lineTone: 'stop',
       };
     case 'tampered':
       return {
-        section: 'Accensione',
-        state: 'Fermo',
+        section: f.startupSection,
+        state: f.stoppedState,
         light: 'stop',
-        line: 'File cambiati',
+        line: f.tamperedLine,
         lineTone: 'stop',
       };
     case 'remote-connecting':
       return {
-        section: 'Collegamento',
-        state: 'Mi collego',
+        section: f.linkSection,
+        state: f.connectingState,
         light: 'wait',
         line: view.name,
         lineTone: 'ink',
       };
     case 'remote-failed':
       return {
-        section: 'Collegamento',
-        state: 'Non collegato',
+        section: f.linkSection,
+        state: f.notConnectedState,
         light: 'stop',
         line: view.address ?? view.name,
         lineTone: 'stop',
@@ -370,7 +361,7 @@ function pageHtml(
     "form-action 'none'",
   ].join('; ');
   return `<!doctype html>
-<html lang="it" data-chrome="${chrome}">
+<html lang="${appLang()}" data-chrome="${chrome}">
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
@@ -398,15 +389,16 @@ ${withScript ? `<script>${SCRIPT}</script>` : ''}
 
 /** First start without connections.json: where the monsters work. Enter = this computer. */
 function welcomeHtml(chrome: WindowChrome): string {
+  const t = statusPageStrings().welcome;
   return pageHtml(
     'welcome',
     false,
     `${deviceHead(faceOf({ kind: 'welcome' }), 'happy')}
-<h1>Dove lavorano i tuoi mostri?</h1>
-<p>Puoi cambiarlo quando vuoi da Connessioni.</p>
-<div class="choices" role="group" aria-label="Dove lavorano i tuoi mostri">
-<button type="button" class="choice recommended" id="local" data-action="local" autofocus><strong>Su questo computer <em>Consigliato</em></strong><span>Tutto resta qui. Va bene quasi sempre.</span></button>
-<button type="button" class="choice" id="other" data-action="add-connection"><strong>Su un altro mio computer</strong><span>Monsters è già acceso su un altro tuo computer e vuoi usarlo da qui.</span></button>
+<h1>${escape(t.title)}</h1>
+<p>${escape(t.hint)}</p>
+<div class="choices" role="group" aria-label="${escape(t.title)}">
+<button type="button" class="choice recommended" id="local" data-action="local" autofocus><strong>${escape(t.local)} <em>${escape(t.recommended)}</em></strong><span>${escape(t.localHint)}</span></button>
+<button type="button" class="choice" id="other" data-action="add-connection"><strong>${escape(t.other)}</strong><span>${escape(t.otherHint)}</span></button>
 </div>`,
     true,
     chrome,
@@ -417,14 +409,14 @@ function welcomeHtml(chrome: WindowChrome): string {
 export function statusPageHtml(view: StatusView, chrome: WindowChrome = 'frame'): string {
   if (view.kind === 'welcome') return welcomeHtml(chrome);
   const copy = statusCopy(view);
-  // One primary button: the fix when the profile is what is wrong, else "Riprova".
+  // One primary button: the fix when the profile is what is wrong, else "Try again".
   const actions = copy.actions ?? [];
   const fixFirst = actions.includes('fix');
   const action = (a: StatusAction, primary: boolean) =>
-    `<button type="button"${primary ? '' : ' class="secondary"'} data-action="${a}">${escape(ACTION_LABELS[a])}</button>`;
+    `<button type="button"${primary ? '' : ' class="secondary"'} data-action="${a}">${escape(statusPageStrings().actions[a])}</button>`;
   const retry = (primary: boolean) =>
     copy.retry
-      ? `<button id="retry" type="button"${primary ? '' : ' class="secondary"'}>Riprova</button>`
+      ? `<button id="retry" type="button"${primary ? '' : ' class="secondary"'}>${escape(statusPageStrings().retry)}</button>`
       : '';
   const buttons = [
     ...(fixFirst ? [action('fix', true)] : []),
@@ -437,7 +429,7 @@ export function statusPageHtml(view: StatusView, chrome: WindowChrome = 'frame')
     `${deviceHead(faceOf(view), copy.expression)}
 <h1>${escape(copy.title)}</h1>
 ${copy.body.map((line) => `<p>${escape(line)}</p>`).join('\n')}
-${copy.detail ? `<details><summary>Dettagli</summary><pre class="screen">${escape(copy.detail)}</pre></details>` : ''}
+${copy.detail ? `<details><summary>${escape(statusPageStrings().details)}</summary><pre class="screen">${escape(copy.detail)}</pre></details>` : ''}
 ${buttons ? `<div class="actions">${buttons}</div>` : ''}`,
     buttons !== '',
     chrome,

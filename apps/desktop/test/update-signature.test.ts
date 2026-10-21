@@ -365,10 +365,10 @@ describe('update signature: verifyUpdate', () => {
     });
   });
 
-  it('says why in Italian', () => {
+  it('says why', () => {
     expect(describeRefusal('0.2.0', 'missing')).toBe(
-      'l’aggiornamento 0.2.0 non è firmato: non lo scarico',
+      'update 0.2.0 isn’t signed: I’m not downloading it',
     );
-    expect(describeRefusal('0.2.0', 'invalid')).toContain('non è valida');
+    expect(describeRefusal('0.2.0', 'invalid')).toContain('isn’t valid');
   });
 });

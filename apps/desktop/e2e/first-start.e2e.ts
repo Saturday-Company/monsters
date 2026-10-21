@@ -151,3 +151,28 @@ test('the status pages of the local core: "Connessioni…" while starting', asyn
     await quit(app);
   }
 });
+
+test('English first: the first-start page and the menus follow the language', async () => {
+  const { app, page } = await launch(
+    dirs.home,
+    dirs.userData(3),
+    { MONSTERS_LANG: 'en' },
+    { choose: false },
+  );
+  try {
+    await expect(page.locator('main[data-status="welcome"]')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.getByRole('heading')).toHaveText('Where do your monsters work?');
+    await expect(page.getByRole('button', { name: /On this computer/ })).toBeFocused();
+    const labels = await app.evaluate(({ Menu }) =>
+      ['monsters-open', 'monsters-kill', 'monsters-resume', 'monsters-quit'].map(
+        (id) => Menu.getApplicationMenu()?.getMenuItemById(id)?.label ?? null,
+      ),
+    );
+    expect(labels).toEqual(['Open Monsters', 'Stop everything', 'Resume', 'Quit Monsters']);
+    // Nothing started: the choice is still to be made.
+    expect(lockPid(dirs.home)).toBeNull();
+  } finally {
+    await quit(app);
+  }
+});

@@ -32,6 +32,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SIGNATURE_HEADER, UPDATE_KEYS_DIR } from './update-signature.ts';
+import { debInstallStrings } from './deb-install.strings.ts';
 
 export const PKEXEC = '/usr/bin/pkexec';
 export const DPKG = '/usr/bin/dpkg';
@@ -253,58 +254,36 @@ export function failureBeforeReady(code: number | null, stderr: string): DebFail
 
 /** The reason of a failure, one or two sentences for the user. */
 export function describeDebFailure(f: DebFailure): string {
+  const t = debInstallStrings();
   switch (f.kind) {
     case 'no-pkexec':
-      return 'Su questo computer manca pkexec (il pacchetto polkit), che serve a chiedere la password.';
+      return t.noPkexec;
     case 'cancelled':
-      return 'La richiesta della password è stata annullata.';
+      return t.cancelled;
     case 'timeout':
-      return 'Nessuno ha risposto alla richiesta della password: ho annullato l’installazione.';
+      return t.timeout;
     case 'no-agent':
-      return (
-        'Non c’è niente che possa chiedere la password del computer: succede quando Monsters ' +
-        'gira in una sessione remota (SSH o desktop remoto) senza l’agente di autenticazione.'
-      );
+      return t.noAgent;
     case 'not-authorized':
-      return (
-        'Non ho avuto il permesso di installare: la password non è stata accettata, o questo ' +
-        'utente non può installare programmi (serve un amministratore del computer).'
-      );
+      return t.notAuthorized;
     case 'mismatch':
-      return (
-        'Il pacchetto scaricato non corrisponde a quello pubblicato (controllo sha512): non l’ho ' +
-        'installato.'
-      );
+      return t.mismatch;
     case 'signature':
-      return (
-        'La firma dell’aggiornamento non è valida (controllo fatto con le chiavi installate con ' +
-        'Monsters): non l’ho installato.'
-      );
+      return t.signature;
     case 'not-ours':
-      return 'Il file scaricato non è il pacchetto di Monsters: non l’ho installato.';
+      return t.notOurs;
     case 'not-newer':
-      return 'Il pacchetto scaricato non è più recente della versione installata: non l’ho installato.';
+      return t.notNewer;
     case 'openssl':
-      return (
-        'Per controllare la firma dell’aggiornamento serve OpenSSL 3.0 o più recente, e su questo ' +
-        'computer non c’è (il sistema è troppo vecchio, o manca il pacchetto openssl): non l’ho installato.'
-      );
+      return t.openssl;
     case 'copy':
-      return `Non sono riuscito a preparare il pacchetto per l’installazione (${f.detail}).`;
+      return t.copy(f.detail);
     case 'depends':
-      return (
-        `Il pacchetto ha bisogno di ${f.missing.join(', ')}, che su questo computer non c’è: ` +
-        'non l’ho installato, per non lasciare Monsters a metà.'
-      );
+      return t.depends(f.missing.join(', '));
     case 'dpkg':
-      return (
-        `dpkg non ha completato l’installazione (codice ${String(f.code)}): ${f.detail}.` +
-        (dependencyTrouble(f)
-          ? ' Il pacchetto nuovo è rimasto a metà: i suoi file sono già sul disco, ma mancano delle dipendenze.'
-          : '')
-      );
+      return t.dpkg(String(f.code), f.detail, dependencyTrouble(f));
     case 'error':
-      return `L’installazione non è partita (${f.detail}).`;
+      return t.error(f.detail);
   }
 }
 

@@ -1,11 +1,14 @@
 import { messageFor, type HostKeyInfo, type TunnelErrorKind } from '@monsters/remote';
+import { appLang } from '@monsters/shared';
 import { SYSTEM_FONT } from './page-theme.ts';
+import { remoteCopyStrings } from './remote-copy.strings.ts';
 import type { LinkState } from './remote-core.ts';
 
 /*
- * The words of the client mode (M3.3, D-047), in Italian: the host key dialogs, the tray
- * tooltip, the banner over the window while reconnecting, the status line of the
- * connections page. Pure functions (tested), used by index.ts.
+ * The words of the client mode (M3.3, D-047), in the app's language (D-153; the texts are in
+ * remote-copy.strings.ts): the host key dialogs, the tray tooltip, the banner over the window
+ * while reconnecting, the status line of the connections page. Pure functions (tested), used
+ * by index.ts.
  */
 
 /** The fields of Electron's MessageBoxOptions used here. */
@@ -24,57 +27,52 @@ export const TRUST_BUTTON = 1;
 
 /**
  * First connection to a computer: the user compares the fingerprint with the one the
- * remote computer prints. "Annulla" is the default (Enter, Esc, closing the dialog). The
+ * remote computer prints. "Cancel" is the default (Enter, Esc, closing the dialog). The
  * first line says it is normal; the check, for whoever wants it, comes after (audit UX 1.8).
  */
 export function hostKeyDialog(info: HostKeyInfo, name: string): DialogCopy {
+  const t = remoteCopyStrings().hostKey;
   const key = info.keys[0];
-  const where = info.port === 22 ? info.hostname : `${info.hostname}, porta ${info.port}`;
+  const where = info.port === 22 ? info.hostname : t.port(info.hostname, info.port);
   return {
     type: 'warning',
-    title: 'Nuovo computer',
-    message: `Stai collegando per la prima volta «${name}». Se l’hai configurato tu, è normale.`,
+    title: t.title,
+    message: t.message(name),
     detail: [
-      `Monsters si ricorda la chiave di questo computer (${where}) e da ora controlla che sia ` +
-        'sempre lui: se un giorno cambia, non si collega.',
+      t.remember(where),
       '',
-      `Impronta (${key?.type ?? '?'}): ${key?.fingerprint ?? '?'}`,
+      t.fingerprint(key?.type ?? '?', key?.fingerprint ?? '?'),
       '',
-      'Come verificarlo: sull’altro computer, in un terminale,',
-      'ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub',
-      'deve stampare la stessa impronta.',
+      ...t.verify,
     ].join('\n'),
-    buttons: ['Annulla', 'Mi fido, collegati'],
+    buttons: [t.cancel, t.trust],
     defaultId: 0,
     cancelId: 0,
   };
 }
 
 export function hostKeyChangedDialog(name: string): DialogCopy {
+  const t = remoteCopyStrings().hostKeyChanged;
   return {
     type: 'error',
-    title: 'Chiave del computer cambiata',
-    message: `«${name}» non si presenta più con la stessa chiave di prima: non mi collego.`,
-    detail:
-      'Succede se quel computer è stato reinstallato, ma anche se qualcuno si mette in mezzo ' +
-      'alla connessione. Se sai che è stato reinstallato, nella finestra di Monsters puoi ' +
-      'dimenticare la vecchia chiave; altrimenti chiedi a chi lo gestisce.',
-    buttons: ['OK'],
+    title: t.title,
+    message: t.message(name),
+    detail: t.detail,
+    buttons: [t.ok],
     defaultId: 0,
     cancelId: 0,
   };
 }
 
-/** "Dimentica la vecchia chiave": a strong warning first. Button 0 forgets, 1 is the default. */
+/** "Forget the old key": a strong warning first. Button 0 forgets, 1 is the default. */
 export function forgetKeyDialog(name: string): DialogCopy {
+  const t = remoteCopyStrings().forgetKey;
   return {
     type: 'warning',
-    title: 'Dimenticare la vecchia chiave?',
-    message: `Fallo solo se sei sicuro che «${name}» sia stato reinstallato o cambiato da te.`,
-    detail:
-      'Se non lo sai, qualcuno potrebbe fingersi il tuo computer per leggere quello che fanno ' +
-      'i mostri. Dopo, al collegamento ti mostro la chiave nuova da confermare.',
-    buttons: ['Dimentica la chiave', 'Annulla'],
+    title: t.title,
+    message: t.message(name),
+    detail: t.detail,
+    buttons: [t.forget, t.cancel],
     defaultId: 1,
     cancelId: 1,
   };
@@ -82,18 +80,19 @@ export function forgetKeyDialog(name: string): DialogCopy {
 
 /** The old key is in the user's own known_hosts: Monsters never writes it. */
 export function keyElsewhereDialog(name: string, address: string): DialogCopy {
+  const t = remoteCopyStrings().keyElsewhere;
   return {
     type: 'warning',
-    title: 'Chiave salvata fuori da Monsters',
-    message: `La vecchia chiave di «${name}» è salvata nelle impostazioni SSH del tuo utente, che Monsters non modifica.`,
-    detail: `Per toglierla, da un terminale di questo computer:\nssh-keygen -R ${address}\npoi premi «Riprova».`,
-    buttons: ['OK'],
+    title: t.title,
+    message: t.message(name),
+    detail: t.detail(address),
+    buttons: [t.ok],
     defaultId: 0,
     cancelId: 0,
   };
 }
 
-/** Field of the connections form that fixes a failure ("Correggi la connessione"). */
+/** Field of the connections form that fixes a failure ("Fix the connection"). */
 export type FixField = 'host' | 'user' | 'identityFile' | 'sshPort';
 
 export interface FailureCopy {
@@ -106,8 +105,8 @@ export interface FailureCopy {
 }
 
 /**
- * Why a connection failed, in plain Italian, naming the address that was tried and saying what
- * to do (audit UX 1.4, 1.7). The technical lines of ssh stay under "Dettagli".
+ * Why a connection failed, in plain words, naming the address that was tried and saying what
+ * to do (audit UX 1.4, 1.7). The technical lines of ssh stay under "Details".
  */
 export function remoteFailureCopy(
   kind: TunnelErrorKind,
@@ -116,66 +115,36 @@ export function remoteFailureCopy(
   fallback = '',
   platform: string = process.platform,
 ): FailureCopy {
+  const t = remoteCopyStrings().failure;
   switch (kind) {
     case 'host-not-found':
-      return {
-        message: `Non trovo «${address}» in rete.`,
-        tip: 'Controlla l’indirizzo (per esempio 192.168.1.20 o pc-casa.local) e, se usi una VPN come Tailscale, che sia accesa.',
-        fix: 'host',
-      };
+      return { message: t.hostNotFound(address), tip: t.hostNotFoundTip, fix: 'host' };
     case 'unreachable':
-      return {
-        message: `«${address}» non risponde.`,
-        tip: 'È acceso e collegato alla stessa rete (o alla VPN)? Controlla anche l’indirizzo.',
-        fix: 'host',
-      };
+      return { message: t.unreachable(address), tip: t.unreachableTip, fix: 'host' };
     case 'auth-failed':
       return {
-        message: `«${address}» ha rifiutato l’accesso. Monsters entra solo con una chiave SSH, mai con la password: controlla nome utente e chiave.`,
-        tip:
-          platform === 'win32'
-            ? 'Perché la tua chiave sia accettata, la sua parte pubblica (il file .pub) va aggiunta a ~/.ssh/authorized_keys sull’altro computer.'
-            : 'Perché la tua chiave sia accettata, da un terminale di questo computer: ssh-copy-id utente@indirizzo. Se la chiave ha una passphrase, aggiungila prima con ssh-add.',
+        message: t.authFailed(address),
+        tip: platform === 'win32' ? t.authFailedTipWindows : t.authFailedTip,
         fix: 'user',
       };
     case 'host-key-unknown':
-      return {
-        message: `Non mi sono collegato: la chiave di «${name}» non è stata confermata.`,
-        tip: 'Con «Riprova» te la mostro di nuovo.',
-        fix: null,
-      };
+      return { message: t.hostKeyUnknown(name), tip: t.hostKeyUnknownTip, fix: null };
     case 'host-key-changed':
       return {
-        message: `«${name}» non si presenta più con la stessa chiave di prima, quindi non mi collego.`,
-        tip: 'Succede se quel computer è stato reinstallato, ma anche se qualcuno si mette in mezzo. Se non sei sicuro, chiedi a chi lo gestisce.',
+        message: t.hostKeyChanged(name),
+        tip: t.hostKeyChangedTip,
         fix: null,
         forgetKey: true,
       };
     case 'core-unreachable':
-      return {
-        message: `Il collegamento con «${name}» funziona, ma lì Monsters non è acceso.`,
-        tip: 'Apri Monsters su quel computer, poi premi «Riprova».',
-        fix: null,
-      };
+      return { message: t.coreUnreachable(name), tip: t.coreUnreachableTip, fix: null };
     case 'core-unverified':
-      return {
-        message: `Su «${name}», al posto di Monsters, risponde un altro programma: per sicurezza non mi collego.`,
-        tip: 'Se Monsters lì si è appena riavviato basta «Riprova»; altrimenti riavvialo su quel computer.',
-        fix: null,
-      };
+      return { message: t.coreUnverified(name), tip: t.coreUnverifiedTip, fix: null };
     case 'core-outdated':
-      return {
-        message: `Monsters su «${name}» è di una versione troppo vecchia per collegarsi in modo sicuro.`,
-        tip: 'Aggiornalo su quel computer, riaprilo e premi «Riprova».',
-        fix: null,
-      };
+      return { message: t.coreOutdated(name), tip: t.coreOutdatedTip, fix: null };
     case 'connection-lost':
     case 'ssh-error':
-      return {
-        message: `Il collegamento con «${name}» si è interrotto.`,
-        tip: 'Premi «Riprova»; se succede ancora, guarda i dettagli qui sotto.',
-        fix: null,
-      };
+      return { message: t.connectionLost(name), tip: t.connectionLostTip, fix: null };
     default:
       return { message: messageFor(kind) || fallback, fix: null };
   }
@@ -183,44 +152,45 @@ export function remoteFailureCopy(
 
 /** Tooltip of the tray icon: which core the app is using, and how the link is doing. */
 export function trayTooltip(link: LinkState | null): string {
-  if (!link) return 'Monsters · Questo computer';
+  const t = remoteCopyStrings().tray;
+  if (!link) return t.local;
   switch (link.status) {
     case 'connecting':
-      return `Monsters · Mi collego a ${link.name}…`;
+      return t.connecting(link.name);
     case 'connected':
-      return `Monsters · Collegato a ${link.name}`;
+      return t.connected(link.name);
     case 'reconnecting':
-      return `Monsters · Mi ricollego a ${link.name}…`;
+      return t.reconnecting(link.name);
     case 'failed':
     case 'closed':
-      return `Monsters · Scollegato da ${link.name}`;
+      return t.disconnected(link.name);
   }
 }
 
 /** The status line of the current row in the connections page. */
 export function linkStatusText(link: LinkState | null, localReady: boolean): string {
-  if (!link) return localReady ? 'In uso' : 'In uso · sta partendo';
+  const t = remoteCopyStrings().status;
+  if (!link) return localReady ? t.inUse : t.inUseStarting;
   switch (link.status) {
     case 'connecting':
-      return 'In uso · mi sto collegando…';
+      return t.inUseConnecting;
     case 'connected':
-      return 'In uso · collegato';
+      return t.inUseConnected;
     case 'reconnecting':
-      return `In uso · mi ricollego… (tentativo ${link.attempt})`;
+      return t.inUseReconnecting(link.attempt);
     case 'failed':
-      return 'In uso · non collegato';
+      return t.inUseFailed;
     case 'closed':
-      return 'Scollegato';
+      return t.closed;
   }
 }
 
 /** The banner over the remote page, or null when there is nothing to say. */
 export function bannerText(link: LinkState | null): string | null {
   if (!link) return null;
-  if (link.status === 'reconnecting') {
-    return `Collegamento con ${link.name} interrotto. Mi ricollego… (tentativo ${link.attempt})`;
-  }
-  if (link.status === 'connected') return `Collegato a ${link.name}`;
+  const t = remoteCopyStrings().banner;
+  if (link.status === 'reconnecting') return t.reconnecting(link.name, link.attempt);
+  if (link.status === 'connected') return t.connected(link.name);
   return null;
 }
 
@@ -229,7 +199,7 @@ const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)}
 /** The banner page: text only, no script (CSP `default-src 'none'`). */
 export function bannerHtml(text: string, tone: 'busy' | 'ok'): string {
   return `<!doctype html>
-<html lang="it"><head><meta charset="utf-8">
+<html lang="${appLang()}"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
 <meta name="color-scheme" content="light dark">
 <style>

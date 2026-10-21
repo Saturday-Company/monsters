@@ -61,6 +61,7 @@ import {
   type VerifyRefusal,
   type VerifyResult,
 } from './update-signature.ts';
+import { updaterStrings } from './updater.strings.ts';
 
 /** The channel of a build whose `app-update.yml` does not name one. */
 export const UPDATE_CHANNEL = 'alpha';
@@ -291,29 +292,26 @@ export function spawnAfterExit(execPath: string, args: string[], pid = process.p
 export function updateMenuEntry(
   state: UpdateState,
 ): { label: string; enabled: boolean; action: 'check' | 'install' | null } | null {
+  const t = updaterStrings().menu;
   switch (state.kind) {
     case 'disabled':
       return null;
     case 'idle':
-      return { label: 'Cerca aggiornamenti', enabled: true, action: 'check' };
+      return { label: t.check, enabled: true, action: 'check' };
     case 'checking':
-      return { label: 'Cerco aggiornamenti…', enabled: false, action: null };
+      return { label: t.checking, enabled: false, action: null };
     case 'downloading':
       return {
-        label: `Scarico la versione ${state.version} (${Math.floor(state.percent)}%)`,
+        label: t.downloading(state.version, Math.floor(state.percent)),
         enabled: false,
         action: null,
       };
     case 'ready':
-      return {
-        label: `Riavvia per aggiornare (versione ${state.version})`,
-        enabled: true,
-        action: 'install',
-      };
+      return { label: t.restart(state.version), enabled: true, action: 'install' };
     case 'installing':
-      return { label: 'Aggiorno…', enabled: false, action: null };
+      return { label: t.installing, enabled: false, action: null };
     case 'error':
-      return { label: 'Aggiornamento non riuscito: riprova', enabled: true, action: 'check' };
+      return { label: t.failed, enabled: true, action: 'check' };
   }
 }
 
@@ -321,47 +319,30 @@ export function updateMenuEntry(
 export type ManualCheckResult =
   { kind: 'latest' } | { kind: 'found'; version: string } | { kind: 'error'; message: string };
 
-/** The dialog after "Cerca aggiornamenti". */
+/** The dialog after "Check for updates". */
 export function manualCheckDialog(
   result: ManualCheckResult,
   currentVersion: string,
 ): { type: 'info' | 'warning'; message: string; detail: string } {
+  const t = updaterStrings().manualCheck;
   switch (result.kind) {
     case 'latest':
-      return {
-        type: 'info',
-        message: 'Monsters è aggiornato',
-        detail: `Hai già l’ultima versione (${currentVersion}).`,
-      };
+      return { type: 'info', message: t.latest, detail: t.latestDetail(currentVersion) };
     case 'found':
-      return {
-        type: 'info',
-        message: `C’è la versione ${result.version}`,
-        detail:
-          'La sto scaricando: quando è pronta ti chiedo se riavviare. Intanto puoi continuare a ' +
-          'usare Monsters.',
-      };
+      return { type: 'info', message: t.found(result.version), detail: t.foundDetail };
     case 'error':
-      return {
-        type: 'warning',
-        message: 'Non riesco a cercare gli aggiornamenti',
-        detail:
-          'Controlla di essere collegato a internet e riprova più tardi. ' +
-          `Dettaglio: ${result.message}`,
-      };
+      return { type: 'warning', message: t.error, detail: t.errorDetail(result.message) };
   }
 }
 
 /** The notification of a downloaded update; a click asks `updateReadyDialog`. */
 export function updateReadyNotice(version: string): { title: string; body: string } {
-  return {
-    title: 'Aggiornamento pronto',
-    body: `Monsters ${version} è pronto: fai clic qui per riavviare e installarlo.`,
-  };
+  const t = updaterStrings().notice;
+  return { title: t.title, body: t.body(version) };
 }
 
 /**
- * "Riavvia ora" (0, the default) or "Più tardi" (1, also Esc). `password`: the .deb, whose
+ * "Restart now" (0, the default) or "Later" (1, also Esc). `password`: the .deb, whose
  * install asks the computer's password (said before it is asked, D-105).
  */
 export function updateReadyDialog(
@@ -375,17 +356,12 @@ export function updateReadyDialog(
   defaultId: number;
   cancelId: number;
 } {
-  const later =
-    'Se preferisci, lo trovi anche più tardi nel menu, alla voce «Riavvia per aggiornare».';
+  const t = updaterStrings().ready;
   return {
     type: 'info',
-    message: `Monsters ${version} è pronto`,
-    detail: o.password
-      ? 'Ti chiederò la password del computer per installare l’aggiornamento (quella con cui ' +
-        'accedi, di un utente che può installare programmi). Poi Monsters si riavvia: ci ' +
-        `vogliono pochi secondi. Se annulli, resta tutto com’è. ${later}`
-      : `Per installarlo Monsters si riavvia: ci vogliono pochi secondi. ${later}`,
-    buttons: ['Riavvia ora', 'Più tardi'],
+    message: t.message(version),
+    detail: o.password ? t.passwordDetail(t.later) : t.detail(t.later),
+    buttons: [t.restartNow, t.notNow],
     defaultId: 0,
     cancelId: 1,
   };
@@ -400,8 +376,11 @@ export interface DebFailureReport {
   restarting: boolean;
 }
 
-/** The buttons of `debFailureDialog`. */
-export const DEB_FAILURE_BUTTONS = ['Copia il comando', 'Apri il link', 'Chiudi'] as const;
+/** The buttons of `debFailureDialog`: copy the command, open the link, close. */
+export function debFailureButtons(): readonly [string, string, string] {
+  const t = updaterStrings().debFailure;
+  return [t.copyCommand, t.openLink, t.close];
+}
 
 /** The dialog of a .deb update that was not installed (the command is copyable: button 0). */
 export function debFailureDialog(r: DebFailureReport): {
@@ -413,6 +392,8 @@ export function debFailureDialog(r: DebFailureReport): {
   cancelId: number;
   command: string | null;
 } {
+  const t = updaterStrings().debFailure;
+  const buttonLabels = debFailureButtons();
   // A package that failed its check is not one to install by hand.
   // dpkg left it unpacked and not configured: `apt install -f` finishes it (and fetches the
   // dependencies); the same package installed with `apt install <file>` would too.
@@ -420,31 +401,25 @@ export function debFailureDialog(r: DebFailureReport): {
   const forged = ['signature', 'not-ours', 'not-newer'].includes(r.failure.kind);
   const untrusted = forged || r.failure.kind === 'mismatch';
   const command = half ? REPAIR_COMMAND : untrusted ? null : manualInstallCommand(r.update.file);
-  const now = half
-    ? 'Monsters si riavvia, ma i file della versione nuova sono già sul disco e il pacchetto non è configurato: finché non lo completi può non partire bene.'
-    : r.restarting
-      ? 'Monsters si riavvia con la versione che è installata adesso.'
-      : `Monsters continua con la versione ${r.currentVersion}.`;
+  const now = half ? t.half : r.restarting ? t.restarting : t.continues(r.currentVersion);
   const how = command
     ? half
-      ? `Per completare l’installazione, apri un terminale e scrivi:\n\n${command}\n\n(apt scarica le dipendenze che mancano)`
-      : `Per installarlo a mano, apri un terminale e scrivi:\n\n${command}${
-          r.failure.kind === 'depends' ? '\n\n(apt scarica da solo le dipendenze che mancano)' : ''
-        }`
+      ? t.finish(command)
+      : t.byHand(command, r.failure.kind === 'depends')
     : forged
-      ? 'Può essere un pacchetto manomesso: non installarlo a mano.'
-      : 'Scaricalo di nuovo e installalo a mano.';
+      ? t.tampered
+      : t.again;
   // A package that failed root's signature or identity check: no link to the feed that served it.
   const url = forged ? null : r.update.url;
-  const link = url ? `\n\nIl pacchetto si scarica anche da:\n${url}` : '';
+  const link = url ? t.link(url) : '';
   const buttons = [
-    ...(command ? [DEB_FAILURE_BUTTONS[0]] : []),
-    ...(url ? [DEB_FAILURE_BUTTONS[1]] : []),
-    DEB_FAILURE_BUTTONS[2],
+    ...(command ? [buttonLabels[0]] : []),
+    ...(url ? [buttonLabels[1]] : []),
+    buttonLabels[2],
   ];
   return {
     type: 'warning',
-    message: `Non ho installato Monsters ${r.update.version}`,
+    message: t.message(r.update.version),
     detail: `${describeDebFailure(r.failure)} ${now}\n\n${how}${link}`,
     buttons,
     defaultId: buttons.length - 1,
@@ -903,7 +878,7 @@ export class Updater {
     void this.o.onDebFailed?.({
       failure,
       update,
-      currentVersion: this.o.currentVersion ?? 'attuale',
+      currentVersion: this.o.currentVersion ?? updaterStrings().state.currentVersion,
       restarting: false,
     });
   }
@@ -968,7 +943,7 @@ export class Updater {
         // guard time either means the same.
         this.afterQuit = true;
         this.guard = setTimeout(
-          () => this.installFailedLate('L’installazione non è partita: riprova.'),
+          () => this.installFailedLate(updaterStrings().state.installNotStarted),
           this.o.installGuardMs ?? INSTALL_GUARD_MS,
         );
         this.guard.unref();
@@ -989,7 +964,7 @@ export class Updater {
   private async installDeb(version: string): Promise<'started' | 'refused' | 'failed'> {
     const update = this.debUpdate;
     if (!update || update.version !== version) {
-      const message = 'non trovo il pacchetto scaricato: riprova a cercare gli aggiornamenti';
+      const message = updaterStrings().state.noPackage;
       this.o.log(`updates: not installing version ${version}: no downloaded .deb`);
       this.set({ kind: 'error', message });
       return 'refused';
@@ -1013,7 +988,7 @@ export class Updater {
         `updates: version ${version} not installed (${logDebFailure(refusal)}), ` +
           `still running ${current}; by hand: ${manualInstallCommand(update.file)}`,
       );
-      // Ready again: "Riavvia per aggiornare" stays in the menu to try again.
+      // Ready again: "Restart to update" stays in the menu to try again.
       this.set({ kind: 'ready', version });
       void this.o.onDebFailed?.({
         failure: refusal,
@@ -1048,16 +1023,16 @@ export class Updater {
   private appImagePreflight(appImage: string): string | null {
     const files = this.files;
     const dir = posix.dirname(appImage);
-    if (!files.exists(appImage)) return `il file dell'app non c'è più (${appImage})`;
+    if (!files.exists(appImage)) return updaterStrings().state.appFileGone(appImage);
     if (!files.writableDir(dir)) {
-      return `la cartella ${dir} non è scrivibile: scarica la nuova versione e sostituisci il file a mano`;
+      return updaterStrings().state.folderNotWritable(dir);
     }
     const backup = appImageBackupPath(appImage);
     try {
       if (files.exists(backup)) files.unlink(backup);
       files.linkOrCopy(appImage, backup);
     } catch (err) {
-      return `non riesco a tenere una copia dell'app nella sua cartella (${(err as Error).message})`;
+      return updaterStrings().state.noBackup((err as Error).message);
     }
     return null;
   }

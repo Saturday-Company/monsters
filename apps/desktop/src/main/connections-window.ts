@@ -12,6 +12,7 @@ import {
 } from 'electron';
 import type { ConnectionProfile } from '@monsters/remote';
 import type { TestResult } from './connection-check.ts';
+import { connectionsStrings } from './connections-page.strings.ts';
 import { fromAppPage } from './ipc-guards.ts';
 import { connectionsPageUrl, type ConnectionsView, type FormRequest } from './connections-page.ts';
 import { LOCAL_CHOICE, parseProfileForm, withSshAlias, type ProfileStore } from './profiles.ts';
@@ -23,7 +24,7 @@ import {
 } from './title-bar.ts';
 
 /*
- * The "Connessioni" window (M3.3, D-047): the profiles of the client mode and the choice of
+ * The "Connections" window (M3.3, D-047): the profiles of the client mode and the choice of
  * the core. Hardened like the main window (sandbox, context isolation, no navigation, no
  * new windows, every permission denied) and in a session of its own without storage. The
  * page is a data: URL built by the app; the IPC handlers answer only to that window's main
@@ -32,8 +33,8 @@ import {
  * Settings' choice, or the system: `nativeTheme.themeSource`, D-091), and so do the overlay's
  * colours. Besides list, save, remove and use: "Prova" (a tunnel of
  * its own, the destination unchanged), the defaults of ssh for the advanced options, and a
- * form to open with the window ("Aggiungi un computer" at the first start, "Correggi la
- * connessione" after a failure).
+ * form to open with the window ("Add a computer" at the first start, "Fix the
+ * connection" after a failure).
  */
 
 export interface ConnectionsDeps {
@@ -105,7 +106,7 @@ export class ConnectionsWindow {
       minWidth: 420,
       minHeight: 420,
       show: false,
-      title: 'Connessioni',
+      title: connectionsStrings().windowTitle,
       autoHideMenuBar: true,
       backgroundColor: windowBackground(dark),
       ...titleBarOptions(this.#d.chrome, dark),
@@ -151,6 +152,19 @@ export class ConnectionsWindow {
   refresh(): void {
     const win = this.#win;
     if (win && !win.isDestroyed()) win.webContents.send('connections:changed');
+  }
+
+  /**
+   * The app's language changed: the window takes the new language now (title and page, which
+   * is rebuilt: an open form is lost, which a language change in the main window rarely hits).
+   */
+  relocalize(): void {
+    const win = this.#win;
+    if (!win || win.isDestroyed()) return;
+    win.setTitle(connectionsStrings().windowTitle);
+    void win
+      .loadURL(connectionsPageUrl(this.#d.chrome))
+      .catch((err: Error) => this.#d.log(`connections: ${err.message}`));
   }
 
   close(): void {
@@ -250,7 +264,7 @@ export class ConnectionsWindow {
     ipcMain.handle('connections:pick-key', async (event) => {
       if (!this.#fromPage(event) || !this.#win) return null;
       const res = await dialog.showOpenDialog(this.#win, {
-        title: 'Scegli la chiave privata SSH',
+        title: connectionsStrings().pickKeyTitle,
         defaultPath: join(homedir(), '.ssh'),
         properties: ['openFile', 'showHiddenFiles', 'dontAddToRecent'],
       });
