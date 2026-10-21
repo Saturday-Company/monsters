@@ -73,7 +73,7 @@ describe('monsters chat', () => {
     const out = io.lines.join('\n');
     expect(out).toMatch(/\(Titan is working, run /);
     expect(out).toContain('→ Titan delegates to Rhea: Cerca le lune di Saturno');
-    expect(out).toContain('  · Rhea: guarda le note');
+    expect(out).toContain('  · Rhea: looks at the notes');
     expect(out).toContain('← Rhea finished:\n    Saturno ha 146 lune note.');
     expect(out).toContain('Titan: Ciao Giulio, Rhea ha trovato 146 lune.');
     expect(out).toContain('(end: completed · 4 model requests: rhea, titan)');
@@ -149,7 +149,7 @@ describe('monsters chat', () => {
     const home = await core({ titan: [fake.text('Ciao!')] }, false);
     const io = capture();
     expect(await run(['chat', 'ciao', '--home', home], io)).toBe(1);
-    expect(io.errors.join('\n')).toMatch(/Completa prima il primo avvio nell’interfaccia/);
+    expect(io.errors.join('\n')).toMatch(/Finish the first start in the interface first/);
     expect(cores[0]!.hub.team.list()).toEqual([]);
   });
 });

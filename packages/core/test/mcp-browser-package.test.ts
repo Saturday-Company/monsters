@@ -80,7 +80,7 @@ describe('browser preset: package installed once', () => {
     if (process.platform === 'win32') {
       await expect(
         installBrowserPackage(home, { PATH: '' }, spawn, new AbortController().signal),
-      ).rejects.toThrow(/installa Node\.js/);
+      ).rejects.toThrow(/install Node\.js/);
     }
   });
 
