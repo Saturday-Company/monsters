@@ -1,31 +1,16 @@
-import type { AutomationRunNowResponse, AutomationView } from '@monsters/shared';
+import { formatDate, type AutomationRunNowResponse, type AutomationView } from '@monsters/shared';
+import { cliStrings } from './cli.strings.ts';
 import type { Io } from './main.ts';
 
 /*
  * `monsters automations list|run <id>` (D-094): the automations of the core
- * and "Esegui ora" from the terminal. The menu of the app does the rest.
+ * and "Run now" from the terminal. The menu of the app does the rest.
  */
 
 type Request = (method: 'GET' | 'POST', path: string, body?: unknown) => Promise<unknown>;
 
-const STATE_WORDS: Record<string, string> = {
-  waiting_lead: 'aspetta che il capo si liberi',
-  running: 'in corso',
-  waiting_user: 'aspetta una risposta',
-  completed: 'finito',
-  failed: 'non riuscito',
-  aborted: 'fermato',
-  skipped: 'saltato',
-};
-
-const STATUS_WORDS: Record<string, string> = {
-  active: 'attiva',
-  paused: 'in pausa',
-  draft: 'bozza',
-};
-
 function when(ms: number | null | undefined): string {
-  return ms ? new Date(ms).toLocaleString() : '-';
+  return ms ? formatDate(ms, { dateStyle: 'short', timeStyle: 'short' }) : '-';
 }
 
 export async function cmdAutomations(
@@ -42,14 +27,15 @@ export async function cmdAutomations(
       return 0;
     }
     if (list.length === 0) {
-      io.out('Nessuna automazione.');
+      io.out(cliStrings().noAutomations);
       return 0;
     }
+    const t = cliStrings();
     for (const a of list) {
       const run = a.current ?? a.last;
-      const state = run ? ` · ultimo giro: ${STATE_WORDS[run.state] ?? run.state}` : '';
-      io.out(`${a.id}  ${a.name} (${STATUS_WORDS[a.status] ?? a.status})`);
-      io.out(`  ${a.scheduleText} · capo: ${a.lead} · prossimo: ${when(a.nextRunAt)}${state}`);
+      const last = run ? (t.runStates[run.state] ?? run.state) : null;
+      io.out(`${a.id}  ${a.name} (${t.statuses[a.status] ?? a.status})`);
+      io.out(t.automationLine(a.scheduleText, a.lead, when(a.nextRunAt), last));
     }
     return 0;
   }
@@ -63,8 +49,8 @@ export async function cmdAutomations(
       `/api/automations/${encodeURIComponent(id)}/run`,
     )) as AutomationRunNowResponse;
     if (json) io.out(JSON.stringify(res));
-    else if (res.state === 'running') io.out(`Giro avviato (run ${res.runId ?? '?'}).`);
-    else io.out('Il capo sta lavorando: il giro parte appena è libero.');
+    else if (res.state === 'running') io.out(cliStrings().runStarted(res.runId ?? '?'));
+    else io.out(cliStrings().leadBusy);
     return 0;
   }
   io.err(`unknown subcommand: automations ${sub}`);

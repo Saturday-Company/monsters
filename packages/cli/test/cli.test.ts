@@ -2,7 +2,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
 import { tunnelProof } from '@monsters/shared/node';
+import { cmdAutomations } from '../src/automations.ts';
 import { run, verifyCore, type Io } from '../src/main.ts';
 
 const dirs: string[] = [];
@@ -101,10 +103,10 @@ describe('monsters CLI', () => {
 
     // Automations (D-094): none yet; running one that is not there is an error of the core.
     expect(await run(['automations', '--home', h], io)).toBe(0);
-    expect(io.lines.at(-1)).toBe('Nessuna automazione.');
+    expect(io.lines.at(-1)).toBe('No automations.');
     const missing = capture();
     expect(await run(['automations', 'run', 'nessuna', '--home', h], missing)).toBe(1);
-    expect(missing.errors.join('\n')).toMatch(/automazione/);
+    expect(missing.errors.join('\n')).toMatch(/automazion|automation/i);
     expect(await run(['automations', 'explode', '--home', h], missing)).toBe(2);
 
     expect(await run(['kill', '--home', h, '--reason', 'cli test'], io)).toBe(0);
@@ -130,4 +132,41 @@ describe('monsters CLI', () => {
     expect(existsSync(join(h, 'setup-code'))).toBe(false);
     // Two real starts of the core: about 4.5 s on a Windows runner.
   }, 20_000);
+});
+
+describe('automations list in both languages (D-153)', () => {
+  const list = [
+    {
+      id: 'a1',
+      name: 'Daily digest',
+      status: 'active',
+      scheduleText: 'every day at 8:00',
+      lead: 'titan',
+      nextRunAt: null,
+      current: null,
+      last: { state: 'waiting_lead' },
+    },
+  ];
+  const request = () => Promise.resolve(list);
+
+  afterEach(() => setAppLang('en'));
+
+  it('English', async () => {
+    const io = capture();
+    expect(await cmdAutomations([], request, io)).toBe(0);
+    expect(io.lines).toEqual([
+      'a1  Daily digest (active)',
+      '  every day at 8:00 · lead: titan · next: - · last run: waiting for the squad lead to be free',
+    ]);
+  });
+
+  it('Italian', async () => {
+    setAppLang('it');
+    const io = capture();
+    expect(await cmdAutomations([], request, io)).toBe(0);
+    expect(io.lines).toEqual([
+      'a1  Daily digest (attiva)',
+      '  every day at 8:00 · capo: titan · prossimo: - · ultimo giro: aspetta che il capo si liberi',
+    ]);
+  });
 });

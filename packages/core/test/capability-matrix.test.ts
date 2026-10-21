@@ -652,7 +652,9 @@ describe.each(MODES)('visible == executable in Telegram on %s (D1, D-136)', (mod
       await t.waitEvent(isChannel('connected', (e) => e.data.bot === undefined));
       const code = await t.json<TelegramPairing>('POST', '/api/telegram/pairing');
       tg.text(GIULIO, `/start ${code.code}`);
-      await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.includes('ora puoi comandare'));
+      await tg.waitMessage(
+        (m) => m.chat_id === GIULIO.id && m.text.includes('you can now command'),
+      );
       await t.json('POST', '/api/telegram/bots', { token: RHEA_TOKEN, agent: 'rhea' });
       await t.waitEvent(isChannel('connected', (e) => e.data.bot === RHEA));
       tg.addedToGroup(RHEA_TOKEN, GROUP, GIULIO);

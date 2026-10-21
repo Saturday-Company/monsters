@@ -5,11 +5,18 @@ import {
   DEFAULT_HOST,
   homePaths,
   installProcessGuard,
+  loadHubSettings,
   resolveHome,
   startCore,
   type ServerInfo,
 } from '@monsters/core';
-import { DEFAULT_PORT, type StatusResponse } from '@monsters/shared';
+import {
+  DEFAULT_PORT,
+  setAppLang,
+  systemLang,
+  type Lang,
+  type StatusResponse,
+} from '@monsters/shared';
 import { checkTunnelProof, newTunnelProofNonce, prepareCoreProcess } from '@monsters/shared/node';
 import { cmdAutomations } from './automations.ts';
 import { cmdAnswer, cmdChat, cmdVault, terminalSafe, type CoreAccess } from './chat.ts';
@@ -391,6 +398,15 @@ async function cmdStart(values: Values, io: Io, signal?: AbortSignal): Promise<n
   return 0;
 }
 
+/** The app's language of a data folder (settings.json), else the system's. */
+function cliLanguage(home: string): Lang {
+  try {
+    return loadHubSettings(home).language ?? systemLang(process.env);
+  } catch {
+    return systemLang(process.env);
+  }
+}
+
 /** Runs the CLI. Returns the exit code. `signal` stops `start` (used by tests). */
 export async function run(
   argv: string[],
@@ -410,6 +426,9 @@ export async function run(
   const { values, positionals } = parsed;
   const command = values.help ? 'help' : values.version ? 'version' : (positionals[0] ?? 'help');
   const home = resolveHome(values.home);
+  // `start` picks the language itself (the core). The other commands print in the language
+  // the data folder is set to (D-153), else the system's.
+  if (command !== 'start') setAppLang(cliLanguage(home));
 
   try {
     switch (command) {

@@ -144,7 +144,7 @@ describe('A2 · memory written in a group run (the reviewer’s test)', () => {
     await t.waitEvent(isChannel('connected', (e) => e.data.bot === undefined));
     const code = await t.json<{ code: string }>('POST', '/api/telegram/pairing');
     tg.text(GIULIO, `/start ${code.code}`);
-    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.includes('ora puoi comandare'));
+    await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.includes('you can now command'));
     await t.json('POST', '/api/telegram/bots', { token: RHEA_TOKEN, agent: 'rhea' });
     await t.waitEvent(isChannel('connected', (e) => e.data.bot === RHEA));
     tg.addedToGroup(RHEA_TOKEN, GROUP, GIULIO);
@@ -182,7 +182,7 @@ describe('A2 · memory written in a group run (the reviewer’s test)', () => {
       token: RHEA_TOKEN,
     });
     await tg.waitMessage(
-      (m) => inGroup(m) && (m.text.includes('Mandata') || m.text.includes('Serve l')),
+      (m) => inGroup(m) && (m.text.includes('Mandata') || m.text.includes('OK is needed')),
       20000,
     );
     expect(fetched).toEqual([]);

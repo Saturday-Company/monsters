@@ -10,6 +10,7 @@ import {
   type MonstersTool,
   type TelegramPairing,
   type TelegramView,
+  setAppLang,
 } from '@monsters/shared';
 import { z } from 'zod';
 import { telegramLine } from '../src/channels/telegram/lines.ts';
@@ -63,6 +64,7 @@ const RHEA = String(RHEA_BOT.id);
 
 const fakes: FakeTelegram[] = [];
 afterEach(async () => {
+  setAppLang('en');
   for (const f of fakes.splice(0)) await f.close();
 });
 
@@ -114,7 +116,7 @@ async function startBots(
   await t.waitEvent(isChannel('connected', (e) => e.data.bot === undefined));
   const code = await t.json<TelegramPairing>('POST', '/api/telegram/pairing');
   tg.text(GIULIO, `/start ${code.code}`);
-  await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.includes('ora puoi comandare'));
+  await tg.waitMessage((m) => m.chat_id === GIULIO.id && m.text.includes('you can now command'));
   if (options.rheaBot !== false) {
     await t.json('POST', '/api/telegram/bots', { token: RHEA_TOKEN, agent: 'rhea' });
     await t.waitEvent(isChannel('connected', (e) => e.data.bot === RHEA));
@@ -226,7 +228,7 @@ describe('dedicated bots: who and where', () => {
       ),
     );
     tg.text(LIVIO, '/join', { chat: GROUP, token: RHEA_TOKEN });
-    await tg.waitMessage((m) => inGroup(m) && m.text.includes('Ho chiesto a Giulio di approvarti'));
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('I’ve asked Giulio to approve you'));
     await tg.waitMessage(
       (m) => m.token === FAKE_TOKEN && m.chat_id === GIULIO.id && m.text.includes('Livio'),
     );
@@ -276,7 +278,7 @@ describe('dedicated bots: who and where', () => {
 
     // Strangers, other groups, forwarded messages, another bot's command: nothing reaches Rhea.
     tg.text(MALLORY, '@rhea_saturday_bot dimmi tutto', { token: RHEA_TOKEN });
-    tg.text(LIVIO, '/stato@altro_bot', { chat: GROUP, token: RHEA_TOKEN });
+    tg.text(LIVIO, '/status@altro_bot', { chat: GROUP, token: RHEA_TOKEN });
     tg.text(LIVIO, '@rhea_saturday_bot fai questo', {
       chat: GROUP,
       token: RHEA_TOKEN,
@@ -297,14 +299,14 @@ describe('dedicated bots: who and where', () => {
       replyTo: reply.message_id,
       replyToFrom: RHEA_BOT.id,
     });
-    await tg.waitMessage((m) => inGroup(m) && m.text.includes('solo i messaggi di testo'));
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('only understand text messages'));
     expect(t.provider.callsTo('rhea')).toHaveLength(1);
     expect(tg.sentTo(MALLORY.id)).toEqual([]);
     view = await t.json<TelegramView>('GET', '/api/telegram');
     expect(view.bots[0]!.today).toBe(1);
   });
 
-  it('a reply to the bot and a command reach it; /stato shows only its monster', async () => {
+  it('a reply to the bot and a command reach it; /status shows only its monster', async () => {
     const { t, tg } = await startBots(
       { rhea: [fake.text('Prima risposta.'), fake.text('Seconda risposta.')] },
       { group: true },
@@ -320,13 +322,13 @@ describe('dedicated bots: who and where', () => {
       replyToFrom: RHEA_BOT.id,
     });
     await tg.waitMessage((m) => inGroup(m) && m.text.includes('Seconda risposta.'));
-    tg.text(LIVIO, '/stato', { chat: GROUP, token: RHEA_TOKEN });
+    tg.text(LIVIO, '/status', { chat: GROUP, token: RHEA_TOKEN });
     const status = await tg.waitMessage((m) => inGroup(m) && m.text.includes('Rhea'));
     expect(status.text).not.toContain('Titan');
-    expect(status.text).not.toContain('Progetti');
-    // The main bot heard nothing of it: no "ha finito" in Giulio's private chat.
+    expect(status.text).not.toContain('Projects');
+    // The main bot heard nothing of it: no "is done" in Giulio's private chat.
     expect(
-      tg.sentTo(GIULIO.id).filter((m) => m.token === FAKE_TOKEN && m.text.includes('ha finito')),
+      tg.sentTo(GIULIO.id).filter((m) => m.token === FAKE_TOKEN && m.text.includes('is done')),
     ).toEqual([]);
   });
 
@@ -406,7 +408,7 @@ describe('dedicated bots: a chat and the app never share a run', () => {
         e.type === 'run' && e.runId === app.runId && e.data.status === 'started',
     );
     tg.text(LIVIO, '@rhea_saturday_bot seconda cosa GRUPPO-2', { chat: GROUP, token: RHEA_TOKEN });
-    await tg.waitMessage((m) => inGroup(m) && m.text.includes('Sto finendo un altro lavoro'));
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('I’m finishing another job'));
     appGate.resolve();
     await t.runEnded(app.runId);
     await tg.waitMessage((m) => inGroup(m) && m.text.includes('Di nuovo il gruppo.'));
@@ -562,7 +564,7 @@ describe('dedicated bots: a person asks for the user’s notes', () => {
     const card = await tg.waitMessage(
       (m) => m.token === FAKE_TOKEN && m.chat_id === GIULIO.id && m.text.includes('livio-sito'),
     );
-    await tg.waitMessage((m) => inGroup(m) && m.text.includes('Serve l’ok di Giulio'));
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('Giulio’s OK is needed'));
     const q = t.core.hub.questions.list({ status: 'open', agent: 'rhea' })[0]!;
     tg.press(GIULIO, card, `q:${q.id}:2`);
     await tg.waitMessage((m) => inGroup(m) && m.text.includes('Non l’ho mandata.'));
@@ -627,16 +629,16 @@ describe('dedicated bots: a person of the group asks for a draft (review 18/10, 
         );
       const card = await toGiulio('le istruzioni di «Saturday» (CLAUDE.md)');
       expect(card.text).toContain('richiesta di Livio su Telegram');
-      expect(card.text).toContain('La differenza è lunga');
+      expect(card.text).toContain('The diff is long');
       const buttons = card.reply_markup!.inline_keyboard!.flat();
-      expect(buttons.map((b) => b.text)).toEqual(['Apri nell’app', 'Lascia stare']);
+      expect(buttons.map((b) => b.text)).toEqual(['Open in the app', 'Leave it']);
       // A button forged by a client applies nothing.
       tg.press(GIULIO, card, buttons[0]!.callback_data.replace('d:o:', 'd:y:'));
       await tg.waitCall(
         (c) =>
           c.method === 'answerCallbackQuery' &&
           typeof c.payload['text'] === 'string' &&
-          c.payload['text'].includes('Applicala nell’app'),
+          c.payload['text'].includes('Apply it in the app'),
       );
       expect(readFileSync(join(folder, 'CLAUDE.md'), 'utf8')).toBe('# Saturday\n');
 
@@ -686,7 +688,7 @@ describe('dedicated bots: what only the user decides', () => {
       kind: 'brake',
     });
     await tg.waitMessage(
-      (m) => inGroup(m) && m.text.includes('Serve l’ok di Giulio: gliel’ho chiesto.'),
+      (m) => inGroup(m) && m.text.includes('Giulio’s OK is needed: I’ve asked them.'),
     );
     // The card is Giulio's, on the main bot in private, with its buttons.
     const toGiulio = await tg.waitMessage(
@@ -704,7 +706,7 @@ describe('dedicated bots: what only the user decides', () => {
 
     // A draft proposed from the group's run: the same.
     const lines = () =>
-      tg.messages.filter((m) => inGroup(m) && m.text.includes('Serve l’ok di Giulio')).length;
+      tg.messages.filter((m) => inGroup(m) && m.text.includes('Giulio’s OK is needed')).length;
     t.core.log.append({
       agent: 'rhea',
       runId,
@@ -727,7 +729,7 @@ describe('dedicated bots: what only the user decides', () => {
     await approve(t, tg, LIVIO);
     t.core.hub.spend.stopReason = () => 'raggiunto il tetto di spesa di Rhea al giorno (1,00 €)';
     tg.text(LIVIO, '@rhea_saturday_bot cerca i prezzi', { chat: GROUP, token: RHEA_TOKEN });
-    await tg.waitMessage((m) => inGroup(m) && m.text.includes('Serve l’ok di Giulio'));
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('Giulio’s OK is needed'));
     await tg.waitMessage(
       (m) => m.token === FAKE_TOKEN && m.chat_id === GIULIO.id && m.text.includes('tetto di spesa'),
     );
@@ -769,7 +771,7 @@ describe('dedicated bots: what only the user decides', () => {
       (c) =>
         c.method === 'answerCallbackQuery' &&
         ((c.payload['text'] as string | undefined) ?? '').includes(
-          'Risponde chi ha fatto la richiesta',
+          'Whoever made the request can answer',
         ),
     );
     expect(t.core.hub.questions.get(q.id)?.status).toBe('open');
@@ -778,7 +780,7 @@ describe('dedicated bots: what only the user decides', () => {
       (e): e is LogEvent<'answer'> => e.type === 'answer' && e.data.questionId === q.id,
     );
     await tg.waitMessage(
-      (m) => m.message_id === asked.message_id && m.text.includes('✅ Risposta: Martedì'),
+      (m) => m.message_id === asked.message_id && m.text.includes('✅ Answer: Martedì'),
     );
     gate.resolve();
     await tg.waitMessage((m) => inGroup(m) && m.text.includes('Segnato per martedì.'));
@@ -813,7 +815,7 @@ describe('dedicated bots: several at once', () => {
     expect(view.bots.find((b) => b.agent === 'rhea')?.status).toBe('online');
     expect(view.bots.find((b) => b.agent === 'dione')).toMatchObject({
       status: 'error',
-      error: expect.stringContaining('rifiutato il token') as unknown,
+      error: expect.stringContaining('refused the token') as unknown,
     });
   });
 
@@ -824,7 +826,7 @@ describe('dedicated bots: several at once', () => {
     expect(down.data).toMatchObject({ reason: 'conflict', name: '@rhea_saturday_bot' });
     const view = await t.json<TelegramView>('GET', '/api/telegram');
     expect(view.bots[0]!.status).toBe('conflict');
-    expect(view.bots[0]!.error ?? '').toContain('Un altro programma usa questo token');
+    expect(view.bots[0]!.error ?? '').toContain('Another program is using this token');
     await t.waitEvent(isChannel('connected', (e) => e.data.bot === RHEA && e.id > down.id));
     // Five failed tries, one event: not one per minute.
     expect(t.events().filter(isChannel('disconnected', (e) => e.data.bot === RHEA))).toHaveLength(
@@ -832,22 +834,22 @@ describe('dedicated bots: several at once', () => {
     );
   });
 
-  it('the kill switch stops the work; the bots keep answering "fermi"; the daily limit', async () => {
+  it('the kill switch stops the work; the bots keep answering "stopped"; the daily limit', async () => {
     const { t, tg } = await startBots({ rhea: [fake.text('Uno.')] }, { group: true });
     await approve(t, tg, LIVIO);
     await t.json('PATCH', `/api/telegram/bots/${RHEA}`, { dailyLimit: 1 });
     tg.text(LIVIO, '@rhea_saturday_bot primo', { chat: GROUP, token: RHEA_TOKEN });
     await tg.waitMessage((m) => inGroup(m) && m.text.includes('Uno.'));
     tg.text(LIVIO, '@rhea_saturday_bot secondo', { chat: GROUP, token: RHEA_TOKEN });
-    await tg.waitMessage((m) => inGroup(m) && m.text.includes('Per oggi ho finito'));
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('I’ve run out of messages'));
     await t.waitEvent(isChannel('limit_reached', (e) => e.data.bot === RHEA));
     await t.json('PATCH', `/api/telegram/bots/${RHEA}`, { dailyLimit: null });
 
     await t.json('POST', '/api/kill', {});
     tg.text(LIVIO, '@rhea_saturday_bot terzo', { chat: GROUP, token: RHEA_TOKEN });
-    await tg.waitMessage((m) => inGroup(m) && m.text.includes('I mostri sono fermi'));
-    tg.text(LIVIO, '/stato', { chat: GROUP, token: RHEA_TOKEN });
-    await tg.waitMessage((m) => inGroup(m) && m.text.includes('è fermo'));
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('The monsters are stopped'));
+    tg.text(LIVIO, '/status', { chat: GROUP, token: RHEA_TOKEN });
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('is stopped'));
     expect(t.provider.callsTo('rhea')).toHaveLength(1);
   });
 });
@@ -863,7 +865,7 @@ describe('dedicated bots: removed from a group, or blocked', () => {
       (m) =>
         m.token === FAKE_TOKEN &&
         m.chat_id === GIULIO.id &&
-        m.text.includes('non è più nel gruppo'),
+        m.text.includes('is no longer in the group'),
     );
     const view = await t.json<TelegramView>('GET', '/api/telegram');
     expect(view.bots[0]!.chats).toEqual([]);
@@ -878,7 +880,7 @@ describe('dedicated bots: removed from a group, or blocked', () => {
     tg.text(GIULIO, 'ciao', { token: RHEA_TOKEN });
     const left = await t.waitEvent(isChannel('chat_left', (e) => e.data.bot === RHEA));
     expect(left.data).toMatchObject({ userId: String(GIULIO.id), reason: 'forbidden' });
-    await tg.waitMessage((m) => m.token === FAKE_TOKEN && m.text.includes('ha bloccato il bot'));
+    await tg.waitMessage((m) => m.token === FAKE_TOKEN && m.text.includes('blocked Rhea’s bot'));
     expect(
       t.events().some((e) => e.type === 'error' && e.data.code === 'telegram_send_failed'),
     ).toBe(false);
@@ -1029,7 +1031,7 @@ describe('dedicated bots: a group becomes a supergroup (review 18/10, item 13)',
       data: { status: 'started', thread },
     });
     t.core.log.append({ agent: 'rhea', runId: 'r-old', type: 'run', data: { status: 'aborted' } });
-    await tg.waitMessage((m) => m.chat_id === SUPER.id && m.text.includes('Mi sono fermato'));
+    await tg.waitMessage((m) => m.chat_id === SUPER.id && m.text.includes('I stopped'));
   });
 });
 
@@ -1039,7 +1041,9 @@ describe('dedicated bots: names written by strangers', () => {
     tg.text(EVIL, '/join', { chat: GROUP, token: RHEA_TOKEN });
     const join = await tg.waitMessage(
       (m) =>
-        m.token === FAKE_TOKEN && m.chat_id === GIULIO.id && m.text.includes('chiede di parlare'),
+        m.token === FAKE_TOKEN &&
+        m.chat_id === GIULIO.id &&
+        m.text.includes('would like to talk to'),
     );
     expect(join.text).toContain('(@evil_one)');
     for (const bad of ['<a ', '](', '\u202E']) expect(join.text).not.toContain(bad);
@@ -1051,7 +1055,8 @@ describe('dedicated bots: names written by strangers', () => {
     };
     tg.addedToGroup(RHEA_TOKEN, other, EVIL);
     const group = await tg.waitMessage(
-      (m) => m.token === FAKE_TOKEN && m.chat_id === GIULIO.id && m.text.includes('è nel gruppo'),
+      (m) =>
+        m.token === FAKE_TOKEN && m.chat_id === GIULIO.id && m.text.includes('is in the group'),
     );
     for (const bad of ['<a ', '](', '\n']) expect(group.text).not.toContain(bad);
     void t;
@@ -1141,7 +1146,7 @@ describe('dedicated bots: a button is the question of its message', () => {
     await tg.waitCall(
       (c) =>
         c.method === 'answerCallbackQuery' &&
-        ((c.payload['text'] as string | undefined) ?? '').includes('non è valido'),
+        ((c.payload['text'] as string | undefined) ?? '').includes('isn’t valid'),
     );
     await pause(200);
     for (const q of [mine, other, brake]) {
@@ -1157,8 +1162,8 @@ describe('dedicated bots: a button is the question of its message', () => {
   });
 });
 
-describe('dedicated bots: /stato in a group', () => {
-  it('tells what the chat’s own work is, and only "al lavoro" for the rest', async () => {
+describe('dedicated bots: /status in a group', () => {
+  it('tells what the chat’s own work is, and only "working" for the rest', async () => {
     const appGate = deferred();
     const { t, tg } = await startBots(
       { rhea: [fake.text('Dall’app.', { gate: appGate.promise })] },
@@ -1173,10 +1178,10 @@ describe('dedicated bots: /stato in a group', () => {
       (e): e is LogEvent<'run'> =>
         e.type === 'run' && e.runId === app.runId && e.data.status === 'started',
     );
-    tg.text(LIVIO, '/stato', { chat: GROUP, token: RHEA_TOKEN });
-    const status = await tg.waitMessage((m) => inGroup(m) && m.text.includes('è al lavoro'));
+    tg.text(LIVIO, '/status', { chat: GROUP, token: RHEA_TOKEN });
+    const status = await tg.waitMessage((m) => inGroup(m) && m.text.includes('is working'));
     expect(status.text).not.toContain('SEGRETO-CONTRATTO');
-    expect(status.text).toContain('<b>Rhea è al lavoro</b>\n');
+    expect(status.text).toContain('<b>Rhea is working</b>\n');
     appGate.resolve();
     await t.runEnded(app.runId);
   });
@@ -1196,8 +1201,8 @@ describe('dedicated bots: /stato in a group', () => {
       (e): e is LogEvent<'run'> =>
         e.type === 'run' && e.agent === 'rhea' && e.data.status === 'started',
     );
-    tg.text(LIVIO, '/stato', { chat: GROUP, token: RHEA_TOKEN });
-    const status = await tg.waitMessage((m) => inGroup(m) && m.text.includes('è al lavoro'));
+    tg.text(LIVIO, '/status', { chat: GROUP, token: RHEA_TOKEN });
+    const status = await tg.waitMessage((m) => inGroup(m) && m.text.includes('is working'));
     expect(status.text).toContain('Telegram, gruppo');
     gate.resolve();
   });
@@ -1229,11 +1234,11 @@ describe('dedicated bots: limits by default', () => {
       await tg.waitMessage((m) => inGroup(m) && m.text.includes(n === 'uno' ? 'Uno.' : 'Due.'));
     }
     tg.text(LIVIO, '@rhea_saturday_bot tre', { chat: GROUP, token: RHEA_TOKEN });
-    await tg.waitMessage((m) => inGroup(m) && m.text.includes('Stai scrivendo molto'));
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('You’re writing a lot'));
     tg.text(LIVIO, '@rhea_saturday_bot quattro', { chat: GROUP, token: RHEA_TOKEN });
     await pause(300);
     // Told once, and the monster heard two.
-    expect(tg.messages.filter((m) => inGroup(m) && m.text.includes('Stai scrivendo'))).toHaveLength(
+    expect(tg.messages.filter((m) => inGroup(m) && m.text.includes('You’re writing'))).toHaveLength(
       1,
     );
     expect(t.provider.callsTo('rhea')).toHaveLength(2);
@@ -1250,12 +1255,14 @@ describe('dedicated bots: limits by default', () => {
       });
     }
     await tg.waitMessage(
-      (m) => m.token === FAKE_TOKEN && m.text.includes('non te le notifico più'),
+      (m) => m.token === FAKE_TOKEN && m.text.includes('I won’t notify you about them'),
     );
     await pause(400);
     const toGiulio = tg.messages.filter((m) => m.token === FAKE_TOKEN && m.chat_id === GIULIO.id);
-    expect(toGiulio.filter((m) => m.text.includes('chiede di parlare'))).toHaveLength(2);
-    expect(toGiulio.filter((m) => m.text.includes('non te le notifico più'))).toHaveLength(1);
+    expect(toGiulio.filter((m) => m.text.includes('would like to talk to'))).toHaveLength(2);
+    expect(toGiulio.filter((m) => m.text.includes('I won’t notify you about them'))).toHaveLength(
+      1,
+    );
     // They wait to be approved, in the app: one group keeps at most PENDING_PER_SOURCE (5).
     const view = await t.json<TelegramView>('GET', '/api/telegram');
     const pending = view.bots[0]!.people.filter((p) => p.status === 'pending').map((p) => p.id);
@@ -1347,7 +1354,7 @@ describe('dedicated bots: limits by default', () => {
     ]);
     await tg.waitMessage((m) => m.token === FAKE_TOKEN && m.text.includes('Livio'));
     const full = tg.messages.filter(
-      (m) => m.token === FAKE_TOKEN && m.text.includes('le più vecchie lasciano il posto'),
+      (m) => m.token === FAKE_TOKEN && m.text.includes('the oldest make room'),
     );
     expect(full).toHaveLength(1);
     expect(full[0]!.text).toContain('Estraneo3');
@@ -1424,12 +1431,7 @@ describe('dedicated bots: the toolset of a chat with other people (D-114, review
     expect(
       t
         .events()
-        .some(
-          isChannel(
-            'bot_changed',
-            (e) => e.data.message === 'strumenti completi anche per gli altri',
-          ),
-        ),
+        .some(isChannel('bot_changed', (e) => e.data.message === 'full tools for the others too')),
     ).toBe(true);
     tg.text(LIVIO, '@rhea_saturday_bot ancora', { chat: GROUP, token: RHEA_TOKEN });
     await tg.waitMessage((m) => inGroup(m) && m.text.includes('Gruppo due.'));
@@ -1459,13 +1461,13 @@ describe('dedicated bots: the toolset of a chat with other people (D-114, review
       token: RHEA_TOKEN,
     });
     await tg.waitMessage(
-      (m) => inGroup(m) && m.text.includes('Questa risposta non la mando qui: ripete pezzi lunghi'),
+      (m) => inGroup(m) && m.text.includes('I’m not sending this reply here: it '),
     );
     await tg.waitMessage(
       (m) =>
         m.token === FAKE_TOKEN &&
         m.chat_id === GIULIO.id &&
-        m.text.includes('voleva rispondere nel gruppo «Saturday Team»'),
+        m.text.includes('wanted to reply in the group “Saturday Team”'),
     );
     expect(tg.messages.some((m) => inGroup(m) && m.text.includes('trentamila'))).toBe(false);
     const refused = t
@@ -1524,5 +1526,39 @@ describe('dedicated bots: the toolset of a chat with other people (D-114, review
     const scope = { agents: ['rhea'], runId: 'run-of-the-chat', runs: new Set(['an-older-run']) };
     expect(inFileScope(t.core.hub.files.get(meta.id)!, scope)).toBe(false);
     expect(inFileScope({ ...meta, runId: 'an-older-run' }, scope)).toBe(true);
+  });
+});
+
+describe('dedicated bots: the app’s language (D-153)', () => {
+  const names = (tg: FakeTelegram, nth: number): string[] => {
+    const calls = tg.calls.filter((c) => c.method === 'setMyCommands' && c.token === RHEA_TOKEN);
+    return ((calls[nth]?.payload['commands'] as { command: string }[] | undefined) ?? []).map(
+      (c) => c.command,
+    );
+  };
+
+  it('registers the commands in the language, understands both names, follows a change', async () => {
+    const { t, tg } = await startBots({}, { group: true });
+    await approve(t, tg, LIVIO);
+    await tg.waitCall((c) => c.method === 'setMyCommands' && c.token === RHEA_TOKEN);
+    expect(names(tg, 0)).toEqual(['status', 'join', 'help']);
+
+    // The Italian names work in English.
+    tg.text(LIVIO, '/stato', { chat: GROUP, token: RHEA_TOKEN });
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('<b>Rhea is free.</b>'));
+    tg.text(LIVIO, '/aiuto', { chat: GROUP, token: RHEA_TOKEN });
+    await tg.waitMessage((m) => inGroup(m) && m.text.startsWith('I’m Rhea.'));
+
+    // A change of language registers them again, and the English names work in Italian.
+    setAppLang('it');
+    await tg.waitCall(
+      () =>
+        tg.calls.filter((c) => c.method === 'setMyCommands' && c.token === RHEA_TOKEN).length > 1,
+    );
+    expect(names(tg, 1)).toEqual(['stato', 'join', 'aiuto']);
+    tg.text(LIVIO, '/status', { chat: GROUP, token: RHEA_TOKEN });
+    await tg.waitMessage((m) => inGroup(m) && m.text.includes('<b>Rhea è libero.</b>'));
+    tg.text(LIVIO, '/help', { chat: GROUP, token: RHEA_TOKEN });
+    await tg.waitMessage((m) => inGroup(m) && m.text.startsWith('Sono Rhea.'));
   });
 });

@@ -1,7 +1,8 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
 import {
   archiveMonthOf,
   coreMigrations,
@@ -14,6 +15,7 @@ import { run, type Io } from '../src/main.ts';
 
 const dirs: string[] = [];
 afterEach(() => {
+  setAppLang('en');
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
@@ -71,14 +73,14 @@ describe('monsters log', () => {
 
     const dry = capture();
     expect(await run(['log', 'archive', '--dry-run', '--home', home], dry)).toBe(0);
-    expect(dry.lines[0]).toMatch(/^Da archiviare 2 eventi/);
+    expect(dry.lines[0]).toMatch(/^To archive 2 events/);
 
     const io = capture();
     expect(await run(['log', 'archive', '--home', home], io)).toBe(0);
     expect(io.errors).toEqual([]);
-    expect(io.lines[0]).toMatch(/^Archiviati 2 eventi/);
-    expect(io.lines.join('\n')).toContain(`${month}  2 eventi`);
-    expect(io.lines.join('\n')).toContain('Copia del database prima del primo archivio');
+    expect(io.lines[0]).toMatch(/^Archived 2 events/);
+    expect(io.lines.join('\n')).toContain(`${month}  2 events`);
+    expect(io.lines.join('\n')).toContain('Copy of the database before the first archive');
 
     // The log keeps the final answer and the recent event, plus the note of the archive.
     const db = openDb(homePaths(home).db);
@@ -88,11 +90,11 @@ describe('monsters log', () => {
 
     const again = capture();
     expect(await run(['log', 'archive', '--home', home], again)).toBe(0);
-    expect(again.lines[0]).toMatch(/^Niente da archiviare/);
+    expect(again.lines[0]).toMatch(/^Nothing to archive/);
 
     const status = capture();
     expect(await run(['log', '--home', home], status)).toBe(0);
-    expect(status.lines.join('\n')).toContain('Archivio automatico: acceso');
+    expect(status.lines.join('\n')).toContain('Automatic archive: on');
     expect(status.lines.join('\n')).toContain(month);
 
     const read = capture();
@@ -120,8 +122,19 @@ describe('monsters log', () => {
     const { home } = homeWithOldLog();
     const none = capture();
     expect(await run(['log', 'read', '--month', '2001-01', '--home', home], none)).toBe(1);
-    expect(none.errors[0]).toMatch(/Nessun archivio per 2001-01/);
+    expect(none.errors[0]).toMatch(/No archive for 2001-01/);
     const bad = capture();
     expect(await run(['log', 'read', '--home', home], bad)).toBe(2);
+  });
+
+  it('speaks the language of the data folder (D-153)', async () => {
+    const { home } = homeWithOldLog();
+    writeFileSync(join(home, 'settings.json'), JSON.stringify({ language: 'it' }));
+    const dry = capture();
+    expect(await run(['log', 'archive', '--dry-run', '--home', home], dry)).toBe(0);
+    expect(dry.lines[0]).toMatch(/^Da archiviare 2 eventi/);
+    const none = capture();
+    expect(await run(['log', 'read', '--month', '2001-01', '--home', home], none)).toBe(1);
+    expect(none.errors[0]).toMatch(/Nessun archivio per 2001-01/);
   });
 });

@@ -1,6 +1,8 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import {
   extractTelegramToken,
+  onAppLang,
+  settingsPath,
   TELEGRAM_TOKEN_SHAPE_MESSAGE,
   type Channel,
   type LogEvent,
@@ -29,6 +31,8 @@ import { TelegramBotStore, type BotRow, type RequestSource } from './bot-store.t
 import { clip, escapeHtml, plainName } from './format.ts';
 import { telegramClient, tokenCheckFailure, tokenRefused } from './net.ts';
 import { Outbox, type ChatGapMs } from './outbox.ts';
+import { botsStrings } from './bots.strings.ts';
+import { COMMAND_ALIASES, telegramStrings } from './telegram.strings.ts';
 import { telegramMigrations } from './store.ts';
 
 /*
@@ -85,11 +89,18 @@ export const PERSON_HOURLY_LIMIT = 20;
 export const OWNER_NOTICES_PER_HOUR = 10;
 const HOUR_MS = 3_600_000;
 /** Added once to a request's notice when the oldest one had to go to make room for it. */
-const fullNote = (max: number) =>
-  ` Sono tante: ne tengo ${max} in attesa, le più vecchie lasciano il posto alle nuove.`;
+const fullNote = (max: number) => botsStrings().fullNote(max);
 
-/** Why `replyCheck` holds a reply with a key: «Manda comunque» is never offered for it. */
-export const REPLY_KEY_REASON = 'contiene una chiave o un codice segreto';
+/**
+ * Why `replyCheck` holds a reply with a key: «Send anyway» is never offered for it. It is a
+ * marker the hub returns and `#onEvent` compares; it is shown as `replyKeyReason` (in the
+ * language of the moment), never as it is.
+ */
+export const REPLY_KEY_REASON = 'contiene una chiave o un codice segreto'; // i18n-ignore: marker, shown translated
+
+/** What `replyCheck` answered, in words the user reads. */
+const whyText = (why: string): string =>
+  why === REPLY_KEY_REASON ? botsStrings().replyKeyReason : why;
 
 export type TelegramBotsErrorCode =
   | 'invalid_token'
@@ -179,12 +190,6 @@ interface Track {
   typing: NodeJS.Timeout | null;
 }
 
-const COMMANDS = [
-  { command: 'stato', description: 'Cosa sto facendo' },
-  { command: 'join', description: 'Chiedi di poter parlare con me' },
-  { command: 'aiuto', description: 'Come si usa' },
-];
-
 type GrammySignal = Parameters<Api['getMe']>[0];
 const grammySignal = (signal: AbortSignal) => signal as unknown as GrammySignal;
 
@@ -198,7 +203,7 @@ function safeUsername(username: string | undefined): string {
 }
 
 function chatTitle(chat: Message['chat']): string {
-  return 'title' in chat && chat.title ? chat.title.slice(0, 200) : 'Gruppo';
+  return 'title' in chat && chat.title ? chat.title.slice(0, 200) : botsStrings().group;
 }
 
 /** Local day, for the daily limit. */
@@ -276,7 +281,7 @@ class DedicatedBot {
         return;
       } catch (err) {
         this.status = 'retrying';
-        this.error = 'Il bot si è fermato per un errore: riparto da solo.';
+        this.error = botsStrings().crashed;
         this.#m.append({
           agent: 'system',
           type: 'error',
@@ -354,30 +359,18 @@ class DedicatedBot {
       if (signal.aborted) return 'stop';
       if (err instanceof GrammyError && err.error_code === 429) {
         floodMs = (err.parameters.retry_after ?? 1) * 1000;
-        this.#down(
-          'retrying',
-          'Telegram chiede di rallentare: riprovo appena me lo permette.',
-          err,
-        );
+        this.#down('retrying', telegramStrings().slowDown, err);
         return 'retry';
       }
       if (tokenRefused(err)) {
-        this.#down(
-          'error',
-          'Telegram ha rifiutato il token: rimuovi il bot e aggiungilo con un token nuovo.',
-          err,
-        );
+        this.#down('error', botsStrings().tokenRefused, err);
         return 'stop';
       }
       if (err instanceof GrammyError && err.error_code === 409) {
-        this.#down(
-          'conflict',
-          'Un altro programma usa questo token (o ha un webhook): fermalo, o crea un bot nuovo con BotFather. Monsters riprova.',
-          err,
-        );
+        this.#down('conflict', botsStrings().tokenInUse, err);
         return 'retry';
       }
-      this.#down('retrying', 'Telegram non risponde: riprovo da solo.', err);
+      this.#down('retrying', telegramStrings().notResponding, err);
       return 'retry';
     };
 
@@ -385,7 +378,7 @@ class DedicatedBot {
       try {
         const me = await api.getMe(grammySignal(signal));
         if (String(me.id) !== this.id) {
-          this.#down('error', 'Il token è di un altro bot: rimuovilo e aggiungilo di nuovo.', null);
+          this.#down('error', botsStrings().tokenOfAnotherBot, null);
           return;
         }
         this.#me = { id: me.id, username: me.username };
@@ -395,7 +388,7 @@ class DedicatedBot {
       }
     }
     if (signal.aborted || !this.#me) return;
-    void api.setMyCommands(COMMANDS, undefined, grammySignal(signal)).catch(() => {});
+    void api.setMyCommands(botsStrings().commands, undefined, grammySignal(signal)).catch(() => {});
 
     const key = `${OFFSET_PREFIX}${this.id}`;
     let offset = this.#o.state.get<number>(key) ?? 0;
@@ -539,11 +532,12 @@ class DedicatedBot {
       ...(detail ? { message: detail.slice(0, 200) } : {}),
     });
     const agent = this.row?.agent ?? '';
+    const t = botsStrings();
     this.#m.tell(
       this.id,
       group
-        ? `Il bot ${this.#at()} di ${this.#m.agentName(agent)} non è più nel gruppo «${plainName(name ?? 'senza nome')}»: le risposte lì non partono più.`
-        : `${plainName(name ?? 'Una persona')} ha bloccato il bot ${this.#at()} di ${this.#m.agentName(agent)}: le risposte a quell’account non partono.`,
+        ? t.botLeftGroup(this.#at(), this.#m.agentName(agent), plainName(name ?? t.noName))
+        : t.botBlocked(plainName(name ?? t.someone), this.#at(), this.#m.agentName(agent)),
       { agent, runId: null },
     );
   }
@@ -653,7 +647,13 @@ class DedicatedBot {
     const agent = this.row?.agent ?? '';
     this.#m.tell(
       this.id,
-      `Il bot ${this.#at()} di ${this.#m.agentName(agent)} è nel gruppo «${plainName(title, 60)}». Se va bene, approvalo in Monsters: Impostazioni → Collegamenti → Telegram.${full ? fullNote(this.#m.pendingMax()) : ''}`,
+      botsStrings().botInGroup(
+        this.#at(),
+        this.#m.agentName(agent),
+        plainName(title, 60),
+        full ? fullNote(this.#m.pendingMax()) : '',
+        settingsPath('telegram'),
+      ),
       { agent, runId: null },
     );
   }
@@ -709,9 +709,7 @@ class DedicatedBot {
     if (name) return this.#onCommand(chat.id, name, m);
     if (m.text === undefined) {
       this.#ignore(from, 'not_text', chat.id);
-      this.outbox.send(chat.id, 'Per ora capisco solo i messaggi di testo.', {
-        replyTo: m.message_id,
-      });
+      this.outbox.send(chat.id, telegramStrings().textOnly, { replyTo: m.message_id });
       return;
     }
     // A reply to a question of the monster answers it.
@@ -725,7 +723,7 @@ class DedicatedBot {
     }
     const plain = (mention ? text.replace(new RegExp(`@${username}\\b`, 'gi'), '') : text).trim();
     if (plain === '') {
-      this.outbox.send(chat.id, 'Dimmi pure.', { replyTo: m.message_id });
+      this.outbox.send(chat.id, botsStrings().goAhead, { replyTo: m.message_id });
       return;
     }
     this.#toMonster(m, plain);
@@ -735,7 +733,7 @@ class DedicatedBot {
     const from = m.from!;
     const chatId = m.chat.id;
     if (this.#allowedPerson(from.id)) {
-      this.outbox.send(chatId, 'Puoi già scrivermi.', { replyTo: m.message_id });
+      this.outbox.send(chatId, botsStrings().alreadyAllowed, { replyTo: m.message_id });
       return;
     }
     const known = this.#m.store.person(this.id, from.id);
@@ -766,12 +764,18 @@ class DedicatedBot {
     const owner = this.#o.ownerName();
     this.#m.tell(
       this.id,
-      `${plainName(name)}${safeUsername(from.username)} chiede di parlare con ${this.#m.agentName(agent)} su ${this.#at()}. Se va bene, approvalo in Monsters: Impostazioni → Collegamenti → Telegram.${full ? fullNote(this.#m.pendingMax()) : ''}`,
+      botsStrings().personAsks(
+        `${plainName(name)}${safeUsername(from.username)}`,
+        this.#m.agentName(agent),
+        this.#at(),
+        full ? fullNote(this.#m.pendingMax()) : '',
+        settingsPath('telegram'),
+      ),
       { agent, runId: null },
     );
     // Sent even though the person is not allowed yet: the one answer of a request.
     this.outbox.enqueue(chatId, (api, chat) =>
-      api.sendMessage(chat, escapeHtml(`Ho chiesto a ${owner} di approvarti.`), {
+      api.sendMessage(chat, escapeHtml(botsStrings().askedOwner(owner)), {
         parse_mode: 'HTML',
         reply_parameters: { message_id: m.message_id, allow_sending_without_reply: true },
       }),
@@ -779,8 +783,8 @@ class DedicatedBot {
   }
 
   #onCommand(chatId: number, name: string, m: Message): void {
-    switch (name) {
-      case 'stato':
+    // Both languages' names work (`/status` and `/stato`), whatever the app speaks now.
+    switch (COMMAND_ALIASES[name]) {
       case 'status':
         this.outbox.send(chatId, this.#statusText(chatId), { html: true, replyTo: m.message_id });
         return;
@@ -791,39 +795,37 @@ class DedicatedBot {
 
   #help(): string {
     const agent = this.#m.agentName(this.row?.agent ?? '');
-    return [
-      `Sono ${escapeHtml(agent)}. In un gruppo rispondo quando mi nomini (<code>${escapeHtml(this.#at())}</code>), quando rispondi a un mio messaggio o con un comando; in privato a ogni messaggio.`,
-      '',
-      '/stato: cosa sto facendo',
-      '/join: chiedi di poter parlare con me',
-      '/aiuto: questo messaggio',
-    ].join('\n');
+    return botsStrings().help(escapeHtml(agent), escapeHtml(this.#at()));
   }
 
   /**
    * Only this bot's monster. What it is doing is told only for the work of
    * this chat: the rest (the app, another chat, an automation) is private,
-   * so it only says "al lavoro".
+   * so it only says it is working.
    */
   #statusText(chatId: number): string {
     const agentId = this.row?.agent ?? '';
     const who = escapeHtml(this.#m.agentName(agentId));
-    if (this.#o.runs.halted) return `<b>${who} è fermo</b>: i mostri sono stati fermati.`;
+    const t = botsStrings();
+    if (this.#o.runs.halted) return t.statusHalted(who);
     const st = this.#o.team.state(agentId);
     const ofThisChat = [...this.tracks.entries()].some(
-      ([runId, t]) => t.chatId === chatId && this.#o.runs.getRun(runId) !== undefined,
+      ([runId, tr]) => tr.chatId === chatId && this.#o.runs.getRun(runId) !== undefined,
     );
     const lines = [
       st.state === 'working'
-        ? `<b>${who} è al lavoro</b>${st.activity && ofThisChat ? `: ${escapeHtml(clip(st.activity, 120))}` : ''}`
+        ? t.statusWorking(
+            who,
+            st.activity && ofThisChat ? escapeHtml(clip(st.activity, 120)) : null,
+          )
         : st.state === 'waiting'
-          ? `<b>${who} aspetta una risposta</b>`
-          : `<b>${who} è libero.</b>`,
+          ? t.statusWaiting(who)
+          : t.statusFree(who),
     ];
     const open = this.#o.questions.list({ status: 'open', agent: agentId }).length;
-    if (open > 0) lines.push(`Domande in attesa: ${open}.`);
+    if (open > 0) lines.push(telegramStrings().statusQuestions(open));
     const row = this.row;
-    if (row) lines.push(`Messaggi di oggi: ${this.#m.today(this.id)} su ${this.#m.limitOf(row)}.`);
+    if (row) lines.push(t.statusToday(this.#m.today(this.id), this.#m.limitOf(row)));
     return lines.join('\n');
   }
 
@@ -834,24 +836,18 @@ class DedicatedBot {
     if (!row) return;
     const owner = this.#o.ownerName();
     if (!this.#o.ready()) {
-      this.outbox.send(chat.id, 'Monsters non è ancora pronto: riprova più tardi.', {
-        replyTo: m.message_id,
-      });
+      this.outbox.send(chat.id, botsStrings().notReady, { replyTo: m.message_id });
       return;
     }
     if (this.#o.runs.halted) {
-      this.outbox.send(chat.id, `I mostri sono fermi: li fa ripartire ${owner}.`, {
-        replyTo: m.message_id,
-      });
+      this.outbox.send(chat.id, botsStrings().halted(owner), { replyTo: m.message_id });
       return;
     }
     const person = this.isOwner(from.id) ? 'ok' : this.#m.personCheck(this.id, from.id);
     if (person !== 'ok') {
       if (person === 'warn') {
         this.#ignore(from, 'rate_limited', chat.id);
-        this.outbox.send(chat.id, 'Stai scrivendo molto: riprova tra un po’.', {
-          replyTo: m.message_id,
-        });
+        this.outbox.send(chat.id, botsStrings().writingALot, { replyTo: m.message_id });
       }
       return;
     }
@@ -859,23 +855,23 @@ class DedicatedBot {
       if (this.#m.warnLimit(this.id)) {
         this.#m.channelEvent({ action: 'limit_reached', bot: this.id, name: this.#at() });
       }
-      this.outbox.send(
-        chat.id,
-        'Per oggi ho finito i messaggi che posso ricevere: riprova domani.',
-        {
-          replyTo: m.message_id,
-        },
-      );
+      this.outbox.send(chat.id, botsStrings().dayLimit, { replyTo: m.message_id });
       return;
     }
     const stop = this.#o.spendStop(row.agent);
     if (stop) {
-      this.outbox.send(chat.id, `Serve l’ok di ${owner}: gliel’ho chiesto.`, {
-        replyTo: m.message_id,
-      });
+      this.outbox.send(chat.id, botsStrings().needsOk(owner), { replyTo: m.message_id });
+      // The cap of a project is raised on the project's page (the hub's text names the project).
+      const project = / del progetto |\bproject\b/i.test(stop);
       this.#m.tell(
         this.id,
-        `⛔ ${plainName(displayName(from))} ha scritto a ${this.#m.agentName(row.agent)} su ${this.#at()}, ma è ${stop}. Per alzarlo: ${stop.includes(' del progetto ') ? `la ${spendCapPath(true)}` : spendCapPath()}.`,
+        botsStrings().raiseCap(
+          plainName(displayName(from)),
+          this.#m.agentName(row.agent),
+          this.#at(),
+          stop,
+          telegramStrings().capPath(project ? spendCapPath(true) : spendCapPath(), project),
+        ),
         { agent: row.agent, runId: null },
       );
       return;
@@ -904,15 +900,11 @@ class DedicatedBot {
       t.replyTo = m.message_id;
       // Waiting for the monster to finish something else (the app's chat, another chat).
       if (sent.queued && !this.#o.runs.getRun(sent.runId)) {
-        this.outbox.send(chat.id, 'Sto finendo un altro lavoro: ti rispondo appena posso.', {
-          replyTo: m.message_id,
-        });
+        this.outbox.send(chat.id, botsStrings().finishingOther, { replyTo: m.message_id });
       } else this.startTyping(sent.runId);
     } catch (err) {
       if (err instanceof HaltedError) {
-        this.outbox.send(chat.id, `I mostri sono fermi: li fa ripartire ${owner}.`, {
-          replyTo: m.message_id,
-        });
+        this.outbox.send(chat.id, botsStrings().halted(owner), { replyTo: m.message_id });
       } else if (err instanceof DispatchError) {
         this.outbox.send(chat.id, err.message, { replyTo: m.message_id });
       } else throw err;
@@ -932,11 +924,11 @@ class DedicatedBot {
     const answer = /^q:([0-9A-Z]{26}):(.{1,32})$/.exec(q.data ?? '');
     if (!answer || !q.message) return ack();
     const asked = this.#m.store.question(this.id, chatId, q.message.message_id);
-    if (!asked) return ack('Questa domanda non aspetta più una risposta.');
+    if (!asked) return ack(telegramStrings().answerNotOpen);
     // The button's data is the client's to write: the question is the one the message stored.
     if (answer[1] !== asked.questionId) {
       this.#ignore(q.from, 'forged_button', chatId);
-      return ack('Questo pulsante non è valido.');
+      return ack(botsStrings().invalidButton);
     }
     const reply = this.#answerFrom(
       chatId,
@@ -948,7 +940,7 @@ class DedicatedBot {
       },
       true,
     );
-    ack(reply ?? 'Risposta inviata');
+    ack(reply ?? telegramStrings().answerPopup);
   }
 
   /**
@@ -968,12 +960,12 @@ class DedicatedBot {
     // never answered from a chat.
     const asked = this.#o.questions.get(questionId);
     if (asked && (this.#o.questions.ownerOnly(questionId) || asked.from !== this.row?.agent)) {
-      const text = `Questa la decide solo ${this.#o.ownerName()}.`;
+      const text = botsStrings().ownerOnly(this.#o.ownerName());
       if (!button) this.outbox.send(chatId, text);
       return text;
     }
     if (!this.isOwner(userId) && askedTo !== undefined && askedTo !== userId) {
-      const text = `Risponde chi ha fatto la richiesta, o ${this.#o.ownerName()}.`;
+      const text = botsStrings().askerOnly(this.#o.ownerName());
       if (!button) this.outbox.send(chatId, text);
       return text;
     }
@@ -983,14 +975,15 @@ class DedicatedBot {
       return undefined;
     } catch (err) {
       if (!(err instanceof QuestionError)) throw err;
+      const t = telegramStrings();
       const text =
         err.code === 'not_open'
-          ? 'Questa domanda non aspetta più una risposta.'
+          ? t.answerNotOpen
           : err.code === 'not_found'
-            ? 'Non trovo questa domanda.'
-            : 'Questa risposta non va bene per la domanda.';
+            ? t.answerNotFound
+            : t.answerNotValid;
       if (!button) this.outbox.send(chatId, text);
-      if (err.code === 'not_open') this.closeQuestion(questionId, '■ Non serve più una risposta.');
+      if (err.code === 'not_open') this.closeQuestion(questionId, t.noAnswerNeeded);
       return text;
     }
   }
@@ -1037,12 +1030,12 @@ class DedicatedBot {
     const group = t.chatId < 0;
     const title = group ? this.#m.store.chat(this.id, t.chatId)?.title : undefined;
     const person = group ? undefined : this.#m.store.person(this.id, t.chatId)?.name;
+    const w = botsStrings();
+    const reason = whyText(why);
     const where = group
-      ? `nel gruppo «${plainName(title ?? 'senza nome', 60)}»`
-      : `a ${plainName(person ?? 'una persona', 60)}`;
-    this.outbox.send(t.chatId, `Questa risposta non la mando qui: ${why}. Decide ${owner}.`, {
-      replyTo: t.replyTo,
-    });
+      ? w.inGroup(plainName(title ?? w.noName, 60))
+      : w.toPerson(plainName(person ?? w.somePerson, 60));
+    this.outbox.send(t.chatId, w.heldInChat(reason, owner), { replyTo: t.replyTo });
     // «Manda comunque» (review of the waves 3 and 4): the user reads it and sends it. Never a
     // reply with a key: the log keeps it redacted, and a key does not go to a chat.
     const held =
@@ -1061,14 +1054,14 @@ class DedicatedBot {
       data: {
         use: 'outbound',
         action: 'outbound_refused',
-        message: `${who} voleva rispondere ${where} su ${this.#at()}, ma ${why}: la risposta non è partita.`,
+        message: w.heldLog(who, where, this.#at(), reason),
         subject: agent,
         details: {
           tool: 'telegram_reply',
           category: 'contact',
-          summary: `rispondere ${where}`,
+          summary: w.heldSummary(where),
           outcome: 'refused',
-          why,
+          why: reason,
           ...(held ? { held } : {}),
         },
       },
@@ -1076,8 +1069,8 @@ class DedicatedBot {
     this.#m.tell(
       this.id,
       held
-        ? `⛔ ${who} voleva rispondere ${where} su ${this.#at()}, ma ${why}: non l’ho mandata. La risposta è nell’app, in Attività; se va bene, mandala da lì o con «Manda comunque».`
-        : `⛔ ${who} voleva rispondere ${where} su ${this.#at()}, ma ${why}: non l’ho mandata. La risposta è nell’app, in Attività.`,
+        ? w.heldTellCanSend(who, where, this.#at(), reason)
+        : w.heldTell(who, where, this.#at(), reason),
       { agent, runId },
       held && refused ? { id: refused.id } : undefined,
     );
@@ -1094,19 +1087,16 @@ class DedicatedBot {
     const who = this.#m.agentName(agent);
     const group = t.chatId < 0;
     const title = group ? this.#m.store.chat(this.id, t.chatId)?.title : undefined;
-    const where = group ? `nel gruppo «${plainName(title ?? 'senza nome', 60)}»` : 'in quella chat';
-    this.#m.tell(
-      this.id,
-      `⛔ ${who} voleva fare una domanda ${where} su ${this.#at()}, ma ${why}: non l’ho mandata lì. Rispondi tu dall’app.`,
-      { agent, runId },
-    );
+    const w = botsStrings();
+    const where = group ? w.inGroup(plainName(title ?? w.noName, 60)) : w.inThatChat;
+    this.#m.tell(this.id, w.heldQuestion(who, where, this.#at(), whyText(why)), { agent, runId });
   }
 
   /** The line in the chat when only the user may decide (D-107). */
   ownerLine(runId: string): void {
     const t = this.tracks.get(runId);
     if (!t) return;
-    this.outbox.send(t.chatId, `Serve l’ok di ${this.#o.ownerName()}: gliel’ho chiesto.`, {
+    this.outbox.send(t.chatId, botsStrings().needsOk(this.#o.ownerName()), {
       replyTo: t.replyTo,
     });
   }
@@ -1118,18 +1108,15 @@ class DedicatedBot {
     const d = e.data;
     if (d.blocking) this.stopTyping(t);
     const who = this.#m.agentName(e.agent);
-    const lines = [`❓ <b>${escapeHtml(who)}</b> chiede: ${escapeHtml(clip(d.question, 1500))}`];
+    const w = telegramStrings();
+    const lines = [w.asksHtml(escapeHtml(who), escapeHtml(clip(d.question, 1500)))];
     for (const [i, o] of d.options.entries()) {
-      const rec = o.id === d.recommended ? ' <i>(consigliata)</i>' : '';
+      const rec = o.id === d.recommended ? ` <i>${w.recommended.trim()}</i>` : '';
       const desc = o.description ? ` · ${escapeHtml(clip(o.description, 200))}` : '';
       lines.push(`${i + 1}. <b>${escapeHtml(clip(o.label, 200))}</b>${rec}${desc}`);
     }
     lines.push(
-      `<i>${
-        d.options.length > 0
-          ? 'Scegli un pulsante, oppure rispondi a questo messaggio.'
-          : 'Rispondi a questo messaggio.'
-      }</i>`,
+      `<i>${d.options.length > 0 ? botsStrings().chooseButton : botsStrings().replyHere}</i>`,
     );
     const html = lines.join('\n');
     const markup: InlineKeyboardMarkup | undefined =
@@ -1175,6 +1162,13 @@ class DedicatedBot {
     }
   }
 
+  /** The app's language changed: the commands' names and descriptions follow it. */
+  refreshCommands(): void {
+    if (this.#api && this.#me) {
+      void this.#api.setMyCommands(botsStrings().commands).catch(() => {});
+    }
+  }
+
   async leave(chatId: number): Promise<void> {
     await this.#api?.leaveChat(chatId).catch(() => {});
   }
@@ -1185,6 +1179,7 @@ export class TelegramBots {
   readonly #o: TelegramBotsOptions;
   readonly #bots = new Map<string, DedicatedBot>();
   #offLog: (() => void) | null = null;
+  #offLang: (() => void) | null = null;
   #stopped = false;
   /** Bots being removed: a "Cambia il token" that ends meanwhile writes and starts nothing. */
   readonly #removing = new Set<string>();
@@ -1213,6 +1208,9 @@ export class TelegramBots {
   start(): void {
     this.#stopped = false;
     this.#offLog ??= this.#o.log.subscribe((e) => this.#onEvent(e));
+    this.#offLang ??= onAppLang(() => {
+      for (const bot of this.#bots.values()) bot.refreshCommands();
+    });
     for (const row of this.store.bots()) this.#startBot(row.id);
   }
 
@@ -1220,6 +1218,8 @@ export class TelegramBots {
     this.#stopped = true;
     this.#offLog?.();
     this.#offLog = null;
+    this.#offLang?.();
+    this.#offLang = null;
     await Promise.allSettled([...this.#bots.values()].map((b) => b.stop()));
     this.#bots.clear();
   }
@@ -1230,7 +1230,7 @@ export class TelegramBots {
     const token = readProviderKey(this.#o.secretsDir, `${KEY_PREFIX}${id}`, [])?.key;
     if (!token) {
       bot.status = 'error';
-      bot.error = 'Manca il token di questo bot: rimuovilo e aggiungilo di nuovo.';
+      bot.error = botsStrings().tokenMissing;
       return;
     }
     this.#o.log.redactor.addSecret(token);
@@ -1289,13 +1289,9 @@ export class TelegramBots {
 
   #agentFor(id: string): string {
     const agent = this.#o.team.get(id);
-    if (!agent)
-      throw new TelegramBotsError('invalid_agent', 'Non c’è nessun mostro con questo nome.');
+    if (!agent) throw new TelegramBotsError('invalid_agent', botsStrings().noMonsterNamed);
     if (agent.config.kind === 'orchestrator') {
-      throw new TelegramBotsError(
-        'invalid_agent',
-        `${agent.config.name} parla con te dal bot principale: scegli un altro mostro.`,
-      );
+      throw new TelegramBotsError('invalid_agent', botsStrings().talksOnMainBot(agent.config.name));
     }
     return agent.config.id;
   }
@@ -1309,10 +1305,7 @@ export class TelegramBots {
     const agent = this.#agentFor(params.agent);
     const main = this.#o.mainBot();
     if (main.token && main.token === token) {
-      throw new TelegramBotsError(
-        'bot_in_use',
-        'Questo è il token del bot principale: crea un bot nuovo con BotFather per questo mostro.',
-      );
+      throw new TelegramBotsError('bot_in_use', botsStrings().mainBotToken);
     }
     const api = new Api(token, telegramClient(this.#o.apiRoot, 15));
     let me;
@@ -1323,13 +1316,10 @@ export class TelegramBots {
     }
     const id = String(me.id);
     if (main.id === me.id) {
-      throw new TelegramBotsError(
-        'bot_in_use',
-        'Questo è il bot principale: crea un bot nuovo con BotFather per questo mostro.',
-      );
+      throw new TelegramBotsError('bot_in_use', botsStrings().mainBot);
     }
     if (this.store.bot(id)) {
-      throw new TelegramBotsError('bot_in_use', `@${me.username} c’è già tra i bot dei mostri.`);
+      throw new TelegramBotsError('bot_in_use', botsStrings().alreadyAMonstersBot(me.username));
     }
     saveProviderKey(this.#o.secretsDir, `${KEY_PREFIX}${id}`, token);
     this.store.addBot({
@@ -1344,7 +1334,7 @@ export class TelegramBots {
       action: 'bot_added',
       bot: id,
       name: `@${me.username}`,
-      message: `per ${this.agentName(agent)}`,
+      message: botsStrings().forMonster(this.agentName(agent)),
     });
     if (!this.#stopped && this.#offLog) this.#startBot(id);
     return this.views();
@@ -1375,10 +1365,7 @@ export class TelegramBots {
     this.#o.log.redactor.addSecret(token);
     const main = this.#o.mainBot();
     if (main.token && main.token === token) {
-      throw new TelegramBotsError(
-        'bot_in_use',
-        'Questo è il token del bot principale: qui serve quello di @' + row.username + '.',
-      );
+      throw new TelegramBotsError('bot_in_use', botsStrings().mainBotTokenHere(row.username));
     }
     const api = new Api(token, telegramClient(this.#o.apiRoot, 15));
     let me;
@@ -1388,15 +1375,12 @@ export class TelegramBots {
       throw this.#checkFailed(err, id);
     }
     if (String(me.id) !== id) {
-      throw new TelegramBotsError(
-        'other_bot',
-        `Questo token è di @${me.username}, un altro bot: serve quello di @${row.username}. Per un bot diverso usa Rimuovi e Aggiungi.`,
-      );
+      throw new TelegramBotsError('other_bot', botsStrings().otherBot(me.username, row.username));
     }
     // Removed while Telegram answered: its token is not written back, no loop starts (review of
     // 19/10, item 4: a loop nobody sees would take its updates until the core closes).
     if (!this.store.bot(id) || this.#removing.has(id)) {
-      throw new TelegramBotsError('not_found', 'Questo bot non c’è più.');
+      throw new TelegramBotsError('not_found', botsStrings().botGone);
     }
     saveProviderKey(this.#o.secretsDir, `${KEY_PREFIX}${id}`, token);
     this.store.updateBot(id, { username: me.username, name: me.first_name });
@@ -1404,7 +1388,7 @@ export class TelegramBots {
       action: 'bot_changed',
       bot: id,
       name: `@${me.username}`,
-      message: 'token cambiato',
+      message: botsStrings().tokenChanged,
     });
     const bot = this.#bots.get(id);
     if (this.#stopped) return this.views();
@@ -1415,7 +1399,7 @@ export class TelegramBots {
 
   #bot(id: string): BotRow {
     const row = this.store.bot(id);
-    if (!row) throw new TelegramBotsError('not_found', 'Questo bot non c’è.');
+    if (!row) throw new TelegramBotsError('not_found', botsStrings().noSuchBot);
     return row;
   }
 
@@ -1438,9 +1422,9 @@ export class TelegramBots {
       patch.fullTools === undefined || patch.fullTools === (row.fullTools === true)
         ? undefined
         : patch.fullTools
-          ? 'strumenti completi anche per gli altri'
-          : 'strumenti ridotti per gli altri';
-    const message = [agent ? `per ${this.agentName(agent)}` : undefined, tools]
+          ? botsStrings().fullTools
+          : botsStrings().reducedTools;
+    const message = [agent ? botsStrings().forMonster(this.agentName(agent)) : undefined, tools]
       .filter(Boolean)
       .join(' · ');
     this.channelEvent({
@@ -1474,7 +1458,7 @@ export class TelegramBots {
     this.#bot(id);
     const chat = this.store.chat(id, chatId);
     if (!chat || !this.store.approveChat(id, chatId)) {
-      throw new TelegramBotsError('not_found', 'Questo gruppo non c’è.');
+      throw new TelegramBotsError('not_found', botsStrings().noSuchGroup);
     }
     this.channelEvent({
       action: 'chat_approved',
@@ -1490,7 +1474,7 @@ export class TelegramBots {
     this.#bot(id);
     const chat = this.store.chat(id, chatId);
     if (!chat || !this.store.removeChat(id, chatId)) {
-      throw new TelegramBotsError('not_found', 'Questo gruppo non c’è.');
+      throw new TelegramBotsError('not_found', botsStrings().noSuchGroup);
     }
     this.channelEvent({
       action: 'chat_removed',
@@ -1504,7 +1488,7 @@ export class TelegramBots {
 
   addPerson(id: string, person: { id: number; name?: string | undefined }) {
     this.#bot(id);
-    const name = person.name?.trim() || `Utente ${person.id}`;
+    const name = person.name?.trim() || botsStrings().user(person.id);
     this.store.putPerson(id, { id: person.id, name }, 'approved', this.now());
     this.store.approvePerson(id, person.id);
     this.#approved(id, person.id, name);
@@ -1514,7 +1498,7 @@ export class TelegramBots {
   approvePerson(id: string, userId: number) {
     this.#bot(id);
     const p = this.store.person(id, userId);
-    if (!p) throw new TelegramBotsError('not_found', 'Questa persona non c’è.');
+    if (!p) throw new TelegramBotsError('not_found', botsStrings().noSuchPerson);
     this.store.approvePerson(id, userId);
     this.#approved(id, userId, p.username ? `@${p.username}` : p.name);
     return this.views();
@@ -1527,14 +1511,11 @@ export class TelegramBots {
   removePerson(id: string, userId: number) {
     this.#bot(id);
     if (this.#o.owners().some((u) => u.id === userId)) {
-      throw new TelegramBotsError(
-        'owner',
-        'Sei tu (abbinato al bot principale): puoi sempre parlare con i bot dei mostri.',
-      );
+      throw new TelegramBotsError('owner', botsStrings().youAreOwner);
     }
     const p = this.store.person(id, userId);
     if (!p || !this.store.removePerson(id, userId)) {
-      throw new TelegramBotsError('not_found', 'Questa persona non c’è.');
+      throw new TelegramBotsError('not_found', botsStrings().noSuchPerson);
     }
     // Work they started goes on, but its replies no longer reach their private chat.
     this.channelEvent({ action: 'person_removed', bot: id, userId: String(userId), name: p.name });
@@ -1599,7 +1580,7 @@ export class TelegramBots {
       if (n.told) return;
       n.told = true;
       this.#o.tellOwner(
-        `Troppe richieste su un bot dedicato in poco tempo: non te le notifico più per un po’. Le ultime ${this.pendingMax()} di gruppi e di persone le trovi in Monsters: Impostazioni → Collegamenti → Telegram; le più vecchie lasciano il posto alle nuove.`,
+        botsStrings().tooManyRequests(this.pendingMax(), settingsPath('telegram')),
         meta,
       );
       return;
@@ -1629,7 +1610,7 @@ export class TelegramBots {
       typeof held.chatId !== 'number' ||
       typeof held.messageId !== 'string'
     ) {
-      throw new TelegramBotsError('not_found', 'Questa risposta non c’è.');
+      throw new TelegramBotsError('not_found', botsStrings().noSuchReply);
     }
     const sent = this.#o.log
       .query({ type: 'instinct', after: refusedId, limit: 5000 })
@@ -1639,19 +1620,20 @@ export class TelegramBots {
           x.data.action === 'outbound_approved' &&
           x.data.details?.['heldId'] === refusedId,
       );
-    if (sent) throw new TelegramBotsError('already_sent', 'Questa risposta l’hai già mandata.');
+    if (sent) throw new TelegramBotsError('already_sent', botsStrings().alreadySent);
     const message = this.#o.log.get(held.messageId);
     const bot = this.#bots.get(held.bot);
     if (message?.type !== 'message' || !bot) {
-      throw new TelegramBotsError('not_found', 'Il bot o la risposta non ci sono più.');
+      throw new TelegramBotsError('not_found', botsStrings().botOrReplyGone);
     }
     if (held.chatId < 0 && this.store.chat(held.bot, held.chatId)?.status !== 'approved') {
-      throw new TelegramBotsError('not_found', 'Il bot non è più in quella chat.');
+      throw new TelegramBotsError('not_found', botsStrings().botNotInChat);
     }
     bot.outbox.send(held.chatId, message.data.text, {
       ...(typeof held.replyTo === 'number' ? { replyTo: held.replyTo } : {}),
     });
-    const where = held.chatId < 0 ? 'nel gruppo' : 'nella chat';
+    const w = botsStrings();
+    const where = held.chatId < 0 ? w.sentToGroup : w.sentToChat;
     this.append({
       agent: 'system',
       runId: e.runId,
@@ -1659,7 +1641,7 @@ export class TelegramBots {
       data: {
         use: 'outbound',
         action: 'outbound_approved',
-        message: `Hai mandato comunque la risposta di ${this.agentName(message.agent)} ${where}.`,
+        message: w.sentAnyway(this.agentName(message.agent), where),
         subject: message.agent,
         details: { tool: 'telegram_reply', heldId: refusedId, by },
       },
@@ -1732,23 +1714,20 @@ export class TelegramBots {
         hit.bot.stopTyping(t);
         const owner = this.#o.ownerName();
         if (e.data.status === 'failed') {
+          const w = botsStrings();
           if (this.#o.spendStop(e.agent)) {
-            hit.bot.outbox.send(t.chatId, `Serve l’ok di ${owner}: gliel’ho chiesto.`, {
-              replyTo: t.replyTo,
-            });
+            hit.bot.outbox.send(t.chatId, w.needsOk(owner), { replyTo: t.replyTo });
           } else {
             hit.bot.outbox.send(
               t.chatId,
-              `⚠️ Non ci sono riuscito: ${clip(e.data.error ?? 'errore', 300)}`,
+              w.failed(clip(e.data.error ?? telegramStrings().errorDefault, 300)),
               { replyTo: t.replyTo },
             );
           }
         } else if (e.data.status === 'aborted') {
           hit.bot.outbox.send(
             t.chatId,
-            this.#o.runs.halted
-              ? `■ Mi sono fermato: ${owner} ha fermato i mostri.`
-              : '■ Mi sono fermato.',
+            this.#o.runs.halted ? botsStrings().stoppedBy(owner) : botsStrings().stopped,
             { replyTo: t.replyTo },
           );
         }
@@ -1815,7 +1794,7 @@ export class TelegramBots {
         const label = q.options.find((o) => o.id === e.data.optionId)?.label;
         const what = clip(label ?? e.data.text ?? '', 300);
         for (const bot of this.#bots.values()) {
-          bot.closeQuestion(q.id, `✅ Risposta: ${what}`);
+          bot.closeQuestion(q.id, telegramStrings().answered('', what));
           // The work goes on.
           if (q.blocking && bot.tracks.has(q.runId)) bot.startTyping(q.runId);
         }
@@ -1823,7 +1802,7 @@ export class TelegramBots {
       }
       case 'question_expired':
         for (const bot of this.#bots.values()) {
-          bot.closeQuestion(e.data.questionId, '■ Non serve più una risposta.');
+          bot.closeQuestion(e.data.questionId, telegramStrings().noAnswerNeeded);
         }
         return;
       default: {

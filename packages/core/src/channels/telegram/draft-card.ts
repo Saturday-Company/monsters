@@ -6,6 +6,7 @@ import {
   type ProjectPlanMember,
   type TeamDraft,
 } from '@monsters/shared';
+import { draftCardStrings } from './draft-card.strings.ts';
 import { escapeHtml } from './format.ts';
 
 /*
@@ -29,7 +30,7 @@ export function docsDiffShown(d: DraftView): boolean {
 type Name = (id: string) => string;
 
 const e = escapeHtml;
-const yes = (b: boolean) => (b ? 'sì' : 'no');
+const yes = (b: boolean) => (b ? draftCardStrings().yes : draftCardStrings().no);
 
 function model(models: readonly ModelRefView[] | undefined, fallback: string): string {
   const first = models?.[0];
@@ -42,35 +43,35 @@ function monsterLines(
   models: readonly ModelRefView[] | undefined,
   modelFallback: string,
 ): string[] {
+  const t = draftCardStrings();
   const lines = [
     `🧩 <b>${e(d.name)}</b> · ${e(d.title)}`,
-    `Ruolo: ${e(d.role)}`,
-    `Fa: ${e(d.mission)}`,
-    'Regole:',
+    `${t.role}: ${e(d.role)}`,
+    `${t.does}: ${e(d.mission)}`,
+    `${t.rules}:`,
     ...d.duties.map((duty, i) => `  ${i + 1}. ${e(duty)}`),
   ];
-  if (d.context) lines.push(`Su di te: ${e(d.context)}`);
+  if (d.context) lines.push(`${t.aboutYou}: ${e(d.context)}`);
   lines.push(
-    `Strumenti: ${d.web ? 'note e web (cerca e legge pagine)' : 'note'}, niente terminale né file`,
-    `Note: legge tutte, scrive in ${e(d.area)}/ e Inbox/`,
-    `Modello: ${e(model(models, modelFallback))}`,
+    t.tools(Boolean(d.web)),
+    t.notes(e(d.area)),
+    `${t.model}: ${e(model(models, modelFallback))}`,
   );
   return lines;
 }
 
 function memberLines(m: ProjectPlanMember, name: Name, lead: string): string[] {
+  const t = draftCardStrings();
   if ('copyOf' in m) {
     const from = name(m.copyOf);
-    return [
-      `🧩 <b>${e(m.name ?? from)}</b>: con il ruolo e le regole di ${e(from)}; nome, aspetto e memoria suoi`,
-    ];
+    return [t.copyOf(e(m.name ?? from), e(from))];
   }
-  return monsterLines(m.draft, m.models, `come ${lead}`);
+  return monsterLines(m.draft, m.models, t.like(lead));
 }
 
 /** The warning of a draft that is not only the user's request. */
-function taintLine(source: string, verb: string): string {
-  return `⚠️ Proposta dopo aver letto testo di terzi (${e(source)}): controlla bene prima di ${verb}.`;
+function taintLine(source: string, applying: boolean): string {
+  return draftCardStrings().taint(e(source), applying);
 }
 
 /** The card's lines (HTML), every field that the confirmation makes real. */
@@ -81,111 +82,91 @@ export function draftCardLines(
   /** The project's existing folder is outside `~/Monsters Progetti`: it is confirmed in the app. */
   folderOutside = false,
 ): string[] {
+  const t = draftCardStrings();
   const lines = [`📝 ${e(d.summary)}`];
   const taint = draftTaint(d);
-  if (taint && d.kind !== 'docs') lines.push(taintLine(taint, 'confermare'));
+  if (taint && d.kind !== 'docs') lines.push(taintLine(taint, false));
   if (d.kind === 'monster') {
-    if (d.project) lines.push(`Progetto: ${e(projectName(d.project))}`);
-    lines.push(...monsterLines(d.monster.draft, d.monster.models, `come ${name(d.from)}`));
+    if (d.project) lines.push(`${t.project}: ${e(projectName(d.project))}`);
+    lines.push(...monsterLines(d.monster.draft, d.monster.models, t.like(name(d.from))));
     return lines;
   }
   if (d.kind === 'project') {
     const p = d.projectDraft;
     const plan = p.plan;
-    const lead = plan?.lead.name ?? 'il capo';
-    if (plan?.lead.goal) lines.push(`Obiettivo: ${e(plan.lead.goal)}`);
-    if (plan?.why) lines.push(`Perché: ${e(plan.why)}`);
+    const lead = plan?.lead.name ?? t.theLead;
+    if (plan?.lead.goal) lines.push(`${t.goal}: ${e(plan.lead.goal)}`);
+    if (plan?.why) lines.push(`${t.why}: ${e(plan.why)}`);
     lines.push(
-      `👑 Capo: <b>${e(lead)}</b>${plan?.lead.from ? `, copia di ${e(name(plan.lead.from))}` : ''} · modello ${e(model(plan?.lead.models, plan?.lead.from ? `come ${name(plan.lead.from)}` : 'Automatica'))}`,
+      t.lead(
+        e(lead),
+        plan?.lead.from ? e(name(plan.lead.from)) : null,
+        e(model(plan?.lead.models, plan?.lead.from ? t.like(name(plan.lead.from)) : t.automatic)),
+      ),
     );
     for (const m of plan?.members ?? []) lines.push(...memberLines(m, name, lead));
     lines.push(
-      p.folder
-        ? `Cartella: <code>${e(p.folder)}</code>${plan?.createFolder ? ' (nuova, creata alla conferma)' : ''}`
-        : 'Cartella: nessuna (ogni mostro nella sua)',
-      ...(p.folder
-        ? [
-            `⚠️ Tutti i mostri del progetto potranno leggere e scrivere in quella cartella${plan?.createFolder ? '' : ', con tutto quello che c’è già'}.`,
-          ]
-        : []),
-      ...(folderOutside
-        ? ['⚠️ È una cartella che c’è già, fuori da Monsters Progetti: la conferma è nell’app.']
-        : []),
-      `Note del progetto: ${e(p.vaultArea)}/`,
-      `Collegamenti: ${e([...p.connections.mcp, ...p.connections.claude].join(', ') || 'nessuno')}`,
-      `Ricerca web: ${yes(p.webSearch)}`,
+      p.folder ? t.folder(e(p.folder), Boolean(plan?.createFolder)) : t.noFolder,
+      ...(p.folder ? [t.folderGrant(Boolean(plan?.createFolder))] : []),
+      ...(folderOutside ? [t.folderOutside] : []),
+      t.projectNotes(e(p.vaultArea)),
+      t.connections(e([...p.connections.mcp, ...p.connections.claude].join(', ') || t.none)),
+      t.webSearch(yes(p.webSearch)),
     );
     const caps = [
-      p.spend.dailyEur != null ? `${p.spend.dailyEur} € al giorno` : '',
-      p.spend.monthlyEur != null ? `${p.spend.monthlyEur} € al mese` : '',
+      p.spend.dailyEur != null ? t.perDay(p.spend.dailyEur) : '',
+      p.spend.monthlyEur != null ? t.perMonth(p.spend.monthlyEur) : '',
     ].filter(Boolean);
-    lines.push(`Tetto di spesa: ${caps.join(', ') || 'quello della squadra'}`);
+    lines.push(t.spendCap(caps.join(', ') || t.squadCap));
     for (const a of plan?.automations ?? []) {
       lines.push(
-        `⏰ <b>${e(a.name)}</b> (bozza da confermare dopo): ${e(describeSchedule(a.schedule.cron, { timezone: a.schedule.timezone }))}`,
-        `  Obiettivo: ${e(a.objective)}`,
+        t.automationDraft(
+          e(a.name),
+          e(describeSchedule(a.schedule.cron, { timezone: a.schedule.timezone })),
+        ),
+        t.goalIndented(e(a.objective)),
       );
-      if (a.participants.length > 0) lines.push(`  Partecipano: ${e(a.participants.join(', '))}`);
-      if (a.resultsFolder) lines.push(`  Risultati in: ${e(a.resultsFolder)}/`);
-      if (a.notify)
-        lines.push(`  Avvisi: app ${yes(a.notify.app)}, Telegram ${yes(a.notify.telegram)}`);
+      if (a.participants.length > 0)
+        lines.push(t.participantsIndented(e(a.participants.join(', '))));
+      if (a.resultsFolder) lines.push(t.resultsIndented(e(a.resultsFolder)));
+      if (a.notify) lines.push(t.noticesIndented(yes(a.notify.app), yes(a.notify.telegram)));
     }
     return lines;
   }
   if (d.kind === 'docs') {
     const x = d.docs;
-    lines.push(
-      `📄 File: <b>${e(x.file)}</b>${x.current === null ? ' (nuovo)' : ''} · progetto ${e(projectName(d.project ?? ''))}`,
-    );
-    if (taint) lines.push(taintLine(taint, 'applicare'));
-    if (x.stale) {
-      lines.push('⚠️ Il file è cambiato dopo la proposta: chiedi al mostro di riproporla.');
-    }
-    if (x.folderMoved) {
-      lines.push(
-        '⚠️ La cartella del progetto è cambiata dopo la proposta: chiedi al mostro di riproporla.',
-      );
-    }
-    if (x.tooLarge)
-      lines.push(`⚠️ ${e(x.file)} adesso è più grande di 1 MB: non si cambia da qui.`);
+    lines.push(t.file(e(x.file), x.current === null, e(projectName(d.project ?? ''))));
+    if (taint) lines.push(taintLine(taint, true));
+    if (x.stale) lines.push(t.fileChanged);
+    if (x.folderMoved) lines.push(t.folderChanged);
+    if (x.tooLarge) lines.push(t.fileTooLarge(e(x.file)));
     if (!x.tooLarge) {
       // The diff of the whole file (the core's), shown when short.
-      lines.push(
-        docsDiffShown(d)
-          ? `<pre>${e(x.diff)}</pre>`
-          : 'La differenza è lunga: la trovi anche nell’app.',
-      );
+      lines.push(docsDiffShown(d) ? `<pre>${e(x.diff)}</pre>` : t.diffLong);
     }
     return lines;
   }
   if (d.kind === 'memory') {
     // Every line as it would be added (review of 18/10, A2).
-    lines.push(
-      `🧠 Nella memoria di <b>${e(name(d.memory.agent))}</b>:`,
-      ...d.memory.lines.map((l) => `  • ${e(l)}`),
-    );
-    if (d.memory.tainted) {
-      lines.push(
-        '<i>Restano segnate «da testo di terzi»: i lavori che le leggono hanno le difese accese.</i>',
-      );
-    }
+    lines.push(t.inMemoryOf(e(name(d.memory.agent))), ...d.memory.lines.map((l) => `  • ${e(l)}`));
+    if (d.memory.tainted) lines.push(t.memoryTainted);
     return lines;
   }
   const a = d.automation;
   lines.push(
-    `Quando: ${e(a.scheduleText)}`,
-    `Capo: ${e(name(a.lead))}${a.project ? ` · progetto ${e(projectName(a.project))}` : ''}`,
-    `Partecipano: ${e(a.participants.map(name).join(', ') || 'nessuno')}`,
-    `Obiettivo: ${e(a.objective)}`,
+    t.when(e(a.scheduleText)),
+    t.leadLine(e(name(a.lead)), a.project ? e(projectName(a.project)) : null),
+    t.participants(e(a.participants.map(name).join(', ') || t.none)),
+    t.goalLine(e(a.objective)),
   );
-  if (a.resultsFolder) lines.push(`Risultati in: ${e(a.resultsFolder)}/`);
-  lines.push(`Avvisi: app ${yes(a.notify.app)}, Telegram ${yes(a.notify.telegram)}`);
+  if (a.resultsFolder) lines.push(t.resultsLine(e(a.resultsFolder)));
+  lines.push(t.noticesLine(yes(a.notify.app), yes(a.notify.telegram)));
   const limits = [
-    a.limits.maxSteps !== undefined ? `${a.limits.maxSteps} passi` : '',
-    a.limits.maxTotalTokens !== undefined ? `${a.limits.maxTotalTokens} token` : '',
-    a.limits.maxEur !== undefined ? `${a.limits.maxEur} €` : '',
+    a.limits.maxSteps !== undefined ? t.steps(a.limits.maxSteps) : '',
+    a.limits.maxTotalTokens !== undefined ? t.tokens(a.limits.maxTotalTokens) : '',
+    a.limits.maxEur !== undefined ? t.euros(a.limits.maxEur) : '',
   ].filter(Boolean);
-  lines.push(`Limiti per giro: ${limits.join(', ') || 'quelli di ogni lavoro'}`);
+  lines.push(t.limitsPerRun(limits.join(', ') || t.eachJobsOwn));
   return lines;
 }
 

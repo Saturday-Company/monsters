@@ -9,6 +9,7 @@ import {
   readArchiveMonth,
 } from '@monsters/core';
 import { ArchiveMonthSchema, type LogArchiveResult, type LogEvent } from '@monsters/shared';
+import { cliStrings } from './cli.strings.ts';
 import type { Io } from './main.ts';
 
 /*
@@ -40,35 +41,21 @@ function day(ms: number): string {
 }
 
 function printResult(io: Io, r: LogArchiveResult, dir: string): void {
-  const verb = r.dryRun ? 'Da archiviare' : 'Archiviati';
+  const t = cliStrings();
   if (r.events === 0) {
-    io.out(`Niente da archiviare: nessun evento voluminoso più vecchio del ${day(r.before)}.`);
+    io.out(t.nothingToArchive(day(r.before)));
   } else {
-    io.out(
-      `${verb} ${r.events} eventi (${mb(r.bytes)} di dati) più vecchi del ${day(r.before)}${
-        r.dryRun ? '' : ` in ${dir}`
-      }:`,
-    );
-    for (const m of r.months) io.out(`  ${m.month}  ${m.events} eventi  ${mb(m.bytes)}`);
+    io.out(t.eventsOlder(r.dryRun, r.events, mb(r.bytes), day(r.before), r.dryRun ? null : dir));
+    for (const m of r.months) io.out(t.monthLine(m.month, m.events, mb(m.bytes)));
     const types = Object.entries(r.types)
       .sort((a, b) => b[1].bytes - a[1].bytes)
-      .map(([t, v]) => `${t} ${v.events} (${mb(v.bytes)})`);
-    io.out(`Per tipo: ${types.join(', ')}`);
+      .map(([type, v]) => `${type} ${v.events} (${mb(v.bytes)})`);
+    io.out(t.byType(types.join(', ')));
   }
-  if (r.vacuum === 'done')
-    io.out('Database compattato (VACUUM): lo spazio libero è tornato al disco.');
-  if (r.vacuum === 'skipped')
-    io.out(
-      'VACUUM non fatto: poco spazio da recuperare, un mostro sta lavorando, o il core è acceso (lo fa lui, a mostri fermi).',
-    );
-  if (r.vacuum === 'failed')
-    io.out(
-      'Archivio fatto, ma il VACUUM non è riuscito (spazio su disco, database occupato): si riprova più avanti.',
-    );
-  if (r.backup)
-    io.out(
-      `Copia del database prima del primo archivio: ${r.backup} (tolta al prossimo archivio riuscito).`,
-    );
+  if (r.vacuum === 'done') io.out(t.vacuumDone);
+  if (r.vacuum === 'skipped') io.out(t.vacuumSkipped);
+  if (r.vacuum === 'failed') io.out(t.vacuumFailed);
+  if (r.backup) io.out(t.backup(r.backup));
 }
 
 /** One line of an archived event: when, who, what. */
@@ -86,7 +73,7 @@ function describe(e: LogEvent): string {
       what = s(d['tool']);
       break;
     case 'tool_result':
-      what = `${s(d['tool'])} ${d['ok'] === true ? 'ok' : `errore ${s(d['error'])}`}`;
+      what = `${s(d['tool'])} ${d['ok'] === true ? cliStrings().toolOk : cliStrings().toolError(s(d['error']))}`;
       break;
     case 'message':
       what = s(d['text']).replace(/\s+/g, ' ').slice(0, 100);
@@ -109,18 +96,15 @@ export async function cmdLog(args: string[], o: LogCommandOptions, io: Io): Prom
       io.out(JSON.stringify({ ...settings, dir, months: months.map(({ path: _p, ...m }) => m) }));
       return 0;
     }
-    io.out(
-      settings.enabled
-        ? `Archivio automatico: acceso, eventi voluminosi più vecchi di ${settings.days} giorni (una volta al giorno).`
-        : 'Archivio automatico: spento (settings.json → logArchive.enabled); "monsters log archive" lo fa a mano.',
-    );
+    const t = cliStrings();
+    io.out(settings.enabled ? t.autoArchiveOn(settings.days) : t.autoArchiveOff);
     if (months.length === 0) {
-      io.out(`Nessun archivio in ${dir}.`);
+      io.out(t.noArchives(dir));
       return 0;
     }
-    io.out(`Archivi in ${dir}:`);
+    io.out(t.archivesIn(dir));
     for (const m of months) io.out(`  ${m.month}  ${mb(m.bytes)}`);
-    io.out('Per leggerne uno: monsters log read --month AAAA-MM');
+    io.out(t.readOne);
     return 0;
   }
 
@@ -140,7 +124,7 @@ export async function cmdLog(args: string[], o: LogCommandOptions, io: Io): Prom
       })) as LogArchiveResult;
     }
     if (!result) {
-      io.err(`Nessun database in ${o.home}: niente da archiviare.`);
+      io.err(cliStrings().noDatabase(o.home));
       return 1;
     }
     if (o.json) io.out(JSON.stringify(result));
@@ -151,15 +135,13 @@ export async function cmdLog(args: string[], o: LogCommandOptions, io: Io): Prom
   if (sub === 'read') {
     const month = ArchiveMonthSchema.safeParse(o.month ?? args[1]);
     if (!month.success) {
-      io.err('Quale mese? monsters log read --month AAAA-MM');
+      io.err(cliStrings().whichMonth);
       return 2;
     }
     const file = archiveFile(o.home, month.data);
     if (!existsSync(file)) {
       const have = archiveMonths(o.home).map((m) => m.month);
-      io.err(
-        `Nessun archivio per ${month.data} in ${dir}${have.length ? ` (ci sono: ${have.join(', ')})` : ''}.`,
-      );
+      io.err(cliStrings().noArchiveFor(month.data, dir, have));
       return 1;
     }
     const types = o.type ? new Set(o.type.split(',').map((t) => t.trim())) : null;
@@ -170,6 +152,6 @@ export async function cmdLog(args: string[], o: LogCommandOptions, io: Io): Prom
     return 0;
   }
 
-  io.err(`comando sconosciuto: log ${sub} (status, archive, read)`);
+  io.err(cliStrings().unknownLog(sub));
   return 2;
 }

@@ -3,6 +3,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import {
   draftTaint,
   extractTelegramToken,
+  onAppLang,
   TELEGRAM_TOKEN_SHAPE_MESSAGE,
   type Channel,
   type DraftKind,
@@ -50,6 +51,7 @@ import { clip, escapeHtml, splitHtml, splitMarkdown, toTelegramHtml } from './fo
 import { telegramClient, tokenCheckFailure, tokenRefused } from './net.ts';
 import { ChatPacer, editMoot, forbidden, retryWaitMs, type ChatGapMs } from './outbox.ts';
 import { Pairing } from './pairing.ts';
+import { COMMAND_ALIASES, telegramStrings } from './telegram.strings.ts';
 import { TelegramQuestionMessages, TelegramUsers, telegramMigrations } from './store.ts';
 
 /*
@@ -229,32 +231,8 @@ function parseDraftKey(key: string): { kind: DraftKind; id: string } | null {
   return m ? { kind: m[1] as DraftKind, id: m[2]! } : null;
 }
 
-const CHANNEL_WORDS: Partial<Record<Channel, string>> = {
-  telegram: 'da Telegram',
-  ui: 'dall’interfaccia',
-  cli: 'dal terminale',
-  ssh: 'dal terminale',
-  api: 'da un altro programma',
-};
-
-const HELP = [
-  'Scrivimi e passo il messaggio alla squadra; con <code>@Nome</code> all’inizio parli con un mostro preciso.',
-  '',
-  '/stop: ferma subito tutti i mostri',
-  '/riprendi: li fa ripartire',
-  '/nuova: nuova conversazione (anche <code>/nuova @Nome</code>)',
-  '/stato: cosa stanno facendo',
-  '',
-  'Alle domande rispondi con i pulsanti, oppure rispondendo al messaggio della domanda.',
-].join('\n');
-
-const COMMANDS = [
-  { command: 'stop', description: 'Ferma subito tutti i mostri' },
-  { command: 'riprendi', description: 'Fa ripartire i mostri' },
-  { command: 'nuova', description: 'Nuova conversazione' },
-  { command: 'stato', description: 'Cosa stanno facendo' },
-  { command: 'aiuto', description: 'Come si usa' },
-];
+/** Where an answer came from, in words ("from the app"). */
+const viaWords = (channel: string): string => telegramStrings().via[channel] ?? channel;
 
 /** Errors worth sending again: the network, Telegram itself, too many messages. */
 function transient(err: unknown): boolean {
@@ -307,6 +285,8 @@ export class TelegramChannel {
   #later: Later[];
   #laterTimer: NodeJS.Timeout | null = null;
   #offLog: (() => void) | null = null;
+  /** Re-registers the commands when the app's language changes. */
+  #offLang: (() => void) | null = null;
   /** Stopped with the core: late failures are not logged (the database is closing). */
   #stopped = false;
   /** Connect and disconnect one at a time: two tokens saved together never leave two loops. */
@@ -349,6 +329,8 @@ export class TelegramChannel {
     this.#stopped = true;
     this.#offLog?.();
     this.#offLog = null;
+    this.#offLang?.();
+    this.#offLang = null;
     await this.#serial(() => this.#disconnect());
     // What waits for the quiet hours stays in the database for the next start.
     if (this.#laterTimer) clearTimeout(this.#laterTimer);
@@ -368,6 +350,12 @@ export class TelegramChannel {
   #connect(token: string): void {
     // What the bot says comes from the log (also when the token arrives from the UI later).
     this.#offLog ??= this.#o.log.subscribe((e) => this.#onEvent(e));
+    // The commands' names and descriptions follow the app's language (D-153).
+    this.#offLang ??= onAppLang(() => {
+      if (this.#api && this.#bot && !this.#stopped) {
+        void this.#api.setMyCommands(telegramStrings().commands).catch(() => {});
+      }
+    });
     this.#api = new Api(token, telegramClient(this.#o.apiRoot, (this.#o.pollTimeoutS ?? 30) + 15));
     this.#status = 'connecting';
     this.#error = undefined;
@@ -401,7 +389,7 @@ export class TelegramChannel {
           },
         });
         this.#status = 'retrying';
-        this.#error = 'Telegram si è fermato per un errore: riparto da solo.';
+        this.#error = telegramStrings().crashed;
         const base = this.#o.retryBaseMs ?? 1000;
         const max = this.#o.retryMaxMs ?? 60_000;
         const wait = Math.min(max, base * 2 ** Math.min(crashes, 16));
@@ -481,10 +469,7 @@ export class TelegramChannel {
     }
     // One long poll per token: a bot of a monster stays its own (D-107).
     if (this.#o.dedicatedBot?.(me.id)) {
-      throw new TelegramError(
-        'bot_in_use',
-        `@${me.username} è già il bot di un mostro: crea un bot nuovo con BotFather per te.`,
-      );
+      throw new TelegramError('bot_in_use', telegramStrings().botOfAMonster(me.username));
     }
     return this.#serial(async () => {
       // The core stopped while the token was being checked: it stays stopped. A token saved
@@ -506,10 +491,7 @@ export class TelegramChannel {
   async removeToken(): Promise<TelegramView> {
     const stored = this.#stored();
     if (stored?.source === 'env') {
-      throw new TelegramError(
-        'token_from_env',
-        `Il token arriva dalla variabile ${TELEGRAM_ENV}: toglila da lì e riavvia Monsters.`,
-      );
+      throw new TelegramError('token_from_env', telegramStrings().tokenFromEnv(TELEGRAM_ENV));
     }
     // A token still being checked is not saved after this (see `#tokenGeneration`); one already
     // queued is saved first and removed here, in the same queue.
@@ -530,7 +512,7 @@ export class TelegramChannel {
   /** A new pairing code (the previous one stops working). */
   startPairing(): TelegramPairing {
     if (!this.#stored()) {
-      throw new TelegramError('no_token', 'Collega prima il bot con il suo token.');
+      throw new TelegramError('no_token', telegramStrings().connectBotFirst);
     }
     const code = this.#pairing.create();
     // The code is a secret for as long as it lives: never in the log.
@@ -550,7 +532,7 @@ export class TelegramChannel {
   removeUser(id: number): TelegramView {
     const user = this.#users.list().find((u) => u.id === id);
     if (!user || !this.#users.remove(id)) {
-      throw new TelegramError('not_found', 'Questo account non è tra quelli collegati.');
+      throw new TelegramError('not_found', telegramStrings().accountNotConnected);
     }
     this.#active.delete(id);
     // Work they started goes on, but its replies no longer reach them.
@@ -596,26 +578,18 @@ export class TelegramChannel {
       if (signal.aborted) return 'stop';
       if (err instanceof GrammyError && err.error_code === 429) {
         floodMs = (err.parameters.retry_after ?? 1) * 1000;
-        this.#setDown(
-          'retrying',
-          'Telegram chiede di rallentare: riprovo appena me lo permette.',
-          err,
-        );
+        this.#setDown('retrying', telegramStrings().slowDown, err);
         return 'retry';
       }
       if (tokenRefused(err)) {
-        this.#setDown('error', 'Telegram ha rifiutato il token: incollane uno nuovo.', err);
+        this.#setDown('error', telegramStrings().tokenRefused, err);
         return 'stop';
       }
       if (err instanceof GrammyError && err.error_code === 409) {
-        this.#setDown(
-          'retrying',
-          'Un altro programma sta usando questo bot (o ha un webhook): Monsters riprova.',
-          err,
-        );
+        this.#setDown('retrying', telegramStrings().botBusy, err);
         return 'retry';
       }
-      this.#setDown('retrying', 'Telegram non risponde: riprovo da solo.', err);
+      this.#setDown('retrying', telegramStrings().notResponding, err);
       return 'retry';
     };
 
@@ -632,7 +606,9 @@ export class TelegramChannel {
     if (signal.aborted || !this.#bot) return;
     // This loop's bot, fixed: a new token later never gets this loop's offset.
     const botId = this.#bot.id;
-    void api.setMyCommands(COMMANDS, undefined, grammySignal(signal)).catch(() => {});
+    void api
+      .setMyCommands(telegramStrings().commands, undefined, grammySignal(signal))
+      .catch(() => {});
 
     const saved = this.#o.state.get<{ bot: number; offset: number }>(OFFSET_KEY);
     let offset = saved && saved.bot === botId ? saved.offset : 0;
@@ -752,7 +728,7 @@ export class TelegramChannel {
     const known = this.#users.has(from.id);
     if (m.forward_origin || m.is_automatic_forward) {
       this.#ignore(from, 'forwarded', m.text);
-      if (known) this.#reply(m.chat.id, 'Non eseguo i messaggi inoltrati: scrivimi direttamente.');
+      if (known) this.#reply(m.chat.id, telegramStrings().forwarded);
       return;
     }
     const text = m.text;
@@ -763,7 +739,7 @@ export class TelegramChannel {
     }
     if (text === undefined) {
       this.#ignore(from, 'not_text');
-      this.#reply(m.chat.id, 'Per ora capisco solo i messaggi di testo.');
+      this.#reply(m.chat.id, telegramStrings().textOnly);
       return;
     }
     this.#active.set(m.chat.id, this.#now());
@@ -782,8 +758,8 @@ export class TelegramChannel {
       this.#reply(
         m.chat.id,
         askedDraft.kind === 'docs'
-          ? 'Per questa proposta usa i pulsanti Applica o Lascia stare; per cambiarla, chiedilo al mostro.'
-          : 'Per questa bozza usa i pulsanti Conferma o Scarta; per cambiarla, aprila nell’app (Da rivedere).',
+          ? telegramStrings().docsUseButtons
+          : telegramStrings().draftUseButtons,
       );
       return;
     }
@@ -814,7 +790,7 @@ export class TelegramChannel {
         });
       }
       if (result === 'wrong_code' && this.#pairing.failures(from.id) === 1) {
-        this.#reply(m.chat.id, 'Codice non valido.', { anyone: true });
+        this.#reply(m.chat.id, telegramStrings().invalidCode, { anyone: true });
       }
       return;
     }
@@ -825,21 +801,13 @@ export class TelegramChannel {
       userId: String(from.id),
       name: from.username ? `@${from.username}` : name,
     });
-    this.#reply(
-      m.chat.id,
-      `Fatto, ${escapeHtml(from.first_name)}: ora puoi comandare i mostri da qui.\n\n${HELP}`,
-      {
-        html: true,
-      },
-    );
+    const t = telegramStrings();
+    this.#reply(m.chat.id, t.paired(escapeHtml(from.first_name), t.help), { html: true });
   }
 
   #sendToTeam(chatId: number, text: string): void {
     if (!this.#o.ready()) {
-      this.#reply(
-        chatId,
-        'Completa prima il primo avvio di Monsters nel browser: poi ci sentiamo qui.',
-      );
+      this.#reply(chatId, telegramStrings().finishSetupHere);
       return;
     }
     try {
@@ -848,18 +816,18 @@ export class TelegramChannel {
       // Replies go to whoever started the work, not to whoever joined it later.
       track.chatId ??= chatId;
       if (sent.answered) {
-        this.#reply(chatId, 'Risposta inviata.');
+        this.#reply(chatId, telegramStrings().answerSent);
       } else if (sent.queued) {
-        this.#reply(chatId, `Aggiunto al lavoro in corso di ${this.#name(sent.agent)}.`);
+        this.#reply(chatId, telegramStrings().addedToWork(this.#name(sent.agent)));
       }
       this.#startTyping(sent.runId);
     } catch (err) {
       if (err instanceof HaltedError) {
-        this.#reply(chatId, 'I mostri sono fermi. Scrivi /riprendi per farli ripartire.');
+        this.#reply(chatId, telegramStrings().haltedWrite);
       } else if (err instanceof DispatchError) {
         this.#reply(
           chatId,
-          err.code === 'unknown_agent' ? 'Non c’è nessun mostro con questo nome.' : err.message,
+          err.code === 'unknown_agent' ? telegramStrings().noMonsterNamed : err.message,
         );
       } else {
         throw err;
@@ -868,100 +836,85 @@ export class TelegramChannel {
   }
 
   async #onCommand(chatId: number, name: string, args: string): Promise<void> {
-    switch (name) {
-      case 'stop':
-      case 'ferma': {
-        const report = await this.#o.runs.kill({ by: 'telegram', reason: '/stop da Telegram' });
-        this.#reply(
-          chatId,
-          `■ Fermato tutto. Lavori interrotti: ${report.runsAborted}, programmi chiusi: ${report.processesKilled}.\nNiente riparte finché non scrivi /riprendi.`,
-        );
+    const t = telegramStrings();
+    // Both languages' names work (`/resume` and `/riprendi`), whatever the app speaks now.
+    switch (COMMAND_ALIASES[name]) {
+      case 'stop': {
+        const report = await this.#o.runs.kill({ by: 'telegram', reason: t.stopReason });
+        this.#reply(chatId, t.stopped(report.runsAborted, report.processesKilled));
         return;
       }
-      case 'riprendi':
       case 'resume': {
         if (!this.#o.runs.halted) {
-          this.#reply(chatId, 'I mostri non sono fermi.');
+          this.#reply(chatId, t.notHalted);
           return;
         }
-        this.#reply(chatId, 'Faccio ripartire i mostri?', {
+        this.#reply(chatId, t.resumeAsk, {
           markup: {
             inline_keyboard: [
               [
-                { text: 'Sì, riprendi', callback_data: 'resume:yes' },
-                { text: 'No', callback_data: 'resume:no' },
+                { text: t.resumeYes, callback_data: 'resume:yes' },
+                { text: t.resumeNo, callback_data: 'resume:no' },
               ],
             ],
           },
         });
         return;
       }
-      case 'nuova':
       case 'new': {
         if (!this.#o.ready()) {
-          this.#reply(chatId, 'Completa prima il primo avvio di Monsters nel browser.');
+          this.#reply(chatId, t.finishSetup);
           return;
         }
         const to = args.replace(/^@/, '').trim() || undefined;
         try {
           const e = this.#o.newConversation({ to, channel: 'telegram' });
-          const who = e.data.to ? ` con ${this.#name(e.data.to)}` : '';
-          this.#reply(
-            chatId,
-            `Nuova conversazione${who}: i messaggi di prima restano nel log, ma i mostri non li vedono più.`,
-          );
+          this.#reply(chatId, t.newConversation(e.data.to ? this.#name(e.data.to) : null));
         } catch (err) {
           if (!(err instanceof DispatchError)) throw err;
-          this.#reply(
-            chatId,
-            err.code === 'unknown_agent' ? 'Non c’è nessun mostro con questo nome.' : err.message,
-          );
+          this.#reply(chatId, err.code === 'unknown_agent' ? t.noMonsterNamed : err.message);
         }
         return;
       }
-      case 'stato':
       case 'status':
         this.#reply(chatId, this.#statusText(), { html: true });
         return;
-      case 'start':
-      case 'aiuto':
       case 'help':
-        this.#reply(chatId, HELP, { html: true });
+        this.#reply(chatId, t.help, { html: true });
         return;
       default:
-        this.#reply(chatId, `Non conosco /${escapeHtml(name)}.\n\n${HELP}`, { html: true });
+        this.#reply(chatId, t.unknownCommand(escapeHtml(name), t.help), { html: true });
     }
   }
 
   #statusText(): string {
+    const t = telegramStrings();
     const runs = this.#o.runs;
     const lines: string[] = [];
     const halt = runs.haltState;
-    lines.push(
-      halt ? '<b>Fermi</b> (kill switch): /riprendi per farli ripartire.' : '<b>Attivi.</b>',
-    );
+    lines.push(halt ? t.statusHalted : t.statusRunning);
     const active = runs.activeRuns();
-    if (active.length === 0) lines.push('Nessun lavoro in corso.');
+    if (active.length === 0) lines.push(t.statusNoWork);
     for (const r of active) {
       const minutes = Math.max(0, Math.round((this.#now() - r.startedAt) / 60_000));
       lines.push(
-        `• ${escapeHtml(this.#name(r.agent))}: ${escapeHtml(clip(r.goal ?? 'lavoro', 80))} (${minutes} min)`,
+        `• ${escapeHtml(this.#name(r.agent))}: ${escapeHtml(clip(r.goal ?? t.statusWorkDefault, 80))} (${minutes} min)`,
       );
     }
     const open = this.#o.questions.list({ status: 'open' });
-    if (open.length > 0) lines.push(`Domande in attesa: ${open.length}.`);
+    if (open.length > 0) lines.push(t.statusQuestions(open.length));
     // The projects (D-097): what each lead is doing.
     const projects = this.#o.projects?.() ?? [];
     if (projects.length > 0) {
-      lines.push('', '<b>Progetti</b>');
+      lines.push('', t.statusProjects);
       for (const p of projects) {
         const busy = p.lead && (p.lead.state === 'working' || p.lead.state === 'waiting');
         const doing = !p.lead
-          ? 'senza capo'
+          ? t.statusNoLead
           : busy
-            ? `${escapeHtml(p.lead.name)}: ${escapeHtml(clip(p.lead.activity ?? 'al lavoro', 80))}`
-            : `${escapeHtml(p.lead.name)} è libero`;
-        const waiting = p.pending > 0 ? ` (${p.pending} da riferire)` : '';
+            ? `${escapeHtml(p.lead.name)}: ${escapeHtml(clip(p.lead.activity ?? t.statusLeadDefault, 80))}`
+            : t.statusLeadFree(escapeHtml(p.lead.name));
+        const waiting = p.pending > 0 ? t.statusToReport(p.pending) : '';
         lines.push(`• ${escapeHtml(p.name)} — ${doing}${waiting}`);
       }
     }
@@ -984,19 +937,15 @@ export class TelegramChannel {
       const resumed = data === 'resume:yes' && this.#o.runs.resume({ by: 'telegram' });
       ack();
       if (q.message) {
-        const text =
-          data === 'resume:no'
-            ? 'Va bene: restano fermi.'
-            : resumed
-              ? '▶ Ripartiti: i mostri possono lavorare di nuovo.'
-              : 'I mostri non erano fermi.';
+        const t = telegramStrings();
+        const text = data === 'resume:no' ? t.resumeKeptStopped : resumed ? t.resumed : t.notHalted;
         this.#edit(q.message.chat.id, q.message.message_id, escapeHtml(text));
       }
       return;
     }
     const draft = /^d:([yno]):([mpair]):(.{1,60})$/.exec(data);
     if (draft?.[1] === 'o') {
-      ack('Apri Monsters: la trovi in Da rivedere, con tutti i campi.');
+      ack(telegramStrings().openPopup);
       return;
     }
     if (draft) {
@@ -1007,10 +956,10 @@ export class TelegramChannel {
     if (held) {
       try {
         this.#o.sendHeld?.(held[1]!);
-        ack('Mandata');
-        this.#closeQuestion(`held:${held[1]!}`, '📤 Mandata comunque.');
+        ack(telegramStrings().sentAnywayPopup);
+        this.#closeQuestion(`held:${held[1]!}`, telegramStrings().sentAnyway);
       } catch (err) {
-        ack(clip(err instanceof Error ? err.message : 'Non riesco', 190));
+        ack(clip(err instanceof Error ? err.message : telegramStrings().cannot, 190));
       }
       return;
     }
@@ -1022,7 +971,7 @@ export class TelegramChannel {
     try {
       // A private chat has the id of its user.
       this.#answerFrom(chat?.id ?? q.from.id, answer[1]!, { optionId: answer[2]! });
-      ack('Risposta inviata');
+      ack(telegramStrings().answerPopup);
     } catch (err) {
       ack(clip(this.#answerError(err), 190));
       if (err instanceof QuestionError && err.code === 'not_open') {
@@ -1040,24 +989,27 @@ export class TelegramChannel {
     // client does not confirm what was not shown whole.
     const d = yes ? drafts.get(kind, id) : undefined;
     if (d && kind === 'docs' && !this.#docsHere(d)) {
-      return ack('Applicala nell’app: la trovi in Da rivedere, con la differenza intera.');
+      return ack(telegramStrings().applyInApp);
     }
     if (d && kind !== 'docs' && !this.#draftCard(d).fits) {
-      return ack('Confermala nell’app: la trovi in Da rivedere, tutta intera.');
+      return ack(telegramStrings().confirmInApp);
     }
     if (d && this.#folderOutside(d)) {
-      return ack('Confermala nell’app: la cartella è fuori da Monsters Progetti.');
+      return ack(telegramStrings().folderOutsideAck);
     }
     const work = yes ? drafts.confirm(kind, id, 'telegram') : drafts.discard(kind, id, 'telegram');
     work.then(
-      () =>
-        ack(yes ? (kind === 'docs' ? 'Fatto: applicata' : 'Fatto: confermata') : 'Lasciata stare'),
+      () => {
+        const t = telegramStrings();
+        ack(yes ? (kind === 'docs' ? t.doneApplied : t.doneConfirmed) : t.leftIt);
+      },
       (err: unknown) => {
-        ack(clip(err instanceof Error ? err.message : 'Non riesco', 190));
+        const t = telegramStrings();
+        ack(clip(err instanceof Error ? err.message : t.cannot, 190));
         if (err instanceof DraftError && err.code !== 'unknown_draft') {
-          this.#closeQuestion(draftKey(kind, id), '■ Non serve più una risposta.');
+          this.#closeQuestion(draftKey(kind, id), t.noAnswerNeeded);
         } else if (err instanceof DraftError) {
-          this.#closeQuestion(draftKey(kind, id), '■ Questa bozza non c’è più.');
+          this.#closeQuestion(draftKey(kind, id), t.draftGone);
         }
       },
     );
@@ -1108,28 +1060,29 @@ export class TelegramChannel {
     const docs = kind === 'docs';
     const docsHere = docs && this.#docsHere(d);
     const outside = this.#folderOutside(d);
+    const t = telegramStrings();
     lines.push(
       docsHere
-        ? '<i>Applica scrive il file così com’è nella proposta; la differenza intera è anche nell’app (Da rivedere).</i>'
+        ? t.noteDocsHere
         : docs
-          ? '<i>Non viene solo da te e la differenza qui non si vede tutta: leggila e applicala nell’app (Da rivedere).</i>'
+          ? t.noteDocsApp
           : outside
-            ? '<i>La cartella è fuori da Monsters Progetti: guardala e confermala nell’app (Da rivedere).</i>'
+            ? t.noteFolderOutside
             : fits && kind === 'memory'
-              ? '<i>Conferma le aggiunge alla sua memoria così come sono.</i>'
+              ? t.noteMemory
               : fits
-                ? '<i>Conferma la crea così com’è; per cambiarla aprila nell’app (Da rivedere).</i>'
-                : '<i>È troppo lunga per un messaggio: leggila tutta e confermala nell’app (Da rivedere).</i>',
+                ? t.noteConfirm
+                : t.noteTooLong,
     );
     const markup: InlineKeyboardMarkup = {
       inline_keyboard: [
         [
           docsHere
-            ? { text: '✅ Applica', callback_data: `d:y:${code}:${id}` }
+            ? { text: t.apply, callback_data: `d:y:${code}:${id}` }
             : fits && !docs && !outside
-              ? { text: '✅ Conferma', callback_data: `d:y:${code}:${id}` }
-              : { text: 'Apri nell’app', callback_data: `d:o:${code}:${id}` },
-          { text: docs ? 'Lascia stare' : 'Scarta', callback_data: `d:n:${code}:${id}` },
+              ? { text: t.confirm, callback_data: `d:y:${code}:${id}` }
+              : { text: t.openInApp, callback_data: `d:o:${code}:${id}` },
+          { text: docs ? t.leaveIt : t.discard, callback_data: `d:n:${code}:${id}` },
         ],
       ],
     };
@@ -1154,11 +1107,12 @@ export class TelegramChannel {
 
   #answerError(err: unknown): string {
     if (err instanceof QuestionError) {
+      const t = telegramStrings();
       return err.code === 'not_open'
-        ? 'Questa domanda non aspetta più una risposta.'
+        ? t.answerNotOpen
         : err.code === 'not_found'
-          ? 'Non trovo questa domanda.'
-          : 'Questa risposta non va bene per la domanda.';
+          ? t.answerNotFound
+          : t.answerNotValid;
     }
     throw err;
   }
@@ -1385,7 +1339,7 @@ export class TelegramChannel {
     held?: { id: string },
   ): void {
     if (held && this.#o.sendHeld) {
-      // A reply a dedicated bot held: the notice has «Manda comunque».
+      // A reply a dedicated bot held: the notice has «Send anyway».
       this.#notify(
         kind,
         meta,
@@ -1395,7 +1349,9 @@ export class TelegramChannel {
           questionId: `held:${held.id}`,
           html: escapeHtml(text),
           markup: {
-            inline_keyboard: [[{ text: '📤 Manda comunque', callback_data: `h:${held.id}` }]],
+            inline_keyboard: [
+              [{ text: telegramStrings().sendAnyway, callback_data: `h:${held.id}` }],
+            ],
           },
         },
         true,
@@ -1530,8 +1486,8 @@ export class TelegramChannel {
         if (!q) return;
         const label = q.options.find((o) => o.id === e.data.optionId)?.label;
         const what = label ?? e.data.text ?? '';
-        const where = e.data.channel ? ` (${CHANNEL_WORDS[e.data.channel] ?? e.data.channel})` : '';
-        this.#closeQuestion(q.id, `✅ Risposta${where}: ${clip(what, 300)}`);
+        const where = e.data.channel ? ` (${viaWords(e.data.channel)})` : '';
+        this.#closeQuestion(q.id, telegramStrings().answered(where, clip(what, 300)));
         // The work goes on: "typing…" again.
         if (q.blocking) this.#startTyping(q.runId);
         return;
@@ -1541,7 +1497,12 @@ export class TelegramChannel {
         const icon = e.data.action === 'stopped' ? '⛔' : '⚠️';
         const tail =
           e.data.action === 'stopped'
-            ? `\nPer alzarlo: ${e.data.scope.startsWith('project:') ? `la ${spendCapPath(true)}` : spendCapPath()}.`
+            ? telegramStrings().raiseCap(
+                telegramStrings().capPath(
+                  e.data.scope.startsWith('project:') ? spendCapPath(true) : spendCapPath(),
+                  e.data.scope.startsWith('project:'),
+                ),
+              )
             : '';
         this.#notify(
           'error',
@@ -1556,7 +1517,7 @@ export class TelegramChannel {
         if (e.data.action === 'needs_signin') {
           this.#notify('error', { agent: 'system', runId: e.runId }, this.#everyone(), {
             kind: 'text',
-            text: `🔑 ${e.data.message ?? `${e.data.server} chiede di nuovo l’accesso.`}`,
+            text: `🔑 ${e.data.message ?? telegramStrings().signInAgain(e.data.server)}`,
           });
         }
         return;
@@ -1564,8 +1525,8 @@ export class TelegramChannel {
         this.#closeQuestion(
           e.data.questionId,
           e.data.reason === 'kill'
-            ? '■ Scaduta: hai fermato i mostri.'
-            : '■ Non serve più una risposta.',
+            ? telegramStrings().expiredByStop
+            : telegramStrings().noAnswerNeeded,
         );
         return;
       default: {
@@ -1577,14 +1538,17 @@ export class TelegramChannel {
           return;
         }
         const by = (e.data as { by?: Channel }).by;
-        const where = by ? ` (${CHANNEL_WORDS[by] ?? by})` : '';
+        const where = by ? ` (${viaWords(by)})` : '';
+        const t = telegramStrings();
         this.#closeQuestion(
           draftKey(d.kind, d.id),
           d.outcome === 'confirmed'
-            ? `✅ ${d.kind === 'docs' ? 'Applicata' : 'Confermata'}${where}`
+            ? d.kind === 'docs'
+              ? t.applied(where)
+              : t.confirmed(where)
             : d.outcome === 'superseded'
-              ? '■ Sostituita da una proposta nuova'
-              : `■ Lasciata stare${where}`,
+              ? t.superseded
+              : t.dismissed(d.kind === 'docs', where),
         );
       }
     }
@@ -1596,18 +1560,16 @@ export class TelegramChannel {
     if (!t) return;
     this.#stopTyping(t);
     const who = this.#name(agent);
+    const w = telegramStrings();
     const notes = [...t.notes].slice(0, 10).map((p) => `• ${p}`);
     // Ended on a question for the user (D-078): the question went out on its own.
     if (t.chatId !== null) {
       if ((status === 'completed' || status === 'waiting_user') && notes.length > 0) {
-        this.#reply(t.chatId, `📝 Note toccate:\n${notes.join('\n')}`);
+        this.#reply(t.chatId, `📝 ${w.notesTouched}\n${notes.join('\n')}`);
       } else if (status === 'failed') {
-        this.#reply(
-          t.chatId,
-          `⚠️ Il lavoro di ${who} non è andato a buon fine: ${clip(error ?? 'errore', 500)}`,
-        );
+        this.#reply(t.chatId, w.workFailed(who, clip(error ?? w.errorDefault, 500)));
       } else if (status === 'aborted' && !this.#o.runs.halted) {
-        this.#reply(t.chatId, `■ Il lavoro di ${who} si è fermato.`);
+        this.#reply(t.chatId, w.workStopped(who));
       }
       return;
     }
@@ -1616,10 +1578,10 @@ export class TelegramChannel {
     if (this.#o.quietRun?.(runId)) return;
     if (status === 'completed') {
       const body = t.lastText ? `\n\n${clip(t.lastText, 1500)}` : '';
-      const text = `✅ ${who} ha finito.${body}${notes.length ? `\n\n📝 Note toccate:\n${notes.join('\n')}` : ''}`;
+      const text = `${w.workDone(who)}${body}${notes.length ? `\n\n📝 ${w.notesTouched}\n${notes.join('\n')}` : ''}`;
       this.#notify('done', { agent, runId }, this.#everyone(), { kind: 'text', text });
     } else if (status === 'failed') {
-      const text = `⚠️ Il lavoro di ${who} non è andato a buon fine: ${clip(error ?? 'errore', 500)}`;
+      const text = w.workFailed(who, clip(error ?? w.errorDefault, 500));
       this.#notify('error', { agent, runId }, this.#everyone(), { kind: 'text', text });
     }
   }
@@ -1637,16 +1599,15 @@ export class TelegramChannel {
     // Clipped before escaping (the limit counts visible characters, not tags):
     // the question, the labels, then descriptions in what is left, so the
     // message and its outcome stay under Telegram's 4096 characters.
-    const head = `❓ ${who} chiede: ${clip(d.question, 1500)}`;
+    const w = telegramStrings();
+    const head = w.asks(who, clip(d.question, 1500));
     const labels = d.options.map((o, i) => {
-      const rec = o.id === d.recommended ? ' (consigliata)' : '';
+      const rec = o.id === d.recommended ? w.recommended : '';
       return { n: `${i + 1}. `, label: clip(o.label, 200), rec };
     });
     const footer = [
-      d.options.length > 0
-        ? 'Scegli un pulsante, oppure rispondi a questo messaggio con un testo.'
-        : 'Rispondi a questo messaggio con la tua risposta.',
-      ...(d.blocking ? [] : ['Intanto il lavoro va avanti.']),
+      d.options.length > 0 ? w.chooseOrReply : w.replyToAnswer,
+      ...(d.blocking ? [] : [w.workGoesOn]),
     ];
     const used =
       head.length +
@@ -1655,10 +1616,10 @@ export class TelegramChannel {
     const described = d.options.filter((o) => o.description).length;
     const room = described > 0 ? Math.floor((QUESTION_BUDGET - used) / described) - 3 : 0;
     const descMax = Math.min(400, room);
-    const lines = [`❓ <b>${escapeHtml(who)}</b> chiede: ${escapeHtml(clip(d.question, 1500))}`];
+    const lines = [w.asksHtml(escapeHtml(who), escapeHtml(clip(d.question, 1500)))];
     for (const [i, o] of d.options.entries()) {
       const l = labels[i]!;
-      const rec = l.rec ? ' <i>(consigliata)</i>' : '';
+      const rec = l.rec ? ` <i>${l.rec.trim()}</i>` : '';
       const desc =
         o.description && descMax >= 10 ? ` · ${escapeHtml(clip(o.description, descMax))}` : '';
       lines.push(`${l.n}<b>${escapeHtml(l.label)}</b>${rec}${desc}`);
@@ -1675,7 +1636,7 @@ export class TelegramChannel {
               },
             ]),
           }
-        : { force_reply: true, input_field_placeholder: 'La tua risposta' };
+        : { force_reply: true, input_field_placeholder: w.answerPlaceholder };
     this.#notify('question', { agent: e.agent, runId: e.runId, blocking: d.blocking }, chats, {
       kind: 'question',
       questionId: d.questionId,
@@ -1688,9 +1649,9 @@ export class TelegramChannel {
   #outcome(q: Question): string {
     if (q.status === 'answered' && q.answer) {
       const label = q.options.find((o) => o.id === q.answer?.optionId)?.label;
-      return `✅ Risposta: ${clip(label ?? q.answer.text ?? '', 300)}`;
+      return telegramStrings().answered('', clip(label ?? q.answer.text ?? '', 300));
     }
-    return '■ Non serve più una risposta.';
+    return telegramStrings().noAnswerNeeded;
   }
 
   /** Messages of questions closed while the bot was off: no more buttons. */
@@ -1702,13 +1663,13 @@ export class TelegramChannel {
       const draft = parseDraftKey(m.questionId);
       if (draft) {
         if (!this.#o.drafts?.get(draft.kind, draft.id)) {
-          this.#closeQuestion(m.questionId, '■ Non serve più una risposta.');
+          this.#closeQuestion(m.questionId, telegramStrings().noAnswerNeeded);
         }
         continue;
       }
       const q = this.#o.questions.get(m.questionId);
       if (q?.status === 'open') continue;
-      this.#closeQuestion(m.questionId, q ? this.#outcome(q) : '■ Non serve più una risposta.');
+      this.#closeQuestion(m.questionId, q ? this.#outcome(q) : telegramStrings().noAnswerNeeded);
     }
   }
 
