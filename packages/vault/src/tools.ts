@@ -1,8 +1,15 @@
-import { defineTool, type MonstersTool, type ToolContext } from '@monsters/shared';
+import {
+  defineTool,
+  vaultLayout,
+  type MonstersTool,
+  type ToolContext,
+  type VaultLayout,
+} from '@monsters/shared';
 import { z } from 'zod';
 import { fixAgentEditOps, fixAgentWrite } from './note-fixes.ts';
 import { EditOpsSchema } from './schemas.ts';
 import type { VaultActor, VaultService } from './service.ts';
+import { toolPrompts } from './tools.prompts.ts';
 
 /*
  * Vault tools for agents (research/04 §6.4). Semantics follow Anthropic's
@@ -17,40 +24,38 @@ function actor(ctx: ToolContext): VaultActor {
 const PathSchema = z.string().min(1).max(512);
 const HashSchema = z.string().min(8).max(64);
 
-const SearchInput = z.object({
-  query: z
-    .string()
-    .max(500)
-    .optional()
-    .describe(
-      'What to find: words or a question. Accents ignored, "quoted phrase" for exact. Empty = filters only',
-    ),
-  mode: z
-    // `auto` is the phase 1 name of the default, still accepted (same as hybrid).
-    .enum(['hybrid', 'text', 'semantic', 'auto'])
-    .optional()
-    .describe(
-      'Default hybrid (words + meaning; auto is the same); text = words only; semantic = meaning only',
-    ),
-  related_to: z
-    .string()
-    .max(512)
-    .optional()
-    .describe('Instead of a query: notes similar in meaning to this note (path or title)'),
-  tags: z
-    .array(z.string())
-    .max(10)
-    .optional()
-    .describe('All of these tags; "progetto" also matches "progetto/x"'),
-  folder: z.string().optional().describe('Only inside this folder, e.g. "Progetti"'),
-  type: z
-    .string()
-    .optional()
-    .describe('Frontmatter type: note, project, person, daily, decision, memory…'),
-  updated_after: z.string().optional().describe('ISO date, e.g. 2026-10-01'),
-  links_to: z.string().optional().describe('Only notes linking to this note (path or title)'),
-  limit: z.number().int().min(1).max(50).optional().describe('Default 10'),
-});
+/** The inputs that show a folder or a tag as an example follow the vault's layout (D-154). */
+const searchInput = (layout: VaultLayout) =>
+  z.object({
+    query: z
+      .string()
+      .max(500)
+      .optional()
+      .describe(
+        'What to find: words or a question. Accents ignored, "quoted phrase" for exact. Empty = filters only',
+      ),
+    mode: z
+      // `auto` is the phase 1 name of the default, still accepted (same as hybrid).
+      .enum(['hybrid', 'text', 'semantic', 'auto'])
+      .optional()
+      .describe(
+        'Default hybrid (words + meaning; auto is the same); text = words only; semantic = meaning only',
+      ),
+    related_to: z
+      .string()
+      .max(512)
+      .optional()
+      .describe('Instead of a query: notes similar in meaning to this note (path or title)'),
+    tags: z.array(z.string()).max(10).optional().describe(toolPrompts(layout).searchTags),
+    folder: z.string().optional().describe(toolPrompts(layout).searchFolder),
+    type: z
+      .string()
+      .optional()
+      .describe('Frontmatter type: note, project, person, daily, decision, memory…'),
+    updated_after: z.string().optional().describe('ISO date, e.g. 2026-10-01'),
+    links_to: z.string().optional().describe('Only notes linking to this note (path or title)'),
+    limit: z.number().int().min(1).max(50).optional().describe('Default 10'),
+  });
 
 const ReadInput = z.object({
   path: PathSchema.describe('Path, title or alias of the note (like a wikilink)'),
@@ -65,31 +70,30 @@ const ListInput = z.object({
   limit: z.number().int().min(1).max(500).optional().describe('Default 50'),
 });
 
-const WriteInput = z
-  .object({
-    path: PathSchema.describe(
-      'e.g. "Inbox/Idea podcast" (.md is added). The file name is the title',
-    ),
-    content: z
-      .string()
-      .max(1_000_000)
-      .describe('Markdown body; start with "# Title" and a 1-3 line summary'),
-    frontmatter: z
-      .record(z.string(), z.unknown())
-      .optional()
-      .describe(
-        'Properties such as {"type": "project", "tags": ["progetto/x"]}; id/created/author are added',
+const writeInput = (layout: VaultLayout) =>
+  z
+    .object({
+      path: PathSchema.describe(toolPrompts(layout).writePath),
+      content: z
+        .string()
+        .max(1_000_000)
+        .describe('Markdown body; start with "# Title" and a 1-3 line summary'),
+      frontmatter: z
+        .record(z.string(), z.unknown())
+        .optional()
+        .describe(toolPrompts(layout).writeFrontmatter),
+      mode: z
+        .enum(['create', 'overwrite'])
+        .optional()
+        .describe('Default create (fails if the note exists)'),
+      base_hash: HashSchema.optional().describe(
+        'Required with overwrite: the hash from vault_read',
       ),
-    mode: z
-      .enum(['create', 'overwrite'])
-      .optional()
-      .describe('Default create (fails if the note exists)'),
-    base_hash: HashSchema.optional().describe('Required with overwrite: the hash from vault_read'),
-  })
-  .refine((v) => v.mode !== 'overwrite' || !!v.base_hash, {
-    message: 'base_hash is required with mode "overwrite"',
-    path: ['base_hash'],
-  });
+    })
+    .refine((v) => v.mode !== 'overwrite' || !!v.base_hash, {
+      message: 'base_hash is required with mode "overwrite"',
+      path: ['base_hash'],
+    });
 
 const EditInput = z.object({
   path: PathSchema,
@@ -102,14 +106,15 @@ const EditInput = z.object({
   ),
 });
 
-const MoveInput = z.object({
-  from: PathSchema,
-  to: PathSchema.describe('New path or folder ("Archivio/" keeps the name)'),
-  update_links: z
-    .boolean()
-    .optional()
-    .describe('Rewrite links pointing to the note (default true)'),
-});
+const moveInput = (layout: VaultLayout) =>
+  z.object({
+    from: PathSchema,
+    to: PathSchema.describe(toolPrompts(layout).movePath),
+    update_links: z
+      .boolean()
+      .optional()
+      .describe('Rewrite links pointing to the note (default true)'),
+  });
 
 const DeleteInput = z.object({
   path: PathSchema,
@@ -123,9 +128,10 @@ const LinksInput = z.object({
   include_unresolved: z.boolean().optional().describe('Include links to notes that do not exist'),
 });
 
-const TagsInput = z.object({
-  prefix: z.string().optional().describe('e.g. "progetto" for progetto/*'),
-});
+const tagsInput = (layout: VaultLayout) =>
+  z.object({
+    prefix: z.string().optional().describe(toolPrompts(layout).tagsPrefix),
+  });
 
 const HistoryInput = z.object({
   path: z.string().optional().describe('History of one note (default: whole vault)'),
@@ -163,7 +169,7 @@ export function vaultSearchTool(vault: VaultService) {
       'Search the notes of the vault (second brain) by words and meaning (a question works too), with filters ' +
       'by tag, folder, type, date or links; related_to: the few notes clearly on the same subject (maybe none). Returns paths and ' +
       'snippets (read with vault_read); partial = only some words match.',
-    inputSchema: SearchInput,
+    inputSchema: searchInput(vault.layout),
     readOnly: true,
     // Snippets of notes: data for the model, never instructions (D-021).
     externalSource: (input) => `vault_search ${input.query ?? input.related_to ?? ''}`,
@@ -197,11 +203,8 @@ export function vaultListTool(vault: VaultService) {
 export function vaultWriteTool(vault: VaultService) {
   return defineTool({
     name: 'vault_write',
-    description:
-      'Create a note (mode create) or replace a whole note (mode overwrite, needs base_hash). ' +
-      'Prefer vault_edit for changes. Links: [[Title]] for notes of the vault, [text](https://…) for web pages. ' +
-      'Readable file names with spaces. Lowercase tags like "area/salute".',
-    inputSchema: WriteInput,
+    description: toolPrompts(vault.layout).writeTool,
+    inputSchema: writeInput(vault.layout),
     destructive: true,
     async execute(input, ctx) {
       const fixed = fixAgentWrite(input, { titleOf: ctx.linkTitle });
@@ -230,7 +233,7 @@ export function vaultMoveTool(vault: VaultService) {
   return defineTool({
     name: 'vault_move',
     description: 'Rename or move a note. Links pointing to it are updated in the same change.',
-    inputSchema: MoveInput,
+    inputSchema: moveInput(vault.layout),
     destructive: true,
     execute: (input, ctx) => vault.move(actor(ctx), input),
   });
@@ -263,7 +266,7 @@ export function vaultTagsTool(vault: VaultService) {
     name: 'vault_tags',
     description:
       'List the tags of the vault with how many notes use each (parents of nested tags included).',
-    inputSchema: TagsInput,
+    inputSchema: tagsInput(vault.layout),
     readOnly: true,
     execute: (input, ctx) => Promise.resolve(vault.tags(actor(ctx), input)),
   });
@@ -363,7 +366,9 @@ export interface VaultToolSpec {
 export function externalVaultToolSpecs(): VaultToolSpec[] {
   // The factories only use the vault inside `execute`, never called here.
   const none = new Proxy({} as VaultService, {
-    get() {
+    get(_target, prop) {
+      // Only the layout of the vault in use is read, for the examples of the descriptions.
+      if (prop === 'layout') return vaultLayout();
       throw new Error('externalVaultToolSpecs: tools are not executable');
     },
   });

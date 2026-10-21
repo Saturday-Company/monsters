@@ -31,6 +31,7 @@ import { RunTaint } from '../src/team/instinct/taint.ts';
 import { readBodyCapped } from '../src/server/routes/files.ts';
 import { docx, makeZip, pdf, png, pptx, webp, xlsx } from './file-fixtures.ts';
 import { tempHome } from './helpers.ts';
+import { inLang } from './prompt-lang.ts';
 
 /* Files of the user and of the monsters (D-075): types, names, storage, text, model input. */
 
@@ -300,6 +301,11 @@ describe('text of the files', () => {
     expect((await extractText(xlsx(), 'xlsx'))?.text).toBe(
       '## Spese\nVoce\tEuro\nAffitto & luce\t850',
     );
+    expect((await extractText(pptx(), 'pptx'))?.text).toBe(
+      '## Slide 1\nPrima diapositiva\n\n## Slide 2\nSeconda',
+    );
+    // The Italian family is the one that always was.
+    inLang('it');
     expect((await extractText(pptx(), 'pptx'))?.text).toBe(
       '## Diapositiva 1\nPrima diapositiva\n\n## Diapositiva 2\nSeconda',
     );

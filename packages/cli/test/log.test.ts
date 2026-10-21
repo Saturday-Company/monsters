@@ -137,4 +137,23 @@ describe('monsters log', () => {
     expect(await run(['log', 'read', '--month', '2001-01', '--home', home], none)).toBe(1);
     expect(none.errors[0]).toMatch(/Nessun archivio per 2001-01/);
   });
+
+  it('a folder with an account and no saved language is Italian, whatever the system says (D-153)', async () => {
+    const { home } = homeWithOldLog();
+    const db = openDb(homePaths(home).db);
+    db.run(
+      "INSERT INTO users (id, email, password_hash, created_at) VALUES ('u1', 'a@b.it', 'x', 1)",
+    );
+    db.close();
+    const before = process.env['MONSTERS_LANG'];
+    process.env['MONSTERS_LANG'] = 'en';
+    try {
+      const dry = capture();
+      expect(await run(['log', 'archive', '--dry-run', '--home', home], dry)).toBe(0);
+      expect(dry.lines[0]).toMatch(/^Da archiviare 2 eventi/);
+    } finally {
+      if (before === undefined) delete process.env['MONSTERS_LANG'];
+      else process.env['MONSTERS_LANG'] = before;
+    }
+  });
 });

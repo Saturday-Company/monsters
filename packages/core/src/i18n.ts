@@ -1,4 +1,6 @@
+import { tableHasRows } from '@monsters/db';
 import { isLang, setAppLang, systemLang, type Lang } from '@monsters/shared';
+import { homePaths } from './config.ts';
 import { patchSettingsFile, readSettingsFile } from './onboarding/settings-file.ts';
 
 /*
@@ -9,6 +11,31 @@ import { patchSettingsFile, readSettingsFile } from './onboarding/settings-file.
  * the language in use when they are written: events already in the log stay as
  * they are.
  */
+
+/** Whether the data folder has an account already (its database has a user), read without writing. */
+export function homeHasAccount(home: string): boolean {
+  return tableHasRows(homePaths(home).db, 'users');
+}
+
+/**
+ * The language a data folder is in, read without writing anything: the saved one, else Italian
+ * when the folder has an account (the app was Italian only until then), else the system's. The
+ * same rule as `resolveAppLanguage`, for who needs it before the core starts (the CLI, the
+ * "already running" message).
+ */
+export function languageOfHome(
+  home: string,
+  env: Record<string, string | undefined> = process.env,
+): Lang {
+  let saved: unknown;
+  try {
+    saved = readSettingsFile(home)['language'];
+  } catch {
+    saved = undefined;
+  }
+  if (isLang(saved)) return saved;
+  return homeHasAccount(home) ? 'it' : systemLang(env);
+}
 
 export function resolveAppLanguage(
   home: string,

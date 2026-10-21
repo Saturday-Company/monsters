@@ -1,4 +1,8 @@
-import { formatList, pick } from '@monsters/shared';
+import { formatList, formatNumber, pick, type Lang } from '@monsters/shared';
+
+/** A dollar amount in the language in use, as the instinct writes costs ("0.5" / "0,5"). */
+const usdText = (usd: number, lang?: 'en' | 'it') =>
+  formatNumber(usd, { maximumFractionDigits: 4 }, lang);
 
 /*
  * What the team layer says to the person (D-153): the line under a monster while it works,
@@ -82,9 +86,13 @@ const en = {
   // --- the limits of a task
   runSteps: (n: number) => `this task used all its ${n} model steps`,
   runTokens: (n: number) => `this task used all its ${n} tokens`,
-  runCost: (usd: number) => `this task spent its ${usd} $ limit`,
+  runCost: (usd: number) => `this task spent its ${usdText(usd)} $ limit`,
   runTreeCost: (usd: number) =>
-    `this task spent its ${usd} $ limit (with the work sent to projects)`,
+    `this task spent its ${usdText(usd)} $ limit (with the work sent to projects)`,
+  // --- names used when nobody gave one
+  userName: 'User',
+  ownerName: 'the user',
+  monsterName: 'Monster',
   // --- other
   noSuchMonster: (id: string) => `There’s no monster “${id}” in the squad.`,
   openrouterUnreachable: (message: string) => `OpenRouter can’t be reached: ${message}`,
@@ -158,13 +166,16 @@ const it: typeof en = {
     `Non ho aggiunto alla memoria di ${name} ${n === 1 ? 'una riga che serviva solo a questo lavoro' : `${n} righe che servivano solo a questo lavoro`}.`,
   runSteps: (n) => `questo compito ha usato tutti i suoi ${n} passi del modello`,
   runTokens: (n) => `questo compito ha usato tutti i suoi ${n} token`,
-  runCost: (usd) => `questo compito ha speso il suo limite di ${usd} $`,
+  runCost: (usd) => `questo compito ha speso il suo limite di ${usdText(usd, 'it')} $`,
   runTreeCost: (usd) =>
-    `questo compito ha speso il suo limite di ${usd} $ (con il lavoro mandato ai progetti)`,
+    `questo compito ha speso il suo limite di ${usdText(usd, 'it')} $ (con il lavoro mandato ai progetti)`,
+  userName: 'Utente',
+  ownerName: 'l’utente',
+  monsterName: 'Mostro',
   noSuchMonster: (id) => `Non c’è nessun mostro “${id}” nella squadra.`,
   openrouterUnreachable: (message) => `OpenRouter non raggiungibile: ${message}`,
   invalidKey: 'chiave non valida',
   openrouterAnswered: (status) => `OpenRouter ha risposto ${status}`,
 };
 
-export const teamStrings = () => pick({ en, it });
+export const teamStrings = (lang?: Lang) => pick({ en, it }, lang);

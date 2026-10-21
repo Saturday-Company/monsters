@@ -285,6 +285,7 @@ export type AgentModelsRequest = z.infer<typeof AgentModelsRequestSchema>;
 export const OfficialPackageSchema = z.object({
   name: z.string(),
   version: z.string(),
+  /** An SPDX id ("Apache-2.0") or `proprietary` (Anthropic's Commercial Terms): the UI words it. */
   license: z.string(),
 });
 

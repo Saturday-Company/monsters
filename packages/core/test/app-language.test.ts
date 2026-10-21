@@ -1,8 +1,9 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { appLang, setAppLang } from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
-import { resolveAppLanguage } from '../src/i18n.ts';
+import { createCoreServices } from '../src/core.ts';
+import { homeHasAccount, languageOfHome, resolveAppLanguage } from '../src/i18n.ts';
 import { startCore, type CoreServer } from '../src/index.ts';
 import { BROWSER_HEADERS, browserSession, EMAIL, PASSWORD, postJson, tempHome } from './helpers.ts';
 
@@ -36,6 +37,50 @@ describe('resolveAppLanguage', () => {
     writeFileSync(join(home, 'settings.json'), JSON.stringify({ userName: 'Giulia' }));
     expect(resolveAppLanguage(home, true, { MONSTERS_LANG: 'en' })).toBe('it');
     expect(settingsOf(home)).toEqual({ userName: 'Giulia', language: 'it' });
+  });
+});
+
+describe('languageOfHome: the same rule as the core, without writing (D-153)', () => {
+  it('saved language first, else system for an empty home, else Italian for a home with an account', async () => {
+    const empty = tempHome();
+    mkdirSync(empty, { recursive: true });
+    expect(languageOfHome(empty, { MONSTERS_LANG: 'en' })).toBe('en');
+    expect(languageOfHome(empty, { MONSTERS_LANG: 'it' })).toBe('it');
+    expect(homeHasAccount(empty)).toBe(false);
+    expect(existsSync(join(empty, 'settings.json'))).toBe(false);
+
+    // An install of before the update: an account, no `language` in settings.json.
+    const home = tempHome();
+    core = await startCore({ home, port: 0, env: { ...process.env, MONSTERS_LANG: 'en' } });
+    const res = await postJson(`${core.url}/api/setup`, {
+      email: EMAIL,
+      password: PASSWORD,
+      setupCode: core.setupCode ?? '',
+    });
+    expect(res.status).toBe(201);
+    await core.close();
+    core = undefined;
+    writeFileSync(join(home, 'settings.json'), JSON.stringify({ userName: 'Giulia' }));
+    expect(homeHasAccount(home)).toBe(true);
+    expect(languageOfHome(home, { MONSTERS_LANG: 'en' })).toBe('it');
+    expect(settingsOf(home)).toEqual({ userName: 'Giulia' });
+    writeFileSync(join(home, 'settings.json'), JSON.stringify({ language: 'en' }));
+    expect(languageOfHome(home, { MONSTERS_LANG: 'it' })).toBe('en');
+  });
+
+  it('the "already running" refusal is in the language of the folder, not the system’s', () => {
+    const home = tempHome();
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, 'settings.json'), JSON.stringify({ language: 'it' }));
+    const first = createCoreServices({ home, env: { ...process.env, MONSTERS_LANG: 'en' } });
+    try {
+      expect(() =>
+        createCoreServices({ home, env: { ...process.env, MONSTERS_LANG: 'en' } }),
+      ).toThrow(/già in esecuzione/);
+    } finally {
+      first.lock.release();
+      first.db.close();
+    }
   });
 });
 

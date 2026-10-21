@@ -17,6 +17,7 @@ import {
 } from '@monsters/shared';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ChatGPTWelcome } from '../components/settings/SubscriptionsSection.tsx';
+import { subscriptionsStrings } from '../components/settings/subscriptions.strings.ts';
 import { Button } from '../components/ui/button.tsx';
 import { Field, Input } from '../components/ui/field.tsx';
 import { ApiError, describeError } from '../lib/api.ts';
@@ -380,7 +381,13 @@ function ClaudePanel({
         c.state === 'not_found' ? (
           <div className="grid gap-3">
             <Note>
-              <p>{t.notFound(c.package.name, c.package.version, c.package.license)}</p>
+              <p>
+                {t.notFound(
+                  c.package.name,
+                  c.package.version,
+                  subscriptionsStrings().license(c.package.license),
+                )}
+              </p>
             </Note>
             <div className="flex flex-wrap gap-2">
               <Button

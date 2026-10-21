@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { actionLabel, hunkText, splitDiff } from '../src/components/vault/NoteHistory.tsx';
+import { noteStrings } from '../src/components/vault/note.strings.ts';
 import { folderProblem, titleProblem } from '../src/components/vault/NewNote.tsx';
 import { filterNotes, folderLabel, groupByFolder } from '../src/components/vault/NoteList.tsx';
 import {
@@ -180,6 +181,13 @@ describe('list helpers', () => {
   it('names the history entries in words', () => {
     expect(actionLabel('vault_edit: Risorse/x.md [agent=rhea action=1]')).toBe('Edited');
     expect(actionLabel('vault_undo: x.md')).toBe('Change undone');
+    // The vault's own messages, in either layout (C8).
+    expect(actionLabel('snapshot utente: Inbox/x.md\n\nModifiche fatte fuori da Monsters')).toBe(
+      noteStrings().history.outside,
+    );
+    expect(actionLabel('user snapshot: Inbox/x.md\n\nChanges made outside Monsters')).toBe(
+      noteStrings().history.outside,
+    );
     expect(actionLabel('snapshot: modifiche esterne')).toBe('Edited outside Monsters');
   });
 

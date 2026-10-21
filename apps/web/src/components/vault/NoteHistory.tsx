@@ -33,7 +33,8 @@ export function actionLabel(message: string): string {
     case 'vault_propose':
       return s.proposal;
     default:
-      // i18n-ignore: words of the core's commit messages
+      // i18n-ignore: words of the core's commit messages, in both layouts ("snapshot utente: …",
+      // "user snapshot: …")
       return /snapshot|esterna|outside/i.test(message) ? s.outside : s.edited;
   }
 }

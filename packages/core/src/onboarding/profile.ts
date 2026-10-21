@@ -9,6 +9,7 @@ import {
   type OnboardingAnswer,
 } from '@monsters/shared';
 import type { DecisionRuleInput } from '../team/decision.ts';
+import { teamStrings } from '../team/team.strings.ts';
 import { PROFILE_TEXTS } from './profile.prompts.ts';
 
 /*
@@ -90,7 +91,7 @@ export function profileFromAnswers(answers: Answers, lang: Lang = appLang()): Pr
   // No answer: the monsters write in the language of the profile's words (D-153).
   const languageId = values(answers, 'tono', 'lingua')[0] ?? lang;
   return {
-    userName: cleanName(values(answers, 'nomi', 'user')[0] ?? 'Utente'),
+    userName: cleanName(values(answers, 'nomi', 'user')[0] ?? teamStrings(lang).userName),
     orchestratorName: cleanName(values(answers, 'nomi', 'orchestrator')[0] ?? 'Titan'),
     occupation: labels(answers, 'lavoro', lang),
     occupationText: answers['lavoro']?.text?.trim() || undefined,

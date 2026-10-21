@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AgentIdSchema } from './ids.ts';
+import { mcpSchemaStrings } from './mcp.strings.ts';
 
 /*
  * External tools through MCP (M2.5): servers the user adds from the settings
@@ -27,7 +28,7 @@ import { AgentIdSchema } from './ids.ts';
 /** Name of a server: part of the tool names (`mcp__<name>__<tool>`), so short and plain. */
 export const McpServerNameSchema = z
   .string()
-  .regex(/^[a-z][a-z0-9-]{0,23}$/, 'lettere minuscole, cifre e trattini, al massimo 24');
+  .regex(/^[a-z][a-z0-9-]{0,23}$/, { error: () => mcpSchemaStrings().serverName });
 
 /** Id of a gallery entry: also the default name of the server it adds. */
 export const McpCatalogIdSchema = z.string().regex(/^[a-z][a-z0-9-]{0,23}$/);

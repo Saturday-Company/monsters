@@ -62,7 +62,7 @@ import {
   type CoreManifest,
 } from './core-integrity.ts';
 import { systemLocatorDeps } from './core-locator.ts';
-import { openVaultFile, resolveVaultDir, showVaultFile } from './file-open.ts';
+import { homeLanguage, openVaultFile, resolveVaultDir, showVaultFile } from './file-open.ts';
 import { fromAppPage, fromCorePage, targetInfo } from './ipc-guards.ts';
 import { DEBUG_SWITCHES, debugSwitchVerdict } from './debug-switches.ts';
 import { DesktopLog, startedLine } from './desktop-log.ts';
@@ -279,13 +279,16 @@ async function refreshCoreProxy(): Promise<void> {
 }
 
 /**
- * The app's language (D-153): the web UI's last word, else `MONSTERS_LANG` (tests, support), else
- * the system's.
+ * The app's language (D-153): the web UI's last word, else the data folder's (`settings.json`, else
+ * Italian when it has an account: an install the core has not restarted since the update), else
+ * `MONSTERS_LANG` (tests, support), else the system's.
  */
 function appLanguage(): Lang {
   const forced = process.env['MONSTERS_LANG'];
   return (
-    store?.language ?? (isLang(forced) ? forced : resolveLang(app.getPreferredSystemLanguages()))
+    store?.language ??
+    homeLanguage(home) ??
+    (isLang(forced) ? forced : resolveLang(app.getPreferredSystemLanguages()))
   );
 }
 

@@ -1,5 +1,6 @@
 export * from './config.ts';
 export * from './core.ts';
+export { homeHasAccount, languageOfHome } from './i18n.ts';
 export { acquireHomeLock, HomeLockedError, LOCK_FILE, type HomeLock } from './home-lock.ts';
 export {
   openDb,

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
+import type { DatabaseSync } from 'node:sqlite';
 import { extname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
 import {
   LEGACY_NOTES_DIR_NAME,
@@ -8,6 +9,7 @@ import {
   isLang,
   isVaultLayoutId,
   systemLang,
+  type Lang,
   type VaultLayoutId,
 } from '@monsters/shared';
 
@@ -113,6 +115,43 @@ function newVaultLayout(raw: Record<string, unknown>, env: NodeJS.ProcessEnv): V
   if (isVaultLayoutId(forced)) return forced;
   const lang = raw['language'];
   return isLang(lang) ? lang : systemLang(env);
+}
+
+/** Whether the data folder has an account (the core's `monsters.db` has a user), read without writing. */
+export function homeHasAccount(home: string): boolean {
+  const path = join(home, 'monsters.db');
+  if (!existsSync(path)) return false;
+  // Loaded here, not at the top: if a runtime lacked the module, only this answer would be lost.
+  let db: DatabaseSync | undefined;
+  try {
+    const sqlite = process.getBuiltinModule('node:sqlite');
+    db = new sqlite.DatabaseSync(path, { readOnly: true });
+    return db.prepare('SELECT 1 AS x FROM users LIMIT 1').get() !== undefined;
+  } catch {
+    return false;
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      /* already closed */
+    }
+  }
+}
+
+/**
+ * The app's language of a data folder, by the core's rule (D-153): the `language` of `settings.json`,
+ * else Italian when the folder has an account (an install the core has not restarted since the
+ * update), else null (the caller takes the system's).
+ */
+export function homeLanguage(home: string): Lang | null {
+  try {
+    const raw: unknown = JSON.parse(readFileSync(join(home, SETTINGS_FILE), 'utf8'));
+    const saved = (raw as Record<string, unknown> | null)?.['language'];
+    if (isLang(saved)) return saved;
+  } catch {
+    /* no settings yet, or unreadable: the core would not run on it either */
+  }
+  return homeHasAccount(home) ? 'it' : null;
 }
 
 /**

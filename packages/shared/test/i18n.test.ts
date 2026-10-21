@@ -44,6 +44,12 @@ describe('app language (D-153)', () => {
     expect(formatList(['A', 'B'])).toBe('A and B');
   });
 
+  it('pins Italian to it-IT whatever the system region is (it-CH has other separators)', () => {
+    setAppLang('it', 'it_CH.UTF-8');
+    expect(appLocale()).toBe('it-IT');
+    expect(formatNumber(12345.5)).toBe('12.345,5');
+  });
+
   it('picks the dictionary and tells the listeners of a change', () => {
     const seen: string[] = [];
     const off = onAppLang((l) => seen.push(l));

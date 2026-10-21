@@ -200,6 +200,9 @@ describe('ChatGPT plan', () => {
       welcomeSeen: false,
       usageUrl: 'https://chatgpt.com/settings/usage',
     });
+    // The license is an id the UI words in the app's language, not an Italian sentence.
+    expect(view.claude.package.license).toBe('proprietary');
+    expect(view.codex.package.license).toBe('Apache-2.0');
     const file = join(t.home, 'secrets', 'chatgpt.json');
     if (process.platform !== 'win32') expect(statSync(file).mode & 0o777).toBe(0o600);
     expect(readFileSync(join(t.home, 'chatgpt-host-id'), 'utf8')).toMatch(/^urn:uuid:/);

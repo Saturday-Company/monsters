@@ -8,6 +8,8 @@ import { pick } from '@monsters/shared';
  */
 
 const it = {
+  /** The label of the headings `web_fetch` puts first when it returns passages of a long page. */
+  headings: 'Intestazioni:',
   /** Why a site's refusal is nobody's setting, and what to do instead (`httpError`). */
   siteRefusedHint:
     "Non è un permesso dell'utente né di Monsters: il sito non accetta la lettura automatica e nessuno può attivarla da Monsters. " +
@@ -30,6 +32,7 @@ const it = {
 };
 
 const en: typeof it = {
+  headings: 'Headings:',
   siteRefusedHint:
     'This isn’t a setting of the user or of Monsters: the site doesn’t accept automatic reading and nobody can turn it on from Monsters. ' +
     'Try another source (web_search for another page) or say so in the report.',

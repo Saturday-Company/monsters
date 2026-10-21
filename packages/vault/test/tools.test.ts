@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ToolContext, ToolEmittedEvent } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { vaultCoreTools, vaultTools, type VaultService } from '../src/index.ts';
 import { actor, newVault } from './helpers.ts';
 
@@ -29,6 +30,45 @@ async function call<T = Record<string, unknown>>(
   const t = tool(vault, name);
   return (await t.execute(t.inputSchema.parse(input), c)) as T;
 }
+
+/** Every text a model reads about the tools of a vault: descriptions and the described inputs. */
+function modelText(vault: VaultService): string {
+  return vaultTools(vault)
+    .map((t) => `${t.name}\n${t.description}\n${JSON.stringify(z.toJSONSchema(t.inputSchema))}`)
+    .join('\n')
+    .replaceAll('\\"', '"');
+}
+
+describe('the examples in the tools follow the vault’s layout (C9)', () => {
+  it('an Italian vault keeps its examples byte for byte', async () => {
+    const text = modelText(await newVault());
+    for (const example of [
+      'Only inside this folder, e.g. "Progetti"',
+      'All of these tags; "progetto" also matches "progetto/x"',
+      'e.g. "Inbox/Idea podcast" (.md is added). The file name is the title',
+      '"tags": ["progetto/x"]',
+      'New path or folder ("Archivio/" keeps the name)',
+      'e.g. "progetto" for progetto/*',
+      'Lowercase tags like "area/salute".',
+    ]) {
+      expect(text).toContain(example);
+    }
+  });
+
+  it('an English vault names English folders and tags, with no Italian example left', async () => {
+    const text = modelText(await newVault({ layout: 'en' }));
+    for (const example of [
+      'Only inside this folder, e.g. "Projects"',
+      'All of these tags; "project" also matches "project/x"',
+      'e.g. "Inbox/Podcast idea" (.md is added)',
+      'New path or folder ("Archive/" keeps the name)',
+      'Lowercase tags like "area/health".',
+    ]) {
+      expect(text).toContain(example);
+    }
+    expect(text).not.toMatch(/Progetti|progetto|Archivio|salute|Idea podcast/);
+  });
+});
 
 describe('vault tools', () => {
   it('exposes the full set and the minimal subset', async () => {

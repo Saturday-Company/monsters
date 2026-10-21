@@ -129,6 +129,7 @@ import { PlanLimits } from './providers/plan-limits.ts';
 import { SubscriptionService } from './providers/subscriptions.ts';
 import type { Generate } from './onboarding/proposal.ts';
 import { readBraveKey, saveBraveKey } from './team/brave-key.ts';
+import { teamStrings } from './team/team.strings.ts';
 import { PaidSearch, searchRegion } from './team/paid-search.ts';
 import { answerText, conversationTurns, mergeTurns } from './team/conversation.ts';
 import { ConversationCompactor, fixedContextTokens, runsTainted } from './team/compaction.ts';
@@ -2883,7 +2884,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     team,
     secretsDir: paths.secrets,
     owners: () => telegram.users(),
-    ownerName: () => settings.userName?.trim() || 'l’utente',
+    ownerName: () => settings.userName?.trim() || teamStrings().ownerName,
     mainBot: () => telegram.identity(),
     send: (params) => dispatcher.send(params),
     answer: (id, answer, channel, by) => questions.answer(id, answer, channel, by),

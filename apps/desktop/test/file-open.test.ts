@@ -1,7 +1,11 @@
 import { chmodSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  coreMigrations,
   defaultVaultDir as coreDefaultVaultDir,
+  languageOfHome,
+  migrate,
+  openDb,
   LEGACY_VAULT_DIR_NAME as CORE_LEGACY,
   loadHubSettings,
   SETTINGS_FILE as CORE_SETTINGS,
@@ -22,6 +26,7 @@ import {
   FILES_MARKER,
   filesDirOf,
   fileSegments,
+  homeLanguage,
   LEGACY_VAULT_DIR_NAME,
   openVaultFile,
   resolveVaultDir,
@@ -120,6 +125,41 @@ describe('notes folder of the local core', () => {
     expect(resolveVaultDir(home, {})).toBeNull();
     writeFileSync(join(home, 'settings.json'), '[]');
     expect(resolveVaultDir(home, {})).toBeNull();
+  });
+});
+
+describe('language of the data folder (D-153)', () => {
+  const withAccount = (home: string): void => {
+    mkdirSync(home, { recursive: true });
+    const db = openDb(join(home, 'monsters.db'));
+    migrate(db, 'core', coreMigrations);
+    db.run(
+      "INSERT INTO users (id, email, password_hash, created_at) VALUES ('u', 'a@b.it', 'x', 1)",
+    );
+    db.close();
+  };
+
+  it('settings.json first, then Italian for a folder with an account, else nothing (the system)', () => {
+    expect(homeLanguage(tempDir())).toBeNull();
+
+    // A core that ran without an account: no Italian by itself.
+    const noUser = tempDir();
+    mkdirSync(noUser, { recursive: true });
+    const db = openDb(join(noUser, 'monsters.db'));
+    migrate(db, 'core', coreMigrations);
+    db.close();
+    expect(homeLanguage(noUser)).toBeNull();
+
+    // An install of before the update: an account and no `language`.
+    const old = tempDir();
+    withAccount(old);
+    writeFileSync(join(old, 'settings.json'), JSON.stringify({ userName: 'Giulia' }));
+    expect(homeLanguage(old)).toBe('it');
+    expect(languageOfHome(old, { MONSTERS_LANG: 'en' })).toBe('it');
+
+    writeFileSync(join(old, 'settings.json'), JSON.stringify({ language: 'en' }));
+    expect(homeLanguage(old)).toBe('en');
+    expect(languageOfHome(old, { MONSTERS_LANG: 'it' })).toBe('en');
   });
 });
 

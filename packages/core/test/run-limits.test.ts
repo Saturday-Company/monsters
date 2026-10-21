@@ -2,6 +2,7 @@ import { fake } from '@monsters/providers/testing';
 import { ToolError, type LogEvent } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
 import { RunBudget, RunLimitsSchema, treeCostLimit } from '../src/index.ts';
+import { inLang } from './prompt-lang.ts';
 import { startTestHub, toolResultsSeen } from './hub-helpers.ts';
 
 type Sent = { runId: string };
@@ -137,6 +138,17 @@ describe('run limits', () => {
       maxRunCostUsd: 0.5,
       maxSubagentTokens: 400_000,
     });
+  });
+
+  it('a cost limit is written like the instinct’s costs: the language’s decimal separator (C13)', () => {
+    const budget = (): RunBudget => {
+      const b = new RunBudget(RunLimitsSchema.parse({ maxRunCostUsd: 1.5 }));
+      b.addStep(10, 1.6);
+      return b;
+    };
+    expect(budget().exhausted()).toBe('this task spent its 1.5 $ limit');
+    inLang('it');
+    expect(budget().exhausted()).toBe('questo compito ha speso il suo limite di 1,5 $');
   });
 
   it('a lead’s run keeps its steps and delegations; the cost has one limit for the tree (F-A6)', () => {

@@ -28,6 +28,7 @@ import {
   resolveVaultLayout,
   rheaBlueprint,
 } from '../src/index.ts';
+import { questionPrompts } from '../src/team/instinct/questions.prompts.ts';
 import { FileStore, FILES_MARKER, filesDirFor, filesMigrations } from '../src/files/store.ts';
 import { proposalPrompts } from '../src/onboarding/proposal.prompts.ts';
 import { protectedNote } from '../src/server/protected-notes.ts';
@@ -375,5 +376,18 @@ describe('what names a path of the vault', () => {
     } finally {
       setVaultLayout('it');
     }
+  });
+});
+
+describe('what the instinct reads names the vault in use (C9)', () => {
+  it('the English question about the rare vault tools says the folder of the layout', () => {
+    setVaultLayout('en');
+    expect(questionPrompts('en').rare.criteria.true).toContain('move the old notes to Archive"');
+    setVaultLayout('it');
+    expect(questionPrompts('en').rare.criteria.true).toContain('move the old notes to Archivio"');
+    // The Italian family is the measured one: it never changes.
+    expect(questionPrompts('it').rare.criteria.true).toContain(
+      'sposta le note vecchie in Archivio"',
+    );
   });
 });

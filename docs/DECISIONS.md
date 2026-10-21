@@ -4949,6 +4949,14 @@ wave-3 English templates stay as `legacy`. After the fixes no metric is clearly 
 arm); the choice left in the reply without `ask_user` (2/10 in English, 0/6 in Italian) is still open. The
 onboarding now starts the monsters' writing language on the app's language (`defaultWritingLanguage`), not on
 Italian.
+**Two changes of behavior kept on purpose (review of 21/10/2026):** (1) the run-limit messages (`LIMIT_REACHED`: steps,
+tokens, cost per task) used to be English for everyone (old `run-limits.ts`); they now follow the app's language, so
+an Italian install gets them in Italian, with the cost written by the shared formatter ("1,5 $", like the
+instinct's costs). The model reads them, and a model reads either language the same. (2) `compareText` now sorts
+with `sensitivity: 'base'` and `numeric: true`: "Nota 2" comes before "Nota 10" and accents and case do not
+split a list (notes, folders, tags, automations). It is better, so it stays. `appLocale` takes the system's
+region only for English ("en-GB"); Italian is always `it-IT` (as before D-153: `it-CH` would change the
+separators).
 
 ### D-154 · Vault layout: English names for a new English vault, Italian names kept forever
 **Status:** done · 21/10/2026

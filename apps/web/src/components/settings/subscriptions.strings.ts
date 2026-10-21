@@ -19,6 +19,8 @@ const openai = {
 };
 
 const en = {
+  /** The license of an official package, from its id (the core sends `proprietary` or an SPDX id). */
+  license: (id: string) => (id === 'proprietary' ? 'proprietary (Anthropic Commercial Terms)' : id),
   ...openai,
   planUsage: 'Plan usage',
   welcomeNote:
@@ -84,6 +86,7 @@ const en = {
 };
 
 const it: typeof en = {
+  license: (id) => (id === 'proprietary' ? 'proprietaria (Anthropic Commercial Terms)' : id),
   ...openai,
   planUsage: 'Utilizzo del piano',
   welcomeNote:

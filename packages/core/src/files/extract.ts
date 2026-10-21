@@ -1,3 +1,4 @@
+import { extractPrompts } from './extract.prompts.ts';
 import { readZipEntries } from './zip.ts';
 
 /*
@@ -260,7 +261,8 @@ export function xlsxText(entries: Map<string, Buffer>): string {
   const out: string[] = [];
   sheets.forEach((path, i) => {
     const rows = sheetRows(entries.get(path)!.toString('utf8'), shared);
-    if (rows.length > 0) out.push(`## ${names[i] ?? `Foglio ${i + 1}`}\n${rows.join('\n')}`);
+    if (rows.length > 0)
+      out.push(`## ${names[i] ?? extractPrompts().sheet(i + 1)}\n${rows.join('\n')}`);
   });
   return out.join('\n\n');
 }
@@ -350,7 +352,7 @@ export async function extractText(
           .sort(byNumber(re))
           .map((n, i) => {
             const t = slideText(slides.get(n)!.toString('utf8'));
-            return t ? `## Diapositiva ${i + 1}\n${t}` : '';
+            return t ? `## ${extractPrompts().slide(i + 1)}\n${t}` : '';
           })
           .filter(Boolean)
           .join('\n\n');

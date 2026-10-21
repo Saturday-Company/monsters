@@ -406,7 +406,10 @@ export function parseConnectorStatus(code: number | null, text: string): ClaudeC
   if (code === 0 && /connected/i.test(status) && !/disconnected|not connected/i.test(status)) {
     return { state: 'connected' };
   }
-  const message = (status || text.trim().split('\n').at(-1) || 'nessuna risposta').slice(0, 200);
+  const message = (status || text.trim().split('\n').at(-1) || providerTexts().noAnswer).slice(
+    0,
+    200,
+  );
   // A refusal the binary words itself is an error; wording we do not know (a new version of the
   // CLI) is "unknown": it says nothing about the account (C-10).
   if (

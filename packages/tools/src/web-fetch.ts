@@ -163,7 +163,7 @@ export function findPassages(
     .filter((l) => /^#{1,3}\s/.test(l))
     .slice(0, 30)
     .join('\n');
-  const head = headings ? `Intestazioni:\n${headings}\n\n` : '';
+  const head = headings ? `${toolPrompts().headings}\n${headings}\n\n` : '';
   let content = head;
   for (const [from, to] of merged) {
     const passage = `${from > 0 ? '…' : ''}${markdown.slice(from, to).trim()}${to < markdown.length ? '…' : ''}\n\n`;
