@@ -34,7 +34,7 @@ test('first start against the real core', async ({ page }) => {
   // The model's first answer is not JSON: the core retries and gets the team.
   const members = page.getByTestId('member');
   await expect(members).toHaveCount(3, { timeout: 20_000 });
-  await expect(page.getByText(/Tailor-made suggestion/)).toBeVisible();
+  await expect(page.getByText(/Suggestion tailored to you/)).toBeVisible();
   await expect(page.getByText('web', { exact: true })).toHaveCount(0);
 
   const tethys = page.locator('[data-member="tethys"]');
@@ -52,7 +52,7 @@ test('first start against the real core', async ({ page }) => {
   );
   await page.getByLabel('Rhea’s folder in the notes').fill('Resources/Food');
   await page.getByRole('button', { name: 'Save Rhea’s tasks and folder' }).click();
-  await expect(rhea.getByTestId('member-area')).toContainText('in the notes “Food”');
+  await expect(rhea.getByTestId('member-area')).toContainText('in the notes folder “Food”');
   await page.getByRole('button', { name: 'Remove Dione from the squad' }).click();
   await expect(members).toHaveCount(2);
   await page.getByRole('button', { name: /Confirm the squad/ }).click();
