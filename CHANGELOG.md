@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.0-alpha.19 · 21 ottobre 2026
+
+### Cosa si vede
+- **Monsters è open source.** Il codice è su GitHub (github.com/Saturday-Company/monsters) con licenza Apache-2.0, e
+  il sito è getmonsters.dev. Da questa versione i pacchetti si scaricano anche dalle Release di GitHub.
+
+### Più affidabile
+- **Windows, file e terminale.** Se il percorso della tua cartella utente compariva nella forma corta di Windows (per
+  esempio `MARIOR~1`), i mostri potevano trovarsi bloccati la cartella di lavoro: file, comandi e Telegram si
+  fermavano. Ora la cartella si riconosce in tutte e due le forme, e un percorso senza lettera di unità resta sul disco
+  giusto.
+- **Chiavi al sicuro anche con cartelle collegate.** Se la cartella dei dati di Monsters sta dietro un collegamento,
+  la chiave nel portachiavi si ritrova sempre.
+- **Lettura delle pagine web** più solida, e aggiornamenti di Electron e delle altre librerie con le loro correzioni di
+  sicurezza.
+
 ## 0.1.0-alpha.18 · 19 ottobre 2026
 
 ### Cosa si vede
