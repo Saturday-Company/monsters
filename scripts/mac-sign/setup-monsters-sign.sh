@@ -1,6 +1,6 @@
 #!/bin/bash
 # One-shot setup of the signing user `monsters-sign` on the Mac: steps 1, 2, 3, 4 and 7 of
-# docs/signing.md, section "Mac: utente di firma". Run it ONCE, from a Terminal on the
+# docs/signing.md, section "Mac: the signing user". Run it ONCE, from a Terminal on the
 # Mac, with sign-build.sh in the same folder, the signing identity and the App Store Connect key id:
 #
 #   sudo MONSTERS_MAC_SIGN_IDENTITY='Developer ID Application: Jane Doe (ABCDE12345)' \

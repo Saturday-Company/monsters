@@ -1,6 +1,6 @@
 /*
  * The release key of the update feed, encrypted at rest (review of wave 5, item 3; docs/signing.md
- * "Firma degli aggiornamenti"). Only node:crypto: the plain key never goes to another program
+ * "Update signing"). Only node:crypto: the plain key never goes to another program
  * (before, `openssl` found in the PATH got it on its stdin, and a `~/.local/bin/openssl` written
  * by a monster with a terminal would have had key and passphrase).
  *

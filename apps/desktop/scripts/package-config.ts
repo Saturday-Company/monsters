@@ -95,7 +95,7 @@ export function selectUpdateKeys(o: {
       o.testBuild
         ? 'a test build with a feed needs --update-test-key <public key .pem> to verify its updates'
         : `no update signing key in ${dir}: a build with a feed could never accept an update ` +
-            '(docs/signing.md, "Firma degli aggiornamenti")',
+            '(docs/signing.md, "Update signing")',
     );
   }
   return keys;

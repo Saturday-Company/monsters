@@ -2,7 +2,7 @@
 # Signed macOS build of Monsters (review 19/10, wave 5, item 2), run as the user `monsters-sign`.
 #
 # NOT run from the repo: the Mac's owner installs a reviewed copy as root, outside any folder the CI can
-# write (docs/signing.md, "Mac: utente di firma"):
+# write (docs/signing.md, "Mac: the signing user"):
 #
 #   /usr/local/libexec/monsters/sign-build.sh   root:wheel 755 (folder root:wheel 755)
 #
