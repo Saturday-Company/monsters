@@ -1,6 +1,7 @@
 import {
   AnswerRequestSchema,
   BraveKeyRequestSchema,
+  LanguageRequestSchema,
   NewConversationRequestSchema,
   OpenRouterKeyRequestSchema,
   OpenRouterSettingsRequestSchema,
@@ -179,6 +180,12 @@ export function registerTeamRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: Hub)
   });
 
   app.get('/api/settings', requireAuth, (c) => c.json(hub.settingsView()));
+
+  app.put('/api/settings/language', requireAuth, async (c) => {
+    const body = await parseBody(c, LanguageRequestSchema);
+    if (!body.ok) return body.res;
+    return c.json(hub.setLanguage(body.data.language));
+  });
 
   app.put('/api/settings/openrouter-key', requireAuth, async (c) => {
     const body = await parseBody(c, OpenRouterKeyRequestSchema);

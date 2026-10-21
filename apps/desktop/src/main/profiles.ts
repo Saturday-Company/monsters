@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { renameSync, writeFileSync } from 'node:fs';
 import { ConnectionProfileSchema, sshAliasFor, type ConnectionProfile } from '@monsters/remote';
+import { isLang, type Lang } from '@monsters/shared';
 import type { ThemeChoice } from './app-theme.ts';
 import { readTextFile } from './home.ts';
 
@@ -35,6 +36,8 @@ export interface ConnectionsFile {
   last: TargetChoice;
   /** The theme of the Settings; absent: "Sistema". Older apps ignore it. */
   theme?: 'light' | 'dark';
+  /** The app's language as the web UI last said it (D-153); absent: the system's. */
+  language?: Lang;
 }
 
 export const PROFILE_FIELDS = [
@@ -207,7 +210,13 @@ export function readConnectionsFile(raw: string | null): {
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
     return { data: empty, state: 'damaged' };
   }
-  const d = data as { version?: unknown; profiles?: unknown; last?: unknown; theme?: unknown };
+  const d = data as {
+    version?: unknown;
+    profiles?: unknown;
+    last?: unknown;
+    theme?: unknown;
+    language?: unknown;
+  };
   const newer = typeof d.version === 'number' && d.version > 1;
   let dropped = !Array.isArray(d.profiles);
   const profiles: StoredProfile[] = [];
@@ -221,8 +230,15 @@ export function readConnectionsFile(raw: string | null): {
   // Any other theme (none, "system", something unknown) is "Sistema": never a reason to
   // call the file damaged.
   const theme = d.theme === 'light' || d.theme === 'dark' ? d.theme : null;
+  const language = isLang(d.language) ? d.language : null;
   return {
-    data: { version: 1, profiles, last, ...(theme ? { theme } : {}) },
+    data: {
+      version: 1,
+      profiles,
+      last,
+      ...(theme ? { theme } : {}),
+      ...(language ? { language } : {}),
+    },
     state: newer ? 'newer' : dropped ? 'damaged' : 'ok',
   };
 }
@@ -328,6 +344,19 @@ export class ProfileStore {
     else delete this.#data.theme;
     // No connections.json yet: the file is what says the first start is over, so the theme
     // waits in memory for the first choice to write it.
+    if (this.firstStart && !this.#written) return;
+    this.#write();
+  }
+
+  /** The app's language as the web UI last said it (D-153); null: never said. */
+  get language(): Lang | null {
+    return this.#data.language ?? null;
+  }
+
+  setLanguage(lang: Lang): void {
+    if (lang === this.#data.language) return;
+    this.#data.language = lang;
+    // As the theme: before the first choice the file does not exist yet.
     if (this.firstStart && !this.#written) return;
     this.#write();
   }

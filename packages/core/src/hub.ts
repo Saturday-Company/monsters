@@ -15,6 +15,7 @@ import {
 } from '@monsters/providers';
 import { pinNodeRuntime } from '@monsters/shared/node';
 import {
+  appLang,
   autoEffort,
   EventInputSchema,
   MCP_CATALOG,
@@ -22,6 +23,7 @@ import {
   ToolError,
   type Channel,
   type FileMeta,
+  type Lang,
   type MonstersTool,
   type Project,
   type Question,
@@ -104,6 +106,7 @@ import { TelegramChannel, type TelegramChannelOptions } from './channels/telegra
 import { REPLY_KEY_REASON, TelegramBots } from './channels/telegram/bots.ts';
 import { isGroupThread, runsOfThread, threadOfRun } from './channels/telegram/threads.ts';
 import { isUserWords } from './team/user-words.ts';
+import { saveAppLanguage } from './i18n.ts';
 import { patchSettingsFile } from './onboarding/settings-file.ts';
 import { migrate } from './db/migrations.ts';
 import { KilledError } from './kill/control-scope.ts';
@@ -381,6 +384,8 @@ export interface Hub {
   }): ReturnType<Dispatcher['newConversation']>;
   /** What `GET /api/settings` shows: never the key itself. */
   settingsView(): SettingsResponse;
+  /** The app's language (D-153): saved and applied at once to the texts written from now on. */
+  setLanguage(language: Lang): SettingsResponse;
   /** Verifies, saves and activates an OpenRouter key. The key is never logged. */
   setOpenRouterKey(key: string): Promise<VerifyResult>;
   /**
@@ -2916,6 +2921,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       vaultPath: vault.root,
       userName: settings.userName,
       secrets: secretStore.status(),
+      language: appLang(),
     };
   };
 
@@ -2961,6 +2967,11 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     newConversation: (params) => dispatcher.newConversation(params),
     answer: (id, answer, channel) => questions.answer(id, answer, channel),
     settingsView,
+    setLanguage(language) {
+      saveAppLanguage(paths.home, language, env);
+      settings.language = language;
+      return settingsView();
+    },
     setBraveKey(key) {
       const trimmed = key.trim();
       log.redactor.addSecret(trimmed);

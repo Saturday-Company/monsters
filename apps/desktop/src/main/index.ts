@@ -32,6 +32,7 @@ import {
   type MenuItemConstructorOptions,
   type Session,
 } from 'electron';
+import { appLang, isLang, resolveLang, setAppLang, type Lang } from '@monsters/shared';
 import { autoUpdater } from 'electron-updater';
 import {
   forgetHostKey,
@@ -275,6 +276,11 @@ async function refreshCoreProxy(): Promise<void> {
   }
 }
 
+/** The app's language: the web UI's last word, else the system's (D-153). */
+function appLanguage(): Lang {
+  return store?.language ?? resolveLang(app.getPreferredSystemLanguages());
+}
+
 function spawnCore(): CoreChild {
   const child = utilityProcess.fork(coreEntry(), ['start', '--home', home, '--port', '0'], {
     serviceName: 'Monsters core',
@@ -287,6 +293,9 @@ function spawnCore(): CoreChild {
         app.isPackaged ? [process.resourcesPath, dirname(process.execPath)] : [],
       ),
       ...coreProxy,
+      // The language of a new install (D-153): the one the web UI last said, else the system's.
+      MONSTERS_LANG: process.env['MONSTERS_LANG'] ?? appLanguage(),
+      MONSTERS_LOCALE: process.env['MONSTERS_LOCALE'] ?? app.getLocale(),
     },
     cwd: home,
   });
@@ -987,6 +996,16 @@ function registerIpc(): void {
     if (!fromCore(event)) return;
     appTheme?.fromPage(choice);
   });
+  // The app's language (D-153), sent by the core's page at start and when it changes: the
+  // menus and the app's own pages follow it, and it is kept for the next start.
+  ipcMain.on('monsters:language', (event, lang: unknown) => {
+    if (!fromCore(event) || !isLang(lang)) return;
+    store?.setLanguage(lang);
+    if (lang === appLang()) return;
+    log.info(`language: ${lang}`);
+    setAppLang(lang, app.getLocale());
+    buildMenus();
+  });
   // "Apri all'accesso" (D-095): from the core's page (local or remote, it is this computer's
   // app either way), only true or false; the answer is what the system says now.
   ipcMain.handle('monsters:login-item', (event) =>
@@ -1513,6 +1532,8 @@ async function start(): Promise<void> {
     log: (line) => log.info(line),
   });
   const first = store.last;
+  // Before the first window and the menus (D-153).
+  setAppLang(appLanguage(), app.getLocale());
   // Before the first window: its background, title bar and status page take the theme.
   appTheme = new AppTheme({
     store,

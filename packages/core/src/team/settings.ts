@@ -7,6 +7,7 @@ import {
   DEFAULT_TELEGRAM_PREFS,
   InstinctModeSchema,
   InstinctUseSchema,
+  LangSchema,
   LOG_ARCHIVE_DEFAULT_DAYS,
   LOG_ARCHIVE_MIN_DAYS,
   PaidSearchEngineSchema,
@@ -78,6 +79,11 @@ export const AgentPermissionsSettingSchema = z.object({
 export type AgentPermissionsSetting = z.infer<typeof AgentPermissionsSettingSchema>;
 
 export const HubSettingsSchema = z.object({
+  /**
+   * The app's language (D-153): UI, the core's messages, Telegram. Written at the
+   * first start (`resolveAppLanguage`), changed from the settings.
+   */
+  language: LangSchema.optional(),
   /** Folder of the vault (created if missing). Default: see `defaultVaultDir`. */
   vault: z.string().min(1).optional(),
   /** How the agents address the user (until the onboarding sets it). */

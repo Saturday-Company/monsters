@@ -13,6 +13,7 @@ import { Button } from '../ui/button.tsx';
 import { Field, Input } from '../ui/field.tsx';
 import { Meter } from '../ui/Meter.tsx';
 import { DeviceFrame, DeviceScreen } from './Device.tsx';
+import { LanguageSwitch } from './LanguageSwitch.tsx';
 
 /*
  * Account creation and sign-in (docs/design.md, "Accesso"): a small device in
@@ -397,6 +398,7 @@ export function AuthScreen({ mode, mock }: { mode: 'setup' | 'login'; mock: bool
           <ForgotPassword />
         </div>
       )}
+      <LanguageSwitch className="mt-4" />
     </DeviceFrame>
   );
 }

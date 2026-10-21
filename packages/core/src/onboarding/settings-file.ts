@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AgentPermissions, InstinctMode, InstinctUse, TelegramPrefs } from '@monsters/shared';
+import type {
+  AgentPermissions,
+  InstinctMode,
+  InstinctUse,
+  Lang,
+  TelegramPrefs,
+} from '@monsters/shared';
 import { writeSensitiveFile } from '../config.ts';
 import type { DecisionRuleInput } from '../team/decision.ts';
 import { SETTINGS_FILE } from '../team/settings.ts';
@@ -11,6 +17,8 @@ import { SETTINGS_FILE } from '../team/settings.ts';
  */
 
 export interface SettingsPatch {
+  /** The app's language (D-153). */
+  language?: Lang;
   userName?: string;
   orchestratorName?: string;
   /** The whole object: the team defaults and, when given, the permissions of each agent. */
@@ -54,6 +62,7 @@ export function readSettingsFile(home: string): Record<string, unknown> {
 export function patchSettingsFile(home: string, patch: SettingsPatch): Record<string, unknown> {
   const current = readSettingsFile(home);
   const next: Record<string, unknown> = { ...current };
+  if (patch.language !== undefined) next['language'] = patch.language;
   if (patch.userName !== undefined) next['userName'] = patch.userName;
   if (patch.orchestratorName !== undefined) next['orchestratorName'] = patch.orchestratorName;
   if (patch.permissions !== undefined) next['permissions'] = patch.permissions;

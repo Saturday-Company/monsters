@@ -31,7 +31,7 @@ describe('setup, login, logout', () => {
   it('creates the single local user only once', async () => {
     const c = await start();
     const { url } = c;
-    expect(await (await fetch(`${url}/api/setup-status`)).json()).toEqual({ needsSetup: true });
+    expect(await (await fetch(`${url}/api/setup-status`)).json()).toEqual({ needsSetup: true, language: 'en' });
 
     const weak = await postJson(`${url}/api/setup`, {
       email: EMAIL,
@@ -43,7 +43,7 @@ describe('setup, login, logout', () => {
     const res = await setupUser(c);
     expect(res.status).toBe(201);
     expect(sessionCookie(res)).toBeDefined();
-    expect(await (await fetch(`${url}/api/setup-status`)).json()).toEqual({ needsSetup: false });
+    expect(await (await fetch(`${url}/api/setup-status`)).json()).toEqual({ needsSetup: false, language: 'en' });
 
     const again = await postJson(`${url}/api/setup`, {
       email: 'x@example.com',

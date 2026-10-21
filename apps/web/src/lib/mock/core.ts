@@ -23,12 +23,27 @@ import {
   type WebSearchSettings,
   type StatusResponse,
   type StreamMessage,
+  appLang,
+  isLang,
+  LanguageRequestSchema,
+  type Lang,
 } from '@monsters/shared';
 import type { z } from 'zod';
 import { SetupBodySchema } from '../api.ts';
 import type { RawResponse, SocketLike, Transport } from '../transport.ts';
 import { applyLive, type LiveState } from '../../store/derive.ts';
 import { MOCK_DEMO_USER, MOCK_SETUP_CODE } from './constants.ts';
+
+/** `?lang=it` of the page (e2e and demos), else the one of the start (saved or the browser's). */
+function mockLang(): Lang {
+  try {
+    const q = new URLSearchParams(window.location.search).get('lang');
+    if (isLang(q)) return q;
+  } catch {
+    // no window (tests)
+  }
+  return appLang();
+}
 import { mockTeam } from './team.ts';
 import { AMBIENT_JOBS, type AmbientJob } from './ambient.ts';
 import { createRng } from '@monsters/monster-kit';
@@ -182,6 +197,8 @@ export class MockCore {
   private readonly onAnswer = new Map<string, (choice: string) => void>();
   private halted: { at: number; reason: string | null } | null = null;
   private keyLabel: string | null = null;
+  /** The app's language (D-153): `?lang=` of the page, else the browser's. */
+  private language: Lang = mockLang();
   private braveKey = false;
   /** Paid web search (D-071): the user's choice; the mock has credit when a key is set. */
   private webSearch: { mode: PaidSearchMode; engine: PaidSearchEngineName } = {
@@ -549,12 +566,13 @@ export class MockCore {
       case 'GET /api/health':
         return ok({ ok: true, version: MOCK_VERSION });
       case 'GET /api/setup-status':
-        return ok({ needsSetup: this.auth.user === null });
+        return ok({ needsSetup: this.auth.user === null, language: this.language });
       case 'POST /api/setup': {
         if (this.auth.user) return fail(409, 'already_configured');
         const p = SetupBodySchema.safeParse(body);
         if (!p.success) return fail(400, 'invalid_request', p.error.issues[0]?.message);
         if (p.data.setupCode !== MOCK_SETUP_CODE) return fail(403, 'invalid_setup_code');
+        if (p.data.language) this.language = p.data.language;
         this.auth = { user: { email: p.data.email, password: p.data.password }, loggedIn: true };
         this.saveAuth();
         this.append({ agent: 'system', type: 'auth', data: { action: 'setup', channel: 'ui' } });
@@ -705,6 +723,7 @@ export class MockCore {
           webSearch: this.webSearchView(),
           vaultPath: '/home/demo/Monsters Note',
           userName: this.squad.userName,
+          language: this.language,
           secrets: {
             backend: 'keychain',
             reason: 'keychain',
@@ -722,6 +741,12 @@ export class MockCore {
         this.onboarding.keySaved();
         this.providers.setOpenRouter(true);
         return ok({ ok: true, label: this.keyLabel, isFreeTier: false });
+      }
+      case 'PUT /api/settings/language': {
+        const p = LanguageRequestSchema.safeParse(body);
+        if (!p.success) return fail(400, 'invalid_request', p.error.issues[0]?.message);
+        this.language = p.data.language;
+        return this.handle('GET', '/api/settings', undefined);
       }
       case 'PUT /api/settings/openrouter': {
         const p = OpenRouterSettingsRequestSchema.safeParse(body);

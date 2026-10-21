@@ -3,6 +3,7 @@ import { AgentAreaSchema, AgentDutySchema, MAX_DUTIES } from './agent-area.ts';
 import { EventTypeSchema, LogEventSchema } from './events.ts';
 import { MESSAGE_MAX_ATTACHMENTS } from './files.ts';
 import { MESSAGE_MAX_CHARS, RESUME_EXTRA_CHARS } from './halted.ts';
+import { LangSchema } from './i18n.ts';
 import { AgentIdSchema, EmailSchema } from './ids.ts';
 import { UlidSchema } from './ulid.ts';
 
@@ -43,6 +44,8 @@ export const SetupRequestSchema = z.object({
   /** One-time code printed by `monsters start` (format XXXX-XXXX-XXXX). */
   setupCode: z.string().min(1).max(64),
   partitioned: PartitionedSchema,
+  /** The app's language chosen on the first screen (D-153); absent: the one the core resolved. */
+  language: LangSchema.optional(),
 });
 export type SetupRequest = z.infer<typeof SetupRequestSchema>;
 
@@ -73,6 +76,8 @@ export type ConfirmRequest = z.infer<typeof ConfirmRequestSchema>;
 
 export const SetupStatusResponseSchema = z.object({
   needsSetup: z.boolean(),
+  /** The app's language (D-153), also before sign-in; absent from older cores. */
+  language: LangSchema.optional(),
 });
 export type SetupStatusResponse = z.infer<typeof SetupStatusResponseSchema>;
 
@@ -435,6 +440,8 @@ export const SettingsResponseSchema = z.object({
   userName: z.string(),
   /** Where keys and tokens are kept (D-042). */
   secrets: SecretsStatusSchema.optional(),
+  /** The app's language (D-153); absent from older cores. */
+  language: LangSchema.optional(),
 });
 export type SettingsResponse = z.infer<typeof SettingsResponseSchema>;
 
@@ -447,6 +454,10 @@ export const OpenRouterKeyResponseSchema = z.object({
   usage: z.number().optional(),
 });
 export type OpenRouterKeyResponse = z.infer<typeof OpenRouterKeyResponseSchema>;
+
+/** `PUT /api/settings/language` (D-153). */
+export const LanguageRequestSchema = z.object({ language: LangSchema });
+export type LanguageRequest = z.infer<typeof LanguageRequestSchema>;
 
 /*
  * Onboarding (M1.6): first start, questions, permissions, team proposal. Same

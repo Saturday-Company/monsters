@@ -44,6 +44,11 @@ export interface DesktopBridge {
    */
   setTheme?(choice: DesktopTheme): void;
   /**
+   * The app's language (D-153) for the menus and the app's own pages, kept for the next start
+   * and for the core of a new install. Sent at start and when it changes. Absent in older apps.
+   */
+  setLanguage?(lang: 'en' | 'it'): void;
+  /**
    * "Apri all'accesso" of this computer's app, as the system has it now (null if the app
    * refuses the caller). Absent in older apps (apps/desktop/src/main/login-item.ts, D-095).
    */

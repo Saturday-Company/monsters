@@ -18,6 +18,10 @@ process.env['MONSTERS_TELEGRAM'] ??= 'off';
 // …and never touch the system keychain: secrets in plain files (D-042). Tests of
 // the keychain backend pass a fake keychain explicitly.
 process.env['MONSTERS_SECRETS'] ??= 'file';
+// …and speak English with US dates and numbers whatever the machine's locale (D-153): a core
+// started on a fresh home takes the system's language.
+process.env['MONSTERS_LANG'] ??= 'en';
+process.env['MONSTERS_LOCALE'] ??= 'en-US';
 
 /*
  * The temporary folder of the tests is reached through a link, as on macOS

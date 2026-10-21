@@ -4888,3 +4888,42 @@ senza segreti non ha niente da far uscire, nemmeno se una PR o un'azione di terz
 **Conseguenza:** una release non richiede più la VM e il Mac: basta che `full (…)` sia verde sul commit. La CI locale
 resta il ripiego (GitHub giù, una prova su un sistema vero) e la sonda degli harness gira solo in locale, perché vuole
 il `claude` installato.
+
+### D-153 · English first: l'app in inglese, l'italiano come scelta
+**Stato:** in corso · 21/10/2026 (fondamenta fatte; testi spostati a onde)
+**Contesto:** fino alla alpha.19 ogni testo era italiano scritto nel codice (circa 3.000 testi nella UI, 2.000 nel core
+e nei pacchetti, i template dei prompt). Il progetto è open source e si rivolge anche a chi non parla italiano
+(decisione di Giulio del 20/10/2026, via del 21/10).
+**Scelta:**
+- **Due lingue diverse.** La *lingua dell'app* (`en|it`): UI, messaggi del core, Telegram, menu e pagine dell'app
+  desktop. La *lingua dei mostri* resta la risposta `lingua` dell'onboarding (`it|en|es|fr|de`).
+- **Dove sta:** `language` in `settings.json`, scritta alla prima partenza del core (`resolveAppLanguage`):
+  un'installazione che ha già un account resta `it` (l'app era solo italiana: nessuna sorpresa per chi la usa),
+  una nuova prende la lingua del sistema (`MONSTERS_LANG`, che l'app desktop ricava da
+  `getPreferredSystemLanguages()` o dall'ultima lingua detta dalla UI, poi `LANGUAGE`/`LC_ALL`/`LC_MESSAGES`/`LANG`,
+  poi `Intl`): `it*` dà italiano, tutto il resto inglese. Si cambia da Impostazioni → Generale e dalla prima
+  schermata (accanto all'accesso). `GET /api/setup-status` la dice anche prima dell'accesso, `POST /api/setup` la
+  accetta con l'account, `PUT /api/settings/language` la cambia (solo il proprietario, come le altre impostazioni).
+- **Dizionari tipizzati accanto al codice** (`*.strings.ts`): `en` e `it: typeof en`, voci stringa o funzione con
+  parametri tipizzati (plurali e accordi liberi in ogni lingua, frasi intere). Lingua corrente e formattatori di date,
+  numeri, liste e ordinamento in `@monsters/shared` (`appLang`, `setAppLang`, `formatDate`, `formatNumber`,
+  `formatList`, `compareText`); le date usano la regione del sistema quando è della stessa lingua (`en-GB`).
+- **UI:** la lingua del core vince sull'ipotesi del browser; un cambio di lingua rimonta tutto l'albero React
+  (`LangRoot`), così nessun testo resta nella lingua vecchia. L'app desktop riceve la lingua dalla pagina
+  (`setLanguage` nel preload, come il tema di D-091), la tiene con le connessioni e ricostruisce i menu.
+- **Core:** i testi si scelgono quando nascono; gli eventi già nel registro restano nella lingua in cui sono stati
+  scritti (niente migrazione del registro: la ricevuta di ieri resta quella di ieri).
+- **Prompt:** i template italiani restano identici e si usano quando i mostri scrivono in italiano; per le altre lingue
+  template inglesi. Il parser di AGENTS.md legge le due famiglie.
+- **Nomi persistiti:** gli identificatori (rotte, id delle risposte, chiavi delle impostazioni) restano come sono. Le
+  cartelle del vault di un'installazione nuova in inglese seguono la lingua; i vault esistenti non cambiano.
+- **Guardia** `scripts/check-i18n.ts` in `pnpm lint`: testo JSX e attributi visibili scritti a mano, frasi italiane
+  fuori dai dizionari. Durante il passaggio una baseline per file (`scripts/check-i18n.baseline.json`) impedisce di
+  aggiungerne; alla fine è vuota. Guida e glossario in `docs/i18n.md`.
+- **Test:** di base in inglese (`MONSTERS_LANG=en`, `MONSTERS_LOCALE=en-US` in `vitest.env.ts`).
+**Motivazione:** due lingue tenute separate evitano che cambiare la lingua dell'interfaccia riscriva le istruzioni dei
+mostri o la lingua delle note. Dizionari accanto al codice e tipizzati: nessun file centrale su cui più persone si
+pestano i piedi, nessuna chiave dimenticata, nessuna libreria. Chi c'è resta in italiano e nessun prompt italiano
+cambia, quindi il comportamento misurato dalle eval resta quello.
+**Conseguenza:** ogni testo nuovo va in un dizionario in due lingue (la guardia lo pretende). I testi esistenti passano nei dizionari a onde
+per area (UI, core e pacchetti, prompt, vault, documenti); la baseline della guardia ne tiene il conto.

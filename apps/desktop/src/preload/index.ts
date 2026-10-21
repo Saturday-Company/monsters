@@ -127,6 +127,8 @@ if (process.argv.includes('--monsters-page=connections')) {
         ipcRenderer.send('monsters:status-action', String(action)),
       // `system`, `light` or `dark`, checked again by the main process.
       setTheme: (choice: string): void => ipcRenderer.send('monsters:theme', String(choice)),
+      // `en` or `it`, checked again by the main process (D-153).
+      setLanguage: (lang: string): void => ipcRenderer.send('monsters:language', String(lang)),
       // A boolean only, checked again by the main process.
       loginItem: (): Promise<unknown> => ipcRenderer.invoke('monsters:login-item'),
       setLoginItem: (enabled: boolean): Promise<unknown> =>

@@ -1,7 +1,9 @@
 import { initNewsSeen } from './news.ts';
 import {
+  appLang,
   DRAFT_EVENT_TYPES,
   type AgentSummary,
+  type Lang,
   type AnswerRequest,
   type LogEvent,
   type Question,
@@ -12,6 +14,7 @@ import { create } from 'zustand';
 import { ApiClient, ApiError, describeError, type SetupBody } from '../lib/api.ts';
 import { StreamClient, type ConnectionState } from '../lib/stream.ts';
 import { desktop } from '../lib/desktop.ts';
+import { applyLang } from '../lib/i18n.ts';
 import { joinTabs, recoverSessionSecret, sessionSecret } from '../lib/session-secret.ts';
 import type { Transport } from '../lib/transport.ts';
 import { automationPath, MCP_SIGN_IN_PATH, SPEND_CAP_PATH } from '../lib/router.ts';
@@ -452,10 +455,16 @@ async function checkSession(): Promise<void> {
   }
 }
 
+/** The language the core said at boot (D-153); null for an older core. */
+let coreLang: Lang | null = null;
+
 export async function boot(): Promise<void> {
   const c = client();
   try {
     const setup = await c.setupStatus();
+    // The core's language wins over the browser's guess (D-153).
+    if (setup.language) applyLang(setup.language);
+    coreLang = setup.language ?? null;
     if (setup.needsSetup) {
       useApp.setState({ phase: 'setup' });
       return;
@@ -538,7 +547,8 @@ export interface EnterOptions {
 }
 
 export async function setup(body: SetupBody, opts: EnterOptions = {}): Promise<void> {
-  const res = await client().setup(body);
+  // The language of the first screen goes with the account (D-153).
+  const res = await client().setup({ language: appLang(), ...body });
   await opts.beforeEnter?.();
   useApp.setState({ email: res.email });
   await loadWorkspace();
@@ -552,6 +562,15 @@ export async function login(
 ): Promise<void> {
   const res = await client().login(email, password);
   await opts.beforeEnter?.();
+  // A language chosen on the sign-in screen (D-153) becomes the core's.
+  if (coreLang && appLang() !== coreLang) {
+    await client()
+      .setLanguage(appLang())
+      .then(() => {
+        coreLang = appLang();
+      })
+      .catch(() => {});
+  }
   useApp.setState({ email: res.email });
   await loadWorkspace();
 }

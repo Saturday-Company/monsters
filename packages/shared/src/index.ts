@@ -11,6 +11,7 @@ export * from './events.ts';
 export * from './files.ts';
 export * from './mention.ts';
 export * from './halted.ts';
+export * from './i18n.ts';
 export * from './ids.ts';
 export * from './instinct.ts';
 export * from './log-archive.ts';

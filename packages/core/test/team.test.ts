@@ -179,6 +179,7 @@ describe('team', () => {
     };
     const t = await startTestHub({}, { hub: { providers: undefined, fetch: fakeFetch } });
     expect(await t.json('GET', '/api/settings')).toEqual({
+      language: 'en',
       openrouterKey: { set: false, freeOnly: true },
       braveKey: { set: false },
       webSearch: {

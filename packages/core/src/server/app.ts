@@ -1,4 +1,5 @@
 import {
+  appLang,
   ConfirmRequestSchema,
   EventTypeSchema,
   EventsQuerySchema,
@@ -31,6 +32,7 @@ import {
   THUMBS_TICKET_RESOURCE,
 } from '../auth/auth-service.ts';
 import { isLoopbackHost, type CoreConfig } from '../config.ts';
+import { saveAppLanguage } from '../i18n.ts';
 import type { RunController } from '../kill/run-controller.ts';
 import type { EventLog } from '../log/event-log.ts';
 import type { ContinuedRun } from '../team/resume-work.ts';
@@ -107,7 +109,7 @@ const OWNER_ONLY: readonly { methods: ReadonlySet<string>; path: RegExp }[] = [
   { methods: new Set(['PUT']), path: /^\/api\/profile\/?$/ },
   {
     methods: new Set(['PUT']),
-    path: /^\/api\/settings\/(?:spend|instinct|decisions)\/?$/,
+    path: /^\/api\/settings\/(?:spend|instinct|decisions|language)\/?$/,
   },
   // Telegram: the main bot, the pairing, the paired accounts, the dedicated bots.
   { methods: UNSAFE_METHODS, path: /^\/api\/telegram(?:\/|$)/ },
@@ -482,7 +484,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
     return c.json({ ok: true, version: CORE_VERSION });
   });
 
-  app.get('/api/setup-status', (c) => c.json({ needsSetup: auth.needsSetup() }));
+  app.get('/api/setup-status', (c) =>
+    c.json({ needsSetup: auth.needsSetup(), language: appLang() }),
+  );
 
   app.post('/api/setup', async (c) => {
     if (!auth.needsSetup()) return c.json({ error: 'already_configured' }, 409);
@@ -492,6 +496,10 @@ export function createApp(deps: AppDeps): Hono<Env> {
     // one-time code printed by `monsters start` proves access to the terminal.
     if (!auth.checkSetupCode(body.data.setupCode)) {
       return c.json({ error: 'invalid_setup_code' }, 403);
+    }
+    // The language picked on the first screen (D-153).
+    if (body.data.language && body.data.language !== appLang()) {
+      saveAppLanguage(deps.config.home, body.data.language, process.env);
     }
     try {
       const session = await auth.setup(body.data.email, body.data.password, 'ui', {

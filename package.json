@@ -20,7 +20,8 @@
   "scripts": {
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
-    "lint": "node scripts/check-public.ts && eslint . --max-warnings 0",
+    "lint": "node scripts/check-public.ts && node scripts/check-i18n.ts && eslint . --max-warnings 0",
+    "check:i18n": "node scripts/check-i18n.ts",
     "check:public": "node scripts/check-public.ts",
     "test": "vitest run",
     "test:watch": "vitest",

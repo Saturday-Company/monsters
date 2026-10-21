@@ -2,6 +2,7 @@ import {
   ClaudeConnectionsResponseSchema,
   type ClaudeConnectionRequest,
   type ClaudeConnectionsResponse,
+  type Lang,
 } from '@monsters/shared';
 import { MemoryOwnResponseSchema, type MemoryOwnResponse } from '@monsters/shared';
 import { LogArchiveStatusSchema, type LogArchiveStatus } from '@monsters/shared';
@@ -594,6 +595,11 @@ export class ApiClient {
   }
 
   /** Paid OpenRouter models on (`freeOnly: false`) or off: applied at once by the core. */
+  /** The app's language (D-153). */
+  setLanguage(language: Lang): Promise<SettingsResponse> {
+    return this.call('PUT', '/api/settings/language', SettingsResponseSchema, { language });
+  }
+
   setOpenRouterFreeOnly(freeOnly: boolean): Promise<SettingsResponse> {
     return this.call('PUT', '/api/settings/openrouter', SettingsResponseSchema, { freeOnly });
   }

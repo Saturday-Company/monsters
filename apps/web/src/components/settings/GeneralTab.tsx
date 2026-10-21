@@ -1,8 +1,9 @@
 import { Copy, Desktop, Moon, SignOut, Sun } from '@phosphor-icons/react';
-import { PASSWORD_MIN_LENGTH, type SettingsResponse } from '@monsters/shared';
+import { LANGS, PASSWORD_MIN_LENGTH, type Lang, type SettingsResponse } from '@monsters/shared';
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { desktop, loginItemState, type DesktopLoginItem } from '../../lib/desktop.ts';
 import { playSound } from '../../lib/sound.ts';
+import { applyLang, LANG_NAMES, useAppLang } from '../../lib/i18n.ts';
 import { domId } from '../../lib/utils.ts';
 import { ApiError } from '../../lib/api.ts';
 import { getApi, logout, notify, useApp } from '../../store/app.ts';
@@ -11,6 +12,7 @@ import { Button } from '../ui/button.tsx';
 import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { teamError, useSettings } from './data.ts';
+import { generalStrings } from './general.strings.ts';
 import { fieldOnGroup, FormField, Group, Row, RowBody } from './parts.tsx';
 
 /*
@@ -19,25 +21,58 @@ import { fieldOnGroup, FormField, Group, Row, RowBody } from './parts.tsx';
  * folder and where the keys are kept (D-042).
  */
 
+function Language() {
+  const s = generalStrings().language;
+  const lang = useAppLang();
+  const [busy, setBusy] = useState(false);
+  const change = async (next: Lang) => {
+    if (next === lang) return;
+    setBusy(true);
+    try {
+      await getApi().setLanguage(next);
+      // Remounts the UI in the new language: this row goes with it.
+      applyLang(next);
+    } catch {
+      notify(s.failed, 'error');
+      setBusy(false);
+    }
+  };
+  return (
+    <Row label={s.label} description={s.hint} wrap>
+      <Segmented<Lang>
+        value={lang}
+        onChange={(v) => {
+          if (!busy) void change(v);
+        }}
+        label={s.label}
+        size="sm"
+        options={LANGS.map((l) => ({ value: l, label: <span lang={l}>{LANG_NAMES[l]}</span> }))}
+      />
+    </Row>
+  );
+}
+
 function Appearance() {
+  const s = generalStrings().appearance;
   const theme = usePrefs((p) => p.theme);
   const still = usePrefs((p) => p.reduceMotion);
   const sounds = usePrefs((p) => p.sounds);
   const details = usePrefs((p) => p.showDetails);
   return (
-    <Group title="Aspetto" id="settings-aspetto" testId="settings-appearance">
-      <Row label="Tema" description="Chiaro, scuro o come il resto del computer." wrap>
+    <Group title={s.title} id="settings-aspetto" testId="settings-appearance">
+      <Language />
+      <Row label={s.theme} description={s.themeHint} wrap>
         <Segmented<ThemeChoice>
           value={theme}
           onChange={(v) => setPrefs({ theme: v })}
-          label="Tema"
+          label={s.theme}
           size="sm"
           options={[
             {
               value: 'light',
               label: (
                 <>
-                  <Sun size={16} aria-hidden /> Chiaro
+                  <Sun size={16} aria-hidden /> {s.light}
                 </>
               ),
             },
@@ -45,7 +80,7 @@ function Appearance() {
               value: 'dark',
               label: (
                 <>
-                  <Moon size={16} aria-hidden /> Scuro
+                  <Moon size={16} aria-hidden /> {s.dark}
                 </>
               ),
             },
@@ -53,31 +88,23 @@ function Appearance() {
               value: 'system',
               label: (
                 <>
-                  <Desktop size={16} aria-hidden /> Sistema
+                  <Desktop size={16} aria-hidden /> {s.system}
                 </>
               ),
             },
           ]}
         />
       </Row>
-      <Row
-        label="Riduci movimento"
-        description="I mostri restano fermi e le animazioni diventano semplici cambi di stato."
-        htmlFor="reduce-motion"
-      >
+      <Row label={s.reduceMotion} description={s.reduceMotionHint} htmlFor="reduce-motion">
         <Switch
           words
           id="reduce-motion"
           checked={still}
           onCheckedChange={(v) => setPrefs({ reduceMotion: v })}
-          label="Riduci movimento"
+          label={s.reduceMotion}
         />
       </Row>
-      <Row
-        label="Suoni"
-        description="Piccoli clic dei tasti e della leva, e un segnale quando un mostro ti chiede qualcosa."
-        htmlFor="sounds"
-      >
+      <Row label={s.sounds} description={s.soundsHint} htmlFor="sounds">
         <Switch
           words
           id="sounds"
@@ -87,20 +114,16 @@ function Appearance() {
             // The lever of the switch itself says the sounds are on.
             if (v) playSound('lever', { force: true });
           }}
-          label="Suoni"
+          label={s.sounds}
         />
       </Row>
-      <Row
-        label="Mostra i dettagli tecnici"
-        description="Sotto le risposte dei mostri: strumenti usati, tempo, costo e modello."
-        htmlFor="show-details"
-      >
+      <Row label={s.details} description={s.detailsHint} htmlFor="show-details">
         <Switch
           words
           id="show-details"
           checked={details}
           onCheckedChange={(v) => setPrefs({ showDetails: v })}
-          label="Mostra i dettagli tecnici"
+          label={s.details}
         />
       </Row>
     </Group>
@@ -112,6 +135,7 @@ function Appearance() {
  * it when shown and when the app's menus change it. Only in an app that has the bridge.
  */
 function DesktopApp() {
+  const s = generalStrings().app;
   const d = desktop();
   const [state, setState] = useState<DesktopLoginItem | null>(null);
   const [busy, setBusy] = useState(false);
@@ -138,29 +162,19 @@ function DesktopApp() {
       const next = loginItemState(await set(enabled));
       if (next) setState(next);
       if (!next || next.enabled !== enabled) {
-        notify(next?.note ?? 'Il sistema non mi ha lasciato cambiarlo. Riprova.', 'error');
+        notify(next?.note ?? s.refused, 'error');
       }
     } catch {
-      notify('Il sistema non mi ha lasciato cambiarlo. Riprova.', 'error');
+      notify(s.refused, 'error');
     } finally {
       setBusy(false);
     }
   };
   return (
-    <Group
-      title="App"
-      id="settings-app"
-      testId="settings-desktop-app"
-      footer="Vale per l’app di questo computer, anche quando mostra un altro computer."
-    >
+    <Group title={s.title} id="settings-app" testId="settings-desktop-app" footer={s.footer}>
       <Row
-        label="Apri all’accesso"
-        description={
-          state.supported
-            ? (state.note ??
-              'Quando entri nel computer Monsters si apre da solo, senza finestra: resta l’icona vicino all’orologio e i mostri lavorano anche se non lo apri tu.')
-            : state.note
-        }
+        label={s.openAtLogin}
+        description={state.supported ? (state.note ?? s.openAtLoginHint) : state.note}
         htmlFor="open-at-login"
       >
         <Switch
@@ -169,7 +183,7 @@ function DesktopApp() {
           checked={state.enabled}
           disabled={!state.supported || busy}
           onCheckedChange={(v) => void change(v)}
-          label="Apri all’accesso"
+          label={s.openAtLogin}
         />
       </Row>
     </Group>
@@ -191,6 +205,7 @@ function PasswordForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const s = generalStrings().password;
   const id = domId(useId());
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -201,24 +216,19 @@ function PasswordForm({
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const found: Record<string, string> = {};
-    if (!current) found['current'] = 'Scrivi la password che usi adesso.';
+    if (!current) found['current'] = s.currentMissing;
     if (next.length < PASSWORD_MIN_LENGTH) {
-      found['next'] = `Almeno ${PASSWORD_MIN_LENGTH} caratteri.`;
+      found['next'] = s.minLength(PASSWORD_MIN_LENGTH);
     } else if (next === current) {
-      found['next'] = 'È uguale a quella di adesso.';
+      found['next'] = s.same;
     }
-    if (!found['next'] && again !== next) found['again'] = 'Le due password non sono uguali.';
+    if (!found['next'] && again !== next) found['again'] = s.mismatch;
     setErrors(found);
     if (Object.keys(found).length > 0) return;
     setBusy(true);
     try {
       const closed = await submit(current, next);
-      notify(
-        closed > 0
-          ? `Password cambiata. Gli altri accessi (${closed}) dovranno entrare con quella nuova.`
-          : 'Password cambiata.',
-        'success',
-      );
+      notify(closed > 0 ? s.changedOthers(closed) : s.changed, 'success');
       onDone();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'wrong_password') {
@@ -256,16 +266,9 @@ function PasswordForm({
   return (
     <form onSubmit={(e) => void onSubmit(e)} noValidate data-testid="password-form">
       <RowBody className="sm:max-w-[420px]">
-        {field('current', 'Password attuale', current, setCurrent, 'current-password')}
-        {field(
-          'next',
-          'Nuova password',
-          next,
-          setNext,
-          'new-password',
-          `Almeno ${PASSWORD_MIN_LENGTH} caratteri.`,
-        )}
-        {field('again', 'Ripeti la nuova password', again, setAgain, 'new-password')}
+        {field('current', s.current, current, setCurrent, 'current-password')}
+        {field('next', s.next, next, setNext, 'new-password', s.minLength(PASSWORD_MIN_LENGTH))}
+        {field('again', s.again, again, setAgain, 'new-password')}
         {errors['form'] && (
           <p className="text-footnote text-stop-ink" role="alert">
             {errors['form']}
@@ -273,10 +276,10 @@ function PasswordForm({
         )}
         <div className="flex gap-2">
           <Button type="submit" size="sm" disabled={busy} onClick={() => playSound('click')}>
-            {busy ? 'Cambio…' : 'Cambia password'}
+            {busy ? s.changing : s.change}
           </Button>
           <Button variant="ghost" size="sm" onClick={onCancel}>
-            Annulla
+            {s.cancel}
           </Button>
         </div>
       </RowBody>
@@ -285,30 +288,22 @@ function PasswordForm({
 }
 
 function Account() {
+  const s = generalStrings().account;
   const email = useApp((s) => s.email);
   const [changing, setChanging] = useState(false);
   return (
-    <Group
-      title="Accesso"
-      id="settings-account"
-      testId="settings-account"
-      footer="La password serve per entrare dal browser, dal telefono o da un altro computer. L’app sul computer dove gira Monsters entra da sola."
-    >
-      <Row
-        label="Il tuo account"
-        description={email ?? 'Hai fatto l’accesso.'}
-        testId="account-email"
-      >
+    <Group title={s.title} id="settings-account" testId="settings-account" footer={s.footer}>
+      <Row label={s.yours} description={email ?? s.signedIn} testId="account-email">
         <Button variant="secondary" size="sm" onClick={() => void logout()}>
           <SignOut size={16} aria-hidden />
-          Esci
+          {s.signOut}
         </Button>
       </Row>
       <div>
-        <Row label="Password">
+        <Row label={s.password}>
           {!changing && (
             <Button variant="secondary" size="sm" onClick={() => setChanging(true)}>
-              Cambia password
+              {generalStrings().password.change}
             </Button>
           )}
         </Row>
@@ -327,22 +322,20 @@ function Account() {
 }
 
 function NotesFolder({ settings }: { settings: SettingsResponse | null }) {
+  const s = generalStrings().notes;
   const copy = async () => {
     if (!settings) return;
     try {
       await navigator.clipboard.writeText(settings.vaultPath);
-      notify('Percorso copiato.', 'success');
+      notify(s.copied, 'success');
     } catch {
-      notify('Non riesco a copiarlo: selezionalo e copialo a mano.', 'error');
+      notify(s.copyFailed, 'error');
     }
   };
   return (
-    <Group
-      title="Note"
-      footer="Una cartella normale di file Markdown: la puoi aprire anche con Obsidian."
-    >
+    <Group title={s.title} footer={s.footer}>
       <Row
-        label="Cartella delle note"
+        label={s.folder}
         description={
           // The path as a readout on a small screen: it is the instrument's own data.
           <span
@@ -356,8 +349,8 @@ function NotesFolder({ settings }: { settings: SettingsResponse | null }) {
         <Button
           variant="ghost"
           size="iconSm"
-          aria-label="Copia il percorso della cartella delle note"
-          title="Copia il percorso"
+          aria-label={s.copyLabel}
+          title={s.copyTitle}
           disabled={!settings}
           onClick={() => void copy()}
         >
@@ -368,37 +361,24 @@ function NotesFolder({ settings }: { settings: SettingsResponse | null }) {
   );
 }
 
-const FALLBACK_WHY: Record<NonNullable<SettingsResponse['secrets']>['reason'], string> = {
-  keychain: '',
-  forced: 'Scelto con MONSTERS_SECRETS=file.',
-  unavailable: 'Su questo computer il portachiavi non è disponibile.',
-  timeout: 'Il portachiavi non ha risposto in tempo: forse è bloccato.',
-  error: 'Il portachiavi ha dato una chiave non valida.',
-  'missing-key':
-    'Il portachiavi non ha la chiave di questa cartella: le chiavi cifrate restano dove sono e non ' +
-    'le sostituisco da solo. Salvale di nuovo; se la chiave è persa davvero, da terminale: ' +
-    'monsters secrets reset.',
-};
-
 /** Where keys and tokens are kept (D-042): one row, plus what cannot be read now. */
 function Secrets({ settings }: { settings: SettingsResponse | null }) {
+  const t = generalStrings().secrets;
   const s = settings?.secrets;
   if (!s) return null;
   const keychain = s.backend === 'keychain';
   return (
-    <Group title="Chiavi">
+    <Group title={t.title}>
       <div data-testid="secrets-status" data-backend={s.backend}>
         <Row
-          label="Dove stanno le chiavi"
+          label={t.where}
           leading={<span aria-hidden className="led" data-tone={keychain ? 'ok' : 'signal'} />}
           description={
             keychain ? (
               // The name of the system's keychain ("Secret Service") only on hover: it is jargon.
-              <span title={s.keychain ?? undefined}>
-                Cifrate, con la chiave nel portachiavi del sistema.
-              </span>
+              <span title={s.keychain ?? undefined}>{t.keychain}</span>
             ) : (
-              `In file protetti, leggibili solo dal tuo utente, non nel portachiavi. ${FALLBACK_WHY[s.reason]}`
+              t.files(t.why[s.reason])
             )
           }
         />
@@ -406,16 +386,12 @@ function Secrets({ settings }: { settings: SettingsResponse | null }) {
           <RowBody className="set-seam-t">
             {s.unreadable.length > 0 && (
               <p className="text-footnote text-stop-ink" role="status">
-                Non leggibili adesso: {s.unreadable.join(', ')}.{' '}
-                {keychain
-                  ? 'Salvale di nuovo.'
-                  : 'Sono cifrate col portachiavi: tornano quando il portachiavi risponde, oppure salvale di nuovo.'}
+                {t.unreadable(s.unreadable.join(', '))} {keychain ? t.saveAgain : t.waitKeychain}
               </p>
             )}
             {s.quarantined && s.quarantined.length > 0 && (
               <p className="text-footnote text-stop-ink" role="status">
-                Il portachiavi non aveva più la chiave di: {s.quarantined.join(', ')}. Vanno
-                inserite di nuovo.
+                {t.quarantined(s.quarantined.join(', '))}
               </p>
             )}
           </RowBody>

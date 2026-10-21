@@ -23,6 +23,7 @@ import { RunController } from './kill/run-controller.ts';
 import { LogArchiver } from './log/archive.ts';
 import { EventLog } from './log/event-log.ts';
 import { acquireHomeLock, type HomeLock } from './home-lock.ts';
+import { resolveAppLanguage } from './i18n.ts';
 import { createHub, type Hub, type HubOptions } from './hub.ts';
 import { registerOnboardingRoutes } from './server/routes/onboarding.ts';
 import { oauthCallbackHost } from './mcp/oauth.ts';
@@ -170,6 +171,8 @@ function wireServices(config: CoreConfig, options: StartCoreOptions, lock: HomeL
   });
   // The desktop app's own sessions belong to the core that opened them (always recent).
   auth.closeBridgeSessions();
+  // Before any text is written (D-153): an install with an account stays Italian.
+  resolveAppLanguage(paths.home, !auth.needsSetup(), options.env ?? process.env);
   const runs = new RunController({
     log,
     state,
