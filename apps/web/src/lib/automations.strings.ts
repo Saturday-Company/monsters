@@ -31,7 +31,7 @@ const en = {
   steps: (n: number) => (n === 1 ? '1 step' : `${n} steps`),
   tokens: (n: string) => `${n} tokens`,
   free: 'free',
-  limitSteps: (n: number) => `up to ${n} steps`,
+  limitSteps: (n: number) => `up to ${n} ${n === 1 ? 'step' : 'steps'}`,
   limitEur: (n: string) => `€${n} per run`,
   personalSquad: 'Personal squad',
 };
@@ -64,7 +64,7 @@ const it: typeof en = {
   steps: (n) => `${n} ${n === 1 ? 'passo' : 'passi'}`,
   tokens: (n) => `${n} token`,
   free: 'gratis',
-  limitSteps: (n) => `al massimo ${n} passi`,
+  limitSteps: (n) => `al massimo ${n} ${n === 1 ? 'passo' : 'passi'}`,
   limitEur: (n) => `${n} € a giro`,
   personalSquad: 'Squadra personale',
 };

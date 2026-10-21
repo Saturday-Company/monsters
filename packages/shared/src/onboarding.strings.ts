@@ -89,7 +89,7 @@ const en: Record<string, OnboardingQuestionTexts> = {
       delete: 'Delete',
       goal: 'Change a goal',
     },
-    freeText: 'Anything else to always ask you about',
+    freeText: 'For example: before touching my work files',
     reply: 'Promise: on these we always ask first.',
   },
   tono: {

@@ -3,7 +3,7 @@ import { defineStrings } from '../../lib/i18n.ts';
 /* The Files section and the file chips (D-153). */
 
 const en = {
-  filters: { all: 'All', images: 'Images', documents: 'Documents', monsters: 'From the monsters' },
+  filters: { all: 'All', images: 'Images', documents: 'Documents', monsters: 'Monsters' },
   deleted: (name: string) => `I deleted ${name}.`,
   openLabel: (name: string) => `${name}: open in the preview`,
   download: (name: string) => `Download ${name}`,

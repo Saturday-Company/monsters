@@ -4,7 +4,7 @@ import { defineStrings } from '../../lib/i18n.ts';
 
 const en = {
   trial: 'On trial',
-  invalidKey: 'TypeSafe doesn’t recognise this key.',
+  invalidKey: 'TypeSafe doesn’t recognize this key.',
   verificationFailed: 'I can’t verify the key with TypeSafe. Check your connection and try again.',
   keyFromEnv: 'The key comes from TYPESAFE_API_KEY on the computer: change it there.',
   noKey:

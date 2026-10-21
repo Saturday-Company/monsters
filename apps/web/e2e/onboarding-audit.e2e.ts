@@ -66,7 +66,9 @@ test('a key of another provider is recognised and used (2.5)', async ({ page }) 
   await page.getByLabel('Your OpenRouter key').fill('sk-ant-api03-prova-prova');
   await page.getByRole('button', { name: 'Verify and continue' }).click();
   const offer = page.getByTestId('key-offer');
-  await expect(offer).toContainText('This is a Anthropic key: shall I use it for the monsters?');
+  await expect(offer).toContainText(
+    'This is a key from Anthropic: shall I use it for the monsters?',
+  );
   await offer.getByRole('button', { name: 'Yes, use it' }).click();
   await expect(page.getByTestId('other-ways').getByTestId('access-connected')).toContainText(
     'Anthropic key verified',

@@ -17,7 +17,7 @@ const en = {
     },
     regole: {
       title:
-        'Two more things: what we never do without asking you, and how should we write to you?',
+        'Two more things: what we should never do without asking you, and how we should write to you.',
       hint: 'For everything else we work on our own and let you know at the end.',
       ask: 'Also ask me before',
       askText: 'Anything else to always ask you (if you like)',

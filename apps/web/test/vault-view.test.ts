@@ -275,7 +275,13 @@ describe('mock vault', () => {
 
 describe('instrument details', () => {
   it('stamps a note in Martian Mono order: day, month, year, time', () => {
-    expect(stampDate('2026-10-05T09:07:00')).toBe('05.10.2026 · 09:07');
+    setAppLang('it');
+    try {
+      expect(stampDate('2026-10-05T09:07:00')).toBe('05.10.2026 · 09:07');
+    } finally {
+      setAppLang('en');
+    }
+    expect(stampDate('2026-10-05T09:07:00')).toBe('Oct 5, 2026 · 9:07 AM');
     expect(stampDate(null)).toBe('');
     expect(stampDate('non è una data')).toBe('');
   });

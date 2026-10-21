@@ -5,7 +5,7 @@ import { defineStrings } from '../../lib/i18n.ts';
 const en = {
   web: {
     keyInvalid: 'Paste the full key, with no spaces.',
-    saved: 'Brave key saved: searches start from there.',
+    saved: 'Brave key saved: searches now start with Brave.',
     paidLabel: 'Paid search',
     braveLabel: 'Brave Search',
     freeLabel: 'Free search',
@@ -27,7 +27,7 @@ const en = {
     active: (cost: string) =>
       `The monsters search with OpenRouter: more reliable results, ${cost} from your key’s credit. If the credit runs out, they go back to free search on their own.`,
     noKey:
-      'You need an OpenRouter key with credit. Meanwhile the monsters search for free with DuckDuckGo and Wikipedia, which block after a few dozen searches.',
+      'You need an OpenRouter key with credit. Meanwhile the monsters search for free with DuckDuckGo and Wikipedia, which start blocking after a few dozen searches.',
     spendCap:
       'The spending cap is reached: until you raise it, or the period ends, the monsters search for free with DuckDuckGo and Wikipedia.',
     noCredit:
@@ -35,9 +35,9 @@ const en = {
     keyRejected:
       'OpenRouter rejected the key: check it in the settings. Meanwhile the monsters search for free with DuckDuckGo and Wikipedia.',
     paused:
-      'Paid search is paused because it returned no results: for now the monsters search for free with DuckDuckGo and Wikipedia, then it tries again on its own.',
+      'Paid search is paused because it returned no results: for now the monsters search for free with DuckDuckGo and Wikipedia, then tries again on its own.',
     freeOnly: (cost: string) =>
-      `Off, like paid models: the monsters search for free with DuckDuckGo and Wikipedia, which block after a few dozen searches. On it costs ${cost}.`,
+      `Off, like paid models: the monsters search for free with DuckDuckGo and Wikipedia, which start blocking after a few dozen searches. On it costs ${cost}.`,
     off: (cost: string) =>
       `Off: the monsters search for free with DuckDuckGo and Wikipedia. On it costs ${cost}.`,
     turnedOn: 'Paid search on, right away.',

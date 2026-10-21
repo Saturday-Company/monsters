@@ -142,6 +142,15 @@ export function formatDate(
   ).format(ts);
 }
 
+/**
+ * The options of a clock time: Italian keeps the two-digit hour ("09:05", "16:00"),
+ * English drops the leading zero ("9:05 AM", "4:00 PM"; a 24-hour locale such as
+ * en-GB still pads it by itself).
+ */
+export function timeOptions(lang: Lang = current): Intl.DateTimeFormatOptions {
+  return { hour: lang === 'it' ? '2-digit' : 'numeric', minute: '2-digit' };
+}
+
 /** "A", "A and B", "A, B and C" in the language in use. */
 export function formatList(items: readonly string[], lang?: Lang): string {
   try {

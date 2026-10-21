@@ -42,7 +42,7 @@ export function HaltBanner() {
         {again && (
           <span className="text-ink-muted" data-testid="halt-again">
             {' '}
-            {t.again(again)}
+            {t.again(again, work?.requests.length ?? 0)}
           </span>
         )}
       </p>

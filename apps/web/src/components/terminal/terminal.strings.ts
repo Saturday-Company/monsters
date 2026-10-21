@@ -14,7 +14,7 @@ const en = {
   stoppedMidway: 'stopped midway',
   failed: 'failed',
   done: 'done',
-  stoppedByStop: 'Stopped by the stop',
+  stoppedByStop: 'Stopped by the kill switch',
   tool: 'tool:',
   dataSent: 'Data sent',
   result: 'Result',

@@ -17,7 +17,7 @@ async function expireDemoQuestion(page: Page): Promise<void> {
   await expect(page.getByTestId('question-card').first()).toHaveAttribute('data-status', 'expired');
   await expect(page.getByRole('combobox', { name: 'Message' })).toHaveAttribute(
     'placeholder',
-    /^Write to Titan/,
+    /^Message Titan/,
   );
 }
 
@@ -91,7 +91,7 @@ test('answering a question with options', async ({ page }) => {
   await expect(card.getByRole('button')).toHaveCount(3);
   await expect(page.getByRole('combobox', { name: 'Message' })).toHaveAttribute(
     'placeholder',
-    'Write to Titan, or press A, B or C',
+    'Message Titan, or press A, B or C',
   );
   await expect(page.getByTestId('chat-status')).toContainText('Waiting for your answer');
 
@@ -159,7 +159,7 @@ test('answering with free text, from the composer', async ({ page }) => {
   await page.getByRole('button', { name: 'Send the answer' }).click();
   await expect(card).toHaveAttribute('data-status', 'answered');
   await expect(card).toContainText('You answered: A bit poetic');
-  await expect(input).toHaveAttribute('placeholder', /^Write to Titan…/);
+  await expect(input).toHaveAttribute('placeholder', /^Message Titan…/);
 });
 
 test('an open question out of sight: a bar above the composer brings it back', async ({ page }) => {
@@ -360,7 +360,7 @@ test('kill switch and resume', async ({ page }) => {
   await expect(input).toBeEnabled();
   await expect(input).toHaveAttribute(
     'placeholder',
-    'Write: the message goes out when you press Resume',
+    'Go ahead and write: the message goes out when you press Resume',
   );
   await input.fill('When you’re back, prepare me the shopping list');
   await input.press('Enter');

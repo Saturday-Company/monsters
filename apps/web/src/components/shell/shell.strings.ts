@@ -1,5 +1,5 @@
 import { defineStrings } from '../../lib/i18n.ts';
-import { toName } from '../../lib/utils.ts';
+import { toNameIt } from '../../lib/utils.strings.ts';
 
 /* The shell: rail, sidebar, palette, status display, Stop, sheets and errors (D-153). */
 
@@ -82,7 +82,9 @@ const en = {
     reason: (reason: string) => `Reason: ${reason}. `,
     pending: (left: string) => `Pending: ${left}. `,
     canWrite: 'You can write: the messages go out when you resume.',
-    again: (again: string) => `With “Resume and continue”, ${again} start again.`,
+    /** `again`: "the message for Titan"; `n`: how many messages, for the verb. */
+    again: (again: string, n: number) =>
+      `With “Resume and continue”, ${again} ${n === 1 ? 'is' : 'are'} sent again.`,
     resume: 'Resume',
     resumeAndContinue: 'Resume and continue',
   },
@@ -119,8 +121,8 @@ const en = {
       automations: { label: 'Automations', short: 'Auto' },
       notes: { label: 'Notes', short: 'Notes' },
       files: { label: 'Files', short: 'Files' },
-      log: { label: 'Activity', short: 'Log' },
-      settings: { label: 'Settings', short: 'Prefs' },
+      log: { label: 'Activity', short: 'Activity' },
+      settings: { label: 'Settings', short: 'Settings' },
     },
   },
   computer: {
@@ -196,7 +198,7 @@ const it: typeof en = {
     hintOpen: '↵ apri',
     hintClose: 'esc chiudi',
     lead: 'Il tuo capo',
-    youTo: (name) => `Tu, ${toName(name)}`,
+    youTo: (name) => `Tu, ${toNameIt(name)}`,
     commands: {
       newNote: { label: 'Nuova nota' },
       automations: {

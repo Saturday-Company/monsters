@@ -5,6 +5,7 @@ import {
   formatDate,
   isUserChannel,
   localTimeZone,
+  timeOptions,
   ulid,
   WEB_SEARCH_USAGE_PROVIDER,
   type Automation,
@@ -999,8 +1000,7 @@ export class AutomationService {
         weekday: 'long',
         day: 'numeric',
         month: 'long',
-        hour: '2-digit',
-        minute: '2-digit',
+        ...timeOptions(lang),
       },
       lang,
     );

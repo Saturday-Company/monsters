@@ -31,7 +31,9 @@ test('settings: change what a monster may do, saved at once and logged', async (
   await releaseMock(page);
   await expect(page.getByText('Rhea’s permissions saved.')).toBeVisible();
   await expect(rhea.getByRole('switch', { name: 'The web', exact: true })).toBeEnabled();
-  await expect(rhea.getByTestId('shell-warning')).toContainText('everything you can do');
+  await expect(rhea.getByTestId('shell-warning')).toContainText(
+    'anything on the computer that you can',
+  );
   await expect(rhea.getByTestId('permissions-summary')).toHaveText('Notes, web, terminal');
 
   // Folders: a relative path is caught in the page, the vault by the core.

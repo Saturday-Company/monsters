@@ -1,4 +1,4 @@
-import { formatDate } from '@monsters/shared';
+import { appLang, formatDate, timeOptions } from '@monsters/shared';
 import { Gear, LockSimple, User } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
 import { noteName, plainText } from '../../lib/markdown.ts';
@@ -49,17 +49,21 @@ export function longDate(date: string | null | undefined): string {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+        ...timeOptions(),
       });
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-/** "15.10.2026 · 20:49": the stamp above a note, read like an instrument (Martian Mono). */
+/**
+ * The stamp above a note, read like an instrument (Martian Mono): "15.10.2026 · 20:49" in Italian,
+ * "Oct 15, 2026 · 8:49 PM" in English.
+ */
 export function stampDate(date: string | null | undefined): string {
   const t = vaultTime(date);
   if (t === null) return '';
+  if (appLang() !== 'it')
+    return `${formatDate(t, { day: 'numeric', month: 'short', year: 'numeric' })} · ${formatDate(t, timeOptions())}`;
   const d = new Date(t);
   return `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()} · ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }

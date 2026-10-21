@@ -74,7 +74,7 @@ describe('sentences with the thing that changed', () => {
   it('the tools a server paused', () => {
     const s = mcpStrings().paused;
     expect(s.summary(1, true)).toContain('has a new tool');
-    expect(s.summary(1, false)).toContain('has a changed tool');
+    expect(s.summary(1, false)).toContain('has a tool that changed');
     expect(s.summary(3, true)).toContain('has 3 new or changed tools');
     expect(s.accepted(1)).toBe('Tool accepted.');
     expect(s.accepted(2)).toBe('Tools accepted.');
@@ -107,7 +107,7 @@ describe('sentences with the thing that changed', () => {
     expect(teamError(new ApiError(409, 'name_taken', 'That name is taken'))).toBe(
       'That name is taken',
     );
-    expect(nameProblem('Rhea 2')).toBe('Letters only, 24 at most.');
+    expect(nameProblem('Rhea 2')).toBe('Letters only, up to 24.');
     setAppLang('it');
     expect(nameProblem('Rhea 2')).toBe('Solo lettere, al massimo 24.');
   });

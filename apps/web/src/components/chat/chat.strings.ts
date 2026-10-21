@@ -1,5 +1,5 @@
 import { defineStrings } from '../../lib/i18n.ts';
-import { toName } from '../../lib/utils.ts';
+import { toNameIt } from '../../lib/utils.strings.ts';
 
 /* The chats: list, monitor, panel, composer, cards and receipt (D-153). */
 
@@ -38,7 +38,7 @@ const en = {
     newConversation: 'New conversation',
   },
   list: {
-    search: 'Search monsters and notes',
+    search: 'Search anything',
     hint: (mac: boolean) =>
       `${mac ? 'Command K' : 'Control K'} from anywhere. In the squad, up and down arrows move between chats.`,
     nav: 'Monsters’ chats',
@@ -61,7 +61,7 @@ const en = {
     behind: (name: string) => `Behind the scenes of ${name}`,
     asleep: 'asleep',
     waitingAnswer: 'waiting for your answer',
-    questionForYou: 'question for you',
+    questionForYou: 'asks you',
     problem: 'has a problem',
     changingCourse: 'changing course',
     writing: 'writing…',
@@ -79,7 +79,7 @@ const en = {
   greeting: {
     lively: (name: string) => `Here I am! I’m ${name}.`,
     calm: (name: string) => `Hi, I’m ${name}.`,
-    noModel: 'To work I only need a model: connect one and we’ll start.',
+    noModel: 'I just need a model to get to work: connect one and we’ll start.',
     orchestratorLively:
       'Tell me what you need: I’ve got it, and if needed I’ll wake someone on the squad.',
     orchestratorCalm:
@@ -88,8 +88,8 @@ const en = {
       'Tell me what the project needs: I’ve got it, and if needed I’ll pass it to the project’s monsters.',
     leadCalm:
       'Tell me what the project needs: I’ll take care of it and, if needed, pass it to the project’s monsters.',
-    memberLively: 'Write to me here: I’ll answer on the spot, without going through the others.',
-    memberCalm: 'Write to me here: I’ll answer you myself, without going through the others.',
+    memberLively: 'Message me here: I’ll answer on the spot, without going through the others.',
+    memberCalm: 'Message me here: I’ll answer you myself, without going through the others.',
     roleLead: (text: string) => `My role: ${text}. `,
     roleMember: (text: string) => `What I do: ${text}. `,
   },
@@ -131,7 +131,7 @@ const en = {
     drop: 'Drop the files here to attach them',
     freshAutomation: (name: string) => `${name} is working on an automation.`,
     freshLead: (name: string) => `${name} is working.`,
-    freshMember: (name: string) => `${name} is working on a task coming from another monster.`,
+    freshMember: (name: string) => `${name} is working on a task from another monster.`,
     newMessages: 'New messages',
     seeRun: 'See the run',
     needsModel: 'A model is needed to work',
@@ -140,19 +140,19 @@ const en = {
     connectFirst: 'Connect a model first',
     offlineWide: 'Not connected: go ahead and write, the message stays here',
     offlineNarrow: 'Not connected: the message stays here',
-    haltedWide: 'Write: the message goes out when you press Resume',
-    haltedNarrow: 'Goes out when you press Resume',
+    haltedWide: 'Go ahead and write: the message goes out when you press Resume',
+    haltedNarrow: 'Sent when you resume',
     answer: (from: string) => `Answer ${from}`,
-    writeOrPress: (from: string, letters: string) => `Write to ${from}, or press ${letters}`,
+    writeOrPress: (from: string, letters: string) => `Message ${from}, or press ${letters}`,
     answerOrPick: (from: string) => `Answer ${from} or pick an option`,
-    writeWide: (name: string) => `Write to ${name}… (@ for another monster)`,
-    writeNarrow: (name: string) => `Write to ${name}…`,
+    writeWide: (name: string) => `Message ${name}… (@ for another monster)`,
+    writeNarrow: (name: string) => `Message ${name}…`,
     letters: (letters: readonly string[]) =>
       letters.length <= 1
         ? letters.join('')
         : `${letters.slice(0, -1).join(', ')} or ${letters.at(-1)}`,
     pickMonster: 'Pick a monster',
-    writeTo: 'Write to',
+    writeTo: 'Message',
     sendBefore: 'I’m sending it to ',
     sendAfter: ', in their chat',
     answeringBefore: 'Answering ',
@@ -201,7 +201,7 @@ const en = {
     created: 'Created:',
     openChat: (name: string) => `Open ${name}’s chat`,
     left: 'Left alone: you didn’t create it.',
-    added: (name: string) => `${name} is on the squad: write to them from their chat.`,
+    added: (name: string) => `${name} is on the squad: message it from its chat.`,
   },
   question: {
     expired: {
@@ -284,7 +284,7 @@ const it: typeof en = {
     stoppedSentence: (name, task) => `Il lavoro di ${name} si è fermato: ${task}`,
     failedHead: (name) => `${name} non ce l’ha fatta`,
     failedSentence: (name, task) => `${name} non ce l’ha fatta: ${task}`,
-    handedSentence: (from, to, task) => `${from} ha passato un compito ${toName(to)}: ${task}`,
+    handedSentence: (from, to, task) => `${from} ha passato un compito ${toNameIt(to)}: ${task}`,
     behindTitle: (sentence, name) => `${sentence} · Dietro le quinte di ${name} (terminale)`,
     decision: 'Decisione dei mostri: ',
     done: 'Fatto',
@@ -409,11 +409,11 @@ const it: typeof en = {
     offlineNarrow: 'Non collegato: il messaggio resta qui',
     haltedWide: 'Scrivi: il messaggio parte quando premi Riprendi',
     haltedNarrow: 'Parte quando premi Riprendi',
-    answer: (from) => `Rispondi ${toName(from)}`,
-    writeOrPress: (from, letters) => `Scrivi ${toName(from)}, oppure premi ${letters}`,
-    answerOrPick: (from) => `Rispondi ${toName(from)} o scegli un’opzione`,
-    writeWide: (name) => `Scrivi ${toName(name)}… (@ per un altro mostro)`,
-    writeNarrow: (name) => `Scrivi ${toName(name)}…`,
+    answer: (from) => `Rispondi ${toNameIt(from)}`,
+    writeOrPress: (from, letters) => `Scrivi ${toNameIt(from)}, oppure premi ${letters}`,
+    answerOrPick: (from) => `Rispondi ${toNameIt(from)} o scegli un’opzione`,
+    writeWide: (name) => `Scrivi ${toNameIt(name)}… (@ per un altro mostro)`,
+    writeNarrow: (name) => `Scrivi ${toNameIt(name)}…`,
     letters: (letters) =>
       letters.length <= 1
         ? letters.join('')
@@ -509,7 +509,7 @@ const it: typeof en = {
     request: 'Richiesta · ',
     quote: (text) => `«${text}»`,
     retried: 'completato dopo un promemoria',
-    steps: (n) => `${n} passi`,
+    steps: (n) => `${n} ${n === 1 ? 'passo' : 'passi'}`,
     notesSaved: 'Le note sono salvate davvero',
     notChecked: ' · non controllato',
     nothingToUndo: 'Niente da annullare',

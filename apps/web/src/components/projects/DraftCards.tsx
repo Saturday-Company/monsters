@@ -161,7 +161,7 @@ export function PlanLines({
           <dd className="grid gap-0.5 text-ink">
             {automations.map((a) => (
               <span key={a.name}>
-                <span className="font-semibold">«{a.name}»</span>{' '}
+                <span className="font-semibold">{s.quoted(a.name)}</span>{' '}
                 <span className="text-ink-muted">
                   {s.separately(describeSchedule(a.schedule.cron))}
                 </span>

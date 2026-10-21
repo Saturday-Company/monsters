@@ -10,7 +10,7 @@ const en = {
   invalidSetupCode:
     'That code isn’t right. You can find it in the terminal where you started Monsters.',
   unauthorized: 'Your session has expired. Sign in again.',
-  ownerRequired: 'Only you can decide this: it needs your password (or answer from your Telegram).',
+  ownerRequired: 'Only you can decide this: it needs your password (or your answer on Telegram).',
   confirmRequired: 'This one needs your password again.',
   sessionSecretRequired: 'This tab doesn’t have the session key: sign in again.',
   wrongPassword: 'The password isn’t right.',
@@ -26,8 +26,8 @@ const en = {
   owner: 'Your account always stays: it’s the one that approves.',
   verificationFailed:
     'I can’t verify the key with OpenRouter. Check your connection and try again.',
-  busy: 'Someone is still working: wait for them to finish or stop them, then try again.',
-  unknownAgent: 'There’s no monster with that name in the squad.',
+  busy: 'A monster is still working: wait for it to finish or stop it, then try again.',
+  unknownAgent: 'There’s no monster with that name on the squad.',
   notOpen: 'This question isn’t waiting for an answer anymore.',
   conflict: 'The note changed after this edit: undoing it would erase the work done since.',
   alreadyUndone: 'This change has already been undone.',

@@ -21,7 +21,7 @@ describe('caps higher than the one that holds them', () => {
   it('says so for a monster above the team', () => {
     expect(
       capWarnings([link('monster', 9, 'oggi', 'Rhea'), link('project', null), link('team', 3)]),
-    ).toEqual(['Monster (Rhea): higher than the squad’s cap: that one kicks in first.']);
+    ).toEqual(['Monster (Rhea): higher than the squad’s cap, which kicks in first.']);
   });
 
   it('says it in Italian with the right article', () => {

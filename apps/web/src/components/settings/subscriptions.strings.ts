@@ -22,7 +22,7 @@ const en = {
   ...openai,
   planUsage: 'Plan usage',
   welcomeNote:
-    'The monsters that use ChatGPT use up your plan. You choose the limit for Monsters in ChatGPT’s settings.',
+    'Monsters that use ChatGPT draw on your plan. You set the limit for Monsters in your ChatGPT settings.',
   chatgpt: {
     tag: 'Your plan',
     connected: (email: string | undefined) =>
@@ -31,7 +31,7 @@ const en = {
     disconnectQuestion: 'Disconnect ChatGPT?',
     disconnectConfirm: 'Yes, disconnect',
     disconnected: 'ChatGPT disconnected.',
-    addNote: 'Works with Plus and Pro and is separate from Monsters: you pay us nothing.',
+    addNote: 'Works with Plus and Pro. It’s separate from Monsters: you pay us nothing.',
     finish: 'Finish signing in, in your browser.',
     updates: 'This page updates by itself when you’re done.',
     reopen: 'Reopen the sign-in page',
@@ -50,8 +50,8 @@ const en = {
     apiKey:
       'Claude Code would use an API key: you’d pay as you go, not with the subscription. Run claude and sign in with your plan.',
     other: 'Claude Code uses another sign-in method that you set up.',
-    notFound: 'I can’t find Claude Code any more: reinstall it, or disconnect and connect again.',
-    installing: 'Installing Anthropic’s component, it takes a few minutes…',
+    notFound: 'I can’t find Claude Code anymore: reinstall it, or disconnect and connect again.',
+    installing: 'Installing Anthropic’s component: it takes a few minutes…',
     missingLogin: 'Claude Code sign-in is missing.',
     checkAgain: 'Check again',
     disconnect: 'Disconnect',
@@ -66,7 +66,7 @@ const en = {
   },
   codex: {
     tag: 'ChatGPT plan',
-    installing: 'Installing Codex, it takes a few minutes…',
+    installing: 'Installing Codex: it takes a few minutes…',
     ready: 'Ready: it uses your ChatGPT plan.',
     notInstalled: 'Codex isn’t installed yet.',
     disconnect: 'Disconnect',

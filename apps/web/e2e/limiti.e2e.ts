@@ -38,7 +38,7 @@ test('Claude plan: session, week and Opus week under the plan, with when they re
   const week = block.getByTestId('plan-window-seven_day');
   await expect(week).toContainText('Week');
   await expect(week.getByTestId('plan-percent')).toHaveText('63%');
-  await expect(week.getByTestId('plan-reset')).toHaveText(/^resets Wed 04:00 PM$/);
+  await expect(week.getByTestId('plan-reset')).toHaveText(/^resets Wed 4:00 PM$/);
 
   const opus = block.getByTestId('plan-window-seven_day_opus');
   await expect(opus).toContainText('Opus week');

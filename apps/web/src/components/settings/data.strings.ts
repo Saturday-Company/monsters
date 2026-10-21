@@ -8,12 +8,12 @@ const en = {
     codex: 'Codex (for coding)',
   },
   errors: {
-    busy: 'A monster is working: wait for them to finish or press Stop everything, then try again.',
+    busy: 'A monster is working: wait for it to finish or press Stop, then try again.',
     wrongPassword: 'The current password isn’t right.',
     samePassword: 'The new password is the same as the current one.',
     halted: 'The monsters are stopped: press “Resume”, then try again.',
   },
-  nameProblem: 'Letters only, 24 at most.',
+  nameProblem: 'Letters only, up to 24.',
 };
 
 const it: typeof en = {

@@ -12,7 +12,7 @@ The Italian version is in [`CHANGELOG.it.md`](CHANGELOG.it.md).
 ### More reliable
 - **Windows, files and terminal.** If the path of your user folder showed up in Windows’ short form (for example
   `MARIOR~1`), the monsters could find their working folder blocked: files, commands and Telegram stopped. Now the
-  folder is recognised in both forms, and a path without a drive letter stays on the right drive.
+  folder is recognized in both forms, and a path without a drive letter stays on the right drive.
 - **Keys stay safe even with linked folders.** If Monsters’ data folder sits behind a link, the key in the keychain is
   always found again.
 - **Reading web pages** is sturdier, and Electron and the other libraries are updated with their security fixes.
@@ -100,7 +100,7 @@ security) and the fixing of what it found.
 - Automations no longer stay stuck after a pause, and a run interrupted by an update restarts by itself.
 - Messages written while a monster is busy are not lost with Stop or a restart.
 - Models that think for a long time are no longer cut off after a minute; truncated answers say so (“Write
-  "continue" for the rest”); a momentary model limit doesn’t make the job fail.
+  ‘continue’ for the rest”); a momentary model limit doesn’t make the job fail.
 - Claude Code and Codex no longer hang in silence; on Windows, stopping them also closes their processes.
 - Services connected with OAuth (Notion and the others) no longer disconnect by themselves; if access expires, the
   gallery says “Access needed” and a notice arrives.

@@ -2,6 +2,7 @@ import {
   AutomationCreateSchema,
   AutomationUpdateSchema,
   describeSchedule,
+  timeOptions,
   ulid,
   type AgentSummary,
   type Automation,
@@ -171,8 +172,7 @@ export class MockAutomations {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
-            hour: '2-digit',
-            minute: '2-digit',
+            ...timeOptions(mockLang()),
           }).format(slot)
         : '';
     const head =

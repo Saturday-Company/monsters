@@ -66,7 +66,7 @@ describe('the words of the drafts and of a project’s page', () => {
     expect(s.projectReady('Social', 1)).toContain('Its first automation is waiting');
     expect(s.projectReady('Social', 3)).toContain('Its 3 automations are waiting');
     expect(s.projectReady('Social', 0)).toBe(
-      'Social is ready: write to its lead from the project page.',
+      'Social is ready: message its lead from the project page.',
     );
     expect(s.docsSubject('Instructions of Social (CLAUDE.md)')).toBe('Social (CLAUDE.md)');
     expect(s.memorySubject('Memory of Rhea')).toBe('Rhea’s memory');

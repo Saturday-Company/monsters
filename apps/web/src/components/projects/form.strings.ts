@@ -8,10 +8,10 @@ const en = {
   leadTaken: 'There’s already a monster with this name, in this squad or another one.',
   readyWithFailures: (name: string, failed: string) =>
     `${name} is ready, but I couldn’t copy ${failed}`,
-  ready: (name: string) => `${name} is ready: write to its lead from here.`,
+  ready: (name: string) => `${name} is ready: message its lead from here.`,
   title: 'New project',
   intro:
-    'A project is a squad with its own lead, its own monsters, a notes folder, its own folder on the computer and its own spending cap. Your lead stays above everyone.',
+    'A project is a squad with its own lead, its own monsters, a notes folder, its own folder on the computer and its own spending cap. Your lead still oversees everyone.',
   project: {
     title: 'The project',
     name: 'Name',
@@ -41,7 +41,7 @@ const en = {
     new: 'A new one',
     copy: 'Copy a monster',
     name: 'Lead’s name',
-    nameHint: 'Empty: I’ll pick a free name.',
+    nameHint: 'Leave it empty and I’ll pick a free name.',
     placeholder: 'Atlas',
     from: 'To copy',
     willBeCalled: (name: string | null) =>
@@ -50,14 +50,14 @@ const en = {
   first: {
     title: 'First monsters',
     description:
-      'Copy the monsters you need into the project: the original stays where it is. You can add a new tailor-made one later from the project’s Squad.',
+      'Copy the monsters you need into the project: the original stays where it is. You can add a new custom one later from the project’s Squad.',
     label: 'Monsters to copy',
   },
   links: {
     title: 'Connections',
     description:
       'The apps and services given to the whole squad reach the project too. Turn off the ones it doesn’t need: you can turn them back on whenever you like from the project’s Connections tab.',
-    viaClaude: 'Through the Claude subscription, for those who work with Claude',
+    viaClaude: 'Through your Claude subscription, for the monsters that work with Claude',
     team: 'Given to the whole squad',
     switch: (label: string) => `${label} for the project`,
   },

@@ -77,7 +77,7 @@ test('first start: model, about you, team, birth', async ({ page }) => {
   // The card says what the monster does in plain words; duties (written for the
   // model) and folder are under "Personalizza", editable: a glob or a reserved
   // folder is refused (audit 2.10).
-  await expect(tethys.getByTestId('member-area')).toContainText('in the notes “Calendar”');
+  await expect(tethys.getByTestId('member-area')).toContainText('in the notes folder “Calendar”');
   await expect(tethys).not.toContainText('vault');
   await expect(tethys).not.toContainText('You see the work through');
   await page.getByRole('button', { name: 'Customize Calendar' }).click();
@@ -105,8 +105,8 @@ test('first start: model, about you, team, birth', async ({ page }) => {
   await page.getByRole('button', { name: 'Remove Dione from the squad' }).click();
   await expect(members).toHaveCount(2);
   // The focus does not fall on the page: it is on “Put back”, ready to undo.
-  await expect(page.getByRole('button', { name: 'Put Dione back in the squad' })).toBeFocused();
-  await page.getByRole('button', { name: 'Put Dione back in the squad' }).click();
+  await expect(page.getByRole('button', { name: 'Put Dione back on the squad' })).toBeFocused();
+  await page.getByRole('button', { name: 'Put Dione back on the squad' }).click();
   await expect(members).toHaveCount(3);
   await page.getByRole('button', { name: 'Remove Dione from the squad' }).click();
   await expect(members).toHaveCount(2);

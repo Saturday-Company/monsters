@@ -6,7 +6,7 @@ import { defineStrings } from './i18n.ts';
 const en = {
   empty: 'The file is empty.',
   tooBig: 'Too big: 25 MB at most.',
-  heic: 'HEIC photos can’t be read yet: export it as JPEG.',
+  heic: 'HEIC photos can’t be read yet: export the photo as a JPEG.',
   html: 'HTML pages can’t be attached.',
   notAllowed: 'This type of file can’t be attached: images, PDFs, text and Office documents can.',
   kinds: {

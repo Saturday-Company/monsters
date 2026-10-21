@@ -14,8 +14,8 @@ const en = {
   projectReady: (title: string, later: number) =>
     later > 0
       ? `${title} is ready. ${later === 1 ? 'Its first automation is waiting' : `Its ${later} automations are waiting`} for a separate confirmation, here in To review.`
-      : `${title} is ready: write to its lead from the project page.`,
-  monsterReady: (title: string) => `${title} is in the squad: message it from its chat.`,
+      : `${title} is ready: message its lead from the project page.`,
+  monsterReady: (title: string) => `${title} is on the squad: message it from its chat.`,
   /** The subject of a docs draft from its title ("Instructions of Saturday (CLAUDE.md)"). */
   docsSubject: (title: string) => title.replace(/^(?:Instructions of|Istruzioni di) /, ''),
   /** The subject of a memory draft from its title ("Memory of Rhea"). */
@@ -35,6 +35,8 @@ const en = {
     freeName: 'a free name',
     createOnConfirm: 'I’ll create it when you confirm',
     none: 'none',
+    /** An automation's name in a line of text: “Posts” / «Post». */
+    quoted: (name: string) => `“${name}”`,
     separately: (schedule: string) => `· ${schedule}, to confirm separately`,
   },
   grant: (createFolder: boolean) =>
@@ -63,7 +65,7 @@ const en = {
     blockedLarge: 'The file is larger than 1 MB',
   },
   memoryTainted:
-    'They stay marked “from third-party text”: the jobs that read them have their defences on.',
+    'They stay marked “from third-party text”: the jobs that read them have their defenses on.',
   card: {
     proposes: (who: string, kind: string) => `${who} proposes ${kind}`,
     draft: (kind: string) => `Draft: ${kind}`,
@@ -111,6 +113,7 @@ const it: typeof en = {
     freeName: 'un nome libero',
     createOnConfirm: 'la creo alla conferma',
     none: 'nessuna',
+    quoted: (name) => `«${name}»`,
     separately: (schedule) => `· ${schedule}, da confermare a parte`,
   },
   grant: (createFolder) =>

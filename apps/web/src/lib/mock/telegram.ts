@@ -536,7 +536,7 @@ export class MockTelegram {
 }
 
 const unknownToken = () =>
-  tr('Telegram doesn’t recognise this token.', 'Telegram non riconosce questo token.');
+  tr('Telegram doesn’t recognize this token.', 'Telegram non riconosce questo token.');
 const groupGone = () => tr('This group is gone.', 'Questo gruppo non c’è più.');
 const personGone = () => tr('This person is gone.', 'Questa persona non c’è più.');
 
