@@ -116,7 +116,7 @@ describe('RunTaint sources, in the app’s language', () => {
     expect(read().source).toBe('note Inbox/Hours.md written after third-party text');
     const t = new RunTaint();
     t.observe('vault_read', {}, { content: 'x', frontmatter: { [THIRD_PARTY_PROP]: 'web' } });
-    expect(t.source).toBe('note in the vault written after third-party text');
+    expect(t.source).toBe('a note written after third-party text');
   });
 
   it('Italian, as it was', () => {

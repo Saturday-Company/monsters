@@ -164,7 +164,7 @@ const en = {
     `On trial: I would have passed the request straight to ${member}.`,
   otherMonsterWork: 'another monster’s work',
   noteAfterThirdParty: (path: string) =>
-    `note ${path || 'in the notes'} written after third-party text`,
+    path ? `note ${path} written after third-party text` : 'a note written after third-party text',
   statePreviewCut: (chars: number) => `…[${chars} characters]`,
   reasonInstinct: (version: string) => `instinct ${version}`,
 };
