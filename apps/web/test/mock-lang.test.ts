@@ -4,7 +4,7 @@ import { MockCore } from '../src/lib/mock/core.ts';
 import { mockFiles } from '../src/lib/mock/files-data.ts';
 import { ambientJobs } from '../src/lib/mock/ambient.ts';
 import { setMockLang } from '../src/lib/mock/lang.ts';
-import { notePath, noteTitle } from '../src/lib/mock/paths.ts';
+import { mockLayout, mockVaultDir, notePath, noteTitle } from '../src/lib/mock/paths.ts';
 import { MockVault } from '../src/lib/mock/vault.ts';
 
 // The mock is bilingual (D-153): the Italian content is what the e2e suite asserts on, the English
@@ -133,8 +133,15 @@ describe('the demo vault in two languages', () => {
   it('names the notes in English', () => {
     setMockLang('en');
     expect(noteTitle('lisbonTips')).toBe('Lisbon, weekend tips');
-    expect(notePath('personalDiary')).toBe('Privato/Personal diary.md');
+    expect(notePath('personalDiary')).toBe('Private/Personal diary.md');
+    expect(notePath('rheaMemory')).toBe('Agents/Rhea/MEMORY.md');
+    expect(mockLayout().id).toBe('en');
+    expect(mockVaultDir()).toBe('/home/demo/Monsters Notes');
     setMockLang('it');
+    expect(notePath('personalDiary')).toBe('Privato/Diario personale.md');
+    expect(notePath('rheaMemory')).toBe('Agenti/Rhea/MEMORY.md');
+    expect(mockLayout().id).toBe('it');
+    expect(mockVaultDir()).toBe('/home/demo/Monsters Note');
     expect(noteTitle('lisbonTips')).toBe('Lisbona, spunti per il weekend');
   });
 });

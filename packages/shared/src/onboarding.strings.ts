@@ -20,7 +20,7 @@ export interface OnboardingQuestionTexts {
 const en: Record<string, OnboardingQuestionTexts> = {
   nomi: {
     title: 'Nice to meet you! What’s your name? And what should we call your lead?',
-    hint: 'Your lead coordinates the other monsters: you’ll usually talk to them.',
+    hint: 'Your lead coordinates the other monsters: you’ll usually talk to it.',
     groups: {
       user: { label: 'Your name', placeholder: 'What you’d like to be called' },
       orchestrator: { label: 'Your lead’s name', placeholder: 'Another name' },

@@ -12,13 +12,13 @@ gli abbonamenti che già paghi.
 
 Sito: <https://getmonsters.dev>
 
-![Un progetto con la sua squadra](docs/schermate/progetto-squadra-light-1440-2026-10-19.png)
+![Un progetto con la sua squadra](docs/schermate/progetto-squadra-light-1440-it.png)
 
 | Chat con domanda e opzioni | Terminale di un agente |
 |---|---|
-| ![Chat](docs/schermate/chat-domanda-light-1440-2026-10-20.png) | ![Terminale](docs/schermate/terminale-dark-1440-2026-10-20.png) |
+| ![Chat](docs/schermate/chat-domanda-light-1440-it.png) | ![Terminale](docs/schermate/terminale-dark-1440-it.png) |
 
-![Le novità](docs/schermate/novita-dark-1440-2026-10-19.png)
+![Le novità](docs/schermate/novita-dark-1440-it.png)
 
 ## Stato
 

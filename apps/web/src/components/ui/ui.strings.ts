@@ -13,6 +13,7 @@ const en = {
   openNote: (name: string) => `Open the note “${name}”`,
   inTrashTag: '(in the trash)',
   newTab: ' (opens in a new tab)',
+  image: (alt: string) => (alt ? `Image: ${alt}` : 'Image'),
 };
 
 const it: typeof en = {
@@ -26,6 +27,7 @@ const it: typeof en = {
   openNote: (name) => `Apri la nota “${name}”`,
   inTrashTag: '(nel cestino)',
   newTab: ' (si apre in una nuova scheda)',
+  image: (alt) => (alt ? `Immagine: ${alt}` : 'Immagine'),
 };
 
 export const uiStrings = defineStrings({ en, it });

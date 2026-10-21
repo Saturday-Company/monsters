@@ -1,3 +1,4 @@
+import { setAppLang } from '@monsters/shared';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -116,7 +117,14 @@ describe('Markdown', () => {
     // Plain http is a link only.
     const plain = render('![foto](http://example.org/a.png)');
     expect(plain).not.toContain('<img');
-    expect(plain).toContain('Immagine: foto');
+    expect(plain).toContain('Image: foto');
+    expect(render('![](http://example.org/a.png)')).toContain('>Image<');
+    setAppLang('it');
+    try {
+      expect(render('![foto](http://example.org/a.png)')).toContain('Immagine: foto');
+    } finally {
+      setAppLang('en');
+    }
   });
 
   it('shows the core’s images and opens files in Anteprima (D-075)', () => {

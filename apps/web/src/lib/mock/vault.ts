@@ -13,6 +13,7 @@ import {
   type VaultSearchHit,
   type VaultTrashItem,
   type VaultVersion,
+  inAnyPrivateFolder,
 } from '@monsters/shared';
 import { createRng } from '@monsters/monster-kit';
 import { lineDiff } from '../line-diff.ts';
@@ -174,7 +175,7 @@ export class MockVault {
       type: typeof props['type'] === 'string' ? props['type'] : null,
       author: typeof props['author'] === 'string' ? props['author'] : n.versions[0]!.author,
       updated: localIso(v.ts),
-      private: props['private'] === true || n.path.startsWith('Privato/'),
+      private: props['private'] === true || inAnyPrivateFolder(n.path),
       tags: tags.sort(),
       // As the core's index: the first lines that are not empty nor the title.
       summary: body
@@ -818,7 +819,7 @@ export class MockVault {
     const random = createRng(2026);
     const rng = () => random.next();
     const folders = tr(
-      ['Resources', 'Projects', 'Areas', 'People', 'Journal', 'Inbox', 'Archive', 'Agenti/Rhea'],
+      ['Resources', 'Projects', 'Areas', 'People', 'Journal', 'Inbox', 'Archive', 'Agents/Rhea'],
       ['Risorse', 'Progetti', 'Aree', 'Persone', 'Diario', 'Inbox', 'Archivio', 'Agenti/Rhea'],
     );
     const authors = ['user', 'rhea', 'dione', 'titan'];

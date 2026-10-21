@@ -136,7 +136,7 @@ const en = {
   stuckRepeats: (call: string) => `repeats ${call}`,
   stuckAlternates: (a: string, b: string) => `alternates ${a} and ${b}`,
   routeLead: 'I suggested your lead answer on its own.',
-  routeTeam: 'I suggested your lead a team job.',
+  routeTeam: 'I suggested a squad job to your lead.',
   routeMember: (name: string) => `I suggested handing the request to ${name}.`,
   retried: (agent: string) => `${agent}’s work wasn’t finished: I asked it to complete it.`,
   inDoubt: (agent: string, doubt: string) => `${agent}’s work is in doubt: ${doubt}`.trim(),
@@ -164,7 +164,7 @@ const en = {
     `On trial: I would have passed the request straight to ${member}.`,
   otherMonsterWork: 'another monster’s work',
   noteAfterThirdParty: (path: string) =>
-    `note ${path || 'in the vault'} written after third-party text`,
+    `note ${path || 'in the notes'} written after third-party text`,
   statePreviewCut: (chars: number) => `…[${chars} characters]`,
   reasonInstinct: (version: string) => `instinct ${version}`,
 };

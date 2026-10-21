@@ -85,7 +85,7 @@ test('first start: model, about you, team, birth', async ({ page }) => {
   await area.fill('**');
   await page.getByRole('button', { name: 'Save Calendar’s tasks and folder' }).click();
   await expect(tethys.getByRole('alert')).toContainText('no * ?');
-  await area.fill('Agenti/Atlas');
+  await area.fill('Agents/Atlas');
   await page.getByRole('button', { name: 'Save Calendar’s tasks and folder' }).click();
   await expect(tethys.getByRole('alert')).toContainText('reserved');
   await area.fill(' Projects/Editorial plan/ ');

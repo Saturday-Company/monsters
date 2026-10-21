@@ -63,6 +63,22 @@ describe('package configuration', () => {
     expect(c.nsis?.artifactName).toContain('-unsigned');
   });
 
+  it('ships the Windows installer in English and Italian, English first (D-153)', () => {
+    const c = builderConfig({ ...base, env: {} });
+    expect(c.nsis?.installerLanguages).toEqual(['en_US', 'it_IT']);
+    expect(c.nsis?.language).toBe('1033');
+  });
+
+  it('describes the Linux packages in English, with an Italian comment', () => {
+    const c = builderConfig({ ...base, env: {} });
+    expect(c.linux?.synopsis).toBe('Local agent hub');
+    expect(c.linux?.description).toMatch(/^Monsters: a team of AI agents/);
+    expect(c.linux?.desktop?.entry).toMatchObject({
+      Comment: 'Local agent hub',
+      'Comment[it]': 'Hub agentico locale',
+    });
+  });
+
   it('signs ad-hoc on macOS without an identity, and says it', () => {
     expect(macSigning({})).toMatchObject({ identity: '-', notarize: false });
     const c = builderConfig({ ...base, env: {} });

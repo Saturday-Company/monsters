@@ -8,6 +8,7 @@ import {
 } from '@monsters/shared';
 import type { RawResponse } from '../transport.ts';
 import { tr } from './lang.ts';
+import { mockVaultDir } from './paths.ts';
 
 /*
  * `/api/permissions` of the mock core (M2.1): the team's defaults plus the
@@ -16,7 +17,6 @@ import { tr } from './lang.ts';
  */
 
 const HOME = '/home/demo';
-const VAULT = `${HOME}/Monsters Note`;
 
 type Full = Required<AgentPermissions>;
 
@@ -85,7 +85,8 @@ export class MockPermissions {
           tr(`The folder ${path} doesn’t exist.`, `La cartella ${path} non esiste.`),
         );
       }
-      if (path === VAULT || path.startsWith(`${VAULT}/`)) {
+      const vault = mockVaultDir();
+      if (path === vault || path.startsWith(`${vault}/`)) {
         return fail(
           400,
           'invalid_folder',

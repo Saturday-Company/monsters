@@ -18,6 +18,15 @@ export const test = base.extend<{ consoleErrors: string[] }>({
 
 export { expect };
 
+/**
+ * The language of the screenshots written into `docs/schermate/` (`en` by default, `it` with
+ * `E2E_LOCALE=it-IT`): it ends the file name (`novita-dark-1440-en.png`), so the README and the
+ * Italian README each point to their own.
+ */
+export const SHOT_LANG = (process.env['E2E_LOCALE'] ?? 'en-US').toLowerCase().startsWith('it')
+  ? 'it'
+  : 'en';
+
 /*
  * The tests decide when the mock core moves on (`MockCore.hold`): scripted
  * steps and request replies wait until `stepMock` or `releaseMock`, so a

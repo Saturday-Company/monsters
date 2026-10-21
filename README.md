@@ -6,19 +6,19 @@
 
 Monsters gives you an orchestrator and a team of agents, each with its own chat, terminal, permissions and model chain.
 They keep their knowledge in an Obsidian-compatible Markdown vault where every change is a git commit you can undo,
-and everything they do lands in an action log. A kill switch (**Ferma**, "stop") halts all work at once. It runs as a
+and everything they do lands in an action log. A kill switch (**Stop**) halts all work at once. It runs as a
 desktop app on Linux, Windows and macOS, and you bring your own models: OpenRouter, API keys, local models, or the
 subscriptions you already pay for.
 
 Website: <https://getmonsters.dev>
 
-![A project with its team](docs/schermate/progetto-squadra-light-1440-2026-10-19.png)
+![A project with its team](docs/schermate/progetto-squadra-light-1440-en.png)
 
 | Chat with questions and options | Per-agent terminal |
 |---|---|
-| ![Chat](docs/schermate/chat-domanda-light-1440-2026-10-20.png) | ![Terminal](docs/schermate/terminale-dark-1440-2026-10-20.png) |
+| ![Chat](docs/schermate/chat-domanda-light-1440-en.png) | ![Terminal](docs/schermate/terminale-dark-1440-en.png) |
 
-![What's new](docs/schermate/novita-dark-1440-2026-10-19.png)
+![What's new](docs/schermate/novita-dark-1440-en.png)
 
 ## Status
 
@@ -48,7 +48,7 @@ Website: <https://getmonsters.dev>
 - **Remote.** Telegram from your phone (including dedicated bots per monster), or the terminal chat over SSH
   (`monsters chat`); the desktop app can also connect as a client to a core running elsewhere through an SSH tunnel.
   See [`docs/remote.md`](docs/remote.md).
-- **Control.** Action log for everything, daily and monthly spending caps (per project too), the **Ferma** kill switch,
+- **Control.** Action log for everything, daily and monthly spending caps (per project too), the **Stop** kill switch,
   secrets in the system keychain.
 
 ## Download

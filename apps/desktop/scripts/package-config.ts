@@ -279,11 +279,15 @@ export function builderConfig(o: ConfigOptions): Configuration {
       category: 'Development',
       maintainer: 'Saturday Company',
       vendor: 'Saturday Company',
-      synopsis: 'Hub agentico locale',
-      description: 'Monsters: un team di agenti AI che lavora sul tuo computer.',
+      synopsis: 'Local agent hub',
+      description: 'Monsters: a team of AI agents that works on your computer.',
       syncDesktopName: true,
       desktop: {
-        entry: { Name: PRODUCT_NAME, Comment: 'Hub agentico locale' },
+        entry: {
+          Name: PRODUCT_NAME,
+          Comment: 'Local agent hub',
+          'Comment[it]': 'Hub agentico locale',
+        },
       },
     },
     deb: {
@@ -359,8 +363,10 @@ export function builderConfig(o: ConfigOptions): Configuration {
       shortcutName: PRODUCT_NAME,
       uninstallDisplayName: PRODUCT_NAME,
       deleteAppDataOnUninstall: false,
-      installerLanguages: ['it_IT'],
-      language: '1040',
+      // English and Italian (D-153): NSIS picks the language of the Windows UI when it is one of
+      // these and falls back to the first (English) for every other one.
+      installerLanguages: ['en_US', 'it_IT'],
+      language: '1033',
     },
   };
 }
