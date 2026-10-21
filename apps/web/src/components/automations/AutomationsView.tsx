@@ -11,6 +11,7 @@ import { preloadMarkdown } from '../ui/Markdown.tsx';
 import { AutomationDetail } from './AutomationDetail.tsx';
 import { AutomationForm } from './AutomationForm.tsx';
 import { AutomationList } from './AutomationList.tsx';
+import { automationsStrings } from './automations.strings.ts';
 import { GiroView } from './GiroView.tsx';
 import { useAutomationTick, useGiroTick, useLoaded } from './parts.tsx';
 import '../settings/settings.css';
@@ -32,11 +33,12 @@ function go(hash: string) {
 }
 
 function Missing() {
+  const s = automationsStrings().view;
   return (
     <div className="grid gap-3 pt-4" data-testid="automation-missing">
-      <p className="text-large font-semibold text-ink">Questa automazione non c’è più.</p>
+      <p className="text-large font-semibold text-ink">{s.missing}</p>
       <a href={automationPath()} className="text-body font-medium text-signal-ink hover:underline">
-        Torna alle automazioni
+        {s.backToList}
       </a>
     </div>
   );
@@ -56,6 +58,7 @@ function DetailPage({
 }
 
 function GiroPage({ a, giro, tick }: { a: AutomationView; giro: string; tick: string }) {
+  const s = automationsStrings();
   const runsTick = useGiroTick(giro);
   const detail = useLoaded(() => getApi().automationRun(a.id, giro), `${tick}|${runsTick}`);
   if (detail.error && !detail.data) {
@@ -68,7 +71,7 @@ function GiroPage({ a, giro, tick }: { a: AutomationView; giro: string; tick: st
   if (!detail.data) {
     return (
       <p className="label text-ink-muted" aria-busy="true">
-        Carico…
+        {s.loading}
       </p>
     );
   }
@@ -76,6 +79,7 @@ function GiroPage({ a, giro, tick }: { a: AutomationView; giro: string; tick: st
 }
 
 export default function AutomationsView() {
+  const s = automationsStrings();
   const id = useHashParam('automazione');
   const giro = useHashParam('giro');
   const mode = useHashParam('vista');
@@ -95,10 +99,10 @@ export default function AutomationsView() {
   const back = atList
     ? null
     : giro && id
-      ? { label: 'Giri', run: () => go(automationPath(id)) }
+      ? { label: s.view.backRuns, run: () => go(automationPath(id)) }
       : editing && id
-        ? { label: 'Indietro', run: () => go(automationPath(id)) }
-        : { label: 'Automazioni', run: () => go(automationPath()) };
+        ? { label: s.view.backBack, run: () => go(automationPath(id)) }
+        : { label: s.title, run: () => go(automationPath()) };
   useToolbarBack(phone ? back : null);
 
   // A new place in the section starts at the top.
@@ -117,7 +121,7 @@ export default function AutomationsView() {
       </p>
     ) : (
       <p className="label text-ink-muted" aria-busy="true">
-        Carico…
+        {s.loading}
       </p>
     );
   } else if (!current) body = <Missing />;
@@ -133,15 +137,15 @@ export default function AutomationsView() {
     >
       <ToolbarContent>
         <ToolbarTitle id="automations-title" className={cn(phone && !atList && 'sr-only')}>
-          Automazioni
+          {s.title}
         </ToolbarTitle>
         {/* With no automation the screen has its own "Crea la prima": one key for the action. */}
         {!creating && !editing && !(atList && list.data?.length === 0) && (
           <ToolbarActions>
             <LabeledKey
-              label={phone ? 'Nuova' : 'Nuova automazione'}
-              aria-label="Nuova automazione"
-              title="Nuova automazione"
+              label={phone ? s.view.new : s.view.newLong}
+              aria-label={s.view.newLong}
+              title={s.view.newLong}
               layout={phone ? 'stacked' : roomy ? 'inline' : 'icon'}
               onClick={() => openPage(automationPath(null, { mode: 'nuova' }))}
               data-testid="automation-new"

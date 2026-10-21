@@ -100,7 +100,8 @@ test.describe('who writes software', () => {
   test('chips of the work, terminal on, language of the system (2.7, 2.9, 2.11, 2.12)', async ({
     page,
   }) => {
-    await page.goto('/?mock=1');
+    // German browser, Italian app: the app speaks only English and Italian (D-153).
+    await page.goto('/?mock=1&lang=it');
     await createAccount(page, MOCK_SETUP_CODE);
     await page.getByRole('button', { name: 'Lo faccio dopo' }).click();
     await page.getByRole('textbox', { name: 'Il tuo nome' }).fill('Giulio');

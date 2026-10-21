@@ -31,6 +31,7 @@ import { onboardingApi, onboardingError } from './api.ts';
 import { Guide } from './Guide.tsx';
 import { modelLabel } from '../store/derive.ts';
 import { Badge, DoneCheck, ErrorLine, genomeFrom } from './parts.tsx';
+import { teamStrings } from './team.strings.ts';
 
 /** "Risorse/Ricerche" → "Ricerche": the folder as the user sees it among the notes. */
 function areaName(area: string): string {
@@ -43,14 +44,15 @@ interface MemberDetails {
   area: string;
 }
 
-/** Problems of edited details, in Italian; null when they can be saved. */
+/** Problems of edited details, in the app's language; null when they can be saved. */
 function detailsProblem(d: MemberDetails): string | null {
-  if (d.duties.length === 0) return 'Serve almeno un compito.';
-  if (d.duties.length > MAX_DUTIES) return `Al massimo ${MAX_DUTIES} compiti, uno per riga.`;
+  const s = teamStrings();
+  if (d.duties.length === 0) return s.atLeastOne;
+  if (d.duties.length > MAX_DUTIES) return s.atMost(MAX_DUTIES);
   for (const duty of d.duties) {
     const parsed = AgentDutySchema.safeParse(duty);
     if (!parsed.success) {
-      return `Compito "${duty.slice(0, 30)}": ${parsed.error.issues[0]?.message ?? 'non valido'}`;
+      return s.dutyProblem(duty.slice(0, 30), parsed.error.issues[0]?.message ?? null);
     }
   }
   return agentAreaProblem(d.area);
@@ -67,6 +69,7 @@ function DetailsEditor({
   onSave: (d: MemberDetails) => void;
   onCancel: () => void;
 }) {
+  const s = teamStrings().editor;
   const [duties, setDuties] = useState(details.duties.join('\n'));
   const [area, setArea] = useState(details.area);
   const [problem, setProblem] = useState<string | null>(null);
@@ -90,7 +93,7 @@ function DetailsEditor({
   return (
     <form onSubmit={save} className="mt-3 grid gap-3" data-testid="member-details-form">
       <div className="grid gap-1.5">
-        <Label htmlFor={`${id}-duties`}>Compiti di {name} (uno per riga)</Label>
+        <Label htmlFor={`${id}-duties`}>{s.duties(name)}</Label>
         <textarea
           id={`${id}-duties`}
           value={duties}
@@ -100,7 +103,7 @@ function DetailsEditor({
         />
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor={`${id}-area`}>Cartella nelle note di {name}</Label>
+        <Label htmlFor={`${id}-area`}>{s.folder(name)}</Label>
         <Input
           id={`${id}-area`}
           value={area}
@@ -117,10 +120,10 @@ function DetailsEditor({
       )}
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          Annulla
+          {s.cancel}
         </Button>
-        <Button type="submit" size="sm" aria-label={`Salva compiti e cartella di ${name}`}>
-          <Check size={16} aria-hidden /> Salva
+        <Button type="submit" size="sm" aria-label={s.saveLabel(name)}>
+          <Check size={16} aria-hidden /> {s.save}
         </Button>
       </div>
     </form>
@@ -153,9 +156,10 @@ function MemberCard({
   busy: boolean;
   taken: (name: string) => boolean;
 }) {
+  const s = teamStrings().card;
   const theme = useResolvedTheme();
   const [editing, setEditing] = useState(false);
-  // A short "Salvato" after an edit: the change is confirmed where it happened.
+  // A short "Saved" after an edit: the change is confirmed where it happened.
   const [saved, setSaved] = useState(0);
   useEffect(() => {
     if (!saved) return;
@@ -170,8 +174,8 @@ function MemberCard({
   const save = (e?: FormEvent) => {
     e?.preventDefault();
     const v = value.replace(/\s+/g, ' ').trim();
-    if (!AGENT_NAME_PATTERN.test(v)) return setProblem('Solo lettere, massimo 24.');
-    if (v.toLowerCase() !== name.toLowerCase() && taken(v)) return setProblem('Nome già usato.');
+    if (!AGENT_NAME_PATTERN.test(v)) return setProblem(s.onlyLetters);
+    if (v.toLowerCase() !== name.toLowerCase() && taken(v)) return setProblem(s.taken);
     onRename(v.charAt(0).toUpperCase() + v.slice(1));
     setEditing(false);
     setProblem(null);
@@ -192,7 +196,7 @@ function MemberCard({
           {editing ? (
             <form onSubmit={save} className="grid gap-1">
               <label htmlFor={id} className="sr-only">
-                Nuovo nome per {name}
+                {s.newName(name)}
               </label>
               <div className="flex gap-1.5">
                 <Input
@@ -211,7 +215,7 @@ function MemberCard({
                   className="h-10 px-3.5"
                   aria-invalid={problem ? true : undefined}
                 />
-                <Button type="submit" size="iconSm" className="mt-0.5" aria-label="Salva il nome">
+                <Button type="submit" size="iconSm" className="mt-0.5" aria-label={s.saveName}>
                   <Check size={17} aria-hidden />
                 </Button>
               </div>
@@ -245,12 +249,12 @@ function MemberCard({
           data-testid="member-area"
         >
           <FolderSimple size={17} className="shrink-0" aria-hidden />
-          <span>Lascia il suo lavoro nelle note «{areaName(details.area)}».</span>
+          <span>{s.area(areaName(details.area))}</span>
         </p>
       )}
       {/* Pushed to the foot of the card: the actions of the two cards line up (audit UI-36). */}
       <div className="mt-auto flex flex-wrap items-end gap-1.5 pt-3">
-        {member.tools.some((t) => t.startsWith('web_')) && <Badge>Cerca sul web</Badge>}
+        {member.tools.some((t) => t.startsWith('web_')) && <Badge>{s.searchesWeb}</Badge>}
         <span role="status" className="flex items-center self-center">
           {saved > 0 && (
             <span
@@ -258,7 +262,7 @@ function MemberCard({
               className="light-on flex items-center gap-1.5 text-footnote font-semibold text-ink"
               data-testid="member-saved"
             >
-              <DoneCheck size={20} /> Salvato
+              <DoneCheck size={20} /> {s.saved}
             </span>
           )}
         </span>
@@ -266,43 +270,43 @@ function MemberCard({
         <span className="ml-auto flex max-w-full flex-wrap items-end justify-end gap-0.5">
           <LabeledKey
             layout="stacked"
-            label="Compiti"
+            label={s.tasks}
             onClick={() => setEditingDetails(true)}
             disabled={busy || editingDetails}
-            aria-label={`Personalizza ${name}`}
-            title="Compiti e cartella"
+            aria-label={s.customize(name)}
+            title={s.tasksTitle}
           >
             <ListChecks size={18} aria-hidden />
           </LabeledKey>
           <LabeledKey
             layout="stacked"
-            label="Nome"
+            label={s.name}
             onClick={() => {
               setValue(name);
               setEditing(true);
             }}
             disabled={busy}
-            aria-label={`Rinomina ${name}`}
-            title="Rinomina"
+            aria-label={s.rename(name)}
+            title={s.renameTitle}
           >
             <PencilSimple size={18} aria-hidden />
           </LabeledKey>
           <LabeledKey
             layout="stacked"
-            label="Aspetto"
+            label={s.look}
             onClick={onRegenerate}
             disabled={busy}
-            aria-label={`Un altro aspetto per ${name}`}
-            title="Un altro aspetto"
+            aria-label={s.otherLook(name)}
+            title={s.otherLookTitle}
           >
             <Shuffle size={18} aria-hidden />
           </LabeledKey>
           <LabeledKey
             layout="stacked"
-            label="Togli"
+            label={s.remove}
             onClick={onRemove}
             disabled={busy || !canRemove}
-            aria-label={`Togli ${name} dalla squadra`}
+            aria-label={s.removeLabel(name)}
           >
             <X size={16} aria-hidden />
           </LabeledKey>
@@ -322,11 +326,12 @@ export function TeamStep({
   onState: (s: OnboardingState) => void;
   onConfirmed: (res: TeamConfirmResponse) => void;
 }) {
+  const s = teamStrings();
   const [proposal, setProposal] = useState<TeamProposal | null>(state.proposal);
   const [names, setNames] = useState<Record<string, string>>({});
   const [edited, setEdited] = useState<Record<string, MemberDetails>>({});
   const [removed, setRemoved] = useState<string[]>([]);
-  /** The monster just taken out: the focus goes to its «Rimetti», not to the page. */
+  /** The monster just taken out: the focus goes to its "Put back" key, not to the page. */
   const justRemoved = useRef<string | null>(null);
   const restoreRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -420,19 +425,15 @@ export function TeamStep({
           name={state.guide.name}
           expression={error ? 'error' : 'think'}
           sayKey={error ? 'propose-error' : 'thinking'}
-          say={
-            error
-              ? 'Ops, mi sono incastrato. Riproviamo?'
-              : 'Ci penso un attimo: sto mettendo insieme la squadra giusta per te…'
-          }
-          hint={error ? undefined : 'Può volerci anche un minuto con i modelli gratuiti.'}
+          say={error ? s.stuck : s.thinking}
+          hint={error ? undefined : s.thinkingHint}
         />
         {error && (
           <>
             <ErrorLine>{error}</ErrorLine>
             <div className="flex justify-end">
               <Button size="lg" onClick={() => void propose()}>
-                <ArrowClockwise size={18} aria-hidden /> Riprova
+                <ArrowClockwise size={18} aria-hidden /> {s.retry}
               </Button>
             </div>
           </>
@@ -462,16 +463,8 @@ export function TeamStep({
         name={state.guide.name}
         expression={thinking ? 'think' : 'happy'}
         sayKey={thinking ? 'rethinking' : `team-${proposal.members.map((m) => m.id).join('-')}`}
-        say={
-          thinking
-            ? 'Ci ripenso un attimo…'
-            : `Ecco la squadra che ti propongo: ${kept.length === 1 ? 'un mostro' : `${kept.length} mostri`} più me.`
-        }
-        hint={
-          thinking
-            ? undefined
-            : 'Puoi togliere qualcuno, cambiare un nome o un aspetto, e con «Compiti» cosa fa ciascuno e dove scrive.'
-        }
+        say={thinking ? s.rethinking : s.proposed(kept.length)}
+        hint={thinking ? undefined : s.proposedHint}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -480,24 +473,18 @@ export function TeamStep({
           className="text-footnote text-ink-muted"
           title={
             proposal.source === 'model' && proposal.model
-              ? `Scritta da ${modelLabel(proposal.model)}`
+              ? s.writtenBy(modelLabel(proposal.model))
               : undefined
           }
         >
-          {proposal.source === 'model'
-            ? 'Proposta su misura'
-            : 'Squadra di partenza, adattata a te'}
+          {proposal.source === 'model' ? s.tailored : s.starter}
         </p>
         <div className="flex items-center gap-2">
-          <Badge tone="ok">Il tuo capo: {state.guide.name}</Badge>
+          <Badge tone="ok">{s.yourLead(state.guide.name)}</Badge>
         </div>
       </div>
 
-      <ul
-        className="grid gap-3 sm:grid-cols-2"
-        aria-label="La squadra proposta"
-        aria-busy={thinking}
-      >
+      <ul className="grid gap-3 sm:grid-cols-2" aria-label={s.listLabel} aria-busy={thinking}>
         {kept.map((m) => (
           <MemberCard
             key={m.id}
@@ -524,7 +511,7 @@ export function TeamStep({
           ref={restoreRef}
           className="flex flex-wrap items-center gap-2 text-footnote text-ink-muted"
         >
-          <span>Tolti:</span>
+          <span>{s.removed}</span>
           {proposal.members
             .filter((m) => removed.includes(m.id))
             .map((m) => (
@@ -534,7 +521,7 @@ export function TeamStep({
                 size="sm"
                 onClick={() => setRemoved((r) => r.filter((x) => x !== m.id))}
                 data-restore={m.id}
-                aria-label={`Rimetti ${nameOf(m)} nella squadra`}
+                aria-label={s.putBack(nameOf(m))}
               >
                 <ArrowCounterClockwise size={16} aria-hidden /> {nameOf(m)}
               </Button>
@@ -548,7 +535,7 @@ export function TeamStep({
         className={cn('flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between')}
       >
         <Button variant="secondary" onClick={() => void propose()} disabled={busy !== null}>
-          <ArrowClockwise size={18} aria-hidden /> Proponi un’altra squadra
+          <ArrowClockwise size={18} aria-hidden /> {s.another}
         </Button>
         <Button
           size="lg"
@@ -558,7 +545,7 @@ export function TeamStep({
           }}
           disabled={busy !== null || kept.length === 0}
         >
-          {busy === 'confirm' ? 'Li sveglio…' : 'Conferma la squadra'}
+          {busy === 'confirm' ? s.waking : s.confirm}
           <Check size={18} aria-hidden />
         </Button>
       </div>

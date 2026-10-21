@@ -1,4 +1,5 @@
-import { planWindowTone, type PlanWindowView } from '@monsters/shared';
+import { formatDate, planWindowTone, type PlanWindowView } from '@monsters/shared';
+import { usageStrings } from './usage.strings.ts';
 
 /*
  * Utilizzo del piano (D-111): the texts of a window, in the user's time zone.
@@ -6,36 +7,28 @@ import { planWindowTone, type PlanWindowView } from '@monsters/shared';
  * clock of the page and not left at the value the core sent.
  */
 
-const WEEKDAYS = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
-
-const hhmm = (d: Date) =>
-  `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-
-/** "tra 45 min", "tra 1 h 32", "tra 2 h", or "mer 16:00" from a day on. */
+/** "in 45 min", "in 1 h 32", "in 2 h", or "Wed 16:00" from a day on. */
 export function formatResetsIn(resetsAt: number, now: number): string {
+  const w = usageStrings().plan;
   const ms = resetsAt - now;
-  if (ms < 60_000) return 'tra meno di un minuto';
+  if (ms < 60_000) return w.resetsLessThanMinute;
   const minutes = Math.round(ms / 60_000);
-  if (minutes < 60) return `tra ${minutes} min`;
-  if (ms < 24 * 3_600_000) {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    return m === 0 ? `tra ${h} h` : `tra ${h} h ${m}`;
-  }
-  const d = new Date(resetsAt);
-  return `${WEEKDAYS[d.getDay()]} ${hhmm(d)}`;
+  if (minutes < 60) return w.resetsInMinutes(minutes);
+  if (ms < 24 * 3_600_000) return w.resetsInHours(Math.floor(minutes / 60), minutes % 60);
+  return `${formatDate(resetsAt, { weekday: 'short' }).replace(/\.$/, '')} ${formatDate(resetsAt, { hour: '2-digit', minute: '2-digit' })}`;
 }
 
-/** "aggiornato adesso", "20 min fa", "2 h fa", "3 giorni fa". */
+/** "just now", "20 min ago", "2 h ago", "3 days ago". */
 export function formatAgo(observedAt: number, now: number): string {
+  const w = usageStrings().plan;
   const ms = Math.max(0, now - observedAt);
-  if (ms < 60_000) return 'adesso';
+  if (ms < 60_000) return w.agoNow;
   const minutes = Math.floor(ms / 60_000);
-  if (minutes < 60) return `${minutes} min fa`;
+  if (minutes < 60) return w.agoMinutes(minutes);
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} h fa`;
+  if (hours < 24) return w.agoHours(hours);
   const days = Math.floor(hours / 24);
-  return days === 1 ? 'ieri' : `${days} giorni fa`;
+  return days === 1 ? w.agoYesterday : w.agoDays(days);
 }
 
 /** The window as it reads at `now`: past its reset time it is 0%, "azzerato". */
@@ -47,9 +40,10 @@ export function liveWindow(w: PlanWindowView, now: number): PlanWindowView {
 
 /** The line under a bar: when it resets, or that it has and will refresh at the next use. */
 export function windowNote(w: PlanWindowView, now: number): string {
-  if (w.reset) return 'azzerato · si aggiorna al prossimo uso';
-  if (w.resetsAt === null) return 'orario di azzeramento non noto';
-  return `si azzera ${formatResetsIn(w.resetsAt, now)}`;
+  const t = usageStrings().plan;
+  if (w.reset) return t.resetNote;
+  if (w.resetsAt === null) return t.resetUnknown;
+  return t.resetsAt(formatResetsIn(w.resetsAt, now));
 }
 
 /** Lit segments out of 20 (one per 5%), at least one while anything is used. */
@@ -61,8 +55,9 @@ export function litSegments(percent: number, count = 20): number {
 /** The words that carry the colour: nothing below 80%, then two states. */
 export function toneNote(w: PlanWindowView): string | null {
   if (w.reset) return null;
-  if (w.usedPercent >= 100) return 'limite raggiunto';
-  if (w.tone === 'high') return 'quasi al limite';
-  if (w.tone === 'warn') return 'in esaurimento';
+  const t = usageStrings().plan;
+  if (w.usedPercent >= 100) return t.limitReached;
+  if (w.tone === 'high') return t.almostAtLimit;
+  if (w.tone === 'warn') return t.runningLow;
   return null;
 }

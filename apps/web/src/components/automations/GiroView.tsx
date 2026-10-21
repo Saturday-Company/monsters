@@ -22,6 +22,7 @@ import { FileById } from '../files/FileChip.tsx';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { Group } from '../settings/parts.tsx';
 import { Markdown } from '../ui/Markdown.tsx';
+import { automationsStrings } from './automations.strings.ts';
 import { RunState } from './parts.tsx';
 import '../chat/chat.css';
 
@@ -37,6 +38,7 @@ import '../chat/chat.css';
 type Message = AutomationRunDetail['messages'][number];
 
 function AgentMessage({ m, first }: { m: Message; first: boolean }) {
+  const s = automationsStrings().giro;
   const agent = useAgent(m.agent);
   const theme = useResolvedTheme();
   const lit = useMemo(
@@ -49,7 +51,7 @@ function AgentMessage({ m, first }: { m: Message; first: boolean }) {
       {first && (
         <p className="label mb-1.5 pl-[44px] text-ink-muted">
           {agent?.name ?? m.agent}
-          {m.delegated ? ' · per il capo' : ''} · {formatTime(m.ts)}
+          {m.delegated ? s.forLead : ''} · {formatTime(m.ts)}
         </p>
       )}
       <div className="flex items-start gap-2.5">
@@ -79,9 +81,12 @@ function AgentMessage({ m, first }: { m: Message; first: boolean }) {
 }
 
 function Objective({ m }: { m: Message }) {
+  const s = automationsStrings().giro;
   return (
     <div className="flex flex-col items-end pl-12 sm:pl-24" data-testid="giro-objective">
-      <p className="label mb-1.5 pr-1 text-ink-muted">Obiettivo · {formatTime(m.ts)}</p>
+      <p className="label mb-1.5 pr-1 text-ink-muted">
+        {s.goal} · {formatTime(m.ts)}
+      </p>
       <div className="bubble bubble-user w-fit max-w-full px-4 py-2.5 text-large leading-[1.55] whitespace-pre-wrap break-words">
         {m.text}
       </div>
@@ -90,19 +95,20 @@ function Objective({ m }: { m: Message }) {
 }
 
 function Results({ d }: { d: AutomationRunDetail }) {
+  const s = automationsStrings().giro;
   if (d.notes.length === 0 && d.files.length === 0) return null;
   return (
-    <Group title="Cosa ha fatto" testId="giro-results">
+    <Group title={s.results} testId="giro-results">
       <div className="grid gap-3 px-4 pt-1 pb-4">
         {d.notes.length > 0 && (
-          <ul aria-label="Note" className="flex flex-wrap gap-2">
+          <ul aria-label={s.notes} className="flex flex-wrap gap-2">
             {d.notes.map((p) => (
               <li key={p}>
                 <a
                   href={notePath(p)}
                   className="md-note"
                   data-testid="giro-note"
-                  title={`Apri la nota “${p}” nelle Note`}
+                  title={s.openNote(p)}
                 >
                   <FileText size={15} weight="fill" aria-hidden className="shrink-0" />
                   <span>{(p.split('/').pop() ?? p).replace(/\.md$/, '')}</span>
@@ -113,7 +119,7 @@ function Results({ d }: { d: AutomationRunDetail }) {
         )}
         {d.files.length > 0 && (
           <div className="grid gap-2">
-            <ul aria-label="File" className="flex flex-wrap gap-2" data-testid="giro-files">
+            <ul aria-label={s.files} className="flex flex-wrap gap-2" data-testid="giro-files">
               {d.files.map((f) => (
                 <li key={f.id} className="min-w-0">
                   <FileById id={f.id} />
@@ -124,7 +130,7 @@ function Results({ d }: { d: AutomationRunDetail }) {
               href={PATHS.files}
               className="text-footnote font-medium text-signal-ink hover:underline"
             >
-              Tutti i file
+              {s.allFiles}
             </a>
           </div>
         )}
@@ -134,7 +140,8 @@ function Results({ d }: { d: AutomationRunDetail }) {
 }
 
 export function GiroView({ a, d }: { a: AutomationView; d: AutomationRunDetail }) {
-  const known = useApp((s) => s.questions);
+  const s = automationsStrings().giro;
+  const known = useApp((st) => st.questions);
   const run = d.run;
   const duration = runDuration(run);
   const showDetails = usePrefs((p) => p.showDetails);
@@ -155,11 +162,11 @@ export function GiroView({ a, d }: { a: AutomationView; d: AutomationRunDetail }
         }}
         className="key-ghost -ml-1 flex h-10 w-fit items-center gap-0.5 rounded-[9px] pr-2.5 pl-1 text-body font-semibold text-signal-ink max-md:hidden"
       >
-        <CaretLeft size={18} weight="bold" aria-hidden /> Torna a «{a.name}»
+        <CaretLeft size={18} weight="bold" aria-hidden /> {s.backTo(a.name)}
       </a>
       <div className="screen grid gap-1 rounded-[14px] px-4 py-3" data-testid="giro-monitor">
         <h2 className="font-mono text-micro leading-5 tracking-[0.08em] text-screen-ink uppercase">
-          Giro di {when}
+          {s.title(when)}
         </h2>
         <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-micro leading-4 tracking-[0.06em] text-screen-muted uppercase">
           <span aria-hidden className="led" data-on-screen="" data-tone={runStateTone(run.state)} />
@@ -178,13 +185,13 @@ export function GiroView({ a, d }: { a: AutomationView; d: AutomationRunDetail }
 
       {d.questions.length > 0 && (
         <section
-          aria-label="Domande che aspettano"
+          aria-label={s.waitingQuestions}
           className="grid gap-3"
           data-testid="giro-questions"
         >
           <p className="flex items-center gap-2 px-1 text-body text-ink">
             <RunState state="waiting_user" className="font-semibold" />
-            <span className="text-ink-muted">: rispondi qui, il giro va avanti da solo.</span>
+            <span className="text-ink-muted">{s.answerHere}</span>
           </p>
           {d.questions.map((q) =>
             known[q.id] ? (
@@ -199,7 +206,7 @@ export function GiroView({ a, d }: { a: AutomationView; d: AutomationRunDetail }
       )}
 
       {d.finalAnswer && (
-        <Group title="Risposta finale" testId="giro-final">
+        <Group title={s.finalAnswer} testId="giro-final">
           <div className="max-w-[68ch] px-4 pb-4 text-large leading-[1.55] text-ink">
             <Markdown text={d.finalAnswer} />
           </div>
@@ -209,10 +216,10 @@ export function GiroView({ a, d }: { a: AutomationView; d: AutomationRunDetail }
 
       <section aria-labelledby="giro-chat-title" className="grid gap-3" data-testid="giro-chat">
         <h2 id="giro-chat-title" className="label px-1 text-ink-muted">
-          Conversazione
+          {s.conversation}
         </h2>
         {d.messages.length === 0 ? (
-          <p className="px-1 text-body text-ink-muted">Nessun messaggio.</p>
+          <p className="px-1 text-body text-ink-muted">{s.noMessages}</p>
         ) : (
           <ol className="grid gap-4">
             {d.messages.map((m, i) => {

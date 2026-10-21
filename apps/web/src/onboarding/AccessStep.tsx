@@ -23,6 +23,7 @@ import { ApiError, describeError } from '../lib/api.ts';
 import { cn, domId, eurFirst } from '../lib/utils.ts';
 import { getApi } from '../store/app.ts';
 import { onboardingApi, onboardingError } from './api.ts';
+import { accessStrings } from './access.strings.ts';
 import { Guide } from './Guide.tsx';
 import { chainHint, keyKind, rankConnected, type Connected, type KeyKind } from './models.ts';
 import { DoneCheck, ErrorLine } from './parts.tsx';
@@ -42,35 +43,14 @@ import { playSound } from '../lib/sound.ts';
 interface Way {
   id: OnboardingAccess;
   icon: Icon;
-  title: string;
-  text: string;
-  /** Name in the guide's confirmation. */
-  done: string;
 }
 
+// The subscription first (choice of 16/10), the free models last. The words of
+// each way (title, text, the name in the guide's confirmation) are in access.strings.ts.
 const WAYS: Way[] = [
-  // The subscription first (choice of 16/10), the free models last.
-  {
-    id: 'claude-agent',
-    icon: Terminal,
-    title: 'Abbonamento Claude',
-    text: 'Con Claude Code e il tuo piano, sul computer dove gira Monsters.',
-    done: 'Claude Code e il tuo abbonamento',
-  },
-  {
-    id: 'chatgpt',
-    icon: ChatCircleDots,
-    title: 'Piano ChatGPT',
-    text: 'Plus o Pro: accedi con il tuo account di OpenAI.',
-    done: 'il tuo piano ChatGPT',
-  },
-  {
-    id: 'openrouter',
-    icon: Gift,
-    title: 'Modelli gratuiti',
-    text: 'Con una chiave di OpenRouter. Gratis, con un limite di richieste al giorno.',
-    done: 'i modelli gratuiti di OpenRouter',
-  },
+  { id: 'claude-agent', icon: Terminal },
+  { id: 'chatgpt', icon: ChatCircleDots },
+  { id: 'openrouter', icon: Gift },
 ];
 
 function errorOf(err: unknown): string {
@@ -91,6 +71,8 @@ function WayCard({
   onSelect: () => void;
 }) {
   const Icon = way.icon;
+  const s = accessStrings();
+  const words = s.ways[way.id];
   return (
     <button
       type="button"
@@ -115,14 +97,14 @@ function WayCard({
         {ready ? (
           <span className="label flex items-center gap-1.5 text-ink">
             <DoneCheck size={18} />
-            Collegato
+            {s.connected}
           </span>
         ) : (
           <span aria-hidden className="led" data-tone={selected ? 'signal' : undefined} />
         )}
       </span>
-      <span className="text-large leading-tight font-semibold text-ink">{way.title}</span>
-      <span className="text-footnote leading-snug text-ink-muted">{way.text}</span>
+      <span className="text-large leading-tight font-semibold text-ink">{words.title}</span>
+      <span className="text-footnote leading-snug text-ink-muted">{words.text}</span>
     </button>
   );
 }
@@ -167,7 +149,7 @@ function KeyForm({
   placeholder,
   hint,
   unknown,
-  submit = 'Verifica e salva',
+  submit = accessStrings().verifySave,
   quiet = false,
   onOpenRouter,
   onOther,
@@ -177,13 +159,14 @@ function KeyForm({
   hint: string;
   /** Error for a key that matches no known prefix. */
   unknown: string;
-  /** The words of the key: "Verifica e continua" where the key is all the step needs. */
+  /** The words of the key: "Verify and continue" where the key is all the step needs. */
   submit?: string;
   /** Another way is connected already: its "Continua" is the orange key, this one is normal. */
   quiet?: boolean;
   onOpenRouter: () => void;
   onOther: (kind: KeyKind) => void;
 }) {
+  const s = accessStrings();
   const id = domId(useId());
   const [key, setKey] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -257,7 +240,7 @@ function KeyForm({
           disabled={busy || !key.trim()}
           className="h-11 sm:mt-[26px]"
         >
-          {busy && !offer ? 'Controllo…' : submit}
+          {busy && !offer ? s.checking : submit}
         </Button>
       </div>
       {offer && (
@@ -267,19 +250,15 @@ function KeyForm({
           className="card grid gap-3 rounded-[12px] px-3.5 py-3 text-body leading-snug text-ink"
         >
           <p>
-            <strong className="font-semibold">
-              Questa è una chiave di {offer.label}: la uso per i mostri?
-            </strong>{' '}
-            <span className="text-ink-muted">
-              È a pagamento: i costi li paghi tu a {offer.label}, in base a quanto lavorano.
-            </span>
+            <strong className="font-semibold">{s.offerTitle(offer.label)}</strong>{' '}
+            <span className="text-ink-muted">{s.offerText(offer.label)}</span>
           </p>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" disabled={busy} onClick={() => void saveOther(offer)}>
-              {busy ? 'Controllo…' : 'Sì, usala'}
+              {busy ? s.checking : s.offerYes}
             </Button>
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOffer(null)}>
-              No
+              {s.offerNo}
             </Button>
           </div>
         </div>
@@ -301,38 +280,40 @@ function OpenRouterPanel({
   onReady: () => void;
   onOther: (kind: KeyKind) => void;
 }) {
-  if (ready) return <Connected>Chiave verificata: i mostri usano i modelli gratuiti.</Connected>;
+  const s = accessStrings();
+  const w = s.openrouter;
+  if (ready) return <Connected>{w.ready}</Connected>;
   return (
     <div className="grid gap-4">
       <p className="text-body leading-snug text-ink-muted">
-        Apri{' '}
+        {w.openBefore}
         <a
           href="https://openrouter.ai/keys"
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center gap-1 font-medium text-signal-ink hover:underline"
         >
+          {/* i18n-ignore: an address */}
           openrouter.ai/keys
           <ArrowSquareOut size={15} aria-hidden />
         </a>
-        , entra, premi “Create API key” e incolla qui la chiave: la controllo io.
+        {w.openAfter}
       </p>
       <KeyForm
-        label="La tua chiave di OpenRouter"
+        label={w.keyLabel}
+        // i18n-ignore: the start of a key
         placeholder="sk-or-v1-…"
-        hint="Resta su questo computer, protetta: la legge solo Monsters."
-        unknown="Incolla la chiave completa: inizia con “sk-or-”."
-        submit="Verifica e continua"
+        hint={w.keyHint}
+        unknown={w.keyUnknown}
+        submit={s.verifyContinue}
         quiet={quiet}
         onOpenRouter={onReady}
         onOther={onOther}
       />
       <Note>
         <p>
-          <strong className="font-semibold text-ink">Gratis, con un limite:</strong> 50 richieste al
-          giorno, 1.000 dopo una ricarica una tantum di circa {eurFirst(10, undefined, 0)}. Alcuni
-          modelli gratuiti possono usare quello che scrivi per migliorarsi: non dargli dati
-          delicati.
+          <strong className="font-semibold text-ink">{w.freeTitle}</strong>{' '}
+          {w.freeText(eurFirst(10, undefined, 0))}
         </p>
       </Note>
     </div>
@@ -349,6 +330,7 @@ function ClaudePanel({
   refresh: (check?: boolean) => Promise<void>;
   onError: (m: string | null) => void;
 }) {
+  const t = accessStrings().claude;
   const [busy, setBusy] = useState(false);
   const c = s.claude;
   const act = async (work: () => Promise<unknown>) => {
@@ -375,45 +357,37 @@ function ClaudePanel({
   if (c.enabled && (c.state === 'subscription' || c.state === 'other')) {
     return (
       <Connected>
-        {c.state === 'subscription'
-          ? `Claude Code è pronto con il tuo abbonamento${c.version ? ` (versione ${c.version})` : ''}.`
-          : 'Claude Code è pronto, con il metodo di accesso che hai impostato tu.'}
+        {c.state === 'subscription' ? t.readySubscription(c.version ?? undefined) : t.readyOther}
       </Connected>
     );
   }
 
   const check = (
     <Button variant="secondary" disabled={busy} onClick={() => void act(() => refresh(true))}>
-      {busy ? 'Controllo…' : 'Ricontrolla'}
+      {busy ? accessStrings().checking : t.recheck}
     </Button>
   );
 
   return (
     <div className="grid gap-4">
       <p className="text-body leading-snug text-ink-muted">
-        Monsters usa Claude Code installato{' '}
-        <strong className="font-semibold text-ink">sul computer dove gira Monsters</strong> (se lo
-        usi da un altro computer, è quello remoto). L’accesso a Claude lo fai tu, nel terminale:
-        Monsters non vede mai le tue credenziali.
+        {t.introBefore} <strong className="font-semibold text-ink">{t.introStrong}</strong>{' '}
+        {t.introAfter}
       </p>
       {c.installing ? (
-        <Working>Installo il componente di Anthropic, ci vuole qualche minuto…</Working>
+        <Working>{t.installing}</Working>
       ) : !c.enabled ? (
         c.state === 'not_found' ? (
           <div className="grid gap-3">
             <Note>
-              <p>
-                Non trovo Claude Code su quel computer. Puoi installarlo tu, oppure lascio che
-                Monsters installi il componente ufficiale di Anthropic ({c.package.name}{' '}
-                {c.package.version}, licenza {c.package.license}).
-              </p>
+              <p>{t.notFound(c.package.name, c.package.version, c.package.license)}</p>
             </Note>
             <div className="flex flex-wrap gap-2">
               <Button
                 disabled={busy}
                 onClick={() => void act(() => getApi().activateHarness('claude-agent', true))}
               >
-                Installa e usa Claude Code
+                {t.install}
               </Button>
               {check}
             </div>
@@ -424,7 +398,7 @@ function ClaudePanel({
               disabled={busy}
               onClick={() => void act(() => getApi().activateHarness('claude-agent', false))}
             >
-              {busy ? 'Un attimo…' : 'Usa Claude Code'}
+              {busy ? accessStrings().oneMoment : t.use}
             </Button>
           </div>
         )
@@ -433,23 +407,24 @@ function ClaudePanel({
           {c.state === 'api_key' ? (
             <Note>
               <p>
-                Claude Code userebbe una chiave API: pagheresti a consumo, non con l’abbonamento.
-                Esegui <code className="font-mono text-ink">claude</code> e accedi con il tuo piano.
+                {t.apiKeyBefore} {/* i18n-ignore: a command */}
+                <code className="font-mono text-ink">claude</code> {t.apiKeyAfter}
               </p>
             </Note>
           ) : c.state === 'not_found' ? (
             <Note>
-              <p>Non trovo più Claude Code su quel computer: installalo e premi «Ricontrolla».</p>
+              <p>{t.lostIt}</p>
             </Note>
           ) : (
             <Note icon={Terminal}>
               <p data-testid="claude-terminal-hint">
-                <strong className="font-semibold text-ink">
-                  Sul computer dove gira Monsters apri un terminale ed esegui
-                </strong>{' '}
-                <code className="font-mono text-ink">claude</code>, poi accedi con il tuo
-                abbonamento (<code className="font-mono text-ink">/login</code>). Me ne accorgo da
-                solo, oppure premi «Ricontrolla».
+                <strong className="font-semibold text-ink">{t.terminalStrong}</strong>{' '}
+                {/* i18n-ignore: a command */}
+                <code className="font-mono text-ink">claude</code>
+                {t.terminalMid}
+                {/* i18n-ignore: a command */}
+                <code className="font-mono text-ink">/login</code>
+                {t.terminalAfter}
               </p>
             </Note>
           )}
@@ -463,8 +438,8 @@ function ClaudePanel({
 
 /**
  * ChatGPT: Sign in with ChatGPT, in the system browser (OpenAI's rules, D-035).
- * OpenAI's own words stay in English (D-005), on lines of their own: the Italian
- * comes after, never in the same sentence (audit 2.6).
+ * OpenAI's own words stay in English (D-005), on lines of their own: the app's
+ * language comes after, never in the same sentence (audit 2.6).
  */
 function ChatGPTPanel({
   s,
@@ -475,6 +450,7 @@ function ChatGPTPanel({
   refresh: () => Promise<void>;
   onError: (m: string | null) => void;
 }) {
+  const t = accessStrings().chatgpt;
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const c = s.chatgpt;
@@ -497,9 +473,7 @@ function ChatGPTPanel({
   if (c.signedIn) {
     return (
       <div className="grid gap-2">
-        <Connected>
-          ChatGPT collegato{c.email ? ` come ${c.email}` : ''}: i mostri usano il tuo piano.
-        </Connected>
+        <Connected>{t.connected(c.email ?? undefined)}</Connected>
         <a
           href={c.usageUrl}
           target="_blank"
@@ -507,6 +481,7 @@ function ChatGPTPanel({
           lang="en"
           className="inline-flex w-fit items-center gap-1 pl-1 text-body font-medium text-signal-ink hover:underline"
         >
+          {/* i18n-ignore: OpenAI's own words stay in English (D-005) */}
           Manage usage <ArrowSquareOut size={15} aria-hidden />
         </a>
       </div>
@@ -517,6 +492,7 @@ function ChatGPTPanel({
     <div className="grid gap-4">
       <div className="grid justify-items-start gap-3">
         <p lang="en" className="text-body leading-snug text-ink">
+          {/* i18n-ignore: OpenAI's own words stay in English (D-005) */}
           Complete eligible AI requests in this app with usage included in your ChatGPT plan.
         </p>
         <button
@@ -527,24 +503,24 @@ function ChatGPTPanel({
           data-testid="continue-with-chatgpt"
           className="inline-flex h-11 items-center justify-center rounded-full bg-[#0d0d0d] px-5 text-large font-medium text-white ring-1 ring-white/15 hover:bg-[#262626] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink disabled:opacity-50"
         >
+          {/* i18n-ignore: OpenAI's own words stay in English (D-005) */}
           Continue with ChatGPT
         </button>
       </div>
-      <p className="text-footnote leading-snug text-ink-muted">
-        Funziona con i piani Plus e Pro. L’accesso si apre nel browser; a Monsters non paghi niente.
-      </p>
+      <p className="text-footnote leading-snug text-ink-muted">{t.works}</p>
       {c.pending && (
         <Note>
-          <Working>Completa l’accesso nel browser: me ne accorgo da solo.</Working>
+          <Working>{t.finish}</Working>
           {url && (
             <a href={url} target="_blank" rel="noreferrer" className="text-signal-ink underline">
-              Riapri la pagina di accesso
+              {t.reopen}
             </a>
           )}
           <p>
-            Monsters gira su un altro computer? Prima apri il tunnel dal tuo:{' '}
+            {t.tunnel}{' '}
             <code className="font-mono break-all text-ink">
-              ssh -L {c.callbackPort ?? 1455}:127.0.0.1:{c.callbackPort ?? 1455} utente@computer
+              {/* i18n-ignore: a command */}
+              ssh -L {c.callbackPort ?? 1455}:127.0.0.1:{c.callbackPort ?? 1455} {t.sshTarget}
             </code>
           </p>
         </Note>
@@ -556,8 +532,9 @@ function ChatGPTPanel({
 
 /** A connected way, in the guide's words. */
 function doneText(c: Connected): string {
-  if (typeof c === 'object') return `i modelli di ${c.key.label}`;
-  return WAYS.find((w) => w.id === c)!.done;
+  const s = accessStrings();
+  if (typeof c === 'object') return s.doneModelsOf(c.key.label);
+  return s.ways[c].done;
 }
 
 export function AccessStep({
@@ -579,6 +556,7 @@ export function AccessStep({
   const [other, setOther] = useState(false);
   const otherId = domId(useId());
   const go = useRef<HTMLButtonElement>(null);
+  const t = accessStrings();
 
   // Something already set up (e.g. Claude Code used before): start from it.
   const preset = useRef(false);
@@ -681,9 +659,9 @@ export function AccessStep({
       />
     ) : !subs ? (
       subsFailed ? (
-        <ErrorLine>Non riesco a leggere gli abbonamenti. Riprova tra poco.</ErrorLine>
+        <ErrorLine>{t.subsFailed}</ErrorLine>
       ) : (
-        <Working>Guardo cosa c’è su quel computer…</Working>
+        <Working>{t.looking}</Working>
       )
     ) : selected === 'claude-agent' ? (
       <ClaudePanel s={subs} refresh={refresh} onError={setError} />
@@ -699,21 +677,11 @@ export function AccessStep({
         named={false}
         expression={primary ? 'happy' : 'talk'}
         sayKey={primaryId ? `ready-${primaryId}` : 'key'}
-        say={
-          primary ? (
-            <>Fatto! Adesso penso con {doneText(primary)}.</>
-          ) : (
-            'Ciao! Per pensare mi serve un modello. Come lo raggiungo?'
-          )
-        }
-        hint={primary ? chainHint(connected) : 'Ne basta uno. Gli altri li aggiungi quando vuoi.'}
+        say={primary ? t.guide.done(doneText(primary)) : t.guide.ask}
+        hint={primary ? chainHint(connected) : t.guide.hint}
       />
 
-      <div
-        role="radiogroup"
-        aria-label="Come raggiungo un modello"
-        className="grid gap-2.5 sm:grid-cols-3"
-      >
+      <div role="radiogroup" aria-label={t.waysLabel} className="grid gap-2.5 sm:grid-cols-3">
         {WAYS.map((w) => (
           <WayCard
             key={w.id}
@@ -739,20 +707,16 @@ export function AccessStep({
       {other && (
         <div id={otherId} className="grid gap-3" data-testid="other-ways">
           {paidKey ? (
-            <Connected>
-              Chiave di {paidKey.label} verificata: i mostri useranno i suoi modelli, a pagamento.
-            </Connected>
+            <Connected>{t.other.verified(paidKey.label)}</Connected>
           ) : (
             <>
-              <p className="text-body leading-snug text-ink-muted">
-                Hai già una chiave di Anthropic, OpenAI, Google o Groq? Incollala qui: la riconosco
-                dall’inizio. Sono a pagamento, con i costi a tuo carico.
-              </p>
+              <p className="text-body leading-snug text-ink-muted">{t.other.text}</p>
               <KeyForm
-                label="La tua chiave"
+                label={t.other.keyLabel}
+                // i18n-ignore: the starts of the keys
                 placeholder="sk-ant-…, sk-…, AIza…, gsk_…"
-                hint="Resta su questo computer, protetta: la legge solo Monsters."
-                unknown="Non riconosco questa chiave: di solito inizia con sk-ant-, sk-, AIza o gsk_."
+                hint={t.openrouter.keyHint}
+                unknown={t.other.unknown}
                 onOpenRouter={() => {
                   setKeyReady(true);
                   setSelected('openrouter');
@@ -763,10 +727,9 @@ export function AccessStep({
           )}
           <Note icon={Key}>
             <p>
-              Mistral, o un modello sul tuo computer con Ollama o LM Studio: finisci il primo avvio
-              e li aggiungi in{' '}
-              <strong className="font-semibold text-ink">Impostazioni → Modelli</strong>, con il
-              modello di ogni mostro. Lì trovi anche Codex.
+              {t.other.noteBefore}{' '}
+              <strong className="font-semibold text-ink">{t.other.noteStrong}</strong>
+              {t.other.noteAfter}
             </p>
           </Note>
         </div>
@@ -780,16 +743,16 @@ export function AccessStep({
             aria-controls={otherId}
             onClick={() => setOther((v) => !v)}
           >
-            Altri modi
+            {t.other.otherWays}
           </Button>
           {/* With a model already connected there is nothing to leave for later. */}
           {!primary && (
             <Button variant="ghost" onClick={() => void skip()} disabled={busy !== null}>
-              {busy === 'skip' ? 'Un attimo…' : 'Lo faccio dopo'}
+              {busy === 'skip' ? t.oneMoment : t.later}
             </Button>
           )}
         </div>
-        {/* The OpenRouter key has its own "Verifica e continua": one way forward on screen. */}
+        {/* The OpenRouter key has its own "Verify and continue": one way forward on screen. */}
         {(primary || selected !== 'openrouter' || busy === 'go') && (
           <Button
             ref={go}
@@ -801,7 +764,7 @@ export function AccessStep({
             disabled={!primary || busy !== null}
             data-testid="access-continue"
           >
-            {busy === 'go' ? 'Un attimo…' : 'Continua'}
+            {busy === 'go' ? t.oneMoment : t.next}
             <ArrowRight size={18} aria-hidden />
           </Button>
         )}

@@ -1,6 +1,7 @@
 import type { PlanLimitId, PlanLimitsView } from '@monsters/shared';
 import { useEffect, useState } from 'react';
 import { formatAgo, liveWindow, litSegments, toneNote, windowNote } from './plan-limits-format.ts';
+import { usageStrings } from './usage.strings.ts';
 
 /*
  * Utilizzo del piano (docs/design.md, "Utilizzo del piano"; D-111): one bar of
@@ -60,6 +61,7 @@ export function PlanLimitsBlock({
   view: PlanLimitsView | null;
   embedded?: boolean;
 }) {
+  const s = usageStrings().plan;
   const now = useNow();
   const windows = view?.windows.map((w) => liveWindow(w, now)) ?? [];
   const body = (
@@ -73,7 +75,7 @@ export function PlanLimitsBlock({
           className="text-caption leading-[19px] text-screen-muted"
           data-testid="plan-limits-empty"
         >
-          Ancora nessun dato: compare dopo il primo lavoro di un mostro col piano {PLAN_NAME[plan]}.
+          {s.empty(PLAN_NAME[plan])}
         </p>
       ) : (
         <ul className="grid gap-3.5">
@@ -95,7 +97,7 @@ export function PlanLimitsBlock({
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={Math.min(100, w.usedPercent)}
-                aria-label={`${w.label}: ${w.usedPercent}% usato${flag ? `, ${flag}` : ''}`}
+                aria-label={s.meter(w.label, w.usedPercent, flag)}
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="label text-screen-muted">{w.label}</span>
@@ -114,8 +116,7 @@ export function PlanLimitsBlock({
         </ul>
       )}
       <p className="text-micro leading-[17px] text-screen-muted" data-testid="plan-updated">
-        {view ? `Aggiornato ${formatAgo(view.observedAt, now)}. ` : ''}
-        Si aggiorna solo quando un mostro lavora con questo piano.
+        {s.updated(view ? formatAgo(view.observedAt, now) : null)}
       </p>
     </div>
   );

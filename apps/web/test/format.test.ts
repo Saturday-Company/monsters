@@ -1,26 +1,59 @@
 import type { LogEvent } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { detailsOf } from '../src/components/log/details.ts';
 import {
   estimatedNotice,
   parseEur,
   unpricedNotice,
 } from '../src/components/settings/SpendSection.tsx';
-import { eurFirst, formatShortDay, formatUsd, parseAmount } from '../src/lib/utils.ts';
+import {
+  eurFirst,
+  formatAgo,
+  formatDay,
+  formatListTime,
+  formatShortDay,
+  formatUsd,
+  parseAmount,
+} from '../src/lib/utils.ts';
+
+/** Runs the tests inside in Italian, then back to English (the default). */
+function inItalian(fn: () => void) {
+  describe('in Italian', () => {
+    beforeAll(() => setAppLang('it'));
+    afterAll(() => setAppLang('en'));
+    fn();
+  });
+}
 
 describe('formatUsd', () => {
-  it('shows small costs with their significant digits, never "0 $"', () => {
-    expect(formatUsd(0.00002)).toBe('0,00002 $'); // a decision of Jev
-    expect(formatUsd(0.0000234)).toBe('0,000023 $');
-    expect(formatUsd(0.0012)).toBe('0,0012 $');
-    expect(formatUsd(0.0000004)).toBe('< 0,000001 $');
+  it('shows small costs with their significant digits, never "$0"', () => {
+    expect(formatUsd(0.00002)).toBe('$0.00002'); // a decision of Jev
+    expect(formatUsd(0.0000234)).toBe('$0.000023');
+    expect(formatUsd(0.0012)).toBe('$0.0012');
+    expect(formatUsd(0.0000004)).toBe('< $0.000001');
   });
 
   it('cents and dollars as usual', () => {
-    expect(formatUsd(0.042)).toBe('0,042 $');
-    expect(formatUsd(0.5)).toBe('0,5 $');
-    expect(formatUsd(1.254)).toBe('1,25 $');
-    expect(formatUsd(0)).toBe('0 $');
+    expect(formatUsd(0.042)).toBe('$0.042');
+    expect(formatUsd(0.5)).toBe('$0.5');
+    expect(formatUsd(1.254)).toBe('$1.25');
+    expect(formatUsd(0)).toBe('$0');
+    expect(formatUsd(0.002, '€')).toBe('€0.002');
+  });
+
+  inItalian(() => {
+    it('puts the symbol after, with the Italian separators', () => {
+      expect(formatUsd(0.00002)).toBe('0,00002 $');
+      expect(formatUsd(0.0000234)).toBe('0,000023 $');
+      expect(formatUsd(0.0012)).toBe('0,0012 $');
+      expect(formatUsd(0.0000004)).toBe('< 0,000001 $');
+      expect(formatUsd(0.042)).toBe('0,042 $');
+      expect(formatUsd(0.5)).toBe('0,5 $');
+      expect(formatUsd(1.254)).toBe('1,25 $');
+      expect(formatUsd(0)).toBe('0 $');
+      expect(formatUsd(0.002, '€')).toBe('0,002 €');
+    });
   });
 });
 
@@ -92,17 +125,73 @@ describe('parseAmount and the spending caps (collaudo of 17/10)', () => {
 });
 
 describe('formatShortDay', () => {
+  const now = new Date(2026, 9, 18, 12).getTime();
+  const today = new Date(2026, 9, 18, 8).getTime();
+  const yesterday = new Date(2026, 9, 17, 21).getTime();
+  const friday = new Date(2026, 9, 16, 21, 27).getTime();
+
   it('is short enough for a narrow card', () => {
-    const now = new Date(2026, 9, 18, 12).getTime();
-    expect(formatShortDay(new Date(2026, 9, 18, 8).getTime(), now)).toBe('Oggi');
-    expect(formatShortDay(new Date(2026, 9, 17, 21).getTime(), now)).toBe('Ieri');
-    expect(formatShortDay(new Date(2026, 9, 16, 21, 27).getTime(), now)).toBe('ven 16 ott');
+    expect(formatShortDay(today, now)).toBe('Today');
+    expect(formatShortDay(yesterday, now)).toBe('Yesterday');
+    expect(formatShortDay(friday, now)).toBe('Fri, Oct 16');
+  });
+
+  inItalian(() => {
+    it('is short enough for a narrow card', () => {
+      expect(formatShortDay(today, now)).toBe('Oggi');
+      expect(formatShortDay(yesterday, now)).toBe('Ieri');
+      expect(formatShortDay(friday, now)).toBe('ven 16 ott');
+    });
+  });
+});
+
+describe('dates in the log and in the chat list', () => {
+  const now = new Date(2026, 9, 18, 12).getTime();
+  const at = (d: number, h: number, m = 0) => new Date(2026, 9, d, h, m).getTime();
+
+  it('writes the day of the log in English', () => {
+    expect(formatDay(at(18, 8), now)).toBe('Today');
+    expect(formatDay(at(17, 8), now)).toBe('Yesterday');
+    expect(formatDay(at(12, 8), now)).toBe('Monday, October 12');
+    expect(formatListTime(at(18, 10, 15), now)).toBe('10:15 AM');
+    expect(formatListTime(at(17, 10), now)).toBe('Yesterday');
+    expect(formatListTime(at(14, 10), now)).toBe('Wed');
+    expect(formatListTime(at(2, 10), now)).toBe('Oct 2');
+  });
+
+  it('says how long ago', () => {
+    expect(formatAgo(now - 10_000, now)).toBe('just now');
+    expect(formatAgo(now - 3 * 60_000, now)).toBe('3 min ago');
+    expect(formatAgo(now - 2 * 3_600_000, now)).toBe('2 h ago');
+    expect(formatAgo(now - 30 * 3_600_000, now)).toBe('Yesterday');
+  });
+
+  inItalian(() => {
+    it('writes the day of the log in Italian', () => {
+      expect(formatDay(at(18, 8), now)).toBe('Oggi');
+      expect(formatDay(at(17, 8), now)).toBe('Ieri');
+      expect(formatDay(at(12, 8), now)).toBe('Lunedì 12 ottobre');
+      expect(formatListTime(at(18, 10, 15), now)).toBe('10:15');
+      expect(formatListTime(at(17, 10), now)).toBe('Ieri');
+      expect(formatListTime(at(14, 10), now)).toBe('mer');
+      expect(formatListTime(at(2, 10), now)).toBe('2 ott');
+      expect(formatAgo(now - 10_000, now)).toBe('adesso');
+      expect(formatAgo(now - 3 * 60_000, now)).toBe('3 min fa');
+      expect(formatAgo(now - 2 * 3_600_000, now)).toBe('2 h fa');
+    });
   });
 });
 
 describe('eurFirst', () => {
   it('puts the euro first and the dollar in brackets', () => {
-    expect(eurFirst(1.09)).toBe('0,9 € (1,1 $)');
-    expect(eurFirst(10, undefined, 0)).toBe('9 € (10 $)');
+    expect(eurFirst(1.09)).toBe('€0.9 ($1.1)');
+    expect(eurFirst(10, undefined, 0)).toBe('€9 ($10)');
+  });
+
+  inItalian(() => {
+    it('with the symbols after', () => {
+      expect(eurFirst(1.09)).toBe('0,9 € (1,1 $)');
+      expect(eurFirst(10, undefined, 0)).toBe('9 € (10 $)');
+    });
   });
 });

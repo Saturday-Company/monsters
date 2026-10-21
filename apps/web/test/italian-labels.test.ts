@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { setAppLang } from '@monsters/shared';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { chainModelName } from '../src/store/instinct.ts';
 import { modelShort } from '../src/store/derive.ts';
 import { modelWords, toName } from '../src/lib/utils.ts';
@@ -9,15 +10,25 @@ import { modelWords, toName } from '../src/lib/utils.ts';
  */
 
 describe('the preposition before a name', () => {
-  it('takes the euphonic d only before an a', () => {
-    expect(toName('Anteiku')).toBe('ad Anteiku');
-    expect(toName('Asana')).toBe('ad Asana');
-    expect(toName('atlas')).toBe('ad atlas');
-    expect(toName('Àlba')).toBe('ad Àlba');
-    expect(toName('Notion')).toBe('a Notion');
-    expect(toName('Elena')).toBe('a Elena');
-    expect(toName('Ofelia')).toBe('a Ofelia');
-    expect(toName('WitDesk')).toBe('a WitDesk');
+  it('is "to" in English', () => {
+    expect(toName('Titan')).toBe('to Titan');
+    expect(toName('Anteiku')).toBe('to Anteiku');
+  });
+
+  describe('in Italian', () => {
+    beforeAll(() => setAppLang('it'));
+    afterAll(() => setAppLang('en'));
+
+    it('takes the euphonic d only before an a', () => {
+      expect(toName('Anteiku')).toBe('ad Anteiku');
+      expect(toName('Asana')).toBe('ad Asana');
+      expect(toName('atlas')).toBe('ad atlas');
+      expect(toName('Àlba')).toBe('ad Àlba');
+      expect(toName('Notion')).toBe('a Notion');
+      expect(toName('Elena')).toBe('a Elena');
+      expect(toName('Ofelia')).toBe('a Ofelia');
+      expect(toName('WitDesk')).toBe('a WitDesk');
+    });
   });
 });
 

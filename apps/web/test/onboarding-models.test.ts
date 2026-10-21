@@ -1,4 +1,9 @@
-import type { ModelRefView, ProviderView, ProvidersResponse } from '@monsters/shared';
+import {
+  setAppLang,
+  type ModelRefView,
+  type ProviderView,
+  type ProvidersResponse,
+} from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
 import { chainHint, keyKind, settleModels, type ModelsApi } from '../src/onboarding/models.ts';
 
@@ -61,14 +66,35 @@ describe('onboarding models', () => {
   });
 
   it('says the order only when there is a fallback', () => {
-    expect(chainHint(['openrouter'])).toContain('nelle impostazioni');
+    expect(chainHint(['openrouter'])).toContain('in the settings');
     expect(chainHint(['openrouter', 'chatgpt'])).toBe(
-      'Userò prima ChatGPT, poi OpenRouter se serve.',
+      'I’ll use ChatGPT first, then OpenRouter if needed.',
     );
-    // Claude Code never falls back (D-035): no "poi".
+    // Claude Code never falls back (D-035): no "then".
     expect(chainHint(['openrouter', 'claude-agent'])).toBe(
-      'Userò Claude. Anche OpenRouter resta collegato: nelle impostazioni lo puoi dare a un mostro.',
+      'I’ll use Claude. OpenRouter stays connected too: in the settings you can give it to a monster.',
     );
+    expect(chainHint(['openrouter', 'claude-agent', 'chatgpt'])).toBe(
+      'I’ll use Claude. ChatGPT and OpenRouter stay connected too: in the settings you can give them to a monster.',
+    );
+  });
+
+  it('says the order in Italian too', () => {
+    setAppLang('it');
+    try {
+      expect(chainHint(['openrouter'])).toContain('nelle impostazioni');
+      expect(chainHint(['openrouter', 'chatgpt'])).toBe(
+        'Userò prima ChatGPT, poi OpenRouter se serve.',
+      );
+      expect(chainHint(['openrouter', 'claude-agent'])).toBe(
+        'Userò Claude. Anche OpenRouter resta collegato: nelle impostazioni lo puoi dare a un mostro.',
+      );
+      expect(chainHint(['openrouter', 'claude-agent', 'chatgpt'])).toBe(
+        'Userò Claude. Anche ChatGPT e OpenRouter restano collegati: nelle impostazioni li puoi dare a un mostro.',
+      );
+    } finally {
+      setAppLang('en');
+    }
   });
 
   it('moves the team to a paid key when OpenRouter is not there', async () => {

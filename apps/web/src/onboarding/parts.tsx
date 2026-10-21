@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useStill } from '../lib/motion.ts';
 import { monsterFor } from '../lib/monsters.ts';
 import { cn } from '../lib/utils.ts';
+import { onboardingStrings } from './onboarding.strings.ts';
 
 export { useStill };
 
@@ -57,13 +58,13 @@ export function DoneCheck({
 /**
  * Progress inside a step: a strip of segments sunk in a well, lit in the
  * signal colour as the screens are done (the current one half lit). Decoration
- * (`aria-hidden`): screen readers get a single "Domanda n di m" (audit 2.15).
+ * (`aria-hidden`): screen readers get a single "Question n of m" (audit 2.15).
  */
 export function ScreenProgress({
   total,
   current,
   done,
-  label = 'Domanda',
+  label = onboardingStrings().question,
   flash = false,
 }: {
   total: number;
@@ -71,7 +72,7 @@ export function ScreenProgress({
   current: number;
   /** Screens completed (the current one counts once confirmed). */
   done: number;
-  /** Word before "n di m". */
+  /** Word before "n of m". */
   label?: string;
   /** Just confirmed: a check next to the counter. */
   flash?: boolean;
@@ -100,14 +101,14 @@ export function ScreenProgress({
       <span className="flex h-6 items-center justify-end gap-1.5">
         {flash && <DoneCheck size={18} />}
         <span className="label whitespace-nowrap text-ink-muted">
-          {label} {Math.min(current + 1, total)} di {total}
+          {onboardingStrings().progressCount(label, Math.min(current + 1, total), total)}
         </span>
       </span>
     </div>
   );
 }
 
-/** A short tag ("web", "Capo squadra: Titan"): a label on a small cap. */
+/** A short tag ("web", "Squad lead: Titan"): a label on a small cap. */
 export function Badge({
   children,
   tone = 'muted',

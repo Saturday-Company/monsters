@@ -6,10 +6,11 @@ import { Button } from '../components/ui/button.tsx';
 import { Meter } from '../components/ui/Meter.tsx';
 import { chatPath } from '../lib/router.ts';
 import { playSound } from '../lib/sound.ts';
-import { cn, toName } from '../lib/utils.ts';
+import { cn } from '../lib/utils.ts';
 import { useMediaQuery, useResolvedTheme } from '../store/hooks.ts';
 import { accentInk, bubbleColors } from '../theme/bubbles.ts';
 import { DotReveal } from './DotReveal.tsx';
+import { onboardingStrings } from './onboarding.strings.ts';
 import { genomeFrom, useStill } from './parts.tsx';
 
 /** How long one monster takes to switch on, and the pause before the next one. */
@@ -24,6 +25,7 @@ const GAP_MS = 160;
  * says hello and its chat is one key away.
  */
 export function BirthStep({ result }: { result: TeamConfirmResponse }) {
+  const s = onboardingStrings().birth;
   const still = useStill();
   const theme = useResolvedTheme();
   const small = useMediaQuery('(max-width: 639px)');
@@ -67,17 +69,17 @@ export function BirthStep({ result }: { result: TeamConfirmResponse }) {
           ) : (
             <Meter active className="text-signal-ink" />
           )}
-          {ready ? 'Squadra accesa' : `Accensione ${lit + 1}/${agents.length}`}
+          {ready ? s.on : s.switching(lit + 1, agents.length)}
         </p>
         <h2 className="mt-3 text-title1 font-bold tracking-[-0.02em] text-ink sm:text-display">
-          Ecco la tua squadra!
+          {s.title}
         </h2>
-        <p className="mt-1 text-large text-ink-muted">Appena nati, e già pronti a lavorare.</p>
+        <p className="mt-1 text-large text-ink-muted">{s.subtitle}</p>
       </div>
 
       <ul
         className="flex flex-wrap items-end justify-center gap-x-3 gap-y-5 sm:gap-x-5"
-        aria-label="I mostri della squadra"
+        aria-label={s.list}
       >
         {agents.map((a, i) => {
           const on = i < lit;
@@ -98,7 +100,7 @@ export function BirthStep({ result }: { result: TeamConfirmResponse }) {
                   className={cn('label flex items-center gap-1.5', !on && 'text-ink-faint')}
                   style={on ? { color: accentInk(a.color, theme) } : undefined}
                 >
-                  {a.isOrchestrator ? 'Il tuo capo' : on ? 'Sveglio' : 'In attesa'}
+                  {a.isOrchestrator ? s.lead : on ? s.awake : s.waiting}
                 </span>
               </span>
             </li>
@@ -141,7 +143,7 @@ export function BirthStep({ result }: { result: TeamConfirmResponse }) {
             window.location.hash = chatPath(orch.id);
           }}
         >
-          Scrivi {toName(orch.name)} <ArrowRight size={18} aria-hidden />
+          {s.write(orch.name)} <ArrowRight size={18} aria-hidden />
         </Button>
       </div>
     </div>

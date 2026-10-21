@@ -1,13 +1,14 @@
-import type { AutomationView, EventInput, LogEvent } from '@monsters/shared';
-import { describe, expect, it } from 'vitest';
+import { setAppLang, type AutomationView, type EventInput, type LogEvent } from '@monsters/shared';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   cronOfForm,
   formOfCron,
   groupBySquad,
   limitsText,
   nextRuns,
-  PERSONAL_SQUAD,
+  personalSquad,
   runStateText,
+  weekdayKeys,
   usageText,
   type ScheduleForm,
 } from '../src/lib/automations.ts';
@@ -73,24 +74,65 @@ describe('the schedule of the form', () => {
 });
 
 describe('what the menu says', () => {
-  it('names the states of a giro in Italian', () => {
-    expect(runStateText('completed')).toBe('Fatto');
-    expect(runStateText('running')).toBe('In corso');
-    expect(runStateText('waiting_user')).toBe('Aspetta una risposta');
-    expect(runStateText('skipped')).toBe('Saltato');
-    expect(runStateText('failed')).toBe('Errore');
+  it('names the states of a run', () => {
+    expect(runStateText('completed')).toBe('Done');
+    expect(runStateText('running')).toBe('Running');
+    expect(runStateText('waiting_user')).toBe('Waiting for an answer');
+    expect(runStateText('skipped')).toBe('Skipped');
+    expect(runStateText('failed')).toBe('Failed');
   });
 
-  it('says what a giro used', () => {
+  it('says what a run used', () => {
     expect(usageText({ steps: 4, tokens: 16480, costUsd: 0 })).toBe(
-      '4 passi · 16.480 token · gratis',
+      '4 steps · 16,480 tokens · free',
     );
     expect(usageText({ steps: 1, tokens: 900, costUsd: 0.042 })).toBe(
-      '1 passo · 900 token · 0,042 $',
+      '1 step · 900 tokens · $0.042',
     );
+    expect(usageText({ steps: 1, tokens: 900, costUsd: 0.042 }, false)).toBe('1 step · $0.042');
     expect(usageText({ steps: 0, tokens: 0, costUsd: 0 })).toBeNull();
     expect(limitsText({})).toBeNull();
-    expect(limitsText({ maxSteps: 60, maxEur: 2 })).toBe('al massimo 60 passi · 2 € a giro');
+    expect(limitsText({ maxSteps: 60, maxEur: 2 })).toBe('up to 60 steps · €2 per run');
+  });
+
+  it('starts the week on Monday', () => {
+    expect(weekdayKeys().map((d) => d.short)).toEqual([
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ]);
+  });
+
+  describe('in Italian', () => {
+    beforeAll(() => setAppLang('it'));
+    afterAll(() => setAppLang('en'));
+
+    it('names the states of a giro', () => {
+      expect(runStateText('completed')).toBe('Fatto');
+      expect(runStateText('running')).toBe('In corso');
+      expect(runStateText('waiting_user')).toBe('Aspetta una risposta');
+      expect(runStateText('skipped')).toBe('Saltato');
+      expect(runStateText('failed')).toBe('Errore');
+    });
+
+    it('says what a giro used', () => {
+      expect(usageText({ steps: 4, tokens: 16480, costUsd: 0 })).toBe(
+        '4 passi · 16.480 token · gratis',
+      );
+      expect(usageText({ steps: 1, tokens: 900, costUsd: 0.042 })).toBe(
+        '1 passo · 900 token · 0,042 $',
+      );
+      expect(limitsText({ maxSteps: 60, maxEur: 2 })).toBe('al massimo 60 passi · 2 € a giro');
+      expect(weekdayKeys()[0]).toMatchObject({ day: 1, short: 'Lun', long: 'lunedì' });
+    });
+
+    it('calls the squad of no project personal', () => {
+      expect(personalSquad()).toBe('Squadra personale');
+    });
   });
 
   it('groups by squad: the personal one first, drafts first inside a group', () => {
@@ -101,7 +143,8 @@ describe('what the menu says', () => {
       a('alfa', { project: 'saturday' }),
       a('beta', { status: 'draft' }),
     ]);
-    expect(groups.map((g) => g.label)).toEqual([PERSONAL_SQUAD, 'saturday']);
+    expect(groups.map((g) => g.label)).toEqual([personalSquad(), 'saturday']);
+    expect(personalSquad()).toBe('Personal squad');
     expect(groups[0]!.items.map((x) => x.id)).toEqual(['beta', 'zeta']);
   });
 

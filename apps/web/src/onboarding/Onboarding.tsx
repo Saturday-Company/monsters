@@ -11,6 +11,7 @@ import { AccessStep } from './AccessStep.tsx';
 import { onboardingApi, onboardingError } from './api.ts';
 import { BirthStep } from './BirthStep.tsx';
 import { settleModels } from './models.ts';
+import { onboardingStrings } from './onboarding.strings.ts';
 import { genomeFrom } from './parts.tsx';
 import './boot.css';
 import { PermissionsStep } from './PermissionsStep.tsx';
@@ -30,15 +31,15 @@ import { TeamStep } from './TeamStep.tsx';
  */
 
 interface Stage {
-  label: string;
   steps: OnboardingStep[];
 }
 
+/** The steps of each stage, in order; the words of a stage are `onboardingStrings().stages`. */
 const STAGES: Stage[] = [
-  { label: 'Modello', steps: ['key'] },
-  { label: 'Su di te', steps: ['questions'] },
-  { label: 'Cosa possono fare', steps: ['permissions'] },
-  { label: 'Squadra', steps: ['team'] },
+  { steps: ['key'] },
+  { steps: ['questions'] },
+  { steps: ['permissions'] },
+  { steps: ['team'] },
 ];
 
 function stageOf(step: OnboardingStep): number {
@@ -58,18 +59,19 @@ const two = (n: number) => String(n).padStart(2, '0');
  * for a step left for later. Words go with every light.
  */
 function Progress({ step, skipped }: { step: OnboardingStep; skipped: boolean }) {
+  const s = onboardingStrings();
   const current = stageOf(step);
   return (
-    <nav aria-label="Avanzamento">
+    <nav aria-label={s.progress}>
       <ol className="flex items-center gap-0.5 sm:gap-5">
-        {STAGES.map((s, i) => {
+        {STAGES.map((stage, i) => {
           // "Lo faccio dopo" moves on without a model: that step is still to do (audit 2.3).
           const todo = i === 0 && skipped && i < current;
           const done = i < current && !todo;
           const active = i === current;
           return (
             <li
-              key={s.label}
+              key={stage.steps.join()}
               aria-current={active ? 'step' : undefined}
               data-done={done ? 'yes' : 'no'}
               data-todo={todo ? 'yes' : undefined}
@@ -96,9 +98,11 @@ function Progress({ step, skipped }: { step: OnboardingStep; skipped: boolean })
                 {two(i + 1)}
               </span>
               {/* On a phone only the lights: the module below says the step in words (audit UI-39). */}
-              <span className={cn('max-md:sr-only', !active && 'max-lg:sr-only')}>{s.label}</span>
-              {done && <span className="sr-only">, fatto</span>}
-              {todo && <span className="sr-only">, da fare</span>}
+              <span className={cn('max-md:sr-only', !active && 'max-lg:sr-only')}>
+                {s.stages[i]}
+              </span>
+              {done && <span className="sr-only">{s.done}</span>}
+              {todo && <span className="sr-only">{s.todo}</span>}
             </li>
           );
         })}
@@ -109,23 +113,21 @@ function Progress({ step, skipped }: { step: OnboardingStep; skipped: boolean })
 
 /** What the module of a step says in its header. */
 function moduleTitle(view: string): string {
+  const t = onboardingStrings().moduleTitle;
   switch (view) {
     case 'key':
-      return 'Modello';
     case 'questions':
-      return 'Su di te';
     case 'permissions':
-      return 'Cosa possono fare';
     case 'team':
-      return 'Squadra';
     case 'birth':
-      return 'Nascita della squadra';
+      return t[view];
     default:
-      return 'Primo avvio';
+      return t.other;
   }
 }
 
 export function Onboarding() {
+  const s = onboardingStrings();
   const [state, setState] = useState<OnboardingState | null>(null);
   const [born, setBorn] = useState<TeamConfirmResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -158,7 +160,7 @@ export function Onboarding() {
     )
       .catch(() => undefined)
       .then(() => refreshAgents())
-      .catch(() => notify('Non riesco a caricare la squadra: ricarica la pagina.', 'error'));
+      .catch(() => notify(onboardingStrings().loadFailed, 'error'));
   };
 
   const step: OnboardingStep = born ? 'done' : (state?.step ?? 'key');
@@ -174,7 +176,8 @@ export function Onboarding() {
         className="titlebar-start titlebar-end flex h-[52px] shrink-0 items-center justify-between gap-3 px-4 sm:px-5"
       >
         <span className="dots text-title3 leading-none text-ink" aria-label="Monsters">
-          monsters
+          {/* The brand: the same in every language. */}
+          {'monsters'}
         </span>
         <div className="flex min-w-0 items-center gap-1 sm:gap-4">
           {state && !born && <Progress step={step} skipped={state.keySkipped && !state.hasKey} />}
@@ -183,11 +186,11 @@ export function Onboarding() {
             <button
               type="button"
               onClick={() => void logout()}
-              aria-label="Esci dall’account"
-              title="Esci dall’account"
+              aria-label={s.signOut}
+              title={s.signOut}
               className="key-ghost label h-8 shrink-0 rounded-[8px] px-2 text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
             >
-              <span className="max-sm:hidden">Esci dall’account</span>
+              <span className="max-sm:hidden">{s.signOut}</span>
               <SignOut size={16} aria-hidden className="sm:hidden" />
             </button>
           )}
@@ -199,7 +202,7 @@ export function Onboarding() {
         <div className="mx-auto flex min-h-full w-full max-w-[880px] flex-col px-3 sm:px-6">
           {/* Anchored at the top: a new part of the step grows the module downwards (audit UI-17). */}
           <section
-            aria-label="Primo avvio"
+            aria-label={s.firstStart}
             className="pt-3 pb-6 sm:pt-[max(24px,5vh)] sm:pb-10"
             data-testid="onboarding"
             data-step={step}
@@ -218,13 +221,13 @@ export function Onboarding() {
                     </span>
                     <p className="text-large text-ink-muted">{error}</p>
                     <Button onClick={load}>
-                      <ArrowClockwise size={18} aria-hidden /> Riprova
+                      <ArrowClockwise size={18} aria-hidden /> {s.retry}
                     </Button>
                   </div>
                 )}
                 {view === 'loading' && (
                   <div className="flex justify-center py-10" aria-busy="true">
-                    <span className="sr-only">Carico…</span>
+                    <span className="sr-only">{s.loading}</span>
                     <span className="screen screen-lines flex h-[120px] w-[150px] items-center justify-center rounded-[14px]">
                       <Monster genome={monsterFor('titan')} size={110} expression="think" />
                     </span>

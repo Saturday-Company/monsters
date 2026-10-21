@@ -15,6 +15,7 @@ import { Switch } from '../components/ui/controls.tsx';
 import { cn } from '../lib/utils.ts';
 import { onboardingApi, onboardingError } from './api.ts';
 import { Guide } from './Guide.tsx';
+import { onboardingStrings } from './onboarding.strings.ts';
 import { ErrorLine, genomeFrom } from './parts.tsx';
 
 /** How long the confirmation stays before the team step. */
@@ -23,17 +24,20 @@ const REPLY_MS = 800;
 interface Row {
   key: 'vault' | 'web' | 'shell';
   icon: Icon;
-  title: string;
-  text: string;
 }
 
 /**
- * One true sentence about the terminal, the same in Settings → Permessi (audit
+ * One true sentence about the terminal, the same in Settings → Permissions (audit
  * 2.9): commands run in the agent's folder, without administrator rights, but
  * with the user's account (`shell` reaches beyond the granted folders).
  */
+export function terminalText(): string {
+  return onboardingStrings().permissions.terminal;
+}
+
+/** @deprecated Italian only: use `terminalText()`, which follows the app language. */
 export const TERMINAL_TEXT =
-  'Eseguire comandi e installare programmi nella propria cartella, senza permessi di amministratore. I comandi possono leggere e cambiare i file del tuo account.';
+  'Eseguire comandi e installare programmi nella propria cartella, senza permessi di amministratore. I comandi possono leggere e cambiare i file del tuo account.'; // i18n-ignore: kept until the last caller moves to terminalText()
 
 /*
  * What the agents may do (M2.5, D-033), last screen of "Su di te": only the
@@ -42,25 +46,17 @@ export const TERMINAL_TEXT =
  * (D-053), so the first start stays short.
  */
 const ROWS: Row[] = [
-  {
-    key: 'vault',
-    icon: Notebook,
-    title: 'Le tue note',
-    text: 'Scrivere nelle tue note: ricerche, bozze, appunti. Ogni modifica si può annullare.',
-  },
-  {
-    key: 'web',
-    icon: Globe,
-    title: 'Il web',
-    text: 'Cercare e leggere pagine online, sempre citando le fonti.',
-  },
-  {
-    key: 'shell',
-    icon: TerminalWindow,
-    title: 'Terminale',
-    text: TERMINAL_TEXT,
-  },
+  { key: 'vault', icon: Notebook },
+  { key: 'web', icon: Globe },
+  { key: 'shell', icon: TerminalWindow },
 ];
+
+function rowText(key: Row['key']): { title: string; text: string } {
+  const s = onboardingStrings().permissions;
+  if (key === 'vault') return { title: s.notesTitle, text: s.notesText };
+  if (key === 'web') return { title: s.webTitle, text: s.webText };
+  return { title: s.terminalTitle, text: s.terminal };
+}
 
 /** Step 2, last screen: the permissions of the agents, in one go (editable later). */
 export function PermissionsStep({
@@ -70,6 +66,7 @@ export function PermissionsStep({
   state: OnboardingState;
   onState: (s: OnboardingState) => void;
 }) {
+  const s = onboardingStrings().permissions;
   // Who writes software finds the terminal on (audit 2.9); everybody else off.
   const [perm, setPerm] = useState<AgentPermissions>(
     () =>
@@ -110,20 +107,15 @@ export function PermissionsStep({
         name={state.guide.name}
         expression={saved ? 'happy' : 'talk'}
         sayKey={saved ? 'permissions-saved' : 'permissions'}
-        say={
-          saved ? 'Perfetto! Adesso preparo la squadra.' : 'Cosa possiamo fare senza disturbarti?'
-        }
-        hint={
-          saved
-            ? undefined
-            : 'Cartelle del computer, browser e altri programmi li aggiungi quando vuoi, nelle impostazioni.'
-        }
+        say={saved ? s.saidSaved : s.said}
+        hint={saved ? undefined : s.hint}
       />
 
       <div className="card overflow-hidden rounded-[14px]">
-        <ul aria-label="Permessi degli agenti">
+        <ul aria-label={s.list}>
           {ROWS.map((row) => {
             const Icon = row.icon;
+            const words = rowText(row.key);
             const on = perm[row.key] ?? false;
             return (
               <li
@@ -140,15 +132,15 @@ export function PermissionsStep({
                   <Icon size={20} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-large font-semibold text-ink">{row.title}</p>
-                  <p className="text-footnote leading-snug text-ink-muted">{row.text}</p>
+                  <p className="text-large font-semibold text-ink">{words.title}</p>
+                  <p className="text-footnote leading-snug text-ink-muted">{words.text}</p>
                 </div>
                 <Switch
                   words
                   checked={on}
                   disabled={busy}
                   onCheckedChange={(v) => setPerm((p) => ({ ...p, [row.key]: v }))}
-                  label={row.title}
+                  label={words.title}
                 />
               </li>
             );
@@ -160,7 +152,7 @@ export function PermissionsStep({
 
       <div className="flex items-center justify-between gap-3">
         <Button variant="ghost" onClick={back} disabled={busy}>
-          <ArrowLeft size={18} aria-hidden /> Indietro
+          <ArrowLeft size={18} aria-hidden /> {s.back}
         </Button>
         <Button
           size="lg"
@@ -170,7 +162,7 @@ export function PermissionsStep({
           }}
           disabled={busy}
         >
-          {busy && !saved ? 'Un attimo…' : 'Va bene, continua'} <ArrowRight size={18} aria-hidden />
+          {busy && !saved ? s.working : s.next} <ArrowRight size={18} aria-hidden />
         </Button>
       </div>
     </div>

@@ -1,11 +1,14 @@
 import type { LogEvent, UsageContext } from '@monsters/shared';
 import { runOwnersOf } from '@monsters/shared';
+import { setAppLang } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
 import {
   contextAmount,
   contextNow,
+  formatCount,
   formatTokens,
   latestContext,
+  partName,
   percentText,
   segmentsOf,
   thresholdAt,
@@ -47,9 +50,16 @@ describe('context bar', () => {
     expect(percentText(8300, 32_768)).toBe('25%');
     expect(percentText(8300, null)).toBeNull();
     expect(formatTokens(820)).toBe('820');
-    expect(formatTokens(8400)).toBe('8,4K');
+    expect(formatTokens(8400)).toBe('8.4K');
     expect(formatTokens(65_536)).toBe('66K');
     expect(formatTokens(1_000_000)).toBe('1M');
+    expect(formatCount(12_345)).toBe('12,345');
+    setAppLang('it');
+    expect(formatTokens(8400)).toBe('8,4K');
+    expect(formatCount(12_345)).toBe('12.345');
+    expect(partName('base', 'codex')).toBe('Base di Codex');
+    setAppLang('en');
+    expect(partName('base', 'codex')).toBe('Codex base');
     expect(contextAmount(null)).toBe('0%');
   });
 });

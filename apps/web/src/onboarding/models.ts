@@ -5,7 +5,9 @@ import {
   type OnboardingAccess,
   type ProviderModelsResponse,
   type ProvidersResponse,
+  formatList,
 } from '@monsters/shared';
+import { onboardingStrings } from './onboarding.strings.ts';
 
 /*
  * Ways to a model of the first step (D-053) and the agents' chains once the
@@ -24,7 +26,7 @@ import {
 /** A key pasted in the onboarding, recognised by its prefix (provider catalog). */
 export interface KeyKind {
   provider: string;
-  /** Name in the sentences ("una chiave di Anthropic"). */
+  /** Name in the sentences ("an Anthropic key"). */
   label: string;
 }
 
@@ -65,19 +67,15 @@ export function rankConnected(list: Connected[]): Connected[] {
 
 /** The hint under the guide once something is connected (audit 2.2). */
 export function chainHint(list: Connected[]): string {
+  const t = onboardingStrings().chain;
   const [first, ...rest] = rankConnected(list);
-  if (!first || rest.length === 0) {
-    return 'Puoi cambiarlo o aggiungerne altri quando vuoi, nelle impostazioni.';
-  }
+  if (!first || rest.length === 0) return t.default;
   if (first !== 'claude-agent' && rest.includes('openrouter')) {
-    return `Userò prima ${connectedName(first)}, poi OpenRouter se serve.`;
+    return t.thenOpenRouter(connectedName(first));
   }
   const names = rest.map(connectedName);
-  if (names.length === 1) {
-    return `Userò ${connectedName(first)}. Anche ${names[0]!} resta collegato: nelle impostazioni lo puoi dare a un mostro.`;
-  }
-  const joined = `${names.slice(0, -1).join(', ')} e ${names.at(-1)!}`;
-  return `Userò ${connectedName(first)}. Anche ${joined} restano collegati: nelle impostazioni li puoi dare a un mostro.`;
+  if (names.length === 1) return t.one(connectedName(first), names[0]!);
+  return t.many(connectedName(first), formatList(names));
 }
 
 /** The part of the API client the chains need (a fake in the tests). */
