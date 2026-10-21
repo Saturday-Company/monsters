@@ -22,6 +22,10 @@ process.env['MONSTERS_SECRETS'] ??= 'file';
 // started on a fresh home takes the system's language.
 process.env['MONSTERS_LANG'] ??= 'en';
 process.env['MONSTERS_LOCALE'] ??= 'en-US';
+// …but their vaults have the Italian names (D-154): the tests model the vaults that exist,
+// every one made before D-154. A test of a new English vault asks for it (`MONSTERS_VAULT_LAYOUT=en`,
+// `vaultLayoutIn('en')` in the core's tests).
+process.env['MONSTERS_VAULT_LAYOUT'] ??= 'it';
 
 /*
  * The temporary folder of the tests is reached through a link, as on macOS

@@ -2,6 +2,7 @@ import {
   EventInputSchema,
   ToolError,
   ulid,
+  vaultLayout,
   type MonstersTool,
   type ToolContext,
 } from '@monsters/shared';
@@ -154,7 +155,7 @@ export function registerVaultToolRoutes(
         (TOKEN_CLOSED_VAULT_TOOLS.has(tool.name) || inputPaths(parsed.data).some(protectedNote))
       ) {
         throw new ToolError('BLOCKED_BY_POLICY', 'this note is written only by the user', {
-          hint: 'The memory of the monsters, the profile and Privato/ change only from the app.',
+          hint: `The memory of the monsters, the profile and ${vaultLayout().private}/ change only from the app.`,
         });
       }
       const output = await tool.execute(parsed.data, ctx);

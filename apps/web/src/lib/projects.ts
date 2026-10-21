@@ -1,5 +1,6 @@
 import { slugify, type MonsterGenome } from '@monsters/monster-kit';
 import {
+  vaultLayout,
   MOON_NAMES,
   ProjectNameSchema,
   type ProjectPlanMember,
@@ -125,11 +126,14 @@ export function copyName(
   return candidates.find((c) => !used.has(c.toLowerCase()) && !used.has(keyOf(c))) ?? null;
 }
 
-/** Where a new folder goes when the user does not say (the core's `~/Monsters Progetti/<name>`). */
+/**
+ * Where a new folder goes when the user does not say (the core's `~/Monsters Progetti/<name>`,
+ * `~/Monsters Projects/<name>` with an English vault: D-154).
+ */
 export function newFolderPath(name: string): string {
-  // i18n-ignore: the core's own default folder, whatever the app's language
-  const clean = name.replace(/[\\/:*?"<>|]/g, '').trim() || 'Progetto';
-  return `~/Monsters Progetti/${clean}`;
+  const layout = vaultLayout();
+  const clean = name.replace(/[\\/:*?"<>|]/g, '').trim() || layout.untitledProject;
+  return `~/${layout.projectsDir}/${clean}`;
 }
 
 /**
@@ -137,8 +141,8 @@ export function newFolderPath(name: string): string {
  * dialog), with the separator `parent` already uses (`\` on Windows).
  */
 export function newFolderIn(parent: string, name: string): string {
-  // i18n-ignore: the same fallback folder name as the core's
-  const clean = name.replace(/[\\/:*?"<>|]/g, '').trim() || 'Progetto';
+  // The same fallback folder name as the core's, in the words of the vault.
+  const clean = name.replace(/[\\/:*?"<>|]/g, '').trim() || vaultLayout().untitledProject;
   const sep = parent.includes('\\') && !parent.includes('/') ? '\\' : '/';
   return `${parent.replace(/[\\/]+$/, '')}${sep}${clean}`;
 }

@@ -1,5 +1,6 @@
 import { ArrowCounterClockwise, Plus } from '@phosphor-icons/react';
 import {
+  vaultLayout,
   formatDate,
   type ArchivedMemberView,
   type ProfileUpdate,
@@ -33,9 +34,6 @@ import { AddMonster, MemberRow } from './TeamMembers.tsx';
  * always ask lives in Permessi (AskAlwaysSection.tsx).
  */
 
-/** The note with what the monsters know about the user (written by the onboarding). */
-const PROFILE_NOTE = 'profilo.md';
-
 /** A refused change that has no field of its own to show it: a toast. */
 const complain = (err: unknown) => notify(teamError(err), 'error');
 
@@ -60,7 +58,7 @@ function ProfileGroups({
           <>
             {s.footerBefore}
             <a
-              href={vaultPath(PROFILE_NOTE)}
+              href={vaultPath(vaultLayout().profile)}
               className="font-medium text-ink underline underline-offset-2"
               data-testid="team-profile-link"
             >

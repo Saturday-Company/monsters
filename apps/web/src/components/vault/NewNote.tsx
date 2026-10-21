@@ -1,3 +1,4 @@
+import { vaultLayout } from '@monsters/shared';
 import { ArrowLeft } from '@phosphor-icons/react';
 import { useId, useState, type FormEvent } from 'react';
 import { playSound } from '../../lib/sound.ts';
@@ -53,7 +54,8 @@ export function NewNote({
   const [title, setTitle] = useState('');
   // Inbox/ until the user picks a folder (the list may arrive after the form opens).
   const [chosen, setFolder] = useState<string | null>(null);
-  const picked = chosen ?? (folders.includes('Inbox') ? 'Inbox' : '');
+  const inbox = vaultLayout().inbox;
+  const picked = chosen ?? (folders.includes(inbox) ? inbox : '');
   const [newFolder, setNewFolder] = useState('');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);

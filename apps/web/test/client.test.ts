@@ -87,7 +87,11 @@ describe('ApiClient against the mock core', () => {
   it('runs setup with the one-time code, then login', async () => {
     const core = new MockCore({ mode: 'team', speed: 0.01 });
     const api = new ApiClient(core.transport());
-    expect(await api.setupStatus()).toEqual({ needsSetup: true, language: 'en' });
+    expect(await api.setupStatus()).toEqual({
+      needsSetup: true,
+      language: 'en',
+      vaultLayout: 'it',
+    });
     await expect(
       api.setup({ email: 'a@b.it', password: 'password1', setupCode: '000000' }),
     ).rejects.toMatchObject({

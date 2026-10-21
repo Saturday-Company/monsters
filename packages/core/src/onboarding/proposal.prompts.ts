@@ -1,4 +1,4 @@
-import { pick, type Lang } from '@monsters/shared';
+import { pick, vaultLayout, type Lang } from '@monsters/shared';
 import { archetypeTexts } from '../agents/archetypes.prompts.ts';
 
 /*
@@ -42,6 +42,8 @@ Rispondi SOLO con un oggetto JSON valido, senza testo prima o dopo e senza markd
     lingua: p.language,
   }),
   prompt: (x: ProposalPromptInput) => {
+    // The vault's names are those of the vault in use (D-154), in either family.
+    const l = vaultLayout();
     const tools = x.web
       ? '["web"] se l’agente deve cercare o leggere sul web, altrimenti []'
       : '[] (il web non è permesso)';
@@ -61,7 +63,7 @@ Archetipi di partenza, da usare quando servono e adattare al profilo:
 Nomi ammessi: ${x.names} (gli altri nell'ordine). Mai ${x.orchestratorName}.
 
 Formato:
-{"agents":[{"name":"Rhea","title":"la ricercatrice","role":"ricerche online e sintesi con fonti","mission":"trovi informazioni affidabili e aggiornate e le trasformi in note utili","context":"${x.userName} …","duties":["…"],"area":"Risorse/Ricerche","tools":["web"],"look":{"shape":"egg","eyes":"round"}}]}
+{"agents":[{"name":"Rhea","title":"la ricercatrice","role":"ricerche online e sintesi con fonti","mission":"trovi informazioni affidabili e aggiornate e le trasformi in note utili","context":"${x.userName} …","duties":["…"],"area":"${l.research}","tools":["web"],"look":{"shape":"egg","eyes":"round"}}]}
 
 Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
 - name: uno dei nomi ammessi.
@@ -70,7 +72,7 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
 - mission: il suo lavoro in seconda persona, max 200 caratteri.
 - context: una frase su ${x.userName} utile a quell'agente, max 200 caratteri.
 - duties: da 1 a 4 regole pratiche in seconda persona, max 200 caratteri ciascuna.
-- area: una cartella del vault per i risultati, come "Risorse/Ricerche" o "Progetti/Social" (solo lettere, numeri e "/", mai Agenti, Modelli o Privato).
+- area: una cartella del vault per i risultati, come "${l.research}" o "${l.projects}/Social" (solo lettere, numeri e "/", mai ${l.agents}, ${l.templates} o ${l.private}).
 - tools: ${tools}.
 - look (facoltativo): shape tra blob, egg, pear, bean, dome, lumpy; eyes tra round, cyclops, stalk, trio; mouth tra smile, grin, canyon, tiny; topper tra tuft, antenna, crest, geyser.`;
   },
@@ -99,6 +101,7 @@ Answer ONLY with a valid JSON object, with no text before or after and no markdo
     language: p.language,
   }),
   prompt: (x) => {
+    const l = vaultLayout();
     const tools = x.web
       ? '["web"] if the agent has to search or read on the web, otherwise []'
       : '[] (the web is not allowed)';
@@ -118,7 +121,7 @@ Starting archetypes, to use when they are needed and to adapt to the profile:
 Allowed names: ${x.names} (the others in order). Never ${x.orchestratorName}.
 
 Format:
-{"agents":[{"name":"Rhea","title":"${rhea.title}","role":"${rhea.summary}","mission":"${rhea.mission}","context":"${x.userName} …","duties":["…"],"area":"Risorse/Ricerche","tools":["web"],"look":{"shape":"egg","eyes":"round"}}]}
+{"agents":[{"name":"Rhea","title":"${rhea.title}","role":"${rhea.summary}","mission":"${rhea.mission}","context":"${x.userName} …","duties":["…"],"area":"${l.research}","tools":["web"],"look":{"shape":"egg","eyes":"round"}}]}
 
 Rules of the fields (everything in English, each field on one line, no markdown):
 - name: one of the allowed names.
@@ -127,7 +130,7 @@ Rules of the fields (everything in English, each field on one line, no markdown)
 - mission: their work in the second person, max 200 characters.
 - context: a sentence about ${x.userName} useful to that agent, max 200 characters.
 - duties: from 1 to 4 practical rules in the second person, max 200 characters each.
-- area: a folder of the vault for the results, such as "Risorse/Ricerche" or "Progetti/Social" (only letters, numbers and "/", never Agenti, Modelli or Privato).
+- area: a folder of the vault for the results, such as "${l.research}" or "${l.projects}/Social" (only letters, numbers and "/", never ${l.agents}, ${l.templates} or ${l.private}).
 - tools: ${tools}.
 - look (optional): shape among blob, egg, pear, bean, dome, lumpy; eyes among round, cyclops, stalk, trio; mouth among smile, grin, canyon, tiny; topper among tuft, antenna, crest, geyser.`;
   },

@@ -1,6 +1,5 @@
 import type { ModelRef } from '@monsters/providers';
-import type { Lang } from '@monsters/shared';
-import { INBOX_FOLDER } from '@monsters/vault';
+import { vaultLayout, type Lang, type VaultLayout } from '@monsters/shared';
 import { archetypeTexts } from './archetypes.prompts.ts';
 import type { OrchestratorBlueprint, SubagentBlueprint } from './templates.ts';
 
@@ -79,6 +78,8 @@ export interface ArchetypeOptions {
   models?: ModelRef[];
   /** The family of the texts (D-153): the app's language by default. */
   lang?: Lang;
+  /** The vault's folder names (D-154), for the default areas: the vault in use by default. */
+  layout?: VaultLayout;
 }
 
 export const DEFAULT_ORCHESTRATOR_NAME = 'Titan';
@@ -96,7 +97,7 @@ export function rheaBlueprint(options: ArchetypeOptions): SubagentBlueprint {
     mission: t.mission,
     ...(options.context ? { context: options.context } : {}),
     duties: [...t.duties],
-    outputArea: 'Risorse/Ricerche',
+    outputArea: (options.layout ?? vaultLayout()).research,
     report: t.report,
     color: '#4f8df7',
     models: options.models ?? DEFAULT_FREE_CHAIN,
@@ -118,7 +119,7 @@ export function dioneBlueprint(options: ArchetypeOptions): SubagentBlueprint {
     mission: t.mission,
     ...(options.context ? { context: options.context } : {}),
     duties: [...t.duties],
-    outputArea: `${INBOX_FOLDER}/Bozze`,
+    outputArea: (options.layout ?? vaultLayout()).drafts,
     report: t.report,
     color: '#f2994a',
     models: options.models ?? DEFAULT_FREE_CHAIN,

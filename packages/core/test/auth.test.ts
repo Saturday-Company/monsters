@@ -34,6 +34,7 @@ describe('setup, login, logout', () => {
     expect(await (await fetch(`${url}/api/setup-status`)).json()).toEqual({
       needsSetup: true,
       language: 'en',
+      vaultLayout: 'it',
     });
 
     const weak = await postJson(`${url}/api/setup`, {
@@ -49,6 +50,7 @@ describe('setup, login, logout', () => {
     expect(await (await fetch(`${url}/api/setup-status`)).json()).toEqual({
       needsSetup: false,
       language: 'en',
+      vaultLayout: 'it',
     });
 
     const again = await postJson(`${url}/api/setup`, {

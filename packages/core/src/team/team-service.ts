@@ -6,8 +6,11 @@ import {
   CONFUSED_MIN_MS,
   EventInputSchema,
   STUCK_ACTIONS,
+  agentMemoryPath,
   isReservedActor,
   unmarkedMemoryLine,
+  vaultLayout,
+  type VaultLayout,
   type AgentPermissions,
   type AgentState,
   type AgentSummary,
@@ -230,7 +233,6 @@ interface Runtime {
   confusedSince?: number | undefined;
 }
 
-const MEMORY_FILE = 'MEMORY.md';
 /** Read whole: the prompt keeps the newest lines (`memoryWindow`), not the first ones. */
 const READ_ALL = Number.MAX_SAFE_INTEGER;
 const ACTIVITY_MAX = 80;
@@ -327,6 +329,8 @@ export class TeamService {
   readonly #declared = new Map<string, string[]>();
   #policy: ToolPolicy;
   #vault: VaultService | undefined;
+  /** The vault's folder names (D-154), known before the vault opens (the team is bootstrapped first). */
+  readonly #layout: VaultLayout | undefined;
   /** Memory writes of each agent, one at a time (parallel delegations to the same agent). */
   readonly #memoryWrites = new Map<string, Promise<unknown>>();
   /** "Utile anche nei prossimi lavori?" (the instinct, D-067); default: every line. */
@@ -351,8 +355,11 @@ export class TeamService {
     policy?: ToolPolicy;
     /** Default: `projects/` next to the agents' folder. */
     projectsDir?: string;
+    /** The layout of the vault the team will use (D-154). Default: the vault's, else the one in use. */
+    layout?: VaultLayout;
   }) {
     this.dir = options.dir;
+    this.#layout = options.layout;
     this.#log = options.log;
     this.#projects = new ProjectStore(
       options.projectsDir ?? join(dirname(options.dir), PROJECTS_DIR),
@@ -549,9 +556,11 @@ export class TeamService {
   async bootstrap(options: BootstrapOptions): Promise<boolean> {
     if (this.#agents.size > 0) return false;
     const orchestrator = options.orchestratorName ?? 'Titan';
+    const layout = this.layout;
     const base: ArchetypeOptions = {
       user: options.user,
       orchestrator,
+      layout,
       ...(options.models ? { models: options.models } : {}),
     };
     const genome = (name: RosterName) =>
@@ -571,7 +580,7 @@ export class TeamService {
         code: 'invalid_name',
       });
     }
-    for (const bp of blueprints) await writeAgentFolder(join(this.dir, bp.id), bp);
+    for (const bp of blueprints) await writeAgentFolder(join(this.dir, bp.id), bp, { layout });
     await this.load();
     return true;
   }
@@ -731,7 +740,7 @@ export class TeamService {
    * Vault permissions derived from the team (orchestrator id, areas, extra
    * globs). A project's monsters also write in the project's area, and its
    * lead deletes and moves there too (D-097); none of them is privileged: they
-   * read everything but `Privato/` and private notes, like every monster.
+   * read everything but the private folder (`Privato/`) and private notes, like every monster.
    */
   vaultPermissions(): VaultPermissionsConfig {
     const agents: NonNullable<VaultPermissionsConfig['agents']> = {};
@@ -758,8 +767,14 @@ export class TeamService {
     this.#vault = vault;
   }
 
+  /** The names of the vault's folders and notes (D-154): its memories, its inbox, its profile. */
+  get layout(): VaultLayout {
+    return this.#vault?.layout ?? this.#layout ?? vaultLayout();
+  }
+
+  /** `Agenti/<Name>/MEMORY.md` (`Agents/<Name>/MEMORY.md` in an English vault). */
   memoryPath(agent: AgentDefinition): string {
-    return `Agenti/${agent.config.name}/${MEMORY_FILE}`;
+    return agentMemoryPath(this.layout, agent.config.name);
   }
 
   /**

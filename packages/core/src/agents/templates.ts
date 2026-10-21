@@ -5,8 +5,12 @@ import {
   AgentIdSchema,
   appLang,
   ProjectIdSchema,
+  VAULT_LAYOUTS,
+  agentFolder,
+  vaultLayout,
   writingLanguageName,
   type Lang,
+  type VaultLayout,
 } from '@monsters/shared';
 import { stringify as stringifyYaml } from 'yaml';
 import { z } from 'zod';
@@ -48,7 +52,7 @@ const Line = (max: number) =>
     .refine((s) => !PLACEHOLDER.test(s), 'must not contain {{placeholders}}')
     .refine((s) => !s.startsWith('#'), 'must not start with #');
 
-/** Agent names end up in permission globs (`Agenti/<name>/**`): no glob or path syntax. */
+/** Agent names end up in permission globs (`Agenti/<name>/**`, `Agents/<name>/**`): no glob or path syntax. */
 const AgentName = Line(40).refine((s) => !/[*?[\]{}/\\]/.test(s), 'no glob or path characters');
 
 const shared = {
@@ -89,7 +93,7 @@ export const SubagentBlueprintSchema = z.object({
   duties: z.array(Line(200)).min(1).max(4),
   /**
    * Where results go, e.g. "Risorse/Ricerche". It becomes a write permission:
-   * a plain folder, never a glob, the root, `Agenti/` or `profilo.md`.
+   * a plain folder, never a glob, the root, the agents' folder or the profile.
    */
   outputArea: AgentAreaSchema,
   /** What the final report contains. */
@@ -178,8 +182,22 @@ export function checkAgentsMd(text: string): string[] {
   return problems;
 }
 
-function fill(template: string, values: Record<string, string>): string {
-  const out = template.replace(/\{\{([A-Z_]+)\}\}/g, (match, key: string) => values[key] ?? match);
+/**
+ * The templates name the paths of the Italian layout (`profilo.md`): in a vault of another
+ * layout, its own (D-154). The Italian layout renders the very text of the templates.
+ */
+function vaultPaths(text: string, layout: VaultLayout): string {
+  const it = VAULT_LAYOUTS.it;
+  if (layout.id === it.id) return text;
+  return text.replaceAll(`\`${it.profile}\``, `\`${layout.profile}\``);
+}
+
+function fill(template: string, values: Record<string, string>, layout: VaultLayout): string {
+  // The paths of the template only, never a value that happens to name one.
+  const out = vaultPaths(template, layout).replace(
+    /\{\{([A-Z_]+)\}\}/g,
+    (match, key: string) => values[key] ?? match,
+  );
   const problems = checkAgentsMd(out);
   if (problems.length > 0) throw new TemplateError(problems);
   return out;
@@ -189,63 +207,86 @@ const bullets = (items: string[]) => items.map((i) => `- ${i}`).join('\n');
 
 /**
  * The AGENTS.md of a blueprint with the templates of a family (the current ones of the app's
- * language by default). The writing language is named in the family's own words ("italiano",
- * "Italian"): a blueprint holds either.
+ * language by default), with the paths of a vault's layout (the vault in use by default,
+ * D-154). The writing language is named in the family's own words ("italiano", "Italian"): a
+ * blueprint holds either.
  */
 export function renderAgentsMd(
   input: AgentBlueprint,
   templates: AgentTemplates = currentTemplates(),
+  layout: VaultLayout = vaultLayout(),
 ): string {
   const bp = AgentBlueprintSchema.parse(input);
   const family = TEMPLATE_FAMILIES[templates.lang];
   const language = writingLanguageName(bp.language, templates.lang);
   if (bp.kind === 'orchestrator') {
-    return fill(templates.orchestrator, {
-      NOME: bp.name,
-      UTENTE: bp.user,
-      LINGUA: language,
-      SQUADRA:
-        bp.team.length > 0
-          ? bullets(bp.team.map((m) => `**${m.name}**: ${m.summary}`))
-          : family.noTeam,
-    });
+    return fill(
+      templates.orchestrator,
+      {
+        NOME: bp.name,
+        UTENTE: bp.user,
+        LINGUA: language,
+        SQUADRA:
+          bp.team.length > 0
+            ? bullets(bp.team.map((m) => `**${m.name}**: ${m.summary}`))
+            : family.noTeam,
+      },
+      layout,
+    );
   }
   if (bp.kind === 'lead') {
-    return fill(templates.lead ?? family.current.lead, {
-      NOME: bp.name,
-      UTENTE: bp.user,
-      LINGUA: language,
-      PROGETTO: bp.projectName,
-      OBIETTIVO: bp.goal ? family.goal(bp.goal.replace(/\.$/, '')) : '',
-      AREA: bp.area,
-      ORCHESTRATORE: bp.orchestrator,
-      SQUADRA:
-        bp.team.length > 0
-          ? bullets(bp.team.map((m) => `**${m.name}**: ${m.summary}`))
-          : family.noTeam,
-    });
+    return fill(
+      templates.lead ?? family.current.lead,
+      {
+        NOME: bp.name,
+        UTENTE: bp.user,
+        LINGUA: language,
+        PROGETTO: bp.projectName,
+        OBIETTIVO: bp.goal ? family.goal(bp.goal.replace(/\.$/, '')) : '',
+        AREA: bp.area,
+        ORCHESTRATORE: bp.orchestrator,
+        SQUADRA:
+          bp.team.length > 0
+            ? bullets(bp.team.map((m) => `**${m.name}**: ${m.summary}`))
+            : family.noTeam,
+      },
+      layout,
+    );
   }
   const web = bp.tools.some((t) => t.startsWith('web_'));
-  return fill(templates.subagent, {
-    NOME: bp.name,
-    TITOLO: bp.title,
-    UTENTE: bp.user,
-    MISSIONE: bp.mission.replace(/\.$/, ''),
-    CONTESTO: bp.context ? ` ${bp.context}` : '',
-    ORCHESTRATORE: bp.orchestrator,
-    COMPITI: bullets(bp.duties),
-    AREA: bp.outputArea,
-    LINGUA: language,
-    RAPPORTO: bp.report.replace(/\.$/, ''),
-    FONTI: web ? `\n- ${family.sourcesRule}` : '',
-    WEB: web ? family.webMethod : '',
-  });
+  return fill(
+    templates.subagent,
+    {
+      NOME: bp.name,
+      TITOLO: bp.title,
+      UTENTE: bp.user,
+      MISSIONE: bp.mission.replace(/\.$/, ''),
+      CONTESTO: bp.context ? ` ${bp.context}` : '',
+      ORCHESTRATORE: bp.orchestrator,
+      COMPITI: bullets(bp.duties),
+      AREA: bp.outputArea,
+      LINGUA: language,
+      RAPPORTO: bp.report.replace(/\.$/, ''),
+      FONTI: web ? `\n- ${family.sourcesRule}` : '',
+      WEB: web ? family.webMethod : '',
+    },
+    layout,
+  );
 }
 
-/** The agent.yaml of a blueprint; the roles of the capi are written in the family `lang`. */
-export function blueprintToConfig(input: AgentBlueprint, lang: Lang = appLang()): AgentConfig {
+/**
+ * The agent.yaml of a blueprint; the roles of the capi are written in the family `lang`, the
+ * permissions name the folders of the vault's layout (D-154).
+ */
+export function blueprintToConfig(
+  input: AgentBlueprint,
+  lang: Lang = appLang(),
+  layout: VaultLayout = vaultLayout(),
+): AgentConfig {
   const bp = AgentBlueprintSchema.parse(input);
   const family = TEMPLATE_FAMILIES[lang];
+  const own = `${agentFolder(layout, bp.name)}/**`;
+  const inbox = `${layout.inbox}/**`;
   return AgentConfigSchema.parse({
     id: bp.id,
     name: bp.name,
@@ -264,10 +305,10 @@ export function blueprintToConfig(input: AgentBlueprint, lang: Lang = appLang())
       bp.kind === 'orchestrator'
         ? { read: ['**'], write: ['**'] }
         : bp.kind === 'lead'
-          ? { read: ['**'], write: [`Agenti/${bp.name}/**`, 'Inbox/**'] }
+          ? { read: ['**'], write: [own, inbox] }
           : (bp.vault ?? {
               read: ['**'],
-              write: [`Agenti/${bp.name}/**`, 'Inbox/**', `${bp.outputArea}/**`],
+              write: [own, inbox, `${bp.outputArea}/**`],
             }),
     ...(bp.kind !== 'orchestrator' && bp.project ? { project: bp.project } : {}),
     ...(bp.limits ? { limits: bp.limits } : {}),
@@ -280,12 +321,16 @@ export interface AgentFiles {
   [GENOME_JSON]?: string;
 }
 
-/** Renders the files of an agent folder from a blueprint. */
-export function renderAgentFiles(input: AgentBlueprint, lang: Lang = appLang()): AgentFiles {
+/** Renders the files of an agent folder from a blueprint, for a vault of `layout`. */
+export function renderAgentFiles(
+  input: AgentBlueprint,
+  lang: Lang = appLang(),
+  layout: VaultLayout = vaultLayout(),
+): AgentFiles {
   const bp = AgentBlueprintSchema.parse(input);
-  const config = blueprintToConfig(bp, lang);
+  const config = blueprintToConfig(bp, lang, layout);
   const files: AgentFiles = {
-    [AGENTS_MD]: renderAgentsMd(bp, currentTemplates(lang)),
+    [AGENTS_MD]: renderAgentsMd(bp, currentTemplates(lang), layout),
     [AGENT_YAML]: stringifyYaml(config, { lineWidth: 0 }),
   };
   if (bp.genome) files[GENOME_JSON] = `${JSON.stringify(bp.genome, null, 2)}\n`;
@@ -344,9 +389,9 @@ export function fieldsOf(input: AgentBlueprint): InstructionFields {
 export async function writeAgentFolder(
   dir: string,
   input: AgentBlueprint,
-  extra: { archetype?: 'rhea' | 'dione' | null } = {},
+  extra: { archetype?: 'rhea' | 'dione' | null; layout?: VaultLayout } = {},
 ): Promise<string> {
-  const files = renderAgentFiles(input);
+  const files = renderAgentFiles(input, appLang(), extra.layout ?? vaultLayout());
   await mkdir(dir, { recursive: true });
   for (const [name, content] of Object.entries(files) as [string, string | undefined][]) {
     if (content !== undefined) await writeFile(join(dir, name), content, 'utf8');

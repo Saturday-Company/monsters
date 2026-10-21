@@ -4,6 +4,8 @@ import { join, relative, resolve, sep } from 'node:path';
 import {
   DOCUMENT_KINDS,
   ulid,
+  VAULT_LAYOUTS,
+  type VaultLayout,
   type FileKind,
   type FileListQuery,
   type FileMeta,
@@ -11,7 +13,6 @@ import {
 } from '@monsters/shared';
 import type { Db } from '../db/sqlite.ts';
 import type { Migration } from '../db/migrations.ts';
-import { FILES_DIR } from '@monsters/vault';
 import {
   detectType,
   extensionOf,
@@ -22,10 +23,12 @@ import {
 } from './detect.ts';
 import { extractTextIsolated, type ExtractedText, type ExtractOptions } from './extract-run.ts';
 import { fileStrings } from './files.strings.ts';
+import { filesFolderStrings } from './files-folder.strings.ts';
 
 /*
  * The files of the user and of the monsters (D-075). The bytes live in the
- * notes folder under `File/<yyyy-mm>/<name>` (Obsidian sees them; the vault's
+ * notes folder under `File/<yyyy-mm>/<name>` (`Files/` in an English vault,
+ * D-154; Obsidian sees them; the vault's
  * git, index and tools do not: `File/.gitignore` and the vault's own rule),
  * thumbnails in `File/.thumbs/`, the metadata and the extracted text in the
  * core's database. URLs name files by id only: no name from outside ever
@@ -33,38 +36,33 @@ import { fileStrings } from './files.strings.ts';
  * stay inside `File/`.
  */
 
-/** Folder of the files inside the notes folder. */
-export { FILES_DIR };
+/** Folder of the files inside an Italian notes folder (every one made before D-154). */
+export const FILES_DIR = VAULT_LAYOUTS.it.files;
 const THUMBS_DIR = '.thumbs';
-/** Name used when the user already has a folder `File/` of their own. */
-export const FILES_DIR_ALT = 'File di Monsters';
+/** Name used when the user already has a folder `File/` of their own (Italian layout). */
+export const FILES_DIR_ALT = VAULT_LAYOUTS.it.filesAlt;
 /** The file that says a folder is the files folder of Monsters (never a folder of the user). */
 export const FILES_MARKER = '.monsters';
-// Written once in the user's notes folder, with the folder names (a later wave).
-const MARKER_TEXT =
-  // i18n-ignore
-  'Questa cartella è di Monsters: qui ci sono gli allegati, gli screenshot e le pagine dei mostri.\n';
+/** The `.gitignore` of the files folder of an Italian vault. */
+export const FILES_GITIGNORE = filesFolderStrings('it').gitignore;
 
 /**
- * The folder of the files of Monsters in the notes folder (D-075): the one
- * that has our marker; else `File/` if it does not exist yet; else (a `File/`
- * of the user, full of their notes) `File di Monsters/`, `File di Monsters 2/`…
- * A folder of the user is never taken, so its notes never leave the vault.
+ * The folder of the files of Monsters in the notes folder (D-075), with the
+ * names of the vault's layout (D-154): the one that has our marker; else
+ * `File/` (`Files/`) if it does not exist yet; else (a folder of the user with
+ * that name, full of their notes) `File di Monsters/` (`Monsters Files/`),
+ * then `… 2/`… A folder of the user is never taken, so its notes never leave
+ * the vault.
  */
-export function filesDirFor(notes: string): string {
-  const candidates = [FILES_DIR, FILES_DIR_ALT];
-  for (let n = 2; n <= 20; n++) candidates.push(`${FILES_DIR_ALT} ${n}`);
+export function filesDirFor(notes: string, layout: VaultLayout = VAULT_LAYOUTS.it): string {
+  const candidates = [layout.files, layout.filesAlt];
+  for (let n = 2; n <= 20; n++) candidates.push(`${layout.filesAlt} ${n}`);
   for (const name of candidates) {
     const dir = join(notes, name);
     if (!existsSync(dir) || existsSync(join(dir, FILES_MARKER))) return name;
   }
-  return `${FILES_DIR_ALT} ${Date.now()}`;
+  return `${layout.filesAlt} ${Date.now()}`;
 }
-
-// Written once in the user's notes folder, with the folder names (a later wave).
-export const FILES_GITIGNORE =
-  // i18n-ignore
-  '# Monsters: i file allegati e creati dai mostri non entrano nella cronologia delle note\n*\n';
 
 export const filesMigrations: readonly Migration[] = [
   {
@@ -280,8 +278,10 @@ export interface FileStoreOptions {
   db: Db;
   /** The notes folder. */
   root: string;
-  /** Name of the files folder in it (`filesDirFor`). Default `File`. */
+  /** Name of the files folder in it (`filesDirFor`). Default the layout's (`File`). */
   dirName?: string;
+  /** The layout of the notes folder (D-154). Default Italian, the layout of every vault before it. */
+  layout?: VaultLayout;
   now?: () => number;
   /** How the text of a document is extracted (default: in a worker, `extract-run.ts`). */
   extract?: (
@@ -296,8 +296,10 @@ export interface FileStoreOptions {
 export class FileStore {
   readonly #db: Db;
   readonly root: string;
-  /** Name of the files folder in the notes folder (`File`, or `File di Monsters`). */
+  /** Name of the files folder in the notes folder (`File`, or `File di Monsters`; `Files`… in English). */
   readonly dirName: string;
+  /** The layout of the notes folder (D-154): the words of the marker and of the `.gitignore`. */
+  readonly #layout: VaultLayout;
   readonly dir: string;
   readonly #now: () => number;
   readonly #extract: NonNullable<FileStoreOptions['extract']>;
@@ -308,7 +310,8 @@ export class FileStore {
   constructor(options: FileStoreOptions) {
     this.#db = options.db;
     this.root = resolve(options.root);
-    this.dirName = options.dirName ?? FILES_DIR;
+    this.#layout = options.layout ?? VAULT_LAYOUTS.it;
+    this.dirName = options.dirName ?? this.#layout.files;
     this.dir = join(this.root, this.dirName);
     this.#now = options.now ?? Date.now;
     this.#extract = options.extract ?? extractTextIsolated;
@@ -324,9 +327,10 @@ export class FileStore {
   ensureDir(): void {
     mkdirSync(this.dir, { recursive: true });
     const ignore = join(this.dir, '.gitignore');
-    if (!existsSync(ignore)) writeFileSync(ignore, FILES_GITIGNORE);
+    const texts = filesFolderStrings(this.#layout.id);
+    if (!existsSync(ignore)) writeFileSync(ignore, texts.gitignore);
     const marker = join(this.dir, FILES_MARKER);
-    if (!existsSync(marker)) writeFileSync(marker, MARKER_TEXT);
+    if (!existsSync(marker)) writeFileSync(marker, texts.marker);
   }
 
   /** An absolute path inside `File/`, or an error: nothing outside it is ever read or written. */

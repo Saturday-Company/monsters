@@ -12,8 +12,9 @@ const it = {
     'Le trascrizioni delle sessioni di Claude Code (~/.claude/projects) non sono accessibili: contengono le note lette dagli altri run.',
   desktopDataClosed:
     'La cartella dei dati dell’app Monsters (sessione e impostazioni) non è accessibile.',
-  privateInChat:
-    'Le note private (Privato/) non sono accessibili mentre parli in una chat di Telegram.',
+  /** `folder`: the vault's private folder (`Privato`, `Private`: D-154). */
+  privateInChat: (folder: string) =>
+    `Le note private (${folder}/) non sono accessibili mentre parli in una chat di Telegram.`,
   yourLead: 'il tuo capo',
   viaClaude: (name: string) => `${name} (tramite Claude)`,
   imageSaved: (name: string, id: string) =>
@@ -30,8 +31,8 @@ const en: typeof it = {
   transcriptsClosed:
     'The Claude Code session transcripts (~/.claude/projects) aren’t accessible: they contain the notes read by the other runs.',
   desktopDataClosed: 'The data folder of the Monsters app (session and settings) isn’t accessible.',
-  privateInChat:
-    'The private notes (Privato/) aren’t accessible while you talk in a Telegram chat.',
+  privateInChat: (folder) =>
+    `The private notes (${folder}/) aren’t accessible while you talk in a Telegram chat.`,
   yourLead: 'your squad lead',
   viaClaude: (name) => `${name} (through Claude)`,
   imageSaved: (name, id) =>

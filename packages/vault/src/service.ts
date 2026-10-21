@@ -3,7 +3,16 @@ import { mkdir, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, posix, join, resolve as resolvePath } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { migrate, openDb, type Db } from '@monsters/db';
-import { ToolError, ulid, type ToolEmittedEvent } from '@monsters/shared';
+import {
+  ToolError,
+  VAULT_LAYOUT_RECORD,
+  agentMemoryPath,
+  ulid,
+  vaultLayoutOf,
+  type ToolEmittedEvent,
+  type VaultLayout,
+  type VaultLayoutId,
+} from '@monsters/shared';
 import { watch, type FSWatcher } from 'chokidar';
 import { lineDiff } from './diff.ts';
 import {
@@ -30,7 +39,6 @@ import {
 } from './git/vcs.ts';
 import { vaultMigrations } from './index-db/schema.ts';
 import {
-  PRIVATE_FOLDER,
   VaultIndex,
   localIso,
   type NoteRow,
@@ -63,21 +71,10 @@ import {
   normalizePath,
   titleOf,
 } from './paths.ts';
-import {
-  DAILY_AGENTS_SECTION,
-  INBOX_FOLDER,
-  VaultPermissions,
-  capitalize,
-  type VaultPermissionsConfig,
-} from './permissions.ts';
-import {
-  LEGGIMI,
-  OBSIDIAN_APP_JSON,
-  TEMPLATES,
-  VAULT_FOLDERS,
-  VAULT_GITIGNORE,
-  memoryNote,
-} from './scaffold.ts';
+import { detectVaultLayout, writeVaultLayoutRecord } from './layout.ts';
+import { VaultPermissions, capitalize, type VaultPermissionsConfig } from './permissions.ts';
+import { VAULT_GITIGNORE, memoryNote, scaffoldFiles, vaultFolders } from './scaffold.ts';
+import { scaffoldStrings } from './scaffold.strings.ts';
 import { EditOpsSchema } from './schemas.ts';
 import type { EmbedderLoader } from './semantic/embedder.ts';
 import { RELATED_LIMIT, pickRelated, relationBonus } from './semantic/related.ts';
@@ -186,10 +183,17 @@ export interface VaultOpenOptions {
    * committed or written as notes. Default: none.
    */
   filesDir?: string | null;
+  /**
+   * The names of the vault's folders and notes (D-154). Opening: the vault's own
+   * (`detectVaultLayout`: its record, else what it has), this only for a vault with neither,
+   * else Italian. Creating: default Italian (the core passes the app's language); it is
+   * recorded in the new vault.
+   */
+  layout?: VaultLayoutId;
 }
 
 export interface VaultCreateOptions extends VaultOpenOptions {
-  /** Display name of the orchestrator (its area is `Agenti/<name>/`). */
+  /** Display name of the orchestrator (its area is `Agenti/<name>/` in the Italian layout). */
   orchestratorName?: string;
   /** Display names of the sub-agents that get an area at creation. */
   agentNames?: string[];
@@ -341,6 +345,8 @@ export class VaultService {
   #frontmatterErrors: string[] = [];
   /** Top-level folder of the files of Monsters, out of the notes (D-075). */
   readonly #filesDir: string | null;
+  /** The names of the vault's folders and notes (D-154), decided when it was created. */
+  readonly layout: VaultLayout;
 
   private constructor(opts: {
     root: string;
@@ -354,14 +360,16 @@ export class VaultService {
     embedder: EmbedderLoader | undefined;
     semanticOptions: SemanticIndexOptions | undefined;
     filesDir: string | null | undefined;
+    layout: VaultLayout;
   }) {
     this.root = opts.root;
+    this.layout = opts.layout;
     this.#filesDir = opts.filesDir ?? null;
     this.#realRoot = opts.realRoot;
-    this.index = new VaultIndex(opts.db);
+    this.index = new VaultIndex(opts.db, opts.layout);
     this.#ownsDb = opts.ownsDb;
     this.#vcs = opts.vcs;
-    this.permissions = new VaultPermissions(opts.permissions);
+    this.permissions = new VaultPermissions(opts.permissions, opts.layout);
     this.#onExternalChange = opts.onExternalChange;
     this.#onWarning = opts.onWarning ?? ((w) => console.warn(`vault: ${w.message}`));
     this.#semantic = opts.embedder
@@ -377,7 +385,10 @@ export class VaultService {
   setPermissions(config: VaultPermissionsConfig): void {
     // The profile of external clients does not depend on the team: keep it.
     const external = config.external ?? this.permissions.config.external;
-    this.permissions = new VaultPermissions({ ...config, ...(external ? { external } : {}) });
+    this.permissions = new VaultPermissions(
+      { ...config, ...(external ? { external } : {}) },
+      this.layout,
+    );
   }
 
   // --- lifecycle -------------------------------------------------------------
@@ -393,11 +404,8 @@ export class VaultService {
       });
     }
     const now = nowIso();
-    const files: Record<string, string> = {
-      'LEGGIMI.md': LEGGIMI,
-      '.obsidian/app.json': OBSIDIAN_APP_JSON,
-      ...TEMPLATES,
-    };
+    const layout = vaultLayoutOf(opts.layout ?? 'it');
+    const files: Record<string, string> = scaffoldFiles(layout);
     const orchestratorId = opts.permissions?.orchestrator;
     const orchestratorName =
       opts.orchestratorName ?? (orchestratorId ? capitalize(orchestratorId) : 'Orchestratore');
@@ -408,11 +416,13 @@ export class VaultService {
         name === orchestratorName
           ? (orchestratorId ?? 'system')
           : (profiles.find(([, p]) => p.name === name)?.[0] ?? name.toLowerCase());
-      files[`Agenti/${name}/MEMORY.md`] =
+      files[agentMemoryPath(layout, name)] =
         buildFrontmatter({ id: ulid(), type: 'memory', created: now, updated: now, author }) +
         memoryNote(name);
     }
-    for (const folder of VAULT_FOLDERS) await mkdir(join(root, folder), { recursive: true });
+    for (const folder of vaultFolders(layout)) await mkdir(join(root, folder), { recursive: true });
+    // The layout is decided now, once (D-154): recorded before anything else reads the vault.
+    writeVaultLayoutRecord(root, layout.id);
     for (const [path, content] of Object.entries(files)) {
       await mkdir(join(root, posix.dirname(path)), { recursive: true });
       await writeFile(join(root, path), content);
@@ -425,13 +435,14 @@ export class VaultService {
         paths: [
           '.gitignore',
           '.obsidian/app.json',
+          VAULT_LAYOUT_RECORD,
           ...Object.keys(files).filter((p) => !p.startsWith('.')),
         ],
         message: `vault_create: nuovo vault\n\n${TRAILER_AGENT}: system\n`,
         author: SYSTEM_AUTHOR,
       });
     }
-    return VaultService.open({ ...opts, root, initGit: false });
+    return VaultService.open({ ...opts, root, initGit: false, layout: layout.id });
   }
 
   /** Opens a vault. An existing vault is never modified (unless `initGit` is set and git is missing). */
@@ -461,6 +472,8 @@ export class VaultService {
       }
     }
 
+    // What the vault has wins over what the caller says: its `Privato/` keeps its guard.
+    const layout = vaultLayoutOf(detectVaultLayout(root) ?? opts.layout ?? 'it');
     const ownsDb = !opts.db;
     const db = opts.db ?? openDb(opts.indexPath ?? ':memory:');
     migrate(db, 'vault', vaultMigrations);
@@ -476,6 +489,7 @@ export class VaultService {
       embedder: opts.embedder,
       semanticOptions: opts.semanticOptions,
       filesDir: opts.filesDir,
+      layout,
     });
     // A migration that rebuilt index tables, or a rebuild that did not finish
     // (core stopped half-way), needs every note indexed again.
@@ -1324,7 +1338,7 @@ export class VaultService {
         .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
         .filter((e) => folder !== '' || !isFilesPath(`${e.name}/x`, this.#filesDir))
         .map((e) => (folder === '' ? e.name : `${folder}/${e.name}`))
-        .filter((f) => privileged || !isInside(f, PRIVATE_FOLDER))
+        .filter((f) => privileged || !isInside(f, this.layout.private))
         // In a scope (D-114) only its folders and the ones that lead to them.
         .filter((f) => {
           const scope = currentVaultScope();
@@ -1471,7 +1485,7 @@ export class VaultService {
         type: r.type,
         author: r.author,
         updated: r.updated,
-        private: r.private === 1 || isInside(r.path, PRIVATE_FOLDER),
+        private: r.private === 1 || isInside(r.path, this.layout.private),
         tags: tags.get(r.nid) ?? [],
         summary: r.summary,
       })),
@@ -1693,7 +1707,7 @@ export class VaultService {
           op.append.section
             ?.replace(/^#+\s*/, '')
             .trim()
-            .toLowerCase() === DAILY_AGENTS_SECTION.toLowerCase(),
+            .toLowerCase() === this.layout.dailyAgentsSection.toLowerCase(),
       );
       this.permissions.assertRead(actor.agentId, path, note.private);
       this.permissions.assertWrite(actor.agentId, path, note.author, {
@@ -2151,7 +2165,7 @@ export class VaultService {
       if (match) used.add(match.i);
       const original = match?.d.path ?? null;
       const isPrivate =
-        (original !== null && isInside(original, PRIVATE_FOLDER)) ||
+        (original !== null && isInside(original, this.layout.private)) ||
         (isMarkdown(f.name) && parseNote(f.name, f.bytes.toString('utf8')).private);
       if (!this.permissions.canRead(actor.agentId, original ?? f.name, isPrivate)) continue;
       out.push({
@@ -2493,23 +2507,28 @@ export class VaultService {
     const opsJson = JSON.stringify(ops, null, 2);
     const proposalId = ulid();
     const stamp = nowIso().slice(0, 16).replace('T', ' ').replace(':', '');
-    const proposalPath = await this.#freeIfTaken(
-      `${INBOX_FOLDER}/Proposta di ${this.permissions.displayName(actor.agentId)} - ${titleOf(target)} - ${stamp}.md`,
+    // The proposal note speaks the vault's words (D-154), whatever the app's language.
+    const texts = scaffoldStrings(this.layout.id);
+    const name = texts.proposalName(
+      this.permissions.displayName(actor.agentId),
+      titleOf(target),
+      stamp,
     );
+    const proposalPath = await this.#freeIfTaken(`${this.layout.inbox}/${name}.md`);
     const body = [
-      `# Proposta di modifica a [[${titleOf(target)}]]`,
+      texts.proposalTitle(titleOf(target)),
       '',
       input.note.trim(),
       '',
-      '## Modifica proposta',
+      texts.proposalDiff,
       '',
       '```diff',
       diff,
       '```',
       '',
-      '## Operazioni',
+      texts.proposalOps,
       '',
-      "Applicate dall'orchestratore con `vault_apply_proposal`.",
+      texts.proposalApplied,
       '',
       '```json monsters-ops',
       opsJson,

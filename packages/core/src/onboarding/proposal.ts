@@ -1,6 +1,7 @@
 import { slugify, type MonsterGenome } from '@monsters/monster-kit';
 import type { ModelRef } from '@monsters/providers';
 import {
+  vaultLayout,
   AgentAreaSchema,
   appLang,
   MOON_NAMES,
@@ -193,7 +194,7 @@ export function finishMembers(drafts: Draft[], ctx: ProposalContext): ProposedAg
       mission: lowerFirst(d.mission.replace(/\.$/, '')),
       context: d.context,
       duties: d.duties.slice(0, 4),
-      area: area.success ? area.data : `Risorse/${name}`,
+      area: area.success ? area.data : `${vaultLayout().resources}/${name}`,
       tools: toolsFor(d.web, ctx.permissions),
       color: colorOfGenome(genome),
       genome,

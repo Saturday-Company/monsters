@@ -1,4 +1,10 @@
-import { formatList, pick } from '@monsters/shared';
+import { formatList, pick, vaultLayout } from '@monsters/shared';
+
+/** The reserved folders of the vault in use (D-154): `Agenti, Modelli o Privato`. */
+const reserved = (or: string) => {
+  const l = vaultLayout();
+  return `${l.agents}, ${l.templates} ${or} ${l.private}`;
+};
 
 /*
  * What the team manager says to the person (D-153): the API errors of the squad, the
@@ -67,7 +73,7 @@ const en = {
   noteExists: (path: string) =>
     `There’s already ${path} in the notes: move it or pick another name.`,
   memoryMoveFailed: (to: string, message: string) =>
-    `I can’t move the memory to Agenti/${to}: ${message}`,
+    `I can’t move the memory to ${vaultLayout().agents}/${to}: ${message}`,
   captainRoleLocked: 'Your lead coordinates the others: its role can’t be changed, only its name.',
   projectLeadRoleLocked:
     'The project lead coordinates the project’s monsters: its role can’t be changed, only its name.',
@@ -88,7 +94,7 @@ const en = {
     `new monster not valid (attempt ${attempt}): ${reason}`,
   nameInProposal: (name: string) => `${name} is already in this proposal: pick another name.`,
   badArea: (area: string) =>
-    `area: "${area}" doesn’t work: it must be a notes folder (letters, numbers and "/"), never Agenti, Modelli or Privato.`,
+    `area: "${area}" doesn’t work: it must be a notes folder (letters, numbers and "/"), never ${reserved('or')}.`,
   tooManyDuties: (max: number) => `duties: ${max} rules at most.`,
   badModelRef: (text: string, configured: string) =>
     `model: "${text}" is not "provider/model" (configured providers: ${configured || 'none'}). Without model it uses your lead’s.`,
@@ -165,7 +171,8 @@ const it: typeof en = {
   instructionsEdited: (name) =>
     `Le istruzioni di ${name} (AGENTS.md) sono state modificate a mano: per riscriverle con il nuovo ruolo conferma (la copia vecchia resta in AGENTS.md.bak).`,
   noteExists: (path) => `Nelle note c'è già ${path}: spostalo o scegli un altro nome.`,
-  memoryMoveFailed: (to, message) => `Non riesco a spostare la memoria in Agenti/${to}: ${message}`,
+  memoryMoveFailed: (to, message) =>
+    `Non riesco a spostare la memoria in ${vaultLayout().agents}/${to}: ${message}`,
   captainRoleLocked: 'Il tuo capo coordina gli altri: il suo ruolo non si cambia, solo il nome.',
   projectLeadRoleLocked:
     'Il capo del progetto coordina i mostri del progetto: il suo ruolo non si cambia, solo il nome.',
@@ -185,7 +192,7 @@ const it: typeof en = {
   draftInvalid: (attempt, reason) => `nuovo mostro non valido (tentativo ${attempt}): ${reason}`,
   nameInProposal: (name) => `${name} c’è già in questa proposta: scegli un altro nome.`,
   badArea: (area) =>
-    `area: "${area}" non va bene: una cartella delle note (lettere, numeri e "/"), mai Agenti, Modelli o Privato.`,
+    `area: "${area}" non va bene: una cartella delle note (lettere, numeri e "/"), mai ${reserved('o')}.`,
   tooManyDuties: (max) => `duties: al massimo ${max} regole.`,
   badModelRef: (text, configured) =>
     `model: "${text}" non è "provider/modello" (provider configurati: ${configured || 'nessuno'}). Senza model usa quelli del tuo capo.`,

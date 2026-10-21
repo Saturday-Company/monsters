@@ -5,7 +5,8 @@ import { join, resolve } from 'node:path';
 export * from './service.ts';
 export * from './tools.ts';
 export { withVaultScope, currentVaultScope } from './scope.ts';
-export { FILES_DIR, isFilesPath } from './paths.ts';
+export { isFilesPath } from './paths.ts';
+export { detectVaultLayout, readVaultLayoutRecord, writeVaultLayoutRecord } from './layout.ts';
 export {
   fixAgentEditOps,
   fixAgentWrite,
@@ -29,9 +30,6 @@ export {
   VaultPermissions,
   EXTERNAL_ACTOR_PREFIX,
   isExternalActor,
-  AGENTS_FOLDER,
-  INBOX_FOLDER,
-  DAILY_FOLDER,
   type AgentVaultProfile,
   type VaultPermissionsConfig,
 } from './permissions.ts';
@@ -60,7 +58,7 @@ export { EditOpSchema, EditOpsSchema } from './schemas.ts';
 export { lineDiff } from './diff.ts';
 export { contentHash } from './fsutil.ts';
 export type { VaultVcs, VcsKind, CommitInfo, GitAuthor } from './git/vcs.ts';
-export { VAULT_FOLDERS, VAULT_GITIGNORE } from './scaffold.ts';
+export { VAULT_FOLDERS, VAULT_GITIGNORE, vaultFolders, scaffoldFiles } from './scaffold.ts';
 export {
   WorkerEmbedder,
   EmbedBatchError,

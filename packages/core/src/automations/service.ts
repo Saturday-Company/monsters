@@ -1,5 +1,6 @@
 import {
   appLang,
+  isAgentMemoryPath,
   AutomationCreateSchema,
   AutomationUpdateSchema,
   describeSchedule,
@@ -198,8 +199,8 @@ function clip(text: string, max: number): string {
   return t.length > max ? `${t.slice(0, max - 1)}…` : t;
 }
 
-/** An agent's own file (`Agenti/<Name>/MEMORY.md`): not a result. */
-const isAgentFile = (path: string) => /^Agenti\/[^/]+\/MEMORY\.md$/u.test(path);
+/** An agent's own file (`Agenti/<Name>/MEMORY.md` in the vault's layout): not a result. */
+const isAgentFile = (path: string) => isAgentMemoryPath(path);
 
 /**
  * The last `run` event of a run cut by the core, not by the run: the core closed

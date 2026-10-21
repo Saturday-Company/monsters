@@ -6,6 +6,8 @@ import {
   appLang,
   defineTool,
   setAppLang,
+  setVaultLayout,
+  VAULT_LAYOUTS,
   type Lang,
   type LogEvent,
   type MonstersTool,
@@ -14,6 +16,7 @@ import { afterEach } from 'vitest';
 import { z } from 'zod';
 import {
   dioneBlueprint,
+  newVaultLayout,
   orchestratorBlueprint,
   rheaBlueprint,
   SESSION_COOKIE,
@@ -69,6 +72,8 @@ afterEach(async () => {
   for (const c of cores.splice(0)) await c.close();
   // A hub started with `lang` set the language: back to English (the language of the tests).
   setAppLang('en');
+  // …and a hub on an English vault the layout in use (D-154): back to the Italian one.
+  setVaultLayout('it');
 }, 60_000);
 
 export interface Deferred<T = void> {
@@ -153,17 +158,22 @@ export async function startTestHub(
   if (!options.withoutTeam) {
     const model = (id: string) => [{ provider: 'fake', model: id }];
     const agents = join(home, 'agents');
+    // The team of the vault the core will make (D-154): Italian unless the test asks for English.
+    const layout = VAULT_LAYOUTS[newVaultLayout()];
     await writeAgentFolder(
       join(agents, 'titan'),
       orchestratorBlueprint({ user: 'Giulio', models: model('titan') }),
+      { layout },
     );
     await writeAgentFolder(
       join(agents, 'rhea'),
-      rheaBlueprint({ user: 'Giulio', models: model('rhea') }),
+      rheaBlueprint({ user: 'Giulio', models: model('rhea'), layout }),
+      { layout },
     );
     await writeAgentFolder(
       join(agents, 'dione'),
-      dioneBlueprint({ user: 'Giulio', models: model('dione') }),
+      dioneBlueprint({ user: 'Giulio', models: model('dione'), layout }),
+      { layout },
     );
   }
   const provider = new FakeProvider({

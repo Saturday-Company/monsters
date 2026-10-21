@@ -1,5 +1,7 @@
-import { pick } from '@monsters/shared';
-import { PROJECTS_DIR_NAME } from '../../team/settings.ts';
+import { pick, vaultLayout } from '@monsters/shared';
+
+/** The default folder of the new projects (`Monsters Progetti`, `Monsters Projects`: D-154). */
+const projectsDir = () => vaultLayout().projectsDir;
 
 /*
  * What the main Telegram bot says (D-153): English first, Italian as a choice. The texts are
@@ -116,7 +118,9 @@ const en = {
   openPopup: 'Open Monsters: you’ll find it in To review, with all the fields.',
   applyInApp: 'Apply it in the app: you’ll find it in To review, with the whole diff.',
   confirmInApp: 'Confirm it in the app: you’ll find it in To review, in full.',
-  folderOutsideAck: `Confirm it in the app: the folder is outside ${PROJECTS_DIR_NAME}.`,
+  get folderOutsideAck(): string {
+    return `Confirm it in the app: the folder is outside ${projectsDir()}.`;
+  },
   doneApplied: 'Done: applied',
   doneConfirmed: 'Done: confirmed',
   leftIt: 'Left it',
@@ -129,7 +133,9 @@ const en = {
     '<i>Apply writes the file exactly as in the proposal; the whole diff is in the app too (To review).</i>',
   noteDocsApp:
     '<i>It doesn’t come only from you and the diff isn’t fully visible here: read it and apply it in the app (To review).</i>',
-  noteFolderOutside: `<i>The folder is outside ${PROJECTS_DIR_NAME}: look at it and confirm it in the app (To review).</i>`,
+  get noteFolderOutside(): string {
+    return `<i>The folder is outside ${projectsDir()}: look at it and confirm it in the app (To review).</i>`;
+  },
   noteMemory: '<i>Confirm adds them to its memory exactly as they are.</i>',
   noteConfirm:
     '<i>Confirm creates it exactly as it is; to change it, open it in the app (To review).</i>',
@@ -257,7 +263,9 @@ const it: typeof en = {
   openPopup: 'Apri Monsters: la trovi in Da rivedere, con tutti i campi.',
   applyInApp: 'Applicala nell’app: la trovi in Da rivedere, con la differenza intera.',
   confirmInApp: 'Confermala nell’app: la trovi in Da rivedere, tutta intera.',
-  folderOutsideAck: `Confermala nell’app: la cartella è fuori da ${PROJECTS_DIR_NAME}.`,
+  get folderOutsideAck(): string {
+    return `Confermala nell’app: la cartella è fuori da ${projectsDir()}.`;
+  },
   doneApplied: 'Fatto: applicata',
   doneConfirmed: 'Fatto: confermata',
   leftIt: 'Lasciata stare',
@@ -270,7 +278,9 @@ const it: typeof en = {
     '<i>Applica scrive il file così com’è nella proposta; la differenza intera è anche nell’app (Da rivedere).</i>',
   noteDocsApp:
     '<i>Non viene solo da te e la differenza qui non si vede tutta: leggila e applicala nell’app (Da rivedere).</i>',
-  noteFolderOutside: `<i>La cartella è fuori da ${PROJECTS_DIR_NAME}: guardala e confermala nell’app (Da rivedere).</i>`,
+  get noteFolderOutside(): string {
+    return `<i>La cartella è fuori da ${projectsDir()}: guardala e confermala nell’app (Da rivedere).</i>`;
+  },
   noteMemory: '<i>Conferma le aggiunge alla sua memoria così come sono.</i>',
   noteConfirm: '<i>Conferma la crea così com’è; per cambiarla aprila nell’app (Da rivedere).</i>',
   noteTooLong:

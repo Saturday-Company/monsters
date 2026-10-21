@@ -1,5 +1,6 @@
 import { posix } from 'node:path';
 import type { Db } from '@monsters/db';
+import { VAULT_LAYOUTS, type VaultLayout } from '@monsters/shared';
 import { linkKey, titleOf } from '../paths.ts';
 import { expandTag, type ParsedNote } from '../markdown/parse.ts';
 import { chunkNote } from '../semantic/chunk.ts';
@@ -45,7 +46,7 @@ export interface SearchFilters {
   /** Only notes that link to this note. */
   linksTo?: number | undefined;
   limit: number;
-  /** Hide `private: true` notes and the `Privato/` folder. */
+  /** Hide `private: true` notes and the private folder of the layout (`Privato/`). */
   hidePrivate: boolean;
   /** Any of the words instead of all of them (ranked by BM25, hits marked partial). */
   anyWords?: boolean | undefined;
@@ -62,10 +63,6 @@ export interface SearchHit {
   /** True when no note had every word: the hit matches only some of them (fallback). */
   partial?: true;
 }
-
-export const PRIVATE_FOLDER = 'Privato';
-/** Templates are not real notes: search skips them unless asked for this folder. */
-export const TEMPLATES_FOLDER = 'Modelli';
 
 const NOTE_COLUMNS =
   'n.nid, n.path, n.uid, n.title, n.type, n.author, n.created, n.updated, n.hash, n.mtime, n.size, n.private, n.is_md, n.summary';
@@ -165,8 +162,15 @@ export class VaultIndex {
   /** Hashes of chunks replaced or removed since the last `takeDroppedChunks()`. */
   #dropped: string[] = [];
 
-  constructor(db: Db) {
+  /**
+   * The names of the vault's folders (D-154): its private folder is hidden like the private
+   * notes, its templates folder is not searched unless asked for.
+   */
+  readonly layout: VaultLayout;
+
+  constructor(db: Db, layout: VaultLayout = VAULT_LAYOUTS.it) {
     this.db = db;
+    this.layout = layout;
   }
 
   /** Hashes of the chunks replaced or removed since the last call (their vectors may be orphans). */
@@ -562,7 +566,8 @@ export class VaultIndex {
     const where: string[] = ['n.is_md = 1'];
     const params: (string | number)[] = [];
     if (f.hidePrivate) {
-      where.push(`n.private = 0 AND n.path NOT LIKE '${PRIVATE_FOLDER}/%'`);
+      where.push("n.private = 0 AND n.path NOT LIKE ? || '/%'");
+      params.push(this.layout.private);
     }
     for (const tag of f.tags ?? []) {
       where.push('EXISTS (SELECT 1 FROM vault_tags t WHERE t.nid = n.nid AND t.tag = ?)');
@@ -572,7 +577,8 @@ export class VaultIndex {
       where.push("substr(n.path, 1, length(?) + 1) = ? || '/'");
       params.push(f.folder, f.folder);
     } else {
-      where.push(`n.path NOT LIKE '${TEMPLATES_FOLDER}/%'`);
+      where.push("n.path NOT LIKE ? || '/%'");
+      params.push(this.layout.templates);
     }
     if (f.type) {
       where.push('n.type = ?');
@@ -668,10 +674,11 @@ export class VaultIndex {
     return this.db.all<{ tag: string; count: number }>(
       `SELECT t.tag, COUNT(*) AS count FROM vault_tags t JOIN vault_notes n ON n.nid = t.nid
        WHERE substr(t.tag, 1, length(?)) = ?
-         ${hidePrivate ? `AND n.private = 0 AND n.path NOT LIKE '${PRIVATE_FOLDER}/%'` : ''}
+         ${hidePrivate ? "AND n.private = 0 AND n.path NOT LIKE ? || '/%'" : ''}
        GROUP BY t.tag ORDER BY count DESC, t.tag`,
       p,
       p,
+      ...(hidePrivate ? [this.layout.private] : []),
     );
   }
 

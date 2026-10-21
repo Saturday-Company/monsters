@@ -28,7 +28,7 @@ export interface Filters {
   mode: VaultSearchMode;
   tags: string[];
   folder: string;
-  /** Also the notes the monsters keep for themselves (`Agenti/`). */
+  /** Also the notes the monsters keep for themselves (`Agenti/`, `Agents/`). */
   agents: boolean;
 }
 
@@ -50,7 +50,7 @@ export function filterNotes(
 ): VaultNoteSummary[] {
   return notes.filter(
     (n) =>
-      (f.agents === true || !isAgentNote(n.path) || f.folder.startsWith('Agenti')) &&
+      (f.agents === true || !isAgentNote(n.path) || isAgentNote(f.folder)) &&
       (!f.folder || n.path.startsWith(`${f.folder}/`)) &&
       f.tags.every((t) => n.tags.some((nt) => nt === t || nt.startsWith(`${t}/`))),
   );

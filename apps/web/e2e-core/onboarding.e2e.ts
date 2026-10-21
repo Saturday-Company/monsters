@@ -22,8 +22,12 @@ test('first start against the real core', async ({ page }) => {
   await answerQuestions(page, { orchestrator: 'Atlas' });
 
   await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'permissions');
-  const vault = join(HOME, 'Monsters Note');
-  const profile = readFileSync(join(vault, 'profilo.md'), 'utf8');
+  // A new install in English: an English vault (D-154), never the Italian names.
+  const vault = join(HOME, 'Monsters Notes');
+  const profile = readFileSync(join(vault, 'profile.md'), 'utf8');
+  expect(existsSync(join(vault, 'profilo.md'))).toBe(false);
+  expect(existsSync(join(vault, 'Agents'))).toBe(true);
+  expect(existsSync(join(vault, 'Agenti'))).toBe(false);
   expect(profile).toContain('type: profile');
   expect(profile).toContain('I follow three restaurants');
   await page.getByRole('switch', { name: 'The web' }).click();
@@ -34,7 +38,7 @@ test('first start against the real core', async ({ page }) => {
   // The model's first answer is not JSON: the core retries and gets the team.
   const members = page.getByTestId('member');
   await expect(members).toHaveCount(3, { timeout: 20_000 });
-  await expect(page.getByText(/Tailor-made suggestion/)).toBeVisible();
+  await expect(page.getByText(/Suggestion tailored to you/)).toBeVisible();
   await expect(page.getByText('web', { exact: true })).toHaveCount(0);
 
   const tethys = page.locator('[data-member="tethys"]');
@@ -52,7 +56,7 @@ test('first start against the real core', async ({ page }) => {
   );
   await page.getByLabel('Rhea’s folder in the notes').fill('Resources/Food');
   await page.getByRole('button', { name: 'Save Rhea’s tasks and folder' }).click();
-  await expect(rhea.getByTestId('member-area')).toContainText('in the notes “Food”');
+  await expect(rhea.getByTestId('member-area')).toContainText('in the notes folder “Food”');
   await page.getByRole('button', { name: 'Remove Dione from the squad' }).click();
   await expect(members).toHaveCount(2);
   await page.getByRole('button', { name: /Confirm the squad/ }).click();
@@ -69,6 +73,9 @@ test('first start against the real core', async ({ page }) => {
   expect(settings.permissions).toMatchObject({ web: false, shell: true, folders: [] });
   expect(readFileSync(join(HOME, 'agents', 'rhea', 'agent.yaml'), 'utf8')).toContain(
     'Resources/Food/**',
+  );
+  expect(readFileSync(join(HOME, 'agents', 'rhea', 'agent.yaml'), 'utf8')).toContain(
+    'Agents/Rhea/**',
   );
   expect(readFileSync(join(HOME, 'agents', 'rhea', 'agent.yaml'), 'utf8')).not.toContain(
     'web_search',

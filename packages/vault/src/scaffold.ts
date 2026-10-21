@@ -1,23 +1,33 @@
 /*
- * Initial content of a new vault (research/04 §6.1): simplified PARA folders
- * with Italian names, LEGGIMI.md, four templates, a minimal Obsidian config
- * and the .gitignore. Only used when creating a vault, never on an existing one.
+ * Initial content of a new vault (research/04 §6.1): simplified PARA folders,
+ * the readme, four templates, a minimal Obsidian config and the .gitignore, with
+ * the names of the vault's layout (D-154: `Agenti/`, `LEGGIMI.md` in an Italian
+ * vault, `Agents/`, `README.md` in an English one). Only used when creating a
+ * vault, never on an existing one.
  */
 
+import { VAULT_LAYOUTS, type VaultLayout } from '@monsters/shared';
 import { scaffoldPrompts } from './scaffold.prompts.ts';
+import { scaffoldStrings } from './scaffold.strings.ts';
 
-export const VAULT_FOLDERS = [
-  'Inbox',
-  'Diario',
-  'Progetti',
-  'Aree',
-  'Risorse',
-  'Persone',
-  'Archivio',
-  'Agenti',
-  'Modelli',
-  'Allegati',
-] as const;
+/** The folders of a new vault, in the order the readme lists them. */
+export function vaultFolders(layout: VaultLayout): string[] {
+  return [
+    layout.inbox,
+    layout.daily,
+    layout.projects,
+    layout.areas,
+    layout.resources,
+    layout.people,
+    layout.archive,
+    layout.agents,
+    layout.templates,
+    layout.attachments,
+  ];
+}
+
+/** The folders of a vault made before D-154 (the Italian layout). */
+export const VAULT_FOLDERS: readonly string[] = vaultFolders(VAULT_LAYOUTS.it);
 
 /** Lines of the vault .gitignore (research/04 §5.1). */
 export const VAULT_GITIGNORE = [
@@ -32,97 +42,34 @@ export const VAULT_GITIGNORE = [
 ].join('\n');
 
 /** Minimal `.obsidian/app.json` (research/04 §4.1). */
-export const OBSIDIAN_APP_JSON = `${JSON.stringify(
-  {
-    useMarkdownLinks: false,
-    newLinkFormat: 'shortest',
-    alwaysUpdateLinks: true,
-    trashOption: 'local',
-    attachmentFolderPath: 'Allegati',
-    newFileLocation: 'folder',
-    newFileFolderPath: 'Inbox',
-  },
-  null,
-  2,
-)}\n`;
+export function obsidianAppJson(layout: VaultLayout): string {
+  return `${JSON.stringify(
+    {
+      useMarkdownLinks: false,
+      newLinkFormat: 'shortest',
+      alwaysUpdateLinks: true,
+      trashOption: 'local',
+      attachmentFolderPath: layout.attachments,
+      newFileLocation: 'folder',
+      newFileFolderPath: layout.inbox,
+    },
+    null,
+    2,
+  )}\n`;
+}
 
-export const LEGGIMI = `# Leggimi
-
-Questo è il tuo second brain: note Markdown che puoi aprire con Obsidian o con qualsiasi editor.
-Ci scrivete tu e i tuoi agenti. Ogni modifica degli agenti è salvata nella cronologia (git) e si può annullare.
-
-## Cartelle
-- **Inbox**: cattura veloce. Gli agenti senza un'area dedicata scrivono qui, anche le proposte di modifica.
-- **Diario**: una nota al giorno (\`AAAA-MM-GG\`). Gli agenti scrivono solo nella sezione \`## Agenti\`.
-- **Progetti**: una nota (o una cartella) per ogni progetto attivo.
-- **Aree**: responsabilità che continuano nel tempo (salute, lavoro, casa, finanze…).
-- **Risorse**: conoscenza di riferimento, appunti, ricerche, link.
-- **Persone**: una nota per persona.
-- **Archivio**: progetti chiusi e note non più attive.
-- **Agenti**: una cartella per agente, con \`MEMORY.md\` (l'indice della sua memoria) e le sue note.
-- **Modelli**: i modelli per le note nuove.
-- **Allegati**: immagini e PDF.
-
-## Convenzioni
-- Il nome del file è il titolo della nota ed è unico nel vault, così i link brevi \`[[Titolo]]\` funzionano.
-- In testa alla nota ci sono le proprietà (\`type\`, \`tags\`, \`aliases\`…). \`id\`, \`created\`, \`updated\` e
-  \`author\` le gestisce Monsters.
-- I tag sono minuscoli e gerarchici: \`progetto/monsters\`, \`area/salute\`.
-- Le note con \`private: true\` e la cartella \`Privato/\` sono visibili solo a te e all'orchestratore.
-- Le note cancellate finiscono in \`.trash/\`, come in Obsidian.
-`;
-
-export const TEMPLATES: Record<string, string> = {
-  'Modelli/Nota.md': `---
-type: note
-tags: []
-aliases: []
----
-# {{title}}
-
-Riassunto in una o due righe.
-
-## Dettagli
-`,
-  'Modelli/Persona.md': `---
-type: person
-tags: []
-aliases: []
----
-# {{title}}
-
-Chi è e come la conosci.
-
-## Contatti
-
-## Note
-`,
-  'Modelli/Progetto.md': `---
-type: project
-status: active
-tags: []
----
-# {{title}}
-
-Obiettivo e scadenza in una riga.
-
-## Prossimi passi
-
-## Decisioni
-
-## Collegamenti
-`,
-  'Modelli/Diario.md': `---
-type: daily
-tags: []
----
-# {{date}}
-
-## Note
-
-## Agenti
-`,
-};
+/** The files of a new vault besides the memories: readme, Obsidian config, templates. */
+export function scaffoldFiles(layout: VaultLayout): Record<string, string> {
+  const texts = scaffoldStrings(layout.id);
+  const files: Record<string, string> = {
+    [layout.readme]: texts.readme,
+    '.obsidian/app.json': obsidianAppJson(layout),
+  };
+  for (const [name, content] of Object.entries(texts.templates)) {
+    files[`${layout.templates}/${name}`] = content;
+  }
+  return files;
+}
 
 /** The text a new `MEMORY.md` starts with, in the app's language at the moment. */
 export function memoryNote(name: string): string {

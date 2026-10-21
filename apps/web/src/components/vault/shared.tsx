@@ -1,4 +1,4 @@
-import { appLang, formatDate, timeOptions } from '@monsters/shared';
+import { vaultLayout, appLang, formatDate, timeOptions } from '@monsters/shared';
 import { Gear, LockSimple, User } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
 import { noteName, plainText } from '../../lib/markdown.ts';
@@ -68,9 +68,10 @@ export function stampDate(date: string | null | undefined): string {
   return `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()} · ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-/** Notes the monsters keep for themselves (`Agenti/<nome>/…`): hidden unless asked for. */
+/** Notes the monsters keep for themselves (`Agenti/<nome>/…`, `Agents/…`: D-154): hidden unless asked for. */
 export function isAgentNote(path: string): boolean {
-  return /^Agenti(\/|$)/.test(path);
+  const folder = vaultLayout().agents;
+  return path === folder || path.startsWith(`${folder}/`);
 }
 
 /** A preview line of a note: plain text, no `#`, `[[ ]]`, `**` or list marks. */

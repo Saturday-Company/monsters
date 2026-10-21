@@ -81,7 +81,8 @@ creating your account. The core listens only on `127.0.0.1`; to reach it from an
 onboarding asks for an [OpenRouter](https://openrouter.ai/keys) key (a free one is enough to start); other providers
 are added later in **Settings → Models**.
 
-Data lives in `~/.monsters` (or `MONSTERS_HOME`), the vault in `~/Monsters Note`. Without a system keychain, start with
+Data lives in `~/.monsters` (or `MONSTERS_HOME`), the vault in `~/Monsters Notes` (`~/Monsters Note` for an
+install that started in Italian). Without a system keychain, start with
 `MONSTERS_SECRETS=file`. Kill switch from another terminal: `monsters kill` (and `monsters resume`, `monsters status`).
 
 For development: `pnpm typecheck && pnpm lint && pnpm test`. See [`AGENTS.md`](AGENTS.md) for all the commands.

@@ -2,9 +2,12 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import fs from 'node:fs';
 import { join } from 'node:path';
 import git from 'isomorphic-git';
+import { VAULT_LAYOUTS } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
-import { FILES_DIR, isFilesPath, VaultService } from '../src/index.ts';
+import { isFilesPath, VaultService } from '../src/index.ts';
 import { actor, PERMISSIONS, tempDir, track } from './helpers.ts';
+
+const FILES_DIR = VAULT_LAYOUTS.it.files;
 
 /*
  * `File/` holds the files of Monsters (D-075): Obsidian sees them, the vault

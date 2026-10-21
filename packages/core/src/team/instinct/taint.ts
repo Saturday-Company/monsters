@@ -1,4 +1,4 @@
-import { trimUrlEnd, URL_IN_TEXT } from '@monsters/shared';
+import { inAnyPrivateFolder, trimUrlEnd, URL_IN_TEXT } from '@monsters/shared';
 import { getDomain } from 'tldts';
 import { instinctStrings } from './instinct.strings.ts';
 
@@ -284,7 +284,7 @@ export class RunTaint {
       const o = output as { path?: unknown; content?: unknown; frontmatter?: unknown };
       const props = (o.frontmatter ?? {}) as Record<string, unknown>;
       const path = typeof o.path === 'string' ? o.path : '';
-      const isPrivate = props['private'] === true || /^Privato(\/|$)/.test(path);
+      const isPrivate = props['private'] === true || inAnyPrivateFolder(path);
       if (typeof o.content === 'string') {
         this.sensitive(o.content, isPrivate ? 'private' : 'note', path);
       }
