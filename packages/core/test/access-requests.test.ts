@@ -173,7 +173,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     expect(monstersCard({ toolNames: ['access_request'] })).toContain('`access_request`');
   });
 
-  it('a service of the team for the project: the card, "Sì, concedi", the project changed, Attività', async () => {
+  it('a service of the team for the project: the card, "Yes, grant", the project changed, Attività', async () => {
     const t = await startTestHub(
       {
         leda: [
@@ -194,10 +194,10 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     });
     const q = await openRequest(t);
     expect(q.question).toBe(
-      'Posso dare Canva al progetto «Saturday»? Leggere le grafiche del club',
+      'Can I give Canva to the project “Saturday”? Leggere le grafiche del club',
     );
-    expect(q.options.map((o) => o.label)).toEqual(['Sì, concedi', 'No']);
-    expect(q.options[0]!.description).toContain('«Saturday» → Collegamenti: Canva acceso');
+    expect(q.options.map((o) => o.label)).toEqual(['Yes, grant', 'No']);
+    expect(q.options[0]!.description).toContain('“Saturday” → Connections: Canva turned on');
     await t.json('POST', `/api/questions/${q.id}/answer`, { optionId: 'grant' });
     await t.runEnded(sent.runId);
     expect(t.core.hub.team.project('saturday')!.connections.claude).toEqual(['canva']);
@@ -205,7 +205,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
       expect.objectContaining({
         outcome: 'granted',
         from: 'leda',
-        summary: 'Canva al progetto «Saturday»',
+        summary: 'Canva to the project “Saturday”',
       }),
     ]);
     const result = t
@@ -276,8 +276,8 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     await t.runEnded(sent.runId);
     const q = await openRequest(t);
     expect(q.parked).toBe(true);
-    expect(q.options[0]!.description).toContain(`Permessi: il web per ${copy.config.name}`);
-    expect(q.options[0]!.description).toContain('ricerca sul web accesa');
+    expect(q.options[0]!.description).toContain(`Permissions: web access for ${copy.config.name}`);
+    expect(q.options[0]!.description).toContain('web search turned on');
     await t.json('POST', `/api/questions/${q.id}/answer`, { optionId: 'grant' });
     // The capo's next turn starts after the grant, and reads how it went.
     const next = await t.waitEvent(
@@ -338,7 +338,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
       text: 'Pubblica',
     });
     const q = await openRequest(t);
-    expect(q.question).toContain('il browser di Monsters al progetto «Saturday»');
+    expect(q.question).toContain('the Monsters browser to the project “Saturday”');
     await t.json('POST', `/api/questions/${q.id}/answer`, { optionId: 'grant' });
     await t.runEnded(sent.runId);
     expect(t.core.hub.mcp.allowed('leda', 'browser')).toBe(true);
@@ -434,8 +434,8 @@ describe('the brake reads a click in the browser from the page (D-131)', () => {
     const pending = click({ target: 'e12' });
     await new Promise((r) => setTimeout(r, 5));
     const [q] = questions.list({ status: 'open' });
-    expect(q!.question).toContain('Pixel vuole premere «button "Condividi"» nel browser');
-    expect(q!.question).toContain('pubblicare');
+    expect(q!.question).toContain('Pixel wants to press “button "Condividi"” in the browser');
+    expect(q!.question).toContain('meaning publish');
     questions.answer(q!.id, { optionId: '2' }, 'ui');
     await expect(pending).rejects.toThrow();
     s.db.close();

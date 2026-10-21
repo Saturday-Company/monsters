@@ -408,10 +408,10 @@ describe('DecisionGate on Jev', () => {
     const second = await gate.decide(grayNoKeywords);
     expect(second).toMatchObject({ outcome: 'proceed', decidedBy: 'model' });
     // Only the error code reaches the agent: TypeSafe's text stays in the log.
-    expect(second.reason).toMatch(/ripiego: jev: no_credit\)$/);
-    expect(second.reason).not.toMatch(/credito/);
+    expect(second.reason).toMatch(/fallback: jev: no_credit\)$/);
+    expect(second.reason).not.toMatch(/credit is over/);
     const logged = s.log.query({ type: 'decision' }) as LogEvent<'decision'>[];
-    expect(logged.at(-1)!.data.reason).toMatch(/credito TypeSafe finito/);
+    expect(logged.at(-1)!.data.reason).toMatch(/TypeSafe credit is over/);
     const after = s.log.query({ type: 'provider_usage' }) as LogEvent<'provider_usage'>[];
     expect(after.map((u) => u.data.provider)).toEqual(['typesafe', 'fake']);
   });
@@ -426,11 +426,11 @@ describe('DecisionGate on Jev', () => {
     });
     const d = await gate.decide(grayNoKeywords);
     expect(d).toMatchObject({ outcome: 'ask', decidedBy: 'rules' });
-    expect(d.reason).toMatch(/il modello non ha risposto/);
+    expect(d.reason).toMatch(/the model didn’t answer/);
     expect(d.reason).toMatch(/jev: overloaded/);
-    expect(d.reason).not.toMatch(/sovraccarico/);
+    expect(d.reason).not.toMatch(/overloaded \(529\)/);
     const logged = s.log.query({ type: 'decision' }) as LogEvent<'decision'>[];
-    expect(logged.at(-1)!.data.reason).toMatch(/sovraccarico/);
+    expect(logged.at(-1)!.data.reason).toMatch(/overloaded \(529\)/);
   });
 
   it('never passes the text of a TypeSafe error to the agent, only its code', async () => {
@@ -458,7 +458,7 @@ describe('DecisionGate on Jev', () => {
     });
     const d = await gate.decide(grayNoKeywords);
     expect(d.outcome).toBe('proceed');
-    expect(d.reason).toMatch(/\(ripiego: jev: no_credit\)$/);
+    expect(d.reason).toMatch(/\(fallback: jev: no_credit\)$/);
     expect(d.reason).not.toContain('IGNORE');
     const logged = s.log.query({ type: 'decision' }) as LogEvent<'decision'>[];
     expect(logged.at(-1)!.data.reason).toContain(hostile);

@@ -49,6 +49,7 @@ import {
   type ToolSearchConfig,
 } from './tool-search.ts';
 import { cacheUsage } from './usage.ts';
+import { runAgentStrings } from './run-agent.strings.ts';
 
 /*
  * One agent working on one task (ARCHITECTURE §5.3): a stable system prompt
@@ -61,20 +62,8 @@ import { cacheUsage } from './usage.ts';
  * retried once.
  */
 
-/** Why a chain link was left, in the words of the action log. */
-const FALLBACK_REASON: Record<ProviderErrorKind, string> = {
-  auth: 'chiave non valida',
-  quota: 'credito esaurito',
-  rate_limit: 'limite di richieste',
-  context: 'contesto troppo lungo',
-  model_gone: 'modello non disponibile',
-  unavailable: 'non raggiungibile',
-  bad_request: 'richiesta rifiutata',
-  aborted: 'interrotto',
-  subscription: 'piano ChatGPT, nessun cambio automatico',
-  empty: 'risposta vuota',
-  paid_blocked: 'modello a pagamento non attivo',
-};
+/** Why a chain link was left, in the words of the action log (the app's language now). */
+const fallbackReason = (kind: ProviderErrorKind): string => runAgentStrings().fallbackReason[kind];
 
 /** Structured brief (same fields as `delegate`, ARCHITECTURE §5.4). */
 export interface TaskBrief {
@@ -273,21 +262,15 @@ export function resolveAgentTools(
   return { tools, missing };
 }
 
-const STOP_SCOPE: Record<string, string> = {
-  global: 'hai fermato tutti i mostri',
-  agent: 'hai fermato questo mostro',
-  run: 'hai fermato questo lavoro',
-  tool: 'hai fermato uno strumento',
-};
-
 /**
- * Plain-Italian text of the `aborted` error shown in the log. Neutral form
- * ("il lavoro di Rhea si è fermato"): agent names have no grammatical gender.
+ * Plain text of the `aborted` error shown in the log, in the app's language. Neutral form
+ * ("Rhea’s job stopped"): agent names have no grammatical gender.
  */
 export function abortMessage(name: string, reason: string): string {
+  const t = runAgentStrings();
   const m = /^stopped \((\w+)\)(?::\s*(.+))?$/.exec(reason);
-  const why = m ? (m[2] ?? STOP_SCOPE[m[1] ?? '']) : undefined;
-  return `Il lavoro di ${name} si è fermato${why ? `: ${why}` : ''}`;
+  const why = m ? (m[2] ?? t.stopScope[m[1] ?? '']) : undefined;
+  return t.aborted(name, why);
 }
 
 /** Text for comparisons: lower case, no @mentions, no punctuation, single spaces. */
@@ -441,8 +424,7 @@ export function historyWithSummary(
  * (or the orchestrator reading a report) knows it is not the whole answer, and
  * the next turn knows where to go on from.
  */
-export const TRUNCATED_NOTE =
-  '[La risposta si interrompe qui: il modello è arrivato alla lunghezza massima. Scrivi «continua» per il resto.]';
+export const truncatedNote = (): string => runAgentStrings().truncatedNote;
 
 /** What the agent reads at its last step, when no tool is available any more. */
 export const FINAL_STEP_NOTE =
@@ -627,7 +609,12 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
       type: 'error',
       data: {
         code: 'provider_fallback',
-        message: `${formatModelRef(e.from)} → ${e.to ? formatModelRef(e.to) : 'nessuno'} (${FALLBACK_REASON[e.kind]}): ${e.error}`,
+        message: runAgentStrings().fallbackLine(
+          formatModelRef(e.from),
+          e.to ? formatModelRef(e.to) : undefined,
+          fallbackReason(e.kind),
+          e.error,
+        ),
       },
     });
   };
@@ -717,16 +704,14 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
       const before = now;
       now = estimate();
       guardNote(
-        `Contesto quasi pieno per ${agent.config.name} (~${before} token su ${window}): tolgo dal contesto i risultati vecchi, restano interi quelli degli ultimi ${KEEP_TOOL_STEPS} passi`,
+        runAgentStrings().contextAlmostFull(agent.config.name, before, window, KEEP_TOOL_STEPS),
       );
       if (now <= limit) return out;
     }
     if (guard.level < 2) {
       guard.raise(2);
       out = shape();
-      guardNote(
-        `Contesto ancora pieno per ${agent.config.name} (~${now} token su ${window}): riassumo i passi fatti finora in un messaggio`,
-      );
+      guardNote(runAgentStrings().contextStillFull(agent.config.name, now, window));
     }
     return out;
   };
@@ -746,7 +731,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
       type: 'error',
       data: {
         code: 'context_rescue',
-        message: `${formatModelRef(ref)} ha rifiutato la richiesta, troppo lunga per il suo contesto: riassumo i passi fatti e riprovo lo stesso modello`,
+        message: runAgentStrings().contextRescue(formatModelRef(ref)),
       },
     });
     return folded;
@@ -945,7 +930,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
       runId,
       parentId,
       type: 'error',
-      data: { code: 'run_limit', message: `${agent.config.name} non parte: ${runLimit}` },
+      data: { code: 'run_limit', message: runAgentStrings().noStart(agent.config.name, runLimit) },
     });
     return {
       text: '',
@@ -1002,7 +987,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
         if (!(error instanceof StreamInterruptedError) || streamRetried || signal.aborted) return;
         if (subscriptionErrorOf(error)) return;
         streamRetried = true;
-        const from = servedModel ? formatModelRef(servedModel) : 'Il modello';
+        const from = servedModel ? formatModelRef(servedModel) : runAgentStrings().theModel;
         log.append({
           agent: agentId,
           runId,
@@ -1010,7 +995,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
           type: 'error',
           data: {
             code: 'stream_retry',
-            message: `${from} si è interrotto a metà risposta (${errorMessage(error)}): riprovo lo stesso passo`,
+            message: runAgentStrings().streamBroke(from, errorMessage(error)),
           },
         });
         return { retry: true };
@@ -1067,7 +1052,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
             type: 'error',
             data: {
               code: 'tool_error_streak',
-              message: `${agent.config.name}: ${streak.count} errori di fila negli strumenti${moved ? ', provo il modello successivo' : ''}`,
+              message: runAgentStrings().errorStreak(agent.config.name, streak.count, moved),
             },
           });
         }
@@ -1294,7 +1279,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     while (noAnswer() && emptyAnswers < 2) {
       const left = limits.maxSteps - steps;
       if (left <= 0 || (budget && budget.exhausted(agentId))) break;
-      const from = servedModel ? formatModelRef(servedModel) : 'Il modello';
+      const from = servedModel ? formatModelRef(servedModel) : runAgentStrings().theModel;
       const other = emptyAnswers === 1 && session.demote();
       if (emptyAnswers === 1 && !other) break;
       emptyAnswers++;
@@ -1305,7 +1290,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
         type: 'error',
         data: {
           code: 'empty_answer',
-          message: `${from} ha dato una risposta vuota${echoed ? ' (ha solo ripetuto la richiesta)' : ''}: ${other ? 'provo il modello successivo' : 'nuovo tentativo'}`,
+          message: runAgentStrings().emptyAnswerRetry(from, echoed, other),
         },
       });
       sent = withInjected(sent, withoutTrailingText(await result.responseMessages), injected);
@@ -1395,8 +1380,9 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     streamError === undefined &&
     answer() !== ''
   ) {
-    parts = [...parts, TRUNCATED_NOTE];
-    finalText = finalText ? `${finalText}\n\n${TRUNCATED_NOTE}` : TRUNCATED_NOTE;
+    const note = truncatedNote();
+    parts = [...parts, note];
+    finalText = finalText ? `${finalText}\n\n${note}` : note;
     log.append({
       agent: agentId,
       runId,
@@ -1404,7 +1390,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
       type: 'error',
       data: {
         code: 'answer_truncated',
-        message: `La risposta di ${agent.config.name} è stata tagliata: il modello è arrivato alla lunghezza massima`,
+        message: runAgentStrings().answerTruncated(agent.config.name),
       },
     });
   }
@@ -1474,7 +1460,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
   }
   if (status === 'completed' && answer() === '') {
     // Nothing to deliver: a failure, never a "completed" with an empty answer.
-    const message = `${agent.config.name} non ha dato una risposta: il modello ha risposto ${echoed ? 'ripetendo solo la richiesta' : 'senza testo'}${emptyAnswers > 0 ? ', anche ai nuovi tentativi' : ''}. Riprova, o scegli un altro modello in Impostazioni → Modelli.`;
+    const message = runAgentStrings().emptyFailed(agent.config.name, echoed, emptyAnswers > 0);
     log.append({
       agent: agentId,
       runId,
@@ -1496,12 +1482,15 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
         message:
           (status === 'max_steps'
             ? steps >= limits.maxSteps
-              ? `${agent.config.name} ha finito i ${limits.maxSteps} passi senza concludere`
-              : `${agent.config.name} ha finito i passi in più senza concludere`
+              ? runAgentStrings().maxSteps(agent.config.name, limits.maxSteps)
+              : runAgentStrings().extraSteps(agent.config.name)
             : status === 'run_limit'
-              ? `${agent.config.name} si ferma: ${runLimit ?? budget?.exhausted(agentId) ?? 'limite del compito raggiunto'}`
-              : `${agent.config.name} ha superato il limite di ${maxTokens} token`) +
-          (forced !== null && answer() ? ' (rapporto scritto all’ultimo passo)' : ''),
+              ? runAgentStrings().stops(
+                  agent.config.name,
+                  runLimit ?? budget?.exhausted(agentId) ?? runAgentStrings().taskLimit,
+                )
+              : runAgentStrings().tokenLimit(agent.config.name, maxTokens ?? 0)) +
+          (forced !== null && answer() ? runAgentStrings().reportAtLastStep : ''),
       },
     });
   }
@@ -1558,9 +1547,9 @@ function withoutTrailingText(messages: ModelMessage[]): ModelMessage[] {
 /** Why the turn failed, in words the user can act on. */
 function failureMessage(name: string, err: unknown): string {
   if (err instanceof AllModelsFailedError && classifyProviderError(err.cause) === 'empty') {
-    return `${name} non ha dato una risposta: il modello ha risposto vuoto anche al nuovo tentativo e con gli altri modelli della catena. Riprova tra poco, o scegli un altro modello in Impostazioni → Modelli.`;
+    return runAgentStrings().emptyFailedChain(name);
   }
-  // OpenAI out of reach for the ChatGPT sign-in: why, in Italian, and that the sign-in stays.
+  // OpenAI out of reach for the ChatGPT sign-in: why, and that the sign-in stays.
   const unreachable = chatgptUnreachableText(err, 'in_use');
   if (unreachable) return unreachable;
   return errorMessage(err);

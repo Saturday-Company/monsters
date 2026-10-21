@@ -200,7 +200,7 @@ describe('providers API', () => {
       .find(
         (e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'provider_fallback',
       );
-    expect(fallback?.data.message).toContain('(modello a pagamento non attivo)');
+    expect(fallback?.data.message).toContain('(paid model not turned on)');
     expect(JSON.stringify(t.events(sent.runId))).not.toContain('limited to free models');
   });
 
@@ -308,7 +308,7 @@ describe('providers API', () => {
       (e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'provider_fallback',
     );
     expect(fallback?.data.message).toContain('anthropic:claude-test → openai:gpt-test');
-    expect(fallback?.data.message).toContain('chiave non valida');
+    expect(fallback?.data.message).toContain('invalid key');
     expect(JSON.stringify(t.core.log.query({ limit: 1000 }))).not.toContain(ANTHROPIC_KEY);
     expect(http.to('/v1/messages')).toHaveLength(1);
     const usage = events.find((e): e is LogEvent<'provider_usage'> => e.type === 'provider_usage');

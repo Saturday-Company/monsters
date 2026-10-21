@@ -552,7 +552,7 @@ describe('telegram: notifications (DecisionGate, use 3)', () => {
       (e): e is LogEvent<'decision'> =>
         e.type === 'decision' && e.data.kind === 'notify' && e.data.choice === 'later',
     );
-    expect(later.data.reason).toContain('silenzio');
+    expect(later.data.reason).toContain('quiet hours');
     expect(tg.messages.some((m) => m.text.includes('Fatto di notte.'))).toBe(false);
     // Quiet hours turned off: what waited leaves.
     await t.json('PUT', '/api/telegram/prefs', { quietHours: { enabled: false } });

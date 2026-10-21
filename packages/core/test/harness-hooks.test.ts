@@ -642,7 +642,7 @@ describe('a Claude Code run with the brake and the stop hook (fake binary)', () 
     expect(instinct[0]!.data.details).toMatchObject({ tool: 'shell', category: 'publish' });
     const card = questions.list()[0]!;
     expect(card.question).toBe(
-      'Rhea vuole eseguire «git push origin main», cioè pubblicare. Procedo?',
+      'Rhea wants to run “git push origin main”, meaning publish. Proceed?',
     );
     // The brake's events hang from the call they are about, logged once.
     const calls = events.filter((e): e is LogEvent<'tool_call'> => e.type === 'tool_call');

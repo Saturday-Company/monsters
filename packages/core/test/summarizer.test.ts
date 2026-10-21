@@ -127,13 +127,13 @@ describe('createSummarizer', () => {
     const input = { previous: null, turns, runId: 'r', signal: new AbortController().signal };
     await expect(
       summarize({ ...input, agent: agentOn([{ provider: 'claude-agent', model: 'sonnet' }]) }),
-    ).rejects.toThrow('Claude Code non disponibile');
+    ).rejects.toThrow('Claude Code is not available');
     await expect(
       summarize({ ...input, agent: agentOn([{ provider: 'codex', model: 'gpt-5' }]) }),
-    ).rejects.toThrow('su Codex il riassunto non si fa');
+    ).rejects.toThrow('summaries are not made on Codex');
     await expect(
       summarize({ ...input, agent: agentOn([{ provider: 'fake', model: 'paid' }]) }),
-    ).rejects.toThrow('tetto di spesa raggiunto');
+    ).rejects.toThrow('spending cap reached');
     expect(provider.calls).toHaveLength(0);
   });
 

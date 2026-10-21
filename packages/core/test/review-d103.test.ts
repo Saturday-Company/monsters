@@ -132,7 +132,7 @@ describe('taint that travels (D-103)', () => {
     await t.json<SendResult>('POST', '/api/messages', { text: 'orari del progetto?' });
     const card = await t.waitEvent(isType('question'));
     off();
-    expect(card.data.question).toContain('nota privata');
+    expect(card.data.question).toContain('private notes');
     expect(hits).toEqual([]);
     // The lead's run says on its end that it was tainted (D-103: transitive).
     const report = await t.waitEvent(isType('project_report'));
@@ -155,7 +155,7 @@ describe('taint that travels (D-103)', () => {
     expect(end1.data.taintSource).toContain('web_fetch');
     await t.json<SendResult>('POST', '/api/messages', { text: 'ok, poi?' });
     const card = await t.waitEvent(isType('question'));
-    expect(card.data.question).toContain('nota privata');
+    expect(card.data.question).toContain('private notes');
     expect(hits).toEqual([]);
   });
 
@@ -215,7 +215,7 @@ describe('taint that travels (D-103)', () => {
     await t.json('POST', `/api/drafts/automation/${d.id}/confirm`);
     const ran = await t.json<{ runId: string }>('POST', `/api/automations/${d.id}/run`);
     const card = await t.waitEvent(isType('question', (q) => q.runId === ran.runId));
-    expect(card.data.question).toContain('nota privata');
+    expect(card.data.question).toContain('private notes');
     expect(hits).toEqual([]);
   });
 
@@ -498,7 +498,7 @@ describe('names and addresses (D-103)', () => {
     expect(byId.status).toBe(409);
     const monster = await t.api('POST', '/api/projects', { name: 'Rhea', lead: { name: 'Nix' } });
     expect(monster.status).toBe(409);
-    expect(() => t.core.hub.squad.checkName('Foo Bar')).toThrow(/progetto/);
+    expect(() => t.core.hub.squad.checkName('Foo Bar')).toThrow(/project/);
     expect(t.core.hub.team.project('foo-bar')?.name).toBe('Foo Bar');
   });
 });

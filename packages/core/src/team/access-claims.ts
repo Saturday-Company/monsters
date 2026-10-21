@@ -1,6 +1,7 @@
 import type { LogEvent } from '@monsters/shared';
 import type { FinalAnswerHook } from '../agents/run-agent.ts';
 import type { EventLog } from '../log/event-log.ts';
+import { accessStrings } from './access.strings.ts';
 import { unicodeWords } from './word-boundary.ts';
 
 /*
@@ -610,8 +611,10 @@ export function accessCheck(o: AccessCheckOptions): {
         action: 'access_claim',
         message:
           mode === 'rewrite'
-            ? `${o.agent.name} diceva che un accesso mancava o era stato negato, ma nel registro non risulta: gliel’ho fatto correggere.`
-            : `${o.agent.name} ha scritto che un accesso mancava o era stato negato, ma nel registro non risulta: ${unbacked[0]!.truth[0] ?? ''}`.trim(),
+            ? accessStrings().claimCorrected(o.agent.name)
+            : accessStrings()
+                .claimNote(o.agent.name, unbacked[0]!.truth[0] ?? '')
+                .trim(),
         subject: o.agent.id,
         details: {
           mode,

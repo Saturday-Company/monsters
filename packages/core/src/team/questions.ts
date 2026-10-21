@@ -2,6 +2,7 @@ import { ulid, type Channel, type Question } from '@monsters/shared';
 import type { Db } from '../db/sqlite.ts';
 import type { Migration } from '../db/migrations.ts';
 import type { EventLog } from '../log/event-log.ts';
+import { decisionStrings } from './decision.strings.ts';
 
 /*
  * Questions to the user (`ask_user`, ARCHITECTURE §5.4): a row per question in
@@ -537,8 +538,8 @@ export class QuestionStore {
           ? {
               reason:
                 answer.optionId === q.recommended
-                  ? 'scelta l’opzione consigliata'
-                  : 'scelta diversa dalla consigliata',
+                  ? decisionStrings().pickedRecommended
+                  : decisionStrings().pickedOther,
             }
           : {}),
       },

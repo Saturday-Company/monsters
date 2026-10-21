@@ -7,7 +7,8 @@ import type { EventLog } from '../../log/event-log.ts';
 import type { DecisionRule } from '../decision.ts';
 import { pickedOption, QuestionExpiredError, type QuestionStore } from '../questions.ts';
 import { splitAgentToolName } from '../../mcp/convert.ts';
-import { classifyOutbound, CATEGORY_WORDS, type OutboundCategory } from './outbound.ts';
+import { instinctStrings } from './instinct.strings.ts';
+import { classifyOutbound, type OutboundCategory } from './outbound.ts';
 import { BANDS, bandOf, injectionBlocks, injectionRequest, outboundRequest } from './questions.ts';
 import { choiceOf, pOf, type System1 } from './system1.ts';
 import type { RunTaint } from './taint.ts';
@@ -52,16 +53,16 @@ export function brakeQuestion(
   /** Whose request it is when it is not the user's ("richiesta di Marco su Telegram…"). */
   asker?: string,
 ): string {
-  const words = meaning ?? (category === PROJECT_WRITE ? summary : CATEGORY_WORDS[category]);
-  const what = summary.includes(words) ? summary : `${summary}, cioè ${words}`;
-  return `${agent} vuole ${what}${asker ? ` (${asker})` : ''}. Procedo?`;
+  const t = instinctStrings();
+  const words = meaning ?? (category === PROJECT_WRITE ? summary : t.categoryWords[category]);
+  const what = summary.includes(words) ? summary : t.withMeaning(summary, words);
+  return t.brakeCard(agent, what, asker);
 }
 
 /** What a tool of another program does when the rules cannot say (a card in a chat, D-114). */
-const PROGRAM_EFFECT = 'fare un’azione con un altro programma (cambia qualcosa fuori da Monsters)';
+const programEffect = () => instinctStrings().programEffect;
 /** What reading with another program means in a chat with other people (D-114). */
-const PROGRAM_READ =
-  'leggere o usare i tuoi dati in un altro programma (posta, documenti, calendari): quello che trova può finire nella risposta alla chat';
+const programRead = () => instinctStrings().programRead;
 
 /** Tools whose output is checked for injections: third parties only. */
 export function scannedForInjection(tool: string): boolean {
@@ -81,12 +82,8 @@ export const BRAKE_HOLD_MS = 55 * 60_000;
  */
 export type BrakeUnseen = 'automation' | 'others' | 'closed';
 
-/** The cause in the Activity's words ("Nessuna risposta (…): …"). */
-export const UNSEEN_WORDS: Record<BrakeUnseen, string> = {
-  automation: 'era un’automazione: l’utente non la stava seguendo',
-  others: 'nella chat di Telegram scrivevano altre persone',
-  closed: 'l’app era chiusa e Telegram non è collegato',
-};
+/** The cause in the Activity's words ("No answer (…): …"), in the app's language now. */
+export const unseenWords = (unseen: BrakeUnseen): string => instinctStrings().unseen[unseen];
 
 const UNSEEN_MODEL: Record<BrakeUnseen, string> = {
   automation: 'this is an automation: the user was not following it and could not see the card',
@@ -197,10 +194,11 @@ export class InstinctGuard implements ToolGuard {
     const asker = call.tool.name.startsWith('mcp__') ? this.#o.othersAsk?.() : undefined;
     if (asker && !found) {
       const mcp = splitAgentToolName(call.tool.name);
-      const summary = `usare «${mcp?.tool ?? call.tool.name}» di ${mcp?.server ?? 'un altro programma'}`;
+      const t = instinctStrings();
+      const summary = t.useTool(mcp?.tool ?? call.tool.name, mcp?.server ?? t.otherProgram);
       const key = `${call.tool.name}:${hashOf(JSON.stringify(call.input ?? null))}`;
       if (this.#approved.has(key)) return;
-      await this.#hold(call, summary, 'contact', undefined, key, PROGRAM_READ, asker);
+      await this.#hold(call, summary, 'contact', undefined, key, programRead(), asker);
       return;
     }
     if (!found) return;
@@ -214,7 +212,7 @@ export class InstinctGuard implements ToolGuard {
         undefined,
         key,
         found.meaning ??
-          (found.markOnly ? PROGRAM_READ : found.category ? undefined : PROGRAM_EFFECT),
+          (found.markOnly ? programRead() : found.category ? undefined : programEffect()),
         asker,
       );
       return;
@@ -229,7 +227,13 @@ export class InstinctGuard implements ToolGuard {
       // The instinct off: the candidates go on as before the instinct (a mark stays a mark).
       if (mode === 'off') {
         if (found.markAlways)
-          this.#mark(call, found.summary, category ?? 'contact', undefined, 'non controllata');
+          this.#mark(
+            call,
+            found.summary,
+            category ?? 'contact',
+            undefined,
+            instinctStrings().whyUnchecked,
+          );
         return;
       }
       const answer = await system1.ask({
@@ -255,12 +259,24 @@ export class InstinctGuard implements ToolGuard {
       if (!answer) {
         // No engine: the action goes on as today, but the receipt shows it (a mark always).
         if (mode === 'on' || found.markAlways)
-          this.#mark(call, found.summary, category ?? 'contact', undefined, 'non controllata');
+          this.#mark(
+            call,
+            found.summary,
+            category ?? 'contact',
+            undefined,
+            instinctStrings().whyUnchecked,
+          );
         return;
       }
       if (answer.mode !== 'on') {
         if (found.markAlways)
-          this.#mark(call, found.summary, category ?? 'contact', undefined, 'non controllata');
+          this.#mark(
+            call,
+            found.summary,
+            category ?? 'contact',
+            undefined,
+            instinctStrings().whyUnchecked,
+          );
         return;
       }
       p = pOf(answer, 'outbound');
@@ -270,18 +286,18 @@ export class InstinctGuard implements ToolGuard {
       const band = bandOf(p, BANDS.outbound.low, BANDS.outbound.high);
       if (band === 'low') {
         if (found.markAlways)
-          this.#mark(call, found.summary, category ?? 'contact', p, 'da controllare');
+          this.#mark(call, found.summary, category ?? 'contact', p, instinctStrings().whyToCheck);
         return;
       }
       if (band === 'mid' || !category) {
-        this.#mark(call, found.summary, category ?? 'contact', p, 'in dubbio: segnata');
+        this.#mark(call, found.summary, category ?? 'contact', p, instinctStrings().whyDoubt);
         return;
       }
     }
     if (!category) return;
     if (!this.#asksAlways(category)) {
       // "Puoi … senza chiedere": the user's rule holds, the receipt shows it.
-      this.#mark(call, found.summary, category, p, 'le tue regole lo permettono');
+      this.#mark(call, found.summary, category, p, instinctStrings().whyRules);
       return;
     }
     const key = `${call.tool.name}:${hashOf(found.args)}`;
@@ -334,11 +350,11 @@ export class InstinctGuard implements ToolGuard {
     if (this.#approved.has(key)) return;
     await this.#hold(
       call,
-      `scrivere «${target.length > 80 ? `…${target.slice(-79)}` : target}»`,
+      instinctStrings().projectWrite(target.length > 80 ? `…${target.slice(-79)}` : target),
       PROJECT_WRITE,
       undefined,
       key,
-      'cambiare file nella cartella di un progetto dopo aver letto testo di terzi (un file del progetto può far partire comandi al tuo prossimo test o commit)',
+      instinctStrings().projectWriteMeaning,
     );
   }
 
@@ -352,22 +368,17 @@ export class InstinctGuard implements ToolGuard {
     asker?: string,
   ): Promise<void> {
     const { agent, questions, runId } = this.#o;
+    const t = instinctStrings();
     const details = { tool: call.tool.name, category, summary, ...(asker ? { asker } : {}) };
-    this.#event(
-      'outbound_hold',
-      `${agent.name} vuole ${summary}: aspetta la tua risposta.`,
-      p,
-      details,
-      call.callEventId,
-    );
+    this.#event('outbound_hold', t.hold(agent.name, summary), p, details, call.callEventId);
     const question = questions.create({
       agent: agent.id,
       runId,
       parentId: call.callEventId,
       question: brakeQuestion(agent.name, summary, category, meaning, asker),
       options: [
-        { id: '1', label: 'Sì, procedi', description: 'Solo questa azione' },
-        { id: '2', label: 'No, non farlo', description: 'Il mostro va avanti senza' },
+        { id: '1', label: t.yesLabel, description: t.yesDescription },
+        { id: '2', label: t.noLabel, description: t.noDescription },
       ],
       blocking: true,
       // The card of this call: when its run ends unanswered it expires, never parks (D-078).
@@ -389,9 +400,9 @@ export class InstinctGuard implements ToolGuard {
         const unseen = now === 'closed' && unseenAtStart !== 'closed' ? undefined : now;
         this.#event(
           'outbound_refused',
-          `Nessuna risposta${unseen ? ` (${UNSEEN_WORDS[unseen]})` : ''}: ${agent.name} non ha fatto ${summary}.`,
+          t.noAnswer(unseen ? unseenWords(unseen) : undefined, agent.name, summary),
           p,
-          { ...details, outcome: 'expired', ...(unseen ? { unseen: UNSEEN_WORDS[unseen] } : {}) },
+          { ...details, outcome: 'expired', ...(unseen ? { unseen: unseenWords(unseen) } : {}) },
           call.callEventId,
         );
         throw new ToolError('ABORTED', brakeNoAnswer(unseen, holdMs));
@@ -404,7 +415,7 @@ export class InstinctGuard implements ToolGuard {
       this.#approved.add(key);
       this.#event(
         'outbound_approved',
-        `Hai detto sì: ${agent.name} può ${summary}.`,
+        t.approved(agent.name, summary),
         p,
         { ...details, outcome: 'approved' },
         call.callEventId,
@@ -417,7 +428,7 @@ export class InstinctGuard implements ToolGuard {
       // and the monster reads what the user wrote (review of 19/10, item 2).
       this.#event(
         'outbound_refused',
-        `Non era un sì: ${agent.name} non fa ${summary} e legge la tua risposta.`,
+        t.notYes(agent.name, summary),
         p,
         { ...details, outcome: 'refused' },
         call.callEventId,
@@ -435,7 +446,7 @@ export class InstinctGuard implements ToolGuard {
     }
     this.#event(
       'outbound_refused',
-      `Hai detto no: ${agent.name} non farà ${summary}.`,
+      t.declined(agent.name, summary),
       p,
       { ...details, outcome: 'refused' },
       call.callEventId,
@@ -487,7 +498,7 @@ export class InstinctGuard implements ToolGuard {
   ): void {
     this.#event(
       'outbound_marked',
-      `${this.#o.agent.name} ha potuto ${summary} (${why}).`,
+      instinctStrings().marked(this.#o.agent.name, summary, why),
       p,
       { tool: call.tool.name, category, summary, outcome: 'marked', why },
       call.callEventId,
@@ -580,7 +591,7 @@ export class InstinctGuard implements ToolGuard {
           tool: call.tool.name,
           p: top,
           blocks: removed,
-          message: `Ho tolto da ${call.source.slice(0, 120)} un testo che dava ordini ai mostri.`,
+          message: instinctStrings().injectionRemoved(call.source.slice(0, 120)),
         },
       });
     }

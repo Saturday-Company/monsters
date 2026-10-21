@@ -12,6 +12,7 @@ import {
   type SystemOneRequest,
   type SystemOneResponse,
 } from '../decision.ts';
+import { instinctStrings } from './instinct.strings.ts';
 import { bandOf, INSTINCT_QUESTIONS_VERSION, INSTINCT_SPECS } from './questions.ts';
 
 /*
@@ -252,11 +253,9 @@ export class System1 {
       data: {
         code: 'instinct_unavailable',
         // The provider's words stay in the log only (the code reaches nobody else).
-        message:
-          `Istinto (${params.use}, ${engine.engine}) senza risposta (${code}): si va avanti senza. ${errorMessage(err)}`.slice(
-            0,
-            400,
-          ),
+        message: instinctStrings()
+          .instinctDown(params.use, engine.engine, code, errorMessage(err))
+          .slice(0, 400),
       },
     });
   }

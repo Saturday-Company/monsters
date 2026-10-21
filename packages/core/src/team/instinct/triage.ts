@@ -3,6 +3,7 @@ import type { ModelRef } from '@monsters/providers';
 import { coordinates, type AgentDefinition } from '../../agents/definition.ts';
 import type { EventLog } from '../../log/event-log.ts';
 import { matchRule, type DecisionRule } from '../decision.ts';
+import { instinctStrings } from './instinct.strings.ts';
 import { BANDS, ROUTE_LEAD, ROUTE_TEAM, tierOf, triageRequest } from './questions.ts';
 import { choiceOf, pOf, type QuestionLog, type System1 } from './system1.ts';
 
@@ -158,10 +159,10 @@ export class Triage {
           'route_hint',
           'route_hint',
           route.value === ROUTE_LEAD
-            ? 'Ho suggerito al tuo capo di rispondere da solo.'
+            ? instinctStrings().routeLead
             : route.value === ROUTE_TEAM
-              ? 'Ho suggerito al tuo capo un lavoro di squadra.'
-              : `Ho suggerito di affidare la richiesta a ${route.value}.`,
+              ? instinctStrings().routeTeam
+              : instinctStrings().routeMember(route.value),
           route.confidence,
           {
             route: route.value,

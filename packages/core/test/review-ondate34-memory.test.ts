@@ -216,7 +216,7 @@ describe('drafts of memory past the cap', () => {
       (e): e is LogEvent<'instinct'> =>
         e.type === 'instinct' && e.data.use === 'memory' && e.data.details?.['expired'] === true,
     );
-    expect(notice.data.message).toContain('è scaduta');
+    expect(notice.data.message).toContain('expired unanswered');
     expect(notice.data.details?.['lines']).toEqual(['Manda il resoconto 0 a Marco']);
     expect(notice.data.details?.['proposalId']).toBe(ids[0]);
   });

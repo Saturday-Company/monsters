@@ -54,6 +54,7 @@ import {
   shouldRemember,
   type RememberFilter,
 } from './memory.ts';
+import { teamStrings } from './team.strings.ts';
 
 /*
  * The team (ARCHITECTURE §5.3): agents are folders in `MONSTERS_HOME/agents/<id>/`,
@@ -249,9 +250,10 @@ function str(input: unknown, key: string): string | undefined {
 /** One line describing a tool call, for the speech bubble. */
 export function describeToolCall(tool: string, input: unknown): string {
   const path = str(input, 'path');
+  const t = teamStrings();
   switch (tool) {
     case 'web_search':
-      return clip(`cerca sul web: ${str(input, 'query') ?? ''}`);
+      return clip(t.webSearch(str(input, 'query') ?? ''));
     case 'web_fetch': {
       const url = str(input, 'url');
       let host = url ?? '';
@@ -260,42 +262,42 @@ export function describeToolCall(tool: string, input: unknown): string {
       } catch {
         // keep the raw value
       }
-      return clip(`legge ${host}`);
+      return clip(t.reads(host));
     }
     case 'vault_search':
-      return clip(`cerca nelle note: ${str(input, 'query') ?? ''}`);
+      return clip(t.searchNotes(str(input, 'query') ?? ''));
     case 'vault_read':
-      return clip(`legge ${path ?? 'una nota'}`);
+      return clip(t.reads(path ?? t.aNote));
     case 'vault_write':
-      return clip(`scrive ${path ?? 'una nota'}`);
+      return clip(t.writes(path ?? t.aNote));
     case 'vault_edit':
-      return clip(`modifica ${path ?? 'una nota'}`);
+      return clip(t.edits(path ?? t.aNote));
     case 'vault_list':
-      return 'guarda le note';
+      return t.looksAtNotes;
     case 'delegate':
-      return clip(`delega a ${str(input, 'agent') ?? 'un agente'}`);
+      return clip(t.delegatesTo(str(input, 'agent') ?? t.anAgent));
     case 'shell':
-      return clip(`esegue: ${str(input, 'command') ?? 'un comando'}`);
+      return clip(t.runs(str(input, 'command') ?? t.aCommand));
     case 'fs_read':
-      return clip(`legge ${path ?? 'un file'}`);
+      return clip(t.reads(path ?? t.aFile));
     case 'fs_write':
-      return clip(`scrive ${path ?? 'un file'}`);
+      return clip(t.writes(path ?? t.aFile));
     case 'fs_list':
-      return clip(`guarda ${path ?? 'le cartelle'}`);
+      return clip(t.looksAt(path ?? t.theFolders));
     case 'fs_move':
-      return clip(`sposta ${str(input, 'from') ?? 'un file'}`);
+      return clip(t.moves(str(input, 'from') ?? t.aFile));
     case 'fs_delete':
-      return clip(`butta nel cestino ${path ?? 'un file'}`);
+      return clip(t.trashes(path ?? t.aFile));
     case 'ask_user':
-      return clip(`chiede: ${str(input, 'question') ?? ''}`);
+      return clip(t.asks(str(input, 'question') ?? ''));
     case 'artifact_create':
-      return clip(`crea una pagina: ${str(input, 'title') ?? str(input, 'name') ?? ''}`);
+      return clip(t.createsPage(str(input, 'title') ?? str(input, 'name') ?? ''));
     case 'team_propose_monster':
-      return clip(`propone un nuovo mostro: ${str(input, 'name') ?? ''}`);
+      return clip(t.proposesMonster(str(input, 'name') ?? ''));
     case 'preview_show': {
       // A file id says nothing to the user: the chip carries the file's name.
       const note = str(input, 'note');
-      return clip(`ti mostra ${note ?? (str(input, 'file') ? 'un file' : 'qualcosa')}`);
+      return clip(t.showsYou(note ?? (str(input, 'file') ? t.aFile : t.somethingToShow)));
     }
     default: {
       // External tools (M2.5): `mcp__<server>__<tool>`.
@@ -304,9 +306,9 @@ export function describeToolCall(tool: string, input: unknown): string {
         const [, server = '', name = ''] = mcp;
         const url = str(input, 'url');
         if (server === 'browser' && name === 'browser_navigate' && url) {
-          return clip(`apre nel browser ${url.replace(/^https?:\/\//, '')}`);
+          return clip(t.opensInBrowser(url.replace(/^https?:\/\//, '')));
         }
-        return clip(`usa ${server}: ${name.replace(/_/g, ' ')}`);
+        return clip(t.uses(server, name.replace(/_/g, ' ')));
       }
       return tool.replace(/_/g, ' ');
     }
@@ -532,7 +534,7 @@ export class TeamService {
         type: 'error',
         data: {
           code: 'agent_invalid',
-          message: `${def.config.name}: AGENTS.md non aggiornato (${(err as Error).message})`,
+          message: teamStrings().agentNotUpdated(def.config.name, (err as Error).message),
         },
       });
     }
@@ -786,7 +788,7 @@ export class TeamService {
       return window.text;
     } catch (err) {
       if ((err as { code?: string }).code !== 'NOT_FOUND') {
-        this.#logError(`memoria di ${agent.config.name} non leggibile: ${(err as Error).message}`);
+        this.#logError(teamStrings().memoryUnreadable(agent.config.name, (err as Error).message));
         return '';
       }
     }
@@ -802,7 +804,7 @@ export class TeamService {
         { path, content, frontmatter: { type: 'memory' } },
       );
     } catch (err) {
-      this.#logError(`memoria di ${agent.config.name} non creata: ${(err as Error).message}`);
+      this.#logError(teamStrings().memoryNotCreated(agent.config.name, (err as Error).message));
     }
     return content;
   }
@@ -853,7 +855,7 @@ export class TeamService {
       memory = note.content ?? '';
     } catch (err) {
       if ((err as { code?: string }).code !== 'NOT_FOUND') {
-        this.#logError(`memoria di ${agent.config.name} non leggibile: ${(err as Error).message}`);
+        this.#logError(teamStrings().memoryUnreadable(agent.config.name, (err as Error).message));
       }
     }
     const candidates = newMemoryLines(memory, lines, lines.length);
@@ -1010,7 +1012,7 @@ export class TeamService {
         return kept;
       }
     } catch (err) {
-      this.#logError(`memoria di ${agent.config.name} non aggiornata: ${(err as Error).message}`);
+      this.#logError(teamStrings().memoryNotUpdated(agent.config.name, (err as Error).message));
       return [];
     }
   }
@@ -1040,7 +1042,7 @@ export class TeamService {
     if (rt.work.size > 0) return { state: 'working', ...busy };
     const parked = [...rt.parked.values()].at(-1);
     if (parked !== undefined) {
-      return { state: 'waiting', activity: clip(`aspetta una risposta: ${parked}`) };
+      return { state: 'waiting', activity: clip(teamStrings().waitingAnswer(parked)) };
     }
     return { state: rt.rest };
   }
@@ -1106,7 +1108,7 @@ export class TeamService {
         const rt = this.#rt(e.agent);
         if (e.data.status === 'started') {
           rt.work.add(e.runId);
-          rt.activity = clip(e.data.goal ?? 'al lavoro');
+          rt.activity = clip(e.data.goal ?? teamStrings().atWork);
         } else {
           rt.work.delete(e.runId);
           rt.waiting.clear();
@@ -1169,7 +1171,7 @@ export class TeamService {
         const rt = this.#rt(e.agent);
         rt.waiting.add(e.data.questionId);
         rt.confusedSince = undefined;
-        rt.activity = clip(`aspetta una risposta: ${e.data.question}`);
+        rt.activity = clip(teamStrings().waitingAnswer(e.data.question));
         return;
       }
       case 'question_parked': {
@@ -1182,7 +1184,7 @@ export class TeamService {
       case 'answer': {
         this.#asked.delete(e.data.questionId);
         for (const rt of this.#runtime.values()) {
-          if (rt.waiting.delete(e.data.questionId)) rt.activity = 'riprende il lavoro';
+          if (rt.waiting.delete(e.data.questionId)) rt.activity = teamStrings().backToWork;
           rt.parked.delete(e.data.questionId);
         }
         return;

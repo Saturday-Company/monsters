@@ -1,5 +1,6 @@
 import type { EventLog } from '../../log/event-log.ts';
 import type { StepCall, StepWatcher } from '../../agents/run-agent.ts';
+import { instinctStrings } from './instinct.strings.ts';
 import { BANDS, bandOf, STUCK_EVERY, STUCK_FIRST_STEP, stuckRequest } from './questions.ts';
 import { pOf, type System1 } from './system1.ts';
 
@@ -94,11 +95,12 @@ export class StuckWatcher implements StepWatcher {
       if (c.signature.endsWith('→ errore') || c.signature.includes('→ errore ')) continue;
       counts.set(c.signature, (counts.get(c.signature) ?? 0) + 1);
     }
-    for (const [sig, n] of counts) if (n >= SAME_OUTCOME) return `ripete ${sig}`;
+    for (const [sig, n] of counts)
+      if (n >= SAME_OUTCOME) return instinctStrings().stuckRepeats(sig);
     if (recent.length === WINDOW) {
       const [a, b] = [recent[0]!.signature, recent[1]!.signature];
       if (a !== b && recent.every((c, i) => c.signature === (i % 2 === 0 ? a : b))) {
-        return `alterna ${recent[0]!.line} e ${recent[1]!.line}`;
+        return instinctStrings().stuckAlternates(recent[0]!.line, recent[1]!.line);
       }
     }
     return null;
@@ -121,14 +123,10 @@ export class StuckWatcher implements StepWatcher {
       const p = pOf(answer, 'stuck');
       if (p === undefined || answer?.mode !== 'on') return;
       const band = bandOf(p, BANDS.stuck.low, BANDS.stuck.high);
-      if (band === 'high') this.#nudge('model', 'il modello lo vede girare a vuoto', p);
+      if (band === 'high') this.#nudge('model', instinctStrings().stuckByModel, p);
       else if (band === 'mid' && !this.#noticed) {
         this.#noticed = true;
-        this.#event(
-          'stuck_notice',
-          `${this.#o.agent.name} sembra bloccata: sta ripetendo i passi.`,
-          p,
-        );
+        this.#event('stuck_notice', instinctStrings().stuckNotice(this.#o.agent.name), p);
       }
     } catch {
       // Aborted with the run: nothing to say.
@@ -142,20 +140,13 @@ export class StuckWatcher implements StepWatcher {
     this.#nudges++;
     if (this.#nudges === 1) {
       this.#pending = { reminder: STUCK_REMINDER };
-      this.#event(
-        'stuck_nudge',
-        `${this.#o.agent.name} girava a vuoto: le ho chiesto di cambiare strada.`,
-        p,
-        { by, why },
-      );
+      this.#event('stuck_nudge', instinctStrings().stuckNudge(this.#o.agent.name), p, { by, why });
     } else if (this.#nudges === 2) {
       this.#pending = { reminder: STUCK_REMINDER, demote: true };
-      this.#event(
-        'stuck_demote',
-        `${this.#o.agent.name} girava ancora a vuoto: provo con il modello successivo.`,
-        p,
-        { by, why },
-      );
+      this.#event('stuck_demote', instinctStrings().stuckDemote(this.#o.agent.name), p, {
+        by,
+        why,
+      });
     }
   }
 

@@ -15,6 +15,7 @@ import { cacheUsage } from '../agents/usage.ts';
 import type { EventLog } from '../log/event-log.ts';
 import type { Summarizer, SummaryInput, SummaryOutput } from './compaction.ts';
 import { blockedByFreeOnly, type TieredRef } from './instinct/triage.ts';
+import { teamStrings } from './team.strings.ts';
 
 /*
  * Who writes the summary of a conversation (C.3, D-082). The conversation goes
@@ -140,10 +141,11 @@ export function createSummarizer(o: SummarizerOptions): Summarizer {
     const first = input.agent.config.models[0];
     if (first?.provider === 'claude-agent') {
       const claude = o.claude?.();
-      if (!claude || !input.scope || !o.scratchRoot) throw new Error('Claude Code non disponibile');
+      if (!claude || !input.scope || !o.scratchRoot)
+        throw new Error(teamStrings().claudeUnavailable);
       return harnessSummary(claude, input, o.log, o.scratchRoot, o.projectOf);
     }
-    if (first?.provider === 'codex') throw new Error('su Codex il riassunto non si fa');
+    if (first?.provider === 'codex') throw new Error(teamStrings().codexNoSummary);
     const chain = summaryChain(input.agent.config.models, {
       isModel,
       price: o.price,
@@ -154,8 +156,8 @@ export function createSummarizer(o: SummarizerOptions): Summarizer {
     if (chain.length === 0) {
       throw new Error(
         o.capped?.(input.agent.config.id)
-          ? 'tetto di spesa raggiunto'
-          : 'nessun modello per il riassunto',
+          ? teamStrings().spendCapReached
+          : teamStrings().noSummaryModel,
       );
     }
     return modelSummary(o, chain, input);
@@ -230,7 +232,7 @@ async function modelSummary(
   input.signal.throwIfAborted();
   if (failure !== undefined) throw new Error(errorMessage(failure));
   // A summary cut by the output limit would replace a whole one with half of it.
-  if (cut) throw new Error('riassunto troncato dal limite di risposta');
+  if (cut) throw new Error(teamStrings().summaryCut);
   const served = session.lastServed?.ref;
   return { text, ...(served ? { provider: served.provider, model: served.model } : {}) };
 }

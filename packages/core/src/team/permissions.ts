@@ -11,6 +11,7 @@ import type {
 import { expandHome, mayBeInside, realPathOf } from '@monsters/tools';
 import type { EventLog } from '../log/event-log.ts';
 import { patchSettingsFile } from '../onboarding/settings-file.ts';
+import { permissionsStrings } from './permissions.strings.ts';
 import type { HubSettings } from './settings.ts';
 import { fullPermissions, type TeamService, type ToolPolicy } from './team-service.ts';
 
@@ -69,7 +70,7 @@ export function installFolders(env: NodeJS.ProcessEnv): string[] {
 
 export interface ForbiddenFolder {
   path: string;
-  /** Plain Italian, shown in the UI. */
+  /** Plain words in the app's language, shown in the UI. */
   why: string;
 }
 
@@ -88,7 +89,7 @@ export async function checkFolders(
     if (!isAbsolute(expanded)) {
       throw new PermissionsError(
         'invalid_folder',
-        `Scrivi il percorso completo della cartella, per esempio ${join(homedir(), 'Documenti')}.`,
+        permissionsStrings().fullPath(join(homedir(), permissionsStrings().documentsFolder)),
         raw,
       );
     }
@@ -97,10 +98,10 @@ export async function checkFolders(
     try {
       isDir = (await stat(path)).isDirectory();
     } catch {
-      throw new PermissionsError('invalid_folder', `La cartella ${path} non esiste.`, raw);
+      throw new PermissionsError('invalid_folder', permissionsStrings().notFound(path), raw);
     }
     if (!isDir) {
-      throw new PermissionsError('invalid_folder', `${path} è un file, non una cartella.`, raw);
+      throw new PermissionsError('invalid_folder', permissionsStrings().isFile(path), raw);
     }
     const real = await realPathOf(path);
     for (const x of forbidden) {
@@ -138,15 +139,15 @@ export class PermissionsService {
     return [
       {
         path: this.#o.vaultRoot(),
-        why: 'È la cartella delle note: i mostri la usano già, con la cronologia e l’annulla. Scegli un’altra cartella.',
+        why: permissionsStrings().notesFolder,
       },
       {
         path: this.#o.home,
-        why: 'È la cartella dei dati di Monsters (chiavi, attività, mostri): non si può concedere.',
+        why: permissionsStrings().dataFolder,
       },
       ...(this.#o.installDirs ?? []).map((path) => ({
         path,
-        why: 'È la cartella dove è installato Monsters: non si può concedere.',
+        why: permissionsStrings().installFolder,
       })),
     ];
   }

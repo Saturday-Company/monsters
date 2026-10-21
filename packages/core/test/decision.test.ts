@@ -374,7 +374,7 @@ describe('DecisionGate', () => {
       recommended: 'Bozza A',
     });
     expect(d).toMatchObject({ outcome: 'ask', decidedBy: 'rules', rule: 'taste' });
-    expect(d.reason).toContain('tipo dedotto: taste');
+    expect(d.reason).toContain('inferred kind: taste');
     // "local" declared by the agent does not turn a choice among drafts into housekeeping.
     expect(
       await gate.decide({
@@ -426,7 +426,7 @@ describe('DecisionGate', () => {
         recommended: 'Sì',
         kind: 'local',
       }),
-    ).toMatchObject({ outcome: 'ask', reason: 'zona grigia senza modello: si chiede' });
+    ).toMatchObject({ outcome: 'ask', reason: 'gray area without a model: asking' });
     // When the words confirm it, local work still goes on alone.
     expect(
       await gate.decide({
@@ -464,7 +464,7 @@ describe('DecisionGate', () => {
     expect(await gate.decide(req)).toMatchObject({
       outcome: 'ask',
       decidedBy: 'model',
-      reason: 'il modello la classifica come taste',
+      reason: 'the model classifies it as taste',
     });
     expect(JSON.stringify(provider.calls[0]!.options.prompt)).toContain('Di che tipo è la scelta');
   });

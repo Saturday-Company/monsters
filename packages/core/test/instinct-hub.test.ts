@@ -156,7 +156,7 @@ describe('instinct in the core (D-067)', () => {
     expect(promptText(t.provider.calls[0]!.options.prompt)).toContain('sembra adatto: Rhea');
     expect(ofType(t.events(sent.runId), 'instinct')[0]!.data).toMatchObject({
       use: 'route_hint',
-      message: 'Ho suggerito di affidare la richiesta a Rhea.',
+      message: 'I suggested handing the request to Rhea.',
     });
   });
 
@@ -186,7 +186,7 @@ describe('instinct in the core (D-067)', () => {
       (e): e is LogEvent<'question'> => e.type === 'question' && e.runId === sent.runId,
     );
     expect(question.data.question).toMatch(
-      /^Rhea vuole aprire un indirizzo che contiene dati privati/,
+      /^Rhea wants to open an address that contains private data/,
     );
     expect(fetched).toBe(0);
     // A message that is not a yes or a no is for the monster, not the answer to the card.

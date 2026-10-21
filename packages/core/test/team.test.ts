@@ -154,7 +154,7 @@ describe('team', () => {
     const rhea = (list: AgentSummary[]) => list.find((a) => a.id === 'rhea');
     expect(rhea(await t.json<AgentSummary[]>('GET', '/api/agents'))).toMatchObject({
       state: 'working',
-      activity: 'cerca sul web: lune di Saturno',
+      activity: 'searches the web: lune di Saturno',
     });
     release.resolve();
     await t.runEnded(sent.runId);

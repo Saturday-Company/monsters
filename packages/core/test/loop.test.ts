@@ -128,7 +128,7 @@ describe('the last step writes the report (AG-03)', () => {
     expect(env.provider.calls[2]!.options.tools?.length).toBe(3);
     const stop = events.find((e): e is LogEvent<'error'> => e.type === 'error');
     expect(stop?.data).toMatchObject({ code: 'max_steps' });
-    expect(stop?.data.message).toContain('rapporto scritto all’ultimo passo');
+    expect(stop?.data.message).toContain('report written at the last step');
   });
 
   it('also when the run budget runs out', async () => {
@@ -365,8 +365,8 @@ describe('repeated calls and failures in a row (AG-16)', () => {
       (e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'tool_error_streak',
     );
     expect(streaks.map((e) => e.data.message)).toEqual([
-      'Rhea: 3 errori di fila negli strumenti',
-      'Rhea: 4 errori di fila negli strumenti, provo il modello successivo',
+      'Rhea: 3 tool errors in a row',
+      'Rhea: 4 tool errors in a row, trying the next model',
     ]);
   });
 });

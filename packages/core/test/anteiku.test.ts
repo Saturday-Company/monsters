@@ -224,13 +224,13 @@ describe('Anteiku: the brake (D-070, D-075)', () => {
       expect(classify(name), name).toMatchObject({
         category: 'delete',
         certain: true,
-        meaning: expect.stringContaining('archiviare') as unknown,
+        meaning: expect.stringContaining('archive') as unknown,
       });
     }
     expect(classify('anteiku_pagamenti_segna_pagato')).toMatchObject({
       category: 'spend',
       certain: true,
-      meaning: expect.stringContaining('pagato') as unknown,
+      meaning: expect.stringContaining('paid') as unknown,
     });
     // Every tool Anteiku marks destructive is certain.
     for (const d of anteikuToolDefs().filter((x) => x.destructive)) {
@@ -267,7 +267,7 @@ describe('Anteiku: the brake (D-070, D-075)', () => {
     expect(classifyOutbound(t({ destructive: true }), {})).toMatchObject({
       category: 'delete',
       certain: true,
-      meaning: expect.stringContaining('crm segna come distruttiva') as unknown,
+      meaning: expect.stringContaining('crm marks as destructive') as unknown,
     });
     expect(classifyOutbound(t({}), {})).toMatchObject({ certain: false });
     expect(classifyOutbound(t({ destructive: true, readOnly: true }), {})).toBeNull();
@@ -325,12 +325,12 @@ describe('Anteiku: the brake (D-070, D-075)', () => {
       expect(c(name), name).toMatchObject({
         category: 'delete',
         certain: true,
-        meaning: expect.stringContaining('annullare') as unknown,
+        meaning: expect.stringContaining('cancel') as unknown,
       });
     }
     expect(c('api_key_revoke')).toMatchObject({
       category: 'delete',
-      meaning: expect.stringContaining('revocare') as unknown,
+      meaning: expect.stringContaining('revoke') as unknown,
     });
     // Who can do what stays with the access rules.
     expect(c('revoke_member')).toMatchObject({ category: 'contact', certain: true });

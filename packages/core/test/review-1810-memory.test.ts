@@ -313,7 +313,7 @@ describe('A2 · the sites of the memory are not known', () => {
     );
     await t.json<SendResult>('POST', '/api/messages', { text: 'orari e report', to: 'rhea' });
     const card = await t.waitEvent(isType('question'));
-    expect(card.data.question).toContain('pezzi delle tue note');
+    expect(card.data.question).toContain('pieces of your notes');
     expect(hits).toEqual([]);
   });
 });

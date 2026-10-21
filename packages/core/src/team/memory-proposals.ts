@@ -2,6 +2,7 @@ import type { Channel, DraftView, LogEvent } from '@monsters/shared';
 import type { EventLog } from '../log/event-log.ts';
 import { shouldRemember } from './memory.ts';
 import type { TeamService } from './team-service.ts';
+import { teamStrings } from './team.strings.ts';
 
 /*
  * Memory that waits for the user (review of 18/10, A2, and of the waves 3 and
@@ -118,7 +119,11 @@ export class MemoryProposals {
         data: {
           use: 'memory',
           action: 'memory_skipped',
-          message: `La bozza più vecchia della memoria di ${name} è scaduta senza risposta (${gone.length === 1 ? 'una riga' : `${gone.length} righe`}): ${name} ne aveva già ${MAX_OPEN_MEMORY_PROPOSALS} da rivedere. Le righe sono qui sotto, se ti servono.`,
+          message: teamStrings().memoryExpired(
+            name,
+            gone.length === 1 ? teamStrings().oneLine : teamStrings().nLines(gone.length),
+            MAX_OPEN_MEMORY_PROPOSALS,
+          ),
           subject: id,
           details: { lines: gone, proposalId: old.id, expired: true },
         },
@@ -149,15 +154,19 @@ export class MemoryProposals {
     return {
       kind: 'memory',
       id: e.id,
-      title: `Memoria di ${name}`,
-      summary: `${name} vuole ricordare ${lines.length === 1 ? 'una cosa' : `${lines.length} cose`} (${e.data.source ?? 'non da te'}).`,
+      title: teamStrings().memoryTitle(name),
+      summary: teamStrings().memorySummary(
+        name,
+        lines.length,
+        e.data.source ?? teamStrings().notFromYou,
+      ),
       from: e.agent,
       fromName: name,
       createdAt: e.ts,
       memory: {
         agent: e.agent,
         lines,
-        source: e.data.source ?? 'non da te',
+        source: e.data.source ?? teamStrings().notFromYou,
         ...(e.data.tainted ? { tainted: true as const } : {}),
       },
     };
@@ -165,14 +174,11 @@ export class MemoryProposals {
 
   #proposal(id: string): MemoryEvent {
     if (!this.known(id)) {
-      throw new MemoryProposalError('unknown_proposal', 'Questa proposta non c’è.');
+      throw new MemoryProposalError('unknown_proposal', teamStrings().proposalUnknown);
     }
     const e = this.open().find((o) => o.id === id);
     if (!e) {
-      throw new MemoryProposalError(
-        'proposal_closed',
-        'Queste righe sono già state aggiunte alla memoria o lasciate stare.',
-      );
+      throw new MemoryProposalError('proposal_closed', teamStrings().proposalClosed);
     }
     return e;
   }
@@ -188,10 +194,7 @@ export class MemoryProposals {
         proposal: { id, by },
       });
       if (this.open().some((o) => o.id === id)) {
-        throw new MemoryProposalError(
-          'not_saved',
-          'Non sono riuscito a scrivere la memoria: riprova tra poco.',
-        );
+        throw new MemoryProposalError('not_saved', teamStrings().memoryNotSaved);
       }
       return { agent: e.agent, lines };
     });

@@ -8,6 +8,7 @@ import {
 } from '@monsters/shared';
 import { TYPESAFE_PROVIDER_ID } from '../jev.ts';
 import type { EventLog } from '../../log/event-log.ts';
+import { instinctStrings } from './instinct.strings.ts';
 
 /*
  * The receipt of a job (D-067, research 07 killer feature 2): at the end of
@@ -41,23 +42,29 @@ export function isExternalTool(tool: string): boolean {
   );
 }
 
-/** The receipt's words for a refusal of the run's setup (D-127). */
-const REFUSAL_WHY: Record<'not_in_run' | 'monsters_rule', string> = {
-  not_in_run: 'non era tra gli strumenti del lavoro, non l’hai negato tu',
-  monsters_rule: 'regola fissa di Monsters, non un tuo permesso',
-};
+/** The receipt's words for a refusal of the run's setup (D-127), in the app's language now. */
+const refusalWhy = (refusal: 'not_in_run' | 'monsters_rule'): string =>
+  instinctStrings().refusal[refusal];
 
 /** The receipt's words for the cause of a failed call (D-132); a plain error has none. */
-const CAUSE_WHY: Partial<Record<ToolFailureCause, string>> = {
-  user_declined: 'hai detto no',
-  user_no_answer: 'nessuna risposta in tempo',
-  setting_off: 'un’impostazione è spenta',
-  not_linked: 'il servizio va ricollegato',
-  site_refused: 'il sito ha rifiutato, non un tuo permesso',
-  monsters_policy: REFUSAL_WHY.monsters_rule,
-  not_in_run: REFUSAL_WHY.not_in_run,
-  limit: 'un limite del lavoro',
-};
+function causeWhy(cause: ToolFailureCause): string | undefined {
+  const t = instinctStrings();
+  switch (cause) {
+    case 'user_declined':
+    case 'user_no_answer':
+    case 'setting_off':
+    case 'not_linked':
+    case 'site_refused':
+    case 'limit':
+      return t.cause[cause];
+    case 'monsters_policy':
+      return t.refusal.monsters_rule;
+    case 'not_in_run':
+      return t.refusal.not_in_run;
+    default:
+      return undefined;
+  }
+}
 
 /** Every event of a run after `after` (an id), oldest first. */
 export function runEventsAfter(log: EventLog, runId: string, after?: string): LogEvent[] {
@@ -173,10 +180,10 @@ export function buildReceipt(params: {
         if (t) {
           t.failed++;
           // A refusal of the run's setup (D-127): the receipt says it was not the user.
-          if (e.data.refusal) t.why ??= REFUSAL_WHY[e.data.refusal];
+          if (e.data.refusal) t.why ??= refusalWhy(e.data.refusal);
           // The cause the core wrote (D-132), for every failure, native loop and harness alike.
           if (e.data.cause) {
-            t.why ??= CAUSE_WHY[e.data.cause];
+            t.why ??= causeWhy(e.data.cause);
             (t.causes ??= new Set()).add(e.data.cause);
           }
         }

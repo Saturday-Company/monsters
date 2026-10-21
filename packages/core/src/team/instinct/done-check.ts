@@ -1,5 +1,6 @@
 import type { DelegationVerdict, ReceiptCriterion } from '@monsters/shared';
 import { withUnicodeBoundaries, wordRegex } from '../word-boundary.ts';
+import { instinctStrings } from './instinct.strings.ts';
 import { BANDS, bandOf, doneCheckRequest } from './questions.ts';
 import { pOf, type System1 } from './system1.ts';
 
@@ -48,7 +49,7 @@ export interface DoneCheckResult {
   reminder?: string;
   /** In the middle band: why the result is doubtful (for the orchestrator). */
   doubt?: string;
-  /** What is missing, in plain Italian (for the orchestrator and the Activity). */
+  /** What is missing, in plain words of the app's language (for the orchestrator and the Activity). */
   missing: string[];
   /** The engine answered. */
   byModel: boolean;
@@ -122,10 +123,7 @@ function weeksNamed(summary: string): number {
 export function countShortfalls(doneWhen: string, summary: string, goal = ''): string[] {
   const perWeek = PER_WEEK.exec(doneWhen);
   const weeks = perWeek && MONTH.test(`${goal}\n${doneWhen}`) ? weeksNamed(summary) : 0;
-  const monthly =
-    weeks > 0 && weeks < 4
-      ? [`serve un ${perWeek![2]} per ognuna delle 4 settimane, il rapporto ne elenca ${weeks}`]
-      : [];
+  const monthly = weeks > 0 && weeks < 4 ? [instinctStrings().perWeek(perWeek![2]!, weeks)] : [];
   return [...countsBelow(doneWhen, summary), ...monthly];
 }
 
@@ -139,9 +137,7 @@ function countsBelow(doneWhen: string, summary: string): string[] {
     const s = stem(want.noun);
     const said = declared.filter((d) => d.stem === s && Number.isFinite(d.n));
     if (said.length > 0 && Math.max(...said.map((d) => d.n)) < want.n) {
-      out.push(
-        `servono ${want.n} ${want.noun}, il rapporto ne dichiara ${Math.max(...said.map((d) => d.n))}`,
-      );
+      out.push(instinctStrings().belowCount(want.n, want.noun, Math.max(...said.map((d) => d.n))));
     }
   }
   return out;
@@ -169,8 +165,6 @@ export function claimsNotesWithout(
   }
   return false;
 }
-
-const DOUBT = 'Il controllo non è sicuro che il lavoro sia completo';
 
 export class DoneChecker {
   readonly #s1: System1;
@@ -203,12 +197,17 @@ export class DoneChecker {
         changed: input.notesChanged,
       })
     ) {
-      const reason =
-        'il rapporto dice di aver salvato una nota, ma il registro del vault non ne ha';
+      const reason = instinctStrings().claimsNotes;
       missing.push(reason);
-      criteria.push({ text: 'Note salvate', kind: 'notes', ok: false, by: 'rules', reason });
+      criteria.push({
+        text: instinctStrings().notesSaved,
+        kind: 'notes',
+        ok: false,
+        by: 'rules',
+        reason,
+      });
     } else if (input.notesCreated.length + input.notesChanged.length > 0) {
-      criteria.push({ text: 'Note salvate', kind: 'notes', ok: true, by: 'rules' });
+      criteria.push({ text: instinctStrings().notesSaved, kind: 'notes', ok: true, by: 'rules' });
     }
     const shortfalls = input.doneWhen
       ? countShortfalls(input.doneWhen, input.summary, input.goal)
@@ -264,7 +263,7 @@ export class DoneChecker {
         const band = bandOf(p, bands.low, bands.high);
         const shortfall = q.kind === 'done_when' ? shortfalls[0] : undefined;
         if (band === 'low' || shortfall) {
-          const reason = shortfall ?? `non risulta: «${q.text}»`;
+          const reason = shortfall ?? instinctStrings().notShown(q.text);
           if (!shortfall) missing.push(reason);
           criteria.push({
             text: q.text,
@@ -281,7 +280,7 @@ export class DoneChecker {
             kind: q.kind,
             ok: null,
             by: 'model',
-            reason: 'non è chiaro dal rapporto e dalle note',
+            reason: instinctStrings().notClear,
             p,
           });
         } else {
@@ -332,7 +331,7 @@ export class DoneChecker {
         criteria,
         missing,
         byModel,
-        doubt: `${DOUBT}: ${unsure.map((t) => `«${t}»`).join(', ')}`,
+        doubt: `${instinctStrings().doubt}: ${unsure.map((t) => instinctStrings().quote(t)).join(', ')}`,
       };
     }
     const allModel = criteria.some((c) => c.by === 'model') && criteria.every((c) => c.ok === true);

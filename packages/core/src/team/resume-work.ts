@@ -13,6 +13,7 @@ import type { EventLog } from '../log/event-log.ts';
 import { answerText } from './conversation.ts';
 import type { Dispatcher } from './dispatcher.ts';
 import { RunBudget, type RunLimits } from './run-limits.ts';
+import { teamStrings } from './team.strings.ts';
 
 /*
  * "Riprendi e continua" (D-072): after the latest global stop, the requests
@@ -264,7 +265,7 @@ export function requeueWaiting(
         type: 'error',
         data: {
           code: 'resume_failed',
-          message: `Non ho potuto riprendere un messaggio in attesa: ${(err as Error).message}`,
+          message: teamStrings().resumeMessageFailed((err as Error).message),
         },
       });
     }
@@ -296,7 +297,7 @@ export function continueRequests(
       // Work a monster sent (`project_send`): again as its work, on the system channel, with
       // its run (taint and budget of the tree), never as the user's words.
       if (r.from !== undefined && !deps.isAgent(r.from)) {
-        throw new Error(`chi aveva mandato il lavoro (${r.from}) non c’è più`);
+        throw new Error(teamStrings().senderGone(r.from));
       }
       const sent =
         r.from !== undefined
@@ -323,7 +324,7 @@ export function continueRequests(
         type: 'error',
         data: {
           code: 'resume_failed',
-          message: `Non ho potuto riprendere il lavoro fermato: ${(err as Error).message}`,
+          message: teamStrings().resumeWorkFailed((err as Error).message),
         },
       });
     }

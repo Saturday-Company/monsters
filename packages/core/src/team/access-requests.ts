@@ -2,6 +2,7 @@ import {
   BROWSER_SERVER,
   MCP_CATALOG,
   defineTool,
+  formatList,
   ToolError,
   type Channel,
   type ClaudeConnectionsResponse,
@@ -17,6 +18,7 @@ import { z } from 'zod';
 import type { AgentDefinition } from '../agents/definition.ts';
 import type { RunHandle } from '../kill/run-controller.ts';
 import type { EventLog } from '../log/event-log.ts';
+import { accessStrings } from './access.strings.ts';
 import { pickedOption, QuestionExpiredError, type QuestionStore } from './questions.ts';
 import { ASK_USER_WAIT_MS } from './team-tools.ts';
 import type { TeamService } from './team-service.ts';
@@ -58,7 +60,7 @@ export type AccessStep =
 /** What a request stores with its question. */
 export interface AccessGrant {
   from: string;
-  /** What it gives, in Italian ("a Pixel il web"). */
+  /** What it gives, in the app's language at the time ("Pixel web access"). */
   summary: string;
   steps: AccessStep[];
 }
@@ -107,13 +109,6 @@ export interface AccessRequestsOptions {
   userName?: () => string | undefined;
 }
 
-/** "A", "A e B", "A, B e C". */
-function listWords(items: readonly string[]): string {
-  return items.length < 2
-    ? (items[0] ?? '')
-    : `${items.slice(0, -1).join(', ')} e ${items.at(-1)!}`;
-}
-
 /** Lower case, without "claude.ai " and spaces around. */
 const norm = (s: string) =>
   s
@@ -155,8 +150,8 @@ export interface AccessToolContext {
 }
 
 /** What the model reads when its request is parked: the answer starts a new turn. */
-const PARKED_NOTE =
-  'The request is now with the user, as a card with "Sì, concedi" and "No". End your turn now with one ' +
+const parkedNote = () =>
+  `The request is now with the user, as a card with "${accessStrings().grant}" and "${accessStrings().deny}". End your turn now with one ` +
   'short line saying what you asked and that you wait; do not ask it again. Their answer starts a new ' +
   'turn: once granted, the monster has it from its next job (delegate again).';
 
@@ -270,7 +265,7 @@ export class AccessRequests {
     for (const step of grant.steps) {
       switch (step.do) {
         case 'agent_web': {
-          if (!team.byId(step.agent)) throw new Error('il mostro non c’è più');
+          if (!team.byId(step.agent)) throw new Error(accessStrings().stepMonsterGone);
           const saved = team.savedPermissionsFor(step.agent);
           if (saved.web) break;
           await this.#o.permissions.update(
@@ -281,16 +276,16 @@ export class AccessRequests {
         }
         case 'project_web': {
           const p = team.project(step.project);
-          if (!p || p.archivedAt !== undefined) throw new Error('il progetto non c’è più');
+          if (!p || p.archivedAt !== undefined) throw new Error(accessStrings().stepProjectGone);
           if (p.webSearch) break;
           await this.#projects().update(p.id, { webSearch: true }, by);
           break;
         }
         case 'project_link': {
           const p = team.project(step.project);
-          if (!p || p.archivedAt !== undefined) throw new Error('il progetto non c’è più');
+          if (!p || p.archivedAt !== undefined) throw new Error(accessStrings().stepProjectGone);
           if (!this.#teamWide(step.via, step.id)) {
-            throw new Error('il collegamento non è più dato a tutta la squadra');
+            throw new Error(accessStrings().stepLinkNotTeamWide);
           }
           const list = p.connections[step.via];
           if (list.includes(step.id)) break;
@@ -303,8 +298,8 @@ export class AccessRequests {
         }
         case 'server_agent': {
           const server = this.#o.mcp.view().servers.find((s) => s.name === step.server);
-          if (!server) throw new Error(`${step.server} non è più collegato`);
-          if (!team.byId(step.agent)) throw new Error('il mostro non c’è più');
+          if (!server) throw new Error(accessStrings().stepServerGone(step.server));
+          if (!team.byId(step.agent)) throw new Error(accessStrings().stepMonsterGone);
           if (server.agents.includes(step.agent)) break;
           await this.#o.mcp.upsert(step.server, { agents: [...server.agents, step.agent] }, by);
           break;
@@ -315,7 +310,7 @@ export class AccessRequests {
 
   #projects() {
     const p = this.#o.projects();
-    if (!p) throw new Error('i progetti non sono pronti');
+    if (!p) throw new Error(accessStrings().stepProjectsNotReady);
     return p;
   }
 
@@ -334,7 +329,7 @@ export class AccessRequests {
       description:
         'Ask the user for an access that a monster of your squad lacks, with one tap: the web for a monster, ' +
         'a service already connected to the account (given to the whole team) for your project, or the browser ' +
-        'of Monsters. The user sees a card with "Sì, concedi" and "No"; you never grant anything yourself. ' +
+        `of Monsters. The user sees a card with "${accessStrings().grant}" and "${accessStrings().deny}"; you never grant anything yourself. ` +
         'Use it when the work needs it, instead of explaining the settings. A service not connected to the ' +
         'account cannot be asked: the result says where the user connects it. Example: ' +
         '{"access": "service", "service": "Canva", "why": "Leggere le grafiche del club per i post"}',
@@ -347,10 +342,10 @@ export class AccessRequests {
           agent: ctx.self.config.id,
           runId: ctx.run.id,
           parentId: tc.callEventId ?? null,
-          question: `Posso dare ${plan.summary}? ${input.why.trim()}`.slice(0, 1000),
+          question: accessStrings().question(plan.summary, input.why.trim()).slice(0, 1000),
           options: [
-            { id: GRANT, label: 'Sì, concedi', description: plan.changes },
-            { id: DENY, label: 'No', description: 'Resta tutto com’è.' },
+            { id: GRANT, label: accessStrings().grant, description: plan.changes },
+            { id: DENY, label: accessStrings().deny, description: accessStrings().denyDescription },
           ],
           blocking: true,
           access: {
@@ -362,7 +357,7 @@ export class AccessRequests {
         const waitMs = Math.max(0, ctx.waitMs?.() ?? ASK_USER_WAIT_MS);
         const parked = (reason: 'harness' | 'timeout') => {
           this.#o.questions.park(question.id, reason);
-          return { status: 'waiting_user', question_id: question.id, note: PARKED_NOTE };
+          return { status: 'waiting_user', question_id: question.id, note: parkedNote() };
         };
         if (waitMs === 0) return parked('harness');
         const timeout = AbortSignal.timeout(waitMs);
@@ -379,7 +374,7 @@ export class AccessRequests {
           if (timeout.aborted && !(err instanceof QuestionExpiredError)) {
             return this.#o.questions.get(question.id)?.status === 'open'
               ? parked('timeout')
-              : { status: 'waiting_user', question_id: question.id, note: PARKED_NOTE };
+              : { status: 'waiting_user', question_id: question.id, note: parkedNote() };
           }
           if (err instanceof QuestionExpiredError) {
             throw new ToolError('ABORTED', 'the request expired without an answer', {
@@ -440,7 +435,6 @@ export class AccessRequests {
     if (monster && project && team.projectOf(monster.config.id)?.id !== project.id) {
       throw new ToolError('INVALID_INPUT', `${monster.config.name} is not of «${project.name}»`);
     }
-    const where = project ? ` (progetto «${project.name}»)` : '';
 
     if (input.access === 'web') {
       const who = monster ?? self;
@@ -453,7 +447,7 @@ export class AccessRequests {
       }
       return {
         steps,
-        summary: `a ${who.config.name} il web${p ? ` (progetto «${p.name}»)` : ''}`,
+        summary: accessStrings().summaryWeb(who.config.name, p?.name),
         changes: this.#changesOf(steps),
       };
     }
@@ -477,7 +471,7 @@ export class AccessRequests {
       ];
       return {
         steps,
-        summary: `${found.label} al progetto «${project.name}»`,
+        summary: accessStrings().summaryService(found.label, project.name),
         changes: this.#changesOf(steps),
       };
     }
@@ -525,15 +519,15 @@ export class AccessRequests {
     const names = targets.map((t) => t.config.name);
     if (steps.length === 0) {
       return {
-        done: `${listWords(names)} ${names.length === 1 ? 'has' : 'have'} the browser already, from the next job.`,
+        done: `${formatList(names)} ${names.length === 1 ? 'has' : 'have'} the browser already, from the next job.`,
       };
     }
     return {
       steps,
       summary:
         !monster && project
-          ? `il browser di Monsters al progetto «${project.name}»`
-          : `il browser di Monsters a ${listWords(names)}${where}`,
+          ? accessStrings().summaryBrowserProject(project.name)
+          : accessStrings().summaryBrowserMonsters(names, project?.name),
       changes: this.#changesOf(steps),
     };
   }
@@ -610,20 +604,24 @@ export class AccessRequests {
       via === 'mcp'
         ? (this.#o.mcp.view().servers.find((s) => s.name === id)?.label ?? id)
         : (MCP_CATALOG.find((e) => e.id === id)?.name ?? id);
-    return steps
-      .map((s) => {
+    const t = accessStrings();
+    return t.changesTail(
+      steps.map((s) => {
         switch (s.do) {
           case 'agent_web':
-            return `Permessi: il web per ${name(s.agent)}`;
+            return t.changeAgentWeb(name(s.agent));
           case 'project_web':
-            return `«${project(s.project)}» → Collegamenti: ricerca sul web accesa`;
+            return t.changeProjectWeb(project(s.project));
           case 'project_link':
-            return `«${project(s.project)}» → Collegamenti: ${label(s.via, s.id)} acceso`;
+            return t.changeProjectLink(project(s.project), label(s.via, s.id));
           case 'server_agent':
-            return `Collegamenti → ${s.server === BROWSER_SERVER ? 'Browser' : label('mcp', s.server)}: lo usa anche ${name(s.agent)}`;
+            return t.changeServerAgent(
+              label('mcp', s.server),
+              name(s.agent),
+              s.server === BROWSER_SERVER,
+            );
         }
-      })
-      .join('; ')
-      .concat('. Lo togli quando vuoi dallo stesso posto.');
+      }),
+    );
   }
 }

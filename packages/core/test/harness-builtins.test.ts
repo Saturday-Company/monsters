@@ -442,7 +442,7 @@ describe('harness runner: a refused built-in in the log (D-127)', () => {
           tool: 'claude-agent.WebSearch',
           calls: 1,
           failed: 1,
-          why: 'non era tra gli strumenti del lavoro, non l’hai negato tu',
+          why: 'it wasn’t among the tools of the job, you didn’t deny it',
           // The cause the core wrote (D-132), the same words for every path.
           causes: ['not_in_run'],
         },
@@ -450,7 +450,7 @@ describe('harness runner: a refused built-in in the log (D-127)', () => {
           tool: 'claude-agent.Edit',
           calls: 1,
           failed: 1,
-          why: 'regola fissa di Monsters, non un tuo permesso',
+          why: 'a fixed Monsters rule, not a permission of yours',
           causes: ['monsters_policy'],
         },
       ]),

@@ -117,6 +117,7 @@ import type { MonsterProposal, MonsterProposalInput } from './propose-monster.ts
 import type { QuestionStore } from './questions.ts';
 import type { HubSettings } from './settings.ts';
 import type { TeamService } from './team-service.ts';
+import { teamManagerStrings } from './team-manager.strings.ts';
 
 /*
  * The team after the onboarding (Settings → Squadra, contract in
@@ -229,47 +230,6 @@ interface Move {
   to: string;
 }
 
-const IDEAS: TeamSuggestions['ideas'] = [
-  {
-    id: 'ricerche',
-    label: 'Ricerche online',
-    description: 'Fa ricerche online e le riassume in note con le fonti.',
-  },
-  {
-    id: 'bozze',
-    label: 'Bozze di post e mail',
-    description: 'Scrive bozze di post e mail pronte da usare, nel mio tono.',
-  },
-  {
-    id: 'riassunti',
-    label: 'Riassunti',
-    description: 'Riassume documenti e note lunghe in pochi punti chiari.',
-  },
-  {
-    id: 'note',
-    label: 'Note in ordine',
-    description: 'Mette in ordine note e idee: collega, raggruppa, toglie i doppioni.',
-  },
-  {
-    id: 'piano',
-    label: 'Piano dei contenuti',
-    description: 'Pianifica i contenuti della settimana e tiene il calendario editoriale.',
-  },
-  {
-    id: 'numeri',
-    label: 'Numeri e dati',
-    description: 'Analizza numeri e dati e ne ricava indicazioni pratiche.',
-  },
-];
-
-const ASK_LABELS: Record<string, string> = {
-  publish: 'Pubblicare',
-  contact: 'Scrivere ad altri (messaggi, mail)',
-  spend: 'Pagare o comprare',
-  delete: 'Cancellare',
-  goal: 'Cambiare un obiettivo',
-};
-
 const lowerFirst = (s: string) =>
   /^\p{Lu}\p{Ll}/u.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s;
 
@@ -312,10 +272,7 @@ export class TeamManager {
 
   #assertReady(): void {
     if (!this.#d.onboarding.done) {
-      throw new TeamError(
-        'onboarding_pending',
-        'Completa prima il primo avvio: la squadra non esiste ancora.',
-      );
+      throw new TeamError('onboarding_pending', teamManagerStrings().onboardingPending);
     }
   }
 
@@ -328,11 +285,7 @@ export class TeamManager {
   #assertIdle(): void {
     const busy = this.#d.team.working();
     if (busy.length === 0) return;
-    const who = busy.length === 1 ? `${busy[0]} sta` : `${busy.join(' e ')} stanno`;
-    throw new TeamError(
-      'busy',
-      `${who} ancora lavorando: aspetta che finisca o ferma la squadra, poi cambiala.`,
-    );
+    throw new TeamError('busy', teamManagerStrings().busy(busy));
   }
 
   /** The monsters of a squad besides its capo: the Squadra personale, or a project (D-097). */
@@ -353,15 +306,12 @@ export class TeamManager {
   /** A project that exists and is in use (D-097). */
   #activeProject(id: string): Project {
     const p = this.#d.team.project(id);
-    if (!p) throw new TeamError('unknown_project', `Non c’è un progetto "${id}".`);
+    if (!p) throw new TeamError('unknown_project', teamManagerStrings().unknownProject(id));
     if (p.archivedAt !== undefined) {
-      throw new TeamError('project_archived', `Il progetto ${p.name} è archiviato.`);
+      throw new TeamError('project_archived', teamManagerStrings().projectArchived(p.name));
     }
     if (p.status === 'draft') {
-      throw new TeamError(
-        'project_draft',
-        `Il progetto ${p.name} è ancora una bozza: confermalo prima di dargli dei mostri.`,
-      );
+      throw new TeamError('project_draft', teamManagerStrings().projectDraft(p.name));
     }
     return p;
   }
@@ -413,14 +363,20 @@ export class TeamManager {
       language: p.languageId,
       style: p.styleNotes ?? '',
       askAlways: {
-        fixed: ASK_ALWAYS_FIXED.map((id) => ({ id, label: ASK_LABELS[id] ?? id })),
+        fixed: ASK_ALWAYS_FIXED.map((id) => ({
+          id,
+          label: teamManagerStrings().askLabels[id] ?? id,
+        })),
         extras: ASK_ALWAYS_EXTRAS.filter((id) => chosen.includes(id)),
         text: p.askFirstText ?? '',
       },
       options: {
         tones: group('tono').options,
         languages: group('lingua').options,
-        extras: ASK_ALWAYS_EXTRAS.map((id) => ({ id, label: ASK_LABELS[id] ?? id })),
+        extras: ASK_ALWAYS_EXTRAS.map((id) => ({
+          id,
+          label: teamManagerStrings().askLabels[id] ?? id,
+        })),
       },
     };
   }
@@ -694,27 +650,24 @@ export class TeamManager {
   #checkName(raw: string, self?: string): string {
     const name = cleanName(raw);
     if (!AGENT_NAME_PATTERN.test(name)) {
-      throw new TeamError(
-        'invalid_name',
-        `"${name}" non va bene: solo lettere, spazi, apostrofi e trattini (al massimo 24).`,
-      );
+      throw new TeamError('invalid_name', teamManagerStrings().invalidName(name));
     }
     const id = agentId(name);
     if (isReservedActor(id)) {
-      throw new TeamError('invalid_name', `Il nome ${name} è riservato: scegline un altro.`);
+      throw new TeamError('invalid_name', teamManagerStrings().reservedName(name));
     }
     for (const other of this.#d.team.list()) {
       if (other.config.id === self) continue;
       if (other.config.name.toLowerCase() === name.toLowerCase()) {
         throw new TeamError(
           'invalid_name',
-          `C'è già un mostro che si chiama ${other.config.name}.`,
+          teamManagerStrings().monsterNameTaken(other.config.name),
         );
       }
       if (agentId(other.config.name) === id || other.config.id === id) {
         throw new TeamError(
           'invalid_name',
-          `Il nome ${name} è troppo simile a quello di ${other.config.name}: scegline un altro.`,
+          teamManagerStrings().nameTooSimilar(name, other.config.name),
         );
       }
     }
@@ -722,10 +675,7 @@ export class TeamManager {
     const key = name.toLowerCase();
     for (const p of this.#d.team.projects()) {
       if (p.name.toLowerCase() === key || p.id === key || p.id === id) {
-        throw new TeamError(
-          'invalid_name',
-          `C'è già un progetto che si chiama ${p.name}: scegli un altro nome per il mostro.`,
-        );
+        throw new TeamError('invalid_name', teamManagerStrings().projectNameTaken(p.name));
       }
     }
     return name;
@@ -846,7 +796,7 @@ export class TeamManager {
     if (!change.force) {
       throw new TeamError(
         'instructions_edited',
-        `Le istruzioni di ${def.config.name} (AGENTS.md) sono state modificate a mano: per riscriverle con il nuovo ruolo conferma (la copia vecchia resta in AGENTS.md.bak).`,
+        teamManagerStrings().instructionsEdited(def.config.name),
       );
     }
     const next = change.fields(current.fields ?? this.#defaultFields(def));
@@ -926,10 +876,7 @@ export class TeamManager {
     const caseOnly = from.toLowerCase() === to.toLowerCase();
     for (const m of moves) {
       if (!caseOnly && existsSync(join(vault.root, m.to))) {
-        throw new TeamError(
-          'memory_conflict',
-          `Nelle note c'è già ${m.to}: spostalo o scegli un altro nome.`,
-        );
+        throw new TeamError('memory_conflict', teamManagerStrings().noteExists(m.to));
       }
     }
     return moves;
@@ -968,7 +915,7 @@ export class TeamManager {
       }
       throw new TeamError(
         'memory_conflict',
-        `Non riesco a spostare la memoria in Agenti/${to}: ${(err as Error).message}`,
+        teamManagerStrings().memoryMoveFailed(to, (err as Error).message),
       );
     }
     // The old folder, now empty, goes too (a folder with other files stays).
@@ -1004,16 +951,10 @@ export class TeamManager {
         (k) => req[k] !== undefined,
       );
       if (isOrchestrator && edits.length > 0) {
-        throw new TeamError(
-          'orchestrator',
-          'Il tuo capo coordina gli altri: il suo ruolo non si cambia, solo il nome.',
-        );
+        throw new TeamError('orchestrator', teamManagerStrings().captainRoleLocked);
       }
       if (def.config.kind === 'lead' && edits.length > 0) {
-        throw new TeamError(
-          'orchestrator',
-          'Il capo del progetto coordina i mostri del progetto: il suo ruolo non si cambia, solo il nome.',
-        );
+        throw new TeamError('orchestrator', teamManagerStrings().projectLeadRoleLocked);
       }
       const rename = req.name !== undefined && cleanName(req.name) !== def.config.name;
       if (!rename && edits.length === 0) return this.#memberView(def);
@@ -1189,10 +1130,7 @@ export class TeamManager {
       .filter((g) => g.success)
       .map((g) => g.data.palette.hue);
     if (minHueDistance(genome.palette.hue, others) < MIN_HUE_DISTANCE) {
-      throw new TeamError(
-        'color_too_close',
-        'Questo colore è troppo vicino a quello di un altro mostro: scegline un altro.',
-      );
+      throw new TeamError('color_too_close', teamManagerStrings().colorTooClose);
     }
     return genome;
   }
@@ -1282,17 +1220,11 @@ export class TeamManager {
       this.#assertReady();
       const def = this.#agent(id);
       if (def.config.kind === 'orchestrator') {
-        throw new TeamError(
-          'orchestrator',
-          'Il tuo capo non si può togliere: coordina gli altri. Puoi cambiargli nome.',
-        );
+        throw new TeamError('orchestrator', teamManagerStrings().captainCantRemove);
       }
       const squad = this.#squadOf(def);
       if (def.config.kind === 'lead' && squad && !withLead) {
-        throw new TeamError(
-          'orchestrator',
-          'Il capo del progetto non si toglie dal progetto: archivia il progetto, o cambiagli nome.',
-        );
+        throw new TeamError('orchestrator', teamManagerStrings().projectLeadCantRemove);
       }
       this.#assertIdle();
       const pending = new Pending();
@@ -1369,17 +1301,14 @@ export class TeamManager {
       if (archived.config.kind === 'lead' && (!squad || this.#d.team.lead(squad))) {
         throw new TeamError(
           'orchestrator',
-          `${archived.config.name} era il capo di un progetto: torna con il suo progetto.`,
+          teamManagerStrings().leadReturnsWithProject(archived.config.name),
         );
       }
       if (
         archived.config.kind === 'subagent' &&
         this.#subagents(squad).length >= MAX_TEAM_MEMBERS
       ) {
-        throw new TeamError(
-          'team_full',
-          `La squadra ha già ${MAX_TEAM_MEMBERS} mostri oltre al capo.`,
-        );
+        throw new TeamError('team_full', teamManagerStrings().teamFull(MAX_TEAM_MEMBERS));
       }
       this.#assertIdle();
       const oldName = archived.config.name;
@@ -1389,7 +1318,10 @@ export class TeamManager {
         name = this.#checkName(wanted, id);
       } catch (err) {
         if (err instanceof TeamError && err.code === 'invalid_name' && req.name === undefined) {
-          throw new TeamError('name_taken', `${err.message} Scegli un altro nome per ${oldName}.`);
+          throw new TeamError(
+            'name_taken',
+            teamManagerStrings().nameTakenFor(err.message, oldName),
+          );
         }
         throw err;
       }
@@ -1448,7 +1380,7 @@ export class TeamManager {
         title: bp.title,
         role: bp.summary,
       }));
-    return { archetypes, ideas: IDEAS, names: this.#freeNames() };
+    return { archetypes, ideas: teamManagerStrings().ideas, names: this.#freeNames() };
   }
 
   #freeNames(): string[] {
@@ -1552,7 +1484,7 @@ export class TeamManager {
 
     const { runs, log } = this.#d;
     if (runs.halted) {
-      throw new TeamError('halted', 'Monsters è fermo: riprendi prima di creare un nuovo mostro.');
+      throw new TeamError('halted', teamManagerStrings().halted);
     }
     const chain = this.#draftChain();
     const generate =
@@ -1590,7 +1522,7 @@ export class TeamManager {
           log.append({ agent: 'system', type: 'provider_usage', data: u });
         }
         if (kill.aborted || runs.halted) {
-          throw new TeamError('halted', 'Monsters è stato fermato: il nuovo mostro non è pronto.');
+          throw new TeamError('halted', teamManagerStrings().haltedDraft);
         }
         if (stop.aborted) throw err;
         log.append({
@@ -1598,7 +1530,7 @@ export class TeamManager {
           type: 'error',
           data: {
             code: 'team_draft',
-            message: `nuovo mostro: il modello non ha risposto (${errorMessage(err)})`,
+            message: teamManagerStrings().draftNoAnswer(errorMessage(err)),
           },
         });
         break;
@@ -1639,7 +1571,7 @@ export class TeamManager {
           type: 'error',
           data: {
             code: 'team_draft',
-            message: `nuovo mostro non valido (tentativo ${attempt + 1}): ${reason}`,
+            message: teamManagerStrings().draftInvalid(attempt + 1, reason),
           },
         });
         prompt = `${this.#draftPrompt(p, req.description, free, name)}\n\nLa tua risposta precedente non era valida: ${reason.slice(0, 600)}\nRispondi di nuovo con il solo JSON corretto.`;
@@ -1747,10 +1679,7 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
           ? this.#d.team.projectOf(origin.agent)?.id
           : undefined;
       if (this.#subagents(project).length >= MAX_TEAM_MEMBERS) {
-        throw new TeamError(
-          'team_full',
-          `La squadra ha già ${MAX_TEAM_MEMBERS} mostri oltre al capo: per uno nuovo l'utente deve prima archiviarne uno.`,
-        );
+        throw new TeamError('team_full', teamManagerStrings().teamFullAsk(MAX_TEAM_MEMBERS));
       }
       const name = this.#checkName(input.name);
       const open = this.#openProposals().find(
@@ -1800,17 +1729,11 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
     const { project } = options;
     const name = this.#checkName(input.name);
     if (options.taken?.some((n) => n.toLowerCase() === name.toLowerCase())) {
-      throw new TeamError(
-        'invalid_name',
-        `${name} c’è già in questa proposta: scegli un altro nome.`,
-      );
+      throw new TeamError('invalid_name', teamManagerStrings().nameInProposal(name));
     }
     const area = input.area?.trim().replace(/^\/+|\/+$/g, '');
     if (area !== undefined && !AgentAreaSchema.safeParse(area).success) {
-      throw new TeamError(
-        'invalid_request',
-        `area: "${input.area}" non va bene: una cartella delle note (lettere, numeri e "/"), mai Agenti, Modelli o Privato.`,
-      );
+      throw new TeamError('invalid_request', teamManagerStrings().badArea(input.area ?? ''));
     }
     // Every text that becomes AGENTS.md, cleaned and checked (D-079): one line,
     // no invisible characters, no links, tool names or secrets from the user.
@@ -1823,7 +1746,7 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
       .map((d, i) => clean(`duties[${i}]`, d))
       .filter(Boolean);
     if (duties.length > MAX_DUTIES) {
-      throw new TeamError('invalid_request', `duties: al massimo ${MAX_DUTIES} regole.`);
+      throw new TeamError('invalid_request', teamManagerStrings().tooManyDuties(MAX_DUTIES));
     }
     const draft = this.#finishDraft(
       {
@@ -1864,16 +1787,13 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
       .map((x) => x.id)
       .join(', ');
     if (slash <= 0 || slash === text.length - 1) {
-      throw new TeamError(
-        'invalid_request',
-        `model: "${text}" non è "provider/modello" (provider configurati: ${configured || 'nessuno'}). Senza model usa quelli del tuo capo.`,
-      );
+      throw new TeamError('invalid_request', teamManagerStrings().badModelRef(text, configured));
     }
     const ref = { provider: text.slice(0, slash), model: text.slice(slash + 1) };
     if (!this.#d.providers.has(ref.provider)) {
       throw new TeamError(
         'invalid_request',
-        `model: il provider ${ref.provider} non è configurato (configurati: ${configured || 'nessuno'}).`,
+        teamManagerStrings().providerNotConfigured(ref.provider, configured),
       );
     }
     if (
@@ -1881,10 +1801,7 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
       this.#d.settings.openrouter.freeOnly &&
       !isOpenRouterFreeModel(ref.model)
     ) {
-      throw new TeamError(
-        'invalid_request',
-        `model: ${ref.model} è a pagamento e i modelli a pagamento sono spenti. Scegline uno gratuito o lascia model vuoto.`,
-      );
+      throw new TeamError('invalid_request', teamManagerStrings().paidModel(ref.model));
     }
     return ref;
   }
@@ -1910,7 +1827,7 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
       throw new TeamError('unknown_proposal', `no proposal ${id}`);
     }
     if (!this.#openProposals().some((o) => o.id === id)) {
-      throw new TeamError('proposal_closed', 'Questa proposta è già stata usata o lasciata stare.');
+      throw new TeamError('proposal_closed', teamManagerStrings().proposalClosed);
     }
     return e;
   }
@@ -1950,10 +1867,7 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
       const projectId = options.project ?? proposal?.data.project;
       const project = projectId ? this.#activeProject(projectId) : undefined;
       if (this.#subagents(project?.id).length >= MAX_TEAM_MEMBERS) {
-        throw new TeamError(
-          'team_full',
-          `La squadra ha già ${MAX_TEAM_MEMBERS} mostri oltre al capo.`,
-        );
+        throw new TeamError('team_full', teamManagerStrings().teamFull(MAX_TEAM_MEMBERS));
       }
       const lead = project ? team.lead(project.id) : undefined;
       const name = this.#checkName(req.name);
@@ -2056,7 +1970,7 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
         // taken: the next one
       }
     }
-    throw new TeamError('invalid_name', 'Non trovo un nome libero: scegline uno tu.');
+    throw new TeamError('invalid_name', teamManagerStrings().noFreeName);
   }
 
   /**
@@ -2086,7 +2000,7 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
         // taken: the next one
       }
     }
-    throw new TeamError('invalid_name', 'Non trovo un nome libero: scegline uno tu.');
+    throw new TeamError('invalid_name', teamManagerStrings().noFreeName);
   }
 
   /** A name free in every squad, as "Aggiungi un mostro" checks it (`invalid_name`). */
@@ -2126,7 +2040,7 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
       this.#assertReady();
       const { team } = this.#d;
       if (team.lead(project.id)) {
-        throw new TeamError('invalid_request', `Il progetto ${project.name} ha già un capo.`);
+        throw new TeamError('invalid_request', teamManagerStrings().projectHasLead(project.name));
       }
       const source = plan.from ? this.#agent(plan.from) : undefined;
       const name = plan.name ? this.#checkName(plan.name) : this.freeName();
@@ -2209,16 +2123,10 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
       const project = this.#activeProject(projectId);
       const source = this.#agent(sourceId);
       if (source.config.kind !== 'subagent') {
-        throw new TeamError(
-          'invalid_request',
-          `${source.config.name} è un capo: in un progetto si copiano i mostri che lavorano, il capo c'è già.`,
-        );
+        throw new TeamError('invalid_request', teamManagerStrings().copyLead(source.config.name));
       }
       if (this.#subagents(project.id).length >= MAX_TEAM_MEMBERS) {
-        throw new TeamError(
-          'team_full',
-          `Il progetto ha già ${MAX_TEAM_MEMBERS} mostri oltre al capo.`,
-        );
+        throw new TeamError('team_full', teamManagerStrings().projectFull(MAX_TEAM_MEMBERS));
       }
       const name = wanted ? this.#checkName(wanted) : this.freeName();
       const id = this.#freeId(agentId(name));
@@ -2328,12 +2236,14 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
   removeFromProject(projectId: string, id: string, by: Channel): Promise<TeamArchiveResponse> {
     return this.#serial(async () => {
       const project = this.#d.team.project(projectId);
-      if (!project) throw new TeamError('unknown_project', `Non c’è un progetto "${projectId}".`);
+      if (!project) {
+        throw new TeamError('unknown_project', teamManagerStrings().unknownProject(projectId));
+      }
       const def = this.#agent(id);
       if (this.#squadOf(def) !== project.id) {
         throw new TeamError(
           'unknown_agent',
-          `${def.config.name} non è nel progetto ${project.name}.`,
+          teamManagerStrings().notInProject(def.config.name, project.name),
         );
       }
       const out = await this.#archive(id, by);
@@ -2349,7 +2259,9 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
    */
   async restoreSquad(projectId: string, ids: readonly string[], by: Channel): Promise<string[]> {
     const project = this.#d.team.project(projectId);
-    if (!project) throw new TeamError('unknown_project', `Non c’è un progetto "${projectId}".`);
+    if (!project) {
+      throw new TeamError('unknown_project', teamManagerStrings().unknownProject(projectId));
+    }
     const archived: AgentDefinition[] = [];
     for (const id of ids) {
       try {
@@ -2388,7 +2300,7 @@ Regole dei campi (tutto in italiano, ogni campo su una riga, niente markdown):
       if (busy.length > 0) {
         throw new TeamError(
           'busy',
-          `${busy.map((a) => a.config.name).join(' e ')} ${busy.length === 1 ? 'sta' : 'stanno'} ancora lavorando: aspetta o fermali, poi archivia il progetto.`,
+          teamManagerStrings().busyArchive(busy.map((a) => a.config.name)),
         );
       }
       const ordered = [

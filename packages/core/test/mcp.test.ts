@@ -175,9 +175,9 @@ describe('MCP: names, schemas and results', () => {
       tool: 'browser_click',
     });
     expect(describeToolCall('mcp__browser__browser_navigate', { url: 'https://a.it/x' })).toBe(
-      'apre nel browser a.it/x',
+      'opens a.it/x in the browser',
     );
-    expect(describeToolCall('mcp__fake__echo', {})).toBe('usa fake: echo');
+    expect(describeToolCall('mcp__fake__echo', {})).toBe('uses fake: echo');
   });
 
   it('checks the schemas: invalid ones are skipped, valid ones validate the input', () => {

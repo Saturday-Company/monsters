@@ -7,6 +7,7 @@ import {
 } from '@monsters/shared';
 import { splitAgentToolName } from '../../mcp/convert.ts';
 import { unicodeWords } from '../word-boundary.ts';
+import { instinctStrings } from './instinct.strings.ts';
 import { NOTE_LEAK_CHARS, type RunTaint } from './taint.ts';
 
 /*
@@ -29,17 +30,10 @@ import { NOTE_LEAK_CHARS, type RunTaint } from './taint.ts';
 
 export type OutboundCategory = 'publish' | 'contact' | 'spend' | 'delete';
 
-export const CATEGORY_WORDS: Record<OutboundCategory, string> = {
-  publish: 'pubblicare',
-  contact: 'scrivere a terzi',
-  spend: 'spendere',
-  delete: 'cancellare per sempre',
-};
-
 export interface OutboundCall {
   category: OutboundCategory | undefined;
   certain: boolean;
-  /** What the action does, in Italian, for the card ("eseguire «git push»"). */
+  /** What the action does, in the app's language, as a bare verb for the card ("run “git push”"). */
   summary: string;
   /** A candidate that goes on the receipt even when the instinct says no. */
   markAlways?: boolean;
@@ -245,7 +239,7 @@ function shellCall(command: string, options: ClassifyOptions): OutboundCall | nu
     return {
       category: undefined,
       certain: false,
-      summary: `eseguire un comando molto lungo («${clipText(cmd, 120)}»)`,
+      summary: instinctStrings().longCommand(clipText(cmd, 120)),
       args,
       markAlways: true,
     };
@@ -256,24 +250,36 @@ function shellCall(command: string, options: ClassifyOptions): OutboundCall | nu
   const ordered = [...SHELL_RULES].sort((a) => (a.category === 'delete' ? -1 : 0));
   for (const r of ordered) {
     if (readable.some((p) => ruleMatches(r, p))) {
-      return { category: r.category, certain: true, summary: `eseguire «${args}»`, args };
+      return {
+        category: r.category,
+        certain: true,
+        summary: instinctStrings().runCommand(args),
+        args,
+      };
     }
   }
   if (readable.length < pieces.length) {
     return {
       category: undefined,
       certain: false,
-      summary: `eseguire un comando molto lungo («${clipText(cmd, 120)}»)`,
+      summary: instinctStrings().longCommand(clipText(cmd, 120)),
       args,
       markAlways: true,
     };
   }
   if (SHELL_CANDIDATE.test(cmd) && !onlyRegenerable(cmd)) {
-    return { category: 'delete', certain: false, summary: `eseguire «${args}»`, args };
+    return {
+      category: 'delete',
+      certain: false,
+      summary: instinctStrings().runCommand(args),
+      args,
+    };
   }
   // A plain download (curl, wget, Invoke-WebRequest): the address may carry data.
   return mostSevere(
-    [...cmd.matchAll(SHELL_URL)].map((m) => urlCall(m[0], 'aprire dal terminale', options)),
+    [...cmd.matchAll(SHELL_URL)].map((m) =>
+      urlCall(m[0], instinctStrings().openFrom.terminal, options),
+    ),
   );
 }
 
@@ -338,7 +344,7 @@ const MERGED = /^(pull|pr|request|branch|branches)$/;
 
 interface AccessCall {
   category: OutboundCategory;
-  /** What it means, in the card ("cioè …"), in place of the category's words. */
+  /** What it means, in the card ("meaning …"), in place of the category's words. */
   meaning: string;
 }
 
@@ -370,29 +376,23 @@ function accessCall(w: readonly string[]): AccessCall | null {
   const person = w.findIndex((x) => PERSON_NOUN.test(x));
   if (person !== -1 && personIsObject(w, person)) {
     if (ADD_PERSON.test(verb)) {
-      return { category: 'contact', meaning: 'dare accesso a un’altra persona (scrivere a terzi)' };
+      return { category: 'contact', meaning: instinctStrings().giveAccessMeaning };
     }
     if (REMOVE_PERSON.test(verb)) {
-      return { category: 'contact', meaning: 'togliere l’accesso a un’altra persona' };
+      return { category: 'contact', meaning: instinctStrings().takeAccessMeaning };
     }
     // delete_user, purge_members: an account may go for good, the verbs decide.
     if (VERBS.some((v) => v.category === 'delete' && v.re.test(verb))) return null;
     if (w.some((x) => ACCESS_NOUN.test(x)) || CHANGE_VERB.test(verb)) {
-      return {
-        category: 'publish',
-        meaning: 'cambiare cosa può fare un’altra persona (pubblicare)',
-      };
+      return { category: 'publish', meaning: instinctStrings().changePersonMeaning };
     }
     return null;
   }
   if (w.some((x) => ACCESS_NOUN.test(x)) && ACCESS_VERB.test(verb)) {
-    return { category: 'publish', meaning: 'cambiare chi può vedere o modificare (pubblicare)' };
+    return { category: 'publish', meaning: instinctStrings().changeVisibilityMeaning };
   }
   if (w[0] === 'merge' && w.some((x) => MERGED.test(x))) {
-    return {
-      category: 'publish',
-      meaning: 'unire le modifiche dove le vedono gli altri (pubblicare)',
-    };
+    return { category: 'publish', meaning: instinctStrings().mergeMeaning };
   }
   return null;
 }
@@ -545,7 +545,7 @@ function browserCall(
     return {
       category,
       certain: true,
-      summary: `premere «${clipText(element, 80)}» nel browser`,
+      summary: instinctStrings().press(clipText(element, 80)),
       args: argsText(input),
     };
   }
@@ -556,7 +556,7 @@ function browserCall(
     return {
       category: undefined,
       certain: false,
-      summary: 'premere nel browser un elemento che non so nominare',
+      summary: instinctStrings().pressUnknown,
       args: argsText(input),
     };
   }
@@ -564,7 +564,7 @@ function browserCall(
     return {
       category: 'contact',
       certain: false,
-      summary: `inviare un modulo nel browser${element ? ` («${clipText(element, 60)}»)` : ''}`,
+      summary: instinctStrings().submitForm(element ? clipText(element, 60) : ''),
       args: argsText(input),
     };
   }
@@ -573,21 +573,19 @@ function browserCall(
       category: 'contact',
       certain: false,
       summary:
-        tool === 'browser_file_upload'
-          ? 'caricare un file nel browser'
-          : 'compilare un modulo nel browser',
+        tool === 'browser_file_upload' ? instinctStrings().uploadFile : instinctStrings().fillForm,
       args: argsText(input),
     };
   }
   if (tool === 'browser_navigate' && typeof input['url'] === 'string') {
-    return urlCall(input['url'], 'aprire nel browser', options);
+    return urlCall(input['url'], instinctStrings().openFrom.browser, options);
   }
   if (tool === 'browser_evaluate' && typeof input['function'] === 'string') {
     if (PAGE_NETWORK.test(input['function'])) {
       return {
         category: 'contact',
         certain: true,
-        summary: 'eseguire nel browser del codice che manda dati fuori',
+        summary: instinctStrings().browserCode,
         args: argsText(input),
       };
     }
@@ -633,22 +631,23 @@ function dataCall(
   if (strings.length === 0) return null;
   const text = strings.join('\n');
   const shown = clipText(argsText(input), 160);
-  const verb = `usare «${tool}» di ${server}`;
+  const t = instinctStrings();
+  const verb = t.useTool(tool, server);
   const found: (OutboundCall | null)[] = [];
   if (options.containsSecret?.(text)) {
     found.push({
       category: 'contact',
       certain: true,
-      summary: `mandare a ${server} un testo che contiene una delle tue chiavi (${verb}: ${shown})`,
+      summary: t.sendKey(server, verb, shown),
       args: shown,
     });
   }
-  found.push(leakCall(text, null, verb, shown, options.taint, `mandare a ${server}`));
+  found.push(leakCall(text, null, verb, shown, options.taint, server));
   let urls = 0;
   for (const s of strings) {
     for (const m of s.matchAll(URL_IN_TEXT)) {
       if (urls++ >= MAX_ARG_URLS) break;
-      found.push(urlCall(trimUrlEnd(m[0]), `aprire con «${tool}» di ${server}`, options));
+      found.push(urlCall(trimUrlEnd(m[0]), t.openWith(tool, server), options));
     }
   }
   return mostSevere(found);
@@ -681,7 +680,8 @@ function actionCall(
 ): OutboundCall | null {
   const args = argsText(input);
   const fullArgs = argsText(input, 4_000);
-  const summary = `usare «${tool}» di ${server}`;
+  const t0 = instinctStrings();
+  const summary = t0.useTool(tool, server);
   const w = words(tool);
   if (t.writesPath !== undefined) return fileWriteCall(t.writesPath, server, tool, input, options);
   if (runsCode(w)) return codeCall(t, server, tool, input, options);
@@ -696,7 +696,7 @@ function actionCall(
           certain: true,
           summary,
           args,
-          meaning: `fare un’azione che ${server} segna come distruttiva (toglie o sovrascrive dati)`,
+          meaning: t0.destructiveMeaning(server),
         }
       : null;
   const leads = (x: string) =>
@@ -728,9 +728,7 @@ function actionCall(
       certain: true,
       summary,
       args,
-      meaning: /^(revoke|revoca)$/.test(lead)
-        ? 'revocare (una chiave o un permesso revocato non torna)'
-        : 'annullare (di solito non si torna indietro, e chi aspettava lo vede)',
+      meaning: /^(revoke|revoca)$/.test(lead) ? t0.revokeMeaning : t0.cancelMeaning,
     };
   }
   // Money recorded as paid ("segna_pagato"): the user's books change, nothing is spent here.
@@ -741,7 +739,7 @@ function actionCall(
       certain: true,
       summary,
       args,
-      meaning: 'segnare un pagamento come pagato (soldi)',
+      meaning: t0.paidMeaning,
     };
   }
   const verb = lead ? VERBS.find((v) => v.re.test(lead)) : undefined;
@@ -756,7 +754,7 @@ function actionCall(
       certain: true,
       summary,
       args,
-      meaning: 'archiviare (sparisce dagli elenchi; di solito si può riprendere)',
+      meaning: t0.archiveMeaning,
     };
   }
   // A budget or a bid in the name, changed: money that will be spent ("ads update_budget").
@@ -806,9 +804,10 @@ interface CodeRule {
   category: OutboundCategory | undefined;
   certain: boolean;
   re: RegExp;
-  /** What the code does, for the card ("del codice che …"). */
-  what: string;
-  meaning?: string;
+  /** What the code does, for the card ("code that …"): a key of `codeWhat`. */
+  what: 'sends' | 'deletes' | 'starts' | 'hides' | 'writes';
+  /** `starts`: the card says what starting programs means. */
+  meaning?: 'starts';
 }
 
 /*
@@ -822,32 +821,32 @@ const CODE_RULES: CodeRule[] = [
     category: 'contact',
     certain: true,
     re: /\b(?:requests|httpx|aiohttp|urllib3|session)\.(?:post|put|patch|delete)\s*\(|\b(?:smtplib|ftplib|paramiko|http\.client)\b|\bsocket\.(?:socket|create_connection)\s*\(|\b(?:XMLHttpRequest|sendBeacon|WebSocket)\b/,
-    what: 'manda dati fuori dal computer',
+    what: 'sends',
   },
   {
     category: 'delete',
     certain: true,
     re: /\b(?:shutil\.rmtree|os\.(?:remove|unlink|rmdir|removedirs)|send2trash)\s*\(|\.(?:unlink|rmdir)\(\s*(?:\)|missing_ok)|\bfs\.(?:rm|rmSync|unlink|unlinkSync|rmdir|rmdirSync)\s*\(/,
-    what: 'cancella file',
+    what: 'deletes',
   },
   {
     category: 'delete',
     certain: true,
     re: /\bsubprocess\.\w+\s*\(|\bos\.(?:system|popen|exec\w*|spawn\w*|startfile|kill)\s*\(|\bpty\.spawn\b|\bchild_process\b/,
-    what: 'avvia altri programmi',
-    meaning: 'avviare altri programmi dal codice: possono fare tutto quello che fa il terminale',
+    what: 'starts',
+    meaning: 'starts',
   },
   {
     category: undefined,
     certain: false,
     re: /\b(?:exec|eval|compile|__import__)\s*\(|\b(?:importlib|base64|marshal|ctypes|pickle)\b|\bfrom\s+(?:os|shutil|subprocess|socket|urllib|http|requests)\s+import\s+(?!path\b)|\bgetattr\s*\(\s*(?:os|shutil|subprocess|socket)\b/,
-    what: 'nasconde cosa fa',
+    what: 'hides',
   },
   {
     category: 'delete',
     certain: false,
     re: /\bopen\s*\([^)\n]*,\s*(?:mode\s*=\s*)?['"][rwax]?b?[wax+]b?['"]|\.write_(?:text|bytes)\s*\(|\bshutil\.(?:copy\w*|move)\s*\(|\bos\.(?:rename|replace)\s*\(|\bbpy\.ops\.wm\.save_(?:as_)?mainfile\b|\.save_render\s*\(|\bwrite_still\s*=\s*True\b|\bfs\.(?:writeFile|writeFileSync|appendFile)\b/,
-    what: 'scrive file',
+    what: 'writes',
   },
 ];
 
@@ -880,7 +879,8 @@ function codeCall(
   const best = mostSevere(hits);
   if (!best) return null;
   const rule = rules.find((r) => r.what === best.summary);
-  const summary = `eseguire con «${tool}» di ${server} del codice${rule ? ` che ${rule.what}` : ''}`;
+  const s = instinctStrings();
+  const summary = s.runCode(tool, server, rule ? s.codeWhat[rule.what] : undefined);
   if (best.markOnly) return { ...best, summary };
   if (best.certain) {
     return {
@@ -888,7 +888,7 @@ function codeCall(
       certain: true,
       summary,
       args,
-      ...(rule?.meaning ? { meaning: rule.meaning } : {}),
+      ...(rule?.meaning ? { meaning: s.startsMeaning } : {}),
     };
   }
   return {
@@ -919,14 +919,14 @@ function fileWriteCall(
 ): OutboundCall | null {
   if (options.writeInside === true) return null;
   const raw = input && typeof input === 'object' ? (input as Record<string, unknown>)[arg] : '';
-  const path = typeof raw === 'string' && raw ? clipText(raw, 160) : 'un file';
+  const path = typeof raw === 'string' && raw ? clipText(raw, 160) : undefined;
+  const t = instinctStrings();
   return {
     category: 'delete',
     certain: true,
-    summary: `scrivere con «${tool}» di ${server} il file ${path}`,
+    summary: t.writeFile(tool, server, path),
     args: argsText(input),
-    meaning:
-      'scrivere un file fuori dalle cartelle che gli hai dato (può sostituirne uno che c’è già)',
+    meaning: t.writeFileMeaning,
   };
 }
 
@@ -959,20 +959,20 @@ function leakCall(
   verb: string,
   shown: string,
   taint: RunTaint | undefined,
-  /** Where it goes, when it is not a host nor a search engine ("mandare a notion"). */
+  /** Where it goes, when it is not a host nor a search engine ("notion"). */
   toWords?: string,
 ): OutboundCall | null {
   const leak = taint?.leak(payload, host);
   if (!leak) return null;
-  // "Rhea vuole mandare a evil.example un pezzo di una tua nota privata (…)".
-  const to =
-    toWords ?? `mandare ${host ? `a ${host.replace(/^www\./, '')}` : 'a un motore di ricerca'}`;
+  // "Rhea wants to send a piece of one of your private notes to evil.example (…)".
+  const t = instinctStrings();
+  const to = toWords ?? (host ? host.replace(/^www\./, '') : t.leakDestSearch);
   const how = `${verb}: ${shown}`;
   if (leak.kind === 'private') {
     return {
       category: 'contact',
       certain: true,
-      summary: `${to} un pezzo di una tua nota privata (${how})`,
+      summary: t.leakPrivate(to, how),
       args: shown,
     };
   }
@@ -980,16 +980,16 @@ function leakCall(
     return {
       category: 'contact',
       certain: true,
-      summary: `${to} pezzi delle tue note (${how})`,
+      summary: t.leakNotes(to, how),
       args: shown,
     };
   }
   return {
     category: 'contact',
     certain: true,
-    summary: `${to} qualche parola delle tue note (${how})`,
+    summary: t.leakWords(to, how),
     args: shown,
-    markOnly: 'sito mai visto in questo lavoro',
+    markOnly: t.leakMark,
   };
 }
 
@@ -1007,7 +1007,7 @@ function urlCall(raw: string, verb: string, options: ClassifyOptions = {}): Outb
     return {
       category: 'contact',
       certain: true,
-      summary: `${verb} un indirizzo che contiene dati privati (${shown})`,
+      summary: instinctStrings().addressPrivate(verb, shown),
       args: shown,
     };
   }
@@ -1021,7 +1021,7 @@ function urlCall(raw: string, verb: string, options: ClassifyOptions = {}): Outb
     return {
       category: 'contact',
       certain: false,
-      summary: `${verb} un indirizzo con molti dati (${shown})`,
+      summary: instinctStrings().addressBig(verb, shown),
       args: shown,
       // Jev reads encoded data literally (eval:instinct, o11 at 0.02): always on the receipt.
       markAlways: true,
@@ -1066,12 +1066,12 @@ function searchCall(query: string, options: ClassifyOptions): OutboundCall | nul
     return {
       category: 'contact',
       certain: true,
-      summary: `cercare sul web un testo che contiene una delle tue chiavi (${shown})`,
+      summary: instinctStrings().searchKey(shown),
       args: shown,
     };
   }
   // A search engine is always a known site: only a private note stops a search.
-  return leakCall(query, null, 'cercare sul web', shown, options.taint);
+  return leakCall(query, null, instinctStrings().searchWeb, shown, options.taint);
 }
 
 /**
@@ -1090,7 +1090,11 @@ export function classifyOutbound(
   // `queries` (a string or a list): every one is checked and the most severe
   // wins (D-074: a mark on the first one hid a key in the second).
   if (t.name === 'web_fetch') {
-    return mostSevere(stringsOf(i['url'], i['urls']).map((url) => urlCall(url, 'aprire', options)));
+    return mostSevere(
+      stringsOf(i['url'], i['urls']).map((url) =>
+        urlCall(url, instinctStrings().openFrom.plain, options),
+      ),
+    );
   }
   if (t.name === 'web_search') {
     return mostSevere(stringsOf(i['query'], i['queries']).map((q) => searchCall(q, options)));
@@ -1125,14 +1129,15 @@ function artifactCall(
   const { containsSecret, taint } = options;
   if (!taint?.tainted && !taint?.guarded) return null;
   const html = String(input['html']);
-  const name = typeof input['name'] === 'string' ? clipText(input['name'], 80) : 'pagina';
+  const t = instinctStrings();
+  const name = typeof input['name'] === 'string' ? clipText(input['name'], 80) : t.aPage;
   const args = clipText(`${name}: ${html}`, 300);
-  const after = 'dopo aver letto contenuti esterni';
+  const after = t.afterOutside;
   if (containsSecret?.(html)) {
     return {
       category: 'contact',
       certain: true,
-      summary: `creare una pagina («${name}») che contiene una delle tue chiavi, ${after}`,
+      summary: t.pageKey(name, after),
       args,
     };
   }
@@ -1142,15 +1147,15 @@ function artifactCall(
     return {
       category: 'contact',
       certain: true,
-      summary: `mettere un pezzo di una tua nota privata in una pagina («${name}»), ${after}`,
+      summary: t.pagePrivate(name, after),
       args,
     };
   }
   return {
     category: 'contact',
     certain: true,
-    summary: `mettere ${leak.chars >= NOTE_LEAK_CHARS ? 'pezzi delle tue note' : 'qualche parola delle tue note'} in una pagina («${name}»)`,
+    summary: t.pageNotes(name, leak.chars >= NOTE_LEAK_CHARS),
     args,
-    markOnly: `pagina creata ${after}: si apre senza script`,
+    markOnly: t.pageMark(after),
   };
 }
