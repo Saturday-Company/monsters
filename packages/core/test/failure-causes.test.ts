@@ -184,7 +184,7 @@ describe('what a harness reads of its tools (A5, M4, D-132, D-135)', () => {
     expect(full).toContain("the vault (the user's notes), the web, the team");
   });
 
-  it('"la squadra" only with delegate; Codex: questions with ask_user, no network for commands', () => {
+  it('"la squadra" only with delegate; Codex: questions with ask_user, network by asking Monsters', () => {
     inLang('it');
     const web = { search: false, fetch: false, own: false };
     expect(monstersToolsSection('claude-agent', web)).toContain(
@@ -197,7 +197,8 @@ describe('what a harness reads of its tools (A5, M4, D-132, D-135)', () => {
     expect(codex).toContain(
       'usa `ask_user` di `monsters`: `request_user_input` di Codex non arriva a nessuno',
     );
-    expect(codex).toContain('I tuoi comandi non hanno rete');
+    expect(codex).toContain('I tuoi comandi girano nella sandbox di Codex, senza rete');
+    expect(codex).toContain('`sandbox_permissions: "require_escalated"`');
     expect(monstersToolsSection('codex', web)).toContain('scrivi la domanda nel rapporto');
     expect(monstersToolsSection('claude-agent', web)).not.toContain('request_user_input');
   });

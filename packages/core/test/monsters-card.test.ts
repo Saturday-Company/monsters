@@ -208,12 +208,13 @@ describe('the Monsters card', () => {
     expect(card).not.toContain('Non hai: web');
   });
 
-  it('Codex: its commands have no network, and the card says so (M3)', () => {
+  it('Codex: a command that needs the network asks Monsters, and the card says how (D-158)', () => {
     const card = monstersCard({
       toolNames: dione,
       harness: { id: 'codex', ownWebSearch: false, terminal: true, connectors: [] },
     });
-    expect(card).toContain('i comandi non hanno rete');
+    expect(card).toContain('un comando che ha bisogno della rete chiede prima a Monsters');
+    expect(card).not.toContain('non hanno rete');
   });
 
   it('stays small: ~150-300 tokens', () => {

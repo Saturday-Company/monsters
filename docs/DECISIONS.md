@@ -5091,3 +5091,40 @@ subscriptions again every 30 s and when the page returns into view, so the block
 **Consequence:** the windows appear only if OpenAI's route sends those headers. This could not be verified without a
 real account: if `api.openai.com/v1` does not send them, the block keeps saying "no data yet" (never a wrong number) and
 the next step is a real ChatGPT login inside Codex's own `CODEX_HOME`, which needs a decision of its own (D-005, D-035).
+
+### D-158 · Codex commands reach the network by asking Monsters, through the checks of Claude Code's `Bash`
+**Status:** done · 23/10/2026
+**Context:** the founder's decision: a monster with the terminal must not lack permissions, and its commands must reach
+the network (`npm install`, `git clone`/`push`, `curl`). The Codex harness ran commands in the `workspace-write`
+sandbox with the network closed and `approvalPolicy: never`, so they failed with "Could not resolve host". Claude Code
+runs `Bash` with the network, but every call passes the core's `PreToolUse` hook (data folder lockout, harness
+configuration, closed folders, the brake). Codex must not get an open network with no brake. Checked against the real
+`codex` 0.159.2 (the pinned one) and 0.163.0 (`app-server generate-json-schema`, then the binary against a local
+Responses backend, throwaway `CODEX_HOME`, no account): under `on-request` the model asks to leave the sandbox with
+`sandbox_permissions: "require_escalated"` (Codex's own instructions tell it to do so after a DNS failure);
+app-server emits `item/started` for the command, then the server request `item/commandExecution/requestApproval`
+(`itemId`, `command` wrapped as `/usr/bin/bash -lc '…'` in mixed quoting, `cwd`, `reason` = the model's
+justification); `accept` runs it outside the sandbox (network on), `decline` ends the item as `declined` and the model
+reads only "rejected by user". A sandboxed command never triggers an approval by itself. `thread/inject_items` with a
+`developer` message, sent before the answer, lands right after the command's output, before the next request.
+**Choice:** with the terminal, Codex threads run with `approvalPolicy: on-request`, `approvalsReviewer: user` and the
+`workspace-write` sandbox. Each approval goes through `checkHarnessCommand` (`harness-hooks.ts`), which builds the
+`PreToolUse` input of a `Bash` call and calls `answerHarnessHook`: the same lockout, configuration and brake, no
+second copy. The command is first taken out of Codex's wrapper (`codexShellCommand`), so the checks and the card read
+what the model wrote. Allowed → `accept`; refused → the reason goes into the thread as a `[Monsters]` developer note,
+then `decline`; a failing check declines. `item/permissions/requestApproval` grants nothing (a turn-wide grant would
+skip the check of each command); file changes outside the folder stay declined. The fallback (`network_access = true`
+for runs with terminal and web) was not needed. Found on the way and fixed in the same change: (1) under `never`
+Codex refused every Monsters tool marked destructive or open-world ("MCP tool call requires approval, but approval
+policy is never"), on both versions: Monsters' server now has `default_tools_approval_mode = "approve"` (its tools
+pass the core's own checks); (2) the model was asked before Monsters' MCP server had started, and ran without its
+tools when it failed: the server is `required = true`, so `thread/start` waits for it and fails before any request
+(→ `mcp-status` failed and `done` with `mcp_unavailable`), and `mcpServer/startupStatus/updated` becomes the
+`mcp-status` event; (3) `thread/tokenUsage/updated` carries `cachedInputTokens` (part of `inputTokens`): it is now
+`cacheReadTok`, so the token limits (`limitTokens`) leave cache reads out for Codex too.
+**Consequence:** commands that stay inside the sandbox still run unchecked, as before: they have no network and write
+only the folder and the temporary folders, but they can read the disk (Monsters' data folder included); Codex's
+permission profiles (`deny` entries) could close that and need a decision of their own. A model that never escalates
+keeps failing on the network; the run instructions and the card say how to ask. The harness tools probe (D-136)
+now creates `codex-home` first; on 0.159.2 and 0.163.0 its Codex half sees no tool names (vacuously green), since the tools moved into an
+`additional_tools` input item (code mode), to be taught to the probe.

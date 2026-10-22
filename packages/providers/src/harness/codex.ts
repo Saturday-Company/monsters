@@ -8,6 +8,7 @@ import { filterModels } from '../http.ts';
 import { RateBudget } from '../rate-budget.ts';
 import { parseCodexRateLimits } from './limits.ts';
 import type {
+  HarnessCommandApproval,
   HarnessEvent,
   HarnessProvider,
   HarnessTask,
@@ -134,6 +135,14 @@ export function codexArgs(
     `mcp_servers.${mcp.name}.bearer_token_env_var=${toml(CODEX_MCP_TOKEN_ENV)}`,
     // A delegation lasts minutes (D-078): Codex's own default would cut the call.
     `mcp_servers.${mcp.name}.tool_timeout_sec=${HARNESS_TOOL_TIMEOUT_MS / 1000}`,
+    // Monsters' tools pass the core's own checks (brake, permissions). Left to Codex, one marked
+    // destructive or open-world is refused under `never` ("MCP tool call requires approval, but
+    // approval policy is never") and asked about under `on-request` (D-158, 0.159.2 and 0.163.0).
+    `mcp_servers.${mcp.name}.default_tools_approval_mode=${toml('approve')}`,
+    // Without Monsters' tools the run is blind and says "the team's tools did not respond":
+    // `required` makes `thread/start` wait for the server and fail when it does not come up,
+    // before any request to the model (0.159.2 and 0.163.0; otherwise the model was asked first).
+    `mcp_servers.${mcp.name}.required=true`,
   ];
   return ['app-server', '--listen', 'stdio://', ...sets.flatMap((s) => ['-c', s])];
 }
@@ -245,16 +254,194 @@ export function codexUserInputResult(params: unknown): Record<string, unknown> {
   };
 }
 
+/** How `thread/start` fails when a `required` MCP server does not start (0.159.2, 0.163.0). */
+export const CODEX_REQUIRED_MCP_FAILED = /required MCP servers failed to initialize/i;
+
+/** Codex's MCP startup states in the words of the `mcp-status` event. */
+const MCP_STATES: Record<string, string> = {
+  starting: 'pending',
+  ready: 'connected',
+  failed: 'failed',
+  cancelled: 'failed',
+};
+
+/**
+ * `mcpServer/startupStatus/updated` (`{ name, status: starting | ready | failed | cancelled,
+ * error, failureReason: reauthenticationRequired | null }`) as `{ name: status }`, or null.
+ */
+export function codexMcpStatus(params: Record<string, unknown>): Record<string, string> | null {
+  const name = params['name'];
+  const state = MCP_STATES[str(params['status'])];
+  if (typeof name !== 'string' || !state) return null;
+  return {
+    [name]: params['failureReason'] === 'reauthenticationRequired' ? 'needs-auth' : state,
+  };
+}
+
+/** The app-server's request before a command leaves the sandbox (D-158). */
+export const CODEX_COMMAND_APPROVAL = 'item/commandExecution/requestApproval';
+
+/**
+ * The text as one shell word (`'…'`, `"…"` with its escapes, `\x`, bare characters), or null
+ * when it is not exactly one word.
+ */
+function shellWord(text: string): string | null {
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i]!;
+    if (c === "'") {
+      const end = text.indexOf("'", i + 1);
+      if (end === -1) return null;
+      out += text.slice(i + 1, end);
+      i = end + 1;
+    } else if (c === '"') {
+      i++;
+      for (;;) {
+        if (i >= text.length) return null;
+        const d = text[i]!;
+        if (d === '"') break;
+        if (d === '\\' && i + 1 < text.length && '$`"\\\n'.includes(text[i + 1]!)) {
+          out += text[i + 1];
+          i += 2;
+        } else {
+          out += d;
+          i++;
+        }
+      }
+      i++;
+    } else if (c === '\\' && i + 1 < text.length) {
+      out += text[i + 1];
+      i += 2;
+    } else if (/\s/.test(c)) {
+      return null;
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return out;
+}
+
+/**
+ * The command the model wrote, out of Codex's wrapper (`/usr/bin/bash -lc '…'`, quoted in
+ * mixed `'…'` and `"…"` pieces on 0.163.0): the checks and the card read what was asked.
+ * Anything else stays as it is.
+ */
+export function codexShellCommand(command: string): string {
+  const m = /^\s*(?:\S*[/\\])?(?:bash|sh|zsh|dash)(?:\.exe)?\s+-(?:lc|cl|c)\s+([\s\S]+?)\s*$/.exec(
+    command,
+  );
+  return (m && shellWord(m[1]!)) || command;
+}
+
+/** What `item/commandExecution/requestApproval` says about the command (Codex 0.159.2–0.163.0). */
+interface CommandApprovalParams {
+  threadId?: string;
+  itemId?: string;
+  command?: string | null;
+  cwd?: string | null;
+  reason?: string | null;
+}
+
+/**
+ * A command the model asked to run outside the sandbox (`sandbox_permissions:
+ * "require_escalated"`, D-158): the core's checks answer, as for Claude Code's `Bash`.
+ * `accept` runs it; a refusal is `decline` (the turn goes on), with Monsters' words added
+ * to the thread first, since Codex tells the model only "rejected by user". Every failure
+ * declines.
+ */
+async function answerCommandApproval(
+  peer: RpcPeer,
+  id: unknown,
+  params: CommandApprovalParams,
+  approve: HarnessCommandApproval | undefined,
+  signal: AbortSignal,
+  rpcMs: number,
+): Promise<void> {
+  const raw = typeof params.command === 'string' ? params.command : '';
+  if (!approve || !raw.trim()) {
+    peer.send({ id, result: { decision: 'decline' } });
+    return;
+  }
+  const command = codexShellCommand(raw);
+  let refusal: string | null;
+  try {
+    refusal = await approve(
+      {
+        id: str(params.itemId),
+        command,
+        ...(params.cwd ? { cwd: params.cwd } : {}),
+        ...(params.reason ? { reason: params.reason } : {}),
+      },
+      signal,
+    );
+  } catch (err) {
+    refusal = (err as Error).message || 'the check failed';
+  }
+  if (refusal === null) {
+    peer.send({ id, result: { decision: 'accept' } });
+    return;
+  }
+  if (params.threadId) {
+    // Before the answer: Codex appends it after the command's output, before the next request.
+    await peer
+      .request(
+        'thread/inject_items',
+        {
+          threadId: params.threadId,
+          items: [
+            {
+              type: 'message',
+              role: 'developer',
+              content: [
+                { type: 'input_text', text: codexPrompts().commandRefused(command, refusal) },
+              ],
+            },
+          ],
+        },
+        rpcMs,
+      )
+      .catch(() => {});
+  }
+  peer.send({ id, result: { decision: 'decline' } });
+}
+
 /** Answers the app-server's own requests: Monsters never approves anything on its own. */
-function answerServerRequest(peer: RpcPeer, msg: Record<string, unknown>): void {
+function answerServerRequest(
+  peer: RpcPeer,
+  msg: Record<string, unknown>,
+  commands: {
+    approve?: HarnessCommandApproval;
+    signal: AbortSignal;
+    rpcMs: number;
+    track: (p: Promise<void>) => void;
+  },
+): void {
   const id = msg['id'];
   switch (msg['method']) {
     case CODEX_USER_INPUT_REQUEST:
       peer.send({ id, result: codexUserInputResult(msg['params']) });
       break;
-    case 'item/commandExecution/requestApproval':
+    case CODEX_COMMAND_APPROVAL:
+      commands.track(
+        answerCommandApproval(
+          peer,
+          id,
+          msg['params'] ?? {},
+          commands.approve,
+          commands.signal,
+          commands.rpcMs,
+        ),
+      );
+      break;
     case 'item/fileChange/requestApproval':
+      // A patch outside the writable folders: refused, as before (a command can still ask).
       peer.send({ id, result: { decision: 'decline' } });
+      break;
+    case 'item/permissions/requestApproval':
+      // Wider permissions for the whole turn would skip the check of each command: none given.
+      peer.send({ id, result: { permissions: {}, scope: 'turn' } });
       break;
     case 'execCommandApproval':
     case 'applyPatchApproval':
@@ -278,8 +465,11 @@ function answerServerRequest(peer: RpcPeer, msg: Record<string, unknown>): void 
  * Monsters' `web_fetch`. Checked on 0.159.2: with these flags the request to
  * the model lists only `request_user_input` and the goal tools besides MCP
  * (and `web_search` when on). The `workspace-write` sandbox keeps the network
- * closed to commands (`network_access` false by default, per the Codex docs): `git push`, `curl`
- * and the like fail there, so the brake has nothing to stop on the terminal.
+ * closed to commands (`network_access` false): a command that needs it (`npm install`, `git
+ * push`, `curl`) is asked again outside the sandbox with `sandbox_permissions:
+ * "require_escalated"`, and under `on-request` app-server asks Monsters first
+ * (`item/commandExecution/requestApproval`), where the core's checks of Claude Code's `Bash`
+ * answer (D-158). Checked on 0.159.2 and 0.163.0 against a local Responses backend.
  */
 export function codexThreadConfig(
   systemTools: boolean,
@@ -379,13 +569,31 @@ export class CodexHarness implements HarnessProvider {
     // Notifications are queued and yielded in order; requests are answered on the fly.
     const queue: Record<string, unknown>[] = [];
     const signals: { wake: (() => void) | null; ended: boolean } = { wake: null, ended: false };
+    /** Items that act (tools, commands, file changes) app-server started and has not finished. */
+    const openActions = new Set<string>();
+    /** Commands waiting for the core's answer (the brake may wait for the user): no idle clock. */
+    let approving = 0;
+    // Only a run with the terminal escalates (`on-request` below); the check is the core's.
+    const approve = task.systemTools ? task.approveCommand : undefined;
+    const commands = {
+      ...(approve ? { approve } : {}),
+      signal,
+      rpcMs,
+      track: (p: Promise<void>) => {
+        approving++;
+        void p.finally(() => {
+          approving--;
+          signals.wake?.();
+        });
+      },
+    };
     void (async () => {
       try {
         for await (const line of readLines(child.stdout!)) {
           const msg = parseJsonLine(line);
           if (!msg || peer.settle(msg)) continue;
           if (msg['id'] !== undefined && typeof msg['method'] === 'string') {
-            answerServerRequest(peer, msg);
+            answerServerRequest(peer, msg, commands);
             continue;
           }
           queue.push(msg);
@@ -398,8 +606,6 @@ export class CodexHarness implements HarnessProvider {
         signals.wake?.();
       }
     })();
-    /** Items that act (tools, commands, file changes) app-server started and has not finished. */
-    const openActions = new Set<string>();
     /** Last sign of life given to the runner for a notification that has no event of its own. */
     let lastBeat = 0;
     const idleMs = this.#o.idleTimeoutMs ?? IDLE_TIMEOUT_MS;
@@ -418,7 +624,7 @@ export class CodexHarness implements HarnessProvider {
         ]);
         clearTimeout(timer);
         signals.wake = null;
-        if (openActions.size > 0) quietSince = Date.now();
+        if (openActions.size > 0 || approving > 0) quietSince = Date.now();
         else if (timedOut && Date.now() - quietSince >= idleMs) {
           throw new Error(providerTexts().codexIdle(Math.round(idleMs / 1000)));
         }
@@ -430,7 +636,7 @@ export class CodexHarness implements HarnessProvider {
     let turnId: string | undefined;
     let model = task.model ?? 'codex';
     /** Token totals of the thread already counted (a resumed thread starts with its past). */
-    let counted: { in: number; out: number } | null = null;
+    let counted: { in: number; out: number; cached: number } | null = null;
     /** Model requests of this turn, against `maxTurns` (Codex has no such option). */
     let requests = 0;
     let maxed = false;
@@ -469,18 +675,35 @@ export class CodexHarness implements HarnessProvider {
       peer.send({ method: 'initialized', params: {} });
       const threadParams = {
         cwd: task.cwd,
-        approvalPolicy: 'never',
+        // With the core's check a command may leave the sandbox, asked each time (D-158);
+        // `user` keeps Codex's own auto-review out of it.
+        approvalPolicy: approve ? 'on-request' : 'never',
+        approvalsReviewer: 'user',
         sandbox: task.systemTools ? 'workspace-write' : 'read-only',
         config: codexThreadConfig(task.systemTools, task.webSearch === true),
         ...(task.model ? { model: task.model } : {}),
         ...(task.instructions ? { developerInstructions: task.instructions } : {}),
       };
-      const started = (await (task.resume
-        ? peer.request('thread/resume', { threadId: task.resume, ...threadParams }, rpcMs)
-        : peer.request('thread/start', { ...threadParams, serviceName: 'Monsters' }, rpcMs))) as {
-        thread?: { id?: string };
-        model?: string;
-      };
+      let started: { thread?: { id?: string }; model?: string };
+      try {
+        started = (await (task.resume
+          ? peer.request('thread/resume', { threadId: task.resume, ...threadParams }, rpcMs)
+          : peer.request('thread/start', { ...threadParams, serviceName: 'Monsters' }, rpcMs))) as {
+          thread?: { id?: string };
+          model?: string;
+        };
+      } catch (err) {
+        if (!CODEX_REQUIRED_MCP_FAILED.test((err as Error).message)) throw err;
+        // Monsters' server never came up: no turn without its tools.
+        yield { type: 'mcp-status', servers: { [task.mcp.name]: 'failed' } };
+        yield {
+          type: 'done',
+          reason: 'error',
+          code: 'mcp_unavailable',
+          error: providerTexts().codexMcpFailed(task.mcp.name),
+        };
+        return;
+      }
       threadId = started.thread?.id;
       if (!threadId) throw new Error('codex app-server did not return a thread');
       if (started.model) model = started.model;
@@ -520,8 +743,9 @@ export class CodexHarness implements HarnessProvider {
               actedSinceUsage = true;
               openActions.add(id);
             }
-            // The command is already running (approval `never`): its call is always traced,
-            // so the audit never has a result without its call (F-B10).
+            // The command may already be running (one that leaves the sandbox waits for the core's
+            // answer after this): its call is always traced, so the audit never has a result
+            // without its call (F-B10).
             if (acting) stopIfOutOfSteps();
             if (item['type'] === 'mcpToolCall') {
               const server = str(item['server']);
@@ -580,29 +804,49 @@ export class CodexHarness implements HarnessProvider {
           case 'thread/tokenUsage/updated': {
             // `total` is the thread's running count and the same update may come
             // twice: what grew since the last one is this request's usage.
+            // `inputTokens` includes `cachedInputTokens` (the prompt-cache reads, 0.163.0), as
+            // `inTok` includes `cacheReadTok`: the token limits leave them out (`limitTokens`).
             const usage = (params['tokenUsage'] ?? {}) as {
-              total?: { inputTokens?: number; outputTokens?: number };
-              last?: { inputTokens?: number; outputTokens?: number };
+              total?: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number };
+              last?: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number };
             };
             const total = {
               in: count(usage.total?.inputTokens),
               out: count(usage.total?.outputTokens),
+              cached: count(usage.total?.cachedInputTokens),
             };
             counted ??= {
               in: Math.max(0, total.in - count(usage.last?.inputTokens)),
               out: Math.max(0, total.out - count(usage.last?.outputTokens)),
+              cached: Math.max(0, total.cached - count(usage.last?.cachedInputTokens)),
             };
             const inTok = Math.max(0, total.in - counted.in);
             const outTok = Math.max(0, total.out - counted.out);
-            counted = { in: Math.max(counted.in, total.in), out: Math.max(counted.out, total.out) };
+            const cacheReadTok = Math.min(inTok, Math.max(0, total.cached - counted.cached));
+            counted = {
+              in: Math.max(counted.in, total.in),
+              out: Math.max(counted.out, total.out),
+              cached: Math.max(counted.cached, total.cached),
+            };
             if (inTok > 0 || outTok > 0) {
               requests++;
-              yield { type: 'usage', model, inTok, outTok };
+              yield {
+                type: 'usage',
+                model,
+                inTok,
+                outTok,
+                ...(cacheReadTok > 0 ? { cacheReadTok } : {}),
+              };
               // The request that used the last step asked for work: stop here, before the
               // command starts, not at its `item/started` when it is already running (F-B10).
               if (actedSinceUsage) stopIfOutOfSteps();
               actedSinceUsage = false;
             }
+            break;
+          }
+          case 'mcpServer/startupStatus/updated': {
+            const status = codexMcpStatus(params);
+            if (status) yield { type: 'mcp-status', servers: status };
             break;
           }
           case 'account/rateLimits/updated': {

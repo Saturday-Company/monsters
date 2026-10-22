@@ -324,7 +324,8 @@ describe('the Monsters card and the harness section, in English', () => {
       'The web is not among your tools: Pixel has it. If needed, write it in the report',
     );
     expect(none).toContain('Codex’s `request_user_input` reaches nobody.');
-    expect(none).toContain('Your commands have no network (Codex’s sandbox)');
+    expect(none).toContain('`sandbox_permissions: "require_escalated"`');
+    expect(none).toContain('Monsters checks it and lets it run');
     const rule = monstersToolsSection(
       'claude-agent',
       { search: true, fetch: false, own: false },
