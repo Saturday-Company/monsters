@@ -1,4 +1,5 @@
 import type { LanguageModelV4 } from '@ai-sdk/provider';
+import type { PlanLimitsReading } from '@monsters/shared';
 import { z } from 'zod';
 import { ModelCache, getJson } from '../http.ts';
 import { keyFingerprint } from '../key-id.ts';
@@ -35,6 +36,8 @@ export interface ChatGPTProviderOptions {
   fetch?: typeof fetch;
   now?: () => number;
   modelsTtlMs?: number;
+  /** Where the plan's windows go when a response carries them (D-111, D-156). */
+  onPlanLimits?: (reading: PlanLimitsReading) => void;
 }
 
 export class ChatGPTProvider implements ModelProvider {
@@ -48,11 +51,13 @@ export class ChatGPTProvider implements ModelProvider {
   readonly #client: SiwcClient;
   readonly #fetch: typeof fetch;
   readonly #models: ModelCache;
+  readonly #onPlanLimits: ((reading: PlanLimitsReading) => void) | undefined;
 
   constructor(options: ChatGPTProviderOptions) {
     this.id = options.id ?? 'chatgpt';
     this.#client = options.client;
     this.#fetch = options.fetch ?? globalThis.fetch;
+    this.#onPlanLimits = options.onPlanLimits;
     const now = options.now ?? Date.now;
     this.#models = new ModelCache(options.modelsTtlMs ?? 3_600_000, now);
     // One account, one quota (shared with ChatGPT and Codex): never invented here.
@@ -72,6 +77,7 @@ export class ChatGPTProvider implements ModelProvider {
       token: () => this.#client.accessToken(),
       fetch: this.#fetch,
       provider: this.id,
+      ...(this.#onPlanLimits ? { onPlanLimits: this.#onPlanLimits } : {}),
     });
   }
 

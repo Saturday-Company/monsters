@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { setAppLang } from '@monsters/shared';
 import {
   claudeRejection,
+  parseChatgptRateLimitHeaders,
   parseClaudeRateLimit,
   parseCodexRateLimits,
   resetPhrase,
@@ -160,7 +161,8 @@ describe('parseCodexRateLimits', () => {
     );
     expect(reading).toEqual({
       plan: 'chatgpt',
-      partial: false,
+      // Sparse updates: the windows a later one leaves out keep their last reading.
+      partial: true,
       windows: [
         { id: 'primary', usedPercent: 24, resetsAt: 1_800_000_000_000, windowMinutes: 300 },
         { id: 'secondary', usedPercent: 81, resetsAt: 1_800_400_000_000, windowMinutes: 10080 },
@@ -206,6 +208,110 @@ describe('parseCodexRateLimits', () => {
     expect(
       parseCodexRateLimits({ rateLimits: { primary: { usedPercent: 'tanto' } } }, NOW),
     ).toBeNull();
+  });
+});
+
+describe('parseCodexRateLimits against the real app-server 0.163.0 payloads', () => {
+  // Captured from `codex app-server` (real binary, mock backend, 24/10/2026).
+  it('reads the update a ChatGPT-style response produces', () => {
+    const reading = parseCodexRateLimits(
+      {
+        rateLimits: {
+          limitId: 'codex',
+          limitName: null,
+          normalModelSlug: null,
+          primary: { usedPercent: 42, windowDurationMins: 300, resetsAt: 1_792_714_217 },
+          secondary: { usedPercent: 10, windowDurationMins: 10080, resetsAt: 1_792_797_017 },
+          credits: null,
+          individualLimit: null,
+          spendControlReached: null,
+          planType: null,
+          rateLimitReachedType: null,
+        },
+      },
+      NOW,
+    );
+    expect(reading?.windows.map((w) => [w.id, w.usedPercent, w.windowMinutes])).toEqual([
+      ['primary', 42, 300],
+      ['secondary', 10, 10080],
+    ]);
+  });
+
+  it('reads nothing from the update sent when the response had no x-codex headers', () => {
+    expect(
+      parseCodexRateLimits(
+        {
+          rateLimits: {
+            limitId: 'codex',
+            primary: null,
+            secondary: null,
+            credits: null,
+            planType: null,
+          },
+        },
+        NOW,
+      ),
+    ).toBeNull();
+  });
+
+  it('ignores the snapshot of another quota than the plan', () => {
+    expect(
+      parseCodexRateLimits(
+        {
+          rateLimits: {
+            limitId: 'codex_other',
+            primary: { usedPercent: 99, windowDurationMins: 300, resetsAt: 1_792_714_217 },
+            secondary: null,
+          },
+        },
+        NOW,
+      ),
+    ).toBeNull();
+  });
+});
+
+describe('parseChatgptRateLimitHeaders (x-codex-* headers of ChatGPT responses)', () => {
+  it('reads both windows, in seconds since the epoch', () => {
+    const reading = parseChatgptRateLimitHeaders(
+      {
+        'x-codex-primary-used-percent': '42',
+        'x-codex-primary-window-minutes': '300',
+        'x-codex-primary-reset-at': '1792714217',
+        'x-codex-secondary-used-percent': '10.5',
+        'x-codex-secondary-window-minutes': '10080',
+        'x-codex-secondary-reset-after-seconds': '3600',
+        'x-request-id': 'r',
+      },
+      NOW,
+    );
+    expect(reading).toEqual({
+      plan: 'chatgpt',
+      partial: true,
+      windows: [
+        { id: 'primary', usedPercent: 42, resetsAt: 1_792_714_217_000, windowMinutes: 300 },
+        { id: 'secondary', usedPercent: 10.5, resetsAt: NOW + 3_600_000, windowMinutes: 10080 },
+      ],
+    });
+  });
+
+  it('reads a Headers object, one window alone, whatever the case', () => {
+    const h = new Headers({ 'X-Codex-Secondary-Used-Percent': '7' });
+    expect(parseChatgptRateLimitHeaders(h, NOW)?.windows).toEqual([
+      { id: 'secondary', usedPercent: 7, resetsAt: null, windowMinutes: null },
+    ]);
+  });
+
+  it('is no reading without a usable percentage', () => {
+    const none: (Record<string, string> | undefined)[] = [
+      undefined,
+      {},
+      { 'content-type': 'text/event-stream' },
+      { 'x-codex-primary-used-percent': '' },
+      { 'x-codex-primary-used-percent': 'lots' },
+    ];
+    for (const h of none) {
+      expect(parseChatgptRateLimitHeaders(h, NOW)).toBeNull();
+    }
   });
 });
 

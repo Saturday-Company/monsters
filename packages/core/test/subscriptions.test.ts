@@ -875,6 +875,55 @@ describe('Plan limits (D-111)', () => {
     expect(five).toMatchObject({ label: 'Session', usedPercent: 100, tone: 'high' });
   });
 
+  it('a monster on the ChatGPT route shows the windows the response carried, and its usage', async () => {
+    const fake = fakeSiwc();
+    const t = await startTestHub({}, hubOptions(fake));
+    await signInChatGPT(t, fake);
+    await t.json('PUT', '/api/agents/dione/models', {
+      models: [{ provider: 'chatgpt', model: 'gpt-test' }],
+    });
+    expect((await limitsOf(t)).chatgpt).toBeNull();
+    const nowSec = Math.floor(Date.now() / 1000);
+    fake.replies.push(() =>
+      responsesText('Bozza pronta.', 'gpt-test', {
+        'x-codex-primary-used-percent': '24',
+        'x-codex-primary-window-minutes': '300',
+        'x-codex-primary-reset-at': String(nowSec + 75 * 60),
+        'x-codex-secondary-used-percent': '81',
+        'x-codex-secondary-window-minutes': '10080',
+        'x-codex-secondary-reset-at': String(nowSec + 4 * 86_400),
+      }),
+    );
+    const sent = await t.json<Sent>('POST', '/api/messages', { text: '@Dione scrivi la bozza' });
+    await t.waitEvent(isRunEnd(sent.runId));
+
+    const limits = await limitsOf(t);
+    expect(limits.chatgpt!.windows.map((w) => [w.label, w.usedPercent, w.tone])).toEqual([
+      ['5 hours', 24, 'ok'],
+      ['Week', 81, 'warn'],
+    ]);
+    // Consumi of the monster: the same windows, and a request with its tokens.
+    const usage = await t.json<{ planLimits: unknown; session: { inputTokens: number } }>(
+      'GET',
+      '/api/agents/dione/usage',
+    );
+    expect(usage.planLimits).toEqual(limits.chatgpt);
+    expect(t.events(sent.runId).find((e) => e.type === 'provider_usage')?.data).toMatchObject({
+      provider: 'chatgpt',
+      inputTokens: 12,
+      outputTokens: 7,
+    });
+    // Nothing of the reading is logged.
+    expect(JSON.stringify(t.core.log.query({ limit: 5000 }))).not.toMatch(/x-codex|usedPercent/);
+
+    // A later response without windows leaves the last reading as it was.
+    fake.replies.splice(0);
+    fake.replies.push(() => responsesText('Altra.'));
+    const again = await t.json<Sent>('POST', '/api/messages', { text: '@Dione ancora' });
+    await t.waitEvent(isRunEnd(again.runId));
+    expect((await limitsOf(t)).chatgpt).toEqual(limits.chatgpt);
+  });
+
   it('Codex limits go to the ChatGPT plan, and signing out forgets them', async () => {
     const fake = fakeSiwc();
     const { binary } = fakeBinary(FAKE_CODEX_SCRIPT, 'tool');

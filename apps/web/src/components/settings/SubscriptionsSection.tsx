@@ -23,6 +23,8 @@ import { subscriptionsStrings } from './subscriptions.strings.ts';
  */
 
 const USAGE_URL = 'https://chatgpt.com/settings/usage';
+/** How often the plan windows are read again while the settings are open. */
+const PLAN_REFRESH_MS = 30_000;
 
 function errorOf(err: unknown): string {
   if (err instanceof ApiError && err.message && err.message !== err.code) return err.message;
@@ -144,6 +146,20 @@ export function useSubscriptions(onChanged?: () => void) {
     const t = setInterval(() => load(), 1200);
     return () => clearInterval(t);
   }, [waiting, load]);
+
+  // The plan windows move while a monster works (D-111): read them again every so often, and when
+  // the page comes back into view, instead of keeping what the first read showed.
+  useEffect(() => {
+    const again = () => {
+      if (!document.hidden) load();
+    };
+    const t = setInterval(again, PLAN_REFRESH_MS);
+    document.addEventListener('visibilitychange', again);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', again);
+    };
+  }, [load]);
 
   return { data, setData, failed, load };
 }

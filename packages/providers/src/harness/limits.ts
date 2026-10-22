@@ -20,12 +20,18 @@ import { providerTexts } from '../providers.strings.ts';
  * session and weekly windows on every observation. The per-model weekly windows
  * (Opus, Sonnet) arrive only as the top-level window.
  *
- * Codex app-server (assumed from its open-source protocol, not seen in real output
- * here: Codex is not installed on this computer): notification
- * `account/rateLimits/updated` with `{ rateLimits: { primary?, secondary?: { usedPercent,
- * windowDurationMins, resetsAt (unix seconds) } } }`; the `token_count` events of the CLI's
- * JSON carry the same as `rate_limits` with `used_percent`, `window_minutes`,
- * `resets_in_seconds` or `resets_at`. Both spellings are read.
+ * Codex app-server 0.163.0 (schema from `codex app-server generate-json-schema`, shape
+ * checked against the real binary on 24/10/2026, D-156): notification
+ * `account/rateLimits/updated` with `{ rateLimits: { limitId, primary, secondary, credits,
+ * planType, … } }`, each window `{ usedPercent (int), windowDurationMins, resetsAt (unix
+ * seconds) }` or null. The update is *sparse*: Codex builds it from the `x-codex-primary-*` /
+ * `x-codex-secondary-*` headers (`used-percent`, `window-minutes`, `reset-at`) of the model
+ * response, and sends it with both windows null when the response had none: that is what a
+ * backend that does not send them (any other than ChatGPT's own) produces, and it names no
+ * window, so it is no reading. The same headers are read from the ChatGPT route (`chatgpt`
+ * provider) by `parseChatgptRateLimitHeaders`. The `token_count` events of the CLI's JSON
+ * carry the same as `rate_limits` with `used_percent`, `window_minutes`, `resets_in_seconds`
+ * or `resets_at`. Both spellings are read.
  */
 
 const WINDOW_MINUTES: Record<string, number> = { five_hour: 300, seven_day: 10_080 };
@@ -143,10 +149,60 @@ export function parseCodexRateLimits(raw: unknown, now: number): PlanLimitsReadi
     obj(top['rate_limits']) ??
     obj(obj(top['info'])?.['rate_limits']) ??
     top;
+  // Another quota (a model with its own limit) is not the plan's session and week.
+  const limitId = snap['limitId'] ?? snap['limit_id'];
+  if (typeof limitId === 'string' && limitId !== 'codex') return null;
   const windows = [
     codexWindow('primary', snap['primary'], now),
     codexWindow('secondary', snap['secondary'], now),
   ].filter((w): w is PlanWindowReading => w !== null);
   if (windows.length === 0) return null;
-  return { plan: 'chatgpt', windows, partial: false };
+  // Sparse updates: a window the update does not carry keeps its last reading.
+  return { plan: 'chatgpt', windows, partial: true };
+}
+
+/** A header of the response, whatever the case of its name (a plain object or `Headers`). */
+function header(headers: Record<string, string> | Headers, name: string): string | undefined {
+  if (headers instanceof Headers) return headers.get(name) ?? undefined;
+  const lower = name.toLowerCase();
+  for (const [k, v] of Object.entries(headers)) if (k.toLowerCase() === lower) return v;
+  return undefined;
+}
+
+function headerNum(headers: Record<string, string> | Headers, name: string): number | null {
+  const v = header(headers, name);
+  if (v === undefined || v.trim() === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * The plan reading of the headers ChatGPT's own route puts on every model response
+ * (the ones Codex turns into `account/rateLimits/updated`): `x-codex-primary-used-percent`,
+ * `-window-minutes`, `-reset-at` (unix seconds) or `-reset-after-seconds`, and the same for
+ * `secondary`. Nothing is asked for: these are the headers of the answer the model call
+ * already got (D-111, D-156). Null when the response carries no window.
+ */
+export function parseChatgptRateLimitHeaders(
+  headers: Record<string, string> | Headers | undefined,
+  now: number,
+): PlanLimitsReading | null {
+  if (!headers) return null;
+  const windows: PlanWindowReading[] = [];
+  for (const id of ['primary', 'secondary'] as const) {
+    const used = headerNum(headers, `x-codex-${id}-used-percent`);
+    if (used === null) continue;
+    const minutes = headerNum(headers, `x-codex-${id}-window-minutes`);
+    const after = headerNum(headers, `x-codex-${id}-reset-after-seconds`);
+    windows.push({
+      id,
+      usedPercent: Math.max(0, used),
+      resetsAt:
+        epochMs(headerNum(headers, `x-codex-${id}-reset-at`)) ??
+        (after !== null && after >= 0 ? now + after * 1000 : null),
+      windowMinutes: minutes !== null && minutes > 0 ? minutes : null,
+    });
+  }
+  if (windows.length === 0) return null;
+  return { plan: 'chatgpt', windows, partial: true };
 }

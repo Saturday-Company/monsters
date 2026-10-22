@@ -23,8 +23,8 @@ Good to know:
   switches by itself to another paid provider: you decide whether to change model.
 - **Plan usage** (Settings → Models, under the plan, and in a monster's usage): the windows of Claude (session, week,
   Opus) and of ChatGPT, with the percentage used and when they reset. Monsters asks the service nothing and doesn't
-  read the programs' credentials: it shows what Claude Code and Codex write while a monster works, so the number
-  updates only when a monster works on that plan ("updated 20 min ago").
+  read the programs' credentials: it shows what Claude Code and Codex write, and the plan windows ChatGPT adds to a model response, while a
+  monster works, so the number updates only when a monster works on that plan ("updated 20 min ago").
 - **Disconnect** revokes access. If OpenAI doesn't respond, also disconnect Monsters in ChatGPT's settings.
 
 ### Monsters on another computer (SSH)
