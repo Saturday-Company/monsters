@@ -5070,3 +5070,24 @@ repository, site or documentation, is listed as a source on the page, and carrie
 and update `VERIFIED`. A new user guide is added to `GUIDES` and to the Italian summaries in
 `src/i18n/pages.ts`. The home FAQ keeps the monsters' questions and adds "questions people ask" (`faq.more`), all in
 the `FAQPage` JSON-LD.
+
+### D-156 · ChatGPT plan windows: the `chatgpt` route reads them too, and Codex's sparse updates are merged
+**Status:** done · 24/10/2026 (bug reported by a tester on alpha.20: with the ChatGPT plan connected, the plan usage
+never moved)
+**Context:** D-111 fed the ChatGPT plan block only from the Codex harness (`account/rateLimits/updated`) and assumed the
+payload. The block of a monster on the `chatgpt` provider (our own Responses loop, the default way to use the plan)
+could therefore never be filled: nothing on that route reported windows. Checked against the real `codex` 0.163.0
+(`app-server generate-json-schema`, then the binary run against a local mock backend, no account): the notification
+and its fields are as assumed, but it is *sparse*. Codex builds it from the `x-codex-primary-*` /
+`x-codex-secondary-*` response headers (`used-percent`, `window-minutes`, `reset-at`) and, when the backend sends none,
+still emits it with `primary: null, secondary: null` (we drop that, correctly). `account/rateLimits/read` cannot
+replace it: without a Codex account login (we never run `codex login`, D-035) it answers "codex account
+authentication required". Token usage (`thread/tokenUsage/updated`) was right and keeps reaching `provider_usage`.
+**Choice:** (1) the `chatgpt` provider reads the same `x-codex-*` headers from every response it already gets
+(`parseChatgptRateLimitHeaders`, refused requests included) and hands the reading to `PlanLimits`: still passive, no
+request or credential of our own. (2) Codex readings are `partial` now (a window an update leaves out keeps its last
+value) and a snapshot of another `limitId` than `codex` is not the plan's session/week. (3) Settings → Models reads the
+subscriptions again every 30 s and when the page returns into view, so the block follows the work.
+**Consequence:** the windows appear only if OpenAI's route sends those headers. This could not be verified without a
+real account: if `api.openai.com/v1` does not send them, the block keeps saying "no data yet" (never a wrong number) and
+the next step is a real ChatGPT login inside Codex's own `CODEX_HOME`, which needs a decision of its own (D-005, D-035).

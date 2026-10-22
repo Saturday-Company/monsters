@@ -11,7 +11,9 @@ import {
   type LanguageModelV4Usage,
   type SharedV4Warning,
 } from '@ai-sdk/provider';
+import type { PlanLimitsReading } from '@monsters/shared';
 import { SubscriptionPlanError, isSubscriptionPlanCode } from '../errors.ts';
+import { parseChatgptRateLimitHeaders } from '../harness/limits.ts';
 
 /*
  * Responses API adapter for the ChatGPT plan usage (SIWC, research 06 §2.1,
@@ -46,6 +48,11 @@ export interface ResponsesModelOptions {
   token: () => Promise<string>;
   fetch?: typeof fetch;
   provider?: string;
+  /**
+   * The plan's windows, as the headers of a response put them (D-111, D-156): called with
+   * every response that carries some, the refused ones included.
+   */
+  onPlanLimits?: (reading: PlanLimitsReading) => void;
 }
 
 type InputItem = Record<string, unknown>;
@@ -394,6 +401,17 @@ export class ChatGPTResponsesModel implements LanguageModelV4 {
     this.modelId = options.modelId;
   }
 
+  /** A number of the usage block never costs a request. */
+  #reportLimits(headers: Headers): void {
+    if (!this.#o.onPlanLimits) return;
+    try {
+      const reading = parseChatgptRateLimitHeaders(headers, Date.now());
+      if (reading) this.#o.onPlanLimits(reading);
+    } catch {
+      // ignored
+    }
+  }
+
   async doStream(options: LanguageModelV4CallOptions): Promise<LanguageModelV4StreamResult> {
     const { body, warnings } = buildRequestBody(this.modelId, options);
     const url = `${this.#o.baseURL.replace(/\/+$/, '')}/responses`;
@@ -418,6 +436,7 @@ export class ChatGPTResponsesModel implements LanguageModelV4 {
       options.abortSignal?.removeEventListener('abort', onCallerAbort);
       throw err;
     });
+    this.#reportLimits(res.headers);
     if (!res.ok || !res.body) {
       options.abortSignal?.removeEventListener('abort', onCallerAbort);
       throw await httpError(res, url, body);

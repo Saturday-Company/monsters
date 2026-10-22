@@ -5,7 +5,8 @@ import { planLimitStrings } from './plan-limits.strings.ts';
  * Utilizzo del piano (D-111): the limits of the plans the user already pays
  * for (Claude, ChatGPT/Codex), as the official programs report them while a
  * monster works on that plan. Read only from what the harness already prints
- * (Claude Code's `rate_limit_event`, Codex's `account/rateLimits/updated`):
+ * (Claude Code's `rate_limit_event`, Codex's `account/rateLimits/updated`, the `x-codex-*`
+ * headers of ChatGPT responses):
  * Monsters asks no endpoint of its own and reads no credential file. So the
  * numbers are as old as the last run on that plan.
  *
@@ -32,7 +33,7 @@ export const PlanWindowReadingSchema = z.object({
 });
 export type PlanWindowReading = z.infer<typeof PlanWindowReadingSchema>;
 
-/** A reading of the plan: `partial` = it updates only the windows it names (Claude), else it replaces all (Codex). */
+/** A reading of the plan: `partial` = it updates only the windows it names (Claude, ChatGPT), else it replaces all. */
 export const PlanLimitsReadingSchema = z.object({
   plan: PlanLimitIdSchema,
   windows: z.array(PlanWindowReadingSchema).min(1),
@@ -168,7 +169,7 @@ export function planPeak(view: PlanLimitsView | null | undefined): PlanWindowVie
 
 /**
  * Merges a reading into the snapshot: a partial reading (Claude) updates the
- * windows it names, a complete one (Codex) replaces them all.
+ * windows it names, a complete one replaces them all.
  */
 export function mergePlanReading(
   prev: PlanLimitsSnapshot | null | undefined,

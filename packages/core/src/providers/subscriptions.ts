@@ -219,6 +219,8 @@ export class SubscriptionService {
         new ChatGPTProvider({
           client: this.#siwc,
           ...(this.#o.fetch ? { fetch: this.#o.fetch } : {}),
+          // The windows ChatGPT's route puts on a model response (D-156).
+          onPlanLimits: (reading) => this.#o.planLimits.observe(reading),
         }),
       );
     } else if (!signedIn && reg.has('chatgpt')) {

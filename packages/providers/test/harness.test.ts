@@ -800,7 +800,7 @@ describe('Codex harness', () => {
     expect(reading).toMatchObject({
       reading: {
         plan: 'chatgpt',
-        partial: false,
+        partial: true,
         windows: [
           { id: 'primary', usedPercent: 24, windowMinutes: 300 },
           { id: 'secondary', usedPercent: 81, windowMinutes: 10080 },
@@ -811,6 +811,14 @@ describe('Codex harness', () => {
       .resetsAt;
     expect(resets - Date.now()).toBeGreaterThan(70 * 60_000);
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'stop' });
+  });
+
+  it('reads nothing from the empty update app-server sends when the backend gave no windows', async () => {
+    const { h } = harness('tool', userEnv(join(dir, 'home')), ['--fake-limits=empty']);
+    const events = await collect(h.run(task({ model: 'gpt-test' }), new AbortController().signal));
+    expect(events.some((e) => e.type === 'plan-limits')).toBe(false);
+    // The token counts are not lost with it: usage still reaches the log.
+    expect(events.filter((e) => e.type === 'usage').length).toBeGreaterThan(0);
   });
 
   it('prints no limits when app-server sends none', async () => {

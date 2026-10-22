@@ -1,7 +1,7 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { jsonSchema, streamText, tool } from 'ai';
 import { describe, expect, it } from 'vitest';
-import { setAppLang } from '@monsters/shared';
+import { setAppLang, type PlanLimitsReading } from '@monsters/shared';
 import {
   ChatGPTProvider,
   KeyedProvider,
@@ -532,6 +532,90 @@ describe('Sign in with ChatGPT: OpenAI out of reach (after a wake, in a VPN)', (
     });
     await expect(siwc.accessToken()).resolves.toBe('AT1');
     expect(calls).toBe(3);
+  });
+});
+
+describe('ChatGPT plan windows (D-156)', () => {
+  const headers = {
+    'x-codex-primary-used-percent': '24',
+    'x-codex-primary-window-minutes': '300',
+    'x-codex-primary-reset-at': String(Math.floor(Date.now() / 1000) + 3600),
+    'x-codex-secondary-used-percent': '81',
+    'x-codex-secondary-window-minutes': '10080',
+    'x-codex-secondary-reset-at': String(Math.floor(Date.now() / 1000) + 86_400),
+  };
+
+  async function readings(reply: () => Response) {
+    const fake = fakeSiwc();
+    const { siwc } = client(fake);
+    await signIn(fake, siwc);
+    const seen: PlanLimitsReading[] = [];
+    const provider = new ChatGPTProvider({
+      client: siwc,
+      fetch: fake.fetch,
+      onPlanLimits: (r) => seen.push(r),
+    });
+    fake.replies.push(reply);
+    const result = streamText({
+      model: provider.model('gpt-test'),
+      prompt: 'ciao',
+      maxRetries: 0,
+    });
+    await result.consumeStream();
+    return { seen, usage: await result.usage };
+  }
+
+  it('reports the windows a response carries, with its usage', async () => {
+    const { seen, usage } = await readings(() => responsesText('Fatto.', 'gpt-test', headers));
+    expect(usage.inputTokens).toBe(12);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({ plan: 'chatgpt', partial: true });
+    expect(seen[0]!.windows.map((w) => [w.id, w.usedPercent, w.windowMinutes])).toEqual([
+      ['primary', 24, 300],
+      ['secondary', 81, 10080],
+    ]);
+  });
+
+  it('reports nothing when the response has no window, and the answer still comes', async () => {
+    const { seen, usage } = await readings(() => responsesText('Fatto.'));
+    expect(seen).toEqual([]);
+    expect(usage.outputTokens).toBe(7);
+  });
+
+  it('reports the windows of a refused request too', async () => {
+    const fake = fakeSiwc();
+    const { siwc } = client(fake);
+    await signIn(fake, siwc);
+    const seen: PlanLimitsReading[] = [];
+    const provider = new ChatGPTProvider({
+      client: siwc,
+      fetch: fake.fetch,
+      onPlanLimits: (r) => seen.push(r),
+    });
+    fake.replies.push(() => {
+      const res = planError(429, 'subscription_sharing_usage_limit_exceeded', 'limit');
+      res.headers.set('x-codex-primary-used-percent', '100');
+      return res;
+    });
+    const result = streamText({ model: provider.model('gpt-test'), prompt: 'ciao', maxRetries: 0 });
+    await result.consumeStream();
+    expect(seen[0]!.windows).toMatchObject([{ id: 'primary', usedPercent: 100 }]);
+  });
+
+  it('a failing listener never costs the request', async () => {
+    const fake = fakeSiwc();
+    const { siwc } = client(fake);
+    await signIn(fake, siwc);
+    const provider = new ChatGPTProvider({
+      client: siwc,
+      fetch: fake.fetch,
+      onPlanLimits: () => {
+        throw new Error('boom');
+      },
+    });
+    fake.replies.push(() => responsesText('Fatto.', 'gpt-test', headers));
+    const result = streamText({ model: provider.model('gpt-test'), prompt: 'ciao', maxRetries: 0 });
+    expect(await result.text).toBe('Fatto.');
   });
 });
 

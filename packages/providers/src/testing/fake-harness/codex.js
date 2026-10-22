@@ -81,6 +81,19 @@ function tokenUsageAgain() {
     },
   });
 }
+/** The fields of the real `RateLimitSnapshot` besides the windows. */
+function rateLimitSnapshot() {
+  return {
+    limitId: 'codex',
+    limitName: null,
+    normalModelSlug: null,
+    credits: null,
+    individualLimit: null,
+    spendControlReached: null,
+    planType: null,
+    rateLimitReachedType: null,
+  };
+}
 if (scenario === 'hang') {
   process.on('SIGINT', () => {});
   process.on('SIGTERM', () => {});
@@ -129,14 +142,20 @@ for await (const line of rl) {
     notify('turn/started', { threadId: thread, turn: { id: turn } });
     const prompt = msg.params.input[0].text;
     // The plan's limits (D-111), as the app-server announces them: usedPercent,
-    // windowDurationMins and resetsAt (unix seconds). `--fake-limits=off` sends none.
-    if (fake.limits !== 'off') {
+    // windowDurationMins and resetsAt (unix seconds), in the shape of codex 0.163.0 (captured from
+    // the real binary). `--fake-limits=off` sends none; `--fake-limits=empty` sends what the real
+    // one sends when the backend's response had no `x-codex-*` headers: both windows null.
+    if (fake.limits === 'empty') {
+      notify('account/rateLimits/updated', {
+        rateLimits: { ...rateLimitSnapshot(), primary: null, secondary: null },
+      });
+    } else if (fake.limits !== 'off') {
       const nowSec = Math.floor(Date.now() / 1000);
       notify('account/rateLimits/updated', {
         rateLimits: {
+          ...rateLimitSnapshot(),
           primary: { usedPercent: 24, windowDurationMins: 300, resetsAt: nowSec + 75 * 60 },
           secondary: { usedPercent: 81, windowDurationMins: 10080, resetsAt: nowSec + 4 * 86_400 },
-          credits: null,
           planType: 'plus',
         },
       });

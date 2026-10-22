@@ -242,11 +242,14 @@ export function fakeSiwc(options: FakeSiwcOptions = {}): FakeSiwc {
 
 // --- Responses SSE answers -------------------------------------------------------
 
-function sse(events: unknown[], status = 200): Response {
+function sse(events: unknown[], headers: Record<string, string> = {}, status = 200): Response {
   const body = events
     .map((e) => `event: ${(e as { type: string }).type}\ndata: ${JSON.stringify(e)}\n\n`)
     .join('');
-  return new Response(body, { status, headers: { 'content-type': 'text/event-stream' } });
+  return new Response(body, {
+    status,
+    headers: { 'content-type': 'text/event-stream', ...headers },
+  });
 }
 
 const created = (model: string) => ({
@@ -260,40 +263,48 @@ const usage = {
   output_tokens_details: { reasoning_tokens: 3 },
 };
 
-export function responsesText(text: string, model = 'gpt-test'): Response {
-  return sse([
-    created(model),
-    {
-      type: 'response.output_item.added',
-      output_index: 0,
-      item: { type: 'message', id: 'msg_1', role: 'assistant', content: [] },
-    },
-    {
-      type: 'response.output_text.delta',
-      item_id: 'msg_1',
-      output_index: 0,
-      content_index: 0,
-      delta: text.slice(0, 3),
-    },
-    {
-      type: 'response.output_text.delta',
-      item_id: 'msg_1',
-      output_index: 0,
-      content_index: 0,
-      delta: text.slice(3),
-    },
-    {
-      type: 'response.output_item.done',
-      output_index: 0,
-      item: {
-        type: 'message',
-        id: 'msg_1',
-        role: 'assistant',
-        content: [{ type: 'output_text', text }],
+/** `headers`: what ChatGPT's route adds to a response, e.g. the `x-codex-primary-*` plan windows. */
+export function responsesText(
+  text: string,
+  model = 'gpt-test',
+  headers: Record<string, string> = {},
+): Response {
+  return sse(
+    [
+      created(model),
+      {
+        type: 'response.output_item.added',
+        output_index: 0,
+        item: { type: 'message', id: 'msg_1', role: 'assistant', content: [] },
       },
-    },
-    { type: 'response.completed', response: { id: 'resp_1', status: 'completed', usage } },
-  ]);
+      {
+        type: 'response.output_text.delta',
+        item_id: 'msg_1',
+        output_index: 0,
+        content_index: 0,
+        delta: text.slice(0, 3),
+      },
+      {
+        type: 'response.output_text.delta',
+        item_id: 'msg_1',
+        output_index: 0,
+        content_index: 0,
+        delta: text.slice(3),
+      },
+      {
+        type: 'response.output_item.done',
+        output_index: 0,
+        item: {
+          type: 'message',
+          id: 'msg_1',
+          role: 'assistant',
+          content: [{ type: 'output_text', text }],
+        },
+      },
+      { type: 'response.completed', response: { id: 'resp_1', status: 'completed', usage } },
+    ],
+    headers,
+  );
 }
 
 export function responsesTool(
