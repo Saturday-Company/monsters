@@ -18,7 +18,7 @@ import {
   setupUser,
   tempHome,
 } from './helpers.ts';
-import { startTestHub, type TestHub } from './hub-helpers.ts';
+import { startTestHub, TERMINAL_OFF, type TestHub } from './hub-helpers.ts';
 
 /*
  * Review of 18/10, S-B13: on 127.0.0.1 the browser sends `monsters_session` to every local
@@ -243,7 +243,8 @@ describe('the most sensitive changes need the password typed recently (residual 
   const WEB_ONLY_FOR_RHEA = { agents: { rhea: { vault: true, web: false, folders: [] } } };
 
   it('a session confirmed a while ago asks again; the password confirms it in place', async () => {
-    const t = await startTestHub({});
+    // The terminal is on by default: this team has it off, turning it on is the sensitive change.
+    const t = await startTestHub({}, { hub: { settings: TERMINAL_OFF } });
     const session = await browserSession(await setupUser(t.core));
     const call = (method: string, path: string, body?: unknown) =>
       fetch(`${t.core.url}${path}`, {
@@ -355,7 +356,8 @@ describe('the most sensitive changes need the password typed recently (residual 
   });
 
   it('a monster back from the archive with the Terminal asks the same confirmation (review 19/10, n. 6)', async () => {
-    const t = await startTestHub({});
+    // The terminal is on by default: this team has it off, only Rhea is given it.
+    const t = await startTestHub({}, { hub: { settings: TERMINAL_OFF } });
     const session = await browserSession(await setupUser(t.core));
     const call = (method: string, path: string, body?: unknown) =>
       fetch(`${t.core.url}${path}`, {

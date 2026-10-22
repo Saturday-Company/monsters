@@ -23,7 +23,7 @@ import { forbiddenEntries, type DataDirLock } from '@monsters/tools';
 import type { ModelMessage } from 'ai';
 import { KilledError, type ControlScope } from '../kill/control-scope.ts';
 import type { EventLog } from '../log/event-log.ts';
-import { agentTokenLimit, type RunBudget } from '../team/run-limits.ts';
+import { agentTokenLimit, limitTokens, type RunBudget } from '../team/run-limits.ts';
 import {
   HARNESS_BASE_TOKENS,
   HarnessContextMeter,
@@ -519,6 +519,8 @@ async function runHarnessOnce(
   let steps = 0;
   let totalIn = 0;
   let totalOut = 0;
+  /** What the token limits count (`limitTokens`): cache reads left out. */
+  let counted = 0;
   let servedModel: AgentRunResult['model'] = null;
 
   const runLimit = budget?.exhausted() ?? null;
@@ -832,6 +834,8 @@ async function runHarnessOnce(
   const recordUsage = (e: HarnessUsageEvent, afterAbort: boolean) => {
     totalIn += e.inTok;
     totalOut += e.outTok;
+    const fresh = limitTokens(e.inTok, e.outTok, e.cacheReadTok);
+    counted += fresh;
     servedModel = { provider: harness.id, model: e.model };
     const context = e.aggregate
       ? undefined
@@ -856,10 +860,10 @@ async function runHarnessOnce(
     });
     started = Date.now();
     steps++;
-    budget?.addStep(e.inTok + e.outTok);
+    budget?.addStep(fresh);
     if (afterAbort || limitHit || tokenLimitHit) return;
     limitHit = budget?.exhausted() ?? null;
-    tokenLimitHit = !limitHit && maxTokens !== undefined && totalIn + totalOut >= maxTokens;
+    tokenLimitHit = !limitHit && maxTokens !== undefined && counted >= maxTokens;
     // The request that reached the limit may be the last of a complete answer:
     // the harness stops as soon as it does more work, or after a short grace.
     if (limitHit || tokenLimitHit) limitTimer = setTimeout(stopForLimit, LIMIT_GRACE_MS);

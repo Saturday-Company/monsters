@@ -90,6 +90,9 @@ describe('childEnv', () => {
         OPENROUTER_API_KEY: 'sk-or-v1-x',
         BRAVE_API_KEY: 'b',
         LEAKY: 'contains-the-known-secret',
+        // `npx` exports the user's npm prefix in lowercase (23/10/2026).
+        npm_config_prefix: '/home/u/.local',
+        npm_config_globalconfig: '/home/u/.npmrc-global',
       },
       isSecret: (_n, v) => v.includes('known-secret'),
     });
@@ -101,6 +104,9 @@ describe('childEnv', () => {
     expect(env['LEAKY']).toBeUndefined();
     expect(env['PATH']).toBe('/w/rhea/bin:/w/rhea/.tools/bin:/usr/bin');
     expect(env['NPM_CONFIG_PREFIX']).toBe('/w/rhea/.tools');
+    expect(env['npm_config_prefix']).toBeUndefined();
+    expect(env['npm_config_globalconfig']).toBeUndefined();
+    expect(env['npm_config_yes']).toBe('true');
     expect(env['UV_TOOL_BIN_DIR']).toBe('/w/rhea/.tools/bin');
   });
 

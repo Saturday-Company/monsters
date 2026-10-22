@@ -4,7 +4,7 @@ import { defineTool, LOGIN_EXCHANGE_PATH, LOGIN_TOKEN_PATH, type LogEvent } from
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from '../src/index.ts';
-import { fakeWebSearch, startTestHub, type TestHub } from './hub-helpers.ts';
+import { fakeWebSearch, startTestHub, TERMINAL_OFF, type TestHub } from './hub-helpers.ts';
 
 /*
  * Review of 18/10, M1: the CLI token (`~/.monsters/cli-token`) is a file every process of the
@@ -141,7 +141,8 @@ describe('the CLI token is not the user in person (review of 18/10, M1)', () => 
   });
 
   it('permissions, cap, rules, Telegram and approvals: never with the token; kill and status yes', async () => {
-    const t = await startTestHub({});
+    // The terminal is on by default: this team has it off, and the token cannot turn it on.
+    const t = await startTestHub({}, { hub: { settings: TERMINAL_OFF } });
     const owner = await setup(t);
     const minted = await mintedSession(t);
     const me = await withCookie(t, minted, 'GET', '/api/me');

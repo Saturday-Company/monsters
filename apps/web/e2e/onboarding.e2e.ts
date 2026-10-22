@@ -45,7 +45,7 @@ test('first start: model, about you, team, birth', async ({ page }) => {
   await expect(page.getByTestId('screen-progress')).toHaveCount(0);
   await page.getByRole('switch', { name: 'The web' }).click();
   await page.getByRole('switch', { name: 'The web' }).click();
-  // Only the three switches (terminal off by default); folders, browser and MCP tools
+  // Only the three switches (terminal on by default); folders, browser and MCP tools
   // are set up in the settings, nothing is announced as coming.
   const perms = page.getByRole('list', { name: 'The monsters’ permissions' });
   await expect(perms.getByRole('switch')).toHaveCount(3);
@@ -55,7 +55,7 @@ test('first start: model, about you, team, birth', async ({ page }) => {
   );
   await expect(page.getByRole('switch', { name: 'Terminal' })).toHaveAttribute(
     'aria-checked',
-    'false',
+    'true',
   );
   await page.getByRole('button', { name: /Looks good, continue/ }).click();
   await expect(page.getByTestId('guide-says')).toContainText('put the squad together');

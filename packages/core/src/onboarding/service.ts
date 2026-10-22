@@ -360,7 +360,7 @@ export class OnboardingService {
       s.permissions = {
         vault: req.permissions.vault,
         web: req.permissions.web,
-        shell: req.permissions.shell ?? false,
+        shell: req.permissions.shell ?? DEFAULT_AGENT_PERMISSIONS.shell ?? true,
         folders: checked,
       };
       changed = true;

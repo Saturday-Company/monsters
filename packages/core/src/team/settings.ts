@@ -263,7 +263,9 @@ export const HubSettingsSchema = z.object({
   mcpServers: McpServersSettingSchema,
   permissions: AgentPermissionsSettingSchema.extend({
     agents: z.record(z.string(), AgentPermissionsSettingSchema).default({}),
-  }).default({ vault: true, web: true, shell: false, folders: [], agents: {} }),
+  }).default({ vault: true, web: true, shell: true, folders: [], agents: {} }),
+  /** `PERMISSIONS_REVISION` of the saved permissions (missing: before the terminal was on by default). */
+  permissionsRevision: z.number().int().optional(),
   /** Telegram notifications (M2.6): quiet hours and which kinds to send. */
   telegram: TelegramPrefsSchema.default(DEFAULT_TELEGRAM_PREFS),
   /**

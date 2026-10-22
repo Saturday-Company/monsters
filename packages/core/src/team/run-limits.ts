@@ -20,7 +20,7 @@ export const RunLimitsSchema = z.object({
   maxOpenQuestionsPerRun: z.number().int().min(0).max(50).default(3),
   /** Model steps of a run, every agent included. */
   maxRunSteps: z.number().int().min(1).default(150),
-  /** Input + output tokens of a run, every agent included. */
+  /** Fresh input + output tokens of a run, every agent included (`limitTokens`). */
   maxRunTokens: z.number().int().min(1000).default(1_500_000),
   /**
    * Dollars a run may spend, counted from the cost the providers report
@@ -34,7 +34,7 @@ export const RunLimitsSchema = z.object({
    */
   maxTreeCostUsd: z.number().min(0.01).optional(),
   /**
-   * Input + output tokens of one delegated agent in one task, when its
+   * Fresh input + output tokens of one delegated agent in one task, when its
    * agent.yaml sets none: one agent cannot use the budget of all (D-064).
    */
   maxSubagentTokens: z.number().int().min(1000).default(400_000),
@@ -271,8 +271,20 @@ export class RunBudget {
 }
 
 /**
+ * The tokens of one request that count against the token limits: the input read
+ * fresh and the output. Prompt-cache reads are left out: every step of a run
+ * re-reads its whole context, and on Claude Code a research of nine steps already
+ * summed 400k input tokens, 92% of them cache reads, so a delegated monster was
+ * stopped halfway through its work (22/10/2026). They still go in `provider_usage`.
+ */
+export function limitTokens(inTok: number, outTok: number, cacheReadTok = 0): number {
+  const fresh = Math.max(0, inTok - Math.max(0, cacheReadTok));
+  return fresh + Math.max(0, outTok);
+}
+
+/**
  * Token limit of one agent in one task: its own `maxTotalTokens`, or for a
- * delegated agent the run's `maxSubagentTokens`.
+ * delegated agent the run's `maxSubagentTokens`, counted with `limitTokens`.
  */
 export function agentTokenLimit(
   agent: {

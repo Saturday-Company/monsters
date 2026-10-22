@@ -112,7 +112,11 @@ import { REPLY_KEY_REASON, TelegramBots } from './channels/telegram/bots.ts';
 import { isGroupThread, runsOfThread, threadOfRun } from './channels/telegram/threads.ts';
 import { isUserWords } from './team/user-words.ts';
 import { saveAppLanguage } from './i18n.ts';
-import { patchSettingsFile, readSettingsFile } from './onboarding/settings-file.ts';
+import {
+  openSavedPermissions,
+  patchSettingsFile,
+  readSettingsFile,
+} from './onboarding/settings-file.ts';
 import { migrate } from './db/migrations.ts';
 import { KilledError } from './kill/control-scope.ts';
 import { McpManager } from './mcp/manager.ts';
@@ -200,7 +204,7 @@ import { withProvenance } from './team/vault-provenance.ts';
 import { ASK_USER_WAIT_MS, teamTools } from './team/team-tools.ts';
 import { needsRareTools, pinnedChain, withTurnDeferrals } from './team/toolsets.ts';
 import { previewShowTool } from './team/preview-show.ts';
-import { ACCESS_REQUEST_TOOL, isFreeChain } from './team/team-service.ts';
+import { ACCESS_REQUEST_TOOL, fullPermissions, isFreeChain } from './team/team-service.ts';
 import { AccessRequests } from './team/access-requests.ts';
 import { accessCheck, isAccessClaim, withAccessHook } from './team/access-claims.ts';
 import {
@@ -543,7 +547,19 @@ export function resolveVaultLayout(
 export async function createHub(services: CoreServices, options: HubOptions = {}): Promise<Hub> {
   const { db, log, runs, state, paths } = services;
   const env = options.env ?? process.env;
+  // The terminal on by default (D-1xx-tools): permissions saved before it get it once.
+  const opened = openSavedPermissions(paths.home);
   const settings = loadHubSettings(paths.home, options.settings ?? {}, env);
+  for (const target of opened) {
+    const saved =
+      target === 'defaults' ? settings.permissions : settings.permissions.agents[target];
+    if (!saved) continue;
+    log.append({
+      agent: 'system',
+      type: 'permissions',
+      data: { target, permissions: fullPermissions(saved), by: 'system' },
+    });
+  }
   // The names of the vault's folders (D-154), before anything names one: the team's permissions,
   // the prompts, the projects folder below.
   const layout = resolveVaultLayout(settings.vault, env, (err) =>

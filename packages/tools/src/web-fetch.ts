@@ -82,6 +82,8 @@ export interface WebFetchOutput {
   chars: number;
   /** With `find`: passages found (0: none, the start of the page is returned). */
   matches?: number;
+  /** Monsters' words about this page (never the page's): it has almost no text without JavaScript. */
+  note?: string;
   /** With `urls`: every page read (or why it could not be), `url` first. */
   pages?: (WebFetchPage | { url: string; error: string })[];
   /**
@@ -97,6 +99,9 @@ export interface WebFetchOutput {
 }
 
 export type WebFetchPage = Omit<WebFetchOutput, 'pages' | 'notice' | 'not_read' | 'already_read'>;
+
+/** Below these characters of readable text a page is taken as built by JavaScript (D-1xx-tools). */
+const SCRIPTED_PAGE_CHARS = 200;
 
 /** Characters a page gives at least without `find` (D-071). */
 const MIN_PAGE_CHARS = 4000;
@@ -344,6 +349,14 @@ export function createWebFetchTool(
         }
         break;
       }
+      // A check against bots instead of the page (AWS WAF: 202 and an empty body): a refusal.
+      if (res.status === 202 && /challenge/i.test(res.headers.get('x-amzn-waf-action') ?? '')) {
+        await res.body?.cancel().catch(() => {});
+        noteRefused(runId, host);
+        throw new ToolError('SITE_REFUSED', toolPrompts().botCheck(host), {
+          hint: toolPrompts().fetchRefusedHint,
+        });
+      }
       if (!res.ok) {
         await res.body?.cancel().catch(() => {});
         if (res.status === 401 || res.status === 403) {
@@ -363,9 +376,16 @@ export function createWebFetchTool(
       }
       const body = await readLimited(res, maxBytes);
       const isHtml = /html/.test(contentType) || /^\s*<(!doctype html|html)/i.test(body.text);
-      const page = isHtml
+      const parsed = isHtml
         ? htmlToMarkdown(body.text)
-        : { title: undefined, markdown: body.text.trim() };
+        : { title: undefined, markdown: body.text.trim(), about: '' };
+      // Almost no text without JavaScript (D-1xx-tools): what the page says about itself, and why.
+      // Before, the model got `content: ""` and told the user it could not read the site.
+      const scripted = isHtml && parsed.markdown.length < SCRIPTED_PAGE_CHARS;
+      const page =
+        scripted && parsed.about.length > parsed.markdown.length
+          ? { ...parsed, markdown: [parsed.markdown, parsed.about].filter(Boolean).join('\n\n') }
+          : parsed;
       // Without `find`, never less than 4000 characters (D-071): a page cut at
       // 2000 was read again two or three times with other keywords.
       const limit = input.find
@@ -388,6 +408,7 @@ export function createWebFetchTool(
         ...(found ? { matches: found.matches } : {}),
       };
       if (page.title) out.title = page.title;
+      if (scripted) out.note = toolPrompts().scriptedPage(parsed.about.length > 0);
       return out;
     } catch (err) {
       throw fetchFailure(err, parent, `fetching ${url.toString()}`);

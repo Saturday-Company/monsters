@@ -18,19 +18,27 @@ async function openRhea(page: Page) {
 
 test('settings: change what a monster may do, saved at once and logged', async ({ page }) => {
   const rhea = await openRhea(page);
-  await expect(rhea.getByTestId('permissions-summary')).toHaveText('Notes, web');
+  // Everything is on by default (D-1xx-tools): the terminal too, with its warning.
+  await expect(rhea.getByTestId('permissions-summary')).toHaveText('Notes, web, terminal');
+  await expect(rhea.getByTestId('shell-warning')).toBeVisible();
 
-  // Terminal on: while it is saved (the mock holds the reply until the test
+  // Terminal off: while it is saved (the mock holds the reply until the test
   // has looked) the switches are disabled, keyboard included, and the summary
-  // waits; then a plain warning, the summary follows.
+  // waits; then the warning goes and the summary follows.
   await holdMock(page);
   await rhea.getByRole('switch', { name: 'Terminal', exact: true }).click();
   await expect(rhea.getByRole('switch', { name: 'The web', exact: true })).toBeDisabled();
   await expect(rhea.getByRole('switch', { name: 'Terminal', exact: true })).toBeDisabled();
-  await expect(rhea.getByTestId('permissions-summary')).toHaveText('Notes, web');
+  await expect(rhea.getByTestId('permissions-summary')).toHaveText('Notes, web, terminal');
   await releaseMock(page);
   await expect(page.getByText('Rhea’s permissions saved.')).toBeVisible();
   await expect(rhea.getByRole('switch', { name: 'The web', exact: true })).toBeEnabled();
+  await expect(rhea.getByTestId('shell-warning')).toHaveCount(0);
+  await expect(rhea.getByTestId('permissions-summary')).toHaveText('Notes, web');
+
+  // Terminal on again: a plain warning, the summary follows.
+  await rhea.getByRole('switch', { name: 'Terminal', exact: true }).click();
+  await expect(rhea.getByRole('switch', { name: 'Terminal', exact: true })).toBeEnabled();
   await expect(rhea.getByTestId('shell-warning')).toContainText(
     'anything on the computer that you can',
   );
@@ -74,7 +82,7 @@ test('settings: change what a monster may do, saved at once and logged', async (
   // Another monster keeps its own permissions.
   await expect(
     page.getByTestId('agent-permissions-dione').getByTestId('permissions-summary'),
-  ).toHaveText('Notes, web');
+  ).toHaveText('Notes, web, terminal');
 
   // Remove the folder.
   await rhea.getByRole('button', { name: 'Remove /home/demo/Progetti' }).click();

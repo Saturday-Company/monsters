@@ -392,10 +392,21 @@ export interface AgentPermissions {
   folders?: FolderGrant[];
 }
 
-/** The terminal is off by default: it reaches the whole account, the user turns it on. */
+/**
+ * Everything on by default (D-1xx-tools): a monster without the terminal or the web is not an
+ * agent, and the testers of alpha.20 found the terminal off and the monsters unable to work.
+ * The user turns a permission off in Settings → Permissions; the brake, the lockout of the data
+ * folder and the spending caps stay on.
+ */
 export const DEFAULT_AGENT_PERMISSIONS: AgentPermissions = {
   vault: true,
   web: true,
-  shell: false,
+  shell: true,
   folders: [],
 };
+
+/**
+ * Revision of the saved permissions: below 2 the terminal was off by default, and a core that
+ * finds an older file turns it on once (`openSavedPermissions`).
+ */
+export const PERMISSIONS_REVISION = 2;

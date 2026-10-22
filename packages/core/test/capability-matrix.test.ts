@@ -39,7 +39,7 @@ import {
   checkClaudeTools,
   claudeToolFlags,
 } from './fixtures/probe-harness-tools.ts';
-import { fakeWebSearch, startTestHub, type TestHub } from './hub-helpers.ts';
+import { fakeWebSearch, startTestHub, TERMINAL_OFF, type TestHub } from './hub-helpers.ts';
 import { FAKE_TOKEN, FakeTelegram, type FakeUser } from './telegram-fake.ts';
 import { inLang } from './prompt-lang.ts';
 
@@ -469,7 +469,8 @@ describe.each(MODES)('visible == executable on %s (D1, D-136)', (mode) => {
   });
 
   it('a file attached, without the terminal', async () => {
-    const { t, seen } = await hubFor(mode, ['rhea']);
+    // The terminal is on by default: this team has it off.
+    const { t, seen } = await hubFor(mode, ['rhea'], { hub: { settings: TERMINAL_OFF } });
     const token = readFileSync(t.core.paths.cliToken, 'utf8').trim();
     const f = new FormData();
     f.set('file', new Blob([new Uint8Array(png())]), 'gatto.png');

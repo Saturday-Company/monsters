@@ -268,7 +268,27 @@ const CONFIG_WORD =
   /(?:^|[\s'"`=;|&(<>/\\])(?:\.claude(?:[/\\]|\b)|\.mcp\.json\b|CLAUDE(?:\.local)?\.md\b|AGENTS(?:\.override)?\.md\b|\.codex(?:[/\\]|\b))/i;
 /** A command that writes, moves or removes files (a speed bump, like the lockout). */
 const WRITES =
-  /(?:>|\b(?:tee|cp|mv|ln|rm|rmdir|mkdir|touch|install|dd|truncate|chmod|unlink|rsync|tar|unzip|curl|wget|python3?|node|perl|ruby|sed\s+(?:[^\s;&|]+\s+)*-[a-zA-Z]*i|Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item|Remove-Item|Rename-Item)\b)/i;
+  /\b(?:tee|cp|mv|ln|rm|rmdir|mkdir|touch|install|dd|truncate|chmod|unlink|rsync|tar|unzip|curl|wget|python3?|node|perl|ruby|sed\s+(?:[^\s;&|]+\s+)*-[a-zA-Z]*i|Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item|Remove-Item|Rename-Item)\b/i;
+/**
+ * Redirections that write no file (`2>&1`, `>&2`, `>/dev/null`, `2> NUL`): a read of
+ * CLAUDE.md with `2>&1` elsewhere in the line was refused as a write (22/10/2026).
+ */
+const NO_FILE_REDIRECT = /(?:\d*|&)>>?\s*(?:&\d+|&-|\/dev\/null\b|NUL\b|\$null\b)/gi;
+/** The target of each remaining redirection into a file. */
+const REDIRECT_TARGET = /(?:\d*|&)>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>]+)/g;
+
+/** A command line that may write the harness configuration: a writing command or a redirection into it. */
+function commandWritesConfig(raw: string): boolean {
+  const command = raw.replace(NO_FILE_REDIRECT, ' ');
+  if (!CONFIG_WORD.test(command)) return false;
+  if (WRITES.test(command)) return true;
+  for (const m of command.matchAll(REDIRECT_TARGET)) {
+    const target = m[1]!;
+    // A target named through a variable or a substitution may be any of them.
+    if (CONFIG_WORD.test(` ${target}`) || /[$`]/.test(target)) return true;
+  }
+  return false;
+}
 
 /**
  * A call of Claude Code's terminal or file tools that would write the
@@ -303,7 +323,7 @@ export async function harnessConfigWrite(
       return configPath(str(i['notebook_path']));
     case 'Bash': {
       const command = str(i['command']) ?? '';
-      return CONFIG_WORD.test(command) && WRITES.test(command);
+      return commandWritesConfig(command);
     }
     default:
       return false;

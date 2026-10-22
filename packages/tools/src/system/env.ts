@@ -82,6 +82,10 @@ export function childEnv(options: ChildEnvOptions): Record<string, string> {
   for (const [name, value] of Object.entries(base)) {
     if (value === undefined || isMonstersEnv(name) || isAgentSessionEnv(name)) continue;
     if (options.isSecret?.(name, value)) continue;
+    // npm's own settings of the parent (`npx` and `pnpm` export them, in any spelling): a
+    // lowercase `npm_config_prefix` wins over the agent's and sent global installs to the
+    // user's prefix (23/10/2026). The agent's are set below.
+    if (/^npm_config_/i.test(name)) continue;
     env[name] = value;
   }
   // Windows variables are case-insensitive: keep whatever spelling PATH has.

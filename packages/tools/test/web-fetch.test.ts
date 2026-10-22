@@ -25,6 +25,11 @@ const ARTICLE = `<!doctype html><html><head><title>Titolo pagina</title>
 <img src="x.png" alt="foto"></article></main>
 <aside>Pubblicità</aside><footer>© 2026 Sito</footer></body></html>`;
 
+const SPA = `<!doctype html><html><head><title>WitDesk</title>
+<meta name="description" content="L'helpdesk con l'AI che risponde dai vostri manuali.">
+<script type="application/ld+json">{"@type":"SoftwareApplication","name":"WitDesk","offers":{"description":"Da 99 euro al mese"}}</script>
+</head><body><div id="root"></div><script src="/app.js"></script></body></html>`;
+
 let server: Server;
 let forbidden = 0;
 let base: string;
@@ -72,6 +77,15 @@ beforeAll(async () => {
         return;
       case '/slow':
         // Never answers: used for timeout and abort.
+        return;
+      case '/spa':
+        // A site built in the browser: an empty root, what it says about itself in the head.
+        res.writeHead(200, { 'content-type': 'text/html' });
+        res.end(SPA);
+        return;
+      case '/waf':
+        res.writeHead(202, { 'content-type': 'text/html', 'x-amzn-waf-action': 'challenge' });
+        res.end();
         return;
       default:
         res.writeHead(404);
@@ -490,5 +504,31 @@ describe('web_fetch DNS checks (SSRF)', () => {
     const out = await tool.execute({ url: `http://pinned.test:${port}/pin` }, ctx());
     expect(out.content).toBe(`SECRET pinned.test:${port}`);
     expect(hits).toEqual(['/pin']);
+  });
+});
+
+describe('pages built by JavaScript (D-1xx-tools)', () => {
+  const tool = () => createWebFetchTool({ allowPrivateHosts: true });
+
+  it('gives what the page says about itself and says why there is little', async () => {
+    const out = await tool().execute({ url: `${base}/spa` }, ctx());
+    expect(out.content).toContain("L'helpdesk con l'AI");
+    expect(out.content).toContain('Da 99 euro al mese');
+    expect(out.note).toMatch(/JavaScript/);
+    expect(out.note).toMatch(/permission of the user/);
+  });
+
+  it('a normal page has no note', async () => {
+    const out = await tool().execute({ url: `${base}/article` }, ctx());
+    expect(out.note).toBeUndefined();
+  });
+
+  it('a check against bots is a refusal of the site, not an empty page', async () => {
+    const err = await tool()
+      .execute({ url: `${base}/waf` }, ctx())
+      .catch((e: unknown) => e as ToolError);
+    expect(err).toBeInstanceOf(ToolError);
+    expect((err as ToolError).code).toBe('SITE_REFUSED');
+    expect((err as ToolError).message).toMatch(/check against bots/);
   });
 });

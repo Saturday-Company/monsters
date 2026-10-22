@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type {
-  AgentPermissions,
-  InstinctMode,
-  InstinctUse,
-  Lang,
-  TelegramPrefs,
+import {
+  PERMISSIONS_REVISION,
+  type AgentPermissions,
+  type InstinctMode,
+  type InstinctUse,
+  type Lang,
+  type TelegramPrefs,
 } from '@monsters/shared';
 import { writeSensitiveFile } from '../config.ts';
 import type { DecisionRuleInput } from '../team/decision.ts';
@@ -65,7 +66,11 @@ export function patchSettingsFile(home: string, patch: SettingsPatch): Record<st
   if (patch.language !== undefined) next['language'] = patch.language;
   if (patch.userName !== undefined) next['userName'] = patch.userName;
   if (patch.orchestratorName !== undefined) next['orchestratorName'] = patch.orchestratorName;
-  if (patch.permissions !== undefined) next['permissions'] = patch.permissions;
+  if (patch.permissions !== undefined) {
+    next['permissions'] = patch.permissions;
+    // A choice of the user from now on: `openSavedPermissions` never changes it.
+    next['permissionsRevision'] = PERMISSIONS_REVISION;
+  }
   if (patch.telegram !== undefined) next['telegram'] = patch.telegram;
   if (patch.openrouter !== undefined) {
     const current = (next['openrouter'] ?? {}) as Record<string, unknown>;
@@ -108,4 +113,43 @@ export function patchSettingsFile(home: string, patch: SettingsPatch): Record<st
   if (patch.spend !== undefined) next['spend'] = patch.spend;
   writeSensitiveFile(join(home, SETTINGS_FILE), `${JSON.stringify(next, null, 2)}\n`);
   return next;
+}
+
+/**
+ * Once per installation (D-1xx-tools): permissions saved when the terminal was off by default
+ * get it on, for the team and for every monster with permissions of its own. Returns who got it
+ * (`defaults` or an agent id), empty when nothing changed. Files without permissions (before
+ * the onboarding) only get the revision: the defaults already have the terminal on.
+ */
+export function openSavedPermissions(home: string): string[] {
+  const current = readSettingsFile(home);
+  const revision = current['permissionsRevision'];
+  if (typeof revision === 'number' && revision >= PERMISSIONS_REVISION) return [];
+  const next: Record<string, unknown> = { ...current, permissionsRevision: PERMISSIONS_REVISION };
+  const opened: string[] = [];
+  const saved = current['permissions'];
+  if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+    const permissions = { ...(saved as Record<string, unknown>) };
+    if (permissions['shell'] !== true) {
+      permissions['shell'] = true;
+      opened.push('defaults');
+    }
+    const agents = permissions['agents'];
+    if (agents && typeof agents === 'object' && !Array.isArray(agents)) {
+      const own: Record<string, unknown> = {};
+      for (const [id, p] of Object.entries(agents as Record<string, unknown>)) {
+        if (p && typeof p === 'object' && (p as Record<string, unknown>)['shell'] !== true) {
+          own[id] = { ...(p as Record<string, unknown>), shell: true };
+          opened.push(id);
+        } else own[id] = p;
+      }
+      permissions['agents'] = own;
+    }
+    next['permissions'] = permissions;
+  } else if (Object.keys(current).length === 0) {
+    // No settings file yet: nothing to open, the revision comes with the first save.
+    return [];
+  }
+  writeSensitiveFile(join(home, SETTINGS_FILE), `${JSON.stringify(next, null, 2)}\n`);
+  return opened;
 }

@@ -23,6 +23,17 @@ const it = {
   pageRefused: (what: string, status: number) =>
     `${what}: il sito ha rifiutato la lettura (HTTP ${status})`,
   alreadyRefused: (host: string) => `il sito ${host} ha già rifiutato la lettura in questo compito`,
+  /** The site answered with a check against bots instead of the page (AWS WAF, 202 without a body). */
+  botCheck: (site: string) =>
+    `il sito ${site} ha risposto con un controllo anti-bot invece della pagina`,
+  /** A page with almost no text without JavaScript (`note` of `web_fetch`, D-1xx-tools). */
+  scriptedPage: (about: boolean) =>
+    'La pagina ha pochissimo testo senza JavaScript (un sito costruito nel browser, o un controllo anti-bot). ' +
+    (about
+      ? 'In `content` c’è quello che la pagina dice di sé (descrizione e dati strutturati). '
+      : '') +
+    'Per saperne di più leggi altre pagine dello stesso sito (chi siamo, prezzi, funzioni, blog), cerca con web_search o usa il browser se ce l’hai. ' +
+    "Non è un permesso dell'utente: non chiedere all'utente di incollare il sito.",
   instructionFilesDenied:
     'CLAUDE.md, AGENTS.md, .claude, .mcp.json e .codex della cartella del progetto (anche nelle sottocartelle) non si scrivono: sono le istruzioni del progetto, le cambia l’utente.',
   internalFilesDenied:
@@ -42,6 +53,14 @@ const en: typeof it = {
   siteRefused: (site, status) => `the site ${site} refused the reading (HTTP ${status})`,
   pageRefused: (what, status) => `${what}: the site refused the reading (HTTP ${status})`,
   alreadyRefused: (host) => `the site ${host} already refused the reading in this task`,
+  botCheck: (site) => `the site ${site} answered with a check against bots instead of the page`,
+  scriptedPage: (about) =>
+    'The page has almost no text without JavaScript (a site built in the browser, or a check against bots). ' +
+    (about
+      ? '`content` holds what the page says about itself (description and structured data). '
+      : '') +
+    'To learn more read other pages of the same site (about, pricing, features, blog), search with web_search or use the browser if you have it. ' +
+    'This isn’t a permission of the user: don’t ask the user to paste the site.',
   instructionFilesDenied:
     'CLAUDE.md, AGENTS.md, .claude, .mcp.json and .codex in the project’s folder (also in the subfolders) are not written: they are the project’s instructions, the user changes them.',
   internalFilesDenied: 'The internal files of Monsters aren’t accessible: use the Monsters tools.',

@@ -23,7 +23,7 @@ import { isStepCount, streamText, type ModelMessage, type StopCondition, type To
 import type { UserPart } from '../files/model-input.ts';
 import type { ControlScope } from '../kill/control-scope.ts';
 import type { EventLog } from '../log/event-log.ts';
-import { agentTokenLimit, type RunBudget } from '../team/run-limits.ts';
+import { agentTokenLimit, limitTokens, type RunBudget } from '../team/run-limits.ts';
 import { CallTracker, errorStreakReminder } from './call-tracker.ts';
 import { RunContext, type ContextLimits } from './context.ts';
 import {
@@ -754,6 +754,8 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
   const maxTokens = agentTokenLimit(agent.config, budget?.limits);
   let totalIn = 0;
   let totalOut = 0;
+  /** What the token limits count (`limitTokens`): cache reads left out. */
+  let counted = 0;
   let tokenLimitHit = false;
   /**
    * Why the last step had no tools (AG-03): the agent's steps, its tokens or
@@ -769,7 +771,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
   }
   if (maxTokens !== undefined) {
     stopWhen.push(() => {
-      tokenLimitHit = totalIn + totalOut >= maxTokens;
+      tokenLimitHit = counted >= maxTokens;
       return tokenLimitHit && forced !== null;
     });
   }
@@ -778,7 +780,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     if (agentStep >= limits.maxSteps - 1) return 'max_steps';
     if (budget && (budget.exhausted(agentId) !== null || budget.stepsLeft() <= 1))
       return 'run_limit';
-    if (maxTokens !== undefined && totalIn + totalOut >= maxTokens) return 'token_limit';
+    if (maxTokens !== undefined && counted >= maxTokens) return 'token_limit';
     return null;
   };
 
@@ -882,6 +884,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
       p.costUsd === undefined || p.inputTokens === undefined || p.outputTokens === undefined;
     totalIn += inputTokens;
     totalOut += outputTokens;
+    counted += inputTokens + outputTokens;
     budget?.addUsage(inputTokens + outputTokens, priced ?? 0);
     log.append({
       agent: agentId,
@@ -1184,6 +1187,8 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
             const outTok = part.usage.outputTokens ?? 0;
             totalIn += inTok;
             totalOut += outTok;
+            const fresh = limitTokens(inTok, outTok, part.usage.inputTokenDetails?.cacheReadTokens);
+            counted += fresh;
             const reported = costFromMetadata(part.providerMetadata);
             // No cost from the provider (a direct key): the price list's, when it has one (F-A4).
             const estimatedCost =
@@ -1191,7 +1196,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
                 ? estimateCostUsd(part.usage, options.price?.({ provider, model }))
                 : undefined;
             const costUsd = reported ?? estimatedCost;
-            budget?.addStep(inTok + outTok, costUsd ?? 0);
+            budget?.addStep(fresh, costUsd ?? 0);
             lastFinish = part.finishReason;
             if (stepText.trim()) {
               if (isEcho(stepText, asked)) echoed = true;

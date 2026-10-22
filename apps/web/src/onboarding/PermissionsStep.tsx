@@ -67,13 +67,9 @@ export function PermissionsStep({
   onState: (s: OnboardingState) => void;
 }) {
   const s = onboardingStrings().permissions;
-  // Who writes software finds the terminal on (audit 2.9); everybody else off.
+  // Everything on (D-1xx-tools): the user turns off what they do not want.
   const [perm, setPerm] = useState<AgentPermissions>(
-    () =>
-      state.permissions ?? {
-        ...DEFAULT_AGENT_PERMISSIONS,
-        shell: (state.answers['lavoro']?.values['cosa'] ?? []).includes('sviluppo'),
-      },
+    () => state.permissions ?? { ...DEFAULT_AGENT_PERMISSIONS },
   );
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);

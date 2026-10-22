@@ -463,6 +463,8 @@ describe('the harness configuration of the working folder is never written (D-07
       ['Bash', { command: 'printf x | tee CLAUDE.md' }],
       ['Bash', { command: "sed -i 's/a/b/' AGENTS.md" }],
       ['Bash', { command: 'echo {} > ./.mcp.json' }],
+      ['Bash', { command: 'echo x >> "notes/CLAUDE.md" 2>&1' }],
+      ['Bash', { command: 'F=AGENTS.md; echo x > $F' }],
       ['Write', { file_path: '.claude/settings.local.json', content: '{}' }],
       ['Write', { file_path: join(ws, '.mcp.json'), content: '{}' }],
       ['Edit', { file_path: join(ws, 'AGENTS.md'), old_string: 'a', new_string: 'b' }],
@@ -477,13 +479,16 @@ describe('the harness configuration of the working folder is never written (D-07
     for (const [tool, input] of [
       ['Bash', { command: 'cat AGENTS.md' }],
       ['Bash', { command: 'ls -la .claude' }],
+      // A read with harmless redirections (22/10/2026).
+      ['Bash', { command: 'ls settimane/W44 2>&1; wc -l strategia.md CLAUDE.md' }],
+      ['Bash', { command: 'cat AGENTS.md 2>/dev/null | head -50 >&2' }],
       ['Read', { file_path: join(ws, 'AGENTS.md') }],
       ['Write', { file_path: 'notes/README.md', content: 'x' }],
       ['Write', { file_path: 'out.txt', content: 'x' }],
     ] as const) {
       expect(await pre(tool, input), `${tool} ${JSON.stringify(input)}`).toEqual({});
     }
-    expect(appended.filter((e) => e.type === 'security')).toHaveLength(11);
+    expect(appended.filter((e) => e.type === 'security')).toHaveLength(13);
   });
 
   it.skipIf(process.platform === 'win32')(

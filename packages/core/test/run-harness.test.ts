@@ -155,6 +155,28 @@ describe('harness runner and limits', () => {
     expect(error?.data).toMatchObject({ code: 'token_limit' });
   });
 
+  it('leaves prompt-cache reads out of the token limit and the run budget', async () => {
+    // Nine steps of a research that re-read a growing context: 400k input tokens, 92% cache.
+    const steps: HarnessEvent[] = Array.from({ length: 9 }, () => ({
+      type: 'usage' as const,
+      model: 'sonnet',
+      inTok: 50_000,
+      outTok: 500,
+      cacheReadTok: 46_000,
+    }));
+    const budget = new RunBudget(RunLimitsSchema.parse({}));
+    const r = await run(
+      scripted([...steps, ...answer.filter((e) => e.type !== 'usage')]),
+      agent({ maxTotalTokens: 400_000 }),
+      budget,
+    );
+    expect(r.status).toBe('completed');
+    expect(budget.usage.tokens).toBe(9 * 4500);
+    // The log keeps the real input, cache reads included.
+    const usage = r.events.find((e) => e.type === 'provider_usage');
+    expect(usage?.data).toMatchObject({ inputTokens: 50_000, cachedInputTokens: 46_000 });
+  });
+
   it('a complete answer stays completed within the token limit grace', async () => {
     const r = await run(scripted(answer), agent({ maxTotalTokens: 1000 }));
     expect(r.status).toBe('completed');

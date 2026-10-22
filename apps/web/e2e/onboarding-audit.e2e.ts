@@ -99,7 +99,7 @@ test('"Lo faccio dopo" leaves the model step to do (2.3)', async ({ page }) => {
 test.describe('who writes software', () => {
   test.use({ locale: 'de-DE' });
 
-  test('chips of the work, terminal on, language of the system (2.7, 2.9, 2.11, 2.12)', async ({
+  test('chips of the work, language of the system, terminal on for everybody (2.7, 2.9, 2.11, 2.12)', async ({
     page,
   }) => {
     // German browser: the app speaks only English and Italian, so it falls back to English (D-153).

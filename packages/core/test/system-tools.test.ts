@@ -5,7 +5,13 @@ import { fake } from '@monsters/providers/testing';
 import type { LogEvent, PermissionsResponse } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
 import { buildSystemPrompt, isFreeChain, systemTools } from '../src/index.ts';
-import { deferred, startTestHub, toolResultsSeen, type TestHub } from './hub-helpers.ts';
+import {
+  deferred,
+  startTestHub,
+  TERMINAL_OFF,
+  toolResultsSeen,
+  type TestHub,
+} from './hub-helpers.ts';
 import { tempHome } from './helpers.ts';
 import { inLang } from './prompt-lang.ts';
 
@@ -36,7 +42,8 @@ const toolResult = (t: TestHub, runId: string, tool: string) =>
 
 describe('system tools in the hub', () => {
   it('offers shell and fs_* only to the agents whose permissions allow them', async () => {
-    const t = await startTestHub({});
+    // The terminal is on by default: the team starts with it off, as a user may have chosen.
+    const t = await startTestHub({}, { hub: { settings: TERMINAL_OFF } });
     // Starting a core picks the language of the system: the test says which one it wants.
     inLang('it');
     const tools = (id: string) => t.core.hub.team.get(id)!.config.tools;
@@ -78,7 +85,7 @@ describe('system tools in the hub', () => {
     expect(prompt).toContain('Terminale e file (`shell`, `fs_*`)');
   });
 
-  it('keeps settings written before Phase 2 valid: no terminal, no folders', async () => {
+  it('settings written before Phase 2 load fine; the terminal comes on once, logged by the system', async () => {
     const home = tempHome();
     mkdirSync(home, { recursive: true });
     writeFileSync(
@@ -87,16 +94,28 @@ describe('system tools in the hub', () => {
     );
     const t = await startTestHub({}, { hub: { settings: {} }, home });
     const view = await t.json<PermissionsResponse>('GET', '/api/permissions');
-    expect(view.defaults).toEqual({ vault: true, web: false, shell: false, folders: [] });
+    expect(view.defaults).toEqual({ vault: true, web: false, shell: true, folders: [] });
     expect(view.agents.map((a) => [a.id, a.custom])).toEqual([
       ['titan', false],
       ['dione', false],
       ['rhea', false],
     ]);
+    const logged = t.events().filter((e) => e.type === 'permissions');
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toMatchObject({
+      agent: 'system',
+      data: { target: 'defaults', by: 'system' },
+    });
+    const saved = JSON.parse(readFileSync(join(home, 'settings.json'), 'utf8')) as {
+      permissions: { shell: boolean };
+      permissionsRevision: number;
+    };
+    expect(saved.permissions.shell).toBe(true);
+    expect(saved.permissionsRevision).toBe(2);
   });
 
   it('changes permissions through the API: saved, applied, logged; bad folders refused', async () => {
-    const t = await startTestHub({});
+    const t = await startTestHub({}, { hub: { settings: TERMINAL_OFF } });
     const folder = join(t.home, '..', 'Progetti');
     mkdirSync(folder);
     const updated = await t.json<PermissionsResponse>('PUT', '/api/permissions', {
