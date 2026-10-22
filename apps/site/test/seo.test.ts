@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STRINGS } from '../src/i18n/strings.ts';
-import { absolutizeLinks, llmsFullTxt, llmsTxt } from '../src/lib/llms.ts';
+import { absolutizeLinks } from '../src/lib/docs.ts';
+import { llmsFullTxt, llmsTxt } from '../src/lib/llms.ts';
 import { COMPANY_ID, SOFTWARE_ID, jsonLdGraph, jsonLdText } from '../src/lib/seo.ts';
 import fallback from '../src/data/fallback.json' with { type: 'json' };
 import { downloadsFrom, latestVersion, type Feed } from '../src/lib/feed.ts';
@@ -32,7 +33,10 @@ describe('JSON-LD', () => {
       expect(nodes[0]?.['@id']).toBe(SOFTWARE_ID);
       expect(nodes[2]?.['@id']).toBe(COMPANY_ID);
       const faq = nodes[3] as unknown as { mainEntity: { name: string }[] };
-      expect(faq.mainEntity.map((q) => q.name)).toEqual(t.faq.items.map((i) => i.q));
+      expect(faq.mainEntity.map((q) => q.name)).toEqual([
+        ...t.faq.items.map((i) => i.q),
+        ...t.faq.more.items.map((i) => i.q),
+      ]);
       const text = jsonLdText({ t, site, version: '' });
       expect(JSON.parse(text) as unknown).toEqual(
         JSON.parse(JSON.stringify(jsonLdGraph({ t, site, version: '' }))),

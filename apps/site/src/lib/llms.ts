@@ -3,47 +3,24 @@
  * same plus the English guides of the repository, read from `docs/` at build time). Both are
  * plain English Markdown, written for assistants and crawlers, not shown on the pages.
  */
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, posix, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { COMPARE, COMPETITORS, VERIFIED } from '../i18n/compare.ts';
 import { STRINGS } from '../i18n/strings.ts';
 import type { SiteData } from './build-data.ts';
+import { GUIDES, absolutizeLinks, blob, docsDir } from './docs.ts';
 import { REPO_URL, RELEASES_URL } from './feed.ts';
-import { COMPANY_NAME, COMPANY_URL, LICENSE_URL, SITE_ORIGIN } from './seo.ts';
-
-/** The guides of `docs/` that make sense for a user, in reading order. */
-export const GUIDES = [
-  { file: 'ARCHITECTURE.md', title: 'Architecture' },
-  { file: 'security-model.md', title: 'Security model' },
-  { file: 'mcp-vault.md', title: 'The vault as an MCP server' },
-  { file: 'remote.md', title: 'Using Monsters from afar: SSH and Telegram' },
-  { file: 'subscriptions.md', title: 'Using your Claude and ChatGPT subscriptions' },
-] as const;
-
-const blob = (path: string): string => `${REPO_URL}/blob/main/${path}`;
-
-/** The repository's `docs/` folder, found by walking up from the build's working directory. */
-function docsDir(): string {
-  let dir = process.cwd();
-  for (let i = 0; i < 6; i++) {
-    const candidate = resolve(dir, 'docs');
-    if (existsSync(resolve(candidate, 'ARCHITECTURE.md'))) return candidate;
-    dir = dirname(dir);
-  }
-  throw new Error('llms-full.txt: docs/ not found');
-}
-
-/** Relative Markdown links of a guide become absolute GitHub links. */
-export function absolutizeLinks(markdown: string, fromFile: string): string {
-  return markdown.replace(/\]\(([^)\s]+)\)/g, (m, target: string) => {
-    if (/^(?:[a-z][a-z0-9+.-]*:|#|\/)/i.test(target)) return m;
-    const [path = '', anchor] = target.split('#');
-    const abs = posix.normalize(posix.join('docs', dirname(fromFile), path));
-    return `](${blob(abs)}${anchor ? `#${anchor}` : ''})`;
-  });
-}
+import { COMPANY_NAME, COMPANY_URL, LICENSE_URL, SITE_ORIGIN, homeFaq } from './seo.ts';
 
 export function llmsTxt(data: SiteData): string {
-  const faq = STRINGS.en.faq.items.map((i) => `- **${i.q}** ${i.a}`).join('\n');
+  const faq = homeFaq(STRINGS.en)
+    .map((i) => `- **${i.q}** ${i.a}`)
+    .join('\n');
+  const site = (path: string): string => `${SITE_ORIGIN}${path}`;
+  const guides = GUIDES.map((g) => `- ${g.title}: ${site(`/docs/${g.slug}/`)}`).join('\n');
+  const compare = COMPETITORS.map(
+    (c) => `- ${COMPARE.en.pages[c].title}: ${site(`/compare/${c}/`)}`,
+  ).join('\n');
   const downloads =
     data.downloads.length > 0
       ? data.downloads.map((d) => `  - ${d.os} (${d.format}): ${d.url}`).join('\n')
@@ -89,16 +66,23 @@ ${downloads}
 - Website: ${SITE_ORIGIN}/ (Italian: ${SITE_ORIGIN}/it/)
 - Source code: ${REPO_URL}
 - README: ${blob('README.md')}
-- Architecture: ${blob('docs/ARCHITECTURE.md')}
-- Security model: ${blob('docs/security-model.md')}
-- Vault as an MCP server: ${blob('docs/mcp-vault.md')}
-- Remote use (SSH, Telegram): ${blob('docs/remote.md')}
-- Subscriptions: ${blob('docs/subscriptions.md')}
-- Roadmap: ${blob('docs/ROADMAP.md')}
-- Changelog: ${blob('CHANGELOG.md')}
+- Changelog: ${site('/changelog/')}
 - Issues and discussions: ${REPO_URL}/issues
 - License (Apache-2.0): ${LICENSE_URL}
 - Full text of the guides in one file: ${SITE_ORIGIN}/llms-full.txt
+
+## Documentation
+
+The user guides, English only, also on GitHub (${REPO_URL}/tree/main/docs).
+
+- All guides: ${site('/docs/')}
+${guides}
+
+## Comparisons
+
+Honest side-by-side pages, with sources, checked on ${VERIFIED}: where the other project is ahead and when to pick it. Overview: ${site('/compare/')}
+
+${compare}
 
 ## Frequently asked questions
 

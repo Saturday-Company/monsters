@@ -20,6 +20,9 @@ const en = {
     specs: 'Specs',
     download: 'Download',
     faq: 'FAQ',
+    docs: 'Docs',
+    compare: 'Compare',
+    changelog: 'Changelog',
     star: 'Star',
     stars: 'GitHub stars',
     starsUnknown: 'GitHub stars: not counted yet',
@@ -240,6 +243,32 @@ const en = {
         a: 'On Telegram, or over SSH with monsters chat. Projects and automations I come up with arrive as drafts: nothing starts until you confirm.',
       },
     ],
+    more: {
+      title: 'Questions people ask',
+      compare: 'How Monsters compares with other open-source agent apps',
+      items: [
+        {
+          q: 'Is Monsters free and open source?',
+          a: 'Yes. The app is free and the code is open source under the Apache-2.0 license, on GitHub. Models cost what their providers charge, and you set daily and monthly spending caps; with the free models on OpenRouter, starting costs nothing. The name Monsters and the monsters’ characters are trademarks, and the license does not grant rights to them.',
+        },
+        {
+          q: 'Can I run it with local models like Ollama?',
+          a: 'Yes. Ollama and LM Studio work as providers: add one in Settings, Models, and make it a monster’s first model. Model calls then stay on your computer. You can also mix them: each monster has its own chain of models with fallback, so one can use a local model for private notes and a cloud model for harder jobs.',
+        },
+        {
+          q: 'Does it work on Windows, macOS and Linux?',
+          a: 'Yes, it is a desktop app for all three. Linux: AppImage or .deb. macOS: .dmg for Apple silicon and Intel, signed and notarized. Windows: .exe installer, not yet signed with a certificate from a public authority, so SmartScreen warns you (More info, then Run anyway). On every system, updates are verified with the project’s own signed feed. Monsters is in alpha.',
+        },
+        {
+          q: 'Is my data sent to the cloud?',
+          a: 'Not by Monsters. The core listens only on 127.0.0.1, and notes, the action log and settings stay on your disk. Only what you choose leaves your computer: prompts to the model provider you pick (nothing, if you only use Ollama or LM Studio), web pages the monsters search or read, and Telegram messages if you connect a bot. API keys are kept in the system keychain. There is no cloud account and no usage analytics; the app only checks a signed feed for updates and downloads the local search model once.',
+        },
+        {
+          q: 'Do I need to know how to code to use it?',
+          a: 'No. Download the installer, create your account, paste an OpenRouter key (a free one is enough to start), answer a few questions and Monsters proposes a team. Programming is only needed to build from source or to contribute.',
+        },
+      ],
+    },
   },
   footer: {
     made: 'Made in Italy by {company} and the community.',
@@ -393,6 +422,9 @@ const it: Strings = {
     specs: 'Specifiche',
     download: 'Scarica',
     faq: 'FAQ',
+    docs: 'Guide',
+    compare: 'Confronti',
+    changelog: 'Changelog',
     star: 'Stella',
     stars: 'Stelle su GitHub',
     starsUnknown: 'Stelle su GitHub: non ancora contate',
@@ -618,6 +650,32 @@ const it: Strings = {
         a: 'Su Telegram, o via SSH con monsters chat. I progetti e le automazioni che mi invento arrivano come bozze: non parte niente finché non confermi.',
       },
     ],
+    more: {
+      title: 'Le domande delle persone',
+      compare: 'Monsters a confronto con altre app di agenti open source',
+      items: [
+        {
+          q: 'Monsters è gratuito e open source?',
+          a: 'Sì. L’app è gratuita e il codice è open source con licenza Apache-2.0, su GitHub. I modelli costano quanto chiedono i loro provider e tu fissi tetti di spesa giornalieri e mensili; con i modelli gratuiti di OpenRouter iniziare non costa niente. Il nome Monsters e i personaggi dei mostri sono marchi, e la licenza non dà diritti su di essi.',
+        },
+        {
+          q: 'Posso usarlo con modelli locali come Ollama?',
+          a: 'Sì. Ollama e LM Studio funzionano come provider: li aggiungi in Impostazioni, Modelli, e li scegli come primo modello di un mostro. Le chiamate al modello restano sul tuo computer. Puoi anche mescolare: ogni mostro ha una catena di modelli con riserva, quindi uno può usare un modello locale per le note private e uno nel cloud per i lavori più difficili.',
+        },
+        {
+          q: 'Funziona su Windows, macOS e Linux?',
+          a: 'Sì, è un’app desktop per tutti e tre. Linux: AppImage o .deb. macOS: .dmg per Apple silicon e Intel, firmato e notarizzato. Windows: installer .exe, non ancora firmato con un certificato di un’autorità pubblica, quindi SmartScreen ti avvisa (Ulteriori informazioni, poi Esegui comunque). Su ogni sistema gli aggiornamenti sono verificati con il feed firmato del progetto. Monsters è in alpha.',
+        },
+        {
+          q: 'I miei dati vanno nel cloud?',
+          a: 'Non da parte di Monsters. Il core ascolta solo su 127.0.0.1 e note, registro delle azioni e impostazioni restano sul tuo disco. Esce dal computer solo ciò che scegli tu: i prompt verso il provider del modello (niente, se usi solo Ollama o LM Studio), le pagine web che i mostri cercano o leggono e i messaggi di Telegram, se colleghi un bot. Le chiavi API stanno nel portachiavi di sistema. Non c’è un account cloud né statistiche d’uso; l’app controlla solo un feed firmato per gli aggiornamenti e scarica una volta il modello di ricerca locale.',
+        },
+        {
+          q: 'Devo saper programmare per usarlo?',
+          a: 'No. Scarichi l’installer, crei il tuo account, incolli una chiave di OpenRouter (ne basta una gratuita), rispondi a qualche domanda e Monsters ti propone una squadra. Programmare serve solo per compilarlo dai sorgenti o per contribuire.',
+        },
+      ],
+    },
   },
   footer: {
     made: 'Fatto in Italia da {company} e dalla community.',

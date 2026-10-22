@@ -8,8 +8,15 @@ interface Props {
   stamp: string;
   stars: number | null;
   home: string;
+  /** False on any page but the home: the section links then point at the home. */
+  onHome?: boolean;
+  /** The same page in the other language, when it is not the other home. */
+  otherHref?: string | undefined;
 }
-const { t, stamp, stars, home } = Astro.props;
+const { t, stamp, stars, home, onHome = true, otherHref } = Astro.props;
+const at = onHome ? '' : home;
+const docsHref = t.lang === 'it' ? '/it/docs/' : '/docs/';
+const compareHref = t.lang === 'it' ? '/it/compare/' : '/compare/';
 const label = `, ${stars === null ? t.nav.starsUnknown : `${t.nav.stars} ${stars}`}`;
 ---
 
@@ -18,18 +25,25 @@ const label = `, ${stars === null ? t.nav.starsUnknown : `${t.nav.stars} ${stars
     <a class="word" href={home} aria-label="Monsters">monsters</a>
     <span class="stamp" title="Part number">{stamp}</span>
     <nav class="bar__nav label" aria-label="Sections">
-      <a href="#squad">{t.nav.squad}</a>
-      <a href="#generator">{t.nav.generator}</a>
-      <a href="#specs">{t.nav.specs}</a>
-      <a href="#download">{t.nav.download}</a>
-      <a href="#faq">{t.nav.faq}</a>
+      <a href={`${at}#squad`}>{t.nav.squad}</a>
+      <a href={`${at}#generator`}>{t.nav.generator}</a>
+      <a href={`${at}#specs`}>{t.nav.specs}</a>
+      <a href={`${at}#download`}>{t.nav.download}</a>
+      <a href={`${at}#faq`}>{t.nav.faq}</a>
+      <a class="bar__more" href={docsHref}>{t.nav.docs}</a>
+      <a class="bar__more" href={compareHref}>{t.nav.compare}</a>
     </nav>
-    <button type="button" class="bar__cmd label" data-pal-open aria-keyshortcuts="/ Control+K"
-      ><kbd aria-hidden="true">/</kbd><span>{t.palette.open}</span></button
-    >
+    {
+      onHome && (
+        <button type="button" class="bar__cmd label" data-pal-open aria-keyshortcuts="/ Control+K">
+          <kbd aria-hidden="true">/</kbd>
+          <span>{t.palette.open}</span>
+        </button>
+      )
+    }
     <a
       class="bar__lang label"
-      href={t.nav.otherHref}
+      href={otherHref ?? t.nav.otherHref}
       hreflang={t.lang === 'en' ? 'it' : 'en'}
       lang={t.lang === 'en' ? 'it' : 'en'}
       aria-label={t.nav.otherLabel}>{t.nav.other}</a

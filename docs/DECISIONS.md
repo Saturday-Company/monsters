@@ -5050,3 +5050,23 @@ vault, and `vaultLayout()` only where nothing else can reach the vault (the area
   `local` rule of the decision gate takes whole English words (`ready` is no `read`, `notably` no `note`); the
   Italian stems stay stems but skip the words of another meaning they begin (`appuntamento`, `leggero`, `cerchio`).
 
+
+### D-155 · The site's text pages: guides and changelogs from the repository, dated comparisons
+**Status:** done · 22/10/2026
+**Context:** to be found and cited for questions like "open-source AI agent desktop app" or "alternative to X", the
+site needs pages of text, not only the one-page home: the user guides, the changelog and honest comparisons. The
+guides and the changelogs already exist in the repository; copying them into the site would let the two drift.
+**Choice:** `apps/site` reads `docs/*.md` (the guides listed in `src/lib/docs.ts`) and `CHANGELOG.md` /
+`CHANGELOG.it.md` at build time through two Astro content collections with inline loaders
+(`src/content.config.ts`), rendered by Astro's own Markdown pipeline: no new dependency. Relative links between
+guides stay on the site, the rest point at GitHub. The guides exist in English only, so `/docs/<guide>/` has one
+language version (hreflang `en` and `x-default`) and `/it/docs/` is an index that says so; the changelog and the
+comparisons exist in both languages and are paired. The comparisons (`/compare/<project>/`) live in
+`src/i18n/compare.ts`, with the EN dictionary typing the IT one: every fact comes from the other project's own
+repository, site or documentation, is listed as a source on the page, and carries the date it was checked
+(`VERIFIED`). Where the pages we read say nothing, the table says "not documented in the pages we read", never "no".
+`src/lib/pages.ts` is the one list of pages behind the sitemap, the hreflang links and `llms.txt`.
+**Consequence:** before a release, or when a competitor ships something big, re-read the sources of each comparison
+and update `VERIFIED`. A new user guide is added to `GUIDES` and to the Italian summaries in
+`src/i18n/pages.ts`. The home FAQ keeps the monsters' questions and adds "questions people ask" (`faq.more`), all in
+the `FAQPage` JSON-LD.

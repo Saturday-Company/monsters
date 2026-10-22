@@ -1,0 +1,52 @@
+---
+/*
+ * The shell of every text page (documentation, changelog, comparisons): the same head, bar and
+ * footer as the home, with a plain column of text between them.
+ */
+import Bar from '../components/Bar.astro';
+import Footer from '../components/Footer.astro';
+import type { Strings } from '../i18n/strings.ts';
+import { siteData } from '../lib/build-data.ts';
+import { versionStamp } from '../lib/stamp.ts';
+import type { PageRef } from '../lib/pages.ts';
+import '../styles/text.css';
+import desktop from '../../../desktop/package.json' with { type: 'json' };
+import Page from './Page.astro';
+
+interface Props {
+  t: Strings;
+  title: string;
+  description: string;
+  /** Path of this page. */
+  path: string;
+  alternates: PageRef;
+  /** Serialised JSON-LD (src/lib/seo.ts, `pageLdText`). */
+  ld: string;
+  /** The same page in the other language, or the other language's index when there is none. */
+  otherHref: string;
+  ogType?: string;
+}
+const { t, title, description, path, alternates, ld, otherHref, ogType } = Astro.props;
+const data = await siteData();
+const stamp = versionStamp(desktop.version);
+const home = t.lang === 'it' ? '/it/' : '/';
+---
+
+<Page
+  t={t}
+  clientData={null}
+  page={{
+    title,
+    description,
+    path,
+    alternates,
+    ld,
+    ...(ogType ? { ogType } : {}),
+  }}
+>
+  <Bar slot="bar" t={t} stamp={stamp} stars={data.stars} home={home} onHome={false} otherHref={otherHref} />
+  <slot />
+  <div class="sheet" slot="after">
+    <Footer t={t} build={{ sha: '', at: 0 }} simple otherHref={otherHref} />
+  </div>
+</Page>

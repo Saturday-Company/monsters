@@ -1,0 +1,102 @@
+---
+/* /changelog/ and /it/changelog/: every release of CHANGELOG.md / CHANGELOG.it.md. */
+import { getCollection, render } from 'astro:content';
+import { PAGES } from '../i18n/pages.ts';
+import { STRINGS, type Lang } from '../i18n/strings.ts';
+import Text from '../layouts/Text.astro';
+import { RELEASES_URL } from '../lib/feed.ts';
+import { pageLdText } from '../lib/seo.ts';
+import Crumbs from './Crumbs.astro';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const t = STRINGS[lang];
+const p = PAGES[lang];
+const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
+const path = lang === 'it' ? '/it/changelog/' : '/changelog/';
+const home = lang === 'it' ? '/it/' : '/';
+const entries = (await getCollection('releases'))
+  .filter((e) => e.data.lang === lang)
+  .sort((a, b) => a.data.order - b.data.order);
+const releases = await Promise.all(
+  entries.map(async (entry) => ({ entry, Content: (await render(entry)).Content })),
+);
+const anchor = (version: string): string => `v${version}`;
+const newest = entries[0]?.data;
+const ld = pageLdText({
+  lang,
+  site,
+  path,
+  title: p.changelog.metaTitle,
+  description: p.changelog.description,
+  type: 'CollectionPage',
+  crumbs: [
+    { name: p.crumbHome, path: home },
+    { name: p.changelog.crumb, path },
+  ],
+  ...(newest?.date ? { modified: newest.date } : {}),
+});
+---
+
+<Text
+  t={t}
+  title={p.changelog.metaTitle}
+  description={p.changelog.description}
+  path={path}
+  alternates={{ en: '/changelog/', it: '/it/changelog/' }}
+  ld={ld}
+  otherHref={lang === 'it' ? '/changelog/' : '/it/changelog/'}
+>
+  <article class="doc">
+    <Crumbs crumbs={[{ name: p.crumbHome, href: home }]} current={p.changelog.crumb} />
+    <header class="doc__head">
+      <h1 class="display doc__title">{p.changelog.title}</h1>
+      <p class="lede">{p.changelog.lede}</p>
+      <p class="doc__note">
+        <a href={RELEASES_URL} rel="noopener">{p.changelog.github}</a>
+        {" "}· {p.changelog.file}
+      </p>
+    </header>
+
+    <div class="doc__layout">
+      <div>
+        {
+          releases.map(({ entry, Content }, i) => (
+            <section class="release" id={anchor(entry.data.version)}>
+              <header class="release__head">
+                <h2 class="release__version">
+                  <a href={`#${anchor(entry.data.version)}`}>{entry.data.version}</a>
+                </h2>
+                <p class="release__meta label">
+                  {entry.data.date ? (
+                    <time datetime={entry.data.date}>{entry.data.dateText}</time>
+                  ) : (
+                    entry.data.dateText
+                  )}
+                  {i === 0 && <span class="release__badge">{p.changelog.latest}</span>}
+                </p>
+              </header>
+              <div class="prose">
+                <Content />
+              </div>
+            </section>
+          ))
+        }
+      </div>
+      <aside class="toc toc--side" aria-label={p.changelog.jump}>
+        <p class="label toc__title">{p.changelog.jump}</p>
+        <ol>
+          {
+            entries.map((e) => (
+              <li>
+                <a href={`#${anchor(e.data.version)}`}>{e.data.version}</a>
+              </li>
+            ))
+          }
+        </ol>
+      </aside>
+    </div>
+  </article>
+</Text>

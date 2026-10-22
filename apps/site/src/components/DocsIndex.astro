@@ -1,0 +1,88 @@
+---
+/* /docs/ and /it/docs/: the list of guides. The guides exist in English only. */
+import { STRINGS, type Lang } from '../i18n/strings.ts';
+import { PAGES } from '../i18n/pages.ts';
+import Text from '../layouts/Text.astro';
+import { GUIDES } from '../lib/docs.ts';
+import { REPO_URL } from '../lib/feed.ts';
+import { pageLdText } from '../lib/seo.ts';
+import Crumbs from './Crumbs.astro';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const t = STRINGS[lang];
+const p = PAGES[lang];
+const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
+const path = lang === 'it' ? '/it/docs/' : '/docs/';
+const home = lang === 'it' ? '/it/' : '/';
+const ld = pageLdText({
+  lang,
+  site,
+  path,
+  title: p.docs.metaTitle,
+  description: p.docs.description,
+  type: 'CollectionPage',
+  crumbs: [
+    { name: p.crumbHome, path: home },
+    { name: p.docs.crumb, path },
+  ],
+});
+---
+
+<Text
+  t={t}
+  title={p.docs.metaTitle}
+  description={p.docs.description}
+  path={path}
+  alternates={{ en: '/docs/', it: '/it/docs/' }}
+  ld={ld}
+  otherHref={lang === 'it' ? '/docs/' : '/it/docs/'}
+>
+  <article class="doc">
+    <Crumbs crumbs={[{ name: p.crumbHome, href: home }]} current={p.docs.crumb} />
+    <header class="doc__head">
+      <h1 class="display doc__title">{p.docs.title}</h1>
+      <p class="lede">{p.docs.lede}</p>
+      {p.docs.englishOnly && <p class="doc__note">{p.docs.englishOnly}</p>}
+    </header>
+
+    <ul class="cards" role="list">
+      {
+        GUIDES.map((g) => (
+          <li>
+            <a class="card" href={`/docs/${g.slug}/`} hreflang="en" lang="en">
+              <span class="label card__kicker">{g.file}</span>
+              <h2 class="card__title">{g.title}</h2>
+              <span class="card__text" lang={lang}>
+                {p.docs.summaries[g.slug]}
+              </span>
+              <span class="card__go label">{p.docs.read} →</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+
+    <section class="doc__more" aria-labelledby="more-title">
+      <h2 class="doc__h2" id="more-title">{p.docs.more}</h2>
+      <ul class="points" role="list">
+        {
+          p.docs.moreItems.map(([name, file, text]) => (
+            <li>
+              <a href={`${REPO_URL}/blob/main/${file}`} rel="noopener">
+                {name}
+              </a>
+              : {text}
+            </li>
+          ))
+        }
+      </ul>
+      <p class="doc__note">
+        {p.docs.source}{' '}
+        <a href={`${REPO_URL}/tree/main/docs`} rel="noopener">{p.docs.sourceLink}</a>
+      </p>
+    </section>
+  </article>
+</Text>

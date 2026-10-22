@@ -28,7 +28,9 @@ in `docs/security-model.md`. The guides in `docs/` are in English; `docs/DECISIO
   install chromium`. The web e2e run in English; `lingua.e2e.ts` covers Italian.
 - Website: `apps/site` (Astro, static, D-144): `pnpm site:dev`, `pnpm site:build` (`MONSTERS_SITE_OFFLINE=1` skips the
   feed and GitHub calls), `pnpm site:deploy [-- --dry-run]` (assets-only Worker `monsters` on workers.dev via `cf`).
-  Monsters come from `@monsters/monster-kit`, never from reference images.
+  Monsters come from `@monsters/monster-kit`, never from reference images. The site also publishes the guides of
+  `docs/` (`/docs/`), the changelogs and dated comparisons with other projects (`/compare/`, facts in
+  `apps/site/src/i18n/compare.ts`: re-check them before a release); see D-155.
 - Packaged core: `pnpm build:core` (web UI + esbuild bundle in `packages/cli/dist-bundle/`; externals listed in
   `EXTERNALS` in `scripts/build-core.ts`), `pnpm smoke:bundle` (runs the bundle under Node 24 and under Electron as
   Node).

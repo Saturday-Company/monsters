@@ -1,0 +1,12 @@
+---
+import CompareView from '../../../components/CompareView.astro';
+import { COMPETITORS } from '../../../i18n/compare.ts';
+
+export function getStaticPaths() {
+  return COMPETITORS.map((slug) => ({ params: { slug }, props: { slug } }));
+}
+
+const { slug } = Astro.props;
+---
+
+<CompareView lang="it" slug={slug} />

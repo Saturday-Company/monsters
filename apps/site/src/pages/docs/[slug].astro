@@ -1,0 +1,107 @@
+---
+/* One user guide, rendered from its Markdown file in docs/ (English only). */
+import { getCollection, render } from 'astro:content';
+import { PAGES } from '../../i18n/pages.ts';
+import { STRINGS } from '../../i18n/strings.ts';
+import Crumbs from '../../components/Crumbs.astro';
+import Text from '../../layouts/Text.astro';
+import { GUIDES } from '../../lib/docs.ts';
+import { REPO_URL } from '../../lib/feed.ts';
+import { pageLdText } from '../../lib/seo.ts';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('guides');
+  return entries.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content, headings } = await render(entry);
+const t = STRINGS.en;
+const p = PAGES.en;
+const guide = GUIDES.find((g) => g.slug === entry.id);
+if (!guide) throw new Error(`no guide ${entry.id}`);
+const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
+const path = `/docs/${guide.slug}/`;
+const description = p.docs.summaries[guide.slug];
+const title = `${entry.data.title} · ${p.guide.metaSuffix}`;
+const toc = headings.filter((h) => h.depth === 2);
+const ld = pageLdText({
+  lang: 'en',
+  site,
+  path,
+  title: entry.data.title,
+  description,
+  type: 'TechArticle',
+  crumbs: [
+    { name: p.crumbHome, path: '/' },
+    { name: p.docs.crumb, path: '/docs/' },
+    { name: guide.title, path },
+  ],
+});
+---
+
+<Text
+  t={t}
+  title={title}
+  description={description}
+  path={path}
+  alternates={{ en: path }}
+  ld={ld}
+  otherHref="/it/docs/"
+  ogType="article"
+>
+  <article class="doc">
+    <Crumbs
+      crumbs={[
+        { name: p.crumbHome, href: '/' },
+        { name: p.docs.crumb, href: '/docs/' },
+      ]}
+      current={guide.title}
+    />
+    <header class="doc__head">
+      <h1 class="display doc__title doc__title--guide">{entry.data.title}</h1>
+      <p class="lede">{description}</p>
+      <p class="doc__note">
+        <a href={`${REPO_URL}/blob/main/docs/${guide.file}`} rel="noopener">{p.guide.github}</a>
+        {" "}· {p.guide.updatedNote}
+      </p>
+    </header>
+
+    <div class="doc__layout">
+      <div class="prose">
+        {
+          toc.length > 1 && (
+            <details class="toc toc--inline">
+              <summary class="label">{p.guide.onThisPage}</summary>
+              <ol>
+                {toc.map((h) => (
+                  <li>
+                    <a href={`#${h.slug}`}>{h.text}</a>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )
+        }
+        <Content />
+      </div>
+      {
+        toc.length > 1 && (
+          <aside class="toc toc--side" aria-label={p.guide.onThisPage}>
+            <p class="label toc__title">{p.guide.onThisPage}</p>
+            <ol>
+              {toc.map((h) => (
+                <li>
+                  <a href={`#${h.slug}`}>{h.text}</a>
+                </li>
+              ))}
+            </ol>
+            <p class="toc__all">
+              <a href="/docs/">← {p.guide.all}</a>
+            </p>
+          </aside>
+        )
+      }
+    </div>
+  </article>
+</Text>

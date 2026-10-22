@@ -1,0 +1,23 @@
+---
+/* The breadcrumb trail above a text page's title. */
+interface Props {
+  crumbs: { name: string; href: string }[];
+  /** The current page, last and not a link. */
+  current: string;
+  label?: string;
+}
+const { crumbs, current, label = 'Breadcrumb' } = Astro.props;
+---
+
+<nav class="crumbs label" aria-label={label}>
+  <ol>
+    {
+      crumbs.map((c) => (
+        <li>
+          <a href={c.href}>{c.name}</a>
+        </li>
+      ))
+    }
+    <li aria-current="page">{current}</li>
+  </ol>
+</nav>

@@ -15,11 +15,13 @@ interface Props {
 }
 const { t, version } = Astro.props;
 const m = t.man;
+const compareHref = t.lang === 'it' ? '/it/compare/' : '/compare/';
 const seeAlso: [string, string][] = [
   ['README.md', `${REPO_URL}#readme`],
   ['docs/mcp-vault.md', `${REPO_URL}/blob/main/docs/mcp-vault.md`],
   ['docs/security-model.md', `${REPO_URL}/blob/main/docs/security-model.md`],
   ['docs/ARCHITECTURE.md', `${REPO_URL}/blob/main/docs/ARCHITECTURE.md`],
+  [t.nav.docs, t.lang === 'it' ? '/it/docs/' : '/docs/'],
 ];
 ---
 
@@ -57,6 +59,25 @@ const seeAlso: [string, string][] = [
         })
       }
     </ul>
+    <h3 class="man__h" id="faq-more">{t.faq.more.title}</h3>
+    <ul class="faq faq--plain" role="list">
+      {
+        t.faq.more.items.map((item) => (
+          <li>
+            <details>
+              <summary>
+                <span class="faq__q">{item.q}</span>
+                <span class="faq__x" aria-hidden="true" />
+              </summary>
+              <p class="faq__a">{item.a}</p>
+            </details>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="man__p man__see">
+      <a href={compareHref}>{t.faq.more.compare}</a>
+    </p>
     <p class="man__h">{m.seeAlso}</p>
     <p class="man__p man__see">
       {

@@ -1,0 +1,197 @@
+---
+/* One comparison: Monsters against one project, with a table, the honest bits and the sources. */
+import {
+  COMPARE,
+  COMPETITORS,
+  COMPETITOR_FACTS,
+  MONSTERS_SOURCES,
+  ROWS,
+  VERIFIED,
+  type CompetitorSlug,
+} from '../i18n/compare.ts';
+import { PAGES } from '../i18n/pages.ts';
+import { STRINGS, fill, type Lang } from '../i18n/strings.ts';
+import Text from '../layouts/Text.astro';
+import { REPO_URL } from '../lib/feed.ts';
+import { pageLdText } from '../lib/seo.ts';
+import Crumbs from './Crumbs.astro';
+
+interface Props {
+  lang: Lang;
+  slug: CompetitorSlug;
+}
+const { lang, slug } = Astro.props;
+const t = STRINGS[lang];
+const c = COMPARE[lang];
+const p = PAGES[lang];
+const page = c.pages[slug];
+const other = COMPETITOR_FACTS[slug];
+const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
+const base = lang === 'it' ? '/it/compare/' : '/compare/';
+const home = lang === 'it' ? '/it/' : '/';
+const path = `${base}${slug}/`;
+const date = new Intl.DateTimeFormat(lang === 'it' ? 'it-IT' : 'en-GB', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+}).format(new Date(`${VERIFIED}T00:00:00Z`));
+const ld = pageLdText({
+  lang,
+  site,
+  path,
+  title: page.metaTitle,
+  description: page.description,
+  type: 'WebPage',
+  crumbs: [
+    { name: p.crumbHome, path: home },
+    { name: c.chrome.breadcrumb, path: base },
+    { name: page.title, path },
+  ],
+  faq: page.faq,
+  mentions: [{ name: other.name, url: other.repo }],
+  modified: VERIFIED,
+});
+const siblings = COMPETITORS.filter((s) => s !== slug);
+---
+
+<Text
+  t={t}
+  title={page.metaTitle}
+  description={page.description}
+  path={path}
+  alternates={{ en: `/compare/${slug}/`, it: `/it/compare/${slug}/` }}
+  ld={ld}
+  otherHref={lang === 'it' ? `/compare/${slug}/` : `/it/compare/${slug}/`}
+>
+  <article class="doc">
+    <Crumbs
+      crumbs={[
+        { name: p.crumbHome, href: home },
+        { name: c.chrome.breadcrumb, href: base },
+      ]}
+      current={page.title}
+    />
+    <header class="doc__head">
+      <h1 class="display doc__title">{page.title}</h1>
+      <p class="lede lede--wide">{page.intro}</p>
+      <p class="doc__note">
+        <time datetime={VERIFIED}>{fill(c.chrome.verified, { date })}</time>
+      </p>
+      <p class="doc__keys">
+        <a class="key key--signal" href={`${home}#download`}>{c.chrome.ctaDownload}</a>
+        <a class="key" href={REPO_URL} rel="noopener">{c.chrome.ctaCode}</a>
+      </p>
+    </header>
+
+    <section class="doc__sec" aria-labelledby="table-title">
+      <h2 class="doc__h2" id="table-title">{c.chrome.tableTitle}</h2>
+      <div class="table-scroll" tabindex="0" role="region" aria-label={c.chrome.tableTitle}>
+        <table class="cmp">
+          <caption class="sr-only">{page.title}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{c.chrome.row}</th>
+              <th scope="col">Monsters</th>
+              <th scope="col">
+                <a href={other.site} rel="noopener">{other.name}</a>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              ROWS.map((key) => (
+                <tr>
+                  <th scope="row">{c.rowLabels[key]}</th>
+                  <td>{c.monsters[key]}</td>
+                  <td class={page.rows[key] === c.chrome.note ? 'cmp__nd' : undefined}>
+                    {page.rows[key]}
+                  </td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="doc__note">{c.chrome.scroll}</p>
+    </section>
+
+    <section class="doc__sec" aria-labelledby="ahead-title">
+      <h2 class="doc__h2" id="ahead-title">{fill(c.chrome.ahead, { name: other.name })}</h2>
+      <ul class="points" role="list">
+        {page.ahead.map((item) => <li>{item}</li>)}
+      </ul>
+    </section>
+
+    <section class="doc__sec" aria-labelledby="differs-title">
+      <h2 class="doc__h2" id="differs-title">{c.chrome.differs}</h2>
+      <ul class="points" role="list">
+        {page.differs.map((item) => <li>{item}</li>)}
+      </ul>
+    </section>
+
+    <section class="doc__sec pick" aria-label={`${c.chrome.pickThem} / ${c.chrome.pickUs}`}>
+      <div class="pick__box">
+        <h2 class="doc__h2 doc__h2--box">{fill(c.chrome.pickThem, { name: other.name })}</h2>
+        <ul class="points" role="list">
+          {page.pickThem.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+      <div class="pick__box pick__box--us">
+        <h2 class="doc__h2 doc__h2--box">{c.chrome.pickUs}</h2>
+        <ul class="points" role="list">
+          {page.pickUs.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+    </section>
+
+    <section class="doc__sec" aria-labelledby="faq-title">
+      <h2 class="doc__h2" id="faq-title">{c.chrome.faq}</h2>
+      <ul class="faq faq--plain" role="list">
+        {
+          page.faq.map((item) => (
+            <li>
+              <details>
+                <summary>
+                  <span class="faq__q">{item.q}</span>
+                  <span class="faq__x" aria-hidden="true" />
+                </summary>
+                <p class="faq__a">{item.a}</p>
+              </details>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section class="doc__sec" aria-labelledby="sources-title">
+      <h2 class="doc__h2" id="sources-title">{c.chrome.sources}</h2>
+      <p class="doc__plain">{fill(c.chrome.sourcesNote, { date })}</p>
+      <ul class="points points--links" role="list">
+        {
+          [...other.sources, ...MONSTERS_SOURCES].map((s) => (
+            <li>
+              <a href={s.url} rel="noopener">
+                {s.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section class="doc__sec" aria-labelledby="other-title">
+      <h2 class="doc__h2" id="other-title">{c.chrome.other}</h2>
+      <ul class="points" role="list">
+        {
+          siblings.map((s) => (
+            <li>
+              <a href={`${base}${s}/`}>{c.pages[s].title}</a>
+            </li>
+          ))
+        }
+        <li><a href={base}>{c.index.title}</a></li>
+      </ul>
+    </section>
+  </article>
+</Text>

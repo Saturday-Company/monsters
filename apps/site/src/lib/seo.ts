@@ -19,6 +19,30 @@ export const COMPANY_PROFILES = [
 ];
 export const LICENSE_URL = 'https://www.apache.org/licenses/LICENSE-2.0';
 
+export interface Crumb {
+  name: string;
+  /** Path on the site, e.g. `/docs/`. */
+  path: string;
+}
+
+export interface PageSeo {
+  lang: 'en' | 'it';
+  /** Origin without the trailing slash. */
+  site: string;
+  /** Path of this page. */
+  path: string;
+  title: string;
+  description: string;
+  /** `TechArticle` for a guide, `WebPage` for the rest. */
+  type: 'WebPage' | 'TechArticle' | 'CollectionPage';
+  crumbs: Crumb[];
+  faq?: { q: string; a: string }[];
+  /** Other software the page is about (a comparison). */
+  mentions?: { name: string; url: string }[];
+  /** ISO date of the last change, when the page has one. */
+  modified?: string;
+}
+
 export interface SeoInput {
   t: Strings;
   /** Origin without the trailing slash (Astro's `site`). */
@@ -81,7 +105,7 @@ export function jsonLdGraph({ t, site, version }: SeoInput): Json {
         '@id': `${home}#faq`,
         url: home,
         inLanguage: t.lang,
-        mainEntity: t.faq.items.map((item) => ({
+        mainEntity: homeFaq(t).map((item) => ({
           '@type': 'Question',
           name: item.q,
           acceptedAnswer: { '@type': 'Answer', text: item.a },
@@ -103,4 +127,80 @@ export function jsonLdGraph({ t, site, version }: SeoInput): Json {
 /** Serialised for an inline `<script type="application/ld+json">` (no `</script>` escape). */
 export function jsonLdText(input: SeoInput): string {
   return JSON.stringify(jsonLdGraph(input)).replace(/</g, '\\u003c');
+}
+
+/**
+ * The JSON-LD of a page other than the home: the page itself (about the software, made by the
+ * company), its BreadcrumbList and, where the page has questions, a FAQPage.
+ */
+export function pageGraph(p: PageSeo): Json {
+  const url = `${p.site}${p.path}`;
+  const home = `${p.site}${p.lang === 'it' ? '/it/' : '/'}`;
+  const company = { '@id': COMPANY_ID };
+  const page: Json = {
+    '@type': p.type,
+    '@id': `${url}#page`,
+    url,
+    name: p.title,
+    description: p.description,
+    inLanguage: p.lang,
+    isPartOf: { '@id': `${home}#website` },
+    about: { '@id': SOFTWARE_ID },
+    publisher: company,
+    breadcrumb: { '@id': `${url}#breadcrumb` },
+  };
+  if (p.type === 'TechArticle') {
+    page['headline'] = p.title;
+    page['author'] = company;
+  }
+  if (p.modified) page['dateModified'] = p.modified;
+  if (p.mentions && p.mentions.length > 0) {
+    page['mentions'] = p.mentions.map((m) => ({
+      '@type': 'SoftwareApplication',
+      name: m.name,
+      url: m.url,
+    }));
+  }
+  const nodes: Json[] = [
+    page,
+    {
+      '@type': 'BreadcrumbList',
+      '@id': `${url}#breadcrumb`,
+      itemListElement: p.crumbs.map((c, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name: c.name,
+        item: `${p.site}${c.path}`,
+      })),
+    },
+    {
+      '@type': 'Organization',
+      '@id': COMPANY_ID,
+      name: COMPANY_NAME,
+      url: COMPANY_URL,
+      sameAs: COMPANY_PROFILES,
+    },
+  ];
+  if (p.faq && p.faq.length > 0) {
+    nodes.push({
+      '@type': 'FAQPage',
+      '@id': `${url}#faq`,
+      url,
+      inLanguage: p.lang,
+      mainEntity: p.faq.map((item) => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: { '@type': 'Answer', text: item.a },
+      })),
+    });
+  }
+  return { '@context': 'https://schema.org', '@graph': nodes };
+}
+
+export const pageLdText = (p: PageSeo): string =>
+  JSON.stringify(pageGraph(p)).replace(/</g, '\\u003c');
+
+/** The home's questions: the monsters' ones, then the ones people ask. */
+export function homeFaq(t: Strings): { q: string; a: string }[] {
+  return [...t.faq.items, ...t.faq.more.items].map(({ q, a }) => ({ q, a }));
 }

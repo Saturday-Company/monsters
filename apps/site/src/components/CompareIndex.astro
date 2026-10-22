@@ -1,0 +1,81 @@
+---
+/* /compare/ and /it/compare/: the list of comparisons. */
+import { COMPARE, COMPETITORS, COMPETITOR_FACTS } from '../i18n/compare.ts';
+import { PAGES } from '../i18n/pages.ts';
+import { STRINGS, type Lang } from '../i18n/strings.ts';
+import Text from '../layouts/Text.astro';
+import { pageLdText } from '../lib/seo.ts';
+import Crumbs from './Crumbs.astro';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const t = STRINGS[lang];
+const c = COMPARE[lang];
+const p = PAGES[lang];
+const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
+const base = lang === 'it' ? '/it/compare/' : '/compare/';
+const home = lang === 'it' ? '/it/' : '/';
+const ld = pageLdText({
+  lang,
+  site,
+  path: base,
+  title: c.index.metaTitle,
+  description: c.index.description,
+  type: 'CollectionPage',
+  crumbs: [
+    { name: p.crumbHome, path: home },
+    { name: c.chrome.breadcrumb, path: base },
+  ],
+  mentions: COMPETITORS.map((s) => ({
+    name: COMPETITOR_FACTS[s].name,
+    url: COMPETITOR_FACTS[s].repo,
+  })),
+});
+---
+
+<Text
+  t={t}
+  title={c.index.metaTitle}
+  description={c.index.description}
+  path={base}
+  alternates={{ en: '/compare/', it: '/it/compare/' }}
+  ld={ld}
+  otherHref={lang === 'it' ? '/compare/' : '/it/compare/'}
+>
+  <article class="doc">
+    <Crumbs crumbs={[{ name: p.crumbHome, href: home }]} current={c.chrome.breadcrumb} />
+    <header class="doc__head">
+      <h1 class="display doc__title">{c.index.title}</h1>
+      <p class="lede">{c.index.lede}</p>
+    </header>
+
+    <ul class="cards" role="list">
+      {
+        COMPETITORS.map((slug) => (
+          <li>
+            <a class="card" href={`${base}${slug}/`}>
+              <span class="label card__kicker">{COMPETITOR_FACTS[slug].name}</span>
+              <h2 class="card__title">{c.pages[slug].title}</h2>
+              <span class="card__text">{c.pages[slug].teaser}</span>
+              <span class="card__go label">{c.index.open} →</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+
+    <section class="doc__more" aria-labelledby="how-title">
+      <h2 class="doc__h2" id="how-title">{c.index.method}</h2>
+      <ul class="points" role="list">
+        {c.index.methodItems.map((item) => <li>{item}</li>)}
+      </ul>
+    </section>
+
+    <section class="doc__more" aria-labelledby="others-title">
+      <h2 class="doc__h2" id="others-title">{c.index.othersTitle}</h2>
+      <p class="doc__plain">{c.index.others}</p>
+    </section>
+  </article>
+</Text>

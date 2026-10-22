@@ -7,6 +7,7 @@ import { dotCss } from '@monsters/monster-kit';
 import '../styles/global.css';
 import '../styles/terminal.css';
 import type { Strings } from '../i18n/strings.ts';
+import { alternatesOf, type PageRef } from '../lib/pages.ts';
 import { jsonLdText } from '../lib/seo.ts';
 // The fonts of the first screen, preloaded: the condensed headline would otherwise reflow
 // when it swaps in.
@@ -20,42 +21,63 @@ interface Props {
   clientData: unknown;
   /** Version of the newest release, for the structured data. */
   version?: string;
+  /**
+   * Any page other than the home: its own title, description, address, language versions and
+   * JSON-LD. Without it the layout is the home's.
+   */
+  page?: {
+    title: string;
+    description: string;
+    /** Path of this page. */
+    path: string;
+    /** The language versions of the page; a missing one means the page has none. */
+    alternates: PageRef;
+    /** The page's JSON-LD, already serialised. */
+    ld: string;
+    ogType?: string;
+  };
 }
-const { t, clientData, version = '' } = Astro.props;
+const { t, clientData, version = '', page } = Astro.props;
 const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
-const canonical = `${site}${t.lang === 'it' ? '/it/' : '/'}`;
+const path = page?.path ?? (t.lang === 'it' ? '/it/' : '/');
+const canonical = `${site}${path}`;
+const alternates = alternatesOf(page?.alternates ?? { en: '/', it: '/it/' });
+const title = page?.title ?? t.meta.title;
+const description = page?.description ?? t.meta.description;
 const json = JSON.stringify(clientData).replace(/</g, '\\u003c');
-const ld = jsonLdText({ t, site, version });
+const ld = page?.ld ?? jsonLdText({ t, site, version });
 ---
 
 <!doctype html>
-<html lang={t.lang}>
+<html lang={t.lang} data-noboot={page ? '' : undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{t.meta.title}</title>
-    <meta name="description" content={t.meta.description} />
+    <title>{title}</title>
+    <meta name="description" content={description} />
     <meta name="theme-color" content="#e3e1db" />
     <link rel="preload" href={sansUrl} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={dotoUrl} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={monoUrl} as="font" type="font/woff2" crossorigin />
     <link rel="canonical" href={canonical} />
-    <link rel="alternate" hreflang="en" href={`${site}/`} />
-    <link rel="alternate" hreflang="it" href={`${site}/it/`} />
-    <link rel="alternate" hreflang="x-default" href={`${site}/`} />
+    {alternates.map(([lang, alt]) => <link rel="alternate" hreflang={lang} href={`${site}${alt}`} />)}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={page?.ogType ?? 'website'} />
     <meta property="og:site_name" content="Monsters" />
-    <meta property="og:title" content={t.meta.title} />
-    <meta property="og:description" content={t.meta.description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={`${site}/og.png`} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:locale" content={t.lang === 'it' ? 'it_IT' : 'en_US'} />
-    <meta property="og:locale:alternate" content={t.lang === 'it' ? 'en_US' : 'it_IT'} />
+    {
+      alternates.some(([l]) => l === (t.lang === 'it' ? 'en' : 'it')) && (
+        <meta property="og:locale:alternate" content={t.lang === 'it' ? 'en_US' : 'it_IT'} />
+      )
+    }
     <meta name="twitter:card" content="summary_large_image" />
     <script is:inline>
       // Before the first paint: JS on, and the boot screen once per session (never with reduced motion).
@@ -64,7 +86,10 @@ const ld = jsonLdText({ t, site, version });
         d.classList.add('js');
         try {
           var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-          var skip = /[?&]noboot\b/.test(location.search) || sessionStorage.getItem('monsters.booted');
+          var skip =
+            /[?&]noboot\b/.test(location.search) ||
+            d.hasAttribute('data-noboot') ||
+            sessionStorage.getItem('monsters.booted');
           if (!reduce && !skip) {
             d.classList.add('booting');
             sessionStorage.setItem('monsters.booted', '1');

@@ -496,6 +496,13 @@ html.booting .boot .bl {
   line-height: 1;
 }
 
+/* Docs and Compare join the bar only where it has room; the footer always has them. */
+@media (max-width: 1320px) {
+  .bar__nav .bar__more {
+    display: none;
+  }
+}
+
 @media (max-width: 1060px) {
   .bar__nav {
     display: none;
@@ -1946,6 +1953,20 @@ html.js .term__body.armed .ln.on {
   color: var(--ink-2);
 }
 
+/* the questions people ask: no monster, so the question takes the whole row */
+.faq--plain summary {
+  grid-template-columns: minmax(0, 1fr) 40px;
+}
+
+.faq--plain .faq__q {
+  margin-top: 0;
+  font-size: clamp(1.15rem, 2.1vw, 1.6rem);
+}
+
+.faq--plain .faq__a {
+  padding-left: 0;
+}
+
 @media (max-width: 560px) {
   .faq summary {
     grid-template-columns: 48px minmax(0, 1fr) 32px;
@@ -1953,6 +1974,9 @@ html.js .term__body.armed .ln.on {
   }
   .faq__a {
     padding-left: 0;
+  }
+  .faq--plain summary {
+    grid-template-columns: minmax(0, 1fr) 32px;
   }
 }
 
