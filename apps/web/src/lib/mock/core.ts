@@ -404,6 +404,7 @@ export class MockCore {
       this.live,
       event,
       this.agents.map((a) => a.id),
+      { askerOf: (id) => this.questions.get(id)?.from },
     );
     for (const s of this.sockets) s.deliver({ kind: 'event', event });
     return event;
@@ -892,6 +893,8 @@ export class MockCore {
         ...(l?.confused && (state === 'working' || state === 'waiting')
           ? { confusedSince: l.since }
           : {}),
+        // Like the core (D-157): the open work items seed the app's live state.
+        work: this.halted ? [] : [...(l?.work ?? [])],
       };
     });
   }

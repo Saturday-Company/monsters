@@ -122,7 +122,7 @@ export interface TestHub {
 
 /**
  * Hub settings for the tests that need a starting state with the terminal off: it is on by
- * default (D-1xx-tools), a team of the user who turned it off looks like this.
+ * default (D-159), a team of the user who turned it off looks like this.
  */
 export const TERMINAL_OFF = {
   permissions: { vault: true, web: true, shell: false, folders: [], agents: {} },

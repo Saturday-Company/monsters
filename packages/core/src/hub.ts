@@ -547,7 +547,7 @@ export function resolveVaultLayout(
 export async function createHub(services: CoreServices, options: HubOptions = {}): Promise<Hub> {
   const { db, log, runs, state, paths } = services;
   const env = options.env ?? process.env;
-  // The terminal on by default (D-1xx-tools): permissions saved before it get it once.
+  // The terminal on by default (D-159): permissions saved before it get it once.
   const opened = openSavedPermissions(paths.home);
   const settings = loadHubSettings(paths.home, options.settings ?? {}, env);
   for (const target of opened) {

@@ -7,7 +7,7 @@ import { openSavedPermissions, patchSettingsFile } from '../src/onboarding/setti
 import { HubSettingsSchema } from '../src/team/settings.ts';
 
 /*
- * Everything on by default (D-1xx-tools): new teams get the terminal, permissions saved when it
+ * Everything on by default (D-159): new teams get the terminal, permissions saved when it
  * was off by default get it once, and a choice saved after that is never changed again.
  */
 

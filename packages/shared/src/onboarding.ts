@@ -393,7 +393,7 @@ export interface AgentPermissions {
 }
 
 /**
- * Everything on by default (D-1xx-tools): a monster without the terminal or the web is not an
+ * Everything on by default (D-159): a monster without the terminal or the web is not an
  * agent, and the testers of alpha.20 found the terminal off and the monsters unable to work.
  * The user turns a permission off in Settings → Permissions; the brake, the lockout of the data
  * folder and the spending caps stay on.

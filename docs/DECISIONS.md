@@ -5091,3 +5091,56 @@ subscriptions again every 30 s and when the page returns into view, so the block
 **Consequence:** the windows appear only if OpenAI's route sends those headers. This could not be verified without a
 real account: if `api.openai.com/v1` does not send them, the block keeps saying "no data yet" (never a wrong number) and
 the next step is a real ChatGPT login inside Codex's own `CODEX_HOME`, which needs a decision of its own (D-005, D-035).
+
+
+### D-157 · A monster is at work only while a run or a task of its is open, in the core and in the app
+**Status:** done · 23/10/2026
+**Context:** a tester saw the app say "working" for monsters that were doing nothing. The core's state was right
+(every run and task in the log has its end), the app's was not: it was a separate machine of moods driven by single
+events. Loading an older page of the chat ran old events into the live state (a run cut at the page's edge left its
+monster "working" for good); an answer to one monster's question moved every waiting monster to "working"; a failed
+or stopped task left its lead "waiting for X"; a tool call or words after the end of a run set it at work again; two
+jobs of one monster ended at the first end. In the core a task logged without its `delegate` call was keyed by its own
+event id, so its end never matched, and a task whose end never reached the log (a crash) stayed open.
+**Choice:** one notion of work for both sides, `workChangeOf` in `@monsters/shared/work.ts`: the runs of a monster and
+the tasks given to it, with the same keys (a task by its `delegate` call, or by its goal). The core lists them in
+`AgentSummary.work`; the app seeds its live state with them and follows the same items (`LiveState.work`). Busy moods
+need an open item: tool calls and words without one change nothing, unless their run is not known to be over (the
+app keeps the runs whose end it saw), when the item is learnt (a snapshot that crossed the start of a run). The end of
+the last item brings the monster to rest; the end of a run closes the tasks given within it, on both sides. The live
+state takes only events newer than the newest it has seen (`liveAt`): older pages change the chats, never the moods.
+An answer moves on only the monster that asked (the app's list of questions), to "working" only if a run still holds
+the question; a question that does not block leaves the monster at work. In the chat, a run that ends closes its
+drafts and its tasks still marked at work. Older cores send no `work`: a monster they call working gets an unknown item
+that the end of any run or task of its closes.
+**Consequence:** "at work" in the app is what the core counts, and comes back to rest with the end of the run even
+when single events are lost or late. A new kind of work (if one comes) is added to `workChangeOf`, and both sides
+follow it.
+
+### D-159 · Every permission on by default; token limits without cache reads; refusals only for real writes
+**Status:** done · 23/10/2026
+**Context:** testers of alpha.20 found monsters that could not work: the terminal was off by default (on only for
+who said they write software at the onboarding), so Claude Code had no Bash and Codex no commands; a delegated
+monster on Claude Code was stopped by `maxSubagentTokens` after nine research steps, because every step re-reads its
+whole context and 92% of the 400k counted tokens were prompt-cache reads; the guard on the harness configuration
+refused `wc -l CLAUDE.md` because `2>&1` elsewhere in the line looked like a write; `web_fetch` returned
+`content: ""` for pages built in the browser and for AWS WAF challenges (202, empty body), and the model told the
+user it could not read the site and asked for a printout.
+**Choices:**
+- `DEFAULT_AGENT_PERMISSIONS` and the settings default have `shell: true`; the onboarding starts with everything on.
+  Settings saved before (`permissionsRevision` missing or below 2) get the terminal once at the start of the core,
+  for the team and every monster with permissions of its own, with a `permissions` event `by: 'system'`. Every save
+  of the permissions writes the revision, so a later "off" of the user is never changed. The brake, the lockout of
+  the data folder, the spending caps and the confirmation of sensitive changes stay as they are.
+- Token limits (`maxRunTokens`, `maxSubagentTokens`, `maxTotalTokens`) count `limitTokens`: input read fresh plus
+  output, prompt-cache reads left out; `provider_usage` keeps the real input.
+- The harness configuration guard on Bash drops redirections that write no file (`2>&1`, `>/dev/null`, `NUL`) and
+  counts a redirection as a write only when its target names a configuration file or a variable.
+- `web_fetch`: a page with under 200 characters of readable text gets what it says about itself (meta and Open
+  Graph descriptions, JSON-LD text, `<noscript>`) and a `note` in Monsters' words (built by JavaScript, read other
+  pages of the site or use the browser, not a permission of the user). A 202 with `x-amzn-waf-action: challenge` is
+  `SITE_REFUSED`.
+- The commands of the monsters no longer inherit `npm_config_*` from the core's parent (`npx` exported the user's
+  prefix in lowercase and a global install left the agent's folder).
+**Consequence:** a new team can use the terminal from the first message; who wants it off turns it off in
+Settings → Permissions. Rendering pages in a browser for `web_fetch` stays open.

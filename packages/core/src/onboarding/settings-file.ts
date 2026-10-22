@@ -116,7 +116,7 @@ export function patchSettingsFile(home: string, patch: SettingsPatch): Record<st
 }
 
 /**
- * Once per installation (D-1xx-tools): permissions saved when the terminal was off by default
+ * Once per installation (D-159): permissions saved when the terminal was off by default
  * get it on, for the team and for every monster with permissions of its own. Returns who got it
  * (`defaults` or an agent id), empty when nothing changed. Files without permissions (before
  * the onboarding) only get the revision: the defaults already have the terminal on.

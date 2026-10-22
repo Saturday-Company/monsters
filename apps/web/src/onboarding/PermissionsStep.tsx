@@ -67,7 +67,7 @@ export function PermissionsStep({
   onState: (s: OnboardingState) => void;
 }) {
   const s = onboardingStrings().permissions;
-  // Everything on (D-1xx-tools): the user turns off what they do not want.
+  // Everything on (D-159): the user turns off what they do not want.
   const [perm, setPerm] = useState<AgentPermissions>(
     () => state.permissions ?? { ...DEFAULT_AGENT_PERMISSIONS },
   );

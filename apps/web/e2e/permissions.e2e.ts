@@ -18,7 +18,7 @@ async function openRhea(page: Page) {
 
 test('settings: change what a monster may do, saved at once and logged', async ({ page }) => {
   const rhea = await openRhea(page);
-  // Everything is on by default (D-1xx-tools): the terminal too, with its warning.
+  // Everything is on by default (D-159): the terminal too, with its warning.
   await expect(rhea.getByTestId('permissions-summary')).toHaveText('Notes, web, terminal');
   await expect(rhea.getByTestId('shell-warning')).toBeVisible();
 
