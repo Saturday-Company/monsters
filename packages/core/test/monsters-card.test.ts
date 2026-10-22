@@ -23,6 +23,8 @@ afterEach(() => setAppLang('en'));
 
 const user = { user: 'Giulio' };
 const orchestrator = orchestratorTools(orchestratorBlueprint(user).tools ?? [], true);
+/** The capo of a squad without pages: no web at all, only the squad's (D-127). */
+const capoNoWeb = orchestrator.filter((t) => !t.startsWith('web_'));
 const rhea = rheaBlueprint(user).tools ?? [];
 const dione = dioneBlueprint(user).tools ?? [];
 
@@ -30,28 +32,49 @@ const dione = dioneBlueprint(user).tools ?? [];
 const tokens = (s: string) => Math.ceil(s.length / 3.6);
 
 describe('the Monsters card', () => {
-  it('orchestrator: notes, team, questions, proposals; no web of its own', () => {
+  it('orchestrator: notes, team, questions, proposals; the pages but not the search (D-161)', () => {
     expect(monstersCard({ toolNames: orchestrator })).toMatchInlineSnapshot(`
       "## Monsters
       Sei in Monsters: mostri AI che lavorano per l’utente sul suo computer; lui li segue dall’app.
       Puoi:
       - note: cerchi, leggi e scrivi (\`vault_*\`)
+      - web: pagine con \`web_fetch\`; un sito o un indirizzo che l’utente o il brief nominano lo leggi tu con \`web_fetch\`: mai chiedergli di incollarlo
       - squadra: deleghi agli altri mostri (\`delegate\`)
       - domande all’utente (\`ask_user\`)
       - nuovi mostri: proponi una bozza (\`team_propose_monster\`), l’utente la crea
-      Non hai: web; servizi collegati (nessuno è dato a te: li collega e li dà l’utente in Impostazioni → Collegamenti → Altri programmi).
+      Non hai: servizi collegati (nessuno è dato a te: li collega e li dà l’utente in Impostazioni → Collegamenti → Altri programmi).
       Solo l’utente, in Impostazioni: Squadra (creare, cambiare e archiviare mostri; chi è lui per voi), Modelli (modelli e spesa; tu non la vedi), Permessi, Collegamenti (servizi, Telegram). Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file."
     `);
   });
 
-  it('a monster without the web knows who has it, never that it is denied (D-127)', () => {
+  it('a capo with the pages but not the search says who searches and reads what the user names (D-161)', () => {
     const capo = monstersCard({ toolNames: orchestrator, webElsewhere: ['Pixel'] });
+    expect(capo).toContain(
+      '- web: pagine con `web_fetch`; un sito o un indirizzo che l’utente o il brief nominano lo leggi tu con `web_fetch`: mai chiedergli di incollarlo\n',
+    );
+    expect(capo).toContain(
+      'Non hai: ricerca sul web (ce l’ha Pixel: delega le ricerche); servizi collegati',
+    );
+    // Nobody searches: no search to name, the pages stay.
+    const alone = monstersCard({ toolNames: orchestrator, webElsewhere: [] });
+    expect(alone).not.toContain('ricerca sul web');
+    expect(alone).toContain('pagine con `web_fetch`');
+    // With the search of its own, nothing is missing and the pages end with the same rule.
+    const both = monstersCard({ toolNames: rhea, webElsewhere: ['Pixel'] });
+    expect(both).toContain('`web_search`, pagine con `web_fetch`; un sito o un indirizzo');
+    expect(both).not.toContain('Non hai: ricerca');
+    // Without the pages there is no rule to read them.
+    expect(monstersCard({ toolNames: capoNoWeb })).not.toContain('mai chiedergli di incollarlo');
+  });
+
+  it('a monster without the web knows who has it, never that it is denied (D-127)', () => {
+    const capo = monstersCard({ toolNames: capoNoWeb, webElsewhere: ['Pixel'] });
     expect(capo).toContain('Non hai: web (ce l’ha Pixel: delega la ricerca); servizi collegati');
     const two = monstersCard({ toolNames: dione, webElsewhere: ['Pixel', 'Rhea', 'Pixel'] });
     // No `delegate`: no "delega" (D-132).
     expect(two).toContain('Non hai: web (ce l’ha Pixel e Rhea); servizi collegati');
     // Nobody in the squad has it: no "delega" towards nobody.
-    const none = monstersCard({ toolNames: orchestrator, webElsewhere: [] });
+    const none = monstersCard({ toolNames: capoNoWeb, webElsewhere: [] });
     expect(none).toContain('Non hai: web (nessuno nella squadra ce l’ha)');
     expect(none).not.toContain('delega)');
     expect(
@@ -78,7 +101,7 @@ describe('the Monsters card', () => {
       Sei in Monsters: mostri AI che lavorano per l’utente sul suo computer; lui li segue dall’app.
       Puoi:
       - note: cerchi, leggi e scrivi (\`vault_*\`)
-      - web: \`web_search\`, pagine con \`web_fetch\`
+      - web: \`web_search\`, pagine con \`web_fetch\`; un sito o un indirizzo che l’utente o il brief nominano lo leggi tu con \`web_fetch\`: mai chiedergli di incollarlo
       Non hai: servizi collegati (nessuno è dato a te: li collega e li dà l’utente in Impostazioni → Collegamenti → Altri programmi).
       Senza uno strumento apposta non pubblichi, non invii mail o messaggi, non paghi: prepari bozze.
       Solo l’utente, in Impostazioni: Squadra (creare, cambiare e archiviare mostri; chi è lui per voi), Modelli (modelli e spesa; tu non la vedi), Permessi, Collegamenti (servizi, Telegram). Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file."
@@ -118,7 +141,7 @@ describe('the Monsters card', () => {
       Sei in Monsters: mostri AI che lavorano per l’utente sul suo computer; lui li segue dall’app.
       Puoi:
       - note: cerchi, leggi e scrivi (\`vault_*\`)
-      - web: la tua ricerca web, pagine con \`web_fetch\`
+      - web: la tua ricerca web, pagine con \`web_fetch\`; un sito o un indirizzo che l’utente o il brief nominano lo leggi tu con \`web_fetch\`: mai chiedergli di incollarlo
       - browser: usi siti veri nel browser di Monsters, con gli accessi che l’utente ci ha fatto (es. Instagram): leggi e prepari; prima di Pubblica, Condividi, Invia o Paga Monsters chiede all’utente
       - terminale e file: nella cartella di questo lavoro
       - squadra: deleghi agli altri mostri (\`delegate\`)
@@ -155,7 +178,7 @@ describe('the Monsters card', () => {
       'web (spento per te: lo accende l’utente in Impostazioni → Permessi → Il web)',
     );
     const asks = monstersCard({
-      toolNames: [...orchestrator, 'access_request'],
+      toolNames: [...capoNoWeb, 'access_request'],
       webOff: 'permission',
       webElsewhere: ['Pixel'],
     });
@@ -208,12 +231,13 @@ describe('the Monsters card', () => {
     expect(card).not.toContain('Non hai: web');
   });
 
-  it('Codex: its commands have no network, and the card says so (M3)', () => {
+  it('Codex: a command that needs the network asks Monsters, and the card says how (D-158)', () => {
     const card = monstersCard({
       toolNames: dione,
       harness: { id: 'codex', ownWebSearch: false, terminal: true, connectors: [] },
     });
-    expect(card).toContain('i comandi non hanno rete');
+    expect(card).toContain('un comando che ha bisogno della rete chiede prima a Monsters');
+    expect(card).not.toContain('non hanno rete');
   });
 
   it('stays small: ~150-300 tokens', () => {

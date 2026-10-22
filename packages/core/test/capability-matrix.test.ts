@@ -394,8 +394,10 @@ describe.each(MODES)('visible == executable on %s (D1, D-136)', (mode) => {
     await send(t, { to: 'leda', text: 'Cerca i negozi di giochi a Bologna' });
     await send(t, { to: pixel.config.id, text: 'Cerca i negozi di giochi a Bologna' });
     check(seen, 2);
-    // The capo has no web of its own: the card says who has it, never "denied".
-    expect(seen[0]!.text).toMatch(/Non hai: web \(ce l’ha Pixel: delega la ricerca\)/);
+    // The capo has no search of its own: the card says who has it, never "denied". It reads
+    // the pages the user names (D-161).
+    expect(seen[0]!.text).toMatch(/Non hai: ricerca sul web \(ce l’ha Pixel: delega le ricerche\)/);
+    expect(seen[0]!.text).toContain('`web_fetch`');
     expect(seen[0]!.text).not.toContain('Permission to use');
   });
 
@@ -588,7 +590,11 @@ describe('visible == executable where only one harness goes (D1, D-136)', () => 
       models: { titan: [fake.httpError(500, 'down')], backup: probe(seen, 'titan') },
     });
     const providers = new ProviderRegistry().register(t0);
-    const t = await startTestHub({}, { hub: { providers } });
+    // The pages too (D-161): the capo's text names `web_fetch`, so the tool must exist.
+    const t = await startTestHub(
+      {},
+      { hub: { providers, webTools: [fakeWebSearch, fakeWebFetch] } },
+    );
     await t.core.hub.team.setModels('titan', [
       { provider: 'fake', model: 'titan' },
       { provider: 'fake', model: 'backup' },

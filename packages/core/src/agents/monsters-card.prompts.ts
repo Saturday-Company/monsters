@@ -19,7 +19,7 @@ const en = {
   browser:
     'browser: you use real sites in the Monsters browser, with the sign-ins the user made there (e.g. Instagram): you read and prepare; before Publish, Share, Send or Pay Monsters asks the user',
   terminalHere: (codex: boolean) =>
-    `terminal and files: in this job’s folder${codex ? ' (commands have no network: for the web use the web tools)' : ''}`,
+    `terminal and files: in this job’s folder${codex ? ' (a command that needs the network asks Monsters first: `sandbox_permissions: "require_escalated"`)' : ''}`,
   terminalGranted: 'terminal and files: only in the folders granted (`shell`, `fs_*`)',
   artifact: 'HTML pages for the user, among their Files (`artifact_create`)',
   delegate: 'squad: you delegate to the other monsters (`delegate`)',
@@ -76,6 +76,10 @@ const en = {
   webElsewhere: (whoText: string, n: number, delegates: boolean) =>
     `web (${whoText} ${n > 1 ? 'have' : 'has'} it${delegates ? ': delegate the search' : ''})`,
   webNobody: 'web (nobody in the squad has it)',
+  fetchNamed:
+    '; a site or address the user or the brief names you read yourself with `web_fetch`: never ask the user to paste it',
+  searchElsewhere: (whoText: string, n: number, delegates: boolean) =>
+    `web search (${whoText} ${n > 1 ? 'have' : 'has'} it${delegates ? ': delegate the searches' : ''})`,
   and: 'and',
 };
 
@@ -90,7 +94,7 @@ const it: typeof en = {
   browser:
     'browser: usi siti veri nel browser di Monsters, con gli accessi che l’utente ci ha fatto (es. Instagram): leggi e prepari; prima di Pubblica, Condividi, Invia o Paga Monsters chiede all’utente',
   terminalHere: (codex) =>
-    `terminale e file: nella cartella di questo lavoro${codex ? ' (i comandi non hanno rete: per il web usa gli strumenti web)' : ''}`,
+    `terminale e file: nella cartella di questo lavoro${codex ? ' (un comando che ha bisogno della rete chiede prima a Monsters: `sandbox_permissions: "require_escalated"`)' : ''}`,
   terminalGranted: 'terminale e file: solo nelle cartelle concesse (`shell`, `fs_*`)',
   artifact: 'pagine HTML per l’utente, tra i suoi File (`artifact_create`)',
   delegate: 'squadra: deleghi agli altri mostri (`delegate`)',
@@ -140,6 +144,10 @@ const it: typeof en = {
   webElsewhere: (whoText, _n, delegates) =>
     `web (ce l’ha ${whoText}${delegates ? ': delega la ricerca' : ''})`,
   webNobody: 'web (nessuno nella squadra ce l’ha)',
+  fetchNamed:
+    '; un sito o un indirizzo che l’utente o il brief nominano lo leggi tu con `web_fetch`: mai chiedergli di incollarlo',
+  searchElsewhere: (whoText, _n, delegates) =>
+    `ricerca sul web (ce l’ha ${whoText}${delegates ? ': delega le ricerche' : ''})`,
   and: 'e',
 };
 

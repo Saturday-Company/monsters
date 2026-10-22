@@ -210,6 +210,11 @@ describe('the confused monster', () => {
     const start = 1_760_100_000_000;
     live = applyLive(
       live,
+      ev({ agent: 'rhea', runId: 'r1', type: 'run', data: { status: 'started' } }, start - 1000),
+      ids,
+    );
+    live = applyLive(
+      live,
       ev(
         {
           agent: 'rhea',

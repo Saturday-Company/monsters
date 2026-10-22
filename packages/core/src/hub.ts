@@ -64,7 +64,7 @@ import {
   type VaultWarning,
   type VcsKind,
 } from '@monsters/vault';
-import { DEFAULT_FREE_CHAIN, isDefaultChain, WEB_TOOLS } from './agents/archetypes.ts';
+import { DEFAULT_FREE_CHAIN, isDefaultChain } from './agents/archetypes.ts';
 import { automationRunOf } from './automations/run-index.ts';
 import { AutomationService, type AutomationServiceOptions } from './automations/service.ts';
 import { AUTOMATIONS_DIR } from './automations/store.ts';
@@ -544,10 +544,17 @@ export function resolveVaultLayout(
   return VAULT_LAYOUTS[chosen];
 }
 
+/** A web address in a text: a URL, `www.…` or a host with a common top-level domain (D-161). */
+export function namesWebAddress(text: string): boolean {
+  return /\bhttps?:\/\/|\bwww\.[a-z0-9-]+\.|\b[a-z0-9][a-z0-9-]*\.(?:it|com|net|org|io|ai|dev|eu|app|co|de|fr|es|ch|uk|info|biz|me|tech|store|shop)\b(?![.@]?[a-z0-9])/i.test(
+    text,
+  );
+}
+
 export async function createHub(services: CoreServices, options: HubOptions = {}): Promise<Hub> {
   const { db, log, runs, state, paths } = services;
   const env = options.env ?? process.env;
-  // The terminal on by default (D-1xx-tools): permissions saved before it get it once.
+  // The terminal on by default (D-159): permissions saved before it get it once.
   const opened = openSavedPermissions(paths.home);
   const settings = loadHubSettings(paths.home, options.settings ?? {}, env);
   for (const target of opened) {
@@ -990,13 +997,12 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
    * instructions name them, so it never takes the missing web for a refusal of the user.
    */
   const webElsewhere = (agent: AgentDefinition): string[] | undefined => {
-    if (agent.config.tools.some((t) => WEB_TOOLS.includes(t))) return undefined;
+    // Who searches: a capo with pages only (D-161) delegates the searches to them.
+    if (agent.config.tools.includes('web_search')) return undefined;
     const squad = team.projectOf(agent.config.id)?.id;
     return team
       .members(squad)
-      .filter(
-        (d) => d.config.id !== agent.config.id && d.config.tools.some((t) => WEB_TOOLS.includes(t)),
-      )
+      .filter((d) => d.config.id !== agent.config.id && d.config.tools.includes('web_search'))
       .map((d) => d.config.name);
   };
   /** The app has a window open on the core (the event stream), set by the server (D-142). */
@@ -2281,7 +2287,15 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     const agent = withoutClosedTools(turn.agent, run.id);
     const deferOwn = new Map(turn.deferred);
     if (artifactDeferred(agent, request)) deferOwn.set(ARTIFACT_TOOL, 'pagine');
-    if (free && hasWeb && xray.needsWeb !== undefined && xray.needsWeb < BANDS.web.drop) {
+    // A site or address in the request is read, whatever the triage says (D-161): a free model
+    // with the web deferred answered "I can't open pages" to "look at witdesk.it".
+    if (
+      free &&
+      hasWeb &&
+      xray.needsWeb !== undefined &&
+      xray.needsWeb < BANDS.web.drop &&
+      !namesWebAddress(request)
+    ) {
       for (const t of agent.config.tools) if (t.startsWith('web_')) deferOwn.set(t, 'web');
       log.append({
         agent: 'system',

@@ -40,6 +40,8 @@ const en = {
   codexIdle: (seconds: number) => `codex app-server has given no sign of life for ${seconds} s`,
   codexTokenExpired: (message: string) =>
     `The ChatGPT token stopped being valid halfway through the turn: try again (${message})`,
+  codexMcpFailed: (server: string) =>
+    `Codex could not connect to Monsters’ tools (the \`${server}\` server), so the turn did not start: try again`,
   codexClosed: (tail: string) =>
     `Codex closed before the end of the turn${tail ? `: ${tail}` : ''}`,
 
@@ -90,6 +92,8 @@ const it: typeof en = {
   codexIdle: (seconds) => `codex app-server non dà segnali da ${seconds} s`,
   codexTokenExpired: (message) =>
     `Il token di ChatGPT non vale più a metà del turno: riprova (${message})`,
+  codexMcpFailed: (server) =>
+    `Codex non è riuscito a collegarsi agli strumenti di Monsters (il server \`${server}\`), quindi il turno non è partito: riprova`,
   codexClosed: (tail) => `Codex si è chiuso prima della fine del turno${tail ? `: ${tail}` : ''}`,
 
   unreachableInUse: 'L’accesso a ChatGPT resta valido: riprova tra poco.',

@@ -80,9 +80,11 @@ describe('the web follows the permission (D-128)', () => {
     // Its own permission off: no web.
     team.setPolicy({ vault: true, web: true, agents: { dione: { vault: true, web: false } } });
     expect(tools('dione').filter((x) => WEB.includes(x))).toEqual([]);
-    // The capo still delegates research to the researcher only (D-026): Rhea covers it.
+    // The capo still delegates the searches to the researcher only (D-026): Rhea covers them.
+    // It keeps the pages (D-161), to read the sites the user names.
     team.setPolicy({ vault: true, web: true });
-    expect(tools('titan').filter((x) => WEB.includes(x))).toEqual([]);
+    expect(tools('titan').filter((x) => WEB.includes(x))).toEqual(['web_fetch']);
+    expect(tools('titan')).not.toContain('web_search');
     team.setPolicy({ vault: true, web: true, agents: { rhea: { vault: true, web: false } } });
     expect(tools('titan')).toEqual(expect.arrayContaining(WEB));
     expect(tools('dione')).toEqual(expect.arrayContaining(WEB));

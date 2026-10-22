@@ -120,6 +120,26 @@ export interface HarnessHooks {
   stop: boolean;
 }
 
+/** A command a harness wants to run outside its sandbox (Codex escalation, D-158). */
+export interface HarnessCommandCall {
+  /** Id of the harness's item, the same as its `tool-call` event. */
+  id: string;
+  /** The command line as the model wrote it (the harness's shell wrapper removed). */
+  command: string;
+  cwd?: string;
+  /** Why the model asks, in its words (Codex's `justification`). */
+  reason?: string;
+}
+
+/**
+ * Asked before a command leaves the harness's sandbox (D-158): null runs it,
+ * a text refuses it with Monsters' own words for the model.
+ */
+export type HarnessCommandApproval = (
+  call: HarnessCommandCall,
+  signal: AbortSignal,
+) => Promise<string | null>;
+
 /**
  * A service the harness reaches with its own sign-in (D-069), never through
  * Monsters: a claude.ai connector the user connected on claude.ai, or a
@@ -163,6 +183,13 @@ export interface HarnessTask {
   webSearch?: boolean;
   /** Where the harness asks the core before acting on its own (Claude Code hooks). */
   hooks?: HarnessHooks;
+  /**
+   * Codex (D-158): the core's check before a command leaves the sandbox, the
+   * same Claude Code's `Bash` gets from the `PreToolUse` hook (data folder,
+   * harness configuration, the brake). Without it Codex never escalates and its
+   * commands have no network.
+   */
+  approveCommand?: HarnessCommandApproval;
   /**
    * Absolute paths the harness's own file tools must never touch (D-078: the
    * data folder of Monsters minus the agent's workspace). The certain check
@@ -237,6 +264,11 @@ export type HarnessEvent =
       /** The rest of a turn's total, not one request: its input is no context. */
       aggregate?: boolean;
     }
+  /**
+   * MCP servers of the run as the harness reports them while it starts (server name →
+   * `connected` | `failed` | `pending` | `needs-auth`); Codex: `mcpServer/startupStatus/updated`.
+   */
+  | { type: 'mcp-status'; servers: Record<string, string> }
   /** The plan's limits as the official program reports them (D-111); nothing is asked for. */
   | { type: 'plan-limits'; reading: PlanLimitsReading }
   /**

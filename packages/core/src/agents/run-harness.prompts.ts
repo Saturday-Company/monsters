@@ -30,8 +30,8 @@ const en = {
     }. It is not a ban from the user nor a block of the session: do not say that the web was denied to you.`,
   codexAsk: (ask: boolean, server: string) =>
     `To ask the user something ${ask ? `use \`ask_user\` of ${server}` : 'write the question in the report'}: Codex’s \`request_user_input\` reaches nobody.`,
-  codexNoNetwork:
-    'Your commands have no network (Codex’s sandbox): for the web use the web tools, not curl or git push. A “Could not resolve host” comes from there, not from a permission of the user.',
+  codexNetwork:
+    'Your commands run in Codex’s sandbox, without network. When one needs it (npm install, git clone or push, curl), run it with `sandbox_permissions: "require_escalated"` and a short `justification`: Monsters checks it and lets it run, also after a “Could not resolve host”. If Monsters stops a command, Codex says “rejected by user”: the real reason follows in a [Monsters] note.',
   claudeBuiltins:
     'The built-in tools of Claude Code that you don’t have are not part of this run: if one shows as denied, the user did not deny it.',
   claudeRule: (docs: boolean) =>
@@ -68,8 +68,8 @@ const it: typeof en = {
     }. Non è un divieto dell’utente né un blocco della sessione: non dire che il web ti è stato negato.`,
   codexAsk: (ask, server) =>
     `Per chiedere qualcosa all’utente ${ask ? `usa \`ask_user\` di ${server}` : 'scrivi la domanda nel rapporto'}: \`request_user_input\` di Codex non arriva a nessuno.`,
-  codexNoNetwork:
-    'I tuoi comandi non hanno rete (la sandbox di Codex): per il web usa gli strumenti web, non curl o git push. Un «Could not resolve host» viene da lì, non da un permesso dell’utente.',
+  codexNetwork:
+    'I tuoi comandi girano nella sandbox di Codex, senza rete. Quando a uno serve (npm install, git clone o push, curl), lancialo con `sandbox_permissions: "require_escalated"` e una breve `justification`: Monsters lo controlla e lo fa partire, anche dopo un «Could not resolve host». Se Monsters ferma un comando, Codex dice «rejected by user»: il motivo vero segue in una nota [Monsters].',
   claudeBuiltins:
     'Gli strumenti integrati di Claude Code che non hai non sono di questa run: se uno risulta negato, non l’ha negato l’utente.',
   claudeRule: (docs) =>

@@ -5091,3 +5091,116 @@ subscriptions again every 30 s and when the page returns into view, so the block
 **Consequence:** the windows appear only if OpenAI's route sends those headers. This could not be verified without a
 real account: if `api.openai.com/v1` does not send them, the block keeps saying "no data yet" (never a wrong number) and
 the next step is a real ChatGPT login inside Codex's own `CODEX_HOME`, which needs a decision of its own (D-005, D-035).
+
+
+### D-157 · A monster is at work only while a run or a task of its is open, in the core and in the app
+**Status:** done · 23/10/2026
+**Context:** a tester saw the app say "working" for monsters that were doing nothing. The core's state was right
+(every run and task in the log has its end), the app's was not: it was a separate machine of moods driven by single
+events. Loading an older page of the chat ran old events into the live state (a run cut at the page's edge left its
+monster "working" for good); an answer to one monster's question moved every waiting monster to "working"; a failed
+or stopped task left its lead "waiting for X"; a tool call or words after the end of a run set it at work again; two
+jobs of one monster ended at the first end. In the core a task logged without its `delegate` call was keyed by its own
+event id, so its end never matched, and a task whose end never reached the log (a crash) stayed open.
+**Choice:** one notion of work for both sides, `workChangeOf` in `@monsters/shared/work.ts`: the runs of a monster and
+the tasks given to it, with the same keys (a task by its `delegate` call, or by its goal). The core lists them in
+`AgentSummary.work`; the app seeds its live state with them and follows the same items (`LiveState.work`). Busy moods
+need an open item: tool calls and words without one change nothing, unless their run is not known to be over (the
+app keeps the runs whose end it saw), when the item is learnt (a snapshot that crossed the start of a run). The end of
+the last item brings the monster to rest; the end of a run closes the tasks given within it, on both sides. The live
+state takes only events newer than the newest it has seen (`liveAt`): older pages change the chats, never the moods.
+An answer moves on only the monster that asked (the app's list of questions), to "working" only if a run still holds
+the question; a question that does not block leaves the monster at work. In the chat, a run that ends closes its
+drafts and its tasks still marked at work. Older cores send no `work`: a monster they call working gets an unknown item
+that the end of any run or task of its closes.
+**Consequence:** "at work" in the app is what the core counts, and comes back to rest with the end of the run even
+when single events are lost or late. A new kind of work (if one comes) is added to `workChangeOf`, and both sides
+follow it.
+
+### D-159 · Every permission on by default; token limits without cache reads; refusals only for real writes
+**Status:** done · 23/10/2026
+**Context:** testers of alpha.20 found monsters that could not work: the terminal was off by default (on only for
+who said they write software at the onboarding), so Claude Code had no Bash and Codex no commands; a delegated
+monster on Claude Code was stopped by `maxSubagentTokens` after nine research steps, because every step re-reads its
+whole context and 92% of the 400k counted tokens were prompt-cache reads; the guard on the harness configuration
+refused `wc -l CLAUDE.md` because `2>&1` elsewhere in the line looked like a write; `web_fetch` returned
+`content: ""` for pages built in the browser and for AWS WAF challenges (202, empty body), and the model told the
+user it could not read the site and asked for a printout.
+**Choices:**
+- `DEFAULT_AGENT_PERMISSIONS` and the settings default have `shell: true`; the onboarding starts with everything on.
+  Settings saved before (`permissionsRevision` missing or below 2) get the terminal once at the start of the core,
+  for the team and every monster with permissions of its own, with a `permissions` event `by: 'system'`. Every save
+  of the permissions writes the revision, so a later "off" of the user is never changed. The brake, the lockout of
+  the data folder, the spending caps and the confirmation of sensitive changes stay as they are.
+- Token limits (`maxRunTokens`, `maxSubagentTokens`, `maxTotalTokens`) count `limitTokens`: input read fresh plus
+  output, prompt-cache reads left out; `provider_usage` keeps the real input.
+- The harness configuration guard on Bash drops redirections that write no file (`2>&1`, `>/dev/null`, `NUL`) and
+  counts a redirection as a write only when its target names a configuration file or a variable.
+- `web_fetch`: a page with under 200 characters of readable text gets what it says about itself (meta and Open
+  Graph descriptions, JSON-LD text, `<noscript>`) and a `note` in Monsters' words (built by JavaScript, read other
+  pages of the site or use the browser, not a permission of the user). A 202 with `x-amzn-waf-action: challenge` is
+  `SITE_REFUSED`.
+- The commands of the monsters no longer inherit `npm_config_*` from the core's parent (`npx` exported the user's
+  prefix in lowercase and a global install left the agent's folder).
+**Consequence:** a new team can use the terminal from the first message; who wants it off turns it off in
+Settings → Permissions. Rendering pages in a browser for `web_fetch` stays open.
+
+### D-161 · Read what the user names: the capo keeps `web_fetch`, the product's facts come from its site too
+**Status:** done · 23/10/2026
+**Context:** asked to analyse WitDesk, the monsters asked the user for a printout or a presentation of the product
+until the user forced them to read witdesk.it, which `web_fetch` reads fine. The causes, all on current main: the
+orchestrator's template said a user's product facts come "only from the profile or the vault" and to ask with
+`ask_user` otherwise; D-026 took both web tools from the orchestrator and the leads whose squad has a researcher, so
+"read this site" had no tool; on a free chain the triage deferred the web for a request that only named a site (the
+question is about searching up-to-date information); Rhea's rule said to open only addresses found with the search;
+the ChatGPT tool namespace always promised "vault, web, team".
+**Choices:**
+- D-026 now takes only `web_search`: the orchestrator and the leads keep `web_fetch`. The card says that the search is
+  with the squad's researchers ("delegate the searches") and, for every monster with `web_fetch`, that a site or
+  address the user or the brief names is read with it, never asked to the user.
+- The orchestrator template (both families) says the facts come from the profile, the vault or the user's own
+  websites read with `web_fetch`, and only then from `ask_user`. The previous text is legacy (`ORCHESTRATOR_IT_V4`,
+  `ORCHESTRATOR_EN_V2`), so installed AGENTS.md files never edited by hand upgrade at the next start.
+- Free chain: the web is never deferred when the request names a web address (`namesWebAddress`); the triage
+  question of Jev is unchanged (its model is trained on it).
+- Rhea opens the addresses found with the search and the ones the user or the brief give; the ChatGPT namespace
+  description lists only what the request's tools hold.
+**Consequence:** a capo reads one page itself and delegates research. The template names `web_fetch` also for a
+team whose web is off; then the core's "not one of your tools" answer applies (D-127).
+
+### D-158 · Codex commands reach the network by asking Monsters, through the checks of Claude Code's `Bash`
+**Status:** done · 23/10/2026
+**Context:** the founder's decision: a monster with the terminal must not lack permissions, and its commands must reach
+the network (`npm install`, `git clone`/`push`, `curl`). The Codex harness ran commands in the `workspace-write`
+sandbox with the network closed and `approvalPolicy: never`, so they failed with "Could not resolve host". Claude Code
+runs `Bash` with the network, but every call passes the core's `PreToolUse` hook (data folder lockout, harness
+configuration, closed folders, the brake). Codex must not get an open network with no brake. Checked against the real
+`codex` 0.159.2 (the pinned one) and 0.163.0 (`app-server generate-json-schema`, then the binary against a local
+Responses backend, throwaway `CODEX_HOME`, no account): under `on-request` the model asks to leave the sandbox with
+`sandbox_permissions: "require_escalated"` (Codex's own instructions tell it to do so after a DNS failure);
+app-server emits `item/started` for the command, then the server request `item/commandExecution/requestApproval`
+(`itemId`, `command` wrapped as `/usr/bin/bash -lc '…'` in mixed quoting, `cwd`, `reason` = the model's
+justification); `accept` runs it outside the sandbox (network on), `decline` ends the item as `declined` and the model
+reads only "rejected by user". A sandboxed command never triggers an approval by itself. `thread/inject_items` with a
+`developer` message, sent before the answer, lands right after the command's output, before the next request.
+**Choice:** with the terminal, Codex threads run with `approvalPolicy: on-request`, `approvalsReviewer: user` and the
+`workspace-write` sandbox. Each approval goes through `checkHarnessCommand` (`harness-hooks.ts`), which builds the
+`PreToolUse` input of a `Bash` call and calls `answerHarnessHook`: the same lockout, configuration and brake, no
+second copy. The command is first taken out of Codex's wrapper (`codexShellCommand`), so the checks and the card read
+what the model wrote. Allowed → `accept`; refused → the reason goes into the thread as a `[Monsters]` developer note,
+then `decline`; a failing check declines. `item/permissions/requestApproval` grants nothing (a turn-wide grant would
+skip the check of each command); file changes outside the folder stay declined. The fallback (`network_access = true`
+for runs with terminal and web) was not needed. Found on the way and fixed in the same change: (1) under `never`
+Codex refused every Monsters tool marked destructive or open-world ("MCP tool call requires approval, but approval
+policy is never"), on both versions: Monsters' server now has `default_tools_approval_mode = "approve"` (its tools
+pass the core's own checks); (2) the model was asked before Monsters' MCP server had started, and ran without its
+tools when it failed: the server is `required = true`, so `thread/start` waits for it and fails before any request
+(→ `mcp-status` failed and `done` with `mcp_unavailable`), and `mcpServer/startupStatus/updated` becomes the
+`mcp-status` event; (3) `thread/tokenUsage/updated` carries `cachedInputTokens` (part of `inputTokens`): it is now
+`cacheReadTok`, so the token limits (`limitTokens`) leave cache reads out for Codex too.
+**Consequence:** commands that stay inside the sandbox still run unchecked, as before: they have no network and write
+only the folder and the temporary folders, but they can read the disk (Monsters' data folder included); Codex's
+permission profiles (`deny` entries) could close that and need a decision of their own. A model that never escalates
+keeps failing on the network; the run instructions and the card say how to ask. The harness tools probe (D-136)
+now creates `codex-home` first; on 0.159.2 and 0.163.0 its Codex half sees no tool names (vacuously green), since the tools moved into an
+`additional_tools` input item (code mode), to be taught to the probe.

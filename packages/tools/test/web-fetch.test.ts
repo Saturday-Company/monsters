@@ -507,7 +507,7 @@ describe('web_fetch DNS checks (SSRF)', () => {
   });
 });
 
-describe('pages built by JavaScript (D-1xx-tools)', () => {
+describe('pages built by JavaScript (D-159)', () => {
   const tool = () => createWebFetchTool({ allowPrivateHosts: true });
 
   it('gives what the page says about itself and says why there is little', async () => {

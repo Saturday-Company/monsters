@@ -100,7 +100,7 @@ export interface WebFetchOutput {
 
 export type WebFetchPage = Omit<WebFetchOutput, 'pages' | 'notice' | 'not_read' | 'already_read'>;
 
-/** Below these characters of readable text a page is taken as built by JavaScript (D-1xx-tools). */
+/** Below these characters of readable text a page is taken as built by JavaScript (D-159). */
 const SCRIPTED_PAGE_CHARS = 200;
 
 /** Characters a page gives at least without `find` (D-071). */
@@ -379,7 +379,7 @@ export function createWebFetchTool(
       const parsed = isHtml
         ? htmlToMarkdown(body.text)
         : { title: undefined, markdown: body.text.trim(), about: '' };
-      // Almost no text without JavaScript (D-1xx-tools): what the page says about itself, and why.
+      // Almost no text without JavaScript (D-159): what the page says about itself, and why.
       // Before, the model got `content: ""` and told the user it could not read the site.
       const scripted = isHtml && parsed.markdown.length < SCRIPTED_PAGE_CHARS;
       const page =

@@ -27,6 +27,7 @@ import {
   streamReply,
   type FakeSiwc,
 } from '../src/testing/index.ts';
+import { namespaceDescription } from '../src/chatgpt/responses.ts';
 import type { ModelSession } from '../src/session.ts';
 
 const urlOf = (input: string | URL | Request) =>
@@ -620,6 +621,21 @@ describe('ChatGPT plan windows (D-156)', () => {
 });
 
 describe('ChatGPT Responses adapter', () => {
+  it('describes the namespace from the tools of the request, never promising what it lacks (D-161)', () => {
+    expect(namespaceDescription(['vault_search', 'web_search', 'web_fetch', 'delegate'])).toBe(
+      'Tools of Monsters: notes, web, team.',
+    );
+    // A monster without the web or the squad is not promised them.
+    expect(namespaceDescription(['vault_read', 'vault_write'])).toBe('Tools of Monsters: notes.');
+    expect(namespaceDescription(['vault_search', 'web_fetch'])).toBe(
+      'Tools of Monsters: notes, web.',
+    );
+    expect(namespaceDescription(['delegate', 'ask_user'])).toBe('Tools of Monsters: team.');
+    // Nothing recognised: a plain description.
+    expect(namespaceDescription(['shell'])).toBe('Tools of Monsters.');
+    expect(namespaceDescription([])).toBe('Tools of Monsters.');
+  });
+
   it('sends store:false, stream:true, instructions and namespaced tools; no refused parameters', async () => {
     const fake = fakeSiwc();
     const provider = await signedProvider(fake);
@@ -676,6 +692,7 @@ describe('ChatGPT Responses adapter', () => {
       expect.objectContaining({
         type: 'namespace',
         name: 'monsters',
+        description: 'Tools of Monsters: notes.',
         tools: [expect.objectContaining({ type: 'function', name: 'vault_search' })],
       }),
     ]);

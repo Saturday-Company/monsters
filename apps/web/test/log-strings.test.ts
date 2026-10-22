@@ -283,7 +283,7 @@ describe('the live activity follows the language', () => {
         ev({
           agent: 'rhea',
           type: 'question',
-          data: { questionId: 'q', question: '?', options: [], blocking: false },
+          data: { questionId: 'q', question: '?', options: [], blocking: true },
         }),
         ['rhea'],
       );

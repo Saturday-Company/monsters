@@ -20,7 +20,7 @@ import { listIn, monstersCardPrompts } from './monsters-card.prompts.ts';
 
 /** What a harness gives besides Monsters' tools (Claude Code, Codex). */
 export interface HarnessCapabilities {
-  /** `claude-agent` or `codex`: Codex's commands have no network (its sandbox). */
+  /** `claude-agent` or `codex`: Codex's commands reach the network by asking Monsters (D-158). */
   id?: string;
   /** Its own web search replaces `web_search`. */
   ownWebSearch: boolean;
@@ -101,13 +101,20 @@ export function monstersCard(options: MonstersCardOptions & CardContext): string
   const webSearch = has('web_search') || h?.ownWebSearch === true;
   if (webSearch || has('web_fetch')) {
     const search = h?.ownWebSearch ? p.ownSearch : '`web_search`';
+    const named = has('web_fetch') ? p.fetchNamed : '';
     can.push(
-      webSearch && has('web_fetch')
+      (webSearch && has('web_fetch')
         ? p.webBoth(search, load(['web_search', 'web_fetch']))
         : webSearch
           ? p.webSearch(search, load(['web_search']))
-          : p.webFetch(load(['web_fetch'])),
+          : p.webFetch(load(['web_fetch']))) + named,
     );
+    // Pages without the search (D-161): the orchestrator and the leads read what the user names,
+    // the squad's researchers search.
+    const who = [...new Set(options.webElsewhere ?? [])];
+    if (!webSearch && who.length > 0) {
+      cannot.push(p.searchElsewhere(listIn(who), who.length, has('delegate')));
+    }
   } else {
     cannot.push(webMissing(options, has('delegate'), has('access_request')));
   }
@@ -115,7 +122,7 @@ export function monstersCard(options: MonstersCardOptions & CardContext): string
   // The profile of Monsters' browser keeps the sign-ins the user made there (D-131).
   if (any(`mcp__${BROWSER_SERVER}__`)) can.push(p.browser);
   if (h?.terminal) {
-    // Codex's sandbox keeps the network closed to its commands (M3 of the review of 19/10).
+    // Codex's sandbox has no network: a command asks Monsters to leave it (D-158).
     can.push(p.terminalHere(h.id === 'codex'));
   } else if (has('shell') || any('fs_')) {
     can.push(p.terminalGranted);

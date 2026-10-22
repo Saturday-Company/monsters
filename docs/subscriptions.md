@@ -53,8 +53,10 @@ and Monsters never uses `codex login`.
 Codex works in the monster's folder (`~/.monsters/workspaces/<monster>`) with its own settings in
 `~/.monsters/harness/codex-home`, separate from yours. The Monsters tools (notes, web, squad) reach it as an MCP
 server, with the monster's permissions. Without the terminal permission, Codex can only read. Monsters that can use
-the web search with Codex's search, included in the plan. Codex's commands have no network access (Codex's sandbox):
-publishing or sending from the terminal doesn't work.
+the web search with Codex's search, included in the plan. Codex's commands run in its sandbox without network; a
+command that needs it (`npm install`, `git push`, `curl`) asks to run outside the sandbox, and Monsters answers with
+the same checks it applies to Claude Code's terminal: its data folder stays closed, and the brake can hold a risky
+command for your answer.
 
 ## Claude Agent
 

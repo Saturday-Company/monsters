@@ -35,7 +35,7 @@
  *   an unknown name is reported, to be sorted into the lists here.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
@@ -520,6 +520,9 @@ async function probeCodex(
   dir: string,
 ): Promise<{ names: string[] | null; failure?: string }> {
   const scratch = mkdtempSync(join(dir, `codex-${probe.id}-`));
+  // As CodexHarness.run does: Codex exits at once when CODEX_HOME does not exist.
+  const codexHome = join(scratch, 'codex-home');
+  mkdirSync(codexHome, { recursive: true, mode: 0o700 });
   const model = await startFakeModel();
   const child = spawn(
     binary.command,
@@ -529,7 +532,7 @@ async function probeCodex(
       env: {
         ...codexEnv(process.env, {
           accessToken: 'monsters-probe-not-a-token',
-          codexHome: join(scratch, 'codex-home'),
+          codexHome,
           mcpToken: mcp.token,
         }),
         ...binary.env,
@@ -572,7 +575,9 @@ async function probeCodex(
         send({ method: 'initialized', params: {} });
         const started = (await request('thread/start', {
           cwd: scratch,
-          approvalPolicy: 'never',
+          // As CodexHarness.run with the core's check of commands (D-158).
+          approvalPolicy: probe.task.systemTools ? 'on-request' : 'never',
+          approvalsReviewer: 'user',
           sandbox: probe.task.systemTools ? 'workspace-write' : 'read-only',
           config: codexThreadConfig(probe.task.systemTools, probe.task.webSearch === true),
           serviceName: 'Monsters',

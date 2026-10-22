@@ -237,7 +237,7 @@ export function buildRequestBody(
       {
         type: 'namespace',
         name: TOOL_NAMESPACE,
-        description: 'Tools of Monsters: vault, web, team.',
+        description: namespaceDescription(fns.map((f) => f.name)),
         tools: fns,
       },
     ];
@@ -682,4 +682,17 @@ export class ChatGPTResponsesModel implements LanguageModelV4 {
       },
     };
   }
+}
+
+/**
+ * What the namespace holds, from the tools of this request (D-161): a fixed "vault, web, team"
+ * promised the web and the squad to a monster without them.
+ */
+export function namespaceDescription(names: readonly string[]): string {
+  const parts = [
+    ...(names.some((n) => n.startsWith('vault_')) ? ['notes'] : []),
+    ...(names.some((n) => n.startsWith('web_')) ? ['web'] : []),
+    ...(names.includes('delegate') ? ['team'] : []),
+  ];
+  return parts.length > 0 ? `Tools of Monsters: ${parts.join(', ')}.` : 'Tools of Monsters.';
 }

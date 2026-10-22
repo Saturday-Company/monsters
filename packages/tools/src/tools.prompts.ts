@@ -26,7 +26,7 @@ const it = {
   /** The site answered with a check against bots instead of the page (AWS WAF, 202 without a body). */
   botCheck: (site: string) =>
     `il sito ${site} ha risposto con un controllo anti-bot invece della pagina`,
-  /** A page with almost no text without JavaScript (`note` of `web_fetch`, D-1xx-tools). */
+  /** A page with almost no text without JavaScript (`note` of `web_fetch`, D-159). */
   scriptedPage: (about: boolean) =>
     'La pagina ha pochissimo testo senza JavaScript (un sito costruito nel browser, o un controllo anti-bot). ' +
     (about
