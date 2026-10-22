@@ -242,7 +242,8 @@ const en = {
     ],
   },
   footer: {
-    made: 'Made in Italy by Saturday Company and the community.',
+    made: 'Made in Italy by {company} and the community.',
+    company: 'Saturday Company',
     copyright: '© 2026 Giulio Banchini, Saturday Company and contributors.',
     license: 'Code under Apache-2.0.',
     coin: 'Insert coin',
@@ -619,7 +620,8 @@ const it: Strings = {
     ],
   },
   footer: {
-    made: 'Fatto in Italia da Saturday Company e dalla community.',
+    made: 'Fatto in Italia da {company} e dalla community.',
+    company: 'Saturday Company',
     copyright: '© 2026 Giulio Banchini, Saturday Company e i contributor.',
     license: 'Codice sotto licenza Apache-2.0.',
     coin: 'Inserisci un gettone',

@@ -7,6 +7,7 @@ import { dotCss } from '@monsters/monster-kit';
 import '../styles/global.css';
 import '../styles/terminal.css';
 import type { Strings } from '../i18n/strings.ts';
+import { jsonLdText } from '../lib/seo.ts';
 // The fonts of the first screen, preloaded: the condensed headline would otherwise reflow
 // when it swaps in.
 import sansUrl from '@fontsource-variable/instrument-sans/files/instrument-sans-latin-standard-normal.woff2?url';
@@ -17,11 +18,14 @@ interface Props {
   t: Strings;
   /** JSON handed to the browser scripts (sprites, strings). */
   clientData: unknown;
+  /** Version of the newest release, for the structured data. */
+  version?: string;
 }
-const { t, clientData } = Astro.props;
+const { t, clientData, version = '' } = Astro.props;
 const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
 const canonical = `${site}${t.lang === 'it' ? '/it/' : '/'}`;
 const json = JSON.stringify(clientData).replace(/</g, '\\u003c');
+const ld = jsonLdText({ t, site, version });
 ---
 
 <!doctype html>
@@ -51,6 +55,7 @@ const json = JSON.stringify(clientData).replace(/</g, '\\u003c');
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:locale" content={t.lang === 'it' ? 'it_IT' : 'en_US'} />
+    <meta property="og:locale:alternate" content={t.lang === 'it' ? 'en_US' : 'it_IT'} />
     <meta name="twitter:card" content="summary_large_image" />
     <script is:inline>
       // Before the first paint: JS on, and the boot screen once per session (never with reduced motion).
@@ -69,6 +74,7 @@ const json = JSON.stringify(clientData).replace(/</g, '\\u003c');
         }
       })();
     </script>
+    <script type="application/ld+json" set:html={ld} />
     <style is:inline set:html={dotCss}></style>
   </head>
   <body>

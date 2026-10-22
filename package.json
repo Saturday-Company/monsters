@@ -4,6 +4,22 @@
   "type": "module",
   "description": "Local, provider-agnostic agentic hub",
   "license": "Apache-2.0",
+  "keywords": [
+    "ai-agents",
+    "agentic",
+    "local-first",
+    "ai-assistant",
+    "mcp",
+    "ollama",
+    "llm",
+    "open-source",
+    "desktop-app",
+    "electron",
+    "orchestrator",
+    "obsidian",
+    "self-hosted",
+    "provider-agnostic"
+  ],
   "author": "Giulio Banchini and Saturday Company",
   "homepage": "https://getmonsters.dev",
   "repository": {

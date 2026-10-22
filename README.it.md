@@ -87,12 +87,13 @@ Per sviluppare: `pnpm typecheck && pnpm lint && pnpm test`. Tutti i comandi sono
 
 ## Documentazione
 
-I documenti tecnici sono in gran parte in italiano; i file per la comunità (README, CONTRIBUTING, SECURITY, AGENTS) sono in
-inglese.
+Le guide, i file per la comunità (README, CONTRIBUTING, SECURITY, AGENTS) e il codice sono in inglese. Solo
+`docs/DECISIONS.md`, `docs/research/` e `docs/eval/` sono un archivio in italiano (le decisioni nuove si scrivono in
+inglese).
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): com'è fatto
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): ogni scelta tecnica non ovvia, con contesto e motivazione
-- [`docs/ROADMAP.md`](docs/ROADMAP.md): fasi e direzione (in inglese)
+- [`docs/ROADMAP.md`](docs/ROADMAP.md): fasi e direzione
 - [`docs/security-model.md`](docs/security-model.md): modello di minaccia e difese
 - [`docs/remote.md`](docs/remote.md): Telegram e SSH
 - [`docs/subscriptions.md`](docs/subscriptions.md): usare gli abbonamenti Claude e ChatGPT
@@ -110,3 +111,7 @@ guida per chi lavora sul codice, persone e agenti. Per segnalare una vulnerabili
 
 [Apache-2.0](LICENSE); vedi anche [`NOTICE`](NOTICE). Il nome "Monsters", i personaggi dei mostri e il logo sono marchi di
 Giulio Banchini e Saturday Company: la licenza non concede diritti di usarli, vedi [`TRADEMARKS.md`](TRADEMARKS.md).
+
+---
+
+Fatto da [Saturday Company](https://saturdaycompany.it).

@@ -89,11 +89,12 @@ For development: `pnpm typecheck && pnpm lint && pnpm test`. See [`AGENTS.md`](A
 
 ## Documentation
 
-Most technical documents are in **Italian**; the community files (README, CONTRIBUTING, SECURITY, AGENTS) are in English.
+The guides, the community files (README, CONTRIBUTING, SECURITY, AGENTS) and the code are in English. Only
+`docs/DECISIONS.md`, `docs/research/` and `docs/eval/` are an Italian archive (new decisions are written in English).
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how it is built
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): every non-obvious technical decision, with context and rationale
-- [`docs/ROADMAP.md`](docs/ROADMAP.md): phases and direction (English)
+- [`docs/ROADMAP.md`](docs/ROADMAP.md): phases and direction
 - [`docs/security-model.md`](docs/security-model.md): threat model and defenses
 - [`docs/remote.md`](docs/remote.md): Telegram and SSH
 - [`docs/subscriptions.md`](docs/subscriptions.md): using Claude and ChatGPT subscriptions
@@ -112,3 +113,7 @@ the guide for people and coding agents working on the code. To report a vulnerab
 [Apache-2.0](LICENSE); see also [`NOTICE`](NOTICE). The name "Monsters", the monsters' characters and the logo are
 trademarks of Giulio Banchini and Saturday Company: the license does not grant rights to use them, see
 [`TRADEMARKS.md`](TRADEMARKS.md).
+
+---
+
+Made by [Saturday Company](https://saturdaycompany.it).

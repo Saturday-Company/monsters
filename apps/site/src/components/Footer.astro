@@ -1,6 +1,7 @@
 ---
 import { type Strings } from '../i18n/strings.ts';
 import { RELEASES_URL, REPO_URL } from '../lib/feed.ts';
+import { COMPANY_URL } from '../lib/seo.ts';
 import { toBase64 } from '../lib/manifesto.ts';
 import Win from './Win.astro';
 
@@ -16,6 +17,7 @@ const notes = [
   { id: 'vault', mark: '‡', text: t.notes.commit },
   { id: 'code', mark: '§', text: t.notes.code },
 ];
+const [madeBefore = '', madeAfter = ''] = t.footer.made.split('{company}');
 const stamp = new Date(build.at).toISOString().replace('T', ' ').slice(0, 16);
 const sig = toBase64(`monsters ${build.sha} ${stamp}Z`);
 ---
@@ -46,7 +48,9 @@ const sig = toBase64(`monsters ${build.sha} ${stamp}Z`);
   </div>
   <span class="foot__word" aria-hidden="true">monsters</span>
   <div class="foot__row">
-    <p class="foot__made">{t.footer.made}</p>
+    <p class="foot__made">
+      {madeBefore}<a href={COMPANY_URL} rel="noopener">{t.footer.company}</a>{madeAfter}
+    </p>
     <div class="foot__links label">
       <a href={REPO_URL} rel="noopener">GitHub</a>
       <a href={RELEASES_URL} rel="noopener">Releases</a>
