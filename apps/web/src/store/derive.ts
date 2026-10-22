@@ -19,6 +19,8 @@ import {
   type ReceiptData,
   type StoppedRequest,
   type TeamDraft,
+  workChangeOf,
+  workOfRun,
 } from '@monsters/shared';
 import { clipText, noteKey, plainText } from '../lib/markdown.ts';
 import { formatUsd, modelWords } from '../lib/utils.ts';
@@ -52,9 +54,23 @@ export interface LiveState {
    * confused face and "is changing course" until it moves on.
    */
   confused?: boolean | undefined;
+  /**
+   * Its open work items, with the core's keys (`workChangeOf`, D-1xx-idle): its runs, the tasks
+   * it got and the tasks it waits for. It is at work only while it has one; `UNKNOWN_WORK` when
+   * an older core said "at work" without them.
+   */
+  work?: readonly string[] | undefined;
 }
 
 export const DONE_MS = 4500;
+
+/** The work of a monster an older core's snapshot called "at work" without its items. */
+export const UNKNOWN_WORK = '?';
+
+/** A mood of a monster at work: a run, words coming, or waiting (for another monster or for you). */
+export function busyMood(mood: LiveMood | undefined): boolean {
+  return mood === 'working' || mood === 'talking' || mood === 'waiting';
+}
 
 /**
  * The activity of a monster that waits for the user's answer (see `waitsForUser`). A live binding:
@@ -253,15 +269,37 @@ export function baseName(path: string): string {
   return name.replace(/\.md$/i, '');
 }
 
+/** What `applyLive` may ask the rest of the app. */
+export interface LiveContext {
+  /** Who asked a question (the app's list of questions): an answer moves on that monster only. */
+  askerOf?: (questionId: string) => string | undefined;
+  /** True when the end of run `runId` is known: words or tools of it are late, not work. */
+  runEnded?: (runId: string) => boolean;
+}
+
+/** The item learnt for a monster seen at work in a run whose item it is not known to have. */
+function learntWork(runId: string, agent: string): string {
+  return `task:${runId}:?:${agent}`;
+}
+
 /**
  * Next live state of the agents after one event. `prev` is not mutated; the
  * returned object is the same reference when nothing changed.
+ *
+ * A monster is at work only while one of its work items is open (D-1xx-idle):
+ * its runs and the tasks it got, as the core counts them (`workChangeOf`).
+ * Words and tool calls with nothing open never make it look at work (a page
+ * of old history, an event late after its run), unless `ctx.runEnded` says
+ * their run is still going (a snapshot of the core that crossed its start):
+ * then the item is learnt. The end of its last item always brings it to rest.
  */
 export function applyLive(
   prev: Record<string, LiveState>,
   e: LogEvent,
   agentIds: readonly string[],
+  ctx: LiveContext = {},
 ): Record<string, LiveState> {
+  const { askerOf, runEnded } = ctx;
   const at = e.ts;
   let next = prev;
   const set = (id: string, mood: LiveMood, activity?: string) => {
@@ -269,7 +307,7 @@ export function applyLive(
     const cur = next[id];
     if (cur && cur.mood === mood && cur.activity === activity && !cur.confused) return;
     if (next === prev) next = { ...prev };
-    next[id] = { mood, activity, since: at };
+    next[id] = { mood, activity, since: at, ...(cur?.work?.length ? { work: cur.work } : {}) };
   };
   /** A confused monster moves on (a tool, words): it stays confused for a moment first. */
   const movesOn = (id: string, mood: LiveMood, activity?: string) => {
@@ -283,11 +321,62 @@ export function applyLive(
     set(id, mood, activity);
   };
   const keepActivity = (id: string) => next[id]?.activity;
+  const workOf = (id: string): readonly string[] => next[id]?.work ?? [];
+  const atWork = (id: string) => workOf(id).length > 0;
+  const setWork = (id: string, work: readonly string[]) => {
+    if (!agentIds.includes(id)) return;
+    const cur: LiveState = next[id] ?? { mood: 'idle', since: at };
+    if (next === prev) next = { ...prev };
+    next[id] = {
+      mood: cur.mood,
+      activity: cur.activity,
+      since: cur.since,
+      ...(cur.confused ? { confused: true } : {}),
+      ...(work.length ? { work } : {}),
+    };
+  };
+  const open = (id: string, key: string) => {
+    if (!workOf(id).includes(key)) setWork(id, [...workOf(id), key]);
+  };
+  /** Closes the items of `id` that match; true when one was open. */
+  const close = (id: string, match: (key: string) => boolean): boolean => {
+    const work = workOf(id);
+    const left = work.filter((k) => !match(k));
+    if (left.length === work.length) return false;
+    setWork(id, left);
+    return true;
+  };
+  /** At work for this event: an item open, or one learnt from a run still going. */
+  const busyIn = (id: string): boolean => {
+    if (atWork(id)) return true;
+    if (!runEnded || !e.runId || runEnded(e.runId) || !agentIds.includes(id)) return false;
+    open(id, learntWork(e.runId, id));
+    return true;
+  };
+  /** Still at work on something else after an item ended: never left looking done or stopped. */
+  const goesOn = (id: string) => {
+    if (!busyMood(next[id]?.mood)) set(id, 'working', deriveStrings().live.thinking);
+  };
 
   switch (e.type) {
-    case 'run':
-      if (e.data.status === 'started')
+    case 'run': {
+      const runId = e.runId ?? '';
+      if (e.data.status === 'started') {
+        const change = workChangeOf(e);
+        if (change) open(e.agent, change.key);
         set(e.agent, 'working', e.data.goal ? deriveStrings().live.thinking : undefined);
+        break;
+      }
+      // The run takes along the tasks given within it (as the core does): their processes went
+      // with its scope, and a task whose end never reached the log is over all the same.
+      for (const id of agentIds) {
+        if (id === e.agent || !runId) continue;
+        if (close(id, (k) => workOfRun(k, runId)) && !atWork(id) && busyMood(next[id]?.mood)) {
+          set(id, e.data.status === 'aborted' ? 'stopped' : 'idle');
+        }
+      }
+      close(e.agent, (k) => (runId !== '' && workOfRun(k, runId)) || k === UNKNOWN_WORK);
+      if (atWork(e.agent)) goesOn(e.agent);
       else if (e.data.status === 'completed') set(e.agent, 'done');
       // The turn ended on a parked question (D-078): the monster waits for the user.
       else if (e.data.status === 'waiting_user') set(e.agent, 'waiting', ASKED_ACTIVITY);
@@ -301,67 +390,92 @@ export function applyLive(
         );
       else set(e.agent, 'stopped');
       break;
+    }
     case 'message':
       if (e.data.role !== 'agent') break;
       // A turn closed because it was stopped or failed: the run event sets the mood.
       if (e.data.status) break;
-      if (e.data.partial) movesOn(e.agent, 'talking', keepActivity(e.agent));
-      else set(e.agent, 'done');
+      if (e.data.partial) {
+        if (busyIn(e.agent)) movesOn(e.agent, 'talking', keepActivity(e.agent));
+      } else set(e.agent, 'done');
       break;
     case 'tool_call':
-      movesOn(e.agent, 'working', describeTool(e.data.tool, e.data.input));
+      if (busyIn(e.agent)) movesOn(e.agent, 'working', describeTool(e.data.tool, e.data.input));
       break;
     case 'instinct': {
       // Going round in circles (D-067): the confused face while it changes its way.
       const id = e.data.subject;
       if (!id || !STUCK_ACTIONS.has(e.data.action) || !agentIds.includes(id)) break;
       const cur = next[id];
-      if (cur && cur.mood !== 'working' && cur.mood !== 'talking' && cur.mood !== 'waiting') break;
+      if (!atWork(id) || (cur && !busyMood(cur.mood))) break;
       if (next === prev) next = { ...prev };
       next[id] = {
         mood: cur?.mood ?? 'working',
         activity: cur?.activity,
         since: at,
         confused: true,
+        work: workOf(id),
       };
       break;
     }
-    case 'delegation':
-      if (e.data.status === 'started') {
-        set(e.data.to, 'working', taskText(e.data.goal, 48));
-        set(e.data.from, 'waiting', deriveStrings().live.waitingFor(capitalize(e.data.to)));
-      } else if (e.data.status === 'completed') {
-        set(e.data.to, 'done');
-        set(e.data.from, 'working', deriveStrings().live.pickingUp);
-      } else if (e.data.status === 'failed') {
+    case 'delegation': {
+      const change = workChangeOf(e)!;
+      const { from, to } = e.data;
+      if (change.open) {
+        open(to, change.key);
+        // Who delegates waits for the task: it is part of its work until the task ends.
+        open(from, change.key);
+        set(to, 'working', taskText(e.data.goal, 48));
+        set(from, 'waiting', deriveStrings().live.waitingFor(capitalize(to)));
+        break;
+      }
+      const learnt = learntWork(e.runId ?? '', to);
+      close(to, (k) => k === change.key || k === learnt || k === UNKNOWN_WORK);
+      if (atWork(to)) goesOn(to);
+      else if (change.status === 'completed') set(to, 'done');
+      else if (change.status === 'failed')
         set(
-          e.data.to,
+          to,
           'error',
           e.data.error ? clipText(plainText(e.data.error), 48) : deriveStrings().live.couldNot,
         );
-      } else {
-        set(e.data.to, 'stopped');
-      }
+      else set(to, 'stopped');
+      if (from === to) break;
+      close(from, (k) => k === change.key);
+      // Who delegated takes the result (or the failure) up again, if its own work goes on.
+      const waiting = next[from];
+      if (waiting && waitsForUser(waiting)) break;
+      if (atWork(from)) set(from, 'working', deriveStrings().live.pickingUp);
+      else if (busyMood(waiting?.mood)) set(from, 'idle');
       break;
+    }
     case 'question':
-      set(e.agent, 'waiting', ASKED_ACTIVITY);
+      // A question that does not block leaves the monster at work (as the core counts it).
+      if (e.data.blocking) set(e.agent, 'waiting', ASKED_ACTIVITY);
       break;
     case 'question_parked':
       // Still open with no run behind it (a restart, a harness that ended its turn).
       set(e.agent, 'waiting', ASKED_ACTIVITY);
       break;
-    case 'answer':
-      for (const id of agentIds) {
-        if (next[id]?.mood === 'waiting' && next[id]?.activity === ASKED_ACTIVITY) {
-          set(id, 'working', deriveStrings().live.thinking);
-        }
+    case 'answer': {
+      // Only the monster that asked goes on, and only if a run of its still holds the question:
+      // a parked one goes on in a new run, which says so itself.
+      const id = askerOf?.(e.data.questionId);
+      const cur = id ? next[id] : undefined;
+      if (!id || !cur || !waitsForUser(cur)) break;
+      if (atWork(id)) set(id, 'working', deriveStrings().live.thinking);
+      else set(id, 'idle');
+      break;
+    }
+    case 'question_expired': {
+      // Its run is over (kill, stop or restart): nobody waits for the answer anymore.
+      const cur = next[e.agent];
+      if (cur && waitsForUser(cur)) {
+        if (atWork(e.agent)) set(e.agent, 'working', deriveStrings().live.thinking);
+        else set(e.agent, 'stopped');
       }
       break;
-    case 'question_expired':
-      // Its run is over (kill, stop or restart): nobody waits for the answer anymore.
-      if (next[e.agent]?.mood === 'waiting' && next[e.agent]?.activity === ASKED_ACTIVITY)
-        set(e.agent, 'stopped');
-      break;
+    }
     case 'error':
       if (
         e.data.code === 'provider_fallback' ||
@@ -373,8 +487,18 @@ export function applyLive(
       else set(e.agent, 'error', clipText(plainText(e.data.message), 48));
       break;
     case 'kill':
-      if (e.data.scope === 'global') for (const id of agentIds) set(id, 'stopped');
-      else if (e.data.target) set(e.data.target, 'stopped');
+      if (e.data.scope === 'global') {
+        for (const id of agentIds) {
+          close(id, () => true);
+          set(id, 'stopped');
+        }
+      } else if (e.data.target) {
+        // One run stopped (its `run aborted` follows): what was given within it stops too.
+        const runId = e.data.target;
+        for (const id of agentIds) {
+          if (close(id, (k) => workOfRun(k, runId)) && !atWork(id)) set(id, 'stopped');
+        }
+      }
       break;
     case 'resume':
       for (const id of agentIds) set(id, 'idle');
@@ -383,6 +507,11 @@ export function applyLive(
       break;
   }
   return next;
+}
+
+/** True when the monster waits for the user's answer to its question. */
+function waitsForUser(live: LiveState): boolean {
+  return live.mood === 'waiting' && live.activity === ASKED_ACTIVITY;
 }
 
 export function capitalize(s: string): string {
@@ -744,13 +873,21 @@ export function buildChat(
         break;
       }
       case 'run': {
-        // A stopped or failed run writes nothing more: close its open drafts.
-        if (e.data.status !== 'aborted' && e.data.status !== 'failed') break;
+        // An ended run writes nothing more: its open drafts close, and a task given within it
+        // whose end is not in the log (a crash) is not shown at work forever (D-1xx-idle).
+        if (e.data.status === 'started') break;
         const suffix = `|${e.runId ?? ''}`;
         for (const [key, draft] of drafts) {
           if (!key.endsWith(suffix)) continue;
           draft.streaming = false;
           drafts.delete(key);
+        }
+        const prefix = `${e.runId ?? ''}|`;
+        for (const [key, task] of delegations) {
+          if (!key.startsWith(prefix) || task.status !== 'started') continue;
+          task.status = 'aborted';
+          const workKey = `${e.runId ?? ''}|${task.to}`;
+          if (working.get(workKey) === task) working.delete(workKey);
         }
         break;
       }

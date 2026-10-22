@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { ROSTER } from '@monsters/monster-kit';
 import { fake } from '@monsters/providers/testing';
-import type { AgentSummary, LogEvent } from '@monsters/shared';
+import { ulid, type AgentSummary, type LogEvent } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
 import {
   EventLog,
@@ -363,6 +363,48 @@ describe('the confused monster in the state of the core (D-072)', () => {
     log.append({ agent: 'rhea', runId: 'r1', type: 'run', data: { status: 'completed' } });
     expect(rhea()).toMatchObject({ state: 'idle' });
     expect(rhea().confusedSince).toBeUndefined();
+  });
+});
+
+describe('at work only while a run or a task is open (D-1xx-idle)', () => {
+  it('lists the open items, and a run that ends takes its tasks along', async () => {
+    const db = openDb(':memory:');
+    migrate(db, 'core', coreMigrations);
+    const log = new EventLog(db);
+    const team = new TeamService({ dir: join(tempHome(), 'agents'), log });
+    await team.load();
+    await team.bootstrap({ user: 'Giulio' });
+    team.attach();
+    const of = (id: string) => team.summaries().find((a) => a.id === id)!;
+    const task = (status: 'started' | 'completed', to: string, parentId: string | null) =>
+      log.append({
+        agent: 'titan',
+        runId: 'r1',
+        parentId,
+        type: 'delegation',
+        data: { from: 'titan', to, status, goal: `Lavoro per ${to}` },
+      });
+
+    log.append({ agent: 'titan', runId: 'r1', type: 'run', data: { status: 'started' } });
+    const call = ulid();
+    task('started', 'rhea', call);
+    // A task logged without its `delegate` call: its end is still recognised (by its goal).
+    task('started', 'dione', null);
+    expect(of('titan')).toMatchObject({ state: 'working', work: ['run:r1'] });
+    expect(of('rhea')).toMatchObject({ state: 'working', work: [`task:r1:${call}:rhea`] });
+    task('completed', 'dione', null);
+    expect(of('dione')).toMatchObject({ state: 'idle', work: [] });
+
+    // The core died with Rhea's task open: at the next start the run is closed (`restart`),
+    // and the task goes with it. No monster is left "at work".
+    log.append({
+      agent: 'titan',
+      runId: 'r1',
+      type: 'run',
+      data: { status: 'aborted', reason: 'restart' },
+    });
+    expect(of('rhea')).toMatchObject({ state: 'stopped', work: [] });
+    expect(team.working()).toEqual([]);
   });
 });
 

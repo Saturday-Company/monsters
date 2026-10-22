@@ -397,7 +397,15 @@ describe('applyLive', () => {
       data: { questionId: 'q1', reason: 'restart' },
     });
     expect(live['titan']?.mood).toBe('waiting');
-    step({ agent: 'user', type: 'answer', data: { questionId: 'q1', optionId: '1' } });
+    // Answered: no run holds the question, so it is not at work until the new run starts.
+    live = applyLive(
+      live,
+      ev({ agent: 'user', type: 'answer', data: { questionId: 'q1', optionId: '1' } }),
+      ids,
+      { askerOf: (id) => (id === 'q1' ? 'titan' : undefined) },
+    );
+    expect(live['titan']?.mood).toBe('idle');
+    step({ agent: 'titan', runId: 'r2', type: 'run', data: { status: 'started', goal: 'post' } });
     expect(live['titan']).toMatchObject({ mood: 'working' });
   });
 
@@ -431,6 +439,202 @@ describe('applyLive', () => {
     );
     expect(live['rhea']?.mood).toBe('stopped');
     expect(live['titan']?.mood).toBe('stopped');
+  });
+
+  describe('at work only while a run or a task of its is open (D-1xx-idle)', () => {
+    const busy = (live: Record<string, LiveState>) =>
+      Object.entries(live)
+        .filter(([, l]) => l.mood === 'working' || l.mood === 'talking' || l.mood === 'waiting')
+        .map(([id]) => id);
+    const fold = (events: LogEvent[], ctx = {}, from: Record<string, LiveState> = {}) =>
+      events.reduce((live, e) => applyLive(live, e, ['titan', 'rhea', 'dione'], ctx), from);
+    const task = (status: 'started' | 'completed' | 'failed' | 'aborted', to = 'rhea') =>
+      ev({
+        agent: 'titan',
+        runId: 'r1',
+        parentId: `call-${to}`,
+        type: 'delegation',
+        data: { from: 'titan', to, status, goal: `Lavoro per ${to}` },
+      });
+    const call = (agent: string, runId = 'r1') =>
+      ev({
+        agent,
+        runId,
+        type: 'tool_call',
+        data: { callId: 'c', tool: 'web_search', input: { query: 'x' } },
+      });
+    const run = (status: 'started' | 'completed' | 'failed' | 'aborted', runId = 'r1') =>
+      ev({ agent: 'titan', runId, type: 'run', data: { status, goal: 'post' } });
+
+    it('tools and words of a run that ended, or of history without its start, are not work', () => {
+      // A page of history that starts in the middle of a run (or a late event): nothing opens.
+      expect(busy(fold([call('rhea', 'r0'), call('titan', 'r0')]))).toEqual([]);
+      const partial = ev({
+        agent: 'titan',
+        runId: 'r1',
+        type: 'message',
+        data: { role: 'agent', text: 'Sto', partial: true },
+      });
+      const live = fold([run('started'), run('completed'), call('titan'), partial]);
+      expect(live['titan']?.mood).toBe('done');
+      expect(busy(live)).toEqual([]);
+    });
+
+    it('the token limit in the middle of a task: the task ends, the lead picks up, then rests', () => {
+      const limit = ev({
+        agent: 'rhea',
+        runId: 'r1',
+        parentId: 'x',
+        type: 'error',
+        data: { code: 'token_limit', message: 'Rhea went over the limit of 400000 tokens' },
+      });
+      let live = fold([run('started'), task('started'), call('rhea'), limit]);
+      expect(live['rhea']?.mood).toBe('error');
+      expect(live['titan']?.mood).toBe('waiting');
+      live = fold([task('completed')], {}, live);
+      expect(live['rhea']?.mood).toBe('done');
+      expect(live['titan']).toMatchObject({ mood: 'working' });
+      live = fold([run('completed')], {}, live);
+      expect(busy(live)).toEqual([]);
+      expect(live['titan']?.work).toBeUndefined();
+    });
+
+    it('a failed or stopped task gives the lead its work back, not "waiting for" forever', () => {
+      let live = fold([run('started'), task('started'), task('failed')]);
+      expect(live['rhea']?.mood).toBe('error');
+      expect(live['titan']).toMatchObject({ mood: 'working', activity: 'Riprendo il filo' });
+      // A task with no run of the lead behind it (an inconsistent log): the lead rests.
+      live = fold([task('started'), task('aborted')]);
+      expect(busy(live)).toEqual([]);
+    });
+
+    it('a run that ends takes its tasks along, also when their end never reached the log', () => {
+      let live = fold([run('started'), task('started'), task('started', 'dione'), call('rhea')]);
+      expect(busy(live).sort()).toEqual(['dione', 'rhea', 'titan']);
+      live = fold([run('aborted')], {}, live);
+      expect(busy(live)).toEqual([]);
+      expect(live['rhea']?.mood).toBe('stopped');
+      live = fold([run('started', 'r2'), run('failed', 'r2')], {}, live);
+      expect(busy(live)).toEqual([]);
+      // Stopping one run (its `run aborted` follows) stops what was given within it too.
+      live = fold([run('started', 'r3')]);
+      live = fold(
+        [
+          ev({
+            agent: 'titan',
+            runId: 'r3',
+            parentId: 'call-rhea',
+            type: 'delegation',
+            data: { from: 'titan', to: 'rhea', status: 'started', goal: 'g' },
+          }),
+          ev({
+            agent: 'system',
+            runId: 'r3',
+            type: 'kill',
+            data: { scope: 'run', target: 'r3', by: 'ui', runsAborted: 1, processesKilled: 0 },
+          }),
+        ],
+        {},
+        live,
+      );
+      expect(live['rhea']?.mood).toBe('stopped');
+    });
+
+    it('two jobs at once: the end of one leaves the monster at work on the other', () => {
+      let live = fold([
+        ev({ agent: 'rhea', runId: 'own', type: 'run', data: { status: 'started' } }),
+        run('started'),
+        task('started'),
+        task('completed'),
+      ]);
+      expect(live['rhea']?.mood).toBe('working');
+      live = fold(
+        [ev({ agent: 'rhea', runId: 'own', type: 'run', data: { status: 'completed' } })],
+        {},
+        live,
+      );
+      expect(live['rhea']?.mood).toBe('done');
+    });
+
+    it('an answer moves on only the monster that asked, and only if a run holds the question', () => {
+      const ask = (agent: string, questionId: string, runId: string, blocking = true) =>
+        ev({
+          agent,
+          runId,
+          type: 'question',
+          data: { questionId, question: '?', options: [], blocking },
+        });
+      const askerOf = (id: string) => ({ q1: 'titan', q2: 'rhea' })[id];
+      let live = fold(
+        [
+          run('started'),
+          ask('titan', 'q1', 'r1'),
+          ev({ agent: 'rhea', runId: 'r9', type: 'run', data: { status: 'started' } }),
+          ask('rhea', 'q2', 'r9'),
+          ev({
+            agent: 'rhea',
+            runId: 'r9',
+            type: 'question_parked',
+            data: { questionId: 'q2', reason: 'harness' },
+          }),
+          ev({ agent: 'rhea', runId: 'r9', type: 'run', data: { status: 'waiting_user' } }),
+        ],
+        { askerOf },
+      );
+      expect(live['titan']?.mood).toBe('waiting');
+      expect(live['rhea']?.mood).toBe('waiting');
+      live = fold(
+        [ev({ agent: 'user', runId: 'r1', type: 'answer', data: { questionId: 'q1' } })],
+        { askerOf },
+        live,
+      );
+      expect(live['titan']?.mood).toBe('working');
+      // Rhea still waits for her own answer: never "at work" because Titan got his.
+      expect(live['rhea']).toMatchObject({ mood: 'waiting', activity: 'Ti ho fatto una domanda' });
+      live = fold(
+        [ev({ agent: 'user', runId: 'r9', type: 'answer', data: { questionId: 'q2' } })],
+        { askerOf },
+        live,
+      );
+      expect(live['rhea']?.mood).toBe('idle');
+      // A question that does not block leaves the monster at work.
+      live = fold([run('started', 'r5'), ask('titan', 'q3', 'r5', false)], { askerOf }, live);
+      expect(live['titan']?.mood).toBe('working');
+    });
+
+    it('seeded by the core: the end of the items it listed brings the monster to rest', () => {
+      const seeded: Record<string, LiveState> = {
+        titan: { mood: 'working', since: 0, work: ['run:r1'] },
+        rhea: { mood: 'working', since: 0, work: ['task:r1:call-rhea:rhea'] },
+        dione: { mood: 'working', since: 0, work: ['?'] },
+      };
+      let live = fold([task('completed')], {}, seeded);
+      expect(live['rhea']?.mood).toBe('done');
+      live = fold([run('completed')], {}, live);
+      expect(live['titan']?.mood).toBe('done');
+      // An older core gave no items: the end of a run of its counts as the end of its work.
+      live = fold(
+        [ev({ agent: 'dione', runId: 'rd', type: 'run', data: { status: 'completed' } })],
+        {},
+        live,
+      );
+      expect(busy(live)).toEqual([]);
+    });
+
+    it('learns a run the snapshot missed from its tools, unless that run is known to be over', () => {
+      const ended = new Set(['old']);
+      const runEnded = (id: string) => ended.has(id);
+      let live = fold([call('titan', 'old')], { runEnded });
+      expect(busy(live)).toEqual([]);
+      live = fold([call('titan', 'new')], { runEnded }, live);
+      expect(live['titan']?.mood).toBe('working');
+      live = fold(
+        [ev({ agent: 'titan', runId: 'new', type: 'run', data: { status: 'completed' } })],
+        { runEnded },
+        live,
+      );
+      expect(busy(live)).toEqual([]);
+    });
   });
 
   it('returns the same object when nothing changes', () => {
@@ -734,6 +938,38 @@ describe('drafts of a turn that did not finish', () => {
 
 describe('events among monsters in the chat', () => {
   const goal = 'Scrivi la bozza del primo post';
+
+  it('a task whose run ended is not "at work" forever, and the run’s draft stops streaming', () => {
+    const items = buildChat(
+      [
+        ev({ agent: 'titan', runId: 'r1', type: 'run', data: { status: 'started', goal } }),
+        ev({
+          agent: 'titan',
+          runId: 'r1',
+          type: 'message',
+          data: { role: 'agent', text: 'Chiedo a Dione', partial: true },
+        }),
+        ev({
+          agent: 'titan',
+          runId: 'r1',
+          parentId: 'call1',
+          type: 'delegation',
+          data: { from: 'titan', to: 'dione', status: 'started', goal },
+        }),
+        // The core died here; at the next start it closed the run (no end for the task).
+        ev({
+          agent: 'titan',
+          runId: 'r1',
+          type: 'run',
+          data: { status: 'aborted', reason: 'restart' },
+        }),
+      ],
+      [],
+    );
+    const task = items.find((i) => i.kind === 'delegation');
+    expect(task).toMatchObject({ status: 'aborted' });
+    expect(items.some((i) => i.kind === 'agent' && i.streaming)).toBe(false);
+  });
 
   it('keeps the task in a finished line and the summary only when it says something', () => {
     expect(doneSummary(goal, 'Fatto')).toBeNull();

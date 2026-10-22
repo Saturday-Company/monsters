@@ -5070,3 +5070,28 @@ repository, site or documentation, is listed as a source on the page, and carrie
 and update `VERIFIED`. A new user guide is added to `GUIDES` and to the Italian summaries in
 `src/i18n/pages.ts`. The home FAQ keeps the monsters' questions and adds "questions people ask" (`faq.more`), all in
 the `FAQPage` JSON-LD.
+
+
+### D-1xx-idle · A monster is at work only while a run or a task of its is open, in the core and in the app
+**Status:** done · 23/10/2026
+**Context:** a tester saw the app say "working" for monsters that were doing nothing. The core's state was right
+(every run and task in the log has its end), the app's was not: it was a separate machine of moods driven by single
+events. Loading an older page of the chat ran old events into the live state (a run cut at the page's edge left its
+monster "working" for good); an answer to one monster's question moved every waiting monster to "working"; a failed
+or stopped task left its lead "waiting for X"; a tool call or words after the end of a run set it at work again; two
+jobs of one monster ended at the first end. In the core a task logged without its `delegate` call was keyed by its own
+event id, so its end never matched, and a task whose end never reached the log (a crash) stayed open.
+**Choice:** one notion of work for both sides, `workChangeOf` in `@monsters/shared/work.ts`: the runs of a monster and
+the tasks given to it, with the same keys (a task by its `delegate` call, or by its goal). The core lists them in
+`AgentSummary.work`; the app seeds its live state with them and follows the same items (`LiveState.work`). Busy moods
+need an open item: tool calls and words without one change nothing, unless their run is not known to be over (the
+app keeps the runs whose end it saw), when the item is learnt (a snapshot that crossed the start of a run). The end of
+the last item brings the monster to rest; the end of a run closes the tasks given within it, on both sides. The live
+state takes only events newer than the newest it has seen (`liveAt`): older pages change the chats, never the moods.
+An answer moves on only the monster that asked (the app's list of questions), to "working" only if a run still holds
+the question; a question that does not block leaves the monster at work. In the chat, a run that ends closes its
+drafts and its tasks still marked at work. Older cores send no `work`: a monster they call working gets an unknown item
+that the end of any run or task of its closes.
+**Consequence:** "at work" in the app is what the core counts, and comes back to rest with the end of the run even
+when single events are lost or late. A new kind of work (if one comes) is added to `workChangeOf`, and both sides
+follow it.

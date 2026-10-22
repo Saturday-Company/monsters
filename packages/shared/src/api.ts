@@ -235,6 +235,12 @@ export const AgentSummarySchema = z.object({
    */
   confusedSince: z.number().optional(),
   /**
+   * The open work items of the agent (its runs, the tasks delegated to it), with the keys of
+   * `workChangeOf` (D-1xx-idle): the app seeds its live state with them, so the end of each one
+   * is recognised. Older cores leave it out.
+   */
+  work: z.array(z.string()).optional(),
+  /**
    * Provider of the first link of the agent's chain (e.g. `chatgpt`): the UI
    * shows "Using ChatGPT plan" next to the composer when it is a plan (M2.7).
    */

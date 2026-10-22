@@ -34,6 +34,7 @@ export * from './urls.ts';
 export * from './usage.ts';
 export * from './vault.ts';
 export * from './vault-layout.ts';
+export * from './work.ts';
 export * from './writing-languages.ts';
 
 /** Default port of the local core. */

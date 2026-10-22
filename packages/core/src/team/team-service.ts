@@ -7,6 +7,8 @@ import {
   EventInputSchema,
   STUCK_ACTIONS,
   agentMemoryPath,
+  workChangeOf,
+  workOfRun,
   isReservedActor,
   unmarkedMemoryLine,
   vaultLayout,
@@ -18,6 +20,7 @@ import {
   type Channel,
   type LogEvent,
   type Project,
+  type WorkChange,
 } from '@monsters/shared';
 import { FS_READ_TOOLS, FS_WRITE_TOOLS } from '@monsters/tools';
 import type { VaultPermissionsConfig, VaultService } from '@monsters/vault';
@@ -1063,6 +1066,18 @@ export class TeamService {
     return { state: rt.rest };
   }
 
+  /** A work item of the agent ended (`workChangeOf`): how it ended is its state at rest. */
+  #closeWork(rt: Runtime, key: string, status: WorkChange['status']): void {
+    rt.work.delete(key);
+    rt.rest =
+      status === 'completed' || status === 'waiting_user'
+        ? 'idle'
+        : status === 'failed'
+          ? 'error'
+          : 'stopped';
+    if (rt.work.size === 0) rt.activity = undefined;
+  }
+
   /** The agent waits on a parked question (D-078): seeded at startup from the question store. */
   noteWaiting(agentId: string, questionId: string, question: string): void {
     this.#rt(agentId).parked.set(questionId, question);
@@ -1089,6 +1104,7 @@ export class TeamService {
       ...(a.config.models[0] ? { provider: a.config.models[0].provider } : {}),
       models: a.config.models.map((m) => ({ provider: m.provider, model: m.model })),
       ...this.state(a.config.id),
+      work: [...this.#rt(a.config.id).work],
     }));
   }
 
@@ -1120,43 +1136,39 @@ export class TeamService {
   #onEvent(e: LogEvent): void {
     switch (e.type) {
       case 'run': {
-        if (!e.runId) return;
+        const change = workChangeOf(e);
+        if (!change) return;
         const rt = this.#rt(e.agent);
-        if (e.data.status === 'started') {
-          rt.work.add(e.runId);
+        if (change.open) {
+          rt.work.add(change.key);
           rt.activity = clip(e.data.goal ?? teamStrings().atWork);
-        } else {
-          rt.work.delete(e.runId);
-          rt.waiting.clear();
-          rt.confusedSince = undefined;
-          rt.rest =
-            e.data.status === 'completed' || e.data.status === 'waiting_user'
-              ? 'idle'
-              : e.data.status === 'failed'
-                ? 'error'
-                : 'stopped';
-          if (rt.work.size === 0) rt.activity = undefined;
+          return;
+        }
+        rt.waiting.clear();
+        rt.confusedSince = undefined;
+        this.#closeWork(rt, change.key, change.status);
+        // A run takes the tasks given within it along (D-1xx-idle): its scope killed their
+        // processes, and a task whose end never reached the log (a crash) stays open no more.
+        for (const other of this.#runtime.values()) {
+          for (const key of [...other.work]) {
+            if (change.runId && workOfRun(key, change.runId)) {
+              this.#closeWork(other, key, change.status);
+            }
+          }
         }
         return;
       }
       case 'delegation': {
+        const change = workChangeOf(e)!;
         const rt = this.#rt(e.data.to);
-        const key = `${e.runId ?? ''}:${e.parentId ?? e.id}:${e.data.to}`;
         // Who delegates has found a way; who gets the task starts fresh.
         rt.confusedSince = undefined;
         this.#rt(e.data.from).confusedSince = undefined;
-        if (e.data.status === 'started') {
-          rt.work.add(key);
+        if (change.open) {
+          rt.work.add(change.key);
           rt.activity = clip(e.data.goal);
         } else {
-          rt.work.delete(key);
-          rt.rest =
-            e.data.status === 'completed'
-              ? 'idle'
-              : e.data.status === 'failed'
-                ? 'error'
-                : 'stopped';
-          if (rt.work.size === 0) rt.activity = undefined;
+          this.#closeWork(rt, change.key, change.status);
         }
         return;
       }

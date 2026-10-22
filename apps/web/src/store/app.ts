@@ -30,6 +30,8 @@ import {
   requestsOf,
   resumeText,
   retryOf,
+  UNKNOWN_WORK,
+  type LiveContext,
   type LiveState,
   type PendingSend,
   type StoppedRequest,
@@ -63,6 +65,12 @@ export interface AppState {
   agents: Record<string, AgentSummary>;
   agentOrder: string[];
   live: Record<string, LiveState>;
+  /**
+   * The newest event the live state has taken in (D-1xx-idle): older ones (a page of history
+   * loaded by scrolling up, an event late on the stream) change the chats, never what the
+   * monsters are doing now.
+   */
+  liveAt: string | null;
   /** Every event known to the UI, sorted by id (ULIDs sort by time). */
   events: LogEvent[];
   /** True when older history is still available on the core. */
@@ -103,6 +111,7 @@ const INITIAL: AppState = {
   agents: {},
   agentOrder: [],
   live: {},
+  liveAt: null,
   events: [],
   hasOlder: false,
   questions: {},
@@ -155,6 +164,8 @@ let api: ApiClient | null = null;
 let stream: StreamClient | null = null;
 let noticeSeq = 0;
 const seen = new Set<string>();
+/** Runs whose end the app has seen: their late words and tools are not work (`applyLive`). */
+const endedRuns = new Set<string>();
 
 function client(): ApiClient {
   if (!api) throw new Error('store not initialised: call initApp(transport) first');
@@ -195,13 +206,25 @@ export function ingest(batch: readonly LogEvent[]): void {
     else events = [...events, ...fresh].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
     let live = s.live;
+    let liveAt = s.liveAt;
     let questions = s.questions;
     let halted = s.halted;
     let haltedReason = s.haltedReason;
     let undone = s.undone;
     const ids = s.agentOrder;
+    const ctx: LiveContext = {
+      askerOf: (id) => questions[id]?.from,
+      runEnded: (runId) => endedRuns.has(runId),
+    };
     for (const e of fresh) {
-      live = applyLive(live, e, ids);
+      if (e.type === 'run' && e.runId && e.data.status !== 'started') endedRuns.add(e.runId);
+    }
+    for (const e of fresh) {
+      // Only what happened after the live state is news for it (an older page is history).
+      if (liveAt === null || e.id > liveAt) {
+        live = applyLive(live, e, ids, ctx);
+        liveAt = e.id;
+      }
       if (e.type === 'question') {
         if (!questions[e.data.questionId] || questions[e.data.questionId]!.status === 'open') {
           questions = {
@@ -241,7 +264,7 @@ export function ingest(batch: readonly LogEvent[]): void {
         haltedReason = null;
       }
     }
-    return { events, live, questions, halted, haltedReason, undone };
+    return { events, live, liveAt, questions, halted, haltedReason, undone };
   });
   // The spending cap (D-070): a warning or a stop that just happened is a toast too.
   const spend = fresh.findLast(
@@ -344,12 +367,15 @@ function setAgents(list: readonly AgentSummary[]): void {
   for (const a of list) {
     // The core keeps the confused face too (D-072): since then, for its minimum time.
     const confused = a.confusedSince !== undefined;
+    // Its open work items, whose ends will bring it to rest (an older core: "some", D-1xx-idle).
+    const work = a.work ?? (a.state === 'working' ? [UNKNOWN_WORK] : []);
     live[a.id] = {
       mood: moodFromState(a.state),
       // The core's `waiting` is a question for the user (a delegation is `working`).
       activity: a.state === 'waiting' ? ASKED_ACTIVITY : a.activity,
       since: confused ? a.confusedSince! : now,
       ...(confused ? { confused: true } : {}),
+      ...(work.length > 0 ? { work } : {}),
     };
   }
   useApp.setState({ agents, agentOrder: order, live });
@@ -443,6 +469,7 @@ function clearSession(): void {
   stream?.stop();
   clearLostTimer();
   seen.clear();
+  endedRuns.clear();
   resetLists();
   useApp.setState({
     ...INITIAL,
@@ -880,6 +907,7 @@ onAppLang(() => {
 /** Test helper: back to a blank store. */
 export function resetForTests(): void {
   seen.clear();
+  endedRuns.clear();
   resetLists();
   useApp.setState({ ...INITIAL });
 }

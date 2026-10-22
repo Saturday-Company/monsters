@@ -14,6 +14,7 @@ import {
   dropHeld,
   ingest,
   initApp,
+  loadOlder,
   resetForTests,
   sendMessage,
   undoAction,
@@ -281,6 +282,108 @@ describe('store: reconnection', () => {
     sockets[0]!.onmessage?.({ data: JSON.stringify({ kind: 'hello', halted: false }) });
     await new Promise((r) => setTimeout(r, 0));
     expect(useApp.getState().live['titan']?.confused).toBeUndefined();
+  });
+});
+
+describe('store: what the monsters are doing now (D-1xx-idle)', () => {
+  afterEach(() => resetForTests());
+
+  it('older history, other monsters’ answers and late events never make a monster look at work', async () => {
+    const agent = (id: string, state: AgentSummary['state'], work: string[]): AgentSummary => ({
+      id,
+      name: id,
+      role: 'r',
+      color: '#888',
+      isOrchestrator: id === 'titan',
+      genome: null,
+      state,
+      work,
+    });
+    const question = (id: string, from: string, runId: string): Question => ({
+      id,
+      from,
+      runId,
+      question: '?',
+      options: [],
+      blocking: true,
+      status: 'open',
+      createdAt: 1,
+    });
+    // Titan waits for an answer in his run; Rhea waits for hers with no run (parked).
+    const core = {
+      agents: [agent('titan', 'waiting', ['run:r1']), agent('rhea', 'waiting', [])],
+      questions: [question('q1', 'titan', 'r1'), { ...question('q2', 'rhea', 'r0'), parked: true }],
+    };
+    // The page before the history: Rhea's run cut at the page's edge (its end is in a newer page).
+    const older = [
+      ev({ agent: 'rhea', runId: 'r0', type: 'run', data: { status: 'started', goal: 'x' } }),
+      ev({
+        agent: 'rhea',
+        runId: 'r0',
+        type: 'tool_call',
+        data: { callId: 'c', tool: 'web_search', input: { query: 'x' } },
+      }),
+    ];
+    const history = [
+      ev({ agent: 'rhea', runId: 'r0', type: 'run', data: { status: 'waiting_user' } }),
+    ];
+    const transport: Transport = {
+      kind: 'mock',
+      request: (_method, path) => {
+        const [route, query = ''] = path.split('?');
+        const body =
+          route === '/api/events'
+            ? { events: query.includes('before') ? older : history }
+            : route === '/api/setup-status'
+              ? { needsSetup: false }
+              : route === '/api/me'
+                ? { email: 'g@example.com', via: 'session', owner: true }
+                : route === '/api/status'
+                  ? {
+                      version: '0',
+                      halted: false,
+                      haltedAt: null,
+                      haltedReason: null,
+                      runs: [],
+                      uptimeMs: 1,
+                    }
+                  : route === '/api/agents'
+                    ? core.agents
+                    : route === '/api/questions'
+                      ? core.questions
+                      : null;
+        return Promise.resolve(
+          body ? { status: 200, body } : { status: 404, body: { error: 'not_found' } },
+        );
+      },
+      connect: () => ({ onopen: null, onmessage: null, onclose: null, onerror: null, close() {} }),
+    };
+    initApp(transport);
+    await boot();
+    expect(useApp.getState().phase).toBe('ready');
+    const mood = (id: string) => useApp.getState().live[id]?.mood;
+    expect([mood('titan'), mood('rhea')]).toEqual(['waiting', 'waiting']);
+
+    // Scrolling up the chat loads the older page: it is history, not what Rhea does now.
+    await loadOlder();
+    expect(useApp.getState().events.length).toBe(3);
+    expect(mood('rhea')).toBe('waiting');
+
+    // Titan's answer moves Titan on, not Rhea, who still waits for hers.
+    ingest([ev({ agent: 'user', runId: 'r1', type: 'answer', data: { questionId: 'q1' } })]);
+    expect([mood('titan'), mood('rhea')]).toEqual(['working', 'waiting']);
+
+    // Titan's run ends; a tool call logged late for it is not work.
+    ingest([ev({ agent: 'titan', runId: 'r1', type: 'run', data: { status: 'completed' } })]);
+    ingest([
+      ev({
+        agent: 'titan',
+        runId: 'r1',
+        type: 'tool_call',
+        data: { callId: 'late', tool: 'vault_list', input: {} },
+      }),
+    ]);
+    expect(mood('titan')).toBe('done');
   });
 });
 
