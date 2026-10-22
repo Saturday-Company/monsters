@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
+  HarnessCommandApproval,
   HarnessConnector,
   HarnessEvent,
   HarnessProvider,
@@ -33,7 +34,9 @@ import {
 import type { AgentDefinition } from './definition.ts';
 import {
   answerHarnessHook,
+  checkHarnessCommand,
   monstersRuleRefusal,
+  type HarnessHookContext,
   unavailableBuiltin,
   type RunWeb,
 } from './harness-hooks.ts';
@@ -239,7 +242,8 @@ export function monstersToolsSection(
   if (harnessId === 'codex') {
     // Codex shows `request_user_input`; its questions never reach the user (M4, D-135).
     lines.push(p.codexAsk(run.ask === true, server));
-    if (run.terminal) lines.push(p.codexNoNetwork);
+    // Its commands reach the network by asking Monsters (D-158).
+    if (run.terminal) lines.push(p.codexNetwork);
   }
   if (claude) {
     lines.push(p.claudeBuiltins);
@@ -724,6 +728,60 @@ async function runHarnessOnce(
       lastEvent = Date.now();
     }
   };
+  /** What the core checks before the harness's own tools (D-069, D-078, D-079, D-127), per call. */
+  const hookContext = (): HarnessHookContext => ({
+    log,
+    agentId,
+    runId,
+    parentId,
+    monstersServer: HARNESS_MCP_SERVER,
+    ...(options.guard ? { guard: options.guard } : {}),
+    ...(onFinalAnswer ? { onFinalAnswer } : {}),
+    callEvent,
+    lastText: () => lastText,
+    ...(lock ? { lockout: { lock, cwd } } : {}),
+    ...(options.closedFolders?.length && options.systemTools
+      ? {
+          closed: options.closedFolders.map((f) => ({
+            lock: { dataDir: f.path, allowed: [] },
+            cwd,
+            message: f.message,
+          })),
+        }
+      : {}),
+    ...(options.systemTools ? { workspace: cwd } : {}),
+    ...(options.systemTools && options.instructionFolders
+      ? { instructionFolders: options.instructionFolders() }
+      : {}),
+    ...(builtins
+      ? {
+          outside: {
+            builtins,
+            reason: (tool: string) => unavailableBuiltin(tool, web, HARNESS_MCP_SERVER).model,
+            ...(web.attachmentsOnly ? { readable: files?.read ?? [] } : {}),
+          },
+        }
+      : {}),
+  });
+  /**
+   * Codex asks before a command leaves its sandbox (D-158): the check of Claude Code's `Bash`.
+   * The command is already logged as `codex.shell` (its `item/started` comes first).
+   */
+  const approveCommand: HarnessCommandApproval | undefined =
+    harness.id === 'codex' && options.systemTools
+      ? (call, signal) =>
+          withBusy(() =>
+            checkHarnessCommand(
+              call,
+              {
+                ...hookContext(),
+                callEvent: (id, name, input) =>
+                  callEvent(id, name === 'Bash' ? 'shell' : name, input),
+              },
+              AbortSignal.any([signal, scope.signal]),
+            ),
+          )
+      : undefined;
   const { session, close } = options.sessions.open(
     tools,
     {
@@ -744,45 +802,7 @@ async function runHarnessOnce(
         ? {
             hook: (input: unknown, signal: AbortSignal) =>
               withBusy(() =>
-                answerHarnessHook(
-                  input,
-                  {
-                    log,
-                    agentId,
-                    runId,
-                    parentId,
-                    monstersServer: HARNESS_MCP_SERVER,
-                    ...(options.guard ? { guard: options.guard } : {}),
-                    ...(onFinalAnswer ? { onFinalAnswer } : {}),
-                    callEvent,
-                    lastText: () => lastText,
-                    ...(lock ? { lockout: { lock, cwd } } : {}),
-                    ...(options.closedFolders?.length && options.systemTools
-                      ? {
-                          closed: options.closedFolders.map((f) => ({
-                            lock: { dataDir: f.path, allowed: [] },
-                            cwd,
-                            message: f.message,
-                          })),
-                        }
-                      : {}),
-                    ...(options.systemTools ? { workspace: cwd } : {}),
-                    ...(options.systemTools && options.instructionFolders
-                      ? { instructionFolders: options.instructionFolders() }
-                      : {}),
-                    ...(builtins
-                      ? {
-                          outside: {
-                            builtins,
-                            reason: (tool: string) =>
-                              unavailableBuiltin(tool, web, HARNESS_MCP_SERVER).model,
-                            ...(web.attachmentsOnly ? { readable: files?.read ?? [] } : {}),
-                          },
-                        }
-                      : {}),
-                  },
-                  AbortSignal.any([signal, scope.signal]),
-                ),
+                answerHarnessHook(input, hookContext(), AbortSignal.any([signal, scope.signal])),
               ),
           }
         : {}),
@@ -900,6 +920,7 @@ async function runHarnessOnce(
               },
             }
           : {}),
+        ...(approveCommand ? { approveCommand } : {}),
         ...(connectors.length > 0 ? { connectors } : {}),
         ...(options.resume ? { resume: options.resume } : {}),
         maxTurns: agent.config.limits.maxSteps,

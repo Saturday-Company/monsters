@@ -1,6 +1,6 @@
 // A fake `codex app-server` for the tests: JSON-RPC lines without the
 // `jsonrpc` field, as documented. Fake options come first:
-//   node codex.mjs --fake-record=<file> --fake-scenario=<tool|loop|hang|noinit|usage_limit|longcmd> app-server …
+//   node codex.mjs --fake-record=<file> --fake-scenario=<tool|loop|hang|noinit|usage_limit|longcmd|netcmd|mcpfail> app-server …
 // `--fake-answer=<text>`: the last message of the `tool` scenario (default «Fatto: <prompt>»).
 // `--fake-limits=off` leaves out the plan limits notification (D-111).
 // `longcmd`: a command that runs silent for `--fake-cmd-ms` (default 600), then prints a line.
@@ -99,11 +99,113 @@ if (scenario === 'hang') {
   process.on('SIGTERM', () => {});
 }
 
+/** Answers of the client to our own requests (approvals), by id. */
+const answers = new Map();
+let nextServerId = 0;
+/** A request of app-server to the client; resolves with its `result`. */
+function ask(method, params) {
+  const id = nextServerId++;
+  send({ id, method, params });
+  return new Promise((resolve) => answers.set(id, resolve));
+}
+
+/**
+ * `netcmd`: a command that needs the network, asked outside the sandbox, in the shapes of
+ * codex 0.163.0 (captured from the real binary against a local Responses backend, D-158):
+ * `item/started` first, then `item/commandExecution/requestApproval` with the command in
+ * Codex's `bash -lc` wrapper; `accept` runs it, `decline` ends the item as `declined`. The
+ * token update counts prompt-cache reads in `cachedInputTokens`, part of `inputTokens`.
+ */
+async function netcmd() {
+  const command = "/usr/bin/bash -lc 'git push origin main && echo \"it'\"'\"'s done\"'";
+  const item = {
+    type: 'commandExecution',
+    id: 'exec-1',
+    command,
+    cwd: process.cwd(),
+    processId: null,
+    source: 'agent',
+    status: 'inProgress',
+    commandActions: [{ type: 'unknown', command: 'git push origin main' }],
+    aggregatedOutput: null,
+    exitCode: null,
+    durationMs: null,
+  };
+  notify('item/started', { threadId: thread, turnId: turn, item, startedAtMs: Date.now() });
+  const answer = await ask('item/commandExecution/requestApproval', {
+    kind: 'command',
+    threadId: thread,
+    turnId: turn,
+    itemId: item.id,
+    startedAtMs: Date.now(),
+    environmentId: 'local',
+    reason: 'Do you want to push the branch?',
+    command,
+    cwd: process.cwd(),
+    commandActions: item.commandActions,
+    proposedExecpolicyAmendment: ['/usr/bin/bash', '-lc', 'git push origin main'],
+    availableDecisions: ['accept', 'cancel'],
+  });
+  record({ kind: 'approval', answer });
+  const accepted = answer?.decision === 'accept';
+  notify('item/completed', {
+    threadId: thread,
+    turnId: turn,
+    item: accepted
+      ? { ...item, status: 'completed', aggregatedOutput: 'pushed\n', exitCode: 0, durationMs: 5 }
+      : { ...item, status: 'declined' },
+  });
+  const usage = (i, cached, o) => ({
+    totalTokens: i + o,
+    inputTokens: i,
+    cachedInputTokens: cached,
+    cacheWriteInputTokens: 0,
+    outputTokens: o,
+    reasoningOutputTokens: 0,
+  });
+  notify('thread/tokenUsage/updated', {
+    threadId: thread,
+    turnId: turn,
+    tokenUsage: {
+      total: usage(1000, 600, 20),
+      last: usage(1000, 600, 20),
+      modelContextWindow: 258400,
+    },
+  });
+  notify('item/completed', {
+    threadId: thread,
+    turnId: turn,
+    item: { type: 'agentMessage', id: 'a1', text: accepted ? 'Pushed.' : 'Not pushed.' },
+  });
+  notify('thread/tokenUsage/updated', {
+    threadId: thread,
+    turnId: turn,
+    tokenUsage: {
+      total: usage(2001, 1201, 40),
+      last: usage(1001, 601, 20),
+      modelContextWindow: 258400,
+    },
+  });
+  notify('turn/completed', {
+    threadId: thread,
+    turn: { id: turn, status: 'completed', items: [], error: null },
+  });
+}
+
 const rl = createInterface({ input: process.stdin });
 for await (const line of rl) {
   if (!line.trim()) continue;
   const msg = JSON.parse(line);
   record({ kind: 'rpc', msg });
+  if (msg.method === undefined && answers.has(msg.id)) {
+    answers.get(msg.id)(msg.result);
+    answers.delete(msg.id);
+    continue;
+  }
+  if (msg.method === 'thread/inject_items') {
+    send({ id: msg.id, result: {} });
+    continue;
+  }
   if (msg.method === 'initialize' && scenario === 'noinit') {
     continue; // never answers: a hung app-server
   }
@@ -113,6 +215,36 @@ for await (const line of rl) {
       result: { userAgent: 'fake-codex/0.159.2', platformFamily: 'unix', platformOs: 'linux' },
     });
   } else if (msg.method === 'thread/start' || msg.method === 'thread/resume') {
+    const server = Object.keys(config)
+      .find((k) => k.startsWith('mcp_servers.') && k.endsWith('.url'))
+      ?.split('.')[1];
+    if (scenario === 'mcpfail') {
+      // A `required` MCP server that did not start: the thread is never made (0.163.0's words).
+      notify('mcpServer/startupStatus/updated', {
+        threadId: null,
+        name: server,
+        status: 'failed',
+        error: 'handshaking with MCP server failed',
+        failureReason: null,
+      });
+      send({
+        id: msg.id,
+        error: {
+          code: -32603,
+          message: `error creating thread: Fatal error: Failed to initialize session: required MCP servers failed to initialize: ${server}: handshaking with MCP server failed: Send message error Transport error: Client error: HTTP request failed`,
+        },
+      });
+      continue;
+    }
+    if (scenario === 'netcmd') {
+      notify('mcpServer/startupStatus/updated', {
+        threadId: thread,
+        name: server,
+        status: 'starting',
+        error: null,
+        failureReason: null,
+      });
+    }
     if (msg.method === 'thread/resume') {
       totals.input = 5000;
       totals.output = 900;
@@ -126,6 +258,15 @@ for await (const line of rl) {
       },
     });
     notify('thread/started', { thread: { id: thread } });
+    if (scenario === 'netcmd') {
+      notify('mcpServer/startupStatus/updated', {
+        threadId: thread,
+        name: server,
+        status: 'ready',
+        error: null,
+        failureReason: null,
+      });
+    }
   } else if (msg.method === 'turn/interrupt') {
     if (scenario !== 'hang') {
       send({ id: msg.id, result: {} });
@@ -159,6 +300,11 @@ for await (const line of rl) {
           planType: 'plus',
         },
       });
+    }
+    if (scenario === 'netcmd') {
+      // Not awaited here: the client's answer to the approval comes on this same input.
+      void netcmd();
+      continue;
     }
     if (scenario === 'hang') {
       notify('item/agentMessage/delta', {

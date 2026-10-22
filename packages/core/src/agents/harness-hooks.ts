@@ -391,6 +391,35 @@ const deny = (reason: string): ClaudeHookOutput => ({
   },
 });
 
+/**
+ * A command Codex wants to run outside its sandbox (D-158): the very check Claude Code's
+ * `Bash` gets from `PreToolUse` (data folder, closed folders, harness configuration, the
+ * brake), never a second copy of it. Null lets it run; otherwise the words of the refusal.
+ */
+export async function checkHarnessCommand(
+  call: { id: string; command: string },
+  ctx: HarnessHookContext,
+  signal: AbortSignal,
+  holdMs = HOOK_HOLD_MS,
+): Promise<string | null> {
+  const out = await answerHarnessHook(
+    {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: call.command },
+      tool_use_id: call.id,
+    },
+    ctx,
+    signal,
+    holdMs,
+  );
+  const specific = out['hookSpecificOutput'] as
+    { permissionDecision?: unknown; permissionDecisionReason?: unknown } | undefined;
+  if (specific?.permissionDecision !== 'deny') return null;
+  const reason = specific.permissionDecisionReason;
+  return typeof reason === 'string' && reason.trim() ? reason : 'The command was stopped.';
+}
+
 /** Answers one hook call of a run. Never throws: a failure becomes "go on" or "deny". */
 export async function answerHarnessHook(
   raw: unknown,

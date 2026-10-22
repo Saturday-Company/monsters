@@ -21,6 +21,8 @@ import {
   claudeOutsideMatcher,
   claudeToolPrefix,
   CodexHarness,
+  codexMcpStatus,
+  codexShellCommand,
   parseConnectorStatus,
   CODEX_INTEGRITY,
   installPackage,
@@ -766,7 +768,8 @@ describe('Codex harness', () => {
     fakeArgs: string[] = [],
     extra: { rpcTimeoutMs?: number; idleTimeoutMs?: number } = {},
   ) {
-    const record = join(dir, `codex-${scenario}${fakeArgs.join('')}.jsonl`);
+    // No `=` in the name: the fake splits `--fake-record=<file>` on it.
+    const record = join(dir, `codex-${scenario}${fakeArgs.join('').replace(/=/g, '_')}.jsonl`);
     const h = new CodexHarness({
       binary: () => ({
         command: process.execPath,
@@ -1021,6 +1024,201 @@ describe('Codex harness', () => {
       input: { command: 'pnpm test' },
     });
     expect(events.some((e) => e.type === 'heartbeat')).toBe(true);
+  });
+
+  describe('commands that need the network (D-158)', () => {
+    const rpcOf = (record: string) =>
+      records(record)
+        .filter((r) => r.kind === 'rpc')
+        .map(
+          (r) =>
+            r['msg'] as {
+              id?: number;
+              method?: string;
+              params?: Record<string, unknown>;
+              result?: unknown;
+            },
+        );
+
+    it('reads the command out of the shell wrapper Codex puts around it', () => {
+      // As 0.163.0 sends it: mixed '…' and "…" pieces.
+      expect(
+        codexShellCommand(
+          `/usr/bin/bash -lc "echo \\"it's "'$HOME" '"'a b' && ls ~/.monsters > /dev/null"`,
+        ),
+      ).toBe(`echo "it's $HOME" 'a b' && ls ~/.monsters > /dev/null`);
+      expect(codexShellCommand(`/usr/bin/bash -lc 'curl -sS https://example.com'`)).toBe(
+        'curl -sS https://example.com',
+      );
+      expect(codexShellCommand('bash -c ls')).toBe('ls');
+      // Not one word after -lc, or another program: left as it is.
+      expect(codexShellCommand(`bash -lc 'a' 'b'`)).toBe(`bash -lc 'a' 'b'`);
+      expect(codexShellCommand('pnpm test')).toBe('pnpm test');
+      expect(codexShellCommand(`bash -lc 'open`)).toBe(`bash -lc 'open`);
+    });
+
+    it('maps the MCP startup states of app-server', () => {
+      expect(codexMcpStatus({ name: 'monsters', status: 'ready' })).toEqual({
+        monsters: 'connected',
+      });
+      expect(codexMcpStatus({ name: 'x', status: 'starting' })).toEqual({ x: 'pending' });
+      expect(codexMcpStatus({ name: 'x', status: 'cancelled' })).toEqual({ x: 'failed' });
+      expect(
+        codexMcpStatus({ name: 'x', status: 'failed', failureReason: 'reauthenticationRequired' }),
+      ).toEqual({ x: 'needs-auth' });
+      expect(codexMcpStatus({ name: 'x', status: 'other' })).toBeNull();
+    });
+
+    it('asks the core before a command leaves the sandbox, and runs it when allowed', async () => {
+      const { h, record } = harness('netcmd', userEnv(join(dir, 'home')));
+      const asked: unknown[] = [];
+      const events = await collect(
+        h.run(
+          task({
+            systemTools: true,
+            approveCommand: (call) => {
+              asked.push(call);
+              return Promise.resolve(null);
+            },
+          }),
+          new AbortController().signal,
+        ),
+      );
+      // The command the model wrote, out of Codex's `bash -lc '…'` and its quoting.
+      expect(asked).toEqual([
+        {
+          id: 'exec-1',
+          command: `git push origin main && echo "it's done"`,
+          cwd: expect.any(String) as unknown,
+          reason: 'Do you want to push the branch?',
+        },
+      ]);
+      const rpc = rpcOf(record);
+      expect(rpc.find((m) => m.method === 'thread/start')?.params).toMatchObject({
+        approvalPolicy: 'on-request',
+        approvalsReviewer: 'user',
+        sandbox: 'workspace-write',
+      });
+      expect(records(record).find((r) => r.kind === 'approval')?.['answer']).toEqual({
+        decision: 'accept',
+      });
+      expect(rpc.some((m) => m.method === 'thread/inject_items')).toBe(false);
+      expect(events).toContainEqual({
+        type: 'tool-result',
+        id: 'exec-1',
+        output: { output: 'pushed\n', exitCode: 0 },
+      });
+      expect(events.at(-1)).toEqual({ type: 'done', reason: 'stop' });
+    });
+
+    it("refuses with Monsters' words, added to the thread before the decline", async () => {
+      const { h, record } = harness('netcmd', userEnv(join(dir, 'home')));
+      const events = await collect(
+        h.run(
+          task({
+            systemTools: true,
+            approveCommand: () => Promise.resolve('Monsters’ internal files are not reachable.'),
+          }),
+          new AbortController().signal,
+        ),
+      );
+      const all = records(record);
+      const inject = all.findIndex(
+        (r) =>
+          r.kind === 'rpc' && (r['msg'] as { method?: string }).method === 'thread/inject_items',
+      );
+      const approval = all.findIndex((r) => r.kind === 'approval');
+      expect(inject).toBeGreaterThan(-1);
+      expect(inject).toBeLessThan(approval);
+      const params = (all[inject]!['msg'] as { params: Record<string, unknown> }).params;
+      expect(params).toMatchObject({
+        threadId: 'thr_123',
+        items: [{ type: 'message', role: 'developer' }],
+      });
+      const text = JSON.stringify(params['items']);
+      expect(text).toContain('git push origin main');
+      expect(text).toContain('Monsters’ internal files are not reachable.');
+      expect(text).toContain('rejected by user');
+      expect(all[approval]!['answer']).toEqual({ decision: 'decline' });
+      expect(events.at(-1)).toEqual({ type: 'done', reason: 'stop' });
+    });
+
+    it('declines when the check fails, and never escalates without the check', async () => {
+      const failing = harness('netcmd', userEnv(join(dir, 'home')), ['--fake-x=1']);
+      await collect(
+        failing.h.run(
+          task({ systemTools: true, approveCommand: () => Promise.reject(new Error('boom')) }),
+          new AbortController().signal,
+        ),
+      );
+      expect(records(failing.record).find((r) => r.kind === 'approval')?.['answer']).toEqual({
+        decision: 'decline',
+      });
+      const bare = harness('netcmd', userEnv(join(dir, 'home')), ['--fake-x=2']);
+      await collect(bare.h.run(task({ systemTools: true }), new AbortController().signal));
+      expect(rpcOf(bare.record).find((m) => m.method === 'thread/start')?.params).toMatchObject({
+        approvalPolicy: 'never',
+      });
+      expect(records(bare.record).find((r) => r.kind === 'approval')?.['answer']).toEqual({
+        decision: 'decline',
+      });
+      // Without the terminal the check is never given to Codex either.
+      const reader = harness('tool', userEnv(join(dir, 'home')), ['--fake-x=3']);
+      await collect(
+        reader.h.run(
+          task({ approveCommand: () => Promise.resolve(null) }),
+          new AbortController().signal,
+        ),
+      );
+      expect(rpcOf(reader.record).find((m) => m.method === 'thread/start')?.params).toMatchObject({
+        approvalPolicy: 'never',
+        sandbox: 'read-only',
+      });
+    });
+
+    it('reports the prompt-cache reads of each request (cachedInputTokens)', async () => {
+      const { h } = harness('netcmd', userEnv(join(dir, 'home')));
+      const events = await collect(
+        h.run(
+          task({ systemTools: true, approveCommand: () => Promise.resolve(null) }),
+          new AbortController().signal,
+        ),
+      );
+      expect(events.filter((e) => e.type === 'usage')).toEqual([
+        { type: 'usage', model: 'gpt-test', inTok: 1000, outTok: 20, cacheReadTok: 600 },
+        { type: 'usage', model: 'gpt-test', inTok: 1001, outTok: 20, cacheReadTok: 601 },
+      ]);
+    });
+
+    it("reports the MCP servers' startup, and needs Monsters' server to start", async () => {
+      const ok = harness('netcmd', userEnv(join(dir, 'home')));
+      const events = await collect(
+        ok.h.run(
+          task({ systemTools: true, approveCommand: () => Promise.resolve(null) }),
+          new AbortController().signal,
+        ),
+      );
+      expect(events.filter((e) => e.type === 'mcp-status')).toEqual([
+        { type: 'mcp-status', servers: { monsters: 'pending' } },
+        { type: 'mcp-status', servers: { monsters: 'connected' } },
+      ]);
+      const argv = records(ok.record).find((r) => r.kind === 'start')!['argv'] as string[];
+      expect(argv).toContain('mcp_servers.monsters.required=true');
+      expect(argv).toContain('mcp_servers.monsters.default_tools_approval_mode="approve"');
+
+      const failed = harness('mcpfail', userEnv(join(dir, 'home')));
+      const out = await collect(failed.h.run(task(), new AbortController().signal));
+      expect(out.filter((e) => e.type !== 'heartbeat')).toEqual([
+        { type: 'mcp-status', servers: { monsters: 'failed' } },
+        {
+          type: 'done',
+          reason: 'error',
+          code: 'mcp_unavailable',
+          error: expect.stringContaining('`monsters`') as unknown,
+        },
+      ]);
+      expect(rpcOf(failed.record).some((m) => m.method === 'turn/start')).toBe(false);
+    });
   });
 
   it('tells a failed refresh from a sign-out', async () => {

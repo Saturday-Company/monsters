@@ -19,7 +19,7 @@ const en = {
   browser:
     'browser: you use real sites in the Monsters browser, with the sign-ins the user made there (e.g. Instagram): you read and prepare; before Publish, Share, Send or Pay Monsters asks the user',
   terminalHere: (codex: boolean) =>
-    `terminal and files: in this job’s folder${codex ? ' (commands have no network: for the web use the web tools)' : ''}`,
+    `terminal and files: in this job’s folder${codex ? ' (a command that needs the network asks Monsters first: `sandbox_permissions: "require_escalated"`)' : ''}`,
   terminalGranted: 'terminal and files: only in the folders granted (`shell`, `fs_*`)',
   artifact: 'HTML pages for the user, among their Files (`artifact_create`)',
   delegate: 'squad: you delegate to the other monsters (`delegate`)',
@@ -94,7 +94,7 @@ const it: typeof en = {
   browser:
     'browser: usi siti veri nel browser di Monsters, con gli accessi che l’utente ci ha fatto (es. Instagram): leggi e prepari; prima di Pubblica, Condividi, Invia o Paga Monsters chiede all’utente',
   terminalHere: (codex) =>
-    `terminale e file: nella cartella di questo lavoro${codex ? ' (i comandi non hanno rete: per il web usa gli strumenti web)' : ''}`,
+    `terminale e file: nella cartella di questo lavoro${codex ? ' (un comando che ha bisogno della rete chiede prima a Monsters: `sandbox_permissions: "require_escalated"`)' : ''}`,
   terminalGranted: 'terminale e file: solo nelle cartelle concesse (`shell`, `fs_*`)',
   artifact: 'pagine HTML per l’utente, tra i suoi File (`artifact_create`)',
   delegate: 'squadra: deleghi agli altri mostri (`delegate`)',
