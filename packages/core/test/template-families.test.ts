@@ -76,7 +76,7 @@ function inApp(lang: Lang): void {
 }
 
 describe('the Italian family did not move', () => {
-  it('has the very texts of before wave 3', () => {
+  it('has the very texts of before wave 3, but for the orchestrator’s line on the user’s sites (D-161)', () => {
     const it = TEMPLATE_FAMILIES.it;
     expect(
       [
@@ -85,16 +85,19 @@ describe('the Italian family did not move', () => {
         it.current.subagent,
         it.legacy[0]!.orchestrator,
         it.legacy[1]!.orchestrator,
-        it.legacy[1]!.subagent,
         it.legacy[2]!.orchestrator,
         it.legacy[2]!.subagent,
+        it.legacy[3]!.orchestrator,
+        it.legacy[3]!.subagent,
         it.webMethod,
         it.sourcesRule,
       ].map(sha),
     ).toEqual([
-      'bab2c0234f703bac6fd30387dd064a8658c4dc837ce5feef425845a3de2d79c0',
+      '3c1ff0bf42274bbd71d72ad2cd3b03f6a83b4396b3b3e7da3c78dfc53ca3389f',
       '0f602f545121c07d5942ad103bc21764970b60545465de97c491443942e2997b',
       'efc162fd9bcc22b20c2beaeb9964871301af5f315417b78a9f2af8dff78125fb',
+      // The orchestrator of before D-161: the very current text of the wave 3.
+      'bab2c0234f703bac6fd30387dd064a8658c4dc837ce5feef425845a3de2d79c0',
       'b0585949e10fcac99fbf5c597143e4abab32c0b7b9c8c262799355c2d740fa26',
       'b54a254e2ce69ce517e39b0f988f61792b608a00beafc209d8863b034bbc81ac',
       '5914c090353afcf07c167187062cbd369f27d249772b7529ce0f97294f701b06',
@@ -213,7 +216,7 @@ describe('a file keeps its family', () => {
   it('an Italian file of an older template is rendered again in Italian in an English app', async () => {
     inLang('it');
     const bp = rheaBlueprint(user);
-    const legacy = renderAgentsMd(bp, TEMPLATE_FAMILIES.it.legacy[1]);
+    const legacy = renderAgentsMd(bp, TEMPLATE_FAMILIES.it.legacy[2]);
     const files = renderAgentFiles(bp);
     const current = files['AGENTS.md'];
     setAppLang('en');
@@ -234,7 +237,7 @@ describe('a file keeps its family', () => {
     for (const app of LANGS) {
       inApp(app);
       for (const [who, bp] of Object.entries(blueprints('en'))) {
-        const legacy = renderAgentsMd(bp, TEMPLATE_FAMILIES.en.legacy[0]);
+        const legacy = renderAgentsMd(bp, TEMPLATE_FAMILIES.en.legacy[1]);
         const files = renderAgentFiles(bp, 'en');
         expect(legacy, who).not.toBe(files['AGENTS.md']);
         const dir = join(tempHome(), who);

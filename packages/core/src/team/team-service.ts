@@ -152,9 +152,11 @@ export function webTools(policy: AgentPermissions): string[] {
  * (DECISIONS D-026): with web tools at hand free models research by themselves
  * instead of delegating, even when the user names the researcher. Decided at
  * runtime from the loaded team, so it holds for teams created earlier too.
+ * It keeps `web_fetch` (D-161): without it, "read this site" or the user's own
+ * product page became "I can't open pages, send me a presentation".
  */
 export function orchestratorTools(tools: readonly string[], teamHasWeb: boolean): string[] {
-  const out = teamHasWeb ? tools.filter((t) => !WEB.has(t)) : [...tools];
+  const out = teamHasWeb ? tools.filter((t) => t !== 'web_search') : [...tools];
   // Proposing a monster (D-075) is the capo's, also for teams created before it.
   if (!out.includes(PROPOSE_TOOL)) out.push(PROPOSE_TOOL);
   return out;
@@ -405,7 +407,9 @@ export class TeamService {
    */
   webOff(agentId: string): 'permission' | 'project' | 'covered' | undefined {
     const def = this.#agents.get(agentId);
-    if (!def || def.config.tools.some((t) => WEB.has(t))) return undefined;
+    if (!def || def.config.tools.includes('web_search')) return undefined;
+    // Pages only (D-161): the search is covered by the squad, nothing is off.
+    if (def.config.tools.includes('web_fetch')) return 'covered';
     if (!this.savedPermissionsFor(agentId).web) return 'permission';
     if (this.projectOf(agentId)?.webSearch === false) return 'project';
     return 'covered';

@@ -5,6 +5,7 @@ import { parse as parseYaml } from 'yaml';
 import {
   BLUEPRINT_JSON,
   LEGACY_TEMPLATES,
+  TEMPLATE_FAMILIES,
   TeamService,
   createCoreServices,
   dioneBlueprint,
@@ -95,7 +96,7 @@ describe('AGENTS.md of an older template', () => {
     const agents = join(home, 'agents');
     const rhea = rheaBlueprint(user);
     const dione = dioneBlueprint(user);
-    const v2 = (bp: AgentBlueprint) => renderAgentsMd(bp, LEGACY_TEMPLATES[1]);
+    const v2 = (bp: AgentBlueprint) => renderAgentsMd(bp, LEGACY_TEMPLATES[2]);
     expect(v2(rhea)).not.toContain('## Come cerchi sul web');
     expect(v2(dione)).toBe(renderAgentsMd(dione));
     oldFolder(agents, rhea, { text: v2(rhea), blueprint: true });
@@ -113,7 +114,7 @@ describe('AGENTS.md of an older template', () => {
     const home = tempHome();
     const agents = join(home, 'agents');
     const titan = orchestratorBlueprint({ ...user, name: 'Titan' });
-    const before = renderAgentsMd(titan, LEGACY_TEMPLATES[1]);
+    const before = renderAgentsMd(titan, LEGACY_TEMPLATES[2]);
     expect(before).not.toContain('Ogni delega, scritta in');
     oldFolder(agents, titan, { text: before, blueprint: true });
     await team(home).load();
@@ -129,7 +130,7 @@ describe('AGENTS.md of an older template', () => {
     const home = tempHome();
     const agents = join(home, 'agents');
     const nova = orchestratorBlueprint({ ...user, name: 'Nova' });
-    const before = renderAgentsMd(nova, LEGACY_TEMPLATES[0]);
+    const before = renderAgentsMd(nova, LEGACY_TEMPLATES[1]);
     expect(before).not.toContain('team_propose_monster');
     expect(before).toContain('guardi `notes_check`');
     oldFolder(agents, nova, { text: before, blueprint: true });
@@ -143,6 +144,33 @@ describe('AGENTS.md of an older template', () => {
     expect(md.split('\n').length).toBeLessThan(40);
     // The sub-agents' template did not change: Rhea is left as she is.
     expect(readFileSync(join(agents, 'rhea', 'AGENTS.md'), 'utf8')).toBe(renderAgentsMd(rhea));
+  });
+
+  it('the capo squadra of the template before D-161 (the user’s sites are read) gets the current one, in both families', async () => {
+    for (const lang of ['it', 'en'] as const) {
+      inLang(lang);
+      const family = TEMPLATE_FAMILIES[lang];
+      // The legacy entry is the text the current one replaced: the product facts line only.
+      const v4 = family.legacy[0]!;
+      expect(v4.orchestrator).not.toBe(family.current.orchestrator);
+      expect(v4.orchestrator).not.toContain('web_fetch');
+      expect(family.current.orchestrator).toContain('web_fetch');
+      const home = tempHome();
+      const agents = join(home, 'agents');
+      const titan = orchestratorBlueprint({ ...user, name: 'Titan', lang });
+      const before = renderAgentsMd(titan, v4);
+      const current = renderAgentsMd(titan);
+      expect(before, lang).not.toBe(current);
+      oldFolder(agents, titan, { text: before, blueprint: true });
+      await team(home).load();
+      const md = readFileSync(join(agents, 'titan', 'AGENTS.md'), 'utf8');
+      expect(md, lang).toBe(current);
+      expect(md, lang).toContain('`web_fetch`');
+      // Current already: nothing more to do.
+      const dir = join(agents, 'titan');
+      const config = parseYaml(readFileSync(join(dir, 'agent.yaml'), 'utf8')) as AgentConfig;
+      expect(await upgradeInstructions(dir, config)).toBeNull();
+    }
   });
 
   it('a file edited by hand stays exactly as it is', async () => {

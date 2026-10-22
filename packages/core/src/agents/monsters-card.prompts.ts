@@ -76,6 +76,10 @@ const en = {
   webElsewhere: (whoText: string, n: number, delegates: boolean) =>
     `web (${whoText} ${n > 1 ? 'have' : 'has'} it${delegates ? ': delegate the search' : ''})`,
   webNobody: 'web (nobody in the squad has it)',
+  fetchNamed:
+    '; a site or address the user or the brief names you read yourself with `web_fetch`: never ask the user to paste it',
+  searchElsewhere: (whoText: string, n: number, delegates: boolean) =>
+    `web search (${whoText} ${n > 1 ? 'have' : 'has'} it${delegates ? ': delegate the searches' : ''})`,
   and: 'and',
 };
 
@@ -140,6 +144,10 @@ const it: typeof en = {
   webElsewhere: (whoText, _n, delegates) =>
     `web (ce l’ha ${whoText}${delegates ? ': delega la ricerca' : ''})`,
   webNobody: 'web (nessuno nella squadra ce l’ha)',
+  fetchNamed:
+    '; un sito o un indirizzo che l’utente o il brief nominano lo leggi tu con `web_fetch`: mai chiedergli di incollarlo',
+  searchElsewhere: (whoText, _n, delegates) =>
+    `ricerca sul web (ce l’ha ${whoText}${delegates ? ': delega le ricerche' : ''})`,
   and: 'e',
 };
 

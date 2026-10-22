@@ -49,7 +49,7 @@ describe('permissions on by default', () => {
     const s = read();
     expect(s.permissions.shell).toBe(true);
     expect(s.permissions.agents.rhea).toEqual({ vault: true, web: false, shell: true });
-    expect(s.permissions.agents.titan.shell).toBe(true);
+    expect(s.permissions.agents.titan?.shell).toBe(true);
     expect(s.permissionsRevision).toBe(PERMISSIONS_REVISION);
     expect(s.userName).toBe('Ada');
     // Only once.

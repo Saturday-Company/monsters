@@ -13,6 +13,7 @@ import {
   migrate,
   openDb,
   readBraveKey,
+  orchestratorTools,
   readOpenRouterKey,
 } from '../src/index.ts';
 import { TeamService } from '../src/team/team-service.ts';
@@ -84,14 +85,16 @@ describe('team', () => {
     expect(log.query({ type: 'error' }).at(-1)?.data).toMatchObject({ code: 'agent_invalid' });
   });
 
-  it('gives the orchestrator the web only when nobody else in the team has it (D-026)', async () => {
+  it('takes the search from the orchestrator when someone else has it, and keeps its pages (D-026, D-161)', async () => {
     const t = await startTestHub({});
     const team = t.core.hub.team;
     const tools = (id: string) => team.get(id)!.config.tools;
     const web = ['web_search', 'web_fetch'];
     expect(tools('rhea')).toEqual(expect.arrayContaining(web));
     expect(tools('titan')).toEqual(expect.arrayContaining(['delegate', 'vault_write']));
-    expect(tools('titan').filter((x) => web.includes(x))).toEqual([]);
+    // The searches are delegated, the pages the user names are read by the capo itself.
+    expect(tools('titan').filter((x) => web.includes(x))).toEqual(['web_fetch']);
+    expect(team.webOff('titan')).toBe('covered');
     // The file still declares them: the rule is applied at runtime, also to old teams.
     const yaml = readFileSync(join(t.home, 'agents', 'titan', 'agent.yaml'), 'utf8');
     expect(yaml).toContain('- web_search');
@@ -99,13 +102,27 @@ describe('team', () => {
     // No web permission: nobody has it.
     team.setPolicy({ vault: true, web: false });
     expect([...tools('titan'), ...tools('rhea')].filter((x) => web.includes(x))).toEqual([]);
+    expect(team.webOff('titan')).toBe('permission');
     team.setPolicy({ vault: true, web: true });
-    expect(tools('titan').filter((x) => web.includes(x))).toEqual([]);
+    expect(tools('titan').filter((x) => web.includes(x))).toEqual(['web_fetch']);
 
     // Without the researcher, the orchestrator searches by itself.
     rmSync(join(t.home, 'agents', 'rhea'), { recursive: true });
     await team.load();
     expect(tools('titan')).toEqual(expect.arrayContaining(web));
+    expect(team.webOff('titan')).toBeUndefined();
+  });
+
+  it('orchestratorTools: a squad with the web takes only web_search from the capo (D-161)', () => {
+    const declared = ['vault_search', 'delegate', 'web_search', 'web_fetch'];
+    const covered = orchestratorTools(declared, true);
+    expect(covered).toContain('web_fetch');
+    expect(covered).not.toContain('web_search');
+    expect(covered).toEqual(expect.arrayContaining(['vault_search', 'delegate']));
+    // Nobody else has the web: the capo keeps both.
+    expect(orchestratorTools(declared, false)).toEqual(expect.arrayContaining(declared));
+    // The input is not touched.
+    expect(declared).toContain('web_search');
   });
 
   it('creates a missing MEMORY.md on first use and reads an existing one', async () => {

@@ -101,13 +101,20 @@ export function monstersCard(options: MonstersCardOptions & CardContext): string
   const webSearch = has('web_search') || h?.ownWebSearch === true;
   if (webSearch || has('web_fetch')) {
     const search = h?.ownWebSearch ? p.ownSearch : '`web_search`';
+    const named = has('web_fetch') ? p.fetchNamed : '';
     can.push(
-      webSearch && has('web_fetch')
+      (webSearch && has('web_fetch')
         ? p.webBoth(search, load(['web_search', 'web_fetch']))
         : webSearch
           ? p.webSearch(search, load(['web_search']))
-          : p.webFetch(load(['web_fetch'])),
+          : p.webFetch(load(['web_fetch']))) + named,
     );
+    // Pages without the search (D-161): the orchestrator and the leads read what the user names,
+    // the squad's researchers search.
+    const who = [...new Set(options.webElsewhere ?? [])];
+    if (!webSearch && who.length > 0) {
+      cannot.push(p.searchElsewhere(listIn(who), who.length, has('delegate')));
+    }
   } else {
     cannot.push(webMissing(options, has('delegate'), has('access_request')));
   }

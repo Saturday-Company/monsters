@@ -5144,3 +5144,26 @@ user it could not read the site and asked for a printout.
   prefix in lowercase and a global install left the agent's folder).
 **Consequence:** a new team can use the terminal from the first message; who wants it off turns it off in
 Settings → Permissions. Rendering pages in a browser for `web_fetch` stays open.
+
+### D-161 · Read what the user names: the capo keeps `web_fetch`, the product's facts come from its site too
+**Status:** done · 23/10/2026
+**Context:** asked to analyse WitDesk, the monsters asked the user for a printout or a presentation of the product
+until the user forced them to read witdesk.it, which `web_fetch` reads fine. The causes, all on current main: the
+orchestrator's template said a user's product facts come "only from the profile or the vault" and to ask with
+`ask_user` otherwise; D-026 took both web tools from the orchestrator and the leads whose squad has a researcher, so
+"read this site" had no tool; on a free chain the triage deferred the web for a request that only named a site (the
+question is about searching up-to-date information); Rhea's rule said to open only addresses found with the search;
+the ChatGPT tool namespace always promised "vault, web, team".
+**Choices:**
+- D-026 now takes only `web_search`: the orchestrator and the leads keep `web_fetch`. The card says that the search is
+  with the squad's researchers ("delegate the searches") and, for every monster with `web_fetch`, that a site or
+  address the user or the brief names is read with it, never asked to the user.
+- The orchestrator template (both families) says the facts come from the profile, the vault or the user's own
+  websites read with `web_fetch`, and only then from `ask_user`. The previous text is legacy (`ORCHESTRATOR_IT_V4`,
+  `ORCHESTRATOR_EN_V2`), so installed AGENTS.md files never edited by hand upgrade at the next start.
+- Free chain: the web is never deferred when the request names a web address (`namesWebAddress`); the triage
+  question of Jev is unchanged (its model is trained on it).
+- Rhea opens the addresses found with the search and the ones the user or the brief give; the ChatGPT namespace
+  description lists only what the request's tools hold.
+**Consequence:** a capo reads one page itself and delegates research. The template names `web_fetch` also for a
+team whose web is off; then the core's "not one of your tools" answer applies (D-127).
