@@ -82,7 +82,7 @@ const it: PagesStrings = {
     metaTitle: 'Guide di Monsters: architettura, sicurezza, MCP, uso a distanza',
     description:
       'Le guide di Monsters, l’app open source che fa girare una squadra di agenti AI sul tuo computer: architettura, modello di sicurezza, abbonamenti, il vault come server MCP e l’uso a distanza con SSH e Telegram.',
-    lede: 'Le guide per chi usa Monsters. Vengono lette dalla repository quando si costruisce il sito, quindi sono sempre quelle che stanno nel codice.',
+    lede: 'Le guide per chi usa Monsters. Vengono lette dal repository quando si costruisce il sito, quindi sono sempre quelle che stanno nel codice.',
     englishOnly:
       'Le guide sono scritte solo in inglese e restano in inglese anche qui. Questa pagina le elenca in italiano; ogni guida si apre nella versione inglese.',
     read: 'Leggi la guida (in inglese)',
@@ -101,9 +101,9 @@ const it: PagesStrings = {
         'Da dove viene Monsters e dove va: le fasi concluse, cosa resta aperto prima di una versione stabile e cosa verrà dopo.',
     },
     source:
-      'Queste pagine sono generate dai file Markdown della cartella docs della repository. Per correggere un errore o aggiungere qualcosa a una guida, apri una pull request.',
+      'Queste pagine sono generate dai file Markdown della cartella docs del repository. Per correggere un errore o aggiungere qualcosa a una guida, apri una pull request.',
     sourceLink: 'docs su GitHub',
-    more: 'Nella repository c’è anche',
+    more: 'Nel repository c’è anche',
     moreItems: [
       [
         'Decisioni tecniche',
@@ -126,7 +126,7 @@ const it: PagesStrings = {
     onThisPage: 'In questa pagina',
     all: 'Tutta la documentazione',
     github: 'Questa guida su GitHub',
-    updatedNote: 'Letta dalla repository quando è stato costruito il sito.',
+    updatedNote: 'Letta dal repository quando è stato costruito il sito.',
     next: 'Guida successiva',
     metaSuffix: 'Documentazione di Monsters',
   },

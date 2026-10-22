@@ -22,7 +22,7 @@ Website: <https://getmonsters.dev>
 
 ## Status
 
-**Alpha, version 0.1.0-alpha.18.** It works and is used daily, but expect rough edges and changes. See
+**Alpha, version 0.1.0-alpha.20.** It works and is used daily, but expect rough edges and changes. See
 [`CHANGELOG.md`](CHANGELOG.md) and [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Features

@@ -225,7 +225,7 @@ const en = {
       {
         who: 'tethys',
         q: 'What if I go rogue?',
-        a: 'You pull the lever: the app, /stop on Telegram or monsters kill. Every run aborts, every process dies. Before that, Instinct, a small model, brakes anything that would leave your computer.',
+        a: 'You pull the lever: the app, /stop on Telegram or monsters kill. Every run aborts, every process dies. Before that, Instinct, a small model, brakes outgoing actions and asks you. It is a safeguard, not a security boundary.',
       },
       {
         who: 'enceladus',
@@ -235,7 +235,7 @@ const en = {
       {
         who: 'hyperion',
         q: 'How much do I cost?',
-        a: 'The app is free and open source. Models cost what their providers charge, and you set daily and monthly caps. With the free models on OpenRouter, starting costs nothing.',
+        a: 'The app is free and open source. Models cost what their providers charge, and you set daily and monthly caps (counted for models with a known price). With the free models on OpenRouter, starting costs nothing.',
       },
       {
         who: 'mimas',
@@ -249,7 +249,7 @@ const en = {
       items: [
         {
           q: 'Is Monsters free and open source?',
-          a: 'Yes. The app is free and the code is open source under the Apache-2.0 license, on GitHub. Models cost what their providers charge, and you set daily and monthly spending caps; with the free models on OpenRouter, starting costs nothing. The name Monsters and the monsters’ characters are trademarks, and the license does not grant rights to them.',
+          a: 'Yes. The app is free and the code is open source under the Apache-2.0 license, on GitHub. Models cost what their providers charge, and you set daily and monthly spending caps (counted for models with a known price); with the free models on OpenRouter, starting costs nothing. The name Monsters and the monsters’ characters are trademarks, and the license does not grant rights to them.',
         },
         {
           q: 'Can I run it with local models like Ollama?',
@@ -261,11 +261,11 @@ const en = {
         },
         {
           q: 'Is my data sent to the cloud?',
-          a: 'Not by Monsters. The core listens only on 127.0.0.1, and notes, the action log and settings stay on your disk. Only what you choose leaves your computer: prompts to the model provider you pick (nothing, if you only use Ollama or LM Studio), web pages the monsters search or read, and Telegram messages if you connect a bot. API keys are kept in the system keychain. There is no cloud account and no usage analytics; the app only checks a signed feed for updates and downloads the local search model once.',
+          a: 'Not by Monsters. The core listens only on 127.0.0.1, and notes, the action log and settings stay on your disk. Only what you choose leaves your computer: prompts to the model provider you pick (nothing, if you only use Ollama or LM Studio), web pages the monsters search or read, and Telegram messages if you connect a bot. API keys are kept in the system keychain. There is no cloud account and no usage analytics; the app only checks a signed feed for updates and downloads OpenRouter’s public price list, even if you use only your own keys.',
         },
         {
           q: 'Do I need to know how to code to use it?',
-          a: 'No. Download the installer, create your account, paste an OpenRouter key (a free one is enough to start), answer a few questions and Monsters proposes a team. Programming is only needed to build from source or to contribute.',
+          a: 'No. Download the installer, create your local account, connect a model (your Claude plan through Claude Code, your ChatGPT plan, or an OpenRouter key; a free one is enough to start), answer a few questions and Monsters proposes a team. Programming is only needed to build from source or to contribute.',
         },
       ],
     },
@@ -598,7 +598,7 @@ const it: Strings = {
     title: 'Open source. Apache-2.0.',
     body: 'Leggilo, forkalo, sistemalo. Ogni contributor riceve un mostro, nato dal suo nome su GitHub.',
     stars: 'stelle su GitHub',
-    starsSoon: 'Il contatore parte quando la repository apre.',
+    starsSoon: 'Il contatore parte quando il repository apre.',
     repo: 'Repository',
     contributing: 'Come contribuire',
     issues: 'Good first issue',
@@ -632,7 +632,7 @@ const it: Strings = {
       {
         who: 'tethys',
         q: 'E se faccio di testa mia?',
-        a: "Tiri la leva: dall'app, con /stop su Telegram o con monsters kill. Ogni lavoro si interrompe, ogni processo muore. Prima ancora, Istinto, un modello piccolo, frena tutto ciò che uscirebbe dal tuo computer.",
+        a: "Tiri la leva: dall'app, con /stop su Telegram o con monsters kill. Ogni lavoro si interrompe, ogni processo muore. Prima ancora, Istinto, un modello piccolo, frena le azioni in uscita e ti chiede conferma. È una protezione, non un confine di sicurezza.",
       },
       {
         who: 'enceladus',
@@ -642,7 +642,7 @@ const it: Strings = {
       {
         who: 'hyperion',
         q: 'Quanto costo?',
-        a: "L'app è gratuita e open source. I modelli costano quanto chiedono i loro provider, e tu fissi tetti giornalieri e mensili. Con i modelli gratuiti di OpenRouter iniziare non costa niente.",
+        a: "L'app è gratuita e open source. I modelli costano quanto chiedono i loro provider, e tu fissi tetti giornalieri e mensili (contati per i modelli con un prezzo noto). Con i modelli gratuiti di OpenRouter iniziare non costa niente.",
       },
       {
         who: 'mimas',
@@ -651,12 +651,12 @@ const it: Strings = {
       },
     ],
     more: {
-      title: 'Le domande delle persone',
+      title: 'Altre domande',
       compare: 'Monsters a confronto con altre app di agenti open source',
       items: [
         {
           q: 'Monsters è gratuito e open source?',
-          a: 'Sì. L’app è gratuita e il codice è open source con licenza Apache-2.0, su GitHub. I modelli costano quanto chiedono i loro provider e tu fissi tetti di spesa giornalieri e mensili; con i modelli gratuiti di OpenRouter iniziare non costa niente. Il nome Monsters e i personaggi dei mostri sono marchi, e la licenza non dà diritti su di essi.',
+          a: 'Sì. L’app è gratuita e il codice è open source con licenza Apache-2.0, su GitHub. I modelli costano quanto chiedono i loro provider e tu fissi tetti di spesa giornalieri e mensili (contati per i modelli con un prezzo noto); con i modelli gratuiti di OpenRouter iniziare non costa niente. Il nome Monsters e i personaggi dei mostri sono marchi, e la licenza non dà diritti su di essi.',
         },
         {
           q: 'Posso usarlo con modelli locali come Ollama?',
@@ -668,11 +668,11 @@ const it: Strings = {
         },
         {
           q: 'I miei dati vanno nel cloud?',
-          a: 'Non da parte di Monsters. Il core ascolta solo su 127.0.0.1 e note, registro delle azioni e impostazioni restano sul tuo disco. Esce dal computer solo ciò che scegli tu: i prompt verso il provider del modello (niente, se usi solo Ollama o LM Studio), le pagine web che i mostri cercano o leggono e i messaggi di Telegram, se colleghi un bot. Le chiavi API stanno nel portachiavi di sistema. Non c’è un account cloud né statistiche d’uso; l’app controlla solo un feed firmato per gli aggiornamenti e scarica una volta il modello di ricerca locale.',
+          a: 'Non da parte di Monsters. Il core ascolta solo su 127.0.0.1 e note, registro delle azioni e impostazioni restano sul tuo disco. Esce dal computer solo ciò che scegli tu: i prompt verso il provider del modello (niente, se usi solo Ollama o LM Studio), le pagine web che i mostri cercano o leggono e i messaggi di Telegram, se colleghi un bot. Le chiavi API stanno nel portachiavi di sistema. Non c’è un account cloud né statistiche d’uso; l’app controlla solo un feed firmato per gli aggiornamenti e scarica il listino prezzi pubblico di OpenRouter, anche se usi solo chiavi tue.',
         },
         {
           q: 'Devo saper programmare per usarlo?',
-          a: 'No. Scarichi l’installer, crei il tuo account, incolli una chiave di OpenRouter (ne basta una gratuita), rispondi a qualche domanda e Monsters ti propone una squadra. Programmare serve solo per compilarlo dai sorgenti o per contribuire.',
+          a: 'No. Scarichi l’installer, crei il tuo account locale, colleghi un modello (il tuo piano Claude tramite Claude Code, il tuo piano ChatGPT o una chiave di OpenRouter; ne basta una gratuita), rispondi a qualche domanda e Monsters ti propone una squadra. Programmare serve solo per compilarlo dai sorgenti o per contribuire.',
         },
       ],
     },
@@ -773,7 +773,7 @@ const it: Strings = {
     desc: {
       help: 'questa lista',
       download: 'vai al download per il tuo sistema',
-      star: 'apri la repository su GitHub',
+      star: 'apri il repository su GitHub',
       kill: 'tira l’interruttore di questa pagina',
       resume: 'rimettilo su',
       squad: 'elenca la squadra',
@@ -804,7 +804,7 @@ const it: Strings = {
     log: 'Tipi di evento e campi come in LogEventSchema (packages/shared/src/events.ts). Il test del sito controlla ogni riga.',
     commit:
       'Formato dei commit del vault: strumento: percorso [agent= action=], con i trailer Monsters-Action e Monsters-Agent.',
-    code: 'Gli estratti sono tagliati dalla repository al build, con dei segnaposto nel sorgente. I numeri di riga sono quelli veri.',
+    code: 'Gli estratti sono tagliati dal repository al build, con dei segnaposto nel sorgente. I numeri di riga sono quelli veri.',
     arch: 'Semplificato. Il quadro completo è in docs/ARCHITECTURE.md.',
   },
   dmesg: {

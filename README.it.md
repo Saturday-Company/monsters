@@ -22,7 +22,7 @@ Sito: <https://getmonsters.dev>
 
 ## Stato
 
-**Alpha, versione 0.1.0-alpha.18.** Funziona e si usa ogni giorno, ma aspettati spigoli e cambiamenti. Vedi
+**Alpha, versione 0.1.0-alpha.20.** Funziona e si usa ogni giorno, ma aspettati spigoli e cambiamenti. Vedi
 [`CHANGELOG.md`](CHANGELOG.md) e [`docs/ROADMAP.md`](docs/ROADMAP.md) (in inglese).
 
 ## Cosa fa

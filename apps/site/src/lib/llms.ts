@@ -41,17 +41,17 @@ Monsters is a local-first, provider-agnostic agentic hub: an orchestrator (Titan
 
 - A team of agents: an orchestrator that plans and splits work, and monsters with their own chat, terminal, permissions and model chain. Projects and scheduled automations are proposed as drafts and start only when you confirm.
 - Any model: OpenRouter (free models to start), Anthropic, OpenAI, Google, Mistral and Groq with your own API keys; Ollama and LM Studio fully local; the Claude (Claude Code) and ChatGPT (Codex) subscriptions you already pay for. Each monster has a chain of models with fallback.
-- An Obsidian-compatible Markdown vault: plain files with wikilinks, hybrid keyword and semantic search, history and trash. Every agent edit is a git commit you can undo. \`monsters mcp\` serves the vault over MCP to Claude Desktop, Codex or Cursor.
+- An Obsidian-compatible Markdown vault: plain files with wikilinks, keyword search (semantic when built from source), history and trash. Every agent edit is a git commit you can undo. \`monsters mcp\` serves the vault over MCP to Claude Desktop, Codex or Cursor.
 - Connectors: any MCP server, and a browser with a profile separate from yours.
 - Remote use: Telegram bots, or the terminal chat over SSH (\`monsters chat\`); the desktop app can connect to a core running elsewhere through an SSH tunnel.
-- Instinct: a small, fast model decides when to ask you, checks that work is finished, notices agents going in circles, brakes actions that would leave the machine and strips instructions aimed at the monsters out of external text.
+- Instinct: a small, fast model decides when to ask you, checks that work is finished, notices agents going in circles, brakes outgoing actions and asks you, and strips instructions aimed at the monsters out of external text.
 
 ## Safety and privacy
 
 - Kill switch: one red lever (the app, \`/stop\` on Telegram, or \`monsters kill\`) aborts every run and kills every child process.
 - Local first: the core listens only on 127.0.0.1 and opens no ports to the outside. Notes, logs and settings stay on your disk; only the model calls you choose leave the machine.
 - Your keys stay on your computer, in the system keychain. Terminal and file access are off until you grant them, monster by monster.
-- Every action is written to the action log. Daily and monthly spending caps apply, per project too.
+- Every action is written to the action log. Daily and monthly spending caps apply, per project too, for models with a known price.
 - Open source: the code, the security model and every technical decision are public.
 
 ## Download
