@@ -370,12 +370,39 @@ describe('harness runner: tools, address', () => {
     expect(harness.tasks[0]!.instructions!.startsWith('Sei Rhea.')).toBe(true);
   });
 
-  it('gives the harness a loopback URL whatever address the core listens on', () => {
+  it('gives the harness an address the core really listens on (D-160)', () => {
+    // A wildcard listens on loopback too.
     expect(harnessMcpUrl('0.0.0.0', 4310)).toBe('http://127.0.0.1:4310/api/harness/mcp');
-    expect(harnessMcpUrl('192.168.1.20', 4310)).toBe('http://127.0.0.1:4310/api/harness/mcp');
     expect(harnessMcpUrl('::', 4310)).toBe('http://127.0.0.1:4310/api/harness/mcp');
-    expect(harnessMcpUrl('localhost', 4310)).toBe('http://127.0.0.1:4310/api/harness/mcp');
+    expect(harnessMcpUrl('', 4310)).toBe('http://127.0.0.1:4310/api/harness/mcp');
+    // A specific address listens only there: 127.0.0.1 would be refused.
+    expect(harnessMcpUrl('192.168.1.20', 4310)).toBe('http://192.168.1.20:4310/api/harness/mcp');
+    expect(harnessMcpUrl('127.0.0.2', 4310)).toBe('http://127.0.0.2:4310/api/harness/mcp');
     expect(harnessMcpUrl('::1', 4310)).toBe('http://[::1]:4310/api/harness/mcp');
+    expect(harnessMcpUrl('[fd00::5]', 4310)).toBe('http://[fd00::5]:4310/api/harness/mcp');
+    // `localhost` may be bound to ::1 only: the harness resolves the name itself.
+    expect(harnessMcpUrl('localhost', 4310)).toBe('http://localhost:4310/api/harness/mcp');
+  });
+
+  it('a core on a specific address answers the harness there, not on 127.0.0.1 (D-160)', async () => {
+    const { createServer } = await import('node:http');
+    const server = createServer((_req, res) => res.end('ok'));
+    // An address of this computer other than 127.0.0.1: Linux has all of 127/8, macOS and
+    // Windows may not, and the test is skipped where it cannot be bound.
+    const bound = await new Promise<boolean>((resolve) => {
+      server.once('error', () => resolve(false));
+      server.listen(0, '127.0.0.2', () => resolve(true));
+    });
+    if (!bound) return;
+    try {
+      const port = (server.address() as { port: number }).port;
+      const ok = await fetch(harnessMcpUrl('127.0.0.2', port)).then((r) => r.ok);
+      expect(ok).toBe(true);
+      // The old URL: refused.
+      await expect(fetch(`http://127.0.0.1:${port}/api/harness/mcp`)).rejects.toThrow();
+    } finally {
+      server.close();
+    }
   });
 });
 

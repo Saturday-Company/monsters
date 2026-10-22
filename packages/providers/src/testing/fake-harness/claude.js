@@ -2,6 +2,7 @@
 // protocol of `claude -p` and `claude auth status`. Fake options come first:
 //   node claude.mjs --fake-record=<file> --fake-scenario=<tool|hooks|remind|denied|ask|files|nostream|linger|hang|notlogged> <claude args…>
 // `--fake-limits=off|rejected`: the plan limits events (D-111).
+// `--fake-mcp=failed|pending|needs-auth`: the status of Monsters' server at the init (D-160).
 // `--fake-error=<text>`: the run ends with an error result saying <text> (after the limits events).
 // `hooks` calls the HTTP hooks of the run's --settings file (D-069) around a
 // web search, a push and a tool of a claude.ai connector, then at the stop.
@@ -85,8 +86,17 @@ out({
   model: 'claude-sonnet-test',
   apiKeySource: 'none',
   tools: [],
-  mcp_servers: Object.keys(mcpConfig.mcpServers).map((name) => ({ name, status: 'connected' })),
+  // `--fake-mcp=<status>`: how the first server (Monsters') came up, as 2.1.308 prints it
+  // (`failed` with the core down or the token refused, `pending` past the startup wait).
+  mcp_servers: Object.keys(mcpConfig.mcpServers).map((name) => ({
+    name,
+    status: fake.mcp && name === server[0] ? fake.mcp : 'connected',
+  })),
 });
+if (fake.mcp && fake.mcp !== 'connected') {
+  // Its tools are missing, the model would go on without them: the core stops it first.
+  await new Promise((resolve) => setTimeout(resolve, 30_000));
+}
 
 if (!loggedIn || scenario === 'notlogged') {
   out({

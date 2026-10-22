@@ -40,6 +40,7 @@ import {
 import type { HarnessToolSessions } from './harness-tools.ts';
 import type { CardContext } from './monsters-card.ts';
 import {
+  abortCause,
   abortMessage,
   buildSystemPrompt,
   instructionsForTools,
@@ -100,6 +101,80 @@ const LIMIT_TAIL_EVENTS = new Set<HarnessEvent['type']>([
   'heartbeat',
   'done',
 ]);
+
+/**
+ * Statuses of the `monsters` server that leave the run without Monsters' tools (D-160):
+ * `pending` too, since the model's first request goes without them (Claude Code 2.1.308,
+ * past `CLAUDE_CODE_MCP_STARTUP_WAIT_MS`).
+ */
+const TOOLS_DOWN: ReadonlySet<string> = new Set(['failed', 'needs-auth', 'pending', 'disabled']);
+/** How long the core's own check of its tools endpoint may take. */
+const TOOLS_PROBE_MS = 3000;
+
+/** The program a harness runs, as the user knows it. */
+function harnessProgram(id: string): string {
+  return id === 'codex' ? 'Codex' : 'Claude Code';
+}
+
+/**
+ * Why a harness could not reach Monsters' tools (D-160), in plain words: the core calls its
+ * own endpoint with the run's token, as the harness would. No answer, a refused token or a
+ * slow answer are the core's side; an answer that works means the harness's side.
+ */
+export async function monstersToolsCause(
+  status: string,
+  url: string,
+  token: string,
+  timeoutMs = TOOLS_PROBE_MS,
+): Promise<string> {
+  const c = runAgentStrings().mcpCause;
+  let where = url;
+  try {
+    where = new URL(url).host;
+  } catch {
+    // The URL as it is.
+  }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-06-18',
+          capabilities: {},
+          clientInfo: { name: 'monsters-self-check', version: '1' },
+        },
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    await res.body?.cancel().catch(() => {});
+    if (res.status === 401) return c.token;
+    if (!res.ok) return c.refused(res.status);
+  } catch (err) {
+    return (err as Error).name === 'TimeoutError' ? c.slow : c.unreachable(where);
+  }
+  if (status === 'pending') return c.pending;
+  if (status === 'needs-auth') return c.needsAuth;
+  return c.harnessSide;
+}
+
+/** A failed result written by the core's endpoint (`{"error":{"code":…}}`), not by the harness. */
+function fromCore(output: unknown): boolean {
+  if (typeof output !== 'string') return false;
+  try {
+    const v = JSON.parse(output) as { error?: { code?: unknown } } | null;
+    return typeof v?.error?.code === 'string';
+  } catch {
+    return false;
+  }
+}
 
 export interface RunHarnessOptions {
   agent: AgentDefinition;
@@ -316,14 +391,20 @@ function preview(value: unknown, max = 4000): unknown {
 export const HARNESS_PROVIDER_IDS: ReadonlySet<string> = new Set(['claude-agent', 'codex']);
 
 /**
- * URL of the core's MCP endpoint for the harness processes: always a loopback
- * address (the harness runs on this computer, the run's token never travels
- * on another interface), whatever address the core listens on.
+ * URL of the core's MCP endpoint for the harness processes, which run on this
+ * computer: an address the core really listens on (D-160). A wildcard
+ * (`0.0.0.0`, `::`) is reached on 127.0.0.1; a specific address is used as it
+ * is: a core listening only on `192.168.1.20` (or `127.0.0.2`) refuses
+ * connections on 127.0.0.1, and Claude Code then started with the `monsters`
+ * server `failed` and no tools. `localhost` stays a name: Node may have bound
+ * it to `::1` only, the harness tries every address of the name. Traffic to an
+ * address of this computer never leaves it.
  */
 export function harnessMcpUrl(host: string, port: number): string {
-  const h = host.toLowerCase().replace(/^\[|\]$/g, '');
-  const loopback = h === '::1' || h === '0:0:0:0:0:0:0:1' ? '[::1]' : '127.0.0.1';
-  return `http://${loopback}:${port}/api/harness/mcp`;
+  const h = host.trim().toLowerCase().replace(/^\[|\]$/g, '');
+  const wildcard = h === '' || h === '0.0.0.0' || /^[0:]+$/.test(h);
+  const where = wildcard ? '127.0.0.1' : h.includes(':') ? `[${h}]` : h;
+  return `http://${where}:${port}/api/harness/mcp`;
 }
 
 /** URL of the core's hook endpoint for the harness processes (D-069): loopback, like the MCP one. */
@@ -401,7 +482,7 @@ function knownBase(log: EventLog, agentId: string, harnessId: string): number {
 export async function runHarnessAgent(options: RunHarnessOptions): Promise<AgentRunResult> {
   const { fallbackModel: next, fallbackEffort, ...rest } = options;
   const { effort: _first, ...restNoEffort } = rest;
-  const first = await runHarnessOnce(rest, next !== undefined && next !== options.model);
+  const first = await runWithTools(rest, next !== undefined && next !== options.model);
   if (!first.planLimited || !next) return withoutFlag(first);
   const { agent, harness, log, runId } = options;
   const from = `${harness.id}:${options.model ?? first.model?.model ?? runAgentStrings().modelWord}`;
@@ -418,7 +499,7 @@ export async function runHarnessAgent(options: RunHarnessOptions): Promise<Agent
     },
   });
   const second = withoutFlag(
-    await runHarnessOnce(
+    await runWithTools(
       { ...restNoEffort, model: next, ...(fallbackEffort ? { effort: fallbackEffort } : {}) },
       false,
     ),
@@ -454,17 +535,36 @@ async function* untilStalled<T>(
   }
 }
 
-type OnceResult = AgentRunResult & { planLimited?: boolean };
+type OnceResult = AgentRunResult & {
+  planLimited?: boolean;
+  /** Monsters' tools were not there at the start and nothing was done yet: start again. */
+  toolsRetry?: boolean;
+};
 
 function withoutFlag(r: OnceResult): AgentRunResult {
-  const { planLimited: _flag, ...result } = r;
+  const { planLimited: _flag, toolsRetry: _retry, ...result } = r;
   return result;
+}
+
+/**
+ * One run, started once more in a fresh harness process (a new session and token) when the
+ * harness could not reach Monsters' tools at its start and had done nothing yet (D-160).
+ */
+async function runWithTools(
+  options: Omit<RunHarnessOptions, 'fallbackModel'>,
+  quietPlanLimit: boolean,
+): Promise<OnceResult> {
+  const first = await runHarnessOnce(options, quietPlanLimit, true);
+  if (!first.toolsRetry) return first;
+  return runHarnessOnce(options, quietPlanLimit, false);
 }
 
 async function runHarnessOnce(
   options: Omit<RunHarnessOptions, 'fallbackModel'>,
   /** The caller tries another model at the plan's limit: no error event for it. */
   quietPlanLimit: boolean,
+  /** Monsters' tools missing at the start: start again once instead of stopping (D-160). */
+  mayRetryTools = false,
 ): Promise<OnceResult> {
   const { agent, harness, log, runId } = options;
   const agentId = agent.config.id;
@@ -815,6 +915,15 @@ async function runHarnessOnce(
     });
   };
   let done: Extract<HarnessEvent, { type: 'done' }> | null = null;
+  /** The harness did something already (text, a call, a model request): no new start then. */
+  let acted = false as boolean;
+  /** Monsters' tools were not there at the start (D-160): why, and whether to start again. */
+  let toolsDown = null as { cause: string; retry: boolean } | null;
+  /** Calls of Monsters' tools the harness made, by call id, and how many per tool (D-160). */
+  const monstersCalls = new Map<string, { name: string; input: unknown }>();
+  const harnessCalls = new Map<string, number>();
+  /** Failed calls that never reached the core, already logged here (per tool). */
+  const unseenLogged = new Map<string, number>();
   let limitHit = null as string | null;
   const maxTokens = agentTokenLimit(agent.config, budget?.limits);
   let tokenLimitHit = false as boolean;
@@ -910,21 +1019,57 @@ async function runHarnessOnce(
       },
       scope.signal,
     );
-    for await (const e of untilStalled(events, stallSignal)) {
+    stream: for await (const e of untilStalled(events, stallSignal)) {
       lastEvent = Date.now();
       if (limitTimer && !LIMIT_TAIL_EVENTS.has(e.type)) stopForLimit();
       switch (e.type) {
         case 'session':
           if (e.model) servedModel = { provider: harness.id, model: e.model };
-          if (e.mcp) options.onMcpStatus?.(e.mcp);
           break;
+        case 'mcp-status': {
+          try {
+            options.onMcpStatus?.(
+              Object.entries(e.servers).map(([name, status]) => ({ name, status })),
+            );
+          } catch {
+            // The state of a connector never costs a run.
+          }
+          const status = e.servers[HARNESS_MCP_SERVER];
+          if (status === undefined || !TOOLS_DOWN.has(status) || toolsDown) break;
+          /*
+           * The model would start without vault, web and team, find nothing and tell the user
+           * "the team's tools did not respond" (D-160): never let it improvise. Started again
+           * once if it did nothing yet, stopped with the cause otherwise.
+           */
+          const retry = mayRetryTools && !acted;
+          const cause = await withBusy(() =>
+            monstersToolsCause(status, options.mcpUrl(), session.token),
+          );
+          toolsDown = { cause, retry };
+          log.append({
+            agent: agentId,
+            runId,
+            parentId,
+            type: 'mcp_server',
+            data: {
+              server: HARNESS_MCP_SERVER,
+              action: 'failed',
+              transport: 'http',
+              message: runAgentStrings().monstersToolsDown(harnessProgram(harness.id), cause, retry),
+            },
+          });
+          void scope.abort(new KilledError('agent', 'monsters tools unavailable'));
+          break stream;
+        }
         case 'text-delta':
+          acted = true;
           pending += e.delta;
           messageText += e.delta;
           streamed = true;
           timer ??= setTimeout(flush, flushMs);
           break;
         case 'text': {
+          acted = true;
           const wasStreamed = streamed;
           const own = wasStreamed ? messageText : e.text;
           if (!wasStreamed) pending += e.text;
@@ -942,8 +1087,13 @@ async function runHarnessOnce(
           break;
         }
         case 'tool-call':
+          acted = true;
           openCalls.add(e.id);
-          if (e.monsters) openMonstersCalls.add(e.id);
+          if (e.monsters) {
+            openMonstersCalls.add(e.id);
+            monstersCalls.set(e.id, { name: e.name, input: e.input });
+            harnessCalls.set(e.name, (harnessCalls.get(e.name) ?? 0) + 1);
+          }
           messageText = '';
           if (held !== null) {
             // The reply acts (`ask_user`, D-078): the first answer is a message of its own.
@@ -970,7 +1120,43 @@ async function runHarnessOnce(
         case 'tool-result':
           openCalls.delete(e.id);
           openMonstersCalls.delete(e.id);
-          if (e.monsters) break;
+          if (e.monsters) {
+            // The endpoint logged every call that reached it; one that failed on the way
+            // (a broken connection, an input the MCP server refused) is logged here (D-160).
+            const call = monstersCalls.get(e.id);
+            monstersCalls.delete(e.id);
+            if (!call || !e.isError || fromCore(e.output)) break;
+            const unseen =
+              (harnessCalls.get(call.name) ?? 0) -
+              session.received(call.name) -
+              (unseenLogged.get(call.name) ?? 0);
+            if (unseen <= 0) break;
+            unseenLogged.set(call.name, (unseenLogged.get(call.name) ?? 0) + 1);
+            const callEventId = log.append({
+              agent: agentId,
+              runId,
+              parentId,
+              type: 'tool_call',
+              data: { callId: e.id, tool: call.name, input: preview(call.input) },
+            }).id;
+            const detail = (
+              typeof e.output === 'string' ? e.output : JSON.stringify(e.output ?? '')
+            ).slice(0, 500);
+            log.append({
+              agent: agentId,
+              runId,
+              parentId: callEventId,
+              type: 'tool_result',
+              data: {
+                callId: e.id,
+                tool: call.name,
+                ok: false,
+                error: runAgentStrings().toolNeverReached(detail),
+                cause: 'error',
+              },
+            });
+            break;
+          }
           // The plan's web search: its links count as seen for the notes' link check.
           session.seen(e.output);
           {
@@ -1011,6 +1197,7 @@ async function runHarnessOnce(
           }
           break;
         case 'usage':
+          acted = true;
           recordUsage(e, scope.aborted);
           break;
         case 'plan-limits':
@@ -1066,6 +1253,24 @@ async function runHarnessOnce(
 
   // An answer the harness completed stays completed even if its last request reached a limit.
   const answered = done?.reason === 'stop' && !options.signal.aborted;
+  if (toolsDown && !answered && !options.signal.aborted) {
+    // The `mcp_server` line already says why: a new start says nothing more.
+    if (toolsDown.retry) return { ...base('failed', ''), toolsRetry: true };
+    const message = runAgentStrings().harnessToolsUnavailable(
+      agent.config.name,
+      harnessProgram(harness.id),
+      toolsDown.cause,
+    );
+    log.append({
+      agent: agentId,
+      runId,
+      parentId,
+      type: 'error',
+      data: { code: 'harness_tools_unavailable', message },
+    });
+    closeDraft('failed');
+    return base('failed', lastText, { error: message, stopCause: 'tools_unavailable' });
+  }
   if (limitHit && !answered) {
     log.append({
       agent: agentId,
@@ -1102,7 +1307,7 @@ async function runHarnessOnce(
       data: { code: 'harness_stalled', message },
     });
     closeDraft('failed');
-    return base('failed', lastText, { error: message });
+    return base('failed', lastText, { error: message, stopCause: 'watchdog' });
   }
   if (options.signal.aborted || done?.reason === 'aborted') {
     const reason = options.signal.reason instanceof Error ? options.signal.reason.message : '';
@@ -1114,7 +1319,9 @@ async function runHarnessOnce(
       data: { code: 'aborted', message: abortMessage(agent.config.name, reason) },
     });
     closeDraft('aborted');
-    return base('aborted', lastText);
+    // Not asked by Monsters: the harness program itself reported the interruption.
+    const cause = options.signal.aborted ? abortCause(options.signal.reason) : 'harness';
+    return base('aborted', lastText, cause ? { stopCause: cause } : {});
   }
   if (!done || done.reason === 'error') {
     // The plan's limit before any answer: the caller runs the same request on the next model.

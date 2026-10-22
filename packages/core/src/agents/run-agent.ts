@@ -21,7 +21,7 @@ import {
 import { LANGS, type MonstersTool } from '@monsters/shared';
 import { isStepCount, streamText, type ModelMessage, type StopCondition, type ToolSet } from 'ai';
 import type { UserPart } from '../files/model-input.ts';
-import type { ControlScope } from '../kill/control-scope.ts';
+import { KilledError, type ControlScope } from '../kill/control-scope.ts';
 import type { EventLog } from '../log/event-log.ts';
 import { agentTokenLimit, limitTokens, type RunBudget } from '../team/run-limits.ts';
 import { CallTracker, errorStreakReminder } from './call-tracker.ts';
@@ -224,6 +224,32 @@ export const FOLLOW_UP_STEPS = 3;
 export type AgentRunStatus =
   'completed' | 'max_steps' | 'token_limit' | 'run_limit' | 'aborted' | 'failed';
 
+/**
+ * What ended a run that did not complete (D-160), when only the run knows it: the report of
+ * a delegation says it, so the lead never has to guess ("X did not respond"). The limits are
+ * already in the status (`run_limit`, `token_limit`, `max_steps`).
+ */
+export type RunStopCause =
+  /** The user stopped this job or this monster. */
+  | 'user'
+  /** The kill switch stopped every monster. */
+  | 'kill_switch'
+  /** Monsters was closing. */
+  | 'shutdown'
+  /** The harness gave no sign of life and the watchdog stopped it (F-M3). */
+  | 'watchdog'
+  /** The harness could not reach Monsters' own tools (the `monsters` MCP server). */
+  | 'tools_unavailable'
+  /** The harness program reported an interruption Monsters did not ask for. */
+  | 'harness';
+
+/** The cause of an abort, from the reason of the scope that stopped the run. */
+export function abortCause(reason: unknown): RunStopCause | undefined {
+  if (!(reason instanceof KilledError)) return undefined;
+  if (reason.scope === 'global') return /shutdown/.test(reason.message) ? 'shutdown' : 'kill_switch';
+  return 'user';
+}
+
 export interface AgentRunResult {
   status: AgentRunStatus;
   /**
@@ -246,6 +272,8 @@ export interface AgentRunResult {
   missingTools: string[];
   /** The stop hook's reminder reached the agent and it got more steps. */
   followUp?: boolean;
+  /** Why a run that did not complete stopped, when the status alone does not say (D-160). */
+  stopCause?: RunStopCause;
 }
 
 export function resolveAgentTools(
@@ -1446,7 +1474,8 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
       data: { code: 'aborted', message: abortMessage(agent.config.name, reason) },
     });
     closeDraft('aborted');
-    return { ...base, status: 'aborted' };
+    const cause = signal.aborted ? abortCause(signal.reason) : undefined;
+    return { ...base, status: 'aborted', ...(cause ? { stopCause: cause } : {}) };
   }
 
   if (streamError !== undefined) {

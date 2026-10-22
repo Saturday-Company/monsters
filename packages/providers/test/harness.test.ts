@@ -289,12 +289,8 @@ describe('Claude Agent harness', () => {
     // The sub-agent's messages are only a sign of life for the watchdog.
     expect(events.some((e) => e.type === 'heartbeat')).toBe(true);
     expect(events.filter((e) => e.type !== 'plan-limits' && e.type !== 'heartbeat')).toEqual([
-      {
-        type: 'session',
-        id: 'sess-0001',
-        model: 'claude-sonnet-test',
-        mcp: [{ name: 'monsters', status: 'connected' }],
-      },
+      { type: 'session', id: 'sess-0001', model: 'claude-sonnet-test' },
+      { type: 'mcp-status', servers: { monsters: 'connected' } },
       { type: 'text-delta', delta: 'Cerco nel vault.' },
       { type: 'text', text: 'Cerco nel vault.' },
       {
@@ -401,9 +397,42 @@ describe('Claude Agent harness', () => {
     expect(env['MCP_TOOL_TIMEOUT']).toBe('3600000');
     expect(env['CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT']).toBe('3600000');
     expect(env['CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS']).toBe('0');
+    // The `monsters` server may take a minute to connect (D-160: 30 s by default, then failed).
+    expect(env['MCP_TIMEOUT']).toBe('60000');
+    // No proxy in this environment: no NO_PROXY of ours either.
+    expect(env['NO_PROXY']).toBeUndefined();
     // The user's own environment stays: the binary finds its login by itself.
     expect(env['HOME']).toBe(home);
     expect(env['LANG']).toBe('it_IT.UTF-8');
+  });
+
+  it('reports how Monsters\' server came up, and reaches it directly behind a proxy (D-160)', async () => {
+    const { h, record } = harness('tool', {
+      ...userEnv(loggedInHome()),
+      HTTPS_PROXY: 'http://proxy.example:3128',
+      NO_PROXY: 'intranet.example',
+    }, ['--fake-mcp=failed']);
+    const ctrl = new AbortController();
+    const seen: HarnessEvent[] = [];
+    for await (const e of h.run(
+      task({ mcp: { name: 'monsters', url: 'http://192.0.2.7:4791/api/harness/mcp', token: 't' } }),
+      ctrl.signal,
+    )) {
+      seen.push(e);
+      // The fake waits like a model with no tools: the runner would stop it here.
+      if (e.type === 'mcp-status') ctrl.abort();
+    }
+    expect(seen.find((e) => e.type === 'mcp-status')).toEqual({
+      type: 'mcp-status',
+      servers: { monsters: 'failed' },
+    });
+    expect(seen.at(-1)).toMatchObject({ type: 'done', reason: 'aborted' });
+    const env = records(record).find((r) => r.kind === 'run')!['env'] as Record<string, string>;
+    // The user's list stays, plus loopback and the address the core listens on.
+    expect(env['NO_PROXY']).toBe(
+      'intranet.example,localhost,127.0.0.1,::1,[::1],192.0.2.7',
+    );
+    expect(env['no_proxy']).toBe(env['NO_PROXY']);
   });
 
   it("keeps a CLAUDE_CODE_OAUTH_TOKEN the user set, never a session's variables", async () => {
@@ -634,12 +663,9 @@ describe('Claude Agent harness', () => {
     expect((run['env'] as Record<string, string>)['CLAUDE_CODE_MCP_STARTUP_WAIT_MS']).toBe('10000');
     // Monsters' own server: a call may last an hour (D-078: 2.1.301 cut it at 60 s).
     expect(servers['monsters']).toMatchObject({ type: 'http', timeout: 3_600_000 });
-    expect(events[0]).toMatchObject({
-      type: 'session',
-      mcp: [
-        { name: 'monsters', status: 'connected' },
-        { name: 'claude-design', status: 'connected' },
-      ],
+    expect(events[1]).toEqual({
+      type: 'mcp-status',
+      servers: { monsters: 'connected', 'claude-design': 'connected' },
     });
   });
 

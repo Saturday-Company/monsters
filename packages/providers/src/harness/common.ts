@@ -2,7 +2,7 @@ import type { ChildProcess, SpawnOptions } from 'node:child_process';
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { npmMissing, npmCommand as findNpm } from '@monsters/shared/node';
+import { npmMissing, npmCommand as findNpm, withLoopbackNoProxy } from '@monsters/shared/node';
 import { PROVIDER_CATALOG } from '../catalog.ts';
 import type { HarnessSpawn } from '../types.ts';
 
@@ -32,6 +32,35 @@ export const HARNESS_TOOL_TIMEOUT_MS = 60 * 60_000;
 
 /** An executable named `name` on the PATH, or null. */
 export { findOnPath } from '@monsters/shared/node';
+
+/**
+ * NO_PROXY for a harness whose environment has a proxy (D-160): the core's MCP endpoint is
+ * reached directly. The loopback names are already in a core's own environment when it
+ * applied the proxy (`useEnvProxy`); the endpoint's host is not when the core listens on a
+ * specific address (`MONSTERS_HOST`). Checked on Claude Code 2.1.308: with `HTTP_PROXY` set
+ * and no NO_PROXY, the `monsters` server was `failed` at the start.
+ */
+export function directMcpEnv(env: Record<string, string>, url: string): Record<string, string> {
+  const proxy = ['HTTPS_PROXY', 'HTTP_PROXY', 'ALL_PROXY'].some(
+    (n) => env[n] || env[n.toLowerCase()],
+  );
+  if (!proxy) return {};
+  let host = '';
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    // A malformed URL fails on its own: only the loopback names then.
+  }
+  const list = withLoopbackNoProxy(env['no_proxy'] || env['NO_PROXY'])
+    .split(',')
+    .filter(Boolean);
+  const bare = host.replace(/^\[|\]$/g, '');
+  for (const h of [host, bare]) {
+    if (h && !list.some((e) => e.toLowerCase() === h.toLowerCase())) list.push(h);
+  }
+  const value = list.join(',');
+  return { NO_PROXY: value, no_proxy: value };
+}
 
 /** Environment variables that hold the keys of the providers Monsters knows. */
 export const PROVIDER_KEY_VARS: readonly string[] = [

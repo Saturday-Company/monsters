@@ -10,6 +10,20 @@ import { pick, vaultLayout } from '@monsters/shared';
  * are those of the vault in use (`Risorse/Ricerche/…`, `Resources/Research/…`: D-154).
  */
 
+/** Who or what stopped a delegated run (D-160): `stopped_by` of the report. */
+export type DelegationStopBy =
+  | 'user'
+  | 'kill_switch'
+  | 'shutdown'
+  | 'run_limit'
+  | 'token_limit'
+  | 'max_steps'
+  | 'watchdog'
+  | 'tools_unavailable'
+  | 'harness'
+  | 'error'
+  | 'unknown';
+
 const en = {
   summaryCut: '\n[…summary cut: the details are in the notes]',
   requestOf: (user: string | undefined, request: string) =>
@@ -54,6 +68,42 @@ const en = {
   optionsWithoutContentHint:
     'Write the options again with their content: a short label that names it (e.g. "Warm, friendly tone") ' +
     'and a description of what that option contains, then call ask_user again.',
+  // Why a delegated run stopped (D-160): the facts of Monsters, never a guess of the lead.
+  stoppedBy: (by: DelegationStopBy, name: string, detail: string): string => {
+    const d = detail ? `: ${detail}` : '';
+    switch (by) {
+      case 'user':
+        return `The user stopped ${name}.`;
+      case 'kill_switch':
+        return `The user pressed the kill switch: every monster stopped, ${name} too.`;
+      case 'shutdown':
+        return `Monsters was closing, so ${name} stopped.`;
+      case 'run_limit':
+        return `${name} stopped at the limit of this whole task (steps, tokens or cost)${d}`;
+      case 'token_limit':
+        return `${name} used up its own token limit and was stopped${d}`;
+      case 'max_steps':
+        return `${name} used all its steps and was stopped${d}`;
+      case 'watchdog':
+        return `${name}'s program gave no sign of life for too long and Monsters stopped it${d}`;
+      case 'tools_unavailable':
+        return `${name}'s program could not reach Monsters' tools (vault, web, team), so Monsters stopped it${d}`;
+      case 'harness':
+        return `${name}'s program (Claude Code or Codex) stopped by itself, without being asked.`;
+      case 'error':
+        return `${name} failed with an error${d}`;
+      default:
+        return `${name} stopped before finishing; Monsters has no cause on record.`;
+    }
+  },
+  stoppedNext:
+    'The task stopped before the end: there is no complete result. Tell the user plainly who or what stopped it ' +
+    '(stopped_by, reason, in their language) and what was done (steps_done, the notes): never say the agent ' +
+    'did not respond or that its tools did not answer unless the reason says so. Do not present partial work as done.',
+  partialNext:
+    'The agent stopped at a limit before the end (stopped_by, reason): the summary is partial. Present only what ' +
+    'it says, as partial, say which limit stopped it, and do not present the task as done. You may delegate once ' +
+    'more only for what is missing.',
 };
 
 const it: typeof en = {
@@ -98,6 +148,41 @@ const it: typeof en = {
   optionsWithoutContentHint:
     'Write the options again with their content: a short label that names it (e.g. "Tono caldo e familiare") ' +
     'and a description of what that option contains, then call ask_user again.',
+  stoppedBy: (by, name, detail) => {
+    const d = detail ? `: ${detail}` : '';
+    switch (by) {
+      case 'user':
+        return `L’utente ha fermato ${name}.`;
+      case 'kill_switch':
+        return `L’utente ha premuto il pulsante di arresto: si sono fermati tutti i mostri, anche ${name}.`;
+      case 'shutdown':
+        return `Monsters si stava chiudendo, quindi ${name} si è fermato.`;
+      case 'run_limit':
+        return `${name} si è fermato al limite di tutto questo lavoro (passi, token o costo)${d}`;
+      case 'token_limit':
+        return `${name} ha finito il suo limite di token ed è stato fermato${d}`;
+      case 'max_steps':
+        return `${name} ha usato tutti i suoi passi ed è stato fermato${d}`;
+      case 'watchdog':
+        return `Il programma di ${name} non ha dato segni di vita troppo a lungo e Monsters l’ha fermato${d}`;
+      case 'tools_unavailable':
+        return `Il programma di ${name} non è riuscito a raggiungere gli strumenti di Monsters (vault, web, squadra), quindi Monsters l’ha fermato${d}`;
+      case 'harness':
+        return `Il programma di ${name} (Claude Code o Codex) si è fermato da solo, senza che nessuno lo chiedesse.`;
+      case 'error':
+        return `${name} si è fermato per un errore${d}`;
+      default:
+        return `${name} si è fermato prima di finire; Monsters non ha una causa registrata.`;
+    }
+  },
+  stoppedNext:
+    'The task stopped before the end: there is no complete result. Tell the user plainly who or what stopped it ' +
+    '(stopped_by, reason, in their language) and what was done (steps_done, the notes): never say the agent ' +
+    'did not respond or that its tools did not answer unless the reason says so. Do not present partial work as done.',
+  partialNext:
+    'The agent stopped at a limit before the end (stopped_by, reason): the summary is partial. Present only what ' +
+    'it says, as partial, say which limit stopped it, and do not present the task as done. You may delegate once ' +
+    'more only for what is missing.',
 };
 
 export const teamToolsPrompts = () => pick({ en, it });

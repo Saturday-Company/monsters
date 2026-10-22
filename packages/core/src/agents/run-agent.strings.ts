@@ -72,6 +72,24 @@ const en = {
     `${name} has given no signal for ${minutes} minutes: the program is stuck and I stopped it`,
   harnessClosed: (name: string) => `${name}: the program closed without an answer`,
   harnessNoSignal: 'no signal from the program',
+  // Monsters' own tools on a harness (D-160): the `monsters` server did not connect.
+  monstersToolsDown: (harness: string, cause: string, retrying: boolean) =>
+    `${harness} could not reach Monsters’ tools (vault, web, team) when it started: ${cause}.` +
+    (retrying ? ' I’m starting it again.' : ''),
+  harnessToolsUnavailable: (name: string, harness: string, cause: string) =>
+    `${name} stopped: ${harness} could not reach Monsters’ tools (vault, web, team), so the job could not be done properly. Cause: ${cause}.`,
+  mcpCause: {
+    unreachable: (where: string) => `Monsters’ address for its tools (${where}) did not answer`,
+    token: 'Monsters refused the key of this job',
+    refused: (status: number) => `Monsters answered with an error (HTTP ${status})`,
+    slow: 'Monsters was too busy to answer in time',
+    pending: 'the connection was still starting when the model began (a slow start)',
+    needsAuth: 'the program asked to sign in to Monsters’ tools, which never need it',
+    harnessSide:
+      'Monsters answers, but the program could not connect to it (a proxy, a firewall or a security program may be in the way)',
+  },
+  toolNeverReached: (detail: string) =>
+    `The call never reached Monsters: ${detail || 'the program gave no reason'}`,
   configWriteStopped:
     'A monster wanted to change Claude Code’s configuration in its folder: stopped.',
   internalFilesStopped: 'A monster wanted to use Monsters’ internal files: stopped.',
@@ -150,6 +168,23 @@ const it: typeof en = {
     `${name} non dà più segnali da ${minutes} minuti: il programma è bloccato e l’ho fermato`,
   harnessClosed: (name) => `${name}: il programma si è chiuso senza risposta`,
   harnessNoSignal: 'nessun segnale dal programma',
+  monstersToolsDown: (harness, cause, retrying) =>
+    `${harness} non è riuscito a raggiungere gli strumenti di Monsters (vault, web, squadra) all’avvio: ${cause}.` +
+    (retrying ? ' Lo faccio ripartire.' : ''),
+  harnessToolsUnavailable: (name, harness, cause) =>
+    `${name} si è fermato: ${harness} non è riuscito a raggiungere gli strumenti di Monsters (vault, web, squadra), quindi il lavoro non si poteva fare come si deve. Causa: ${cause}.`,
+  mcpCause: {
+    unreachable: (where) => `l’indirizzo di Monsters per i suoi strumenti (${where}) non ha risposto`,
+    token: 'Monsters ha rifiutato la chiave di questo lavoro',
+    refused: (status) => `Monsters ha risposto con un errore (HTTP ${status})`,
+    slow: 'Monsters era troppo occupato per rispondere in tempo',
+    pending: 'il collegamento stava ancora partendo quando il modello ha cominciato (un avvio lento)',
+    needsAuth: 'il programma ha chiesto di accedere agli strumenti di Monsters, che non ne hanno mai bisogno',
+    harnessSide:
+      'Monsters risponde, ma il programma non è riuscito a collegarsi (può essere in mezzo un proxy, un firewall o un programma di sicurezza)',
+  },
+  toolNeverReached: (detail) =>
+    `La chiamata non è mai arrivata a Monsters: ${detail || 'il programma non ha detto perché'}`,
   configWriteStopped:
     'Un mostro voleva cambiare la configurazione di Claude Code nella sua cartella: fermato.',
   internalFilesStopped: 'Un mostro voleva usare i file interni di Monsters: fermato.',

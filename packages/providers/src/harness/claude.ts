@@ -15,6 +15,7 @@ import { filterModels } from '../http.ts';
 import { claudeRejection, parseClaudeRateLimit, resetPhrase } from './limits.ts';
 import {
   collectStderr,
+  directMcpEnv,
   exited,
   exitedWithin,
   HARNESS_TOOL_TIMEOUT_MS,
@@ -98,6 +99,9 @@ export const CLAUDE_AGENT_SDK_INTEGRITY =
 /** Variables removed from the Claude child in subscription mode (besides Monsters' own). */
 export const CLAUDE_DROPPED_ENV = ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN'] as const;
 
+/** `MCP_TIMEOUT` of a run: how long the `monsters` server may take to connect (D-160). */
+export const CLAUDE_MCP_STARTUP_MS = 60_000;
+
 /** Built-in tools pre-approved when the agent may use the terminal and files. */
 const SYSTEM_TOOLS = ['Bash', 'Read', 'Edit', 'Write', 'Glob', 'Grep', 'LS'];
 /**
@@ -122,6 +126,9 @@ const FILE_TOOLS = ['Read', 'Edit', 'MultiEdit', 'Write', 'NotebookEdit', 'Glob'
 export function claudeMcpEnv(): Record<string, string> {
   const ms = String(HARNESS_TOOL_TIMEOUT_MS);
   return {
+    // How long a server may take to connect (D-160): 30 s by default on 2.1.308, then
+    // `failed`. A core busy at that moment (many runs starting at once) gets twice as long.
+    MCP_TIMEOUT: String(CLAUDE_MCP_STARTUP_MS),
     MCP_TOOL_TIMEOUT: ms,
     CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT: ms,
     CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: '0',
@@ -878,6 +885,8 @@ export class ClaudeAgentHarness implements HarnessProvider {
           ...this.#env,
           ...binary.env,
           ...claudeMcpEnv(),
+          // Behind a proxy the core's endpoint is still reached directly (D-160).
+          ...directMcpEnv({ ...this.#env, ...binary.env }, task.mcp.url),
           // Belt and braces with `autoMemoryEnabled` of the run's settings (M6).
           CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
           ...(connectors.some((c) => c.kind === 'claude-ai')
@@ -937,17 +946,22 @@ export class ClaudeAgentHarness implements HarnessProvider {
         switch (msg['type']) {
           case 'system':
             if (msg['subtype'] === 'init' && typeof msg['session_id'] === 'string') {
-              const servers = Array.isArray(msg['mcp_servers'])
-                ? (msg['mcp_servers'] as { name?: unknown; status?: unknown }[])
-                    .filter((s) => typeof s.name === 'string' && typeof s.status === 'string')
-                    .map((s) => ({ name: s.name as string, status: s.status as string }))
-                : [];
               yield {
                 type: 'session',
                 id: msg['session_id'],
                 ...(typeof msg['model'] === 'string' ? { model: msg['model'] } : {}),
-                ...(servers.length > 0 ? { mcp: servers } : {}),
               };
+              // The init comes once the servers settled (or `CLAUDE_CODE_MCP_STARTUP_WAIT_MS`
+              // passed: then `pending`), before any model request (D-160, checked on 2.1.308).
+              const servers: Record<string, string> = {};
+              for (const s of Array.isArray(msg['mcp_servers'])
+                ? (msg['mcp_servers'] as { name?: unknown; status?: unknown }[])
+                : []) {
+                if (typeof s.name === 'string' && typeof s.status === 'string') {
+                  servers[s.name] = s.status;
+                }
+              }
+              if (Object.keys(servers).length > 0) yield { type: 'mcp-status', servers };
             }
             break;
           case 'rate_limit_event': {

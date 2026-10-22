@@ -29,6 +29,12 @@ export interface HarnessToolSession {
    * seen for the link check of the notes, like those of `web_search`.
    */
   seen(value: unknown): void;
+  /**
+   * How many calls of `name` reached the core (D-160): a failed call of the harness beyond
+   * these never arrived (a transport error, an input the MCP server refused) and is logged
+   * by the runner, since the endpoint never saw it.
+   */
+  received(name: string): number;
 }
 
 export interface HarnessSessionExtras {
@@ -59,6 +65,7 @@ export class HarnessToolSessions {
         ? new SourceTracker(ctx.knownText)
         : undefined;
     const set = adaptTools(tools, ctx, sources);
+    const received = new Map<string, number>();
     const session: HarnessToolSession = {
       token,
       agentId: ctx.agentId,
@@ -66,7 +73,9 @@ export class HarnessToolSessions {
       tools,
       hook: (input, signal) => (extras.hook ? extras.hook(input, signal) : Promise.resolve({})),
       seen: (value) => sources?.add(value),
+      received: (name) => received.get(name) ?? 0,
       call: async (name, args, signal) => {
+        received.set(name, (received.get(name) ?? 0) + 1);
         const t: Tool | undefined = set[name];
         if (!t?.execute) {
           return errorResult({

@@ -202,13 +202,15 @@ export type HarnessUsageEvent = Extract<HarnessEvent, { type: 'usage' }>;
 
 /** Events a harness provider streams back; the runner turns them into log events. */
 export type HarnessEvent =
-  | {
-      type: 'session';
-      id: string;
-      model?: string;
-      /** MCP servers as the harness found them at the start (`connected`, `failed`, `needs-auth`…). */
-      mcp?: { name: string; status: string }[];
-    }
+  | { type: 'session'; id: string; model?: string }
+  /**
+   * How the MCP servers of the run came up (D-160), once their start has settled and before
+   * the model's first request: server name → `connected`, `failed`, `needs-auth`, or
+   * `pending` (still connecting when the model starts: its tools are not in the first
+   * request). Other values are passed on as they are. Every harness emits it: the runner
+   * stops or retries a run whose `monsters` server is not connected.
+   */
+  | { type: 'mcp-status'; servers: Record<string, string> }
   | { type: 'text-delta'; delta: string }
   /** A complete assistant message. */
   | { type: 'text'; text: string }

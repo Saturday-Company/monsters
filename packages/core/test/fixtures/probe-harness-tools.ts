@@ -205,6 +205,29 @@ export function checkClaudeTools(argv: readonly string[], initTools: readonly st
 }
 
 /**
+ * Monsters' own server in the `init` (D-160): connected, with at least one tool. Its tools
+ * missing made a monster tell the user "the team's tools did not respond" while the probe
+ * stayed green (0 tools are a subset of any allowlist).
+ */
+export function checkClaudeMcp(
+  initTools: readonly string[],
+  servers: Readonly<Record<string, string>>,
+  server = SERVER,
+): ToolCheck {
+  const errors: string[] = [];
+  const status = servers[server];
+  if (status !== 'connected') {
+    errors.push(
+      `${server}: server MCP ${status ?? 'assente'} all'init (MCP server ${status ?? 'missing'} at init)`,
+    );
+  }
+  if (!initTools.some((t) => t.startsWith(`mcp__${server}__`))) {
+    errors.push(`${server}: nessuno strumento del server (no tool of the server) nell'init`);
+  }
+  return { errors, notes: [] };
+}
+
+/**
  * Signs that a model request was made (there must be none): any message of the model,
  * of the plan's limits, or a result with turns, API time, usage or cost.
  */
@@ -258,6 +281,8 @@ export function probeSettings(task: HarnessTask): Record<string, unknown> {
 interface ClaudeOutcome {
   argv: string[];
   initTools: string[] | null;
+  /** Status of each MCP server in the `init` (`mcp_servers`). */
+  servers: Record<string, string>;
   blocked: boolean;
   signs: string[];
   failure?: string;
@@ -325,6 +350,7 @@ async function probeClaude(
   const timer = setTimeout(() => child.kill('SIGKILL'), 60_000);
   const messages: Record<string, unknown>[] = [];
   let initTools: string[] | null = null;
+  const servers: Record<string, string> = {};
   let blocked = false;
   try {
     for await (const line of readLines(child.stdout)) {
@@ -333,6 +359,11 @@ async function probeClaude(
       messages.push(msg);
       if (msg['type'] === 'system' && msg['subtype'] === 'init' && Array.isArray(msg['tools'])) {
         initTools = (msg['tools'] as unknown[]).filter((t): t is string => typeof t === 'string');
+        for (const s of Array.isArray(msg['mcp_servers'])
+          ? (msg['mcp_servers'] as { name?: unknown; status?: unknown }[])
+          : []) {
+          if (typeof s.name === 'string' && typeof s.status === 'string') servers[s.name] = s.status;
+        }
       }
       const outcome = msg['prompt_submit_outcome'] as { kind?: unknown } | undefined;
       if (outcome?.kind === 'blocked_by_hook') blocked = true;
@@ -344,8 +375,8 @@ async function probeClaude(
   }
   const signs = requestSigns(messages);
   if (!initTools)
-    return { argv, initTools, blocked, signs, failure: 'nessun messaggio init entro 60 s' };
-  return { argv, initTools, blocked, signs };
+    return { argv, initTools, servers, blocked, signs, failure: 'nessun messaggio init entro 60 s' };
+  return { argv, initTools, servers, blocked, signs };
 }
 
 function stop(child: ChildProcess): void {
@@ -637,7 +668,12 @@ async function main(): Promise<number> {
       }
       if (!r.blocked)
         say(`nota [claude · ${probe.label}] il prompt non risulta bloccato dall'hook`);
-      const check = checkClaudeTools(r.argv, r.initTools);
+      const tools = checkClaudeTools(r.argv, r.initTools);
+      const mcpCheck = checkClaudeMcp(r.initTools, r.servers);
+      const check = {
+        errors: [...tools.errors, ...mcpCheck.errors],
+        notes: [...tools.notes, ...mcpCheck.notes],
+      };
       for (const e of check.errors) say(`ERRORE [claude · ${probe.label}] ${e}`);
       for (const n of check.notes) say(`nota [claude · ${probe.label}] ${n}`);
       if (check.errors.length > 0) red = true;

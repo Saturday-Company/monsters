@@ -7,7 +7,12 @@ import {
 } from '@monsters/shared';
 import { z } from 'zod';
 import type { AgentDefinition } from '../agents/definition.ts';
-import type { AgentRunResult, RunAgentOptions, TaskBrief } from '../agents/run-agent.ts';
+import {
+  abortCause,
+  type AgentRunResult,
+  type RunAgentOptions,
+  type TaskBrief,
+} from '../agents/run-agent.ts';
 import { KilledError, type ControlScope } from '../kill/control-scope.ts';
 import type { RunHandle } from '../kill/run-controller.ts';
 import type { EventLog } from '../log/event-log.ts';
@@ -15,7 +20,7 @@ import { ActionKindSchema, type DecisionGate } from './decision.ts';
 import type { DoneChecker, DoneCheckResult } from './instinct/done-check.ts';
 import { instinctStrings } from './instinct/instinct.strings.ts';
 import { QuestionExpiredError, type QuestionOption, type QuestionStore } from './questions.ts';
-import { teamToolsPrompts } from './team-tools.prompts.ts';
+import { teamToolsPrompts, type DelegationStopBy } from './team-tools.prompts.ts';
 import {
   earlierDelegation,
   rememberDelegation,
@@ -339,6 +344,22 @@ class TouchedNotes {
   }
 }
 
+/**
+ * Who or what stopped a delegated run that did not complete (D-160), from the facts the core
+ * has: the run's own cause, its status (a limit), the error, the reason of the stopped scope.
+ */
+export function delegationStop(
+  result: AgentRunResult | undefined,
+  scopeReason: unknown,
+  failed: boolean,
+): DelegationStopBy {
+  if (result?.stopCause) return result.stopCause;
+  const status = result?.status;
+  if (status === 'run_limit' || status === 'token_limit' || status === 'max_steps') return status;
+  if (failed || status === 'failed') return 'error';
+  return abortCause(scopeReason) ?? 'unknown';
+}
+
 /** One delegation: logs it, runs the sub-agent in a child scope, returns the short report. */
 async function runDelegation(
   ctx: TeamToolsContext,
@@ -453,26 +474,37 @@ async function runDelegation(
     ...(costUsd !== undefined ? { costUsd } : {}),
     ...(result && result.status !== 'completed' ? { runStatus: result.status } : {}),
   };
+  const name = target.config.name;
+  /** What was done before the stop (D-160): the lead says it instead of "did not respond". */
+  const done = { steps_done: result?.steps ?? 0, tools_used: [...toolNames] };
   const aborted = tc.signal.aborted || scope.aborted || result?.status === 'aborted';
   if (aborted) {
+    const by = delegationStop(result, scope.signal.reason, false);
+    const reason = teamToolsPrompts().stoppedBy(by, name, '');
     log.append({
       agent: from,
       runId: run.id,
       parentId,
       type: 'delegation',
-      data: { ...delegation, status: 'aborted', ...facts },
+      data: { ...delegation, status: 'aborted', error: reason, ...facts },
     });
     if (tc.signal.aborted) throw tc.signal.reason ?? new KilledError('agent');
+    const partial = truncateSummary(result?.finalText || result?.text || '').text;
     return {
-      agent: target.config.name,
+      agent: name,
       status: 'aborted',
-      summary: '',
-      ...notes.report(target.config.name),
+      stopped_by: by,
+      reason,
+      ...done,
+      ...(partial ? { partial } : {}),
+      ...notes.report(name),
+      next: teamToolsPrompts().stoppedNext,
     };
   }
   const failedCheck = { verdict: 'failed' as const, criteria: [] };
   if (failure !== undefined || result?.status === 'failed') {
     const error = failure instanceof Error ? failure.message : (result?.error ?? String(failure));
+    const by = delegationStop(failure !== undefined ? undefined : result, undefined, true);
     log.append({
       agent: from,
       runId: run.id,
@@ -482,11 +514,14 @@ async function runDelegation(
     });
     const partial = truncateSummary(result?.finalText || result?.text || '').text;
     return {
-      agent: target.config.name,
+      agent: name,
       status: 'failed',
       error,
+      stopped_by: by,
+      reason: teamToolsPrompts().stoppedBy(by, name, error),
+      ...done,
       ...(partial ? { partial } : {}),
-      ...notes.report(target.config.name),
+      ...notes.report(name),
       next: DELEGATION_FAILED_NEXT,
     };
   }
@@ -503,13 +538,45 @@ async function runDelegation(
       data: { ...delegation, status: 'failed', error, check: failedCheck, ...facts },
     });
     const partial = truncateSummary(result!.text).text;
+    const by = delegationStop(result, undefined, false);
     return {
-      agent: target.config.name,
+      agent: name,
       status: 'failed',
       error,
+      stopped_by: by,
+      reason: teamToolsPrompts().stoppedBy(by, name, result!.error ?? ''),
+      ...done,
       ...(partial ? { partial } : {}),
-      ...notes.report(target.config.name),
+      ...notes.report(name),
       next: DELEGATION_FAILED_NEXT,
+    };
+  }
+  if (result!.status !== 'completed') {
+    /*
+     * Stopped at a limit with something written (D-160): a partial report, never a
+     * completed delegation. The event says "stopped" with the limit (`runStatus`), the
+     * report keeps what was written and says what stopped it.
+     */
+    const by = delegationStop(result, undefined, false);
+    const reason = teamToolsPrompts().stoppedBy(by, name, result!.error ?? '');
+    log.append({
+      agent: from,
+      runId: run.id,
+      parentId,
+      type: 'delegation',
+      data: { ...delegation, status: 'aborted', summary: summary.text, error: reason, ...facts },
+    });
+    return {
+      agent: name,
+      status: result!.status,
+      stopped_by: by,
+      reason,
+      summary: summary.text,
+      partial: true,
+      ...done,
+      ...notes.report(name),
+      ...(summary.truncated ? { truncated: true } : {}),
+      next: teamToolsPrompts().partialNext,
     };
   }
 
@@ -555,9 +622,6 @@ async function runDelegation(
     summary: summary.text,
     ...notes.report(target.config.name),
     ...(summary.truncated ? { truncated: true } : {}),
-    ...(result!.status !== 'completed'
-      ? { note: 'The agent stopped at its limit: the result may be partial.' }
-      : {}),
     ...checkReport(check),
     next: check?.verdict === 'incomplete' ? DELEGATION_INCOMPLETE_NEXT : DELEGATION_NEXT,
   };
