@@ -67,6 +67,8 @@ const { values: args } = parseArgs({
     'timeout-s': { type: 'string', default: '420' },
     /** Also writes every event of each run (tool calls and results) next to the results. */
     dump: { type: 'boolean', default: false },
+    /** The instinct on (Jev, `TYPESAFE_API_KEY` of the env file): the brake judges writes as in the app. */
+    instinct: { type: 'boolean', default: false },
   },
 });
 
@@ -219,7 +221,10 @@ async function once(key: string, n: number, def: CaseDef): Promise<Row> {
   const core = await startCore({
     home: join(base, 'home'),
     port: 0,
-    env: { OPENROUTER_API_KEY: key },
+    env: {
+      OPENROUTER_API_KEY: key,
+      ...(args.instinct ? { TYPESAFE_API_KEY: loadKey('TYPESAFE_API_KEY') } : {}),
+    },
     webDist: false,
     hub: {
       onboardingGenerate: null,

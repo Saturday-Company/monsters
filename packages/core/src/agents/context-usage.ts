@@ -288,7 +288,10 @@ export class HarnessContextMeter {
 export const HARNESS_BASE_TOKENS: Readonly<Record<string, number>> = { 'claude-agent': 22_000 };
 
 /** Tokens of Monsters' tools as a harness sees them over MCP (`mcp__monsters__<name>`). */
-export function mcpToolTokens(tools: readonly MonstersTool[], server: string): number {
+export function mcpToolTokens(
+  tools: readonly Pick<MonstersTool, 'name' | 'description' | 'inputSchema' | 'inputJsonSchema'>[],
+  server: string,
+): number {
   let total = 0;
   for (const t of tools) {
     let schema: unknown = t.inputJsonSchema;

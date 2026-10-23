@@ -7,6 +7,8 @@ import { z } from 'zod';
 import {
   agentTokenLimit,
   compactToolResults,
+  contextLimitsFor,
+  filtersOf,
   RESULT_READ,
   RunContext,
   createCoreServices,
@@ -468,6 +470,45 @@ describe('context: offload and masking (C.2)', () => {
     );
     // A slice read again is short: never offloaded once more.
     expect(valueOf(ctx.compact([...out, toolMessage('2', page, RESULT_READ)])[1])).toBe(page);
+  });
+
+  it('a big window reads in bigger pieces; the note names the filters; reads of one result stop (D-163)', async () => {
+    inLang('it');
+    expect(contextLimitsFor(undefined)).toEqual({});
+    expect(contextLimitsFor(100_000)).toEqual({});
+    expect(contextLimitsFor(131_072)).toMatchObject({ offloadChars: 16_000, readChars: 12_000 });
+    expect(contextLimitsFor(1_000_000)).toMatchObject({ offloadChars: 32_000, readChars: 24_000 });
+    const list = defineTool({
+      name: 'mcp__anteiku__anteiku_clienti_elenca',
+      description: 'Elenca i clienti',
+      inputSchema: z.object({
+        testo: z.string().optional(),
+        stato: z.enum(['attivo', 'tutti']).optional(),
+        cliente_id: z.string().optional(),
+        chiave_idempotenza: z.string().optional(),
+      }),
+      readOnly: true,
+      execute: () => Promise.resolve('x'),
+    });
+    expect(filtersOf([list])(list.name)).toEqual(['testo', 'stato']);
+    const ctx = new RunContext(
+      { ...contextLimitsFor(1_000_000), readsPerResult: 2 },
+      filtersOf([list]),
+    );
+    const body = 'cliente '.repeat(10_000);
+    const shown = valueOf(ctx.compact([toolMessage('1', body, list.name)])[0]);
+    expect(shown.length).toBeGreaterThan(24_000);
+    expect(shown).toContain('result_read {"ref":"r1","offset":24000}');
+    expect(shown).toContain(
+      'Se te ne serve solo una parte, richiama mcp__anteiku__anteiku_clienti_elenca con i suoi filtri (testo, stato)',
+    );
+    const read = ctx.tool();
+    const page = await read.execute({ ref: 'r1', offset: 24_000, length: 24_000 }, noCtx);
+    expect(page).toContain('caratteri 24000-48000');
+    await read.execute({ ref: 'r1', offset: 48_000, length: 24_000 }, noCtx);
+    await expect(
+      read.execute({ ref: 'r1', offset: 72_000, length: 24_000 }, noCtx),
+    ).rejects.toMatchObject({ code: 'LIMIT_REACHED' });
   });
 
   it('old steps become one line, in chunks: the prefix stays the same between moves', () => {

@@ -41,6 +41,10 @@ const en = {
     `connected services, already yours (never ask the user for access, keys or addresses for them): ${names}`,
   catalog: (example: string) =>
     `. Call their tools by the full name, e.g. \`${example}\`: one not loaded yet loads and runs at its first call; \`tools_search\` tells what they do and their parameters`,
+  // Codex (D-163): its tool list cannot change in a session, so the waiting tools are called through
+  // `tools_call` and `tools_search` loads nothing.
+  catalogCall: (example: string) =>
+    `. These tools are not in your tool list: call them with \`tools_call\` ({"name": "${example}", "arguments": {…}}), the full name as written here; \`tools_search\` tells what they do and gives their parameters (it loads nothing); the few already in your tool list you call by name`,
   catalogLine: (label: string, prefix: string, names: string) =>
     `  - ${label} (\`${prefix}…\`): ${names}`,
   noServicesProject: (path: string) =>
@@ -122,6 +126,8 @@ const it: typeof en = {
     `servizi collegati, già tuoi (mai chiedere all’utente accessi, chiavi o indirizzi per questi): ${names}`,
   catalog: (example) =>
     `. Chiama i loro strumenti col nome completo, es. \`${example}\`: uno non ancora caricato si carica e si esegue alla prima chiamata; \`tools_search\` dice cosa fanno e i loro parametri`,
+  catalogCall: (example) =>
+    `. Questi strumenti non sono nella tua lista: chiamali con \`tools_call\` ({"name": "${example}", "arguments": {…}}), col nome completo come scritto qui; \`tools_search\` dice cosa fanno e dà i loro parametri (non carica nulla); i pochi già nella tua lista li chiami per nome`,
   catalogLine: (label, prefix, names) => `  - ${label} (\`${prefix}…\`): ${names}`,
   noServicesProject: (path) =>
     `servizi collegati (nessuno è acceso per questo progetto: li accende l’utente nella ${path})`,

@@ -998,6 +998,15 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     return p.kind === 'harness' ? p : undefined;
   };
   /**
+   * Whether a run takes all the MCP tools of its servers (up to `MAX_MCP_TOOLS_DEFERRED`): a
+   * native run loads them when it needs them, Codex finds them with `tools_search` and calls
+   * them with `tools_call` (D-163). Claude Code defers them with its own ToolSearch (`unbounded`).
+   */
+  const mcpDeferred = (agent: AgentDefinition): boolean => {
+    const harness = harnessOf(agent);
+    return !harness || harness.id === 'codex';
+  };
+  /**
    * The monsters of an agent's squad that have the web, when it has none in this turn (D-127):
    * a capo whose squad searches (D-026), a monster without the permission. Its card and
    * instructions name them, so it never takes the missing web for a refusal of the user.
@@ -2458,7 +2467,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
               // A native monster loads MCP tools when it needs them (C.2): all of them.
               const extraTools = [
                 ...(await mcp.toolsFor(p.agent, p.scope.signal, {
-                  deferred: !harnessOf(sub),
+                  deferred: mcpDeferred(sub),
                   unbounded: harnessOf(sub)?.id === 'claude-agent',
                 })),
                 ...artifactFor(p.agent, p.brief.goal, p.run),
@@ -2556,7 +2565,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         tools,
         extraTools: [
           ...(await mcp.toolsFor(agent, run.signal, {
-            deferred: !harnessOf(agent),
+            deferred: mcpDeferred(agent),
             unbounded: harnessOf(agent)?.id === 'claude-agent',
           })),
           ...artifactFor(agent, request, run),

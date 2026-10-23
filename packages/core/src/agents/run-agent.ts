@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
   AllModelsFailedError,
   chatgptUnreachableText,
@@ -25,7 +26,7 @@ import { KilledError, type ControlScope } from '../kill/control-scope.ts';
 import type { EventLog } from '../log/event-log.ts';
 import { agentTokenLimit, limitTokens, type RunBudget } from '../team/run-limits.ts';
 import { CallTracker, errorStreakReminder } from './call-tracker.ts';
-import { RunContext, type ContextLimits } from './context.ts';
+import { contextLimitsFor, RunContext, type ContextLimits } from './context.ts';
 import {
   contextLimit,
   ContextGuard,
@@ -216,7 +217,7 @@ export interface StepWatcher {
 }
 
 /** How far back the MCP tools an agent used count for the preloaded set. */
-const RECENT_TOOL_DAYS = 30;
+export const RECENT_TOOL_DAYS = 30;
 
 /** Steps granted by a stop hook: a tool call, the reply after its result, one spare. */
 export const FOLLOW_UP_STEPS = 3;
@@ -488,6 +489,41 @@ export function instructionsForTools(instructions: string, toolNames: readonly s
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+/** Arguments that pick an element, not a filter of a list. */
+const NOT_A_FILTER = /(?:^|_)(?:id|ids|key|chiave|idempotenza|idempotency)$/i;
+
+/**
+ * The filters of each tool, for the note of a long result (D-163): its optional arguments but
+ * the ids and keys (`testo, stato, pagina, per_pagina`), at most six.
+ */
+export function filtersOf(tools: readonly MonstersTool[]): (tool: string) => readonly string[] {
+  const cache = new Map<string, readonly string[]>();
+  const byName = new Map(tools.map((t) => [t.name, t]));
+  return (name) => {
+    const known = cache.get(name);
+    if (known) return known;
+    const t = byName.get(name);
+    let out: string[] = [];
+    if (t) {
+      try {
+        const json = (t.inputJsonSchema ??
+          z.toJSONSchema(t.inputSchema, { io: 'input', unrepresentable: 'any' })) as {
+          properties?: Record<string, unknown>;
+          required?: string[];
+        };
+        const required = new Set(json.required ?? []);
+        out = Object.keys(json.properties ?? {})
+          .filter((a) => !required.has(a) && !NOT_A_FILTER.test(a))
+          .slice(0, 6);
+      } catch {
+        out = [];
+      }
+    }
+    cache.set(name, out);
+    return out;
+  };
+}
+
 /**
  * The words the preload of the MCP tools ranks by (D-163): the request and the user's last
  * messages before it.
@@ -632,7 +668,15 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     ...(options.extraTools ?? []).filter((t) => !names.has(t.name) && names.add(t.name)),
   ];
   // Long results out of the context, old ones masked (C.2): `result_read` reads them again.
-  const runContext = new RunContext(options.contextLimits);
+  // Pieces of a long result as big as the model's window allows; its note names the filters (D-163).
+  const first = agent.config.models[0];
+  const runContext = new RunContext(
+    {
+      ...contextLimitsFor(first ? options.contextWindow?.(first) : undefined),
+      ...options.contextLimits,
+    },
+    filtersOf(ownTools),
+  );
   const withContext = ownTools.length > 0 ? [...ownTools, runContext.tool()] : ownTools;
   // Many MCP tools: the most used ones and `tools_search`, the others on request (C.2).
   const deferral =

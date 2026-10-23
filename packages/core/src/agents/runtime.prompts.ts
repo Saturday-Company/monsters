@@ -25,6 +25,11 @@ const en = {
       : `characters ${start}-${end} of ${total}, to the end`,
   offloadedNote: (total: string, shown: string, ref: string, offset: number) =>
     `[Monsters] Long result (${total} characters): here are the first ${shown}. The rest with result_read {"ref":"${ref}","offset":${offset}}.`,
+  filtersHint: (tool: string, filters: string) =>
+    `If you need only part of it, call ${tool} again with its filters (${filters}) instead of reading on.`,
+  readsOver: (ref: string, max: number) => `${ref} has been read ${max} times in this job already`,
+  readsOverHint: (tool: string) =>
+    `Call ${tool} again with its filters for the part you need, or go on with what you have read.`,
   maskedNote: (tool: string, chars: string, ref: string) =>
     `[Monsters] Result of ${tool} taken out of the context to make room (${chars} characters). If you still need it: result_read {"ref":"${ref}"}.`,
   resultErrorKind: 'error, ',
@@ -56,6 +61,11 @@ const it: typeof en = {
       : `caratteri ${start}-${end} di ${total}, fino alla fine`,
   offloadedNote: (total, shown, ref, offset) =>
     `[Monsters] Risultato lungo (${total} caratteri): qui i primi ${shown}. Il resto con result_read {"ref":"${ref}","offset":${offset}}.`,
+  filtersHint: (tool, filters) =>
+    `Se te ne serve solo una parte, richiama ${tool} con i suoi filtri (${filters}) invece di leggere avanti.`,
+  readsOver: (ref, max) => `${ref} è già stato letto ${max} volte in questo lavoro`,
+  readsOverHint: (tool) =>
+    `Richiama ${tool} con i suoi filtri per la parte che ti serve, o vai avanti con quello che hai letto.`,
   maskedNote: (tool, chars, ref) =>
     `[Monsters] Risultato di ${tool} tolto dal contesto per fare spazio (${chars} caratteri). Se ti serve ancora: result_read {"ref":"${ref}"}.`,
   resultErrorKind: 'errore, ',

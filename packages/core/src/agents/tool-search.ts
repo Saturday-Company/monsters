@@ -52,6 +52,8 @@ export const TOOL_SEARCH_FREE: ToolSearchConfig = {
 };
 
 export const TOOL_SEARCH = 'tools_search';
+/** Codex (D-163): runs a tool of the run that its tool list does not have. */
+export const TOOLS_CALL = 'tools_call';
 
 /** Free (or router) models only, as `isFreeChain` of the team. */
 export function toolSearchConfigFor(models: readonly ModelRef[]): ToolSearchConfig {
@@ -206,6 +208,24 @@ function argNames(t: MonstersTool): string[] {
   } catch {
     return [];
   }
+}
+
+/** The input JSON schema of a tool, compact (no `$schema`), for a search that loads nothing. */
+function inputSchemaOf(t: MonstersTool): unknown {
+  let schema: unknown = t.inputJsonSchema;
+  if (schema === undefined) {
+    try {
+      schema = z.toJSONSchema(t.inputSchema, { io: 'input', unrepresentable: 'any' });
+    } catch {
+      schema = {};
+    }
+  }
+  if (schema && typeof schema === 'object' && '$schema' in schema) {
+    const rest = { ...(schema as Record<string, unknown>) };
+    delete rest['$schema'];
+    return rest;
+  }
+  return schema;
 }
 
 /** The description without the "[External tool, MCP server "x"]" the core puts first. */
@@ -384,9 +404,23 @@ function argsLine(t: MonstersTool): string {
 export type ToolSearchStatus = string;
 
 export interface ToolSearchResult {
-  tools: { name: string; description: string; args: string; status: ToolSearchStatus }[];
+  tools: {
+    name: string;
+    description: string;
+    args: string;
+    status: ToolSearchStatus;
+    /** Call mode only: the input JSON schema, so the tool can be called without being loaded. */
+    schema?: unknown;
+  }[];
   note: string;
 }
+
+/**
+ * How `tools_search` answers: `load` (a native run: the hits join the tools of the next steps) or
+ * `call` (Codex, D-163: its tool list cannot change in a session, so nothing is loaded and the
+ * answer carries each hit's schema, to be called through `tools_call`).
+ */
+export type ToolSearchMode = 'load' | 'call';
 
 /** Why a tool called by name is not there, for the line the run adds (D-134). */
 export type MissedTool =
@@ -568,7 +602,7 @@ export class DeferredTools {
       .join(', ');
   }
 
-  search(query: string, limit?: number): ToolSearchResult {
+  search(query: string, limit?: number, mode: ToolSearchMode = 'load'): ToolSearchResult {
     const k = Math.min(limit ?? this.config.maxResults, this.config.maxResults);
     const hits = this.#index.search(query, k);
     if (hits.length === 0) {
@@ -578,14 +612,17 @@ export class DeferredTools {
       };
     }
     const wasReady = new Set(hits.filter((h) => this.#ready(h.name)).map((h) => h.name));
-    this.load(hits.map((h) => h.name).filter((n) => !wasReady.has(n)));
+    const calling = mode === 'call';
+    if (!calling) this.load(hits.map((h) => h.name).filter((n) => !wasReady.has(n)));
     const words = toolSearchPrompts();
     const status = (name: string): ToolSearchStatus =>
       wasReady.has(name)
         ? words.statusReady
-        : this.#loaded.includes(name)
-          ? words.statusNext
-          : words.statusOut;
+        : calling
+          ? words.statusCall
+          : this.#loaded.includes(name)
+            ? words.statusNext
+            : words.statusOut;
     const tools = hits.map((h) => {
       const t = this.#all.get(h.name)!;
       const d = plainDescription(t);
@@ -594,31 +631,66 @@ export class DeferredTools {
         description: d.length > 220 ? `${d.slice(0, 219)}…` : d,
         args: argsLine(t),
         status: status(h.name),
+        ...(calling ? { schema: inputSchemaOf(t) } : {}),
       };
     });
     const by = (s: ToolSearchStatus) => tools.filter((t) => t.status === s).map((t) => t.name);
     const [ready, next, out] = [by(words.statusReady), by(words.statusNext), by(words.statusOut)];
+    const call = by(words.statusCall);
     const note = [
       ...(ready.length > 0 ? [words.readyNote(ready.join(', '))] : []),
       ...(next.length > 0 ? [words.nextNote(next.join(', '))] : []),
+      ...(call.length > 0 ? [words.callNote(call.join(', '))] : []),
       ...(out.length > 0 ? [words.outNote(out.join(', '), this.config.maxLoaded)] : []),
     ].join(' ');
     return { tools, note };
   }
 
-  /** `tools_search`, for the agent. */
-  tool(): MonstersTool<{ query: string; limit?: number | undefined }, ToolSearchResult> {
+  /** `tools_search`, for the agent (`call` mode for Codex: it loads nothing, D-163). */
+  tool(
+    mode: ToolSearchMode = 'load',
+  ): MonstersTool<{ query: string; limit?: number | undefined }, ToolSearchResult> {
+    const words = toolSearchPrompts();
     return defineTool({
       name: TOOL_SEARCH,
-      description: toolSearchPrompts().description(this.#servers()),
+      description:
+        mode === 'call'
+          ? words.callDescription(this.#servers())
+          : words.description(this.#servers()),
       inputSchema: z.object({
         query: z.string().min(1).max(200).describe('Words, or a name pattern with *'),
         limit: z.number().int().min(1).max(this.config.maxResults).optional(),
       }),
       readOnly: true,
-      execute: ({ query, limit }) => Promise.resolve(this.search(query, limit)),
+      execute: ({ query, limit }) => Promise.resolve(this.search(query, limit, mode)),
     });
   }
+}
+
+/**
+ * The tools Codex gets in a run with many MCP tools (D-163). Codex cannot change its tool list in
+ * a session, so loading is out: it sees the plan's base (Monsters' own tools and the preloaded
+ * MCP tools) plus `tools_search` and `tools_call`, and reaches the rest by name through
+ * `tools_call`. Null when the MCP tools are few enough to list them all (nothing changes then).
+ * `exposed` are the names of the run's tools the session lists; the session still holds all of
+ * them, so every call goes through the adapter.
+ */
+export function codexToolPlan(
+  tools: readonly MonstersTool[],
+  config: ToolSearchConfig,
+  recent: () => string[],
+  query: string,
+): { search: MonstersTool; exposed: string[] } | null {
+  const mcp = tools.filter((t) => deferrable(t) && !DEFERRABLE_OWN_TOOLS.has(t.name)).length;
+  if (mcp <= config.threshold) return null;
+  // No `turn` map: Monsters' own tools stay in the list (the card names them as plain tools).
+  const plan = DeferredTools.plan(tools, config, recent, new Map(), query);
+  if (!plan) return null;
+  const base = new Set(plan.base);
+  const exposed = tools
+    .filter((t) => base.has(t.name) || DEFERRABLE_OWN_TOOLS.has(t.name) || !deferrable(t))
+    .map((t) => t.name);
+  return { search: plan.tool('call'), exposed: [...exposed, TOOL_SEARCH] };
 }
 
 /** Tools that open a service: search, list and read (the preload without other signals). */

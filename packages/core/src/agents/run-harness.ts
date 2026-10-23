@@ -40,7 +40,7 @@ import {
   unavailableBuiltin,
   type RunWeb,
 } from './harness-hooks.ts';
-import type { HarnessToolSessions } from './harness-tools.ts';
+import { toolsCallDescriptor, type HarnessToolSessions } from './harness-tools.ts';
 import type { CardContext } from './monsters-card.ts';
 import {
   abortCause,
@@ -49,16 +49,19 @@ import {
   instructionsForTools,
   isAcknowledgement,
   mayBeAcknowledgement,
+  RECENT_TOOL_DAYS,
   resolveAgentTools,
   taskMessage,
   type AgentRunResult,
   type FinalAnswerHook,
   type TaskBrief,
   summaryText,
+  turnWords,
 } from './run-agent.ts';
 import { runAgentStrings } from './run-agent.strings.ts';
 import { listWords, runHarnessPrompts } from './run-harness.prompts.ts';
 import type { ToolGuard } from './tool-adapter.ts';
+import { codexToolPlan, recentToolUse, toolSearchConfigFor } from './tool-search.ts';
 import type { HarnessAttachments } from '../files/model-input.ts';
 
 /*
@@ -595,6 +598,30 @@ async function runHarnessOnce(
     ...resolved.tools,
     ...(options.extraTools ?? []).filter((t) => !names.has(t.name) && names.add(t.name)),
   ];
+  /*
+   * Many MCP tools on Codex (D-163): its tool list cannot change in a session, so the server lists
+   * the base tools, `tools_search` (it loads nothing) and `tools_call`; the session still holds
+   * every tool, so a call by `tools_call` passes the same brake, permissions and log.
+   */
+  const codexPlan =
+    harness.id === 'codex'
+      ? codexToolPlan(
+          tools,
+          toolSearchConfigFor(agent.config.models),
+          () =>
+            recentToolUse(
+              log.query({
+                agent: agentId,
+                type: 'tool_call',
+                since: Date.now() - RECENT_TOOL_DAYS * 86_400_000,
+                order: 'desc',
+                limit: 1000,
+              }),
+            ),
+          turnWords(task, options.history ?? []),
+        )
+      : null;
+  const sessionTools = codexPlan ? [...tools, codexPlan.search] : tools;
   const connectors = harness.id === 'claude-agent' ? (options.connectors ?? []) : [];
   const hooked = HOOKED.has(harness.id) && options.hookUrl !== undefined;
   // Where the harness works: the project's folder (D-097), or the agent's own folder.
@@ -689,6 +716,8 @@ async function runHarnessOnce(
       project: options.project,
       toolNames: tools.map((t) => t.name),
       externalData: tools.some((t) => t.externalSource !== undefined),
+      // The card names every MCP tool and says to call them with `tools_call` (D-163).
+      ...(codexPlan ? { search: { mcp: true, own: [] } } : {}),
       harness: {
         id: harness.id,
         ownWebSearch: ownSearch,
@@ -717,7 +746,15 @@ async function runHarnessOnce(
       profile: options.profile,
       history,
       summary: options.summary,
-      tools: mcpToolTokens(tools, HARNESS_MCP_SERVER),
+      tools: mcpToolTokens(
+        codexPlan
+          ? [
+              ...sessionTools.filter((t) => codexPlan.exposed.includes(t.name)),
+              toolsCallDescriptor(),
+            ]
+          : tools,
+        HARNESS_MCP_SERVER,
+      ),
       prompt,
     }),
     options.resume ? { resumed: { base: knownBase(log, agentId, harness.id) } } : {},
@@ -888,7 +925,7 @@ async function runHarnessOnce(
           )
       : undefined;
   const { session, close } = options.sessions.open(
-    tools,
+    sessionTools,
     {
       log,
       agentId,
@@ -903,6 +940,7 @@ async function runHarnessOnce(
     },
     {
       trackSources: ownSearch,
+      ...(codexPlan ? { exposed: codexPlan.exposed } : {}),
       ...(hooked
         ? {
             hook: (input: unknown, signal: AbortSignal) =>

@@ -44,6 +44,10 @@ export interface ContextLimits {
   offloadHead?: number;
   /** Results shorter than this are never masked: the line would be as long. Default 400. */
   minMaskChars?: number;
+  /** Most characters `result_read` gives at once (below `offloadChars`). Default 7000. */
+  readChars?: number;
+  /** Reads of one stored result, at most: past them the model filters or goes on. Default 8. */
+  readsPerResult?: number;
 }
 
 export const DEFAULT_CONTEXT_LIMITS: Required<ContextLimits> = {
@@ -53,11 +57,36 @@ export const DEFAULT_CONTEXT_LIMITS: Required<ContextLimits> = {
   offloadChars: 8000,
   offloadHead: 6000,
   minMaskChars: 400,
+  readChars: 7000,
+  readsPerResult: 8,
 };
+
+/**
+ * Limits for a model's window (D-163): a model with a big window reads a long list in a few
+ * pieces, not in fifty (Haiku paged a list of 40 clients with 50 `result_read` on 23/10).
+ * The defaults stay for small windows and when the window is not known.
+ */
+export function contextLimitsFor(window: number | undefined): ContextLimits {
+  if (!window || window < 120_000) return {};
+  if (window < 400_000) {
+    return {
+      offloadChars: 16_000,
+      offloadHead: 12_000,
+      readChars: 12_000,
+      recentToolResultChars: 48_000,
+    };
+  }
+  return {
+    offloadChars: 32_000,
+    offloadHead: 24_000,
+    readChars: 24_000,
+    recentToolResultChars: 96_000,
+  };
+}
 
 /** The tool that reads a stored result again. */
 export const RESULT_READ = 'result_read';
-/** Most characters `result_read` gives at once (below `offloadChars`: never offloaded again). */
+/** Most characters `result_read` gives at once by default (below `offloadChars`: never offloaded again). */
 export const RESULT_READ_MAX = 7000;
 /** Most characters the store of one run keeps; past it the oldest results go. */
 const STORE_MAX_CHARS = 20_000_000;
@@ -115,7 +144,16 @@ const fmt = (n: number) => String(n);
 /** The results of one run of an agent, by reference (`r1`, `r2`…), in memory. */
 export class ResultStore {
   readonly #byRef = new Map<string, Stored>();
+  /** Reads of each result so far. */
+  readonly #reads = new Map<string, number>();
+  readonly #readChars: number;
+  readonly #readsPerResult: number;
   #chars = 0;
+
+  constructor(readChars = RESULT_READ_MAX, readsPerResult = DEFAULT_CONTEXT_LIMITS.readsPerResult) {
+    this.#readChars = readChars;
+    this.#readsPerResult = readsPerResult;
+  }
 
   put(entry: Stored): void {
     this.#byRef.set(entry.ref, entry);
@@ -139,9 +177,18 @@ export class ResultStore {
         hint: 'Use the ref written in the note of the result (r1, r2…), or call the tool again.',
       });
     }
+    // Past the reads of one result, a hint instead of the next page (D-163): a list read in
+    // pieces again and again costs the whole list at every step.
+    const reads = (this.#reads.get(ref) ?? 0) + 1;
+    if (reads > this.#readsPerResult) {
+      throw new ToolError('LIMIT_REACHED', runtimePrompts().readsOver(ref, this.#readsPerResult), {
+        hint: runtimePrompts().readsOverHint(s.tool),
+      });
+    }
+    this.#reads.set(ref, reads);
     const body = s.body ?? s.text;
     const start = Math.min(Math.max(0, offset), body.length);
-    const end = Math.min(body.length, start + Math.min(length, RESULT_READ_MAX));
+    const end = Math.min(body.length, start + Math.min(length, this.#readChars));
     const slice = body.slice(start, end);
     const where = runtimePrompts().readRange(
       fmt(start),
@@ -155,15 +202,12 @@ export class ResultStore {
 }
 
 /** The text of an offloaded result: its head, in its envelope, and where the rest is. */
-function offloaded(s: Stored, head: number): string {
+function offloaded(s: Stored, head: number, filters: readonly string[]): string {
   const body = s.body ?? s.text;
   const shown = body.slice(0, head);
-  const note = runtimePrompts().offloadedNote(
-    fmt(body.length),
-    fmt(shown.length),
-    s.ref,
-    shown.length,
-  );
+  const note =
+    runtimePrompts().offloadedNote(fmt(body.length), fmt(shown.length), s.ref, shown.length) +
+    (filters.length > 0 ? ` ${runtimePrompts().filtersHint(s.tool, filters.join(', '))}` : '');
   return s.open !== undefined
     ? `${s.open}${shown}${s.close}${s.after ?? ''}\n${note}`
     : `${shown}\n${note}`;
@@ -179,15 +223,23 @@ function masked(s: Stored): string {
  * `runAgent` call; `compact` before every step, `tool` for the agent.
  */
 export class RunContext {
-  readonly store = new ResultStore();
+  readonly store: ResultStore;
   readonly #limits: Required<ContextLimits>;
+  /** The filters a tool takes (its optional arguments), named in the note of a long result. */
+  readonly #filtersOf: (tool: string) => readonly string[];
   /** Tool call id → stored result. */
   readonly #seen = new Map<string, Stored>();
   readonly #masked = new Set<string>();
   #next = 1;
 
-  constructor(limits: ContextLimits = {}) {
+  constructor(
+    limits: ContextLimits = {},
+    filtersOf: (tool: string) => readonly string[] = () => [],
+  ) {
     this.#limits = { ...DEFAULT_CONTEXT_LIMITS, ...limits };
+    this.#limits.readChars = Math.min(this.#limits.readChars, this.#limits.offloadChars - 1);
+    this.store = new ResultStore(this.#limits.readChars, this.#limits.readsPerResult);
+    this.#filtersOf = filtersOf;
   }
 
   /** Ids of the masked results so far (for tests and measures). */
@@ -213,7 +265,7 @@ export class RunContext {
     if (this.#masked.has(id) && s.text.length >= l.minMaskChars) return masked(s);
     // A slice read with result_read is already short: never offloaded again.
     if (s.text.length > l.offloadChars && s.tool !== RESULT_READ)
-      return offloaded(s, l.offloadHead);
+      return offloaded(s, l.offloadHead, this.#filtersOf(s.tool));
     return s.text;
   }
 
@@ -315,11 +367,16 @@ export class RunContext {
       name: RESULT_READ,
       description:
         'Reads again a tool result that was shortened or taken out of the context: its note gives the ref (r1, r2…). ' +
-        `Returns up to ${RESULT_READ_MAX} characters from offset; read on with the offset the note gives.`,
+        `Returns up to ${this.#limits.readChars} characters from offset; read on with the offset the note gives.`,
       inputSchema: z.object({
         ref: z.string().regex(/^r\d{1,6}$/),
         offset: z.number().int().min(0).default(0),
-        length: z.number().int().min(200).max(RESULT_READ_MAX).default(6000),
+        length: z
+          .number()
+          .int()
+          .min(200)
+          .max(this.#limits.readChars)
+          .default(this.#limits.readChars),
       }),
       readOnly: true,
       // A rejected promise, not a throw: an unknown ref is a result the model reads.

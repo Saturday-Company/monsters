@@ -167,7 +167,8 @@ export function monstersCard(options: MonstersCardOptions & CardContext): string
       });
       const first = of[0]!;
       const example = first.tools.find((t) => ENTRY_TOOL.test(t)) ?? first.tools[0]!;
-      line += p.catalog(`${first.prefix}${example}`);
+      // Codex cannot load a tool in a session (D-163): it calls them through `tools_call`.
+      line += (h?.id === 'codex' ? p.catalogCall : p.catalog)(`${first.prefix}${example}`);
       line += `\n${of
         .map((s) => p.catalogLine(label(s.server), s.prefix + s.catalog.prefix, s.catalog.names))
         .join('\n')}`;
