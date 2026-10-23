@@ -532,9 +532,8 @@
     padding: 0.6rem 0.8rem;
     border-radius: 12px;
     background: var(--ui-fill);
-    box-shadow:
-      inset 3px 0 0 var(--ui-tone),
-      var(--ui-ring);
+    /* The tone is the icon's colour: no stripe on the side. */
+    box-shadow: var(--ui-ring);
   }
 
   .ui-callout[data-tone='success'] {
