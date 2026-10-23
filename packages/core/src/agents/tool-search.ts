@@ -429,6 +429,8 @@ export class DeferredTools {
     /** The MCP tools are many: they wait too (otherwise only Monsters' own deferrable ones). */
     mcp: boolean,
     turn: ReadonlyMap<string, string>,
+    /** The words of the turn (the request, the last messages), for the preload (D-163). */
+    query: string,
   ) {
     this.config = config;
     this.mcp = mcp;
@@ -436,9 +438,15 @@ export class DeferredTools {
     const waits = (t: MonstersTool) =>
       DEFERRABLE_OWN_TOOLS.has(t.name) || turn.has(t.name) || (mcp && deferrable(t));
     const deferred = tools.filter(waits);
-    const names = new Set(deferred.map((t) => t.name));
     const preload = new Set(
-      recent.filter((n) => names.has(n) && !turn.has(n)).slice(0, config.preload),
+      mcp
+        ? preloadOf(
+            deferred.filter((t) => !DEFERRABLE_OWN_TOOLS.has(t.name) && !turn.has(t.name)),
+            recent,
+            query,
+            config.preload,
+          )
+        : [],
     );
     this.base = [...tools.filter((t) => !waits(t)).map((t) => t.name), ...[...preload].sort()];
     this.#deferred = new Map(
@@ -462,6 +470,7 @@ export class DeferredTools {
     config: ToolSearchConfig,
     recent: () => string[] = () => [],
     turn: ReadonlyMap<string, string> = new Map(),
+    query = '',
   ): DeferredTools | null {
     const mcp = tools.filter((t) => deferrable(t) && !DEFERRABLE_OWN_TOOLS.has(t.name)).length;
     const own = tools.some((t) => DEFERRABLE_OWN_TOOLS.has(t.name) || turn.has(t.name));
@@ -472,6 +481,7 @@ export class DeferredTools {
       mcp > config.threshold ? recent() : [],
       mcp > config.threshold,
       new Map([...turn].filter(([n]) => tools.some((t) => t.name === n))),
+      query,
     );
   }
 
@@ -498,6 +508,20 @@ export class DeferredTools {
   /** Sent at this step (in the base or loaded). */
   #ready(name: string): boolean {
     return name === TOOL_SEARCH || this.base.includes(name) || this.#loaded.includes(name);
+  }
+
+  /** Is this tool sent to the model now? Tools of the run that wait are not (D-163). */
+  sends(name: string): boolean {
+    return this.#ready(name) || !this.#all.has(name);
+  }
+
+  /**
+   * Waiting tools the model called by their name and that ran (D-163: every tool of the run is
+   * callable, only the loaded ones are sent): loaded for the next steps, so the model sees their
+   * parameters from then on. Past the cap they still run when called.
+   */
+  calledDirectly(names: readonly string[]): string[] {
+    return this.load(names.filter((n) => this.#deferred.has(n)));
   }
 
   /** Adds tools to the next steps (never removes); stops once the run's cap is reached. */
@@ -595,6 +619,145 @@ export class DeferredTools {
       execute: ({ query, limit }) => Promise.resolve(this.search(query, limit)),
     });
   }
+}
+
+/** Tools that open a service: search, list and read (the preload without other signals). */
+export const ENTRY_TOOL =
+  /^(?:search|fetch)$|(?:^|_)(?:cerca|search|find|elenca|list|leggi|get|read)(?:_|$)/;
+
+/**
+ * The MCP tools sent from the first step (D-163): the ones the turn's words point at (BM25 over
+ * the request and the last messages, as `tools_search`), then the most used lately; with neither,
+ * a few tools that open a service (search, list, read). Fixed for the turn, so the prefix stays.
+ */
+export function preloadOf(
+  tools: readonly MonstersTool[],
+  recent: readonly string[],
+  query: string,
+  slots: number,
+): string[] {
+  if (slots <= 0 || tools.length === 0) return [];
+  const names = new Set(tools.map((t) => t.name));
+  const out: string[] = [];
+  const add = (n: string) => {
+    if (out.length < slots && names.has(n) && !out.includes(n)) out.push(n);
+  };
+  const relevant = query.trim() ? relevantTools(tools, query.slice(0, 4000), slots) : [];
+  const own = Math.max(1, Math.ceil((slots * 3) / 4));
+  for (const n of relevant.slice(0, own)) add(n);
+  for (const n of recent) add(n);
+  for (const n of relevant) add(n);
+  if (out.length > 0) return out;
+  // No signal at all: the tools that open a service, the search of each first, half the slots.
+  const tool = (t: MonstersTool) => (splitAgentToolName(t.name)?.tool ?? t.name).toLowerCase();
+  const rank = (t: MonstersTool) => (/(?:^|_)(?:search|cerca|find)(?:_|$)/.test(tool(t)) ? 0 : 1);
+  const entries = tools
+    .filter((t) => ENTRY_TOOL.test(tool(t)))
+    .sort((a, b) => rank(a) - rank(b) || (a.name < b.name ? -1 : 1))
+    .slice(0, Math.max(1, Math.floor(slots / 2)));
+  for (const t of entries) add(t.name);
+  return out;
+}
+
+/**
+ * The tools a request names (D-163): a long request shares stray words with many descriptions
+ * ("crea", "id", "completo"), so the words of a tool's own name decide first, "clienti" and
+ * "elenco" for `anteiku_clienti_elenca`, the share of them the request has; BM25 breaks the ties.
+ * The words every tool shares (`anteiku`) do not count.
+ */
+function relevantTools(tools: readonly MonstersTool[], query: string, limit: number): string[] {
+  const asked = new Set<string>();
+  for (const t of searchTerms(query)) {
+    asked.add(t);
+    for (const s of synonymsOf(t)) asked.add(s);
+  }
+  const nameTerms = tools.map((t) => [
+    ...new Set(searchTerms(splitAgentToolName(t.name)?.tool ?? t.name)),
+  ]);
+  const everywhere = new Set(
+    nameTerms[0]?.filter((term) => nameTerms.every((n) => n.includes(term))) ?? [],
+  );
+  const bm25 = new Map(
+    new ToolIndex(tools).search(query, tools.length).map((h) => [h.name, h.score]),
+  );
+  return tools
+    .map((t, i) => {
+      const own = nameTerms[i]!.filter((term) => !everywhere.has(term));
+      const hit = own.filter((term) => asked.has(term)).length;
+      return {
+        name: t.name,
+        share: own.length > 0 ? hit / own.length : 0,
+        hit,
+        score: bm25.get(t.name) ?? 0,
+      };
+    })
+    .filter((r) => r.share >= 0.5 && r.hit > 0)
+    .sort(
+      (a, b) =>
+        b.share - a.share || b.hit - a.hit || b.score - a.score || (a.name < b.name ? -1 : 1),
+    )
+    .slice(0, limit)
+    .map((r) => r.name);
+}
+
+/** Most characters of one service's names in the card before they become groups. */
+const CATALOG_MAX_CHARS = 2600;
+
+/**
+ * The names of one service's tools in a few words (D-163, as Claude Code names its deferred
+ * tools): the prefix all share, then the names grouped where they part,
+ * `clienti_{crea,elenca} · task_{crea,sposta}`, by their head, their area or their verb,
+ * whichever is shorter. Past `CATALOG_MAX_CHARS` only the groups and how many: `clienti_* (5)`.
+ */
+export function toolCatalog(tools: readonly string[]): { prefix: string; names: string } {
+  const sorted = [...new Set(tools)].sort();
+  if (sorted.length === 0) return { prefix: '', names: '' };
+  // The prefix all names share, cut after a `_` ("anteiku_").
+  let prefix = sorted[0]!;
+  for (const n of sorted) while (!n.startsWith(prefix)) prefix = prefix.slice(0, -1);
+  prefix = sorted.length > 1 ? prefix.slice(0, prefix.lastIndexOf('_') + 1) : '';
+  const rest = sorted.map((n) => n.slice(prefix.length));
+  /** Groups by a key and the part after it; a name without `_` stands alone. */
+  const grouped = (split: (parts: string[]) => [string, string]) => {
+    const by = new Map<string, string[]>();
+    for (const n of rest) {
+      const parts = n.split('_');
+      const [key, part] = parts.length > 1 ? split(parts) : [`\0${n}`, ''];
+      by.set(key, [...(by.get(key) ?? []), part]);
+    }
+    return [...by];
+  };
+  const write = (groups: [string, string[]][]) =>
+    groups
+      .map(([key, parts]) =>
+        key.startsWith('\0')
+          ? key.slice(1)
+          : parts.length === 1
+            ? `${key}_${parts[0]!}`
+            : `${key}_{${parts.join(',')}}`,
+      )
+      .join(' · ');
+  // `clienti_crea` groups by its head (`clienti_{…}`), `list_issues` by its verb (`list_{…}`).
+  const byHead = grouped((p) => [p.slice(0, -1).join('_'), p.at(-1)!]);
+  const byArea = grouped((p) =>
+    p.length > 2 ? [p.slice(0, 2).join('_'), p.slice(2).join('_')] : [p[0]!, p[1]!],
+  );
+  const byVerb = grouped((p) => [p[0]!, p.slice(1).join('_')]);
+  const names = [write(byHead), write(byArea), write(byVerb)].reduce((a, b) =>
+    b.length < a.length ? b : a,
+  );
+  if (names.length <= CATALOG_MAX_CHARS) return { prefix, names };
+  const groups = byHead
+    .map(([key, parts]) =>
+      key.startsWith('\0')
+        ? key.slice(1)
+        : parts.length > 1
+          ? `${key}_* (${parts.length})`
+          : `${key}_${parts[0]!}`,
+    )
+    .join(' · ');
+  // Names with no group to share (`modulo0_azione0_x`): only how many, `tools_search` finds them.
+  return { prefix, names: groups.length <= CATALOG_MAX_CHARS ? groups : `${sorted.length} tools` };
 }
 
 /** MCP tools this agent used lately, most used first (ties by name). */

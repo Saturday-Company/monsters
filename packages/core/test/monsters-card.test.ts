@@ -147,7 +147,7 @@ describe('the Monsters card', () => {
       - squadra: deleghi agli altri mostri (\`delegate\`)
       - domande all’utente (\`ask_user\`)
       - nuovi mostri: proponi una bozza (\`team_propose_monster\`), l’utente la crea
-      - servizi collegati: notion, Gmail, Google Calendar
+      - servizi collegati, già tuoi (mai chiedere all’utente accessi, chiavi o indirizzi per questi): notion, Gmail, Google Calendar
       Solo l’utente, in Impostazioni: Squadra (creare, cambiare e archiviare mostri; chi è lui per voi), Modelli (modelli e spesa; tu non la vedi), Permessi, Collegamenti (servizi, Telegram). Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file."
     `);
   });
@@ -156,7 +156,9 @@ describe('the Monsters card', () => {
     const card = monstersCard({
       toolNames: [...ALL_VAULT_TOOLS, 'mcp__Anteiku_Prod__list_tasks', 'mcp__my-db__query'],
     });
-    expect(card).toContain('- servizi collegati: Anteiku_Prod, my-db');
+    expect(card).toContain(
+      '- servizi collegati, già tuoi (mai chiedere all’utente accessi, chiavi o indirizzi per questi): Anteiku_Prod, my-db',
+    );
     expect(card).not.toContain('servizi collegati.');
   });
 
@@ -253,8 +255,70 @@ describe('the Monsters card', () => {
     expect(monstersCard({ toolNames: tools })).toBe(
       monstersCard({ toolNames: [...tools].reverse() }),
     );
-    expect(monstersCard({ toolNames: tools })).toContain('servizi collegati: anteiku, github');
+    expect(monstersCard({ toolNames: tools })).toContain('già tuoi');
+    expect(monstersCard({ toolNames: tools })).toContain('): anteiku, github');
     expect(monstersCard({ toolNames: tools })).not.toMatch(/\d{1,2}:\d\d|\d{4}-\d\d/);
+  });
+
+  it('services by the name the user knows, already yours; the catalog only when the tools wait (D-163)', () => {
+    const names = [
+      'mcp__anteiku__search',
+      'mcp__anteiku__anteiku_task_crea',
+      'mcp__anteiku__anteiku_task_elenca',
+      'mcp__anteiku__anteiku_clienti_elenca',
+      'mcp__notion__notion_search',
+    ];
+    const labels = { anteiku: 'Anteiku' };
+    const shown = monstersCard({
+      toolNames: [...dione, ...names],
+      mcpSearch: true,
+      labels,
+    });
+    // The label, not the server name; the services are the monster's own.
+    expect(shown).toContain('servizi collegati, già tuoi (mai chiedere all’utente accessi');
+    expect(shown).toContain('): Anteiku, notion');
+    expect(shown).not.toContain('per questi): anteiku');
+    // One example full name of a tool that opens a service, then one sub-bullet per server.
+    expect(shown).toContain('es. `mcp__anteiku__anteiku_clienti_elenca`');
+    expect(shown).toContain(
+      '\n  - Anteiku (`mcp__anteiku__…`): anteiku_{clienti_elenca,task_crea,task_elenca} · search\n',
+    );
+    expect(shown).toContain('\n  - notion (`mcp__notion__…`): notion_search\n');
+    // The sub-bullets sit inside the list of what the monster can do.
+    const lines = shown.split('\n');
+    const at = lines.findIndex((l) => l.startsWith('  - Anteiku'));
+    expect(lines[at - 1]).toContain('servizi collegati');
+    // Without the search the tools are all sent: no catalog (the old text is gone too).
+    const plain = monstersCard({ toolNames: [...dione, ...names], mcpSearch: false, labels });
+    expect(plain).toContain('): Anteiku, notion');
+    expect(plain).not.toContain('\n  - ');
+    expect(plain).not.toContain('tools_search');
+    expect(plain).not.toContain('molti strumenti');
+    // No label known: the server name, as before.
+    expect(monstersCard({ toolNames: names, mcpSearch: true })).toContain('): anteiku, notion');
+  });
+
+  it('is the same whatever the order of the tool names, catalog and labels included (D-163)', () => {
+    const tools = [
+      ...rhea,
+      'mcp__anteiku__anteiku_task_crea',
+      'mcp__anteiku__anteiku_task_elenca',
+      'mcp__anteiku__anteiku_clienti_crea',
+      'mcp__anteiku__search',
+      'mcp__github__list_issues',
+      'mcp__github__create_issue',
+    ];
+    const options = { mcpSearch: true, labels: { anteiku: 'Anteiku', github: 'GitHub' } };
+    const card = monstersCard({ toolNames: tools, ...options });
+    expect(card).toContain('\n  - GitHub (`mcp__github__…`): ');
+    expect(monstersCard({ toolNames: [...tools].reverse(), ...options })).toBe(card);
+    expect(
+      monstersCard({
+        toolNames: [...tools].sort(() => 0.5 - Math.sin(tools.length)),
+        ...options,
+      }),
+    ).toBe(card);
+    expect(card).not.toMatch(/\d{1,2}:\d\d|\d{4}-\d\d/);
   });
 
   it('names the sections of the app as the app does (Impostazioni → Squadra, not "Mostri")', () => {

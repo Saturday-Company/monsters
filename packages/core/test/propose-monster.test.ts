@@ -470,7 +470,9 @@ describe('team_propose_monster on a harness', () => {
     expect(instructions).toContain('## Monsters');
     expect(instructions).toContain('nuovi mostri: proponi una bozza (`team_propose_monster`)');
     expect(instructions).toContain('terminale e file: nella cartella di questo lavoro');
-    expect(instructions).toContain('servizi collegati: Gmail');
+    expect(instructions).toContain(
+      'già tuoi (mai chiedere all’utente accessi, chiavi o indirizzi per questi): Gmail',
+    );
     db.close();
   });
 });

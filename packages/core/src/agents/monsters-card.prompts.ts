@@ -37,8 +37,12 @@ const en = {
   access: (grant: string) =>
     `accesses the squad is missing (the web for a monster, a service already connected to the account, the browser): you ask the user for them with \`access_request\`, and the user taps “${grant}”`,
   teamMonster: 'new monsters: you propose a draft (`team_propose_monster`), the user creates it',
-  searchServices: ' (many tools: look them up with `tools_search`)',
-  services: (names: string, search: string) => `connected services: ${names}${search}`,
+  services: (names: string) =>
+    `connected services, already yours (never ask the user for access, keys or addresses for them): ${names}`,
+  catalog: (example: string) =>
+    `. Call their tools by the full name, e.g. \`${example}\`: one not loaded yet loads and runs at its first call; \`tools_search\` tells what they do and their parameters`,
+  catalogLine: (label: string, prefix: string, names: string) =>
+    `  - ${label} (\`${prefix}…\`): ${names}`,
   noServicesProject: (path: string) =>
     `connected services (none is on for this project: the user turns them on from the ${path})`,
   noServices: (path: string) =>
@@ -114,8 +118,11 @@ const it: typeof en = {
   access: (grant) =>
     `accessi che mancano alla squadra (il web a un mostro, un servizio già collegato all’account, il browser): li chiedi all’utente con \`access_request\`, lui tocca «${grant}»`,
   teamMonster: 'nuovi mostri: proponi una bozza (`team_propose_monster`), l’utente la crea',
-  searchServices: ' (molti strumenti: cercali con `tools_search`)',
-  services: (names, search) => `servizi collegati: ${names}${search}`,
+  services: (names) =>
+    `servizi collegati, già tuoi (mai chiedere all’utente accessi, chiavi o indirizzi per questi): ${names}`,
+  catalog: (example) =>
+    `. Chiama i loro strumenti col nome completo, es. \`${example}\`: uno non ancora caricato si carica e si esegue alla prima chiamata; \`tools_search\` dice cosa fanno e i loro parametri`,
+  catalogLine: (label, prefix, names) => `  - ${label} (\`${prefix}…\`): ${names}`,
   noServicesProject: (path) =>
     `servizi collegati (nessuno è acceso per questo progetto: li accende l’utente nella ${path})`,
   noServices: (path) =>

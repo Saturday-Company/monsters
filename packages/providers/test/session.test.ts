@@ -54,6 +54,65 @@ describe('ModelSession', () => {
     session.setContextRescue(null);
   });
 
+  it('a tool filter sends only the function tools it lets through (D-163)', async () => {
+    const provider = new FakeProvider({
+      models: { a: Array.from({ length: 8 }, () => fake.text('ok')) },
+    });
+    const session = new ProviderRegistry()
+      .register(provider)
+      .session([{ provider: 'fake', model: 'a' }]);
+    const fn = (name: string) => ({
+      type: 'function' as const,
+      name,
+      description: name,
+      inputSchema: { type: 'object' as const, properties: {} },
+    });
+    const search = {
+      type: 'provider' as const,
+      id: 'web.search' as const,
+      name: 'web_search',
+      args: {},
+    };
+    const request = async (tools: Parameters<typeof session.doStream>[0]['tools']) => {
+      const { stream } = await session.doStream({
+        prompt: [{ role: 'user', content: [{ type: 'text', text: 'ciao' }] }],
+        tools,
+        toolChoice: { type: 'auto' },
+      });
+      await stream.pipeTo(new WritableStream());
+    };
+    const sent = () =>
+      provider.calls.at(-1)!.options.tools?.map((t) => (t.type === 'function' ? t.name : t.id));
+    const tools = [fn('b'), fn('a'), search, fn('c')];
+
+    // No filter: all of them, as before.
+    await request(tools);
+    expect(sent()).toEqual(['b', 'a', 'web.search', 'c']);
+
+    // A filter: only the function tools it accepts, in the order given; provider tools stay.
+    session.setToolFilter((name) => name !== 'a');
+    await request(tools);
+    expect(sent()).toEqual(['b', 'web.search', 'c']);
+    expect(provider.calls.at(-1)!.options.toolChoice).toEqual({ type: 'auto' });
+
+    // Nothing left: no tools and no tool choice (a choice with no tools is refused by providers).
+    session.setToolFilter(() => false);
+    await request([fn('a'), fn('b')]);
+    expect(provider.calls.at(-1)!.options.tools).toBeUndefined();
+    expect(provider.calls.at(-1)!.options.toolChoice).toBeUndefined();
+    // Only a provider tool left: it stays, with the choice.
+    await request([fn('a'), search]);
+    expect(sent()).toEqual(['web.search']);
+
+    // Null sends them all again; a request without tools is untouched.
+    session.setToolFilter(null);
+    await request(tools);
+    expect(sent()).toEqual(['b', 'a', 'web.search', 'c']);
+    session.setToolFilter(() => false);
+    await request(undefined);
+    expect(provider.calls.at(-1)!.options.tools).toBeUndefined();
+  });
+
   it('falls back to the next model on 429 and records the event', async () => {
     const provider = new FakeProvider({
       models: { a: [fake.rateLimited()], b: [fake.text('risposta da b')] },

@@ -35,6 +35,17 @@ export function matchToolName(name: string, names: readonly string[]): string | 
     const hit = names.find((n) => n.toLowerCase() === key);
     if (hit) return hit;
   }
+  // An MCP tool without its `mcp__<server>__` (the card lists the names, D-163): `anteiku_task_crea`,
+  // or `task_crea` when one tool only ends so. Never a lone word (`crea`): many tools end so.
+  for (const c of candidates) {
+    const key = snakeCase(c.trim());
+    const tool = (n: string) => n.toLowerCase().replace(/^mcp__.+?__/, '');
+    const whole = names.filter((n) => n.startsWith('mcp__') && tool(n) === key);
+    if (whole.length === 1) return whole[0];
+    if (!key.includes('_')) continue;
+    const tail = names.filter((n) => n.startsWith('mcp__') && tool(n).endsWith(`_${key}`));
+    if (tail.length === 1) return tail[0];
+  }
   return undefined;
 }
 

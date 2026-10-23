@@ -8,7 +8,7 @@ import type {
 } from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { classifyOutbound, MAX_MCP_TOOLS, TOOL_SEARCH } from '../src/index.ts';
+import { classifyOutbound, MAX_MCP_TOOLS, TOOL_SEARCH, TOOL_SEARCH_DEFAULT } from '../src/index.ts';
 import {
   ANTEIKU_DATA,
   anteikuToolDefs,
@@ -174,11 +174,14 @@ describe('Anteiku: a monster at work', () => {
     expect(end.data.status).toBe('completed');
     expect(fa.calls.map((c) => c.tool)).toEqual(['anteiku_progetti_elenca', 'anteiku_task_crea']);
     expect(fa.calls[1]!.args).toMatchObject({ titolo: 'Chiamare Rossi', progetto_id: project.id });
-    // The first request: the preloaded list and the search, not the other 123 tools.
+    // The first request: the preload (the list the monster used and the tools the words of the
+    // request point at, D-163) and the search, not the other 123 tools.
     const first = (t.provider.calls[0]!.options.tools ?? []).map((x) => x.name);
     expect(first).toContain('mcp__anteiku__anteiku_progetti_elenca');
     expect(first).toContain(TOOL_SEARCH);
-    expect(first.filter((n) => n.startsWith('mcp__anteiku__'))).toHaveLength(1);
+    const preloaded = first.filter((n) => n.startsWith('mcp__anteiku__'));
+    expect(preloaded.length).toBeLessThanOrEqual(TOOL_SEARCH_DEFAULT.preload);
+    expect(preloaded).toEqual([...preloaded].sort());
     const third = (t.provider.calls[2]!.options.tools ?? []).map((x) => x.name);
     expect(third).toContain('mcp__anteiku__anteiku_task_crea');
     expect(third.slice(0, first.length)).toEqual(first);

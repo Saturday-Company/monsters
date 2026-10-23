@@ -17,6 +17,7 @@ import {
 } from '@monsters/shared';
 import { accessStrings } from '../team/access.strings.ts';
 import { listIn, monstersCardPrompts } from './monsters-card.prompts.ts';
+import { ENTRY_TOOL, toolCatalog } from './tool-search.ts';
 
 /** What a harness gives besides Monsters' tools (Claude Code, Codex). */
 export interface HarnessCapabilities {
@@ -64,6 +65,8 @@ export interface CardContext {
   project?: string;
   /** MCP servers whose tools are more than this run takes (M1 of the review of 19/10). */
   cut?: readonly { server: string; shown: number; total: number }[];
+  /** The names the user knows the MCP servers by (`anteiku` → "Anteiku", D-163). */
+  labels?: Readonly<Record<string, string>>;
 }
 
 const BROWSER_SERVER = 'browser';
@@ -145,11 +148,31 @@ export function monstersCard(options: MonstersCardOptions & CardContext): string
   // The button the user taps is quoted from the dictionary that shows it.
   if (has('access_request')) can.push(p.access(accessStrings().grant));
   if (has('team_propose_monster')) can.push(p.teamMonster);
-  const services = [...mcpServers(options.toolNames), ...(h?.connectors ?? []).map(connectorName)];
+  const servers = mcpServers(options.toolNames);
+  const label = (server: string) => options.labels?.[server] ?? server;
+  const services = [...servers.map(label), ...(h?.connectors ?? []).map(connectorName)];
   if (services.length > 0) {
-    // Many tools of a service wait for a search (C.2): the monster must know they exist.
-    const search = (options.mcpSearch ?? has('tools_search')) ? p.searchServices : '';
-    can.push(p.services([...new Set(services)].join(', '), search));
+    // Yours, by the name the user knows (D-163): no access to ask, no address to want.
+    let line = p.services([...new Set(services)].join(', '));
+    // Many tools wait for a search (C.2): every name in a few words, as Claude Code does, so the
+    // monster calls the one it needs at once instead of asking or searching blind.
+    if ((options.mcpSearch ?? has('tools_search')) && servers.length > 0) {
+      const of = servers.map((server) => {
+        const prefix = `mcp__${server}__`;
+        const tools = options.toolNames
+          .filter((n) => n.startsWith(prefix))
+          .map((n) => n.slice(prefix.length))
+          .sort();
+        return { server, prefix, tools, catalog: toolCatalog(tools) };
+      });
+      const first = of[0]!;
+      const example = first.tools.find((t) => ENTRY_TOOL.test(t)) ?? first.tools[0]!;
+      line += p.catalog(`${first.prefix}${example}`);
+      line += `\n${of
+        .map((s) => p.catalogLine(label(s.server), s.prefix + s.catalog.prefix, s.catalog.names))
+        .join('\n')}`;
+    }
+    can.push(line);
   } else {
     // The cause and where it changes (D-132), never a bare «non hai» the model fills in.
     cannot.push(

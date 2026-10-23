@@ -14,6 +14,7 @@ import {
   teamMigrations,
 } from '../src/index.ts';
 import { accessLines } from '../src/projects/context.ts';
+import { startFakeAnteiku, type FakeAnteiku } from './fixtures/fake-anteiku-server.ts';
 import { tempHome } from './helpers.ts';
 import { promptText, startTestHub as startHub, type TestHub } from './hub-helpers.ts';
 
@@ -38,6 +39,11 @@ const startTestHub: typeof startHub = async (...args) => {
  */
 
 const WEB = ['web_search', 'web_fetch'];
+
+const fakes: FakeAnteiku[] = [];
+afterEach(async () => {
+  await Promise.all(fakes.splice(0).map((f) => f.close()));
+});
 
 /** Canva through Claude, given to the whole team (the state the app writes). */
 function canvaForTeam(t: TestHub): void {
@@ -338,6 +344,88 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     expect(result?.data).toMatchObject({ ok: false });
     expect(JSON.stringify(result?.data)).toContain('Impostazioni → Collegamenti');
     expect(JSON.stringify(result?.data)).toContain('Collega tramite Claude');
+  });
+
+  it('a service the monster already has: «già tuo» as the answer, no card, no question (D-163)', async () => {
+    const t = await startTestHub(
+      {
+        titan: [
+          fake.toolCall('access_request', {
+            access: 'service',
+            service: 'anteiku',
+            why: 'Leggere i clienti',
+          }),
+          fake.text('Procedo con Anteiku.'),
+        ],
+      },
+      { hub: { askWaitMs: 5_000 } },
+    );
+    const fa = await startFakeAnteiku();
+    fakes.push(fa);
+    await t.json('PUT', '/api/mcp-servers/anteiku', {
+      transport: 'http',
+      url: fa.mcpUrl,
+      label: 'Anteiku',
+      catalog: 'anteiku',
+      agents: ['*'],
+      headers: { Authorization: `Bearer ${fa.personalToken}` },
+    });
+    expect(t.core.hub.mcp.allowed('titan', 'anteiku')).toBe(true);
+    const sent = await t.json<{ runId: string }>('POST', '/api/messages', {
+      text: 'Guarda i clienti su Anteiku',
+    });
+    await t.runEnded(sent.runId);
+    expect(t.core.hub.questions.list({ status: 'open' })).toEqual([]);
+    expect(t.core.hub.questions.list({})).toEqual([]);
+    expect(grants(t)).toEqual([]);
+    const result = t
+      .events(sent.runId)
+      .find((e) => e.type === 'tool_result' && e.data.tool === 'access_request');
+    const text = JSON.stringify(result?.data);
+    expect(text).toContain('already');
+    expect(text).toContain('Anteiku is yours already');
+    expect(text).toContain('mcp__anteiku__');
+    expect(text).toContain('No card was shown');
+    expect(text).not.toContain('not responding');
+  });
+
+  it('a service of the monster that does not respond: the note says to reconnect it, still no card', async () => {
+    const t = await startTestHub(
+      {
+        titan: [
+          fake.toolCall('access_request', {
+            access: 'service',
+            service: 'Anteiku',
+            why: 'Clienti',
+          }),
+          fake.text('Dico a Giulio di ricollegarlo.'),
+        ],
+      },
+      { hub: { askWaitMs: 5_000 } },
+    );
+    const fa = await startFakeAnteiku();
+    fakes.push(fa);
+    // Signed in with OAuth never done: the server is given to the monster but has no access.
+    await t.json('PUT', '/api/mcp-servers/anteiku', {
+      transport: 'http',
+      url: fa.mcpUrl,
+      label: 'Anteiku',
+      catalog: 'anteiku',
+      agents: ['*'],
+      oauth: true,
+    });
+    expect(t.core.hub.mcp.unlinkedFor(t.core.hub.team.get('titan')!)).toEqual(['Anteiku']);
+    const sent = await t.json<{ runId: string }>('POST', '/api/messages', { text: 'Anteiku' });
+    await t.runEnded(sent.runId);
+    expect(t.core.hub.questions.list({})).toEqual([]);
+    const result = t
+      .events(sent.runId)
+      .find((e) => e.type === 'tool_result' && e.data.tool === 'access_request');
+    const text = JSON.stringify(result?.data);
+    expect(text).toContain('already');
+    expect(text).toContain('Anteiku is yours already, but it is not responding now');
+    expect(text).toContain('Impostazioni → Collegamenti');
+    expect(text).toContain('No card was shown');
   });
 
   it('the browser for a project: given by name to its monsters when it is not the whole team’s', async () => {

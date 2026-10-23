@@ -116,6 +116,10 @@ const en = {
     `Tell the user to turn it on in ${settingsPath('altriProgrammi', 'Browser')}.`,
   serviceReaches: (label: string) =>
     `${label} reaches the monsters of the personal squad already when it is given to the whole team: if its tools are missing, it is not signed in (${settingsPath('collegamenti')}).`,
+  serviceYours: (label: string, prefix: string, unlinked: boolean) =>
+    unlinked
+      ? `${label} is yours already, but it is not responding now (sign-in expired or an error): tell the user to reconnect it in ${settingsPath('collegamenti')}. No card was shown.`
+      : `${label} is yours already: its tools are yours in this job (\`${prefix}…\`, call them by name or find them with \`tools_search\`). No card was shown to the user: go on with the work.`,
   serviceOnAlready: (label: string, project: string, viaClaude: boolean) =>
     `${label} is on for “${project}” already. If its tools are missing, the user signs in again in ${settingsPath('collegamenti')}${viaClaude ? ' (and only monsters working with Claude get it)' : ''}.`,
   onlyUserChanges: (where: string, user: string) =>
@@ -234,6 +238,10 @@ const it: typeof en = {
     'Tell the user to turn it on in Impostazioni → Collegamenti → Altri programmi → Browser.',
   serviceReaches: (label) =>
     `${label} reaches the monsters of the personal squad already when it is given to the whole team: if its tools are missing, it is not signed in (Impostazioni → Collegamenti).`,
+  serviceYours: (label, prefix, unlinked) =>
+    unlinked
+      ? `${label} is yours already, but it is not responding now (sign-in expired or an error): tell the user to reconnect it in Impostazioni → Collegamenti. No card was shown.`
+      : `${label} is yours already: its tools are yours in this job (\`${prefix}…\`, call them by name or find them with \`tools_search\`). No card was shown to the user: go on with the work.`,
   serviceOnAlready: (label, project, viaClaude) =>
     `${label} is on for «${project}» already. If its tools are missing, the user signs in again in Impostazioni → Collegamenti${viaClaude ? ' (and only monsters working with Claude get it)' : ''}.`,
   onlyUserChanges: (where, user) => `Only the user changes who uses it, in ${where}: tell ${user}.`,

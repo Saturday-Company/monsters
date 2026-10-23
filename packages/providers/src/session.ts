@@ -268,6 +268,7 @@ export class ModelSession implements LanguageModelV4 {
   /** Links moved to the end of the chain by `demote` (a model that keeps answering badly). */
   readonly #demoted: ModelRef[] = [];
   #contextRescue: ContextRescue | null = null;
+  #toolFilter: ((name: string) => boolean) | null = null;
   #abandoned: AbandonedAttempt[] = [];
 
   constructor(options: ModelSessionOptions) {
@@ -334,6 +335,15 @@ export class ModelSession implements LanguageModelV4 {
     this.#contextRescue = rescue;
   }
 
+  /**
+   * Which of the request's function tools go to the model (D-163): the caller keeps every tool
+   * of a run callable, so a deferred tool called by its name runs at once, and sends only the
+   * ones loaded so far. Null sends them all.
+   */
+  setToolFilter(filter: ((name: string) => boolean) | null): void {
+    this.#toolFilter = filter;
+  }
+
   /** The requests given up since the last call, which the provider may still bill (F-A4). */
   takeAbandoned(): AbandonedAttempt[] {
     const out = this.#abandoned;
@@ -373,181 +383,191 @@ export class ModelSession implements LanguageModelV4 {
   }
 
   async doGenerate(options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
-    return this.#withFallback(options, async (model, ref, provider, options) => {
-      const started = Date.now();
-      const result = await model.doGenerate(callOptionsFor(options, provider, ref));
-      provider.budget.update(result.response?.headers, undefined, ref.model);
-      if (!hasAnswer(result)) {
-        this.#abandon(provider, ref, result.response?.modelId, {
-          reason: 'empty',
-          chars: 0,
-          started,
-          usage: result.usage,
-          providerMetadata: result.providerMetadata,
-        });
-        throw new EmptyResponseError(result.finishReason.raw);
-      }
-      return { value: result, servedModel: result.response?.modelId, ref };
-    });
+    return this.#withFallback(
+      sentTools(options, this.#toolFilter),
+      async (model, ref, provider, options) => {
+        const started = Date.now();
+        const result = await model.doGenerate(callOptionsFor(options, provider, ref));
+        provider.budget.update(result.response?.headers, undefined, ref.model);
+        if (!hasAnswer(result)) {
+          this.#abandon(provider, ref, result.response?.modelId, {
+            reason: 'empty',
+            chars: 0,
+            started,
+            usage: result.usage,
+            providerMetadata: result.providerMetadata,
+          });
+          throw new EmptyResponseError(result.finishReason.raw);
+        }
+        return { value: result, servedModel: result.response?.modelId, ref };
+      },
+    );
   }
 
   async doStream(options: LanguageModelV4CallOptions): Promise<LanguageModelV4StreamResult> {
     const idleMs = this.#idleChunkMs;
-    return this.#withFallback(options, async (model, ref, provider, options) => {
-      const requested = Date.now();
-      const firstMs = provider.firstChunkTimeoutMs ?? this.#firstChunkMs ?? DEFAULT_FIRST_CHUNK_MS;
-      // The time of the first token covers the request too (a server that
-      // accepts the connection and never answers): this attempt gets its own
-      // abort, the caller's signal still stops everything.
-      const late = new AbortController();
-      // The wait for the first answer part; a model that is reasoning shows signs of life,
-      // so each reasoning part moves it on by the idle time instead (F-A5).
-      let waitMs = firstMs;
-      const timeout = () => new StreamTimeoutError(ref, 'first', waitMs);
-      let timer = setTimeout(() => late.abort(timeout()), waitMs);
-      const callSignal = options.abortSignal
-        ? AbortSignal.any([options.abortSignal, late.signal])
-        : late.signal;
-      /** A failure caused by the first-token time is that timeout, not an abort. */
-      const asTimeout = (err: unknown) =>
-        late.signal.aborted && !options.abortSignal?.aborted ? timeout() : err;
-      let result: LanguageModelV4StreamResult;
-      try {
-        result = await model.doStream({
-          ...callOptionsFor(options, provider, ref),
-          abortSignal: callSignal,
-        });
-      } catch (err) {
-        clearTimeout(timer);
-        throw asTimeout(err);
-      }
-      provider.budget.update(result.response?.headers, undefined, ref.model);
-      const reader = result.stream.getReader();
-      // Read ahead until the model starts answering: an error before that point
-      // (e.g. an upstream 429 sent as a stream chunk) still allows a fallback,
-      // and a stream that ends before any answer is an empty answer. A model
-      // that sends nothing in time is given up: the next link answers.
-      const buffered: LanguageModelV4StreamPart[] = [];
-      let servedModel: string | undefined;
-      let deadline = Date.now() + waitMs;
-      /** What the model sent before its answer (reasoning, blank text): billed if given up. */
-      let chars = 0;
-      const abandon = (reason: AbandonedAttempt['reason'], finish?: LanguageModelV4StreamPart) =>
-        this.#abandon(provider, ref, servedModel, {
-          reason,
-          chars,
-          started: requested,
-          ...(finish?.type === 'finish'
-            ? { usage: finish.usage, providerMetadata: finish.providerMetadata }
-            : {}),
-        });
-      for (;;) {
-        let read: ReadResult<LanguageModelV4StreamPart>;
+    return this.#withFallback(
+      sentTools(options, this.#toolFilter),
+      async (model, ref, provider, options) => {
+        const requested = Date.now();
+        const firstMs =
+          provider.firstChunkTimeoutMs ?? this.#firstChunkMs ?? DEFAULT_FIRST_CHUNK_MS;
+        // The time of the first token covers the request too (a server that
+        // accepts the connection and never answers): this attempt gets its own
+        // abort, the caller's signal still stops everything.
+        const late = new AbortController();
+        // The wait for the first answer part; a model that is reasoning shows signs of life,
+        // so each reasoning part moves it on by the idle time instead (F-A5).
+        let waitMs = firstMs;
+        const timeout = () => new StreamTimeoutError(ref, 'first', waitMs);
+        let timer = setTimeout(() => late.abort(timeout()), waitMs);
+        const callSignal = options.abortSignal
+          ? AbortSignal.any([options.abortSignal, late.signal])
+          : late.signal;
+        /** A failure caused by the first-token time is that timeout, not an abort. */
+        const asTimeout = (err: unknown) =>
+          late.signal.aborted && !options.abortSignal?.aborted ? timeout() : err;
+        let result: LanguageModelV4StreamResult;
         try {
-          read = await readWithin(reader, Math.max(0, deadline - Date.now()), timeout);
+          result = await model.doStream({
+            ...callOptionsFor(options, provider, ref),
+            abortSignal: callSignal,
+          });
         } catch (err) {
           clearTimeout(timer);
-          const why = asTimeout(err);
-          if (why instanceof StreamTimeoutError) await reader.cancel(why).catch(() => {});
-          abandon(why instanceof StreamTimeoutError ? 'timeout' : 'aborted');
-          throw why;
+          throw asTimeout(err);
         }
-        const { value, done } = read;
-        if (done || value.type === 'finish' || value.type === 'error' || isAnswerPart(value)) {
-          clearTimeout(timer);
-        }
-        if (done) {
-          abandon('empty');
-          throw new EmptyResponseError();
-        }
-        if (value.type === 'finish') {
-          await reader.cancel().catch(() => {});
-          abandon('empty', value);
-          throw new EmptyResponseError(value.finishReason.raw ?? value.finishReason.unified);
-        }
-        if (value.type === 'error') {
-          await reader.cancel().catch(() => {});
-          abandon('error');
-          // The ChatGPT plan refused: as it arrives, never a fallback.
-          if (value.error instanceof SubscriptionPlanError) throw value.error;
-          const status = statusOf(value.error);
-          if (status !== undefined) provider.budget.update(undefined, status, ref.model);
-          throw new StreamFailedError(value.error);
-        }
-        if (value.type === 'response-metadata' && value.modelId) servedModel = value.modelId;
-        if (value.type === 'text-delta' || value.type === 'reasoning-delta') {
-          chars += value.delta.length;
-        }
-        buffered.push(value);
-        if (isAnswerPart(value)) break;
-        if (value.type.startsWith('reasoning-')) {
-          // Reasoning is alive but not yet an answer: wait for the next sign, not the first token.
-          waitMs = idleMs;
-          deadline = Date.now() + waitMs;
-          clearTimeout(timer);
-          timer = setTimeout(() => late.abort(timeout()), waitMs);
-        }
-      }
-      // After the first token: a failure or a silence ends the stream with a
-      // `StreamInterruptedError` chunk (the loop may ask the step again); an
-      // abort stays an abort.
-      let ended = false;
-      let finished = false;
-      const marker = options.includeRawChunks === true;
-      const stream = new ReadableStream<LanguageModelV4StreamPart>({
-        start(controller) {
-          if (marker) controller.enqueue({ type: 'raw', rawValue: STREAM_START });
-          for (const part of buffered) controller.enqueue(part);
-        },
-        async pull(controller) {
-          if (ended) return;
+        provider.budget.update(result.response?.headers, undefined, ref.model);
+        const reader = result.stream.getReader();
+        // Read ahead until the model starts answering: an error before that point
+        // (e.g. an upstream 429 sent as a stream chunk) still allows a fallback,
+        // and a stream that ends before any answer is an empty answer. A model
+        // that sends nothing in time is given up: the next link answers.
+        const buffered: LanguageModelV4StreamPart[] = [];
+        let servedModel: string | undefined;
+        let deadline = Date.now() + waitMs;
+        /** What the model sent before its answer (reasoning, blank text): billed if given up. */
+        let chars = 0;
+        const abandon = (reason: AbandonedAttempt['reason'], finish?: LanguageModelV4StreamPart) =>
+          this.#abandon(provider, ref, servedModel, {
+            reason,
+            chars,
+            started: requested,
+            ...(finish?.type === 'finish'
+              ? { usage: finish.usage, providerMetadata: finish.providerMetadata }
+              : {}),
+          });
+        for (;;) {
+          let read: ReadResult<LanguageModelV4StreamPart>;
           try {
-            const { value, done } = await readWithin(
-              reader,
-              idleMs,
-              () => new StreamTimeoutError(ref, 'idle', idleMs),
-            );
-            // A connection closed cleanly in the middle of the answer: some providers turn it
-            // into a finish `other` without usage, others just end the stream. Neither is a
-            // complete answer (F-M4): the loop may ask the step again, as for a failure.
-            const cut = done ? !finished : value.type === 'finish' && closedWithoutFinish(value);
-            if (cut) {
-              ended = true;
-              controller.enqueue({
-                type: 'error',
-                error: new StreamInterruptedError(
-                  new Error('the stream closed before the end of the answer'),
-                ),
-              });
-              controller.close();
-              if (!done) await reader.cancel().catch(() => {});
-            } else if (done) controller.close();
-            else if (value.type === 'error' && !(value.error instanceof SubscriptionPlanError)) {
-              ended = true;
-              controller.enqueue({ type: 'error', error: new StreamInterruptedError(value.error) });
-              controller.close();
-              await reader.cancel().catch(() => {});
-            } else {
-              if (value.type === 'finish') finished = true;
-              controller.enqueue(value);
-            }
+            read = await readWithin(reader, Math.max(0, deadline - Date.now()), timeout);
           } catch (err) {
-            if (options.abortSignal?.aborted || isAbortError(err)) {
-              controller.error(err);
-              return;
-            }
-            ended = true;
-            controller.enqueue({ type: 'error', error: new StreamInterruptedError(err) });
-            controller.close();
-            await reader.cancel(err).catch(() => {});
+            clearTimeout(timer);
+            const why = asTimeout(err);
+            if (why instanceof StreamTimeoutError) await reader.cancel(why).catch(() => {});
+            abandon(why instanceof StreamTimeoutError ? 'timeout' : 'aborted');
+            throw why;
           }
-        },
-        async cancel(reason) {
-          await reader.cancel(reason);
-        },
-      });
-      return { value: { ...result, stream }, servedModel, ref };
-    });
+          const { value, done } = read;
+          if (done || value.type === 'finish' || value.type === 'error' || isAnswerPart(value)) {
+            clearTimeout(timer);
+          }
+          if (done) {
+            abandon('empty');
+            throw new EmptyResponseError();
+          }
+          if (value.type === 'finish') {
+            await reader.cancel().catch(() => {});
+            abandon('empty', value);
+            throw new EmptyResponseError(value.finishReason.raw ?? value.finishReason.unified);
+          }
+          if (value.type === 'error') {
+            await reader.cancel().catch(() => {});
+            abandon('error');
+            // The ChatGPT plan refused: as it arrives, never a fallback.
+            if (value.error instanceof SubscriptionPlanError) throw value.error;
+            const status = statusOf(value.error);
+            if (status !== undefined) provider.budget.update(undefined, status, ref.model);
+            throw new StreamFailedError(value.error);
+          }
+          if (value.type === 'response-metadata' && value.modelId) servedModel = value.modelId;
+          if (value.type === 'text-delta' || value.type === 'reasoning-delta') {
+            chars += value.delta.length;
+          }
+          buffered.push(value);
+          if (isAnswerPart(value)) break;
+          if (value.type.startsWith('reasoning-')) {
+            // Reasoning is alive but not yet an answer: wait for the next sign, not the first token.
+            waitMs = idleMs;
+            deadline = Date.now() + waitMs;
+            clearTimeout(timer);
+            timer = setTimeout(() => late.abort(timeout()), waitMs);
+          }
+        }
+        // After the first token: a failure or a silence ends the stream with a
+        // `StreamInterruptedError` chunk (the loop may ask the step again); an
+        // abort stays an abort.
+        let ended = false;
+        let finished = false;
+        const marker = options.includeRawChunks === true;
+        const stream = new ReadableStream<LanguageModelV4StreamPart>({
+          start(controller) {
+            if (marker) controller.enqueue({ type: 'raw', rawValue: STREAM_START });
+            for (const part of buffered) controller.enqueue(part);
+          },
+          async pull(controller) {
+            if (ended) return;
+            try {
+              const { value, done } = await readWithin(
+                reader,
+                idleMs,
+                () => new StreamTimeoutError(ref, 'idle', idleMs),
+              );
+              // A connection closed cleanly in the middle of the answer: some providers turn it
+              // into a finish `other` without usage, others just end the stream. Neither is a
+              // complete answer (F-M4): the loop may ask the step again, as for a failure.
+              const cut = done ? !finished : value.type === 'finish' && closedWithoutFinish(value);
+              if (cut) {
+                ended = true;
+                controller.enqueue({
+                  type: 'error',
+                  error: new StreamInterruptedError(
+                    new Error('the stream closed before the end of the answer'),
+                  ),
+                });
+                controller.close();
+                if (!done) await reader.cancel().catch(() => {});
+              } else if (done) controller.close();
+              else if (value.type === 'error' && !(value.error instanceof SubscriptionPlanError)) {
+                ended = true;
+                controller.enqueue({
+                  type: 'error',
+                  error: new StreamInterruptedError(value.error),
+                });
+                controller.close();
+                await reader.cancel().catch(() => {});
+              } else {
+                if (value.type === 'finish') finished = true;
+                controller.enqueue(value);
+              }
+            } catch (err) {
+              if (options.abortSignal?.aborted || isAbortError(err)) {
+                controller.error(err);
+                return;
+              }
+              ended = true;
+              controller.enqueue({ type: 'error', error: new StreamInterruptedError(err) });
+              controller.close();
+              await reader.cancel(err).catch(() => {});
+            }
+          },
+          async cancel(reason) {
+            await reader.cancel(reason);
+          },
+        });
+        return { value: { ...result, stream }, servedModel, ref };
+      },
+    );
   }
 
   async #withFallback<T>(
@@ -715,6 +735,19 @@ export class ModelSession implements LanguageModelV4 {
       this.#onEvent({ type: 'pinned', ref, requested });
     }
   }
+}
+
+/** The request with only the function tools the filter lets through (provider tools stay). */
+function sentTools(
+  options: LanguageModelV4CallOptions,
+  filter: ((name: string) => boolean) | null,
+): LanguageModelV4CallOptions {
+  if (!filter || !options.tools) return options;
+  const tools = options.tools.filter((t) => t.type !== 'function' || filter(t.name));
+  if (tools.length === options.tools.length) return options;
+  if (tools.length > 0) return { ...options, tools };
+  const { tools: _tools, toolChoice: _choice, ...rest } = options;
+  return rest;
 }
 
 /**

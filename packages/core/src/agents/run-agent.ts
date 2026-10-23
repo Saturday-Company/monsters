@@ -489,6 +489,22 @@ export function instructionsForTools(instructions: string, toolNames: readonly s
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
+ * The words the preload of the MCP tools ranks by (D-163): the request and the user's last
+ * messages before it.
+ */
+export function turnWords(task: TaskBrief, history: readonly ModelMessage[]): string {
+  const said = history
+    .filter((m) => m.role === 'user')
+    .slice(-2)
+    .map((m) =>
+      typeof m.content === 'string'
+        ? m.content
+        : m.content.map((p) => (p.type === 'text' ? p.text : '')).join(' '),
+    );
+  return [task.goal, ...(task.why ? [task.why] : []), ...said].join('\n');
+}
+
+/**
  * What the run tells the model about tools it called while they were not sent (D-134): loaded
  * now, past the run's cap, or not tools of this run. Never the user's no.
  */
@@ -636,6 +652,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
               }),
             ),
           options.deferOwn,
+          turnWords(task, options.history ?? []),
         );
   const agentTools = deferral ? [...withContext, deferral.tool()] : withContext;
 
@@ -778,6 +795,8 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     return folded;
   };
   session.setContextRescue(rescue);
+  // Every tool of the run can be called, only the loaded ones are sent (D-163).
+  if (deferral) session.setToolFilter((name) => deferral.sends(name));
 
   const limits = agent.config.limits;
   const maxTokens = agentTokenLimit(agent.config, budget?.limits);
@@ -1049,6 +1068,14 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
         // A waiting tool called by its name (the card names it) before a search: it is
         // loaded now, so the call that failed works at the next step (D-098).
         const missedNote: ModelMessage[] = [];
+        // A waiting tool called by its name ran at once (D-163): from now on it is sent.
+        if (deferral) {
+          deferral.calledDirectly(
+            (done.at(-1)?.content ?? [])
+              .filter((p) => p.type === 'tool-call' && !(p as { invalid?: boolean }).invalid)
+              .map((p) => (p as { toolName: string }).toolName),
+          );
+        }
         const invalid = (done.at(-1)?.content ?? [])
           .filter((p) => p.type === 'tool-call' && (p as { invalid?: boolean }).invalid)
           .map((p) => (p as { toolName: string }).toolName);
@@ -1123,10 +1150,10 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
         stepParts = meter.measure(next, active ?? true);
         stepInput = guard.calibrated(sumParts(stepParts));
         if (!active) return next === messages ? undefined : { messages: next };
-        // A fixed order and a set that only grows: the prefix changes once per load.
+        // A fixed order and a set that only grows: the prefix changes once per load. Every tool
+        // stays active, so one called by its name runs; the session sends the loaded ones (D-163).
         return {
           ...(next === messages ? {} : { messages: next }),
-          activeTools: active,
           toolOrder: active,
         };
       },
@@ -1406,6 +1433,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     else streamError ??= err;
   } finally {
     session.setContextRescue(null);
+    session.setToolFilter(null);
     if (held !== null) {
       // The extra steps called no tool: their text is dropped, the first answer stands.
       parts = heldParts;

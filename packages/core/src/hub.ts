@@ -1083,10 +1083,17 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     const webOff = team.webOff(agent.config.id);
     const project = team.projectOf(agent.config.id)?.name;
     const cut = mcp.cutFor(agent.config.id);
+    const labels = Object.fromEntries(
+      mcp
+        .view()
+        .servers.filter((s) => s.label && s.label !== s.name)
+        .map((s) => [s.name, s.label]),
+    );
     return {
       ...(webOff ? { webOff } : {}),
       ...(project ? { project } : {}),
       ...(cut.length > 0 ? { cut } : {}),
+      ...(Object.keys(labels).length > 0 ? { labels } : {}),
     };
   };
   /**

@@ -31,6 +31,34 @@ describe('tool call repair (AG-17)', () => {
     expect(matchToolName('web_search', names)).toBeUndefined();
   });
 
+  it('maps an MCP tool called without its mcp__server__ prefix; a lone word never does (D-163)', () => {
+    const mcp = [
+      'vault_read',
+      'mcp__anteiku__anteiku_task_crea',
+      'mcp__anteiku__anteiku_clienti_crea',
+      'mcp__anteiku__anteiku_task_elenca',
+      'mcp__anteiku__search',
+      'mcp__notion__search',
+    ];
+    // The whole name after the prefix, in other spellings too.
+    expect(matchToolName('anteiku_task_crea', mcp)).toBe('mcp__anteiku__anteiku_task_crea');
+    expect(matchToolName('AnteikuTaskCrea', mcp)).toBe('mcp__anteiku__anteiku_task_crea');
+    expect(matchToolName('anteiku-task-elenca', mcp)).toBe('mcp__anteiku__anteiku_task_elenca');
+    // A unique tail with an underscore.
+    expect(matchToolName('task_crea', mcp)).toBe('mcp__anteiku__anteiku_task_crea');
+    expect(matchToolName('clienti_crea', mcp)).toBe('mcp__anteiku__anteiku_clienti_crea');
+    // A lone word: many tools end so, none is guessed.
+    expect(matchToolName('crea', mcp)).toBeUndefined();
+    expect(matchToolName('elenca', mcp)).toBeUndefined();
+    // Two servers have a `search`: ambiguous, not guessed.
+    expect(matchToolName('search', mcp)).toBeUndefined();
+    // A tail shared by two tools is ambiguous too.
+    expect(matchToolName('x_crea', ['mcp__a__a_x_crea', 'mcp__b__b_x_crea'])).toBeUndefined();
+    // Names of Monsters' own tools win, and an unknown name stays unknown.
+    expect(matchToolName('vault_read', mcp)).toBe('vault_read');
+    expect(matchToolName('anteiku_task_inventa', mcp)).toBeUndefined();
+  });
+
   it('repairs the JSON free models write, or gives up', () => {
     expect(repairJson('{"a": 1}')).toBe('{"a": 1}');
     expect(JSON.parse(repairJson('```json\n{"a": 1}\n```')!)).toEqual({ a: 1 });

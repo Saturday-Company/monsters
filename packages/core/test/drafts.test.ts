@@ -387,13 +387,9 @@ async function withProject(
 }
 
 describe('tools that wait for a search (C.2, D-098)', () => {
-  it('called by name before a search: loaded, the call works at the next step', async () => {
+  it('called by name before a search: it runs at once, and is sent from the next step (D-163)', async () => {
     const t = await withProject({
-      titan: [
-        fake.toolCall('project_status', {}),
-        fake.toolCall('project_status', {}),
-        fake.text('Tutto tranquillo.'),
-      ],
+      titan: [fake.toolCall('project_status', {}), fake.text('Tutto tranquillo.')],
     });
     const runId = await ask(t, 'come vanno i progetti?');
     const results = t

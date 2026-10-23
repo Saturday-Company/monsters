@@ -104,6 +104,10 @@ export interface AccessRequestsOptions {
   mcp: {
     view(): McpServersResponse;
     upsert(name: string, req: McpServerRequest, by: Channel): Promise<unknown>;
+    /** May this monster use this server now (`McpManager.allowed`): then there is nothing to ask. */
+    allowed?(agentId: string, server: string): boolean;
+    /** The labels of its servers that are not responding (`McpManager.unlinkedFor`). */
+    unlinkedFor?(agent: AgentDefinition): string[];
   };
   /** The services through Claude (`ClaudeConnectionService.view`). */
   claude: () => ClaudeConnectionsResponse;
@@ -454,6 +458,15 @@ export class AccessRequests {
     if (input.access === 'service') {
       const name = input.service?.trim();
       if (!name) throw new ToolError('INVALID_INPUT', 'say which service (its name)');
+      // A service the monster has already (D-163): an answer, never a card to the user.
+      const forSelf =
+        (!monster || monster.config.id === self.config.id) &&
+        (!input.project?.trim() || project?.id === own?.id);
+      const mine = forSelf ? this.#serverOf(name) : undefined;
+      if (mine && this.#o.mcp.allowed?.(self.config.id, mine.name)) {
+        const unlinked = this.#o.mcp.unlinkedFor?.(self).includes(mine.label) ?? false;
+        return { done: accessPrompts().serviceYours(mine.label, `mcp__${mine.name}__`, unlinked) };
+      }
       const found = this.#findService(name);
       if (!project) {
         return {
@@ -541,18 +554,27 @@ export class AccessRequests {
     return steps;
   }
 
+  /** An MCP server (not the browser) by the name the user knows, its label or its catalog entry. */
+  #serverOf(name: string): McpServersResponse['servers'][number] | undefined {
+    const n = norm(name);
+    return this.#o.mcp
+      .view()
+      .servers.filter((s) => s.preset !== 'browser')
+      .find(
+        (s) =>
+          norm(s.name) === n ||
+          norm(s.label) === n ||
+          (s.catalog !== undefined &&
+            norm(MCP_CATALOG.find((e) => e.id === s.catalog)?.name ?? '') === n),
+      );
+  }
+
   /** A service connected to Monsters and given to the whole team, by the name the user knows. */
   #findService(name: string): { via: 'mcp' | 'claude'; id: string; label: string } {
     const n = norm(name);
     const user = this.#o.userName?.()?.trim() || 'the user';
     const servers = this.#o.mcp.view().servers.filter((s) => s.preset !== 'browser');
-    const server = servers.find(
-      (s) =>
-        norm(s.name) === n ||
-        norm(s.label) === n ||
-        (s.catalog !== undefined &&
-          norm(MCP_CATALOG.find((e) => e.id === s.catalog)?.name ?? '') === n),
-    );
+    const server = this.#serverOf(name);
     const services = this.#o.claude().connections;
     const entry = MCP_CATALOG.find(
       (e) => e.viaClaude !== undefined && (norm(e.id) === n || norm(e.name) === n),
