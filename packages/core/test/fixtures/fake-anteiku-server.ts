@@ -382,6 +382,12 @@ function anteikuServer(
   return server;
 }
 
+export interface Fault {
+  status?: number;
+  delayMs?: number;
+  drop?: boolean;
+}
+
 export interface FakeAnteiku {
   base: string;
   mcpUrl: string;
@@ -398,6 +404,18 @@ export interface FakeAnteiku {
   authorizations: { scope: string | null; resource: string | null }[];
   grants: string[];
   revoked: string[];
+  /** The OAuth access tokens stop being valid (a refresh token still gets new ones). */
+  expireAccessTokens(): void;
+  /** Every OAuth token, access and refresh, is gone (password changed, grant revoked). */
+  revokeAll(): void;
+  /** The personal token is no longer accepted (the key was revoked). */
+  revokePersonalToken(): void;
+  /**
+   * The next `times` tool calls (`tools/call`) meet a fault: they are answered `status` instead of
+   * running, held for `delayMs` before running (a slow tool: it runs on the server even if the
+   * client gave up), or the connection is cut (`drop`) before the tool runs.
+   */
+  fault(f: Fault, times?: number): void;
   close(): Promise<void>;
 }
 
@@ -418,9 +436,20 @@ export async function startFakeAnteiku(): Promise<FakeAnteiku> {
   >();
   const valid = new Set<string>([personalToken]);
   const refreshValid = new Map<string, string>();
+  const accessIssued = new Set<string>();
+  const faults: Fault[] = [];
   const state: Omit<
     FakeAnteiku,
-    'base' | 'mcpUrl' | 'personalToken' | 'calls' | 'rewrite' | 'close'
+    | 'base'
+    | 'mcpUrl'
+    | 'personalToken'
+    | 'calls'
+    | 'rewrite'
+    | 'expireAccessTokens'
+    | 'revokeAll'
+    | 'revokePersonalToken'
+    | 'fault'
+    | 'close'
   > = {
     origins: [],
     registrations: [],
@@ -437,6 +466,7 @@ export async function startFakeAnteiku(): Promise<FakeAnteiku> {
     const access = `anteiku_at_${b64url(randomBytes(18))}`;
     const refresh = `anteiku_rt_${b64url(randomBytes(18))}`;
     valid.add(access);
+    accessIssued.add(access);
     refreshValid.set(refresh, clientId);
     return json({
       access_token: access,
@@ -447,7 +477,10 @@ export async function startFakeAnteiku(): Promise<FakeAnteiku> {
     });
   };
 
-  const fetchHandler = async (req: Request): Promise<Response> => {
+  const fetchHandler = async (
+    req: Request,
+    env?: { incoming?: { socket?: { destroy(): void } } },
+  ): Promise<Response> => {
     const url = new URL(req.url);
     const path = url.pathname;
     if (
@@ -570,6 +603,18 @@ export async function startFakeAnteiku(): Promise<FakeAnteiku> {
           'www-authenticate': `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource/mcp", scope="anteiku"`,
         });
       }
+      if (faults.length > 0 && req.method === 'POST') {
+        const body = await req.clone().text();
+        if (/"method"\s*:\s*"tools\/call"/.test(body)) {
+          const fault = faults.shift()!;
+          if (fault.drop) {
+            env?.incoming?.socket?.destroy();
+            return new Promise<Response>(() => {});
+          }
+          if (fault.status) return json({ error: 'fault' }, fault.status);
+          if (fault.delayMs) await new Promise((r) => setTimeout(r, fault.delayMs));
+        }
+      }
       return handler.fetch(req);
     }
     return json({ error: 'not found' }, 404);
@@ -589,6 +634,20 @@ export async function startFakeAnteiku(): Promise<FakeAnteiku> {
     personalToken,
     calls,
     rewrite: (tool: string, description: string) => void rewritten.set(tool, description),
-    close: () => new Promise<void>((r) => server.close(() => r())),
+    expireAccessTokens: () => {
+      for (const a of accessIssued) valid.delete(a);
+    },
+    revokeAll: () => {
+      for (const a of accessIssued) valid.delete(a);
+      refreshValid.clear();
+    },
+    revokePersonalToken: () => void valid.delete(personalToken),
+    fault: (f: Fault, times = 1) => void faults.push(...Array.from({ length: times }, () => f)),
+    close: () =>
+      new Promise<void>((r) => {
+        server.close(() => r());
+        // A held or cut request must not keep the test waiting.
+        (server as { closeAllConnections?: () => void }).closeAllConnections?.();
+      }),
   });
 }

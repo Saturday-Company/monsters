@@ -72,7 +72,7 @@ const { values: args } = parseArgs({
   },
 });
 
-type CaseName = 'anteiku' | 'github';
+type CaseName = 'anteiku' | 'github' | 'demo';
 
 /** A fake MCP server of a case: what the eval needs of both fixtures. */
 interface Fake {
@@ -83,8 +83,9 @@ interface Fake {
 }
 
 interface CaseDef {
-  /** The id the server is registered under: tools are named `mcp__<id>__<tool>`. */
   id: CaseName;
+  /** The name the server is registered under (default the id): tools are `mcp__<server>__<tool>`. */
+  server?: string;
   label: string;
   /** Prefix in the printed tool list (`A:`, `G:`). */
   short: string;
@@ -94,7 +95,8 @@ interface CaseDef {
   /** `catalog` of the registration (Anteiku has a built-in one, GitHub none). */
   catalog?: string;
   start(): Promise<Fake>;
-  success(fake: Fake): boolean;
+  /** Did the run do the task: the fake's calls, or the tools the run called (a real server). */
+  success(fake: Fake, called: readonly string[], answer: string): boolean;
   /** Whether a tool (the server's own name) only reads; undefined when unknown. */
   readOnly(tool: string): boolean | undefined;
 }
@@ -154,13 +156,44 @@ const CASES: Record<CaseName, CaseDef> = {
       ),
     readOnly: (tool) => GITHUB_READ.get(tool),
   },
+  // The real demo of Anteiku (D-163), read only: a personal token of one day made for the trial
+  // and revoked after it, in a file outside the repo. Never in CI.
+  demo: {
+    id: 'demo',
+    server: 'anteiku',
+    label: 'Anteiku',
+    short: 'A:',
+    task:
+      'In Anteiku: fammi un riepilogo dei clienti attivi, poi trova il cliente Ferramenta Colli ' +
+      'e dimmi quali task sono aperte nei suoi progetti. Non modificare niente.',
+    fallbackAnswer: 'Decidi tu.',
+    catalog: 'anteiku',
+    start: () => {
+      const url = process.env.MONSTERS_EVAL_DEMO_URL;
+      const file = process.env.MONSTERS_EVAL_DEMO_TOKEN_FILE;
+      if (!url || !file)
+        throw new Error('demo: MONSTERS_EVAL_DEMO_URL and MONSTERS_EVAL_DEMO_TOKEN_FILE');
+      const token = (JSON.parse(readFileSync(file, 'utf8')) as { gettone: string }).gettone;
+      return Promise.resolve({
+        mcpUrl: url,
+        personalToken: token,
+        calls: [],
+        close: () => Promise.resolve(),
+      });
+    },
+    success: (_fake, called, answer) =>
+      called.some((t) => /clienti_(elenca|leggi)|^search$/.test(t)) &&
+      called.some((t) => /task_(elenca|leggi)|progetti_leggi/.test(t)) &&
+      answer.trim().length > 0,
+    readOnly: (tool) => ANTEIKU_READ.get(tool),
+  },
 };
 
 const caseNames = (): CaseName[] => {
   const c = args.case;
   if (c === 'both') return ['anteiku', 'github'];
-  if (c === 'anteiku' || c === 'github') return [c];
-  throw new Error(`--case must be anteiku, github or both (got ${c})`);
+  if (c === 'anteiku' || c === 'github' || c === 'demo') return [c];
+  throw new Error(`--case must be anteiku, github, both or demo (got ${c})`);
 };
 
 function loadKey(name: string): string {
@@ -244,7 +277,7 @@ async function once(key: string, n: number, def: CaseDef): Promise<Row> {
     });
     const capo = hub.team.orchestrator()!;
     await hub.mcp.upsert(
-      def.id,
+      def.server ?? def.id,
       {
         transport: 'http',
         url: fa.mcpUrl,
@@ -316,7 +349,7 @@ async function once(key: string, n: number, def: CaseDef): Promise<Row> {
       0,
     );
     const toolEvents = events.filter((e): e is LogEvent<'tool_call'> => e.type === 'tool_call');
-    const prefix = `mcp__${def.id}__`;
+    const prefix = `mcp__${def.server ?? def.id}__`;
     const short = (tool: string) => tool.replace(prefix, def.short);
     const questions = events.filter((e): e is LogEvent<'question'> => e.type === 'question');
     // A brake card hangs from the call it holds (`parentId` = the `tool_call` event).
@@ -331,7 +364,13 @@ async function once(key: string, n: number, def: CaseDef): Promise<Row> {
       case: def.id,
       model: args.model,
       status: run?.data.status ?? '?',
-      success: def.success(fa),
+      success: def.success(
+        fa,
+        toolEvents.flatMap((e) =>
+          e.data.tool.startsWith(prefix) ? [e.data.tool.slice(prefix.length)] : [],
+        ),
+        finals.at(-1)?.data.text ?? '',
+      ),
       steps: usage.length,
       inputPerStep: usage.map((u) => u.data.inputTokens ?? 0),
       inputTokens: usage.reduce((s, u) => s + (u.data.inputTokens ?? 0), 0),

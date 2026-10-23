@@ -395,6 +395,33 @@ function isConnectionLost(err: unknown): boolean {
 }
 
 /**
+ * The request never got an answer: the server cut the connection, refused it, or could not be
+ * found (undici reports all of them as `TypeError: fetch failed` with the code in `cause`). Not
+ * known whether the server ran the call; the connection is worth opening again.
+ */
+function isNetworkFailure(err: unknown): boolean {
+  if (err instanceof SdkHttpError || (err as { name?: string } | null)?.name === 'AbortError') {
+    return false;
+  }
+  if (err instanceof TypeError && err.message === 'fetch failed') return true;
+  const code = errorCode(err);
+  return code !== undefined && NETWORK_ERROR_CODES.has(code);
+}
+
+const NETWORK_ERROR_CODES: ReadonlySet<string> = new Set([
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ECONNABORTED',
+  'EPIPE',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'UND_ERR_SOCKET',
+  'UND_ERR_CLOSED',
+  'UND_ERR_CONNECT_TIMEOUT',
+]);
+
+/**
  * An HTTP server answered 404 to a request with our session id: it restarted
  * (or dropped the session) and did not run the request. The spec asks for a new
  * session; repeating the request once is safe.
@@ -864,7 +891,7 @@ class Connection {
     options: { readOnly?: boolean } = {},
   ): Promise<string> {
     let result: CallToolResult | undefined;
-    let retried5xx = false;
+    let retried = false;
     for (let attempt = 0; !result; attempt++) {
       try {
         await this.ensure(signal);
@@ -915,7 +942,14 @@ class Connection {
           this.#lost(generation, true);
           continue;
         }
-        if (isConnectionLost(err) || isSessionExpired(err)) {
+        const dropped = this.setting.transport === 'http' && isNetworkFailure(err);
+        if (dropped && options.readOnly && !retried) {
+          // The server cut the connection: a read changes nothing, so one new try on a new one.
+          retried = true;
+          this.#lost(generation, true);
+          continue;
+        }
+        if (isConnectionLost(err) || isSessionExpired(err) || dropped) {
           this.#lost(generation, true);
           throw new ToolError(
             'UNAVAILABLE',
@@ -968,11 +1002,16 @@ class Connection {
             throw this.signInError();
           }
         }
-        // A read-only call changes nothing: one new try after a 5xx, after a pause.
-        if (options.readOnly && !retried5xx && err instanceof SdkHttpError && err.status >= 500) {
-          retried5xx = true;
-          await sleep(RETRY_5XX_MS, undefined, { signal });
-          continue;
+        if (err instanceof SdkHttpError && err.status >= 500) {
+          // The server is in trouble and its session may be gone with it: the next call opens a
+          // new one (a server that stays down is then `brokenNow`, as at any start).
+          this.#lost(generation, true);
+          // A read-only call changes nothing: one new try after a 5xx, after a pause.
+          if (options.readOnly && !retried) {
+            retried = true;
+            await sleep(RETRY_5XX_MS, undefined, { signal });
+            continue;
+          }
         }
         const http = httpFailure(this.name, err);
         if (http) throw http;

@@ -5310,3 +5310,55 @@ about 60 tokens (at most four, last in the block, written as the user would say 
 never for acts that leave the computer) and the component descriptions were cut to pay for it. The CLI shows "You can
 reply: «…»". *Limits:* the Telegram labels are not persisted; a button cannot take an option of a question: that is
 `ask_user`.
+
+### D-163 · MCP connectors without blocks: every name in the card, a deferred tool runs when called, the brake on what matters
+**Status:** done · 23/10/2026 (testers: "the link to Anteiku doesn't work"; plan approved the same day)
+**Context:** the connection worked (OAuth, 111 tools on the real Anteiku), the use did not. Past the threshold of
+`tools_search` (30, free 12) a monster got only the MCP tools it had used lately, so none at first; the card said
+"many tools: look them up". gpt-oss-20b asked the user for "the URL of the clients page" or for an access the service
+already had; qwen needed four searches; Haiku paged a list of 40 clients with 50 `result_read` (700k tokens). Claude
+Code does not have these problems because it names every deferred tool in its context and loads the one called; Codex
+saw the first 40 tools in the server's order (`anteiku_task_crea` out, D-081).
+**Choices:**
+- **Every name in the card** (`toolCatalog`, `monsters-card.ts`): when the MCP tools wait, each service's tools are
+  listed in a few words, `anteiku_clienti_{crea,elenca,…} · anteiku_task_{…}` (grouped by head, area or verb, the
+  shortest; groups only, then a count, past 2,600 characters), under the name the user knows (`labels` from the
+  servers) and with an example full name: ~560 tokens for Anteiku, in the stable part of the prompt. The services line
+  says they are already the monster's: never ask the user for access, keys or addresses.
+- **A deferred tool runs when called**: every tool of the run stays active for the AI SDK and the model session sends
+  only the loaded ones (`ModelSession.setToolFilter`, `DeferredTools.sends`); a waiting tool called by its full name
+  runs in that step and is sent from the next (`calledDirectly`). `matchToolName` also maps a name without
+  `mcp__<server>__`, or a unique `_` tail, to the tool. Before, the call failed and was loaded for the next step.
+- **Preload by the turn's words** (`preloadOf`): the tools whose own name words are in the request and the last
+  messages (share ≥ 0.5, BM25 for ties; the words every tool shares, `anteiku`, do not count), then the recent ones;
+  with neither, a few entry tools (search first). Plain BM25 over the descriptions picked `catalogo_crea` and
+  `pagamenti_crea` for "crea… id… completo".
+- **`access_request` for a service the monster already has** answers "it is yours" (or "reconnect it" when it does
+  not respond), no card. A request whose steps give the asking monster itself a tool (its project's service, its web,
+  a server) is parked at once: its tools are fixed for the run, so the user's tap starts the next run with them,
+  instead of a "you have it from your next turn" that needed one more message.
+- **The brake on what matters** (`actionCall` in `outbound.ts`): a plain write in the user's own service (first verb
+  create, add, update, edit, set, save, move, crea, aggiorna, modifica, sposta, registra…) no longer goes to the
+  instinct; deletes, sends, publishes, pays, sharing, people in the arguments, descriptions that say they notify and
+  the server's destructive hint still ask, as do names others may see (gist, repository, review, post, release) and
+  arguments with a mail address. The data checks of the arguments (keys, private notes, addresses) are unchanged.
+  Anteiku: 91 tools never stop (43 before), 16 still go to the instinct.
+- **Long lists**: the pieces follow the model's window (`contextLimitsFor`: 16k/12k from 120k, 32k/24k from 400k;
+  defaults below), the note of a cut result names the tool's filters (its optional arguments but ids and keys), and
+  one result is read at most 8 times (`LIMIT_REACHED` with "filter or go on").
+- **Codex**: it gets all its MCP tools (up to 400); past the threshold the `monsters` MCP server lists the base tools,
+  `tools_search` (in "call" mode: schemas, nothing loaded, since Codex cannot change its tool list) and `tools_call`
+  (`{name, arguments}`), which runs any tool of the run through `session.call`, so the brake, the permissions and the
+  log see the real tool, once. The card tells Codex to use `tools_call`.
+- **A dropped connection reconnects** (`Connection.call`): `fetch failed` and the socket errors were read as the
+  server refusing the arguments and the connection stayed dead; now a read tries once more on a new connection, a
+  write says it is not known whether it ran (never repeated by us), and after a 5xx the next call opens a new
+  session. The 401 refresh-and-retry, the refused personal key and the timeouts were right and are now tested.
+**Measured** (`eval/context/run.ts`, cases `anteiku`, `github` and `demo`; `docs/eval/2026-10-23-connettori.md`):
+no `ask_user` and no access card for tools that are there; gpt-oss-20b creates the task 2/3 to 3/3 (0/2 before),
+Haiku 111k tokens in 4 steps (700k in 23), qwen 103k (285k), no brake card with the instinct on; on the real demo of
+Anteiku (read only) 4/4; nemotron-3-ultra (free) 2/2.
+**Consequence:** a connected service is usable from the first step by small models too, at a fraction of the tokens.
+Open: Claude Code and Codex not yet tried on a real service (they use the subscription); nemotron-3-super:free, the
+head of the free chain, answers 404 upstream; Parasail answers 502 when gpt-oss calls a tool that was not in the
+request.
