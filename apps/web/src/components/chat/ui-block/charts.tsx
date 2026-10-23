@@ -9,6 +9,7 @@ import {
   percent,
   seriesModel,
   valueRange,
+  isPercentUnit,
   withUnit,
   type SeriesModel,
 } from './model.ts';
@@ -488,8 +489,10 @@ export function Donut({ node }: { node: UiNode }) {
     start: (m.slices.slice(0, i).reduce((sum, x) => sum + x.value, 0) / m.total) * circumference,
     length: (slice.value / m.total) * circumference,
   }));
+  // Slices already in percent show their value only (a legend of «58% 58%» said it twice).
+  const share = (value: number) => (isPercentUnit(m.unit) ? '' : ` (${percent(value, m.total)})`);
   const detail = m.slices
-    .map((x) => `${x.label} ${withUnit(x.value, m.unit)} (${percent(x.value, m.total)})`)
+    .map((x) => `${x.label} ${withUnit(x.value, m.unit)}${share(x.value)}`)
     .join('; ');
 
   return (
@@ -527,7 +530,7 @@ export function Donut({ node }: { node: UiNode }) {
                 className="ui-slice"
                 data-testid="ui-slice"
               >
-                <title>{`${slice.label}: ${withUnit(slice.value, m.unit)} (${percent(slice.value, m.total)})`}</title>
+                <title>{`${slice.label}: ${withUnit(slice.value, m.unit)}${share(slice.value)}`}</title>
               </circle>
             ))}
           </g>
@@ -558,7 +561,9 @@ export function Donut({ node }: { node: UiNode }) {
               <Swatch shape="square" color={seriesColor(i, drawing)} />
               <span className="ui-legend-name">{x.label}</span>
               <span className="ui-legend-value">{withUnit(x.value, m.unit)}</span>
-              <span className="ui-legend-pct">{percent(x.value, m.total)}</span>
+              {!isPercentUnit(m.unit) && (
+                <span className="ui-legend-pct">{percent(x.value, m.total)}</span>
+              )}
             </li>
           ))}
         </ul>

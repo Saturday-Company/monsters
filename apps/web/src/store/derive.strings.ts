@@ -67,6 +67,7 @@ const en = {
   toolAction: {
     web_search: 'searching the web',
     web_fetch: 'reading a page',
+    ui_guide: 'reading the manual of the drawn blocks',
     vault_search: 'searching the notes',
     vault_read: 'reading a note',
     vault_list: 'listing the notes',
@@ -104,6 +105,7 @@ const en = {
   toolLabel: {
     web_search: 'Web search',
     web_fetch: 'Page read',
+    ui_guide: 'Drawing manual',
     vault_search: 'Notes search',
     vault_read: 'Note read',
     vault_list: 'Notes list',
@@ -164,6 +166,7 @@ const en = {
     project_propose: 'New project',
     automation_propose: 'New automation',
     preview_show: 'Preview',
+    ui_guide: 'Drawing manual',
     shell: 'Command',
     fs_list: 'File list',
     fs_read: 'File read',
@@ -622,6 +625,7 @@ const it: typeof en = {
   toolAction: {
     web_search: 'la ricerca sul web',
     web_fetch: 'la lettura di una pagina',
+    ui_guide: 'la lettura del manuale dei blocchi disegnati',
     vault_search: 'la ricerca nelle note',
     vault_read: 'la lettura di una nota',
     vault_list: 'l’elenco delle note',
@@ -658,6 +662,7 @@ const it: typeof en = {
   toolLabel: {
     web_search: 'Ricerca sul web',
     web_fetch: 'Lettura di una pagina',
+    ui_guide: 'Manuale dei disegni',
     vault_search: 'Ricerca nelle note',
     vault_read: 'Lettura di una nota',
     vault_list: 'Elenco delle note',
@@ -717,6 +722,7 @@ const it: typeof en = {
     project_propose: 'Nuovo progetto',
     automation_propose: 'Nuova automazione',
     preview_show: 'Anteprima',
+    ui_guide: 'Manuale dei disegni',
     shell: 'Comando',
     fs_list: 'Elenco file',
     fs_read: 'Lettura file',

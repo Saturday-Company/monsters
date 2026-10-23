@@ -248,7 +248,9 @@ export const fullNumber = (n: number): string => formatNumber(n, { maximumFracti
 /** The short form for axes and labels on bars: 1.2K. */
 export const compactNumber = (n: number): string =>
   formatNumber(n, { notation: 'compact', maximumFractionDigits: 1 });
+/** A unit that is itself a share of the whole: a percent next to it would say it twice. */
+export const isPercentUnit = (unit: string): boolean => unit.trim() === '%';
 export const withUnit = (n: number, unit: string): string =>
-  unit ? `${fullNumber(n)} ${unit}` : fullNumber(n);
+  isPercentUnit(unit) ? `${fullNumber(n)}%` : unit ? `${fullNumber(n)} ${unit}` : fullNumber(n);
 export const percent = (part: number, whole: number): string =>
   formatNumber(whole > 0 ? part / whole : 0, { style: 'percent', maximumFractionDigits: 1 });
