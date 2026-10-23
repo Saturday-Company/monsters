@@ -1,7 +1,19 @@
 import { ArrowSquareOut, FileText } from '@phosphor-icons/react';
-import { memo, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
+import { isUiFence, UI_FENCE_LANGS } from '@monsters/shared';
+import {
+  createContext,
+  lazy,
+  memo,
+  Suspense,
+  useContext,
+  useMemo,
+  type CSSProperties,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { BlockSkeleton } from '../chat/ui-block/Skeleton.tsx';
 import {
   isAppLink,
   isExternalUrl,
@@ -85,7 +97,77 @@ export function NoteChip({ target, children }: { target: string; children?: Reac
   );
 }
 
+/*
+ * Drawn blocks (D-162): a fence of language `ui` (or `openui`, `openui-lang`) is a block of
+ * OpenUI Lang, drawn by `UiBlock`. Its code (and the rest of the drawing: the components, the
+ * parser and the OpenUI library, ~50 kB gzip) loads apart from the first bundle, when a reply
+ * has a block; the skeleton stands in meanwhile. The flags it needs come by context, so
+ * `COMPONENTS` stays one object and a block does not remount when the reply stops streaming.
+ */
+const LazyUiBlock = lazy(() => import('../chat/ui-block/UiBlock.tsx'));
+
+interface MdFlags {
+  streaming: boolean;
+  onScreen: boolean;
+  drawBlocks: boolean;
+}
+const MdFlagsContext = createContext<MdFlags>({
+  streaming: false,
+  onScreen: false,
+  drawBlocks: true,
+});
+
+/** The language and text of a fenced code block, from react-markdown's tree (`pre > code`). */
+function fenceOf(node: unknown): { lang: string; text: string } | null {
+  const pre = node as { children?: HastNode[] } | undefined;
+  const code = pre?.children?.[0];
+  if (code?.type !== 'element' || code.tagName !== 'code') return null;
+  const classes = code.properties?.className;
+  const list = Array.isArray(classes) ? classes : typeof classes === 'string' ? [classes] : [];
+  const lang = list
+    .map(String)
+    .find((c) => c.startsWith('language-'))
+    ?.slice('language-'.length);
+  const text = (code.children ?? [])
+    .map((c) => (c.type === 'text' ? (c.value ?? '') : ''))
+    .join('');
+  return { lang: lang ?? '', text };
+}
+
+interface HastNode {
+  type: string;
+  tagName?: string;
+  value?: string;
+  properties?: { className?: unknown };
+  children?: HastNode[];
+}
+
+/** A fence still being typed ("```u", "```openui-"): it will be a block, so no raw code meanwhile. */
+const startsUiFence = (lang: string) =>
+  lang !== '' && UI_FENCE_LANGS.some((l) => l.startsWith(lang.toLowerCase()));
+
+function Pre({ node, children }: { node: unknown; children?: ReactNode }) {
+  const flags = useContext(MdFlagsContext);
+  const fence = flags.drawBlocks ? fenceOf(node) : null;
+  if (fence && isUiFence(fence.lang)) {
+    return (
+      <Suspense fallback={<BlockSkeleton />}>
+        <LazyUiBlock
+          source={fence.text.replace(/\n$/, '')}
+          streaming={flags.streaming}
+          onScreen={flags.onScreen}
+        />
+      </Suspense>
+    );
+  }
+  if (fence && flags.streaming && !fence.text.trim() && startsUiFence(fence.lang)) {
+    return <BlockSkeleton />;
+  }
+  return <pre>{children}</pre>;
+}
+
 const COMPONENTS: Components = {
+  pre: ({ node, children }) => <Pre node={node}>{children}</Pre>,
   a({ href, children }) {
     const url = href ?? '';
     if (isExternalUrl(url))
@@ -144,6 +226,10 @@ export interface MarkdownProps {
   style?: CSSProperties;
   /** Shows a blinking caret after the last block while the text streams in. */
   streaming?: boolean;
+  /** On a black screen (the agent terminal): drawn blocks use the colours made for it. */
+  onScreen?: boolean;
+  /** `false` shows a block's fence as code (the text form of a block that could not be drawn). */
+  drawBlocks?: boolean;
 }
 
 /**
@@ -158,16 +244,24 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   codeBg,
   style,
   streaming = false,
+  onScreen = false,
+  drawBlocks = true,
 }: MarkdownProps) {
+  const flags = useMemo(
+    () => ({ streaming, onScreen, drawBlocks }),
+    [streaming, onScreen, drawBlocks],
+  );
   return (
-    <div
-      className={cn('md', streaming && 'md-streaming', className)}
-      style={codeBg ? { ...style, ['--md-code-bg' as string]: codeBg } : style}
-    >
-      <ReactMarkdown remarkPlugins={PLUGINS} urlTransform={safeUrl} components={COMPONENTS}>
-        {prepareMarkdown(text)}
-      </ReactMarkdown>
-    </div>
+    <MdFlagsContext.Provider value={flags}>
+      <div
+        className={cn('md', streaming && 'md-streaming', className)}
+        style={codeBg ? { ...style, ['--md-code-bg' as string]: codeBg } : style}
+      >
+        <ReactMarkdown remarkPlugins={PLUGINS} urlTransform={safeUrl} components={COMPONENTS}>
+          {prepareMarkdown(text)}
+        </ReactMarkdown>
+      </div>
+    </MdFlagsContext.Provider>
   );
 });
 

@@ -1,0 +1,564 @@
+/*
+ * Drawn blocks in a reply (D-162, docs/design.md, "La chat"). They live inside the Markdown of a
+ * bubble (`.md`), so they take its colour (`currentColor`), its rule (`--md-rule`) and the
+ * background of its code (`--md-code-bg`), and are right in every bubble tint and in both
+ * themes. Colours of the data come from the vault palette (context.ts); the rest are tokens.
+ * On the agent terminal's black screen (`data-screen`) the fills and the signs use the screen's
+ * own lights. Loaded with the block's chunk, not with the first bundle.
+ */
+
+@layer components {
+  .ui-root {
+    --ui-dim: color-mix(in oklab, currentColor, transparent 22%);
+    --ui-fill: var(--md-code-bg);
+    --ui-ring: inset 0 0 0 1px var(--md-rule);
+    --ui-accent: var(--signal-ink);
+    --ui-ok: color-mix(in oklab, var(--ok) 72%, var(--ink));
+    --ui-bad: var(--stop-ink);
+    font-size: 0.94em;
+    line-height: 1.45;
+  }
+
+  .ui-root[data-screen] {
+    --ui-fill: var(--screen-off);
+    --ui-accent: var(--signal);
+    --ui-ok: var(--screen-ok);
+    --ui-bad: var(--screen-stop);
+  }
+
+  .md > .ui-root {
+    margin-block: 0.8em;
+  }
+
+  .ui-root :is(ul, ol) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* A definite width, so a bubble that shrinks to its content still gives the block its room. */
+  .ui-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    width: 36rem;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .ui-part {
+    min-width: 0;
+    margin: 0;
+  }
+
+  /* Titles and captions: the label of the instrument, in the bubble's own colour. */
+  .ui-title {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin: 0 0 0.45rem;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 16px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: left;
+    color: var(--ui-dim);
+  }
+
+  .ui-unit {
+    flex-shrink: 0;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .ui-more {
+    margin: 0.4rem 0 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--ui-dim);
+  }
+
+  /* ---------------------------------------------------------------- stats */
+
+  .ui-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8.25rem, 1fr));
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  .ui-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+    padding: 0.6rem 0.75rem;
+    border-radius: 12px;
+    background: var(--ui-fill);
+    box-shadow: var(--ui-ring);
+  }
+
+  .ui-tile-label {
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--ui-dim);
+  }
+
+  .ui-tile-value {
+    font-family: var(--font-mono);
+    font-size: 1.35rem;
+    line-height: 1.7rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+
+  .ui-tile-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 600;
+    color: var(--ui-dim);
+  }
+
+  .ui-tile-change[data-trend='up'] {
+    color: var(--ui-ok);
+  }
+
+  .ui-tile-change[data-trend='down'] {
+    color: var(--ui-bad);
+  }
+
+  /* ---------------------------------------------------------------- table */
+
+  .ui-table table {
+    min-width: 100%;
+  }
+
+  .ui-table .ui-num {
+    text-align: right;
+    padding-left: 0.75em;
+    padding-right: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* --------------------------------------------------------------- charts */
+
+  .ui-chart-box {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .ui-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .ui-axis {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    fill: var(--ui-dim);
+  }
+
+  .ui-value {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    fill: currentColor;
+  }
+
+  .ui-grid {
+    stroke: var(--md-rule);
+    stroke-width: 1;
+  }
+
+  .ui-baseline {
+    stroke: color-mix(in oklab, currentColor, transparent 50%);
+    stroke-width: 1.5;
+  }
+
+  .ui-bar rect:hover {
+    stroke: currentColor;
+    stroke-width: 1.5;
+  }
+
+  .ui-line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  .ui-hit {
+    fill: transparent;
+  }
+
+  .ui-hit:hover {
+    fill: var(--md-rule);
+    opacity: 0.5;
+  }
+
+  .ui-swatch {
+    flex-shrink: 0;
+  }
+
+  .ui-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1rem;
+    margin: 0.5rem 0 0;
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .ui-legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .ui-donut {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.5rem;
+  }
+
+  .ui-donut-svg {
+    flex: none;
+    width: 9.5rem;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .ui-donut-total {
+    font-family: var(--font-mono);
+    font-size: 17px;
+    font-weight: 500;
+    fill: currentColor;
+  }
+
+  .ui-slice:hover {
+    stroke-opacity: 0.8;
+  }
+
+  .ui-legend-values {
+    flex: 1 1 11rem;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    margin: 0;
+  }
+
+  .ui-legend-values li {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr) auto auto;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .ui-legend-value,
+  .ui-legend-pct {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .ui-legend-pct {
+    min-width: 3.4rem;
+    color: var(--ui-dim);
+  }
+
+  /* -------------------------------------------------------------- compare */
+
+  .ui-compare {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.5rem;
+  }
+
+  .ui-option {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.7rem 0.8rem;
+    border-radius: 12px;
+    background: var(--ui-fill);
+    box-shadow: var(--ui-ring);
+  }
+
+  /* The recommended one is lit like the chosen strip: a ring in the signal colour and its lamp. */
+  .ui-option[data-best] {
+    box-shadow: inset 0 0 0 2px var(--ui-accent);
+  }
+
+  .ui-option-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem 0.5rem;
+  }
+
+  .ui-option-name {
+    font-weight: 650;
+  }
+
+  .ui-best {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--ui-accent);
+  }
+
+  .ui-points {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .ui-points li {
+    position: relative;
+    padding-left: 0.9rem;
+  }
+
+  .ui-points li::before {
+    content: '';
+    position: absolute;
+    left: 0.15rem;
+    top: 0.62em;
+    width: 5px;
+    height: 5px;
+    border-radius: 1px;
+    background: currentColor;
+    opacity: 0.55;
+  }
+
+  .ui-verdict {
+    margin: auto 0 0;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--md-rule);
+    font-weight: 600;
+  }
+
+  /* ---------------------------------------------------------------- steps */
+
+  .ui-steps li {
+    position: relative;
+    display: flex;
+    gap: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+
+  .ui-steps li:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 26px;
+    bottom: 2px;
+    width: 2px;
+    background: var(--md-rule);
+  }
+
+  .ui-step-mark {
+    display: inline-flex;
+    flex: none;
+    width: 22px;
+    height: 22px;
+    align-items: center;
+    justify-content: center;
+    color: var(--ui-dim);
+  }
+
+  .ui-steps li[data-status='done'] .ui-step-mark {
+    color: var(--ui-ok);
+  }
+
+  .ui-steps li[data-status='doing'] .ui-step-mark {
+    color: var(--ui-accent);
+  }
+
+  .ui-step-number {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1.5px currentColor;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .ui-step-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding-top: 1px;
+  }
+
+  .ui-step-title {
+    font-weight: 600;
+  }
+
+  .ui-step-detail {
+    color: var(--ui-dim);
+  }
+
+  /* ------------------------------------------------------------ checklist */
+
+  .ui-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .ui-checklist label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .ui-checklist .md-check {
+    margin: 0.3em 0 0;
+    flex: none;
+  }
+
+  .ui-checklist li[data-done] label > span:first-of-type {
+    color: var(--ui-dim);
+  }
+
+  /* ------------------------------------------------------------- timeline */
+
+  .ui-timeline li {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0 0 0.8rem 1.1rem;
+  }
+
+  .ui-timeline li::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 0.9rem;
+    bottom: 0;
+    width: 2px;
+    background: var(--md-rule);
+  }
+
+  .ui-timeline li:last-child::before {
+    display: none;
+  }
+
+  .ui-timeline li::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.35rem;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .ui-timeline-date {
+    color: var(--ui-dim);
+  }
+
+  .ui-timeline-label {
+    font-weight: 600;
+  }
+
+  .ui-timeline-detail {
+    color: var(--ui-dim);
+  }
+
+  /* ----------------------------------------------------------------- card */
+
+  .ui-card {
+    padding: 0.7rem 0.8rem;
+    border-radius: 12px;
+    background: var(--ui-fill);
+    box-shadow: var(--ui-ring);
+  }
+
+  .ui-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 0.5rem;
+  }
+
+  .ui-card-title {
+    margin: 0;
+    font-weight: 650;
+  }
+
+  .ui-tag {
+    padding: 1px 7px;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px var(--md-rule);
+    color: var(--ui-dim);
+    white-space: nowrap;
+  }
+
+  .ui-card-body {
+    margin: 0.3rem 0 0;
+    white-space: pre-line;
+  }
+
+  /* -------------------------------------------------------------- callout */
+
+  .ui-callout {
+    --ui-tone: var(--ui-dim);
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 12px;
+    background: var(--ui-fill);
+    box-shadow:
+      inset 3px 0 0 var(--ui-tone),
+      var(--ui-ring);
+  }
+
+  .ui-callout[data-tone='success'] {
+    --ui-tone: var(--ui-ok);
+  }
+
+  .ui-callout[data-tone='warning'] {
+    --ui-tone: var(--ui-accent);
+  }
+
+  .ui-callout-icon {
+    flex: none;
+    margin-top: 1px;
+    color: var(--ui-tone);
+  }
+
+  .ui-callout p {
+    margin: 0;
+    min-width: 0;
+  }
+
+  /* ------------------------------------------------------------- fallback */
+
+  .ui-fallback > .md {
+    min-width: 0;
+  }
+}

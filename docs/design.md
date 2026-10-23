@@ -305,6 +305,15 @@ changes.
   message of a group, still on the first frame (it talks only while it writes). Reading column up to 760 px. What
   arrives with the chat open (a bubble, a question, a receipt, a file) rises in three frames (4 px and opacity); when
   opening a chat the rows that were there stay still, and your message rises once, when you send it.
+- **Drawn blocks** (D-162): a reply can hold a fence ```` ```ui ```` of OpenUI Lang (`ui-blocks.ts` in `@monsters/shared` is the
+  library) that the bubble draws with our own components (`components/chat/ui-block/`, a chunk loaded when a reply has one):
+  key numbers as tiles (the change has an arrow and a word, never only a colour), a table (numbers on the right,
+  scrolling sideways), bar, line and donut charts in plain SVG (values in the tooltip and in a table for screen readers;
+  series colours are the vault's tested palette, series of a line also differ by mark), comparison columns with the
+  recommended one lit like the chosen strip, steps with status marks, a checklist, a timeline, a card, a callout. Parts
+  take the bubble's own colour, rule and code background, so they fit every tint and both themes; on the agent terminal's
+  screen they use the screen lights. While the reply streams: the partial drawing or a skeleton, never the source; a block
+  that cannot be drawn shows its text and "Couldn’t draw this block".
 - **Instrumentation**: below the last bubble of each monster turn, a line in Martian Mono 10.5 uppercase
   `--ink-muted`: `TITAN › DELEGATE ×2 · WEB SEARCH ×3 · 4.1 S · FREE · LLAMA 3.3 70B`. It is built from the turn's
   events (`tool_call`, `tool_result`, `provider_usage`, run duration): the tools are those of the whole run, including
