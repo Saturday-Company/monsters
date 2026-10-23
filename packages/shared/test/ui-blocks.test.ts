@@ -6,11 +6,16 @@ import {
   parseUiBlock,
   replaceUiBlocks,
   tableText,
+  uiBlockButtons,
   uiBlocksToText,
   uiBlockToText,
+  uiButtonLabel,
+  uiButtons,
   uiSignatures,
   UI_BLOCK_MAX_CHARS,
+  UI_BUTTON_MAX_CHARS,
   UI_LIBRARY,
+  UI_MAX_BUTTONS,
 } from '../src/ui-blocks.ts';
 
 /*
@@ -161,6 +166,40 @@ describe('uiBlockToText: each component as text', () => {
     expect(text('x = Callout("Mind the deadline", "warning")')).toBe('> Mind the deadline');
   });
 
+  it('Buttons: one line, "You can reply", each label in guillemets', () => {
+    expect(
+      text('x = Buttons([Button("Go deeper on Metricool", true), Button("Draft the note")])'),
+    ).toBe('You can reply: «Go deeper on Metricool» · «Draft the note»');
+    setAppLang('it');
+    expect(text('x = Buttons([Button("Approfondisci Metricool")])')).toBe(
+      'Puoi rispondere: «Approfondisci Metricool»',
+    );
+  });
+
+  it('Buttons: at most four, no empty label, no repeat, labels as the user would send them', () => {
+    const six = ['A', 'B', ' ', 'A', 'C', 'D', 'E'].map((l) => `Button("${l}")`).join(', ');
+    expect(text(`x = Buttons([${six}])`)).toBe('You can reply: «A» · «B» · «C» · «D»');
+    // Nothing to say: the block is shown as its source, never as nothing.
+    expect(text('x = Buttons([Button("  ")])')).toBe(
+      code('root = Block([x])\nx = Buttons([Button("  ")])'),
+    );
+  });
+
+  it('Buttons shown apart (Telegram’s keyboard): the line is left out, the rest stays', () => {
+    const block = 'root = Block([c, b])\nc = Callout("Note")\nb = Buttons([Button("Go")])';
+    expect(uiBlockToText(block, { omitButtons: true })).toBe('> Note');
+    expect(uiBlockToText(block)).toBe('> Note\n\nYou can reply: «Go»');
+    // A block of buttons only is not a failed block: nothing to say, nothing shown as source.
+    const only = 'root = Block([b])\nb = Buttons([Button("Go")])';
+    expect(uiBlockToText(only, { omitButtons: true })).toBe('');
+    expect(uiBlocksToText(`Pick one.\n\n${fence(only)}`, { omitButtons: true }).trim()).toBe(
+      'Pick one.',
+    );
+    // Buttons with no label have nothing to show apart: the source is shown, as always.
+    const empty = 'root = Block([b])\nb = Buttons([Button("")])';
+    expect(uiBlockToText(empty, { omitButtons: true })).toBe(code(empty));
+  });
+
   it('a block with several parts: one after the other, a blank line between', () => {
     const out = uiBlockToText(
       'root = Block([k, c])\nk = Stats([Stat("A", "1")])\nc = Callout("Note")',
@@ -227,5 +266,60 @@ describe('uiBlocksToText: a whole reply', () => {
       '```ui\nroot = Block([d])\nd = Callout("cut")',
     ].join('\n');
     expect(uiBlocksToText(reply)).toBe(['> ok', '```\nroot = Block([c\n```', '> cut'].join('\n'));
+  });
+});
+
+describe('buttons: what a tap sends is the label the user sees', () => {
+  const buttons = (source: string) => {
+    const root = parseUiBlock(source).root!;
+    const part = (root.props['children'] as { typeName: string }[]).find(
+      (n) => n.typeName === 'Buttons',
+    );
+    return uiButtons(part as never);
+  };
+
+  it('uiButtonLabel: one line, trimmed, whitespace folded, nothing for a non-string', () => {
+    expect(uiButtonLabel('  Go   deeper\n on\tMetricool  ')).toBe('Go deeper on Metricool');
+    expect(uiButtonLabel('')).toBe('');
+    expect(uiButtonLabel('   ')).toBe('');
+    expect(uiButtonLabel(12)).toBe('');
+    expect(uiButtonLabel(null)).toBe('');
+    expect(uiButtonLabel(undefined)).toBe('');
+  });
+
+  it('uiButtonLabel: cut at the limit, by characters (an emoji is one)', () => {
+    const long = 'a'.repeat(UI_BUTTON_MAX_CHARS + 30);
+    expect(uiButtonLabel(long)).toBe('a'.repeat(UI_BUTTON_MAX_CHARS));
+    expect([...uiButtonLabel('😀'.repeat(UI_BUTTON_MAX_CHARS + 5))]).toHaveLength(
+      UI_BUTTON_MAX_CHARS,
+    );
+    // Cut, then trimmed? No: the label shown and the message sent are the same string.
+    expect(uiButtonLabel(`${'a'.repeat(UI_BUTTON_MAX_CHARS - 1)} b`)).toBe(
+      `${'a'.repeat(UI_BUTTON_MAX_CHARS - 1)} `,
+    );
+  });
+
+  it('uiButtons: the labels drawn, the suggested one marked, the limits applied', () => {
+    expect(
+      buttons('root = Block([b])\nb = Buttons([Button("A", true), Button("B"), Button("B")])'),
+    ).toEqual([
+      { label: 'A', primary: true },
+      { label: 'B', primary: false },
+    ]);
+    const many = Array.from({ length: 9 }, (_, i) => `Button("L${i}")`).join(', ');
+    expect(buttons(`root = Block([b])\nb = Buttons([${many}])`)).toHaveLength(UI_MAX_BUTTONS);
+  });
+
+  it('uiBlockButtons: the labels of the last block that has buttons, none without', () => {
+    const one = fence('root = Block([b])\nb = Buttons([Button("First"), Button("Second")])');
+    const two = fence('root = Block([b])\nb = Buttons([Button("Third")])');
+    const none = fence('root = Block([c])\nc = Callout("x")');
+    expect(uiBlockButtons('Text')).toEqual([]);
+    expect(uiBlockButtons(none)).toEqual([]);
+    expect(uiBlockButtons(`${one}\n\nand\n\n${two}`)).toEqual(['Third']);
+    expect(uiBlockButtons(`${one}\n\n${none}`)).toEqual(['First', 'Second']);
+    // Not in a block, not buttons: a fence of another language is code.
+    expect(uiBlockButtons(fence('Button("x")', 'js'))).toEqual([]);
+    expect(uiBlockButtons('```ui\nroot = Block([b')).toEqual([]);
   });
 });

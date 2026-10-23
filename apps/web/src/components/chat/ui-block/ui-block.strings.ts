@@ -31,6 +31,20 @@ const en = {
     names ? `${names}, from ${min} to ${max}` : `From ${min} to ${max}`,
   chartData: 'Chart data',
   category: 'Category',
+  /** The group of buttons of a block: suggested replies, one tap sends the label. */
+  buttons: 'Suggested replies',
+  /** Title of a button that can be pressed: what it sends, word for word. */
+  sends: (label: string) => `Sends: “${label}”`,
+  /** Why the buttons cannot be pressed now (title and spoken reason). */
+  buttonsOff: {
+    streaming: 'Wait for the reply to finish',
+    answered: 'You already replied after this message',
+    question: 'Answer the question first',
+    working: 'Still working: wait for the reply',
+    halted: 'The monsters are stopped: resume them first',
+    noModel: 'Connect a model first',
+    offline: 'Not connected: Monsters isn’t answering on the computer',
+  },
 };
 
 const it: typeof en = {
@@ -59,6 +73,17 @@ const it: typeof en = {
   seriesRange: (names, min, max) => (names ? `${names}, da ${min} a ${max}` : `Da ${min} a ${max}`),
   chartData: 'Dati del grafico',
   category: 'Categoria',
+  buttons: 'Risposte suggerite',
+  sends: (label) => `Manda: «${label}»`,
+  buttonsOff: {
+    streaming: 'Aspetta che la risposta sia finita',
+    answered: 'Hai già risposto dopo questo messaggio',
+    question: 'Rispondi prima alla domanda',
+    working: 'Sta ancora lavorando: aspetta la risposta',
+    halted: 'I mostri sono fermi: falli ripartire prima',
+    noModel: 'Collega prima un modello',
+    offline: 'Non collegato: Monsters non risponde sul computer',
+  },
 };
 
 export const uiBlockViewStrings = defineStrings({ en, it });

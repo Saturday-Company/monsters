@@ -313,7 +313,10 @@ changes.
   recommended one lit like the chosen strip, steps with status marks, a checklist, a timeline, a card, a callout. Parts
   take the bubble's own colour, rule and code background, so they fit every tint and both themes; on the agent terminal's
   screen they use the screen lights. While the reply streams: the partial drawing or a skeleton, never the source; a block
-  that cannot be drawn shows its text and "Couldn’t draw this block".
+  that cannot be drawn shows its text and "Couldn’t draw this block". **Buttons** are suggested replies in the chat's own
+  keys (the suggested one orange), wrapped on a phone; a tap sends the label as the user's message, and they stay
+  `aria-disabled`, with the reason as title, while the reply streams, after the user wrote something newer, while the
+  monster works or a question waits; the terminal and the pages without a chat do not draw them.
 - **Instrumentation**: below the last bubble of each monster turn, a line in Martian Mono 10.5 uppercase
   `--ink-muted`: `TITAN › DELEGATE ×2 · WEB SEARCH ×3 · 4.1 S · FREE · LLAMA 3.3 70B`. It is built from the turn's
   events (`tool_call`, `tool_result`, `provider_usage`, run duration): the tools are those of the whole run, including

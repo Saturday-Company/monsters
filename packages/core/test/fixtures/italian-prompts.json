@@ -191,7 +191,7 @@
   "core/src/agents/tool-search.prompts.ts#toolSearchPrompts.statusOut": "8dc6c5cae768fca9979f9cadc6b92867f00164ef5591710cb3873304ef778a92",
   "core/src/agents/tool-search.prompts.ts#toolSearchPrompts.statusReady": "5f14a26bd0563cb861e031cc882e9bd6f1812697504bf756581df86f3e7cc88e",
   "core/src/agents/ui-guide.prompts.ts#uiGuidePrompts.attached": "03c68e9a59997c09804726a4af4e022cdb1fcac2b7be49353b0cdf4dca2cc38d",
-  "core/src/agents/ui-guide.prompts.ts#uiGuidePrompts.guide()": "388c1442789cdac81f84e50273d71ecb82dcfc1afee1dc5bbb351cdcdc99b40a",
+  "core/src/agents/ui-guide.prompts.ts#uiGuidePrompts.guide()": "d69498d9132e954ced29bf1c04c5856811b87567dc66eb7b515a7c8190eec9aa",
   "core/src/agents/ui-guide.prompts.ts#uiGuidePrompts.toolDescription": "2093ed7ca8391e8b38f933f3aaa455b06b27aaaf9157f6038f4d8f9790e9779f",
   "core/src/automations/automations.prompts.ts#automationPrompts.closing": "eafa6a16b920d7dbb4b638c26184cd7ab2f169489649f08282f4766cbd970ff0",
   "core/src/automations/automations.prompts.ts#automationPrompts.headNow()": "2464d16962fa8bbf248212152e24625d80a2e483eb7a1857c292c14668c54c6e",

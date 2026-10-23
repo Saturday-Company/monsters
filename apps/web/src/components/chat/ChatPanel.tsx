@@ -12,6 +12,7 @@ import {
 import { useStill } from '../../lib/motion.ts';
 import {
   memo,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -44,6 +45,7 @@ import {
   statusText,
   useAgent,
   useAgents,
+  useConnection,
   useLive,
   useMediaQuery,
   useNameOf,
@@ -80,6 +82,13 @@ import { ReceiptBlock } from './Receipt.tsx';
 import { behindTheScenes, ChatMonitor } from './ChatMonitor.tsx';
 import { Composer, prefillComposer, type ComposerQuestion } from './Composer.tsx';
 import { Greeting } from './Greeting.tsx';
+import {
+  answeredIds,
+  replyGate,
+  UiReplyContext,
+  type ReplyGate,
+  type UiReply,
+} from './ui-block/reply.ts';
 import { ActiveKeypad, QuestionCard } from './QuestionCard.tsx';
 import { PreviewRow } from '../preview/PreviewRow.tsx';
 import { ProposalCard } from './ProposalCard.tsx';
@@ -111,6 +120,8 @@ function AgentBubble({
   first,
   instr,
   action,
+  reply,
+  sendReply,
 }: {
   item: Extract<ChatItem, { kind: 'agent' }>;
   /** First bubble of a run of the same monster: the avatar goes here. */
@@ -119,8 +130,12 @@ function AgentBubble({
   instr: string | null;
   /** Something to do, inside the bubble (the greeting without a model). */
   action?: ReactNode;
+  /** Whether the buttons of a drawn block here can be pressed (D-162), and how they send. */
+  reply: ReplyGate;
+  sendReply: (label: string) => Promise<void>;
 }) {
   const agent = useAgent(item.agent);
+  const uiReply = useMemo<UiReply>(() => ({ gate: reply, send: sendReply }), [reply, sendReply]);
   const theme = useResolvedTheme();
   const s = chatStrings().panel;
   const lit = useMemo(
@@ -166,7 +181,9 @@ function AgentBubble({
           className="bubble bubble-agent w-fit max-w-full min-w-0 px-4 py-2.5 text-large leading-[1.55] break-words"
           style={{ background: c.bg, color: c.fg }}
         >
-          <Markdown text={item.text} codeBg={c.codeBg} streaming={item.streaming} />
+          <UiReplyContext.Provider value={uiReply}>
+            <Markdown text={item.text} codeBg={c.codeBg} streaming={item.streaming} />
+          </UiReplyContext.Provider>
           {action}
         </div>
       </div>
@@ -420,6 +437,8 @@ const Row = memo(function Row({
   instr,
   action,
   latest,
+  reply,
+  sendReply,
 }: Shown & {
   chat: string;
   /** First bubble of its run of bubbles. */
@@ -428,11 +447,20 @@ const Row = memo(function Row({
   action?: ReactNode;
   /** The latest receipt of the chat (it opens by itself). */
   latest: boolean;
+  reply: ReplyGate;
+  sendReply: (label: string) => Promise<void>;
 }) {
   return (
     <>
       {item.kind === 'agent' && (
-        <AgentBubble item={item} first={first} instr={instr} action={action} />
+        <AgentBubble
+          item={item}
+          first={first}
+          instr={instr}
+          action={action}
+          reply={reply}
+          sendReply={sendReply}
+        />
       )}
       {item.kind === 'user' && <UserBubble item={item} />}
       {item.kind === 'relayed' && <RelayedBubble item={item} first={first} />}
@@ -496,6 +524,8 @@ function Rows({
   present,
   actionFor,
   instrFor,
+  replyFor,
+  sendReply,
 }: {
   shown: Shown[];
   chat: string;
@@ -503,6 +533,9 @@ function Rows({
   present: ReadonlySet<string>;
   actionFor: (id: string) => ReactNode;
   instrFor: (item: ChatItem) => string | null;
+  /** Whether the buttons of a drawn block in this message can be pressed now. */
+  replyFor: (item: ChatItem) => ReplyGate;
+  sendReply: (label: string) => Promise<void>;
 }) {
   // What needs a look stays in sight: the task you are asked in this chat, one the instinct
   // doubted or that failed, an instinct line that warns. The rest folds when it comes in a row.
@@ -572,6 +605,8 @@ function Rows({
           instr={instrFor(item)}
           action={actionFor(item.id)}
           latest={item.id === latestReceipt}
+          reply={replyFor(item)}
+          sendReply={sendReply}
         />
       </li>,
     );
@@ -790,6 +825,13 @@ export function ChatPanel({
   const showDetails = usePrefs((p) => p.showDetails);
   const noModel = useNoModel();
   const nameOf = useNameOf();
+  const offline = useConnection() === 'closed';
+  // A tap on a button of a drawn block sends its label the way the composer sends a message (D-162).
+  const isLead = agent?.isOrchestrator ?? false;
+  const sendReply = useCallback(
+    (label: string) => sendMessage(label, isLead ? undefined : agentId),
+    [agentId, isLead],
+  );
   const [dropping, setDropping] = useState(false);
   const dragDepth = useRef(0);
   // ChatsView keys the panel by chat: these are the rows that were there when it opened.
@@ -1007,6 +1049,21 @@ export function ChatPanel({
   if (!agent) return null;
   const busy = live.mood !== 'idle' && live.mood !== 'done';
   const waitingForYou = !!openQuestion && !halted;
+  // The buttons of a drawn block: only on the last word of the chat (nothing from the user after
+  // it), with the monster idle and no question open.
+  const answered = answeredIds(shown.map((s) => s.item));
+  const replyFor = (item: ChatItem): ReplyGate =>
+    item.kind === 'agent'
+      ? replyGate({
+          streaming: item.streaming,
+          answered: answered.has(item.id),
+          question: !!openQuestion,
+          working: busy || streaming || !!busyWith,
+          halted,
+          noModel,
+          offline,
+        })
+      : 'open';
   const status = waitingForYou
     ? t.statusWaiting
     : noModel && !busy
@@ -1152,6 +1209,8 @@ export function ChatPanel({
                   present={present}
                   actionFor={actionFor}
                   instrFor={instrFor}
+                  replyFor={replyFor}
+                  sendReply={sendReply}
                 />
               )}
               {!fresh && lastItem?.kind === 'error' && !working && !streaming ? (

@@ -163,6 +163,9 @@ The PC's SSH server allows tunnels (`AllowTcpForwarding` is at its default value
 - The monsters' questions arrive with buttons; for open questions, reply to the message. If you answer from the UI or
   from the terminal, the message on Telegram updates (and vice versa). After a restart old questions lose their
   buttons, and replying to one of them doesn't send a new message to the squad.
+- When a reply suggests next steps (a drawn block with buttons), they arrive as keys under it: a tap sends exactly the
+  key's text as your message, as if you had typed it, and the key stays as "✓ text". Typing something yourself, or a
+  newer suggestion, takes the keys away; after a restart or a day they expire (the text is still in the message).
 - `/stop` stops everything at once (confirmation in the chat), `/resume` (`/riprendi`) asks for confirmation and
   starts them again, `/new` (`/nuova`) starts a new conversation, `/status` (`/stato`) says what is running,
   `/help` (`/aiuto`) lists the commands. The bot understands both the English and the Italian names.

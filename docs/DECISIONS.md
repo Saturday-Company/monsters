@@ -5255,7 +5255,7 @@ whatever a model writes. OpenUI (openui.com) is a compact language for this, MIT
 (`openui` and `openui-lang` too): no change to the message schema, nothing new to save, reload, search or send to the
 model; the model reads its own block back as written. (3) The library is ours and read-only
 (`packages/shared/src/ui-blocks.ts`: Stats, Table, BarChart, LineChart, Donut, Compare, Steps, Checklist, Timeline,
-Card, Callout): no actions, no `Query`, no `Mutation`, no `toolProvider`, because anything a block could run would
+Card, Callout, Buttons): no actions, no `Query`, no `Mutation`, no `toolProvider`, because anything a block could run would
 skip the brake, the permissions and the `EventLog`. The positional order of the props is the order of the zod keys:
 never reordered. (4) Teaching it costs little and only when useful: one line in the capability card of every monster
 (~35 tokens: it can draw in a `ui` block, `ui_guide` has the components); the `ui_guide` core tool (no arguments,
@@ -5284,3 +5284,29 @@ blocks with a root, no errors and every name defined); the instinct measure is `
 reader nothing but the source shown as code; the card grows by one line and a turn by ~750 tokens only when it is
 likely to be used. The `ui` use is in the settings list with the other uses. To move the threshold, the words or the
 manual, measure again with `ui-measure.ts`.
+**Buttons (24/10/2026).** The library has `Buttons(items: Button[])` and `Button(label, primary?)`: a button is a
+suggested next reply of the user ("Approfondisci Metricool"). (1) *The label is the message.* A tap sends, as the
+user's own message, exactly the label the user sees (`uiButtonLabel`: one line, at most 80 characters, the same string
+drawn and sent), never a hidden text: a block written after a web page was read must not make the user say words they
+did not read. That is also why a button has no other action and no tool call: it can only say a sentence the user could
+have typed, and the sentence goes through the same path as a typed one (`sendMessage` in the app, `#sendToTeam` on
+Telegram), so it is logged, shown, and goes through the brake and the permissions like any message. At most four per
+block (`UI_MAX_BUTTONS`; repeats and empty labels left out). (2) *Web: when they can be pressed.* Only while (a) the
+block's message is final, (b) the user has written nothing after it in that chat (a pending message counts, so one tap
+closes every button of the block), (c) the monster is not working in that chat and no question of it waits (the
+composer answers that), and the monsters are not stopped, a model is connected and the connection is up; otherwise they
+stay in sight, `aria-disabled` with the reason as title. The chat (`ChatPanel`) derives this from its items and the
+live state (`replyGate`, `answeredIds` in `components/chat/ui-block/reply.ts`) and hands it to the blocks of each
+agent bubble by context; where there is no chat to send to (the agent terminal, the page of an automation's round, the
+news) there is no provider and the buttons are not drawn. (3) *Telegram.* In the main bot's private chat the labels
+become an inline keyboard under the reply (the line "You can reply" is left out, unless a label is too long for a
+key); `callback_data` is `b:<token>:<n>` (the label is never in it: 64 bytes, and the data is the client's to write):
+the labels wait in memory for 24 hours (50 keyboards at most). A tap by the paired owner in a private chat (the
+checks of every callback) is `#sendToTeam(label)`, as if typed; the key becomes "✓ label" and every other keyboard of
+the chat goes, as does any keyboard when the user types or a newer block comes. After a restart or a day a tap says the
+suggestion expired. While the monsters are stopped a tap says so and keeps the keyboard. The per-monster bots (groups)
+keep the text line: a tap there would speak for the user in a room with other people. (4) *The manual* teaches them in
+about 60 tokens (at most four, last in the block, written as the user would say them, never instead of `ask_user`,
+never for acts that leave the computer) and the component descriptions were cut to pay for it. The CLI shows "You can
+reply: «…»". *Limits:* the Telegram labels are not persisted; a button cannot take an option of a question: that is
+`ask_user`.

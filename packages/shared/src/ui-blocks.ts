@@ -49,10 +49,10 @@ export const Stat = c(
     trend: Trend.optional(),
   }),
 );
-export const Stats = c('Stats', 'A row of 2-4 key numbers', z.object({ items: z.array(Stat.ref) }));
+export const Stats = c('Stats', '', z.object({ items: z.array(Stat.ref) }));
 export const Table = c(
   'Table',
-  'Rows and columns; numbers as numbers',
+  '',
   z.object({
     columns: z.array(z.string()),
     rows: z.array(z.array(Cell)),
@@ -61,7 +61,7 @@ export const Table = c(
 );
 export const BarChart = c(
   'BarChart',
-  'Bars: amounts by category, one series per thing compared',
+  'One series per thing compared',
   z.object({
     labels: z.array(z.string()),
     series: z.array(SeriesSchema),
@@ -71,7 +71,7 @@ export const BarChart = c(
 );
 export const LineChart = c(
   'LineChart',
-  'Lines: how values change over time (labels are the dates or periods)',
+  'Labels are dates or periods',
   z.object({
     labels: z.array(z.string()),
     series: z.array(SeriesSchema),
@@ -81,7 +81,7 @@ export const LineChart = c(
 );
 export const Donut = c(
   'Donut',
-  'Parts of a whole (2-6 slices)',
+  '2-6 slices',
   z.object({
     slices: z.array(z.object({ label: z.string(), value: z.number() })),
     title: z.string().optional(),
@@ -90,7 +90,7 @@ export const Donut = c(
 );
 export const Option = c(
   'Option',
-  'One option of a comparison: its name, points, a short verdict; best marks the recommended one',
+  'best marks the recommended one',
   z.object({
     name: z.string(),
     points: z.array(z.string()),
@@ -100,7 +100,7 @@ export const Option = c(
 );
 export const Compare = c(
   'Compare',
-  'Two to four options side by side',
+  '2-4 options side by side',
   z.object({ options: z.array(Option.ref), title: z.string().optional() }),
 );
 export const Step = c(
@@ -110,12 +110,12 @@ export const Step = c(
 );
 export const Steps = c(
   'Steps',
-  'Ordered steps or the status of the work',
+  '',
   z.object({ items: z.array(Step.ref), title: z.string().optional() }),
 );
 export const Checklist = c(
   'Checklist',
-  'Things to do or bring, with the ones done',
+  '',
   z.object({
     items: z.array(z.object({ text: z.string(), done: z.boolean().optional() })),
     title: z.string().optional(),
@@ -123,7 +123,7 @@ export const Checklist = c(
 );
 export const Timeline = c(
   'Timeline',
-  'Dated events in order',
+  '',
   z.object({
     events: z.array(
       z.object({ date: z.string(), label: z.string(), detail: z.string().optional() }),
@@ -133,23 +133,19 @@ export const Timeline = c(
 );
 export const Card = c(
   'Card',
-  'A titled box of short text, with an optional tag',
+  '',
   z.object({ title: z.string(), body: z.string(), tag: z.string().optional() }),
 );
-export const Callout = c(
-  'Callout',
-  'One sentence to notice',
-  z.object({ text: z.string(), tone: Tone.optional() }),
-);
+export const Callout = c('Callout', '', z.object({ text: z.string(), tone: Tone.optional() }));
 
 export const Button = c(
   'Button',
-  'A reply the user may send with one tap: the label IS the message sent, in the user’s words; primary marks the suggested one',
+  'The label is the message sent; primary = suggested',
   z.object({ label: z.string(), primary: z.boolean().optional() }),
 );
 export const Buttons = c(
   'Buttons',
-  'Up to 4 next steps the user may take, at the end of the block',
+  'Up to 4, last in the block',
   z.object({ items: z.array(Button.ref) }),
 );
 
@@ -282,20 +278,30 @@ function seriesText(labels: string[], series: { label: string; values: number[] 
     .join('\n');
 }
 
+export interface UiTextOptions {
+  /** The buttons are shown apart (Telegram's keyboard): leave their "You can reply" line out. */
+  omitButtons?: boolean;
+}
+
 /**
  * A parsed node as Markdown text, for the surfaces that cannot draw (Telegram, the terminal)
  * and for the fallback of a block that cannot be drawn. Charts become their values, with a
  * line that the chart is in the app.
  */
-export function uiNodeToText(node: UiNode): string {
+export function uiNodeToText(node: UiNode, opts: UiTextOptions = {}): string {
   const t = uiBlockStrings();
   const p = node.props;
   const title = (s: unknown) => (str(s) ? `**${str(s)}**\n` : '');
   switch (node.typeName) {
     case 'Block':
-      return nodes(p['children']).map(uiNodeToText).filter(Boolean).join('\n\n');
+      return nodes(p['children'])
+        .map((n) => uiNodeToText(n, opts))
+        .filter(Boolean)
+        .join('\n\n');
     case 'Stats':
-      return nodes(p['items']).map(uiNodeToText).join('\n');
+      return nodes(p['items'])
+        .map((n) => uiNodeToText(n, opts))
+        .join('\n');
     case 'Stat': {
       const change = str(p['change']) ? ` (${str(p['change'])})` : '';
       return `- ${str(p['label'])}: **${str(p['value'])}**${change}`;
@@ -317,7 +323,9 @@ export function uiNodeToText(node: UiNode): string {
       return `${title(p['title'])}${slices.map((s) => `- ${s.label}: ${cellText(s.value)}${u}`).join('\n')}\n_${t.chartInApp}_`;
     }
     case 'Compare':
-      return `${title(p['title'])}${nodes(p['options']).map(uiNodeToText).join('\n\n')}`;
+      return `${title(p['title'])}${nodes(p['options'])
+        .map((n) => uiNodeToText(n, opts))
+        .join('\n\n')}`;
     case 'Option': {
       const best = p['best'] === true ? ` — ${t.best}` : '';
       const points = list<unknown>(p['points'])
@@ -328,7 +336,7 @@ export function uiNodeToText(node: UiNode): string {
     }
     case 'Steps':
       return `${title(p['title'])}${nodes(p['items'])
-        .map((s, i) => `${i + 1}. ${uiNodeToText(s)}`)
+        .map((s, i) => `${i + 1}. ${uiNodeToText(s, opts)}`)
         .join('\n')}`;
     case 'Step': {
       const mark = p['status'] === 'done' ? '✓ ' : p['status'] === 'doing' ? '▶ ' : '';
@@ -350,10 +358,8 @@ export function uiNodeToText(node: UiNode): string {
     case 'Callout':
       return `> ${str(p['text'])}`;
     case 'Buttons': {
-      const labels = nodes(p['items'])
-        .map((b) => uiButtonLabel(b.props['label']))
-        .filter(Boolean)
-        .slice(0, UI_MAX_BUTTONS);
+      if (opts.omitButtons) return '';
+      const labels = uiButtons(node).map((b) => b.label);
       return labels.length > 0 ? `${t.youCanReply} ${labels.map((l) => `«${l}»`).join(' · ')}` : '';
     }
     default:
@@ -371,14 +377,67 @@ export function uiButtonLabel(label: unknown): string {
   return [...one].slice(0, UI_BUTTON_MAX_CHARS).join('');
 }
 
+/** A button as drawn and as sent: the label the user sees, and whether it is the suggested one. */
+export interface UiButton {
+  label: string;
+  primary: boolean;
+}
+
+/**
+ * The buttons of a `Buttons` node, as the app draws them and as the text fallback says them: the
+ * normalised labels (`uiButtonLabel`), empty ones and repeats left out, at most `UI_MAX_BUTTONS`.
+ * A streaming parse can hand over half a button: whatever has no label yet is not a button.
+ */
+export function uiButtons(node: UiNode): UiButton[] {
+  const out: UiButton[] = [];
+  for (const b of nodes(node.props['items'])) {
+    if (b.typeName !== 'Button') continue;
+    const label = uiButtonLabel(b.props['label']);
+    if (!label || out.some((x) => x.label === label)) continue;
+    out.push({ label, primary: b.props['primary'] === true });
+    if (out.length >= UI_MAX_BUTTONS) break;
+  }
+  return out;
+}
+
+/**
+ * The labels of the buttons a reply offers: those of the last block that has any (a newer block
+ * is the current question of the conversation). For the channels that can show real buttons
+ * (Telegram); a tap sends the label, as typed.
+ */
+export function uiBlockButtons(markdown: string): string[] {
+  let last: string[] = [];
+  replaceUiBlocks(markdown, (source) => {
+    if (source.length > UI_BLOCK_MAX_CHARS) return '';
+    const root = parseUiBlock(source).root;
+    const labels = root ? uiButtonsOf(root).map((b) => b.label) : [];
+    if (labels.length > 0) last = labels;
+    return '';
+  });
+  return last;
+}
+
+/** The buttons of the `Buttons` parts of a block's root, in order (the last part that has any). */
+function uiButtonsOf(root: UiNode): UiButton[] {
+  let found: UiButton[] = [];
+  for (const part of nodes(root.props['children'])) {
+    if (part.typeName !== 'Buttons') continue;
+    const buttons = uiButtons(part);
+    if (buttons.length > 0) found = buttons;
+  }
+  return found;
+}
+
 /** A block's source as text: its drawing in words, or the source when it does not parse. */
-export function uiBlockToText(source: string): string {
+export function uiBlockToText(source: string, opts: UiTextOptions = {}): string {
   if (source.length > UI_BLOCK_MAX_CHARS) return `\`\`\`\n${source}\n\`\`\``;
   const r = parseUiBlock(source);
-  const text = r.root ? uiNodeToText(r.root).trim() : '';
+  const text = r.root ? uiNodeToText(r.root, opts).trim() : '';
+  // Nothing left to say because the buttons are shown apart: that is not a block that failed.
+  if (!text && opts.omitButtons && r.root && uiButtonsOf(r.root).length > 0) return '';
   return text || `\`\`\`\n${source.trim()}\n\`\`\``;
 }
 
 /** A reply with its blocks written as text (Telegram, the terminal). */
-export const uiBlocksToText = (markdown: string): string =>
-  replaceUiBlocks(markdown, uiBlockToText);
+export const uiBlocksToText = (markdown: string, opts: UiTextOptions = {}): string =>
+  replaceUiBlocks(markdown, (source) => uiBlockToText(source, opts));

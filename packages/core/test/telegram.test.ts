@@ -406,6 +406,224 @@ describe('telegram: talking to the team', () => {
     expect(answer?.data.text).toContain('```ui\nroot = Block([t])');
   });
 
+  describe('buttons of a drawn block (D-162): a keyboard whose tap is the label, typed', () => {
+    const buttonsBlock = (labels: string[]) =>
+      [
+        '```ui',
+        'root = Block([n, b])',
+        'n = Callout("Metricool è la più vicina.")',
+        `b = Buttons([${labels.map((l, i) => `Button("${l}"${i === 0 ? ', true' : ''})`).join(', ')}])`,
+        '```',
+      ].join('\n');
+    const LABELS = ['Approfondisci Metricool', 'Prepara la nota con i passi'];
+    const userMessages = (t: TestHub) =>
+      t
+        .events()
+        .filter((e): e is LogEvent<'message'> => e.type === 'message' && e.data.role === 'user');
+
+    it('the labels become keys under the reply; a tap sends exactly the label as the user’s message', async () => {
+      const { t, tg } = await startBot({
+        titan: [
+          fake.text(`Ecco cosa ho trovato.\n${buttonsBlock(LABELS)}`),
+          fake.text('Approfondisco Metricool.'),
+        ],
+      });
+      tg.text(GIULIO, 'cerca strumenti');
+      const reply = await tg.waitMessage(
+        (m) => m.chat_id === GIULIO.id && m.text.includes('Ecco cosa ho trovato'),
+      );
+      const keys = reply.reply_markup!.inline_keyboard!.flat();
+      expect(keys.map((k) => k.text)).toEqual(LABELS);
+      // The label is not in the button's data (64 bytes, and the client writes it): a short token.
+      for (const k of keys) expect(Buffer.byteLength(k.callback_data)).toBeLessThanOrEqual(20);
+      expect(keys.some((k) => k.callback_data.includes('Metricool'))).toBe(false);
+      // The keys say it: the text does not repeat "You can reply".
+      expect(reply.text).toContain('Metricool è la più vicina.');
+      expect(reply.text).not.toContain('You can reply');
+      // Only the reply's last piece carries the keyboard, and the log keeps the block as written.
+      expect(
+        t
+          .events()
+          .find((e): e is LogEvent<'message'> => e.type === 'message' && e.data.role === 'agent')
+          ?.data.text,
+      ).toContain('Button("Approfondisci Metricool", true)');
+
+      tg.press(GIULIO, reply, keys[0]!.callback_data);
+      await tg.waitMessage(
+        (m) => m.text.includes('Approfondisco Metricool.') && m.message_id !== reply.message_id,
+      );
+      const sent = userMessages(t).at(-1)!;
+      expect(sent.data).toMatchObject({
+        text: 'Approfondisci Metricool',
+        channel: 'telegram',
+        to: 'titan',
+      });
+      expect(userMessages(t)).toHaveLength(2);
+      // The key stays as the record of what was sent, and no key can be pressed twice.
+      expect(reply.reply_markup?.inline_keyboard).toEqual([
+        [{ text: '✓ Approfondisci Metricool', callback_data: 'b:done' }],
+      ]);
+      expect(
+        tg.calls.some((c) => c.method === 'answerCallbackQuery' && c.payload['text'] === 'Sent'),
+      ).toBe(true);
+      tg.press(GIULIO, reply, keys[1]!.callback_data);
+      await tg.waitCall(
+        (c) =>
+          c.method === 'answerCallbackQuery' &&
+          typeof c.payload['text'] === 'string' &&
+          c.payload['text'].includes('expired'),
+      );
+      expect(userMessages(t)).toHaveLength(2);
+    });
+
+    it('at most four keys; a label too long for a key keeps the line of words', async () => {
+      const long = 'Prepara una nota molto dettagliata con tutti i passi da fare per Metricool';
+      const { tg } = await startBot({
+        titan: [fake.text(`Scegli.\n${buttonsBlock(['Uno', 'Due', 'Tre', 'Quattro', 'Cinque'])}`)],
+      });
+      tg.text(GIULIO, 'proponi');
+      const reply = await tg.waitMessage(
+        (m) => m.chat_id === GIULIO.id && m.text.includes('Scegli.'),
+      );
+      expect(reply.reply_markup!.inline_keyboard!.flat().map((k) => k.text)).toEqual([
+        'Uno',
+        'Due',
+        'Tre',
+        'Quattro',
+      ]);
+      const { tg: tg2 } = await startBot({
+        titan: [fake.text(`Scegli.\n${buttonsBlock([long, 'Due'])}`)],
+      });
+      tg2.text(GIULIO, 'proponi');
+      const second = await tg2.waitMessage(
+        (m) => m.chat_id === GIULIO.id && m.text.includes('Scegli.'),
+      );
+      // 74 characters do not fit a key whole (60): the words stay in the text too.
+      expect(second.text).toContain(`You can reply: «${long}»`);
+    });
+
+    it('the user typing closes the keyboard; a newer block takes the older keyboard away', async () => {
+      const { t, tg } = await startBot({
+        titan: [
+          fake.text(`Primo.\n${buttonsBlock(['Uno'])}`),
+          fake.text(`Secondo.\n${buttonsBlock(['Due'])}`),
+          fake.text('Capito.'),
+        ],
+      });
+      tg.text(GIULIO, 'a');
+      const first = await tg.waitMessage((m) => m.text.includes('Primo.'));
+      expect(first.reply_markup?.inline_keyboard).toHaveLength(1);
+      const run1 = userMessages(t)[0]!.runId!;
+      await t.runEnded(run1);
+      tg.text(GIULIO, 'b');
+      const second = await tg.waitMessage((m) => m.text.includes('Secondo.'));
+      await tg.waitCall(
+        (c) =>
+          c.method === 'editMessageReplyMarkup' &&
+          c.payload['message_id'] === first.message_id &&
+          JSON.stringify(c.payload['reply_markup']) === '{"inline_keyboard":[]}',
+      );
+      expect(first.reply_markup?.inline_keyboard).toEqual([]);
+      expect(second.reply_markup?.inline_keyboard).toHaveLength(1);
+      // A text from the user closes the rest.
+      tg.text(GIULIO, 'preferisco scrivere io');
+      await tg.waitMessage((m) => m.text.includes('Capito.'));
+      expect(second.reply_markup?.inline_keyboard).toEqual([]);
+    });
+
+    it('only the paired owner can tap, and a button that is not ours or is old does nothing', async () => {
+      const { t, tg, clock } = await startBot({
+        titan: [fake.text(`Ecco.\n${buttonsBlock(LABELS)}`)],
+      });
+      tg.text(GIULIO, 'ciao');
+      const reply = await tg.waitMessage(
+        (m) => m.chat_id === GIULIO.id && m.text.includes('Ecco.'),
+      );
+      const keys = reply.reply_markup!.inline_keyboard!.flat();
+      const before = userMessages(t).length;
+      // A stranger pressing the owner's key (the message id is guessable): ignored and logged.
+      tg.press(STRANGER, reply, keys[0]!.callback_data);
+      await t.waitEvent(isChannel('ignored', (e) => e.data.userId === String(STRANGER.id)));
+      expect(userMessages(t)).toHaveLength(before);
+      expect(reply.reply_markup?.inline_keyboard).toHaveLength(2);
+      // Data made up by a client: expired, the keyboard goes.
+      tg.press(GIULIO, reply, 'b:abcdefabcdef:0');
+      await tg.waitCall(
+        (c) =>
+          c.method === 'answerCallbackQuery' &&
+          typeof c.payload['text'] === 'string' &&
+          c.payload['text'].includes('expired'),
+      );
+      expect(userMessages(t)).toHaveLength(before);
+      expect(clock.now).toBeGreaterThan(0);
+    });
+
+    it('a day later the suggestion has expired: the keyboard goes, nothing is sent', async () => {
+      const { t, tg, clock } = await startBot({
+        titan: [fake.text(`Ecco.\n${buttonsBlock(LABELS)}`)],
+      });
+      tg.text(GIULIO, 'ciao');
+      const reply = await tg.waitMessage(
+        (m) => m.chat_id === GIULIO.id && m.text.includes('Ecco.'),
+      );
+      const keys = reply.reply_markup!.inline_keyboard!.flat();
+      await t.runEnded(userMessages(t)[0]!.runId!);
+      // The labels are kept once the send is confirmed, a moment after the fake has the message.
+      await new Promise((r) => setTimeout(r, 100));
+      const before = userMessages(t).length;
+      clock.now += 25 * 3600_000;
+      tg.press(GIULIO, reply, keys[0]!.callback_data);
+      await tg.waitCall(
+        (c) =>
+          c.method === 'answerCallbackQuery' &&
+          typeof c.payload['text'] === 'string' &&
+          c.payload['text'].includes('expired'),
+      );
+      await tg.waitCall((c) => c.method === 'editMessageReplyMarkup');
+      expect(reply.reply_markup?.inline_keyboard).toEqual([]);
+      expect(userMessages(t)).toHaveLength(before);
+    });
+
+    it('while the monsters are stopped a tap says so and keeps the keyboard', async () => {
+      const { t, tg } = await startBot({
+        titan: [fake.text(`Ecco.\n${buttonsBlock(LABELS)}`)],
+      });
+      tg.text(GIULIO, 'ciao');
+      const reply = await tg.waitMessage(
+        (m) => m.chat_id === GIULIO.id && m.text.includes('Ecco.'),
+      );
+      const keys = reply.reply_markup!.inline_keyboard!.flat();
+      await t.runEnded(userMessages(t)[0]!.runId!);
+      tg.text(GIULIO, '/stop');
+      await tg.waitMessage((m) => m.text.includes('stopped'));
+      const before = userMessages(t).length;
+      tg.press(GIULIO, reply, keys[0]!.callback_data);
+      await tg.waitCall(
+        (c) =>
+          c.method === 'answerCallbackQuery' &&
+          typeof c.payload['text'] === 'string' &&
+          c.payload['text'].includes('/resume'),
+      );
+      expect(userMessages(t)).toHaveLength(before);
+      expect(reply.reply_markup?.inline_keyboard).toHaveLength(2);
+    });
+
+    it('in Italian: the tap says «Mandata»', async () => {
+      const { tg } = await startBot({
+        titan: [fake.text(`Ecco.\n${buttonsBlock(LABELS)}`), fake.text('Fatto.')],
+      });
+      setAppLang('it');
+      tg.text(GIULIO, 'ciao');
+      const reply = await tg.waitMessage(
+        (m) => m.chat_id === GIULIO.id && m.text.includes('Ecco.'),
+      );
+      tg.press(GIULIO, reply, reply.reply_markup!.inline_keyboard!.flat()[0]!.callback_data);
+      await tg.waitCall(
+        (c) => c.method === 'answerCallbackQuery' && c.payload['text'] === 'Mandata',
+      );
+    });
+  });
+
   it('long answers are split under the Telegram limit', async () => {
     const long = Array.from(
       { length: 300 },

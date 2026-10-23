@@ -1,10 +1,12 @@
 import { uiStreamParser, type UiNode } from '@monsters/shared';
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import { useResolvedTheme } from '../../../store/hooks.ts';
 import { MarkdownRenderer } from '../../ui/MarkdownRenderer.tsx';
+import { Buttons } from './buttons.tsx';
 import { BarChart, Donut, LineChart } from './charts.tsx';
 import { UiDrawingContext } from './context.ts';
 import { resolveUiBlock, type BlockView } from './model.ts';
+import { UiReplyContext } from './reply.ts';
 import { Callout, Card, Checklist, Compare, Stats, Steps, Table, Timeline } from './parts.tsx';
 import { BlockSkeleton } from './Skeleton.tsx';
 import { uiBlockViewStrings } from './ui-block.strings.ts';
@@ -19,7 +21,7 @@ import './ui-block.css';
  */
 
 /** One part of the block; a node the app does not know draws nothing. */
-export function UiPart({ node }: { node: UiNode }) {
+export function UiPart({ node, streaming = false }: { node: UiNode; streaming?: boolean }) {
   switch (node.typeName) {
     case 'Stats':
       return <Stats node={node} />;
@@ -43,6 +45,8 @@ export function UiPart({ node }: { node: UiNode }) {
       return <Card node={node} />;
     case 'Callout':
       return <Callout node={node} />;
+    case 'Buttons':
+      return <Buttons node={node} streaming={streaming} />;
     default:
       return null;
   }
@@ -50,14 +54,19 @@ export function UiPart({ node }: { node: UiNode }) {
 
 /** The drawn parts of a block, top to bottom. */
 export function UiTree({ parts, streaming = false }: { parts: UiNode[]; streaming?: boolean }) {
+  // Buttons send a reply: where there is no chat to send to (the terminal, an automation's page)
+  // they are not drawn, and a block with nothing else draws nothing.
+  const canReply = useContext(UiReplyContext) !== null;
+  const shown = canReply ? parts : parts.filter((p) => p.typeName !== 'Buttons');
+  if (shown.length === 0) return null;
   return (
     <div
       className="ui-block"
       data-testid="ui-block"
       data-streaming={streaming ? 'true' : undefined}
     >
-      {parts.map((part, i) => (
-        <UiPart key={i} node={part} />
+      {shown.map((part, i) => (
+        <UiPart key={i} node={part} streaming={streaming} />
       ))}
     </div>
   );

@@ -538,6 +538,36 @@ export class FakeTelegram {
           text: target.text,
         });
       }
+      case 'editMessageReplyMarkup': {
+        const target = this.messages.find(
+          (x) =>
+            x.token === token &&
+            x.chat_id === Number(payload['chat_id']) &&
+            x.message_id === Number(payload['message_id']),
+        );
+        if (!target)
+          return send(400, {
+            ok: false,
+            error_code: 400,
+            description: 'Bad Request: message to edit not found',
+          });
+        const markup = payload['reply_markup'] as SentMessage['reply_markup'] | undefined;
+        if (JSON.stringify(markup ?? {}) === JSON.stringify(target.reply_markup ?? {})) {
+          return send(400, {
+            ok: false,
+            error_code: 400,
+            description: 'Bad Request: message is not modified',
+          });
+        }
+        if (markup) target.reply_markup = markup;
+        this.#changed();
+        return ok({
+          message_id: target.message_id,
+          date: 0,
+          chat: { id: target.chat_id, type: 'private' },
+          text: target.text,
+        });
+      }
       default:
         return send(404, {
           ok: false,

@@ -556,6 +556,70 @@
     min-width: 0;
   }
 
+  /* -------------------------------------------------------------- buttons */
+
+  /*
+   * Suggested replies, in the chat's own keys (`.key`): they wrap on a phone, the suggested one is
+   * the orange key. Shut (`aria-disabled`, not `disabled`, so the reason in the title stays reachable
+   * by keyboard and pointer) they are quiet and do not sink.
+   */
+  .ui-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem 0.6rem;
+    padding-bottom: 3px; /* the thickness of a key */
+  }
+
+  .ui-button {
+    max-width: 100%;
+    min-height: 40px;
+    padding: 0.45rem 0.95rem;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .ui-button:not(.key-primary) {
+    color: var(--ink);
+  }
+
+  @media (pointer: coarse) {
+    .ui-button {
+      min-height: 44px;
+    }
+  }
+
+  .ui-root .ui-button[aria-disabled='true'] {
+    --cap-hover: var(--raised);
+    cursor: default;
+    opacity: 0.6;
+    transform: none;
+  }
+
+  .ui-root .ui-button[aria-disabled='true']:active {
+    transform: none;
+    box-shadow:
+      inset 0 0 0 1px var(--edge),
+      inset 0 2px 0 -1px var(--hi),
+      0 3px 0 var(--edge);
+  }
+
+  .ui-root .ui-button:not(.key-primary)[aria-disabled='true'] {
+    color: var(--ink-muted);
+  }
+
+  .ui-root .ui-button.key-primary[aria-disabled='true'] {
+    --cap: var(--raised);
+    --edge: var(--key-edge);
+    --hi: rgba(255, 255, 255, 0.75);
+    color: var(--ink-muted);
+  }
+
+  [data-theme='dark'] .ui-root .ui-button.key-primary[aria-disabled='true'] {
+    --hi: rgba(255, 255, 255, 0.07);
+  }
+
   /* ------------------------------------------------------------- fallback */
 
   .ui-fallback > .md {

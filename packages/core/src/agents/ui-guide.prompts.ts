@@ -16,22 +16,24 @@ const en = {
   attached: '[System] The reply to this request reads better drawn. Manual of the `ui` blocks:',
   guide: (signatures: string) =>
     `# Drawn blocks
-Where data reads better drawn than written, put a fenced block with language \`ui\` inside your normal Markdown reply: the app draws it as a table, key numbers, a chart, a comparison or steps. The prose around it stays Markdown.
+Where data reads better drawn than written, put a fenced block with language \`ui\` in your normal Markdown reply: the app draws it. The prose around it stays Markdown.
 Draw: data to compare, numbers or trends, several options with the same features, steps to follow, the status of many items.
 Do not draw: chat, a text to write or send, one fact, an explanation. A choice for the user is \`ask_user\`; a long report is \`artifact_create\`.
 Rules:
-- Usually one block per reply, at most one per topic. The conclusion goes in prose: the block holds the data.
+- One block per reply, at most one per topic. The conclusion goes in prose: the block holds the data.
 - One statement per line: \`name = Component(args)\`. The first line is \`root = Block([...])\`.
 - Arguments are positional, in signature order; \`?\` ones may be left out at the end, or \`null\` in the middle.
 - Strings in double quotes, numbers as numbers (12, not "12"), lists in [ ], objects as {key: value}.
-- Every name you use is defined once, on its own line. Only these components, nothing else.
+- Define every name once, on its own line. Only these components.
+- Buttons: at most 4 short next steps, last in the block, only when follow-ups are natural. Write each as the user would say it to you ("Go deeper on Metricool"): a tap sends exactly that label. Never instead of \`ask_user\` when you need an answer to go on; never for acts that leave the computer (publish, send, pay).
 Components:
 ${signatures}
 Example:
 \`\`\`ui
-root = Block([k, t])
+root = Block([k, t, b])
 k = Stats([Stat("Open rate", "42%", "+3%", "up"), Stat("Clicks", "1.2k")])
 t = Table(["Plan", "Price (€/month)"], [["Free", 0], ["Pro", 12]], "Plans")
+b = Buttons([Button("Compare the plans in detail", true), Button("Draft the note with the steps")])
 \`\`\``,
 };
 
@@ -42,22 +44,24 @@ const it: typeof en = {
     '[Sistema] La risposta a questa richiesta si legge meglio disegnata. Manuale dei blocchi `ui`:',
   guide: (signatures) =>
     `# Blocchi disegnati
-Dove i dati si leggono meglio disegnati che scritti, metti nella tua risposta Markdown normale un blocco di codice con linguaggio \`ui\`: l’app lo disegna come tabella, numeri chiave, grafico, confronto o passi. La prosa intorno resta Markdown.
+Dove i dati si leggono meglio disegnati che scritti, metti nella tua risposta Markdown un blocco con linguaggio \`ui\`: l’app lo disegna. La prosa intorno resta Markdown.
 Disegna: dati da confrontare, numeri o andamenti, più opzioni con le stesse caratteristiche, passi da seguire, lo stato di tante cose.
 Non disegnare: chiacchiere, un testo da scrivere o da mandare, un fatto solo, una spiegazione. Una scelta per l’utente è \`ask_user\`; un rapporto lungo è \`artifact_create\`.
 Regole:
-- Di solito un blocco per risposta, al massimo uno per argomento. La conclusione va in prosa: il blocco contiene i dati.
+- Un blocco per risposta, al massimo uno per argomento. La conclusione va in prosa: il blocco contiene i dati.
 - Una istruzione per riga: \`nome = Componente(argomenti)\`. La prima riga è \`root = Block([...])\`.
 - Argomenti posizionali, nell’ordine della firma; quelli con \`?\` si omettono in fondo, o si scrive \`null\` in mezzo.
 - Stringhe tra virgolette doppie, numeri come numeri (12, non "12"), liste tra [ ], oggetti come {chiave: valore}.
-- Ogni nome che usi è definito una volta, su una riga sua. Solo questi componenti, nient’altro.
+- Definisci ogni nome una volta, su una riga sua. Solo questi componenti.
+- Buttons: al massimo 4 passi brevi in fondo al blocco, solo se i seguiti sono naturali, scritti come li direbbe l’utente a te ("Approfondisci Metricool"): un tocco manda quell’etichetta. Mai al posto di \`ask_user\` se ti serve una risposta per proseguire; mai per azioni che escono dal computer (pubblicare, inviare, pagare).
 Componenti:
 ${signatures}
 Esempio:
 \`\`\`ui
-root = Block([k, t])
+root = Block([k, t, b])
 k = Stats([Stat("Tasso di apertura", "42%", "+3%", "up"), Stat("Click", "1,2k")])
 t = Table(["Piano", "Prezzo (€/mese)"], [["Free", 0], ["Pro", 12]], "Piani")
+b = Buttons([Button("Confronta i piani nel dettaglio", true), Button("Prepara la nota con i passi")])
 \`\`\``,
 };
 

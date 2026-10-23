@@ -31,6 +31,7 @@ export const DRAWN = new Set([
   'Timeline',
   'Card',
   'Callout',
+  'Buttons',
 ]);
 
 export type BlockView =

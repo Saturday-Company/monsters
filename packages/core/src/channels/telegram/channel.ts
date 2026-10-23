@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import {
@@ -5,6 +6,7 @@ import {
   extractTelegramToken,
   onAppLang,
   telegramTokenShapeMessage,
+  uiBlockButtons,
   type Channel,
   type DraftKind,
   type DraftView,
@@ -216,6 +218,26 @@ interface Later {
   out: Outgoing;
 }
 
+/*
+ * The buttons of a drawn block (D-162) as a keyboard under the reply: one key per suggested
+ * reply, and a tap is the user's message with exactly that label. The label is not in the
+ * button's data (64 bytes, and the data is the client's to write): the data is a short token and
+ * the position, and the labels wait here, in memory, for a day. After a restart, or a day, a
+ * tap says the suggestion expired and the keyboard goes away; the label is never lost, it is in
+ * the message. Only the paired owner's private chat gets a keyboard or can tap one.
+ */
+interface ReplyButtons {
+  chatId: number;
+  messageId: number;
+  labels: string[];
+  at: number;
+}
+
+const REPLY_BUTTONS_TTL_MS = 24 * 3600_000;
+const REPLY_BUTTONS_MAX = 50;
+/** A button's text is cut where Telegram cuts it; the label sent on a tap is the whole one. */
+const KEY_TEXT_MAX = 60;
+
 /** The kinds of draft in a button's data (64 bytes at most). */
 const DRAFT_CODES: Record<DraftKind, string> = {
   monster: 'm',
@@ -275,6 +297,8 @@ export class TelegramChannel {
    */
   readonly #answeredFrom = new Map<string, number>();
   readonly #questionMessages: TelegramQuestionMessages;
+  /** Keyboards of drawn blocks' buttons: token → their labels (D-162). */
+  readonly #replyButtons = new Map<string, ReplyButtons>();
   readonly #active = new Map<number, number>();
   readonly #chains = new Map<number, Promise<unknown>>();
   readonly #pacer: ChatPacer;
@@ -756,6 +780,8 @@ export class TelegramChannel {
       if (bot && this.#bot && bot.toLowerCase() !== this.#bot.username.toLowerCase()) return;
       return this.#onCommand(m.chat.id, name!.toLowerCase(), (args ?? '').trim());
     }
+    // The user spoke: the suggestions of the monsters' last words are old (as in the app).
+    this.#expireReplyButtons(m.chat.id);
     const repliedTo = m.reply_to_message?.message_id;
     // A reply to a question message answers it (or says it is closed), even after a restart.
     const asked =
@@ -970,6 +996,15 @@ export class TelegramChannel {
       }
       return;
     }
+    if (data === 'b:done') {
+      ack();
+      return;
+    }
+    const suggestion = /^b:([0-9a-f]{12}):([0-3])$/.exec(data);
+    if (suggestion) {
+      this.#onSuggestion(q, chat?.id ?? q.from.id, suggestion[1]!, Number(suggestion[2]), ack);
+      return;
+    }
     const answer = /^q:([0-9A-Z]{26}):(.{1,32})$/.exec(data);
     if (!answer) {
       ack();
@@ -986,6 +1021,85 @@ export class TelegramChannel {
         if (question) this.#closeQuestion(question.id, this.#outcome(question));
       }
     }
+  }
+
+  /**
+   * A tap on a suggested reply: the user's message, word for word the label the key showed, sent
+   * as if typed (same checks: a paired account in a private chat, passed in `#onCallback`).
+   */
+  #onSuggestion(
+    q: CallbackQuery,
+    chatId: number,
+    token: string,
+    index: number,
+    ack: (text?: string) => void,
+  ): void {
+    const t = telegramStrings();
+    const entry = this.#replyButtons.get(token);
+    const label = entry?.labels[index];
+    const messageId = q.message?.message_id;
+    if (
+      !entry ||
+      label === undefined ||
+      entry.chatId !== chatId ||
+      entry.messageId !== messageId ||
+      this.#now() - entry.at > REPLY_BUTTONS_TTL_MS
+    ) {
+      ack(t.suggestionExpired);
+      if (messageId !== undefined) this.#editKeyboard(chatId, messageId, []);
+      this.#replyButtons.delete(token);
+      return;
+    }
+    if (this.#o.runs.halted) {
+      ack(t.haltedWrite);
+      return;
+    }
+    // The tap is a message of the user: it closes every suggestion of this chat, and this key
+    // stays as the record of what was sent.
+    this.#expireReplyButtons(chatId);
+    this.#editKeyboard(chatId, entry.messageId, [
+      [{ text: `✓ ${clip(label, KEY_TEXT_MAX)}`, callback_data: 'b:done' }],
+    ]);
+    ack(t.suggestionSentPopup);
+    this.#sendToTeam(chatId, label);
+  }
+
+  /** Takes the keyboards of a chat's suggestions away (the user spoke, or a newer block came). */
+  #expireReplyButtons(chatId: number, except?: string): void {
+    for (const [token, b] of this.#replyButtons) {
+      if (b.chatId !== chatId || token === except) continue;
+      this.#replyButtons.delete(token);
+      this.#editKeyboard(chatId, b.messageId, []);
+    }
+  }
+
+  #editKeyboard(
+    chatId: number,
+    messageId: number,
+    inline_keyboard: { text: string; callback_data: string }[][],
+  ): void {
+    this.#enqueue(chatId, async (api) => {
+      try {
+        await api.editMessageReplyMarkup(chatId, messageId, { reply_markup: { inline_keyboard } });
+      } catch (err) {
+        // Already like that, or gone: nothing to do. Any other refusal is logged.
+        if (editMoot(err)) return;
+        throw err;
+      }
+    });
+  }
+
+  /** Remembers the labels of a keyboard just sent; the oldest go first when there are too many. */
+  #rememberButtons(token: string, b: ReplyButtons): void {
+    for (const [old, x] of this.#replyButtons) {
+      if (b.at - x.at > REPLY_BUTTONS_TTL_MS) this.#replyButtons.delete(old);
+    }
+    // A newer block in the same chat is the current one: the older keyboards go.
+    this.#expireReplyButtons(b.chatId, token);
+    while (this.#replyButtons.size >= REPLY_BUTTONS_MAX) {
+      this.#replyButtons.delete(this.#replyButtons.keys().next().value!);
+    }
+    this.#replyButtons.set(token, b);
   }
 
   /** Conferma or Scarta on a draft: the outcome closes its messages (from the log). */
@@ -1276,32 +1390,58 @@ export class TelegramChannel {
       markup?: InlineKeyboardMarkup;
       silent?: boolean;
       anyone?: boolean;
+      /** The reply of a monster: the buttons of its drawn block become a keyboard (D-162). */
+      suggestions?: boolean;
     } = {},
   ): void {
-    const pieces = options.html ? splitHtml(text) : splitMarkdown(forTelegram(text));
+    // Buttons need a private chat of the paired owner; their labels go on the keys, and stay
+    // in the text only where a key would cut them.
+    const labels =
+      options.suggestions && !options.html && this.#users.has(chatId) ? uiBlockButtons(text) : [];
+    const apart = labels.length > 0 && labels.every((l) => [...l].length <= KEY_TEXT_MAX);
+    const pieces = options.html
+      ? splitHtml(text)
+      : splitMarkdown(forTelegram(text, apart ? { omitButtons: true } : undefined));
     pieces.forEach((piece, i) => {
       const last = i === pieces.length - 1;
       const html = options.html ? piece : toTelegramHtml(piece);
+      const token = last && labels.length > 0 ? randomBytes(6).toString('hex') : null;
+      const markup: InlineKeyboardMarkup | undefined = token
+        ? {
+            inline_keyboard: labels.map((label, n) => [
+              { text: clip(label, KEY_TEXT_MAX), callback_data: `b:${token}:${n}` },
+            ]),
+          }
+        : options.markup;
       this.#enqueue(
         chatId,
         async (api) => {
           const extra = {
-            ...(last && options.markup ? { reply_markup: options.markup } : {}),
+            ...(last && markup ? { reply_markup: markup } : {}),
             ...(options.silent ? { disable_notification: true } : {}),
             link_preview_options: { is_disabled: true },
           };
+          let sent: Message;
           try {
-            await api.sendMessage(chatId, html, { parse_mode: 'HTML', ...extra });
+            sent = await api.sendMessage(chatId, html, { parse_mode: 'HTML', ...extra });
           } catch (err) {
             if (
               err instanceof GrammyError &&
               err.error_code === 400 &&
               /parse|entit/i.test(err.description)
             ) {
-              await api.sendMessage(chatId, piece, extra);
-              return;
+              sent = await api.sendMessage(chatId, piece, extra);
+            } else {
+              throw err;
             }
-            throw err;
+          }
+          if (token) {
+            this.#rememberButtons(token, {
+              chatId,
+              messageId: sent.message_id,
+              labels,
+              at: this.#now(),
+            });
           }
         },
         { anyone: options.anyone },
@@ -1477,7 +1617,7 @@ export class TelegramChannel {
           return;
         const t = this.#tracks.get(e.runId);
         if (!t || t.agent !== e.agent || !e.data.text.trim()) return;
-        if (t.chatId !== null) this.#reply(t.chatId, e.data.text);
+        if (t.chatId !== null) this.#reply(t.chatId, e.data.text, { suggestions: true });
         else t.lastText = e.data.text;
         return;
       }

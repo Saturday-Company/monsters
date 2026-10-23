@@ -196,6 +196,8 @@ test('Progetti: a new project starts with the team’s connections on, the user 
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?mock=demo');
+  // The mock core loads after the page's own load event: wait for it before reaching into it.
+  await page.waitForFunction(() => '__monstersMock' in window);
   // Canva and Figma through Claude, given to the whole team.
   await page.evaluate(() => {
     const mock = (

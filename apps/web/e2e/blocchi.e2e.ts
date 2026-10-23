@@ -1,12 +1,13 @@
 import { mkdirSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 import type * as AppStore from '../src/store/app.ts';
-import { expect, expectNoSideScroll, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, holdMock, releaseMock, test } from './fixtures.ts';
 
 /*
  * Drawn blocks in the chat (D-162): a reply with a ```ui fence of OpenUI Lang shows a table, key
  * numbers and charts (our own SVG); a block that does not parse shows its text and says so.
- * `SCREENSHOTS=1 SCREENSHOTS_DIR=<folder>` also writes them, light and dark, 1440 and 390 px.
+ * Buttons are suggested replies: a tap sends the label as the user's message, once. `SCREENSHOTS=1
+ * SCREENSHOTS_DIR=<folder>` also writes the pictures, light and dark, 1440 and 390 px.
  */
 
 const STORE = '/src/store/app.ts';
@@ -14,14 +15,33 @@ const OUT = `${(process.env['SCREENSHOTS_DIR'] ?? '/tmp/blocchi-ui').replace(/\/
 const shots = !!process.env['SCREENSHOTS'];
 
 let fed = 0;
-const reply = (page: Page, text: string, opts: { partial?: boolean; run?: string } = {}) =>
-  page.evaluate(
-    async ({ src, text, id, partial, run }) => {
+
+/**
+ * An id that sorts by time like the core's own (the store orders the log by id): for a reply that
+ * must stay before the events that come after it, such as the message a tap sends. The default
+ * ids sort last of all, which suits the replies that are only looked at.
+ */
+const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+function idAt(ts: number, n: number): string {
+  let time = '';
+  for (let t = ts, i = 0; i < 10; i++, t = Math.floor(t / 32)) time = `${CROCKFORD[t % 32]}${time}`;
+  return `${time}${String(n).padStart(16, '0')}`;
+}
+
+const reply = (
+  page: Page,
+  text: string,
+  opts: { partial?: boolean; run?: string; ordered?: boolean } = {},
+) => {
+  const id = ++fed;
+  const ts = Date.now();
+  return page.evaluate(
+    async ({ src, text, id, ts, partial, run }) => {
       const { ingest } = (await import(/* @vite-ignore */ src)) as typeof AppStore;
       ingest([
         {
-          id: `7ZZZZZZZZZ${String(id).padStart(16, '0')}`,
-          ts: Date.now(),
+          id,
+          ts,
           runId: run ?? `r-blocks-${id}`,
           parentId: null,
           agent: 'titan',
@@ -30,8 +50,16 @@ const reply = (page: Page, text: string, opts: { partial?: boolean; run?: string
         },
       ] as Parameters<(typeof AppStore)['ingest']>[0]);
     },
-    { src: STORE, text, id: ++fed, partial: !!opts.partial, run: opts.run },
+    {
+      src: STORE,
+      text,
+      id: opts.ordered ? idAt(ts, id) : `7ZZZZZZZZZ${String(id).padStart(16, '0')}`,
+      ts,
+      partial: !!opts.partial,
+      run: opts.run,
+    },
   );
+};
 
 const NUMBERS = `Here is how the month went.
 
@@ -58,6 +86,14 @@ note = Callout("Prices are before VAT.", "warning")
 card = Card("Decision", "Go with Plan B unless the budget changes.", "Open")
 \`\`\``;
 
+const NEXT = `Metricool fits best; here is where we can go from here.
+
+\`\`\`ui
+root = Block([note, next])
+note = Callout("Metricool covers scheduling and reports for the three networks.", "info")
+next = Buttons([Button("Approfondisci Metricool", true), Button("Prepara la nota con i passi"), Button("Confronta anche Buffer")])
+\`\`\``;
+
 const BROKEN = `Here you go.
 
 \`\`\`ui
@@ -65,6 +101,15 @@ this is not a block at all
 \`\`\``;
 
 test.use({ viewport: { width: 1440, height: 900 } });
+
+/** The demo opens with a question of Titan: stopping and resuming closes it (as in flows.e2e.ts). */
+async function expireDemoQuestion(page: Page): Promise<void> {
+  await expect(page.getByTestId('question-card').first()).toHaveAttribute('data-status', 'open');
+  await page.getByTestId('kill').click();
+  await page.getByTestId('kill').click();
+  await page.getByTestId('resume').click();
+  await expect(page.getByTestId('question-card').first()).toHaveAttribute('data-status', 'expired');
+}
 
 test('a reply with a ui block draws the table, the key numbers and the charts', async ({
   page,
@@ -207,6 +252,126 @@ test('the agent terminal draws blocks too, on its black screen', async ({ page }
   }
 });
 
+test('buttons: a tap sends the visible label as the user’s message, once, and closes them', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/?chat=titan');
+  await expect(page.getByTestId('chat-panel')).toBeVisible();
+  await reply(page, NEXT, { ordered: true });
+  const bubble = page.getByTestId('agent-bubble').last();
+  const buttons = bubble.getByTestId('ui-button');
+  await expect(buttons).toHaveText([
+    'Approfondisci Metricool',
+    'Prepara la nota con i passi',
+    'Confronta anche Buffer',
+  ]);
+  await expect(buttons.nth(0)).toHaveClass(/key-primary/);
+  await expect(buttons.nth(1)).not.toHaveClass(/key-primary/);
+  // The monster still waits for the answer to its question: the composer answers that, not a tap.
+  await expect(bubble.getByTestId('ui-buttons')).toHaveAttribute('data-gate', 'question');
+  for (const b of await buttons.all()) await expect(b).toHaveAttribute('aria-disabled', 'true');
+  await expect(buttons.first()).toHaveAttribute('title', 'Answer the question first');
+  const sent = page.getByTestId('user-bubble');
+  const before = await sent.count();
+  await buttons.first().click({ force: true });
+  await expect(sent).toHaveCount(before);
+
+  await expireDemoQuestion(page);
+  await expect(bubble.getByTestId('ui-buttons')).toHaveAttribute('data-gate', 'open');
+  for (const b of await buttons.all()) await expect(b).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(buttons.nth(1)).toHaveAttribute('title', 'Sends: “Prepara la nota con i passi”');
+
+  // Hold the mock's work: after the tap we look at the chat, not at what the monster does next.
+  await holdMock(page);
+  await buttons.nth(1).click();
+  // Exactly the label, as a message of the user, shown like a typed one.
+  await expect(sent.last()).toHaveText('Prepara la nota con i passi');
+  await expect(sent).toHaveCount(before + 1);
+  // Every button of the block closes, with the reason; a second tap sends nothing.
+  await expect(bubble.getByTestId('ui-buttons')).toHaveAttribute('data-gate', 'answered');
+  for (const b of await buttons.all()) {
+    await expect(b).toHaveAttribute('aria-disabled', 'true');
+    await expect(b).toHaveAttribute('title', 'You already replied after this message');
+  }
+  await buttons.first().click({ force: true });
+  await expect(sent).toHaveCount(before + 1);
+  await releaseMock(page);
+  await expect(sent).toHaveCount(before + 1);
+  await expect(bubble.getByTestId('ui-buttons')).toHaveAttribute('data-gate', 'answered');
+});
+
+test('buttons: shut while the reply streams, open when it is final', async ({ page }) => {
+  await page.goto('/?mock=demo#/?chat=titan');
+  await expect(page.getByTestId('chat-panel')).toBeVisible();
+  await expireDemoQuestion(page);
+  const run = 'r-buttons-streaming';
+  const head =
+    'Next steps:\n\n```ui\nroot = Block([b])\nb = Buttons([Button("Approfondisci Metricool", true), ';
+  await reply(page, `${head}Button("Prepara la nota"`, { partial: true, run, ordered: true });
+  const bubble = page.getByTestId('agent-bubble').last();
+  await expect(bubble).toHaveAttribute('data-streaming', 'true');
+  const buttons = bubble.getByTestId('ui-button');
+  await expect(buttons.first()).toHaveText('Approfondisci Metricool');
+  for (const b of await buttons.all()) {
+    await expect(b).toHaveAttribute('aria-disabled', 'true');
+    await expect(b).toHaveAttribute('title', 'Wait for the reply to finish');
+  }
+  const sent = page.getByTestId('user-bubble');
+  const before = await sent.count();
+  await buttons.first().click({ force: true });
+  await expect(sent).toHaveCount(before);
+  await reply(page, `${head}Button("Prepara la nota")])\n\`\`\``, { run, ordered: true });
+  await expect(bubble).toHaveAttribute('data-streaming', 'false');
+  await expect(buttons).toHaveText(['Approfondisci Metricool', 'Prepara la nota']);
+  for (const b of await buttons.all()) await expect(b).not.toHaveAttribute('aria-disabled', 'true');
+});
+
+test('buttons: a message typed by hand closes them too', async ({ page }) => {
+  await page.goto('/?mock=demo&mockSpeed=0.6#/?chat=titan');
+  await expect(page.getByTestId('chat-panel')).toBeVisible();
+  await expireDemoQuestion(page);
+  await reply(page, NEXT, { ordered: true });
+  const buttons = page.getByTestId('agent-bubble').last().getByTestId('ui-button');
+  await expect(buttons.first()).not.toHaveAttribute('aria-disabled', 'true');
+  // A message typed by hand closes them too: the user spoke after this reply.
+  await holdMock(page);
+  const input = page.getByRole('combobox', { name: 'Message' });
+  await input.fill('Something else first');
+  await input.press('Enter');
+  await expect(page.getByTestId('user-bubble').last()).toHaveText('Something else first');
+  await expect(buttons.first()).toHaveAttribute('aria-disabled', 'true');
+  await releaseMock(page);
+});
+
+test('buttons: wrapped on a phone, not drawn on the agent terminal', async ({ page }) => {
+  await page.goto('/?mock=demo#/?chat=titan');
+  await expect(page.getByTestId('chat-panel')).toBeVisible();
+  await expireDemoQuestion(page);
+  await reply(page, NEXT, { run: 'r-buttons-terminal', ordered: true });
+  const bubble = page.getByTestId('agent-bubble').last();
+  await expect(bubble.getByTestId('ui-button')).toHaveCount(3);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoSideScroll(page);
+  const box = await bubble.boundingBox();
+  for (const b of await bubble.getByTestId('ui-button').all()) {
+    const r = await b.boundingBox();
+    expect(r!.x + r!.width).toBeLessThanOrEqual(box!.x + box!.width + 1);
+    expect(r!.height).toBeGreaterThanOrEqual(40);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  await page
+    .getByRole('button', { name: /^Behind the scenes of Titan/ })
+    .last()
+    .click();
+  const term = page.getByTestId('agent-terminal');
+  await expect(term.getByTestId('ui-block')).toBeVisible();
+  await expect(term).toContainText('Metricool covers scheduling');
+  // No chat to send to there: the buttons are not drawn.
+  await expect(term.getByTestId('ui-button')).toHaveCount(0);
+});
+
 test('other code blocks are untouched', async ({ page }) => {
   await page.goto('/?mock=demo#/?chat=titan');
   await expect(page.getByTestId('chat-panel')).toBeVisible();
@@ -229,10 +394,12 @@ if (shots) {
         await page.setViewportSize({ width: size.width, height: 5200 });
         await page.goto('/?mock=demo#/?chat=titan');
         await expect(page.getByTestId('chat-panel')).toBeVisible();
+        await expireDemoQuestion(page);
         for (const [name, text] of [
           ['numbers', NUMBERS],
           ['plan', PLAN],
           ['broken', BROKEN],
+          ['buttons', NEXT],
         ] as const) {
           await reply(page, text);
           const bubble = page.getByTestId('agent-bubble').last();
