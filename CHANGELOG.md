@@ -2,6 +2,26 @@
 
 The Italian version is in [`CHANGELOG.it.md`](CHANGELOG.it.md).
 
+## 0.1.0-alpha.23 · 24 October 2026
+
+### What you’ll see
+- **Connected services just work.** Once an app or service is connected (Anteiku, GitHub, Notion…), your monsters
+  know every one of its tools and use the right one straight away: they no longer ask you for addresses, keys or an
+  access they already have, and long lists come in a few pieces instead of dozens of reads.
+- **Every service reaches every monster.** A service you connect is available to the whole squad and to every
+  project, also the ones that already exist. If a project must not use one, turn it off in the project’s Connections
+  tab.
+- **Fewer confirmations.** Ordinary writes in your own services (creating a task, updating a client) no longer ask
+  you first; deleting, sending, publishing and paying still do.
+- **Access in one tap.** When a lead asks for a service for its project, your “Yes” is enough: it starts again on its
+  own with the new tools, without another message from you.
+
+### More reliable
+- **A dropped connection reconnects** instead of leaving the service dead until a restart.
+- **Codex monsters reach all the tools** of a connected service, not only the first 40.
+- **The free models work again**: the first free model of the chain was removed by its provider and is replaced
+  automatically.
+
 ## 0.1.0-alpha.22 · 23 October 2026
 
 ### What you’ll see

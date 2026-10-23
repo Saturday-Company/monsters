@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.0-alpha.23 · 24 ottobre 2026
+
+### Cosa si vede
+- **I servizi collegati funzionano subito.** Collegato un programma o un servizio (Anteiku, GitHub, Notion…), i mostri
+  ne conoscono tutti gli strumenti e usano subito quello giusto: non ti chiedono più indirizzi, chiavi o accessi che
+  hanno già, e gli elenchi lunghi arrivano in pochi pezzi invece che in decine di letture.
+- **Ogni servizio arriva a tutti i mostri.** Un servizio che colleghi è a disposizione di tutta la squadra e di ogni
+  progetto, anche di quelli che esistono già. Se un progetto non deve usarlo, lo spegni nella scheda Collegamenti del
+  progetto.
+- **Meno conferme.** Le scritture normali nei tuoi servizi (creare una task, aggiornare un cliente) non ti chiedono
+  più il permesso; cancellare, inviare, pubblicare e pagare sì.
+- **Accesso con un tocco.** Quando un capo chiede un servizio per il suo progetto, basta il tuo «Sì»: riparte da solo
+  con gli strumenti nuovi, senza un altro messaggio.
+
+### Più affidabile
+- **Una connessione caduta si ricollega** invece di lasciare il servizio fermo fino a un riavvio.
+- **I mostri su Codex raggiungono tutti gli strumenti** di un servizio collegato, non solo i primi 40.
+- **I modelli gratuiti funzionano di nuovo**: il primo modello gratuito della catena è stato tolto dal suo fornitore
+  e viene sostituito da solo.
+
 ## 0.1.0-alpha.22 · 23 ottobre 2026
 
 ### Cosa si vede
