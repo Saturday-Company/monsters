@@ -84,8 +84,8 @@ describe('the changelog in two languages', () => {
   });
 
   it('writes the dates and the headings in the language of the file', () => {
-    expect(en[0]!.date).toBe('21 October 2026');
-    expect(it_[0]!.date).toBe('21 ottobre 2026');
+    // The same day in both, whatever the latest version is.
+    expect(en.map((v) => v.date.split(' ')[0])).toEqual(it_.map((v) => v.date.split(' ')[0]));
     for (const v of en) expect(v.date).toMatch(/^\d{1,2} (September|October|November) 2026$/);
     for (const v of it_) expect(v.date).toMatch(/^\d{1,2} (settembre|ottobre|novembre) 2026$/);
     expect(en[0]!.sections.map((s) => s.title)).toEqual(['What you’ll see', 'More reliable']);
@@ -100,10 +100,10 @@ describe('the changelog in two languages', () => {
 
   it('follows the app language', () => {
     setAppLang('it');
-    expect(CHANGELOG[0]!.date).toBe('21 ottobre 2026');
+    expect(CHANGELOG[0]!.date).toBe(it_[0]!.date);
     expect(CHANGELOG.length).toBe(it_.length);
     setAppLang('en');
-    expect(CHANGELOG[0]!.date).toBe('21 October 2026');
+    expect(CHANGELOG[0]!.date).toBe(en[0]!.date);
     expect(CHANGELOG.map((v) => v.version)).toEqual(en.map((v) => v.version));
   });
 });
