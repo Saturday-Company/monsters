@@ -203,6 +203,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
             service: 'canva',
             why: 'Leggere le grafiche del club',
           }),
+          fake.text('Ho chiesto Canva per il progetto, aspetto.'),
           fake.text('Canva è acceso per il progetto.'),
         ],
       },
@@ -223,8 +224,19 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     expect(q.options.map((o) => o.label)).toEqual(['Yes, grant', 'No']);
     expect(q.options[0]!.description).toContain('“Saturday” → Connections: Canva turned on');
     setAppLang('it');
-    await t.json('POST', `/api/questions/${q.id}/answer`, { optionId: 'grant' });
+    // Leda gains it herself: the request is parked at once and her run ends (D-163); the tap
+    // starts her next run, with Canva among its tools and the note of the grant.
     await t.runEnded(sent.runId);
+    const result = t
+      .events(sent.runId)
+      .find((e) => e.type === 'tool_result' && e.data.tool === 'access_request');
+    expect(JSON.stringify(result?.data)).toContain('waiting_user');
+    const resumed = t.waitEvent(
+      (e): e is LogEvent<'run'> =>
+        e.type === 'run' && e.runId !== sent.runId && e.data.status !== 'started',
+    );
+    await t.json('POST', `/api/questions/${q.id}/answer`, { optionId: 'grant' });
+    const next = await resumed;
     expect(t.core.hub.team.project('saturday')!.connections.claude).toEqual(['canva']);
     expect(grants(t).map((e) => e.data)).toEqual([
       expect.objectContaining({
@@ -233,10 +245,9 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
         summary: 'Canva to the project “Saturday”',
       }),
     ]);
-    const result = t
-      .events(sent.runId)
-      .find((e) => e.type === 'tool_result' && e.data.tool === 'access_request');
-    expect(JSON.stringify(result?.data)).toContain('Fatto: Monsters ha concesso Canva');
+    expect(next.data.status).toBe('completed');
+    const seen = promptText(t.provider.callsTo('leda').at(-1)!.options.prompt);
+    expect(seen).toContain('Fatto: Monsters ha concesso Canva');
   });
 
   it('only the user in person answers it: never the CLI token', async () => {

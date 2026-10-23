@@ -88,16 +88,18 @@ describe('the brake: names of other programs', () => {
     for (const name of ['notion-create-comment', 'notion-send-message-to-session']) {
       expect(c(name), name).toMatchObject({ category: 'contact', certain: true });
     }
-    // Writes without a verb that says how: candidates for the instinct.
+    // Plain writes in the user's own workspace ask nothing (D-163).
     for (const name of [
       'notion-update-page',
       'notion-move-pages',
       'notion-create-pages',
       'notion-create-database',
-      'notion-spawn-session',
-      'notion-upload-skill',
       'notion-create-file-upload',
     ]) {
+      expect(c(name), name).toBeNull();
+    }
+    // Writes without a verb that says how: candidates for the instinct.
+    for (const name of ['notion-spawn-session', 'notion-upload-skill']) {
       expect(c(name), name).toMatchObject({ certain: false });
     }
     // Reads: nothing, with or without the server's read-only hint.

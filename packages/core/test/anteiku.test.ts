@@ -252,10 +252,11 @@ describe('Anteiku: the brake (D-070, D-075)', () => {
     ]) {
       expect(classify(name), name).toBeNull();
     }
-    // A comment writes to the colleagues (as `comment`); creating and updating go to the instinct.
+    // A comment writes to the colleagues (as `comment`); creating and updating are plain writes in
+    // the user's own service and ask nothing (D-163).
     expect(classify('anteiku_task_commenta')).toMatchObject({ category: 'contact', certain: true });
-    expect(classify('anteiku_task_crea')).toMatchObject({ certain: false, category: undefined });
-    expect(classify('anteiku_clienti_aggiorna')).toMatchObject({ certain: false });
+    expect(classify('anteiku_task_crea')).toBeNull();
+    expect(classify('anteiku_clienti_aggiorna')).toBeNull();
     // Marked as sent is not sending.
     expect(classify('anteiku_preventivi_segna_inviato')).toMatchObject({ certain: false });
     // "ordina" sorts, it does not order.

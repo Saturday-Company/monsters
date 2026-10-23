@@ -177,12 +177,12 @@ describe('A1 · normal use asks nothing more', () => {
     }
   });
 
-  it('the action of a write keeps deciding: a page in a clean run is a candidate, as before', () => {
+  it('the action of a write keeps deciding: a page in a clean run is a plain write (D-163)', () => {
     const found = classifyOutbound(
       tool('mcp__notion__notion-create-pages'),
       { pages: [{ content: NOTE }] },
       { taint: new RunTaint() },
     );
-    expect(found).toMatchObject({ certain: false });
+    expect(found).toBeNull();
   });
 });

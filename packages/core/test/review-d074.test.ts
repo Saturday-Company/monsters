@@ -326,19 +326,50 @@ describe('D-074 · 5-6: the verb after the service, fewer false cards', () => {
     expect(classifyOutbound(mcp('delete_user'), {})).toMatchObject({ category: 'delete' });
   });
 
-  it('a thing of a user, a record with a mail, a negation, a budget: the instinct, not a card', () => {
+  it('a thing of a user, a negation, a budget: a plain write, no card and no instinct (D-163)', () => {
     for (const [name, input, description] of [
       ['set_user_preferences', {}, 'Tool'],
       ['update_user_profile', {}, 'Tool'],
-      ['create_contact', { firstname: 'Mario', email: 'mario@rossi.it' }, 'Tool'],
-      ['update_customer', { id: 1, email: 'mario@rossi.it' }, 'Tool'],
       ['add_task', { title: 'x' }, 'Add a task to your personal list. Does not notify anyone.'],
       ['update_project', { name: 'x' }, 'Update the name, budget or status of a project.'],
       ['save_item', {}, 'Saves the item. Non invia nulla a nessuno.'],
     ] as const) {
-      expect(classifyOutbound(mcp(name, description), input), name).toMatchObject({
+      expect(classifyOutbound(mcp(name, description), input), name).toBeNull();
+    }
+  });
+
+  it('a record with a mail may mean a message: the instinct, not a card', () => {
+    for (const [name, input] of [
+      ['create_contact', { firstname: 'Mario', email: 'mario@rossi.it' }],
+      ['update_customer', { id: 1, email: 'mario@rossi.it' }],
+    ] as const) {
+      expect(classifyOutbound(mcp(name, 'Tool'), input), name).toMatchObject({ certain: false });
+    }
+  });
+
+  it('D-163 · connectors without blocks: plain writes ask nothing, what others may see stays a candidate', () => {
+    for (const name of ['create_issue', 'update_issue', 'add_labels_to_issue']) {
+      expect(classifyOutbound(mcp(name, 'Tool'), { title: 'x' }), name).toBeNull();
+    }
+    for (const name of ['create_gist', 'create_repository', 'create_pull_request_review']) {
+      expect(classifyOutbound(mcp(name, 'Tool'), { name: 'x' }), name).toMatchObject({
         certain: false,
       });
+    }
+    expect(classifyOutbound(mcp('create_contact', 'Tool'), { email: 'a@b.it' })).toMatchObject({
+      certain: false,
+    });
+    // The server's destructive hint still decides, and so does the verb of a delete.
+    expect(
+      classifyOutbound({ ...mcp('anteiku_clienti_archivia', 'Tool'), destructive: true }, {}),
+    ).toMatchObject({ category: 'delete', certain: true });
+    expect(classifyOutbound(mcp('delete_issue', 'Tool'), {})).toMatchObject({
+      category: 'delete',
+      certain: true,
+    });
+    // Reads are nothing.
+    for (const name of ['get_issue', 'list_issues', 'search_issues']) {
+      expect(classifyOutbound(mcp(name, 'Tool'), {}), name).toBeNull();
     }
   });
 

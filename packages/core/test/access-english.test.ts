@@ -1,5 +1,5 @@
 import { fake } from '@monsters/providers/testing';
-import { setAppLang, type ProjectView } from '@monsters/shared';
+import { setAppLang, type LogEvent, type ProjectView } from '@monsters/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { parseAgentConfig, type AgentDefinition } from '../src/agents/definition.ts';
 import {
@@ -20,7 +20,7 @@ import {
   type AccessStateDeps,
 } from '../src/team/access-state.ts';
 import { tempHome } from './helpers.ts';
-import { startTestHub, type TestHub } from './hub-helpers.ts';
+import { promptText, startTestHub, type TestHub } from './hub-helpers.ts';
 
 /*
  * The accesses in English (D-153, wave 3): the words that read what a monster or the user wrote
@@ -333,6 +333,7 @@ describe('access_request in English', () => {
             why: 'To read the club’s graphics',
           }),
           fake.toolCall('access_request', { access: 'service', service: 'Figma', why: 'Files' }),
+          fake.text('I asked for Canva, I wait.'),
           fake.text('Canva is on for the project.'),
         ],
       },
@@ -351,16 +352,23 @@ describe('access_request in English', () => {
     expect(q!.question).toBe(
       'Can I give Canva to the project “Saturday”? To read the club’s graphics',
     );
-    await t.json('POST', `/api/questions/${q!.id}/answer`, { optionId: 'grant' });
+    // Leda gains Canva herself: parked at once (D-163), the tap starts her next run with the note.
     await t.runEnded(sent.runId);
     const results = t
       .events(sent.runId)
       .filter((e) => e.type === 'tool_result' && e.data.tool === 'access_request')
       .map((e) => JSON.stringify(e.data));
-    expect(results[0]).toContain(
+    expect(results[0]).toContain('"status":"waiting_user"');
+    expect(results[0]).toContain('The request is now with the user, as a card with');
+    const resumed = t.waitEvent(
+      (e): e is LogEvent<'run'> =>
+        e.type === 'run' && e.runId !== sent.runId && e.data.status !== 'started',
+    );
+    await t.json('POST', `/api/questions/${q!.id}/answer`, { optionId: 'grant' });
+    await resumed;
+    expect(promptText(t.provider.callsTo('leda').at(-1)!.options.prompt)).toContain(
       'Done: Monsters has granted Canva to the project “Saturday”. It applies from the next job of whoever uses it',
     );
-    expect(results[0]).toContain('"status":"granted"');
     expect(results[1]).toContain(
       'tell Giulio to connect Figma in Settings → Connections (“Connect through Claude”, with the Claude subscription)',
     );

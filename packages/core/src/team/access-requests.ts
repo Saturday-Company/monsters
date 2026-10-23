@@ -359,7 +359,9 @@ export class AccessRequests {
           this.#o.questions.park(question.id, reason);
           return { status: 'waiting_user', question_id: question.id, note: parkedNote() };
         };
-        if (waitMs === 0) return parked('harness');
+        // What the asking monster gains itself comes with its next run only (its tools are fixed for
+        // this one): parked at once, the user's tap starts that run, no message to write (D-163).
+        if (waitMs === 0 || this.#gainsSelf(ctx.self, plan.steps)) return parked('harness');
         const timeout = AbortSignal.timeout(waitMs);
         try {
           await this.#o.questions.waitFor(question.id, AbortSignal.any([tc.signal, timeout]));
@@ -385,6 +387,16 @@ export class AccessRequests {
         }
       },
     });
+  }
+
+  /** A step that gives the asking monster itself a tool: its web, its project's service, a server. */
+  #gainsSelf(self: AgentDefinition, steps: readonly AccessStep[]): boolean {
+    const own = this.#o.team.projectOf(self.config.id)?.id;
+    return steps.some((s) =>
+      s.do === 'project_link' || s.do === 'project_web'
+        ? s.project === own
+        : s.agent === self.config.id,
+    );
   }
 
   /**

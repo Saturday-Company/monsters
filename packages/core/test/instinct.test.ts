@@ -539,7 +539,9 @@ describe('outbound actions: the rules', () => {
     });
     expect(classifyOutbound(tool('mcp__gmail__create_draft'), {})).toBeNull();
     expect(classifyOutbound(tool('mcp__gmail__search', { readOnly: true }), {})).toBeNull();
-    expect(classifyOutbound(tool('mcp__crm__update_record'), {})).toMatchObject({ certain: false });
+    // A plain write in the service asks nothing (D-163); a verb the rules do not know ("sync") is a candidate.
+    expect(classifyOutbound(tool('mcp__crm__update_record'), {})).toBeNull();
+    expect(classifyOutbound(tool('mcp__crm__sync_pipeline'), {})).toMatchObject({ certain: false });
     expect(
       classifyOutbound(tool('mcp__browser__browser_click'), {
         element: 'pulsante Invia ordine',
@@ -578,7 +580,8 @@ describe('outbound actions: who can see or change something (D-073)', () => {
     expect(removed!.meaning).toBe('take away another person’s access');
     expect(classifyOutbound(design('get_sharing'), {})).toBeNull();
     expect(classifyOutbound(design('list_members'), {})).toBeNull();
-    expect(classifyOutbound(design('create_project'), {})).toMatchObject({ certain: false });
+    // A plain write in the user's own service (D-163).
+    expect(classifyOutbound(design('create_project'), {})).toBeNull();
     for (const [name, category] of [
       ['mcp__drive__share_file', 'publish'],
       ['mcp__drive__grant_access', 'publish'],
@@ -606,9 +609,8 @@ describe('outbound actions: who can see or change something (D-073)', () => {
     expect(
       classifyOutbound(update, { id: 'e1', attendees: ['anna@example.com'], sendUpdates: 'all' }),
     ).toMatchObject({ category: 'contact', certain: true });
-    expect(classifyOutbound(update, { id: 'e1', title: 'Dentista' })).toMatchObject({
-      certain: false,
-    });
+    // Only a title: a plain write, nothing leaves (D-163).
+    expect(classifyOutbound(update, { id: 'e1', title: 'Dentista' })).toBeNull();
     expect(
       classifyOutbound(
         tool('mcp__drive__upload_file', {
@@ -622,7 +624,7 @@ describe('outbound actions: who can see or change something (D-073)', () => {
         tool('mcp__todo__add_task', { description: "Adds a task to the user's personal list" }),
         {},
       ),
-    ).toMatchObject({ certain: false });
+    ).toBeNull(); // a plain write (D-163)
   });
 
   it('the card says what it means: “take away access”, not “delete for good”', async () => {
@@ -932,18 +934,18 @@ describe('outbound actions: the brake (InstinctGuard)', () => {
     let p = 0.6;
     const port = fakePort(() => ({ outbound: p, outbound_kind: 'contact' }));
     const { guard: g, questions } = guard(s, port);
-    await g.beforeCall(call('mcp__crm__update_record', { id: 1 }));
+    await g.beforeCall(call('mcp__crm__sync_pipeline', { id: 1 }));
     expect(instinctEvents(s).at(-1)!.data.action).toBe('outbound_marked');
     p = 0.1;
-    await g.beforeCall(call('mcp__crm__update_record', { id: 2 }));
+    await g.beforeCall(call('mcp__crm__sync_pipeline', { id: 2 }));
     expect(instinctEvents(s)).toHaveLength(1);
     p = 0.95;
-    const held = g.beforeCall(call('mcp__crm__update_record', { id: 3 }));
+    const held = g.beforeCall(call('mcp__crm__sync_pipeline', { id: 3 }));
     await new Promise((r) => setTimeout(r, 5));
     questions.answer(questions.list({ status: 'open' })[0]!.id, { optionId: '1' }, 'ui');
     await held;
     const none = guard(services(), undefined);
-    await none.guard.beforeCall(call('mcp__crm__update_record', { id: 4 }));
+    await none.guard.beforeCall(call('mcp__crm__sync_pipeline', { id: 4 }));
     expect(none.questions.list()).toHaveLength(0);
   });
 

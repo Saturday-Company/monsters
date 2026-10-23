@@ -464,6 +464,18 @@ const DRAFT = /^(draft|drafts|preview|bozza|bozze)$/;
  */
 const READ =
   /^(get|list|search|fetch|query|read|find|retrieve|describe|view|show|lookup|count|download|browse|inspect|leggi|elenca|cerca|trova|mostra|conta|scarica|visualizza)$/;
+/**
+ * Verbs of a plain write that stays in the service (D-163): creating, changing, moving, recording.
+ * Not `open`/`close`/`approve`/`decide`/`mark`, whose effect depends on the service, nor words
+ * that are nouns as often (`record`, `log`, `label`, `start`): the instinct.
+ */
+const WRITE =
+  /^(create|add|insert|update|upsert|edit|modify|patch|set|save|rename|move|duplicate|write|crea|aggiungi|aggiorna|modifica|imposta|salva|rinomina|sposta|copia|duplica|registra|scrivi|avvia|ferma|inizia)$/;
+/** An address of mail anywhere in the arguments. */
+const MAIL_IN_ARGS = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
+/** What others may see once made (a gist, a repository, a review, a post): the instinct. */
+const SEEN_NOUN =
+  /^(gist|gists|repository|repositories|repo|repos|review|reviews|post|posts|story|stories|tweet|tweets|status|release|releases|site|website)$/;
 /** "get_and_reset_counter", "fetch_then_delete": the verb after the conjunction decides. */
 const AND = /^(and|then|e|poi)$/;
 
@@ -769,6 +781,19 @@ function actionCall(
   }
   const said = describedCategory(t.description);
   if (said) return { category: said, certain: true, summary, args };
+  // A plain write in the user's own service (D-163): "anteiku_task_crea", "update_issue",
+  // "add_label" change it and nothing leaves; only what deletes, sends, publishes or pays (above)
+  // and the server's destructive hint ask. The data checks of the arguments still apply.
+  const first = w.find((x) => leads(x) || WRITE.test(x));
+  // A mail in the arguments ("create_contact" with one) may mean a message: the instinct.
+  if (
+    first &&
+    WRITE.test(first) &&
+    !w.some((x) => SEEN_NOUN.test(x)) &&
+    !MAIL_IN_ARGS.test(fullArgs)
+  ) {
+    return destructive;
+  }
   if (destructive) return destructive;
   // A tool that writes somewhere else without saying how: the instinct looks at it.
   return { category: undefined, certain: false, summary, args };
