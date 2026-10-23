@@ -1,6 +1,8 @@
 import { fake } from '@monsters/providers/testing';
 import type { LogEvent, MonstersTool, ProjectView, Question } from '@monsters/shared';
 import { setAppLang } from '@monsters/shared';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   classifyOutbound,
@@ -31,9 +33,9 @@ const startTestHub: typeof startHub = async (...args) => {
 };
 
 /*
- * Accesses (D-128…D-131): the web follows the permission, a new project gets
- * the team's connections, the prompt says what the account has and the
- * project does not, a capo asks the user for an access with one tap
+ * Accesses (D-128…D-131, D-164): the web follows the permission, every
+ * project gets the team's connections, the prompt says what the user turned
+ * off for the project, a capo asks the user for an access with one tap
  * (`access_request`), and the brake reads a click in the browser from the
  * page's snapshot.
  */
@@ -107,27 +109,50 @@ describe('the web follows the permission (D-128)', () => {
   });
 });
 
-describe('a new project gets the connections of the whole team (D-129)', () => {
-  it('chosen at the creation unless the request says otherwise; existing projects stay', async () => {
+describe('every connection of the team reaches every project, unless turned off (D-164)', () => {
+  it('new and existing projects, also a service connected later; the user turns one off', async () => {
     const t = await startTestHub({});
     await t.json('PUT', '/api/mcp-servers/browser', { preset: 'browser', agents: ['*'] });
     canvaForTeam(t);
     const p = await project(t);
-    expect(p.connections).toEqual({ mcp: ['browser'], claude: ['canva'] });
-    const none = await t.json<ProjectView>('POST', '/api/projects', {
-      name: 'Altro',
-      connections: { mcp: [], claude: [] },
-    });
-    expect(none.connections).toEqual({ mcp: [], claude: [] });
-    // A connection given to the team later does not change the projects that exist.
+    expect(p.connectionsOff).toEqual({ mcp: [], claude: [] });
+    const lead = t.core.hub.team.lead('saturday')!.config.id;
+    const team = t.core.hub.team;
+    expect(team.wildcardAllows(lead, 'claude', 'canva')).toBe(true);
+    // A service given to the team later reaches the project that exists.
     t.core.state.set('claude.connections', [
       { id: 'canva', agents: ['*'] },
       { id: 'figma', agents: ['*'] },
     ]);
-    expect(t.core.hub.team.project('saturday')!.connections.claude).toEqual(['canva']);
+    expect(team.wildcardAllows(lead, 'claude', 'figma')).toBe(true);
+    // Turned off by the user, at the creation or later.
+    const off = await t.json<ProjectView>('POST', '/api/projects', {
+      name: 'Altro',
+      connectionsOff: { mcp: ['browser'] },
+    });
+    expect(off.connectionsOff).toEqual({ mcp: ['browser'], claude: [] });
+    await t.json('PATCH', '/api/projects/saturday', { connectionsOff: { claude: ['figma'] } });
+    expect(team.wildcardAllows(lead, 'claude', 'figma')).toBe(false);
+    expect(team.wildcardAllows(lead, 'claude', 'canva')).toBe(true);
   });
 
-  it('a proposal of the capo starts with them too, plus the ones it names', async () => {
+  it('a project.yaml of before, with the old choice, gets everything', async () => {
+    const t = await startTestHub({});
+    canvaForTeam(t);
+    await project(t);
+    const file = join(t.core.paths.home, 'projects', 'saturday', 'project.yaml');
+    const text = readFileSync(file, 'utf8').replace(
+      /connectionsOff:[\s\S]*?claude: \[\]\n/,
+      'connections:\n  mcp: []\n  claude: []\n',
+    );
+    writeFileSync(file, text);
+    await t.core.hub.team.load();
+    const lead = t.core.hub.team.lead('saturday')!.config.id;
+    expect(t.core.hub.team.project('saturday')!.connectionsOff).toEqual({ mcp: [], claude: [] });
+    expect(t.core.hub.team.wildcardAllows(lead, 'claude', 'canva')).toBe(true);
+  });
+
+  it('a proposal of the capo has them all; a name it does not have is refused', async () => {
     const t = await startTestHub({});
     canvaForTeam(t);
     await t.json('PUT', '/api/mcp-servers/browser', { preset: 'browser', agents: ['rhea'] });
@@ -140,22 +165,28 @@ describe('a new project gets the connections of the whole team (D-129)', () => {
       },
       { agent: 'titan' },
     );
-    expect(proposal.project.connections).toEqual({ mcp: ['browser'], claude: ['canva'] });
+    expect(proposal.project.connectionsOff).toEqual({ mcp: [], claude: [] });
+    await expect(
+      t.core.hub.projects.propose(
+        { name: 'Altro', goal: 'x', monsters: [{ copyOf: 'dione' }], connections: ['Slack'] },
+        { agent: 'titan' },
+      ),
+    ).rejects.toThrow(/Slack/);
   });
 });
 
-describe('the prompt of a project’s monster says what the project does not give (D-129)', () => {
-  it('names the services of the account not chosen by the project, and where they are turned on', async () => {
+describe('the prompt of a project’s monster says what the user turned off (D-129, D-164)', () => {
+  it('names the services of the account turned off for the project, and where they are turned on', async () => {
     const t = await startTestHub({ leda: [fake.text('Ok.')] });
     canvaForTeam(t);
-    await project(t, { connections: { mcp: [], claude: [] } });
+    await project(t, { connectionsOff: { claude: ['canva'] } });
     const sent = await t.json<{ runId: string }>('POST', '/api/projects/saturday/messages', {
       text: 'Prendi le grafiche da Canva',
     });
     await t.runEnded(sent.runId);
     const seen = promptText(t.provider.callsTo('leda')[0]!.options.prompt);
     expect(seen).toContain(
-      'Canva (tramite Claude) è collegato all’account dell’utente e dato a tutta la squadra, ma non a questo progetto',
+      'Canva (tramite Claude) è collegato all’account dell’utente, ma l’utente l’ha spento per questo progetto',
     );
     expect(seen).toContain('Non dire che non è collegato');
     expect(seen).toContain('nella pagina del progetto «Saturday», scheda Collegamenti');
@@ -210,7 +241,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
       { hub: { askWaitMs: 5_000 } },
     );
     canvaForTeam(t);
-    await project(t, { connections: { mcp: [], claude: [] } });
+    await project(t, { connectionsOff: { claude: ['canva'] } });
     // The card is the person's (English here); the note after the answer is the model's, in
     // the language of the moment: the language changes between the two.
     setAppLang('en');
@@ -237,7 +268,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     );
     await t.json('POST', `/api/questions/${q.id}/answer`, { optionId: 'grant' });
     const next = await resumed;
-    expect(t.core.hub.team.project('saturday')!.connections.claude).toEqual(['canva']);
+    expect(t.core.hub.team.project('saturday')!.connectionsOff.claude).toEqual([]);
     expect(grants(t).map((e) => e.data)).toEqual([
       expect.objectContaining({
         outcome: 'granted',
@@ -265,7 +296,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
       { hub: { askWaitMs: 5_000 } },
     );
     canvaForTeam(t);
-    await project(t, { connections: { mcp: [], claude: [] } });
+    await project(t, { connectionsOff: { claude: ['canva'] } });
     const sent = await t.json<{ runId: string }>('POST', '/api/projects/saturday/messages', {
       text: 'Canva',
     });
@@ -283,7 +314,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     expect(res.status).toBe(403);
     await t.json('POST', `/api/questions/${q.id}/answer`, { optionId: 'deny' });
     await t.runEnded(sent.runId);
-    expect(t.core.hub.team.project('saturday')!.connections.claude).toEqual([]);
+    expect(t.core.hub.team.project('saturday')!.connectionsOff.claude).toEqual(['canva']);
     expect(grants(t).map((e) => e.data.outcome)).toEqual(['denied']);
   });
 

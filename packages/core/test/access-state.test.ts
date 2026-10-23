@@ -43,7 +43,7 @@ const project = {
   id: 'tp',
   name: 'Progetto Social',
   webSearch: true,
-  connections: { mcp: [] as string[], claude: [] as string[] },
+  connectionsOff: { mcp: [] as string[], claude: [] as string[] },
 };
 
 function deps(over: Partial<AccessStateDeps> = {}, web = true): AccessStateDeps {

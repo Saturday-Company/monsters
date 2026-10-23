@@ -191,7 +191,7 @@ test('Progetti: a new project from the sidebar, with its lead and a copied monst
   await expect(squad(page, 'newsletter').getByTestId('chat-row')).toHaveCount(2);
 });
 
-test('Progetti: a new project starts with the team’s connections on, the user turns off the rest (D-129)', async ({
+test('Progetti: a new project has the team’s connections on, the user turns off the rest (D-164)', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });

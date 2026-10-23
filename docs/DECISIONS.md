@@ -5360,5 +5360,39 @@ Haiku 111k tokens in 4 steps (700k in 23), qwen 103k (285k), no brake card with 
 Anteiku (read only) 4/4; nemotron-3-ultra (free) 2/2.
 **Consequence:** a connected service is usable from the first step by small models too, at a fraction of the tokens.
 Open: Claude Code and Codex not yet tried on a real service (they use the subscription); nemotron-3-super:free, the
-head of the free chain, answers 404 upstream; Parasail answers 502 when gpt-oss calls a tool that was not in the
-request.
+head of the free chain, answers 404 upstream (replaced, D-165); Parasail answers 502 when gpt-oss calls a tool that
+was not in the request.
+
+### D-164 · Every connected service reaches every monster, unless the user turns it off
+**Status:** done · 24/10/2026 (Giulio's choice: "all services, new and old, callable and usable by everyone when
+needed, unless the user blocks them manually in the settings")
+**Context:** a service given to the whole team (`*`) reached the personal squad and only the projects that ticked it
+(D-097); D-129 ticked them at a project's creation, but a project that existed did not get a service connected later,
+and an old project had none. The monster then asked for it with `access_request`, one more card for the user.
+**Choices:**
+- **The project keeps what is off, not what is on**: `connectionsOff: {mcp, claude}` in `project.yaml` replaces the
+  allow-list `connections` (dropped when read: every project of before gets everything). `wildcardAllows` is true
+  unless the project has the service off; a server or a service given to some monsters by name stays theirs, the
+  browser still follows the web permission.
+- **The app**: the Connections tab of the project shows every service of the team on, the switch turns one off (the
+  text says the services connected later arrive too); "New project" sends only the ones turned off; a proposal of
+  `project_propose` has them all (the names it gives are only checked). Telegram's draft card says "all the squad's",
+  or "all but …".
+- **Off by the user**: the "## Project" section says the service is connected but the user turned it off for the
+  project ("non dire che non è collegato"), the tool error too; a capo may still ask with `access_request`, whose
+  `project_link` step now takes the service out of `connectionsOff`.
+- "When needed" is D-163's deferral: the tools of every service are named in the card and loaded when called, so more
+  services cost a line of the card each, not their schemas.
+**Consequence:** connecting a service once is enough for every squad; turning it off for a project is the only manual
+step left. D-129's ticking at creation and its "not chosen by the project" line are gone.
+
+### D-165 · The head of the free chain: nemotron-3-ultra instead of nemotron-3-super
+**Status:** done · 24/10/2026 (Giulio's ok)
+**Context:** `nvidia/nemotron-3-super-120b-a12b:free`, the first link of `DEFAULT_FREE_CHAIN`, answers 404 upstream
+since 23/10 (NVIDIA removed it), with every key: the free users ran on the second link, laguna, limited (429) all
+evening. `nemotron-3-ultra-550b-a55b:free` passed the connectors eval 2/2 (D-163).
+**Choices:** the chain becomes nemotron-3-ultra, laguna, the free router. `RETIRED_MODELS` maps a model gone upstream
+to its successor: at every start the core replaces it in every agent's chain (`replaceRetired`, the tier and
+`autoModels` kept, never the same model twice), so the teams made with the old default chain move too and stay
+"default" for D-069.
+

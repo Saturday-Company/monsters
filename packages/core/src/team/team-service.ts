@@ -660,14 +660,13 @@ export class TeamService {
   }
 
   /**
-   * A connection assigned to the whole team (`*`, D-097): every monster of
-   * the Squadra personale, and the project's monsters only when the project
-   * chose it. `kind`: an MCP server or a service through Claude.
+   * A connection assigned to the whole team (`*`): every monster, in every
+   * project, unless the user turned it off for the project (D-164, before
+   * D-097's choice by project). `kind`: an MCP server or a service through Claude.
    */
   wildcardAllows(agentId: string, kind: 'mcp' | 'claude', id: string): boolean {
     const project = this.projectOf(agentId);
-    if (!project) return true;
-    return project.connections[kind].includes(id);
+    return !project?.connectionsOff[kind].includes(id);
   }
 
   /** By id or display name (case-insensitive). */

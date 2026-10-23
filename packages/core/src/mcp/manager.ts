@@ -1608,8 +1608,8 @@ export class McpManager {
     const project = this.#o.team.projectOf(agentId);
     if (c.setting.agents.includes('*') && project) {
       return off(
-        `${label} is not on for the project ${mcpPrompts().quoted(project.name)}.`,
-        `The user turns it on in the app (${projectPagePath(project.name, 'collegamenti')}); a capo can ask for it with access_request. Go on without it.`,
+        `${label} is turned off for the project ${mcpPrompts().quoted(project.name)} by the user.`,
+        `The user turns it on again in the app (${projectPagePath(project.name, 'collegamenti')}); a capo can ask for it with access_request. Go on without it.`,
       );
     }
     return off(
@@ -1622,7 +1622,7 @@ export class McpManager {
   allowed(agentId: string, server: string): boolean {
     const c = this.#connections.get(server);
     if (!c || !c.setting.enabled) return false;
-    // `*` is the Squadra personale and the projects that chose the server (D-097); an id is that monster.
+    // `*` is every monster, unless the user turned it off for its project (D-164); an id is that monster.
     const assigned =
       c.setting.agents.includes(agentId) ||
       (c.setting.agents.includes('*') && this.#o.team.wildcardAllows(agentId, 'mcp', server));

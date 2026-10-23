@@ -390,10 +390,11 @@ export function ProjectLinks({
       setBusy(false);
     }
   };
+  // The project keeps what the user turned off (D-164): everything else of the team reaches it.
   const toggle = (kind: 'mcp' | 'claude', name: string, on: boolean) => {
-    const list = p.connections[kind];
-    const next = on ? [...new Set([...list, name])] : list.filter((x) => x !== name);
-    void update({ connections: { [kind]: next } });
+    const off = p.connectionsOff[kind];
+    const next = on ? off.filter((x) => x !== name) : [...new Set([...off, name])];
+    void update({ connectionsOff: { [kind]: next } });
   };
 
   const team = (mcp?.servers ?? []).filter((sv) => sv.agents.includes('*'));
@@ -452,7 +453,7 @@ export function ProjectLinks({
             description={sv.enabled ? s.team : s.off}
           >
             <Switch
-              checked={p.connections.mcp.includes(sv.name)}
+              checked={!p.connectionsOff.mcp.includes(sv.name)}
               disabled={busy}
               onCheckedChange={(v) => toggle('mcp', sv.name, v)}
               label={s.switch(sv.label)}
@@ -468,7 +469,7 @@ export function ProjectLinks({
             description={s.viaClaude}
           >
             <Switch
-              checked={p.connections.claude.includes(c.id)}
+              checked={!p.connectionsOff.claude.includes(c.id)}
               disabled={busy}
               onCheckedChange={(v) => toggle('claude', c.id, v)}
               label={s.switch(serviceName(c.id))}

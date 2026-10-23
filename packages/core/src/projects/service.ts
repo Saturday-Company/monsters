@@ -107,11 +107,6 @@ export interface ProjectServiceOptions {
   projectsDir?: () => string;
   /** Connected MCP servers and services through Claude a proposal may name (D-098). */
   connections?: () => { mcp: string[]; claude: { id: string; name: string }[] };
-  /**
-   * The connections given to the whole team (`*`): a new project starts with
-   * them chosen, unless the request says otherwise (D-129).
-   */
-  teamConnections?: () => { mcp: string[]; claude: string[] };
   now?: () => number;
 }
 
@@ -398,7 +393,7 @@ export class ProjectService {
       members,
       maxMembers: MAX_PROJECT_MEMBERS,
       spend: p.spend,
-      connections: { mcp: [...p.connections.mcp], claude: [...p.connections.claude] },
+      connectionsOff: { mcp: [...p.connectionsOff.mcp], claude: [...p.connectionsOff.claude] },
       webSearch: p.webSearch,
       createdBy: p.createdBy,
       createdAt: p.createdAt,
@@ -576,10 +571,10 @@ export class ProjectService {
       status: req.status,
       ...(req.status === 'draft' ? { plan: { lead: req.lead, members: [], automations: [] } } : {}),
       spend: cleanCaps(req.spend ?? {}),
-      // What the whole team has, unless the user chose otherwise at the creation (D-129).
-      connections: {
-        mcp: req.connections?.mcp ?? this.#teamConnections().mcp,
-        claude: req.connections?.claude ?? this.#teamConnections().claude,
+      // Everything the whole team has, but what the user turned off at the creation (D-164).
+      connectionsOff: {
+        mcp: [...new Set(req.connectionsOff?.mcp ?? [])],
+        claude: [...new Set(req.connectionsOff?.claude ?? [])],
       },
       webSearch: req.webSearch ?? true,
       createdBy,
@@ -643,9 +638,9 @@ export class ProjectService {
       ...(u.name !== undefined ? { name: u.name } : {}),
       ...(u.vaultArea !== undefined ? { vaultArea: u.vaultArea } : {}),
       ...(u.spend !== undefined ? { spend: cleanCaps({ ...current.spend, ...u.spend }) } : {}),
-      connections: {
-        mcp: u.connections?.mcp ?? current.connections.mcp,
-        claude: u.connections?.claude ?? current.connections.claude,
+      connectionsOff: {
+        mcp: [...new Set(u.connectionsOff?.mcp ?? current.connectionsOff.mcp)],
+        claude: [...new Set(u.connectionsOff?.claude ?? current.connectionsOff.claude)],
       },
       ...(u.webSearch !== undefined ? { webSearch: u.webSearch } : {}),
       ...(u.lead !== undefined
@@ -807,21 +802,14 @@ export class ProjectService {
     return { path, create: true };
   }
 
-  /** The connections given to the whole team (`*`), without duplicates. */
-  #teamConnections(): { mcp: string[]; claude: string[] } {
-    const team = this.#o.teamConnections?.() ?? { mcp: [], claude: [] };
-    return { mcp: [...new Set(team.mcp)], claude: [...new Set(team.claude)] };
-  }
-
   /**
-   * Server and service names of a proposal → the project's connections: the
-   * ones of the whole team (D-129: the user takes away what the project does
-   * not need, on the draft's page) plus the ones it names.
+   * Server and service names of a proposal, checked: they must be connected.
+   * The project gets everything the whole team has anyway (D-164: the user
+   * turns off what it does not need, on the draft's page); one given to some
+   * monsters only stays theirs.
    */
-  #proposalConnections(names: readonly string[]): { mcp: string[]; claude: string[] } {
+  #checkProposalConnections(names: readonly string[]): void {
     const have = this.#o.connections?.() ?? { mcp: [], claude: [] };
-    const mcp: string[] = [...this.#teamConnections().mcp];
-    const claude: string[] = [...this.#teamConnections().claude];
     const norm = (s: string) =>
       s
         .toLowerCase()
@@ -831,9 +819,7 @@ export class ProjectService {
       const n = norm(raw);
       const server = have.mcp.find((m) => norm(m) === n);
       const service = have.claude.find((c) => norm(c.id) === n || norm(c.name) === n);
-      if (server) mcp.push(server);
-      else if (service) claude.push(service.id);
-      else {
+      if (!server && !service) {
         const all = [...have.mcp, ...have.claude.map((c) => c.name)];
         throw new ProjectError(
           'invalid_request',
@@ -841,7 +827,6 @@ export class ProjectService {
         );
       }
     }
-    return { mcp: [...new Set(mcp)], claude: [...new Set(claude)] };
   }
 
   /**
@@ -990,7 +975,7 @@ export class ProjectService {
         });
         schedules.push({ name: a.name.trim(), when: preview.text });
       }
-      const connections = this.#proposalConnections(input.connections ?? []);
+      this.#checkProposalConnections(input.connections ?? []);
       const plan: ProjectPlan = {
         lead: {
           name: leadName,
@@ -1013,7 +998,7 @@ export class ProjectService {
         status: 'draft',
         plan,
         spend: cleanCaps(input.spend ?? {}),
-        connections,
+        connectionsOff: { mcp: [], claude: [] },
         webSearch: input.webSearch ?? true,
         createdBy: origin.agent,
         createdAt: now,

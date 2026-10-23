@@ -1295,7 +1295,7 @@ describe('telegram: drafts of the monsters (D-098)', () => {
       '1. scrivi i testi dei post',
       'Tools: notes, no terminal or files',
       'Model: like Tethys',
-      'Connections: none',
+      'Connections: all the squad’s',
       'Web search: yes',
       'Spending cap: the squad’s',
     ])

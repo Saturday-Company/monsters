@@ -49,7 +49,7 @@ async function project(t: TestHub): Promise<ProjectView> {
   const p = await t.json<ProjectView>('POST', '/api/projects', {
     name: 'Saturday',
     lead: { name: 'Leda' },
-    connections: { mcp: [], claude: [] },
+    connectionsOff: { claude: ['canva'] },
   });
   await t.core.hub.team.setModels('leda', [{ provider: 'fake', model: 'leda' }]);
   return p;
@@ -211,7 +211,7 @@ describe('the reasons an access is missing, in English', () => {
     id: 'tp',
     name: 'Social project',
     webSearch: true,
-    connections: { mcp: [] as string[], claude: [] as string[] },
+    connectionsOff: { mcp: [] as string[], claude: [] as string[] },
   };
   function deps(over: Partial<AccessStateDeps> = {}, web = true): AccessStateDeps {
     const all = [luna, nova, pixel];

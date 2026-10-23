@@ -56,7 +56,7 @@ const en = {
     webSwitch: 'Web search for the project',
     title: 'Apps and services',
     description:
-      'A connection given to the whole squad reaches the project’s monsters only if you turn it on here. One given to a monster by name reaches it anyway.',
+      'Every connection given to the whole squad reaches the project’s monsters, also the ones you connect later: they use it when the work needs it. Turn off here what this project must not use. One given to a monster by name reaches it anyway.',
     more: 'Connect other apps in Settings → Connections',
     none: 'No app connected, for now.',
     team: 'Given to the whole squad',
@@ -157,7 +157,7 @@ const it: typeof en = {
     webSwitch: 'Ricerca sul web per il progetto',
     title: 'Programmi e servizi',
     description:
-      'Un collegamento dato a tutta la squadra arriva ai mostri del progetto solo se lo accendi qui. Uno dato a un mostro per nome gli arriva comunque.',
+      'Ogni collegamento dato a tutta la squadra arriva ai mostri del progetto, anche quelli che colleghi dopo: lo usano quando il lavoro lo chiede. Spegni qui quello che questo progetto non deve usare. Uno dato a un mostro per nome gli arriva comunque.',
     more: 'Collega altri programmi in Impostazioni → Collegamenti',
     none: 'Nessun programma collegato, per ora.',
     team: 'Dato a tutta la squadra',

@@ -151,7 +151,7 @@ export class MockProjects {
       lead: 'iapetus',
       status: 'active',
       spend: { monthlyEur: 20 },
-      connections: { mcp: [], claude: [] },
+      connectionsOff: { mcp: [], claude: [] },
       webSearch: true,
       createdBy: 'user',
       createdAt: created,
@@ -226,7 +226,7 @@ export class MockProjects {
         ),
       },
       spend: { monthlyEur: 15 },
-      connections: { mcp: [], claude: [] },
+      connectionsOff: { mcp: [], claude: [] },
       webSearch: true,
       createdBy: 'titan',
       createdAt: ts,
@@ -283,7 +283,7 @@ export class MockProjects {
           })),
       maxMembers: MAX_PROJECT_MEMBERS,
       spend: p.spend,
-      connections: { mcp: [...p.connections.mcp], claude: [...p.connections.claude] },
+      connectionsOff: { mcp: [...p.connectionsOff.mcp], claude: [...p.connectionsOff.claude] },
       webSearch: p.webSearch,
       createdBy: p.createdBy,
       createdAt: p.createdAt,
@@ -552,7 +552,10 @@ export class MockProjects {
       status: req.status,
       ...(req.status === 'draft' ? { plan: { lead: req.lead, members: [], automations: [] } } : {}),
       spend: req.spend ?? {},
-      connections: { mcp: req.connections?.mcp ?? [], claude: req.connections?.claude ?? [] },
+      connectionsOff: {
+        mcp: req.connectionsOff?.mcp ?? [],
+        claude: req.connectionsOff?.claude ?? [],
+      },
       webSearch: req.webSearch ?? true,
       createdBy: 'user',
       createdAt: now,
@@ -596,10 +599,10 @@ export class MockProjects {
       if (merged.monthlyEur != null) clean.monthlyEur = merged.monthlyEur;
       p.spend = clean;
     }
-    if (u.connections) {
-      p.connections = {
-        mcp: u.connections.mcp ?? p.connections.mcp,
-        claude: u.connections.claude ?? p.connections.claude,
+    if (u.connectionsOff) {
+      p.connectionsOff = {
+        mcp: u.connectionsOff.mcp ?? p.connectionsOff.mcp,
+        claude: u.connectionsOff.claude ?? p.connectionsOff.claude,
       };
     }
     if (u.webSearch !== undefined) p.webSearch = u.webSearch;

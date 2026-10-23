@@ -15,10 +15,33 @@ import type { OrchestratorBlueprint, SubagentBlueprint } from './templates.ts';
  * the onboarding should refresh it from the live model list.
  */
 export const DEFAULT_FREE_CHAIN: ModelRef[] = [
-  { provider: 'openrouter', model: 'nvidia/nemotron-3-super-120b-a12b:free' },
+  { provider: 'openrouter', model: 'nvidia/nemotron-3-ultra-550b-a55b:free' },
   { provider: 'openrouter', model: 'poolside/laguna-s-2.1:free' },
   { provider: 'openrouter', model: 'openrouter/free' },
 ];
+
+/**
+ * Models gone upstream, with the one that takes their place in every chain
+ * (D-165): nemotron-3-super:free answers 404 since 23/10/2026.
+ */
+export const RETIRED_MODELS: Readonly<Record<string, ModelRef>> = {
+  'openrouter/nvidia/nemotron-3-super-120b-a12b:free': {
+    provider: 'openrouter',
+    model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+  },
+};
+
+/** The chain with its retired models replaced (each link keeps its tier), or null when none is. */
+export function replaceRetired<T extends ModelRef>(models: readonly T[]): T[] | null {
+  if (!models.some((m) => RETIRED_MODELS[`${m.provider}/${m.model}`])) return null;
+  const out: T[] = [];
+  for (const m of models) {
+    const next = RETIRED_MODELS[`${m.provider}/${m.model}`];
+    const link = next ? { ...m, provider: next.provider, model: next.model } : m;
+    if (!out.some((x) => x.provider === link.provider && x.model === link.model)) out.push(link);
+  }
+  return out;
+}
 
 /**
  * A chain Monsters chose, not the user (D-069): empty, the default free

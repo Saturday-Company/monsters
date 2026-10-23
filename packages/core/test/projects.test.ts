@@ -102,7 +102,7 @@ describe('projects: data, lead and names', () => {
       vaultArea: 'Progetti/Saturday',
       lead: 'leda',
       webSearch: true,
-      connections: { mcp: [], claude: [] },
+      connectionsOff: { mcp: [], claude: [] },
     });
     expect(project.members).toEqual([expect.objectContaining({ id: 'leda', isLead: true })]);
     const yaml = readFileSync(join(t.home, 'projects', 'saturday', 'project.yaml'), 'utf8');
@@ -767,7 +767,7 @@ describe('projects: routing and project_send', () => {
 });
 
 describe('projects: connections', () => {
-  it('`*` reaches the Squadra personale and the projects that chose the server', async () => {
+  it('`*` reaches every monster, but in a project that turned it off (D-164)', async () => {
     const { t } = await withProject({});
     await t.json('POST', '/api/projects/saturday/members', {
       copyOf: 'rhea',
@@ -776,16 +776,22 @@ describe('projects: connections', () => {
     await t.json('PUT', '/api/mcp-servers/browser', { preset: 'browser', agents: ['*'] });
     const mcp = t.core.hub.mcp;
     expect(mcp.allowed('rhea', 'browser')).toBe(true);
+    expect(mcp.allowed('rhea-saturday', 'browser')).toBe(true);
+    expect(mcp.allowed('leda', 'browser')).toBe(true);
+    await t.json('PATCH', '/api/projects/saturday', { connectionsOff: { mcp: ['browser'] } });
     expect(mcp.allowed('rhea-saturday', 'browser')).toBe(false);
-    expect(mcp.allowed('leda', 'browser')).toBe(false);
-    await t.json('PATCH', '/api/projects/saturday', { connections: { mcp: ['browser'] } });
+    expect(mcp.allowed('rhea', 'browser')).toBe(true);
+    await t.json('PATCH', '/api/projects/saturday', { connectionsOff: { mcp: [] } });
     expect(mcp.allowed('rhea-saturday', 'browser')).toBe(true);
     // Web off for the project: the browser follows the web permission.
     await t.json('PATCH', '/api/projects/saturday', { webSearch: false });
     expect(mcp.allowed('rhea-saturday', 'browser')).toBe(false);
     expect(t.core.hub.team.byId('rhea-saturday')!.config.tools).not.toContain('web_search');
-    // A server assigned by id reaches that monster whatever the project chose.
-    await t.json('PATCH', '/api/projects/saturday', { webSearch: true, connections: { mcp: [] } });
+    // A server assigned by id reaches that monster whatever the project turned off.
+    await t.json('PATCH', '/api/projects/saturday', {
+      webSearch: true,
+      connectionsOff: { mcp: ['browser'] },
+    });
     await t.json('PUT', '/api/mcp-servers/browser', { agents: ['rhea-saturday'] });
     expect(mcp.allowed('rhea-saturday', 'browser')).toBe(true);
     expect(mcp.allowed('rhea', 'browser')).toBe(false);
@@ -925,7 +931,7 @@ describe('projects: harness in the project folder (D-079 stays)', () => {
       vaultArea: 'Progetti/Saturday',
       status: 'active',
       spend: {},
-      connections: { mcp: [], claude: [] },
+      connectionsOff: { mcp: [], claude: [] },
       webSearch: true,
       createdBy: 'user',
       createdAt: 1,
@@ -1145,10 +1151,10 @@ describe('projects: the section and the lines the monsters read, in both familie
     inLang('it');
     const where = 'nella pagina del progetto «Saturday», scheda Collegamenti';
     expect(accessLines(project, { notHere: ['Shopify', 'Gmail'], asker: { self: true } })).toEqual([
-      `Shopify e Gmail sono collegati all’account dell’utente e dati a tutta la squadra, ma non a questo progetto: qui i loro strumenti mancano. Non dire che non sono collegati. Se servono al lavoro, chiedili all’utente con \`access_request\` (un tocco: «Sì, concedi»), oppure lui li accende ${where}.`,
+      `Shopify e Gmail sono collegati all’account dell’utente, ma l’utente li ha spenti per questo progetto: qui i loro strumenti mancano. Non dire che non sono collegati. Se servono al lavoro, chiedili all’utente con \`access_request\` (un tocco: «Sì, concedi»), oppure lui li accende ${where}.`,
     ]);
     expect(accessLines(project, { notHere: ['Shopify'], asker: { capo: 'Leda' } })).toEqual([
-      `Shopify è collegato all’account dell’utente e dato a tutta la squadra, ma non a questo progetto: qui i suoi strumenti mancano. Non dire che non è collegato. Se servono al lavoro, dillo a Leda: li chiede all’utente con un tocco, oppure lui li accende ${where}.`,
+      `Shopify è collegato all’account dell’utente, ma l’utente l’ha spento per questo progetto: qui i suoi strumenti mancano. Non dire che non è collegato. Se servono al lavoro, dillo a Leda: li chiede all’utente con un tocco, oppure lui li accende ${where}.`,
     ]);
     expect(
       accessLines(project, { notHere: [], browser: true, webOff: true, asker: { self: true } }),
@@ -1168,10 +1174,10 @@ describe('projects: the section and the lines the monsters read, in both familie
     inLang('en');
     const where = 'in the “Saturday” project page, Connections tab';
     expect(accessLines(project, { notHere: ['Shopify', 'Gmail'], asker: { self: true } })).toEqual([
-      `Shopify and Gmail are connected to the user’s account and given to the whole squad, but not to this project: their tools are missing here. Don’t say they are not connected. If the work needs them, ask the user with \`access_request\` (one tap: “Yes, grant”), or they turn them on ${where}.`,
+      `Shopify and Gmail are connected to the user’s account, but the user turned them off for this project: their tools are missing here. Don’t say they are not connected. If the work needs them, ask the user with \`access_request\` (one tap: “Yes, grant”), or they turn them on ${where}.`,
     ]);
     expect(accessLines(project, { notHere: ['Shopify'], asker: { capo: 'Leda' } })).toEqual([
-      `Shopify is connected to the user’s account and given to the whole squad, but not to this project: its tools are missing here. Don’t say it is not connected. If the work needs it, tell Leda: they ask the user with one tap, or the user turns it on ${where}.`,
+      `Shopify is connected to the user’s account, but the user turned it off for this project: its tools are missing here. Don’t say it is not connected. If the work needs it, tell Leda: they ask the user with one tap, or the user turns it on ${where}.`,
     ]);
     const lines = accessLines(project, {
       notHere: [],

@@ -33,7 +33,7 @@ const it = {
     return `Se servono al lavoro, dillo a ${capo}: ${li} chiede all’utente con un tocco, oppure lui ${li} accende ${where}.`;
   },
   notHere: (list: string, one: boolean, ask: string) =>
-    `${list} ${one ? 'è collegato' : 'sono collegati'} all’account dell’utente e ${one ? 'dato' : 'dati'} a tutta la squadra, ma non a questo progetto: qui i ${one ? 'suoi' : 'loro'} strumenti mancano. Non dire che ${one ? 'non è collegato' : 'non sono collegati'}. ${ask}`,
+    `${list} ${one ? 'è collegato' : 'sono collegati'} all’account dell’utente, ma l’utente ${one ? 'l’ha spento' : 'li ha spenti'} per questo progetto: qui i ${one ? 'suoi' : 'loro'} strumenti mancano. Non dire che ${one ? 'non è collegato' : 'non sono collegati'}. ${ask}`,
   browser: (ask: string) =>
     `Il browser di Monsters c’è (con gli accessi che l’utente ha fatto lì, per esempio a Instagram) ma non è dato a te. ${ask}`,
   webOff: (where: string, ask: string) =>
@@ -77,7 +77,7 @@ const en: typeof it = {
     return `If the work needs ${them}, tell ${capo}: they ask the user with one tap, or the user turns ${them} on ${where}.`;
   },
   notHere: (list, one, ask) =>
-    `${list} ${one ? 'is' : 'are'} connected to the user’s account and given to the whole squad, but not to this project: ${one ? 'its' : 'their'} tools are missing here. Don’t say ${one ? 'it is' : 'they are'} not connected. ${ask}`,
+    `${list} ${one ? 'is' : 'are'} connected to the user’s account, but the user turned ${one ? 'it' : 'them'} off for this project: ${one ? 'its' : 'their'} tools are missing here. Don’t say ${one ? 'it is' : 'they are'} not connected. ${ask}`,
   browser: (ask) =>
     `The Monsters browser is there (with the sign-ins the user made in it, for example to Instagram) but it isn’t given to you. ${ask}`,
   webOff: (where, ask) =>

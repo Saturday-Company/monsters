@@ -152,16 +152,12 @@ export function ProjectForm() {
           : leadName.trim()
             ? { name: leadName.replace(/\s+/g, ' ').trim() }
             : {},
-      // Not loaded yet: the core gives the project what the whole team has (D-129).
-      ...(links
+      // Everything the whole team has, but what the user turns off here (D-164).
+      ...(linksOff.length > 0
         ? {
-            connections: {
-              mcp: links
-                .filter((l) => l.kind === 'mcp' && !linksOff.includes(`mcp:${l.id}`))
-                .map((l) => l.id),
-              claude: links
-                .filter((l) => l.kind === 'claude' && !linksOff.includes(`claude:${l.id}`))
-                .map((l) => l.id),
+            connectionsOff: {
+              mcp: linksOff.filter((k) => k.startsWith('mcp:')).map((k) => k.slice(4)),
+              claude: linksOff.filter((k) => k.startsWith('claude:')).map((k) => k.slice(7)),
             },
           }
         : {}),

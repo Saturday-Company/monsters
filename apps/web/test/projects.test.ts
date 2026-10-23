@@ -35,7 +35,7 @@ const project = (id: string, extra: Partial<ProjectView> = {}): ProjectView => (
   members: [],
   maxMembers: 7,
   spend: {},
-  connections: { mcp: [], claude: [] },
+  connectionsOff: { mcp: [], claude: [] },
   webSearch: true,
   createdBy: 'user',
   createdAt: 0,

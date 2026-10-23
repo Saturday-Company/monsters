@@ -64,7 +64,7 @@ import {
   type VaultWarning,
   type VcsKind,
 } from '@monsters/vault';
-import { DEFAULT_FREE_CHAIN, isDefaultChain } from './agents/archetypes.ts';
+import { DEFAULT_FREE_CHAIN, isDefaultChain, replaceRetired } from './agents/archetypes.ts';
 import { automationRunOf } from './automations/run-index.ts';
 import { AutomationService, type AutomationServiceOptions } from './automations/service.ts';
 import { AUTOMATIONS_DIR } from './automations/store.ts';
@@ -615,6 +615,11 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     layout,
   });
   await team.load();
+  // A model gone upstream: its successor in every chain, the tiers kept (D-165).
+  for (const a of team.list()) {
+    const next = replaceRetired(a.config.models);
+    if (next && a.dir) await team.setModels(a.config.id, next, a.config.autoModels);
+  }
   const bootstrapTeam = () =>
     team.bootstrap({
       user: settings.userName,
@@ -952,8 +957,8 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     return projectSection(p, { lead, access: accessNotesOf(agent, p, lead) });
   };
   /**
-   * What the account has and the project does not give this monster (D-129): the section says
-   * it, with where the user turns it on, instead of the monster saying "non è collegato".
+   * What the account has and the user turned off for the project (D-129, D-164): the section
+   * says it, with where the user turns it on, instead of the monster saying "non è collegato".
    */
   const accessNotesOf = (
     agent: AgentDefinition,
@@ -969,14 +974,14 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
           s.preset !== 'browser' &&
           s.agents.includes('*') &&
           !s.agents.includes(id) &&
-          !p.connections.mcp.includes(s.name),
+          p.connectionsOff.mcp.includes(s.name),
       )
       .map((s) => s.label);
     // Services through Claude reach the monsters on Claude; a lead asks them for its project.
     if (agent.config.kind === 'lead' || harnessOf(agent)?.id === 'claude-agent') {
       for (const c of claudeConnections.view().connections) {
         if (!c.added || !c.agents.includes('*') || c.agents.includes(id)) continue;
-        if (p.connections.claude.includes(c.id)) continue;
+        if (!p.connectionsOff.claude.includes(c.id)) continue;
         notHere.push(hubPrompts().viaClaude(MCP_CATALOG.find((e) => e.id === c.id)?.name ?? c.id));
       }
     }
@@ -2812,17 +2817,6 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         .view()
         .connections.filter((c) => c.added)
         .map((c) => ({ id: c.id, name: MCP_CATALOG.find((e) => e.id === c.id)?.name ?? c.id })),
-    }),
-    // A new project starts with what the whole team has (D-129).
-    teamConnections: () => ({
-      mcp: mcp
-        .view()
-        .servers.filter((s) => s.agents.includes('*'))
-        .map((s) => s.name),
-      claude: claudeConnections
-        .view()
-        .connections.filter((c) => c.added && c.agents.includes('*'))
-        .map((c) => c.id),
     }),
   });
 

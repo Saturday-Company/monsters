@@ -90,7 +90,11 @@ export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
 /** An absolute folder of the computer, checked by the core (exists, or created). */
 export const ProjectFolderPathSchema = z.string().trim().min(1).max(1000);
 
-/** Servers the project's monsters may use when a server is assigned to `*` (the whole team). */
+/**
+ * Connections given to the whole team (`*`) that the user turned off for a
+ * project (D-164): every other one, also one connected later, reaches the
+ * project's monsters.
+ */
 export const ProjectConnectionsSchema = z.object({
   /** Names of the MCP servers (Impostazioni → Collegamenti). */
   mcp: z.array(z.string().min(1).max(64)).max(100).default([]),
@@ -177,7 +181,8 @@ export const ProjectSchema = z.object({
   plan: ProjectPlanSchema.optional(),
   /** The project's own spending cap, in euros (D-070, third level). */
   spend: SpendAgentCapsSchema.default({}),
-  connections: ProjectConnectionsSchema.default({ mcp: [], claude: [] }),
+  /** Turned off by the user (D-164); a `connections` allow-list of before is dropped. */
+  connectionsOff: ProjectConnectionsSchema.default({ mcp: [], claude: [] }),
   /** The project's monsters may search the web (still subject to their permissions). */
   webSearch: z.boolean().default(true),
   /** `user`, or the monster that proposed it. */
@@ -210,7 +215,7 @@ export const ProjectCreateRequestSchema = z.object({
   vaultArea: AgentAreaSchema.optional(),
   lead: ProjectLeadPlanSchema.default({}),
   spend: SpendAgentCapsSchema.optional(),
-  connections: ProjectConnectionsSchema.partial().optional(),
+  connectionsOff: ProjectConnectionsSchema.partial().optional(),
   webSearch: z.boolean().optional(),
   /** Default `active` (the lead is created now); `draft` waits for a confirmation. */
   status: ProjectStatusSchema.default('active'),
@@ -224,7 +229,7 @@ export const ProjectUpdateRequestSchema = z
     folder: ProjectFolderRequestSchema.nullable(),
     vaultArea: AgentAreaSchema,
     spend: SpendAgentCapsSchema,
-    connections: ProjectConnectionsSchema.partial(),
+    connectionsOff: ProjectConnectionsSchema.partial(),
     webSearch: z.boolean(),
     /** `active` confirms a draft (its lead is created); an active project never goes back. */
     status: z.literal('active'),
@@ -288,7 +293,7 @@ export const ProjectViewSchema = z.object({
   members: z.array(ProjectMemberViewSchema),
   maxMembers: z.number().int(),
   spend: SpendAgentCapsSchema,
-  connections: z.object({ mcp: z.array(z.string()), claude: z.array(z.string()) }),
+  connectionsOff: z.object({ mcp: z.array(z.string()), claude: z.array(z.string()) }),
   webSearch: z.boolean(),
   createdBy: z.string(),
   createdAt: z.number(),

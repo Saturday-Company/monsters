@@ -42,7 +42,9 @@ const en = {
     return `⚠️ It’s an existing folder, outside ${projectsDir()}: confirming it is done in the app.`;
   },
   projectNotes: (area: string) => `Project notes: ${area}/`,
-  connections: (list: string) => `Connections: ${list}`,
+  /** `off`: the ones the user turned off for the project (D-164), or null. */
+  connections: (off: string | null) =>
+    off ? `Connections: all the squad’s but ${off}` : 'Connections: all the squad’s',
   webSearch: (on: string) => `Web search: ${on}`,
   perDay: (n: number) => `€${n} a day`,
   perMonth: (n: number) => `€${n} a month`,
@@ -112,7 +114,10 @@ const it: typeof en = {
     return `⚠️ È una cartella che c’è già, fuori da ${projectsDir()}: la conferma è nell’app.`;
   },
   projectNotes: (area) => `Note del progetto: ${area}/`,
-  connections: (list) => `Collegamenti: ${list}`,
+  connections: (off) =>
+    off
+      ? `Collegamenti: tutti quelli della squadra tranne ${off}`
+      : 'Collegamenti: tutti quelli della squadra',
   webSearch: (on) => `Ricerca web: ${on}`,
   perDay: (n) => `${n} € al giorno`,
   perMonth: (n) => `${n} € al mese`,

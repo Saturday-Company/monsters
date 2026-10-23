@@ -110,7 +110,7 @@ export function draftCardLines(
       ...(p.folder ? [t.folderGrant(Boolean(plan?.createFolder))] : []),
       ...(folderOutside ? [t.folderOutside] : []),
       t.projectNotes(e(p.vaultArea)),
-      t.connections(e([...p.connections.mcp, ...p.connections.claude].join(', ') || t.none)),
+      t.connections(e([...p.connectionsOff.mcp, ...p.connectionsOff.claude].join(', ')) || null),
       t.webSearch(yes(p.webSearch)),
     );
     const caps = [

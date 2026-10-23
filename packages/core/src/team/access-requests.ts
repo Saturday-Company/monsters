@@ -293,11 +293,12 @@ export class AccessRequests {
           if (!this.#teamWide(step.via, step.id)) {
             throw new Error(accessStrings().stepLinkNotTeamWide);
           }
-          const list = p.connections[step.via];
-          if (list.includes(step.id)) break;
+          // The user turned it off for the project (D-164): on again.
+          const off = p.connectionsOff[step.via];
+          if (!off.includes(step.id)) break;
           await this.#projects().update(
             p.id,
-            { connections: { [step.via]: [...list, step.id] } },
+            { connectionsOff: { [step.via]: off.filter((x) => x !== step.id) } },
             by,
           );
           break;
@@ -485,7 +486,7 @@ export class AccessRequests {
           done: accessPrompts().serviceReaches(found.label),
         };
       }
-      if (project.connections[found.via].includes(found.id)) {
+      if (!project.connectionsOff[found.via].includes(found.id)) {
         return {
           done: accessPrompts().serviceOnAlready(found.label, project.name, found.via === 'claude'),
         };
@@ -524,7 +525,7 @@ export class AccessRequests {
     }
     const steps: AccessStep[] = [];
     if (browser.agents.includes('*')) {
-      if (project && !project.connections.mcp.includes(browser.name)) {
+      if (project?.connectionsOff.mcp.includes(browser.name)) {
         steps.push({ do: 'project_link', project: project.id, via: 'mcp', id: browser.name });
       }
     } else {
