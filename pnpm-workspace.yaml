@@ -11,6 +11,8 @@ saveExact: true
 # the bundle smoke test need it. electron-winstaller (Squirrel.Windows, pulled in by
 # electron-builder) is unused: we build NSIS installers.
 allowBuilds:
+  # Its postinstall only sends install telemetry (chat blocks, D-162): never run.
+  '@openuidev/lang-core': false
   electron: true
   electron-winstaller: false
   esbuild: false

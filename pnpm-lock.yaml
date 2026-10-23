@@ -537,6 +537,9 @@ importers:
 
   packages/shared:
     dependencies:
+      '@openuidev/lang-core':
+        specifier: 1.0.1
+        version: 1.0.1(zod@4.6.7)
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -1693,6 +1696,15 @@ packages:
     peerDependencies:
       ai: ^7.0.0
       zod: ^3.25.76 || ^4.1.8
+
+  '@openuidev/lang-core@1.0.1':
+    resolution: {integrity: sha512-4vBa7FRM6C4v4aCvBAmAtTgFWiEQiNTazG9h4Xy9fC6P/p6+9kZu4RdTyLToBEvdxrYn/gDy/PakEH8PU3lUcw==}
+    peerDependencies:
+      '@modelcontextprotocol/sdk': '>=1.0.0'
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
 
   '@orama/stemmers@3.1.18':
     resolution: {integrity: sha512-xXs5fpiUvBs4jJZtnayJmUSomdxxiwwwvTbAzPHSyI6geLM7bxXHgpVlYz4JeMBycHX8bHF7j9m7F35BxhuZ8g==}
@@ -6016,6 +6028,11 @@ snapshots:
   '@openrouter/ai-sdk-provider@3.1.0(ai@7.0.143(zod@4.6.7))(zod@4.6.7)':
     dependencies:
       ai: 7.0.143(zod@4.6.7)
+      zod: 4.6.7
+
+  '@openuidev/lang-core@1.0.1(zod@4.6.7)':
+    dependencies:
+      ci-info: 4.4.0
       zod: 4.6.7
 
   '@orama/stemmers@3.1.18': {}
