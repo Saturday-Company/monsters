@@ -8,7 +8,8 @@ import { z } from 'zod';
 import { RateBudget } from '@monsters/providers';
 import { parseAgentConfig, type AgentDefinition } from '../src/agents/definition.ts';
 import { HarnessToolSessions } from '../src/agents/harness-tools.ts';
-import { harnessMcpUrl, runHarnessAgent } from '../src/agents/run-harness.ts';
+import { runAgentStrings } from '../src/agents/run-agent.strings.ts';
+import { harnessMcpUrl, monstersToolsCause, runHarnessAgent } from '../src/agents/run-harness.ts';
 import { ControlScope } from '../src/kill/control-scope.ts';
 import { EventLog, coreMigrations, migrate, openDb } from '../src/index.ts';
 import { RunBudget, RunLimitsSchema } from '../src/team/run-limits.ts';
@@ -527,5 +528,175 @@ describe('harness watchdog (F-M3)', () => {
     };
     const r = await run(h, agent(), undefined, { idleTimeoutMs: 1000 });
     expect(r.status).toBe('failed');
+  });
+});
+
+describe("Monsters' tools missing at the harness's start (D-160)", () => {
+  /** A harness that plays one script per start, recording each task. */
+  function starts(...scripts: HarnessEvent[][]): HarnessProvider & { tasks: HarnessTask[] } {
+    const h = scripted([]);
+    h.run = async function* (task, signal) {
+      h.tasks.push(task);
+      for (const e of scripts[h.tasks.length - 1] ?? []) {
+        if (signal.aborted) break;
+        yield e;
+      }
+      await Promise.resolve();
+      if (signal.aborted) yield { type: 'done', reason: 'aborted' };
+    };
+    return h;
+  }
+  const failed: HarnessEvent = { type: 'mcp-status', servers: { monsters: 'failed' } };
+  const ok: HarnessEvent = { type: 'mcp-status', servers: { monsters: 'connected' } };
+  const pending: HarnessEvent = { type: 'mcp-status', servers: { monsters: 'pending' } };
+
+  it('starts the harness again once when nothing was done, with a new token', async () => {
+    const h = starts([{ type: 'session', id: 's1' }, failed], [ok, ...answer]);
+    const r = await run(h, agent());
+    expect(r.status).toBe('completed');
+    expect(h.tasks).toHaveLength(2);
+    expect(h.tasks[1]!.mcp.token).not.toBe(h.tasks[0]!.mcp.token);
+    const line = r.events.find((e) => e.type === 'mcp_server');
+    expect(line?.data).toMatchObject({ server: 'monsters', action: 'failed' });
+    // The cause in plain words: the core called its own address and nobody answered.
+    expect(String(line?.data.message)).toContain('127.0.0.1:1');
+    expect(r.events.some((e) => e.type === 'error')).toBe(false);
+  });
+
+  it('stops with a clear error when the second start fails too', async () => {
+    const h = starts([failed], [failed, ...answer]);
+    const log = memoryLog();
+    const scope = new ControlScope('run', 'r1', null, 100);
+    const result = await runHarnessAgent({
+      agent: agent(),
+      harness: h,
+      task: 'ciao',
+      tools: [],
+      signal: scope.signal,
+      scope,
+      log,
+      runId: 'r1',
+      sessions: new HarnessToolSessions(log),
+      mcpUrl: () => 'http://127.0.0.1:1/api/harness/mcp',
+      workspace: join(dir, 'ws'),
+      scratchRoot: join(dir, 'scratch'),
+      systemTools: false,
+    });
+    expect(h.tasks).toHaveLength(2);
+    expect(result).toMatchObject({ status: 'failed', stopCause: 'tools_unavailable' });
+    const events = log.query({ limit: 1000 });
+    expect(events.filter((e) => e.type === 'mcp_server')).toHaveLength(2);
+    const error = events.find((e) => e.type === 'error');
+    expect(error?.data).toMatchObject({ code: 'harness_tools_unavailable' });
+    expect(String(error?.data.message)).toContain('Rhea');
+    expect(String(error?.data.message)).toContain('127.0.0.1:1');
+    // The model never answered: no message pretends it did.
+    expect(events.some((e) => e.type === 'message' && e.data.text)).toBe(false);
+  });
+
+  it('a `pending` that turns `connected` before the model starts is fine (Codex)', async () => {
+    const h = starts([pending, { type: 'session', id: 't1' }, ok, ...answer]);
+    const r = await run(h, agent());
+    expect(r.status).toBe('completed');
+    expect(h.tasks).toHaveLength(1);
+    expect(r.events.some((e) => e.type === 'mcp_server')).toBe(false);
+  });
+
+  it('`pending` when the model starts counts as missing (Claude Code past the startup wait)', async () => {
+    const h = starts([pending, { type: 'text-delta', delta: 'Non trovo' }], [ok, ...answer]);
+    const r = await run(h, agent());
+    expect(r.status).toBe('completed');
+    expect(h.tasks).toHaveLength(2);
+    // The text written without the tools is never shown.
+    expect(r.events.some((e) => e.type === 'message' && e.data.text === 'Non trovo')).toBe(false);
+  });
+
+  it('Codex’s `mcp_unavailable` (a required server) is handled the same way', async () => {
+    const h = starts(
+      [failed, { type: 'done', reason: 'error', code: 'mcp_unavailable', error: 'required' }],
+      answer,
+    );
+    const r = await run(h, agent());
+    expect(r.status).toBe('completed');
+    expect(h.tasks).toHaveLength(2);
+    // Only the done code, no status before it: the same.
+    const only = starts([{ type: 'done', reason: 'error', code: 'mcp_unavailable' }], answer);
+    expect((await run(only, agent())).status).toBe('completed');
+    expect(only.tasks).toHaveLength(2);
+  });
+
+  it('after the harness did something, no new start: it stops with the cause', async () => {
+    const h = starts([{ type: 'usage', model: 'sonnet', inTok: 10, outTok: 1 }, failed], answer);
+    const r = await run(h, agent());
+    expect(h.tasks).toHaveLength(1);
+    expect(r.status).toBe('failed');
+    expect(
+      r.events.some((e) => e.type === 'error' && e.data.code === 'harness_tools_unavailable'),
+    ).toBe(true);
+  });
+
+  it('says why in plain words from the core’s own check of its endpoint', async () => {
+    const { createServer } = await import('node:http');
+    let code = 401;
+    const server = createServer((req, res) => {
+      req.resume();
+      res.writeHead(code, { 'content-type': 'application/json' });
+      res.end('{}');
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+    const url = `http://127.0.0.1:${(server.address() as { port: number }).port}/api/harness/mcp`;
+    const c = runAgentStrings().mcpCause;
+    try {
+      expect(await monstersToolsCause('failed', url, 't')).toBe(c.token);
+      code = 503;
+      expect(await monstersToolsCause('failed', url, 't')).toBe(c.refused(503));
+      code = 200;
+      expect(await monstersToolsCause('failed', url, 't')).toBe(c.harnessSide);
+      expect(await monstersToolsCause('pending', url, 't')).toBe(c.pending);
+      expect(await monstersToolsCause('needs-auth', url, 't')).toBe(c.needsAuth);
+    } finally {
+      server.close();
+    }
+    expect(await monstersToolsCause('failed', 'http://127.0.0.1:1/x', 't')).toBe(
+      c.unreachable('127.0.0.1:1'),
+    );
+  });
+});
+
+describe("calls of Monsters' tools that never reached the core (D-160)", () => {
+  it('logs a failed call the endpoint never saw, with its cause; not one the core answered', async () => {
+    const h = scripted([
+      { type: 'tool-call', id: 'c1', name: 'vault_read', input: { path: 'a.md' }, monsters: true },
+      {
+        type: 'tool-result',
+        id: 'c1',
+        output: 'MCP error -32001: Request timed out',
+        isError: true,
+        monsters: true,
+      },
+      { type: 'tool-call', id: 'c2', name: 'vault_read', input: { path: 'b.md' }, monsters: true },
+      {
+        type: 'tool-result',
+        id: 'c2',
+        output: '{"error":{"code":"NOT_FOUND","message":"no note"}}',
+        isError: true,
+        monsters: true,
+      },
+      ...answer,
+    ]);
+    const r = await run(h, agent());
+    expect(r.status).toBe('completed');
+    const results = r.events.filter((e) => e.type === 'tool_result');
+    expect(results).toHaveLength(1);
+    expect(results[0]!.data).toMatchObject({
+      callId: 'c1',
+      tool: 'vault_read',
+      ok: false,
+      cause: 'error',
+    });
+    expect(String(results[0]!.data.error)).toContain('Request timed out');
+    const call = r.events.find((e) => e.type === 'tool_call');
+    expect(call?.data).toMatchObject({ callId: 'c1', input: { path: 'a.md' } });
+    expect(results[0]!.parentId).toBe(call!.id);
   });
 });

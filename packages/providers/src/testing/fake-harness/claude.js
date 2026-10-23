@@ -14,7 +14,13 @@ import { callMcpTool } from './mcp-call.js';
 
 const raw = process.argv.slice(2);
 const fake = Object.fromEntries(
-  raw.filter((a) => a.startsWith('--fake-')).map((a) => a.slice(7).split('=')),
+  raw
+    .filter((a) => a.startsWith('--fake-'))
+    .map((a) => {
+      // Split at the first '=' only: a record path may hold one.
+      const i = a.indexOf('=');
+      return i < 0 ? [a.slice(7), ''] : [a.slice(7, i), a.slice(i + 1)];
+    }),
 );
 const args = raw.filter((a) => !a.startsWith('--fake-'));
 const record = (entry) => {

@@ -174,12 +174,15 @@ const it: typeof en = {
   harnessToolsUnavailable: (name, harness, cause) =>
     `${name} si è fermato: ${harness} non è riuscito a raggiungere gli strumenti di Monsters (vault, web, squadra), quindi il lavoro non si poteva fare come si deve. Causa: ${cause}.`,
   mcpCause: {
-    unreachable: (where) => `l’indirizzo di Monsters per i suoi strumenti (${where}) non ha risposto`,
+    unreachable: (where) =>
+      `l’indirizzo di Monsters per i suoi strumenti (${where}) non ha risposto`,
     token: 'Monsters ha rifiutato la chiave di questo lavoro',
     refused: (status) => `Monsters ha risposto con un errore (HTTP ${status})`,
     slow: 'Monsters era troppo occupato per rispondere in tempo',
-    pending: 'il collegamento stava ancora partendo quando il modello ha cominciato (un avvio lento)',
-    needsAuth: 'il programma ha chiesto di accedere agli strumenti di Monsters, che non ne hanno mai bisogno',
+    pending:
+      'il collegamento stava ancora partendo quando il modello ha cominciato (un avvio lento)',
+    needsAuth:
+      'il programma ha chiesto di accedere agli strumenti di Monsters, che non ne hanno mai bisogno',
     harnessSide:
       'Monsters risponde, ma il programma non è riuscito a collegarsi (può essere in mezzo un proxy, un firewall o un programma di sicurezza)',
   },

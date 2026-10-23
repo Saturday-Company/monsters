@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CLAUDE_DEFAULT_TOOLS_2_1_303,
   CODEX_HANDLED_CLIENT_TOOLS,
+  checkClaudeMcp,
   checkClaudeTools,
   checkCodexTools,
   claudeToolFlags,
@@ -142,6 +143,27 @@ describe('checkClaudeTools', () => {
     const argv = argvOf({ systemTools: true });
     const check = checkClaudeTools(argv, ['Bash', 'WebSearch', 'mcp__other__x', ...MCP_TOOLS]);
     expect(check.errors.map(toolOf)).toEqual(['WebSearch', 'mcp__other__x']);
+  });
+});
+
+describe('checkClaudeMcp (D-160)', () => {
+  it("is green only with Monsters' server connected and its tools listed", () => {
+    expect(checkClaudeMcp(['ToolSearch', ...MCP_TOOLS], { monsters: 'connected' }).errors).toEqual(
+      [],
+    );
+  });
+
+  it('fails when the server failed and only ToolSearch is left (2.1.308 with the core down)', () => {
+    const check = checkClaudeMcp(['ToolSearch'], { monsters: 'failed' });
+    expect(check.errors).toHaveLength(2);
+    expect(check.errors[0]).toMatch(/failed/);
+    // The tools alone pass the allowlist check: that is why this one exists.
+    expect(checkClaudeTools(argvOf({ systemTools: false }), ['ToolSearch']).errors).toEqual([]);
+  });
+
+  it('fails on a connected server with 0 tools, and on a missing server', () => {
+    expect(checkClaudeMcp(['ToolSearch'], { monsters: 'connected' }).errors).toHaveLength(1);
+    expect(checkClaudeMcp(['ToolSearch', ...MCP_TOOLS], {}).errors[0]).toMatch(/missing/);
   });
 });
 

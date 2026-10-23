@@ -230,14 +230,6 @@ export type HarnessUsageEvent = Extract<HarnessEvent, { type: 'usage' }>;
 /** Events a harness provider streams back; the runner turns them into log events. */
 export type HarnessEvent =
   | { type: 'session'; id: string; model?: string }
-  /**
-   * How the MCP servers of the run came up (D-160), once their start has settled and before
-   * the model's first request: server name → `connected`, `failed`, `needs-auth`, or
-   * `pending` (still connecting when the model starts: its tools are not in the first
-   * request). Other values are passed on as they are. Every harness emits it: the runner
-   * stops or retries a run whose `monsters` server is not connected.
-   */
-  | { type: 'mcp-status'; servers: Record<string, string> }
   | { type: 'text-delta'; delta: string }
   /** A complete assistant message. */
   | { type: 'text'; text: string }
@@ -266,7 +258,10 @@ export type HarnessEvent =
     }
   /**
    * MCP servers of the run as the harness reports them while it starts (server name →
-   * `connected` | `failed` | `pending` | `needs-auth`); Codex: `mcpServer/startupStatus/updated`.
+   * `connected` | `failed` | `pending` | `needs-auth`); Codex: `mcpServer/startupStatus/updated`
+   * (several updates, `pending` first); Claude Code: the `init`, once, before the model's first
+   * request (`pending` there means its tools miss that request). The runner stops or starts
+   * again a run whose `monsters` server is not connected when the model starts (D-160).
    */
   | { type: 'mcp-status'; servers: Record<string, string> }
   /** The plan's limits as the official program reports them (D-111); nothing is asked for. */

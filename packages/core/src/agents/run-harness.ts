@@ -106,11 +106,13 @@ const LIMIT_TAIL_EVENTS = new Set<HarnessEvent['type']>([
 ]);
 
 /**
- * Statuses of the `monsters` server that leave the run without Monsters' tools (D-160):
- * `pending` too, since the model's first request goes without them (Claude Code 2.1.308,
- * past `CLAUDE_CODE_MCP_STARTUP_WAIT_MS`).
+ * Statuses of the `monsters` server that leave the run without Monsters' tools (D-160).
+ * `pending` too, but only when the model starts while it lasts (Claude Code 2.1.308 past
+ * `CLAUDE_CODE_MCP_STARTUP_WAIT_MS`; Codex sends `pending`, then `connected`).
  */
-const TOOLS_DOWN: ReadonlySet<string> = new Set(['failed', 'needs-auth', 'pending', 'disabled']);
+const TOOLS_FAILED: ReadonlySet<string> = new Set(['failed', 'needs-auth', 'disabled']);
+/** Events of the model's work: Monsters' server still `pending` at one of them is not there. */
+const ACTING_EVENTS = new Set<HarnessEvent['type']>(['text-delta', 'text', 'tool-call', 'usage']);
 /** How long the core's own check of its tools endpoint may take. */
 const TOOLS_PROBE_MS = 3000;
 
@@ -405,7 +407,10 @@ export const HARNESS_PROVIDER_IDS: ReadonlySet<string> = new Set(['claude-agent'
  * address of this computer never leaves it.
  */
 export function harnessMcpUrl(host: string, port: number): string {
-  const h = host.trim().toLowerCase().replace(/^\[|\]$/g, '');
+  const h = host
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '');
   const wildcard = h === '' || h === '0.0.0.0' || /^[0:]+$/.test(h);
   const where = wildcard ? '127.0.0.1' : h.includes(':') ? `[${h}]` : h;
   return `http://${where}:${port}/api/harness/mcp`;
@@ -998,6 +1003,33 @@ async function runHarnessOnce(
     if (limitHit || tokenLimitHit) limitTimer = setTimeout(stopForLimit, LIMIT_GRACE_MS);
   };
 
+  /** The last status of Monsters' server the harness reported (D-160). */
+  let toolsStatus = undefined as string | undefined;
+  /*
+   * Monsters' tools are not there (D-160): the model would start without vault, web and
+   * team, find nothing and tell the user "the team's tools did not respond". Never let it
+   * improvise: started again once if it did nothing yet, stopped with the cause otherwise.
+   */
+  const toolsUnavailable = async (status: string): Promise<void> => {
+    if (toolsDown) return;
+    const retry = mayRetryTools && !acted;
+    const cause = await withBusy(() => monstersToolsCause(status, options.mcpUrl(), session.token));
+    toolsDown = { cause, retry };
+    log.append({
+      agent: agentId,
+      runId,
+      parentId,
+      type: 'mcp_server',
+      data: {
+        server: HARNESS_MCP_SERVER,
+        action: 'failed',
+        transport: 'http',
+        message: runAgentStrings().monstersToolsDown(harnessProgram(harness.id), cause, retry),
+      },
+    });
+    void scope.abort(new KilledError('agent', 'monsters tools unavailable'));
+  };
+
   try {
     const events = harness.run(
       {
@@ -1043,6 +1075,12 @@ async function runHarnessOnce(
     stream: for await (const e of untilStalled(events, stallSignal)) {
       lastEvent = Date.now();
       if (limitTimer && !LIMIT_TAIL_EVENTS.has(e.type)) stopForLimit();
+      // The model starts while Monsters' server is still connecting: its first request goes
+      // without vault, web and team (Claude Code's `pending` at the init, D-160).
+      if (toolsStatus === 'pending' && ACTING_EVENTS.has(e.type)) {
+        await toolsUnavailable(toolsStatus);
+        break stream;
+      }
       switch (e.type) {
         case 'session':
           if (e.model) servedModel = { provider: harness.id, model: e.model };
@@ -1056,31 +1094,15 @@ async function runHarnessOnce(
             // The state of a connector never costs a run.
           }
           const status = e.servers[HARNESS_MCP_SERVER];
-          if (status === undefined || !TOOLS_DOWN.has(status) || toolsDown) break;
-          /*
-           * The model would start without vault, web and team, find nothing and tell the user
-           * "the team's tools did not respond" (D-160): never let it improvise. Started again
-           * once if it did nothing yet, stopped with the cause otherwise.
-           */
-          const retry = mayRetryTools && !acted;
-          const cause = await withBusy(() =>
-            monstersToolsCause(status, options.mcpUrl(), session.token),
-          );
-          toolsDown = { cause, retry };
-          log.append({
-            agent: agentId,
-            runId,
-            parentId,
-            type: 'mcp_server',
-            data: {
-              server: HARNESS_MCP_SERVER,
-              action: 'failed',
-              transport: 'http',
-              message: runAgentStrings().monstersToolsDown(harnessProgram(harness.id), cause, retry),
-            },
-          });
-          void scope.abort(new KilledError('agent', 'monsters tools unavailable'));
-          break stream;
+          if (status === undefined) break;
+          toolsStatus = status;
+          // `pending` may still turn `connected` (Codex sends several updates): it counts
+          // only if the model starts while it lasts (the check before this switch).
+          if (TOOLS_FAILED.has(status)) {
+            await toolsUnavailable(status);
+            break stream;
+          }
+          break;
         }
         case 'text-delta':
           acted = true;
@@ -1229,6 +1251,11 @@ async function runHarnessOnce(
           }
           break;
         case 'done':
+          // Codex with `required` Monsters' server: the thread never started (D-160).
+          if (e.code === 'mcp_unavailable') {
+            await toolsUnavailable(toolsStatus ?? 'failed');
+            break stream;
+          }
           done = e;
           // Refusals of the run's rules whose words this core does not know (a later binary).
           for (const d of e.denials ?? []) {

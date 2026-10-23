@@ -408,12 +408,16 @@ describe('Claude Agent harness', () => {
     expect(env['LANG']).toBe('it_IT.UTF-8');
   });
 
-  it('reports how Monsters\' server came up, and reaches it directly behind a proxy (D-160)', async () => {
-    const { h, record } = harness('tool', {
-      ...userEnv(loggedInHome()),
-      HTTPS_PROXY: 'http://proxy.example:3128',
-      NO_PROXY: 'intranet.example',
-    }, ['--fake-mcp=failed']);
+  it("reports how Monsters' server came up, and reaches it directly behind a proxy (D-160)", async () => {
+    const { h, record } = harness(
+      'tool',
+      {
+        ...userEnv(loggedInHome()),
+        HTTPS_PROXY: 'http://proxy.example:3128',
+        NO_PROXY: 'intranet.example',
+      },
+      ['--fake-mcp=failed'],
+    );
     const ctrl = new AbortController();
     const seen: HarnessEvent[] = [];
     for await (const e of h.run(
@@ -431,9 +435,7 @@ describe('Claude Agent harness', () => {
     expect(seen.at(-1)).toMatchObject({ type: 'done', reason: 'aborted' });
     const env = records(record).find((r) => r.kind === 'run')!['env'] as Record<string, string>;
     // The user's list stays, plus loopback and the address the core listens on.
-    expect(env['NO_PROXY']).toBe(
-      'intranet.example,localhost,127.0.0.1,::1,[::1],192.0.2.7',
-    );
+    expect(env['NO_PROXY']).toBe('intranet.example,localhost,127.0.0.1,::1,[::1],192.0.2.7');
     expect(env['no_proxy']).toBe(env['NO_PROXY']);
   });
 

@@ -362,7 +362,8 @@ async function probeClaude(
         for (const s of Array.isArray(msg['mcp_servers'])
           ? (msg['mcp_servers'] as { name?: unknown; status?: unknown }[])
           : []) {
-          if (typeof s.name === 'string' && typeof s.status === 'string') servers[s.name] = s.status;
+          if (typeof s.name === 'string' && typeof s.status === 'string')
+            servers[s.name] = s.status;
         }
       }
       const outcome = msg['prompt_submit_outcome'] as { kind?: unknown } | undefined;
@@ -375,7 +376,14 @@ async function probeClaude(
   }
   const signs = requestSigns(messages);
   if (!initTools)
-    return { argv, initTools, servers, blocked, signs, failure: 'nessun messaggio init entro 60 s' };
+    return {
+      argv,
+      initTools,
+      servers,
+      blocked,
+      signs,
+      failure: 'nessun messaggio init entro 60 s',
+    };
   return { argv, initTools, servers, blocked, signs };
 }
 

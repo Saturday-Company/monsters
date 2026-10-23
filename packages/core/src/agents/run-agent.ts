@@ -246,7 +246,8 @@ export type RunStopCause =
 /** The cause of an abort, from the reason of the scope that stopped the run. */
 export function abortCause(reason: unknown): RunStopCause | undefined {
   if (!(reason instanceof KilledError)) return undefined;
-  if (reason.scope === 'global') return /shutdown/.test(reason.message) ? 'shutdown' : 'kill_switch';
+  if (reason.scope === 'global')
+    return /shutdown/.test(reason.message) ? 'shutdown' : 'kill_switch';
   return 'user';
 }
 

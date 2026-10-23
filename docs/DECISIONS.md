@@ -5204,3 +5204,42 @@ permission profiles (`deny` entries) could close that and need a decision of the
 keeps failing on the network; the run instructions and the card say how to ask. The harness tools probe (D-136)
 now creates `codex-home` first; on 0.159.2 and 0.163.0 its Codex half sees no tool names (vacuously green), since the tools moved into an
 `additional_tools` input item (code mode), to be taught to the probe.
+
+### D-160 · Monsters' own tools missing on a harness: seen, retried once, or stopped with the cause
+**Status:** done · 23/10/2026 (testers: monsters saying "the team's tools did not respond")
+**Context:** the harnesses reach Monsters' tools (vault, web, team) over the `monsters` MCP server of the core. When it
+did not connect, nobody noticed: checked on Claude Code 2.1.308 (init only, `ANTHROPIC_BASE_URL` on a dead port, no
+model request), the `init` says `mcp_servers: [{name: 'monsters', status: 'failed'}]`, the tools are only
+`ToolSearch`, and the run goes on; the status reached only the connectors' bookkeeping, which skips that name. The
+instructions say the tools are in `monsters`, the model finds none and improvises. Causes found on the real binary:
+the core refusing or not answering (a 401 and a closed port both give `failed`); a proxy in the environment without
+NO_PROXY (`failed` at once); a slow answer (`failed` past `MCP_TIMEOUT`, 30 s by default; with claude.ai connectors
+`CLAUDE_CODE_MCP_STARTUP_WAIT_MS` = 10 s gives `pending` and the first request goes without the tools); a core
+listening on a specific address (`MONSTERS_HOST=192.168.1.20`, `127.0.0.2`, or `localhost` bound to `::1`) while the
+harness URL was always `127.0.0.1`. The run's token cannot be stale (a session per run, closed after it). Two more
+blind spots: a call to a `monsters` tool that failed before reaching the core (transport error, an input the MCP
+server refused) was in no log, and an interrupted delegation answered `{status: 'aborted', summary: ''}`, so the lead
+wrote "X did not respond"; a delegated run stopped by its token limit was a `completed` delegation.
+**Choice:** (1) both harnesses emit `{ type: 'mcp-status', servers: Record<string, string> }` (`connected`, `failed`,
+`needs-auth`, `pending`): Claude Code at its `init`, Codex on `mcpServer/startupStatus/updated` (D-158, with
+`required = true` and `done` code `mcp_unavailable`). `runHarnessAgent` reacts the same way to both: `failed`,
+`needs-auth`, `disabled`, Codex's `mcp_unavailable`, or `pending` still standing when the model starts (a text, a
+call, a usage). It writes an `mcp_server` `failed` line with the cause, stops the harness, and starts it once more in
+a fresh process (new session, new token) if it had done nothing yet; otherwise, or when the second start fails too,
+the run ends `failed` with an `error` `harness_tools_unavailable` written by the core. The cause comes from the core
+calling its own endpoint with the run's token (`monstersToolsCause`): no answer, refused key, HTTP error or too slow
+are the core's side; an endpoint that answers means the harness's side (proxy, firewall). (2) `harnessMcpUrl` uses
+the address the core listens on (127.0.0.1 only for a wildcard, `localhost` stays a name); a harness with a proxy in
+its environment gets NO_PROXY with loopback and that address (`directMcpEnv`); Claude Code gets `MCP_TIMEOUT` = 60 s.
+(3) A failed `monsters` call whose result is not the endpoint's own error shape, beyond the calls the endpoint
+received for that tool (`HarnessToolSession.received`), is logged as `tool_call` + failed `tool_result` with cause
+`error`. (4) `AgentRunResult.stopCause` (user, kill switch, shutdown, watchdog, tools unavailable, the harness by
+itself) plus the status (run limit, token limit, max steps, failed) give the delegation report `stopped_by`, `reason`
+in Monsters' words, `steps_done`, `tools_used` and what was written as `partial`. A run stopped at a limit with text
+is now a delegation `aborted` with `runStatus` and the partial `summary`; the lead reads `partialNext`, not "check
+the result". (5) The D-136 probe fails when `monsters` is not `connected` at the init or lists no tool
+(`checkClaudeMcp`).
+**Consequence:** a run never goes on blind; a transient start costs one more harness start. A delegation stopped at a
+limit no longer counts in the scorecard (only completed and failed ones do) and is not returned again as an earlier
+report (AG-16). Claude Code's `pending` is final for the first request only: tools that connect later are not waited
+for (the run is restarted instead).
