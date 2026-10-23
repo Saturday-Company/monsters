@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.1.0-alpha.21 · 23 ottobre 2026
+
+### Cosa si vede
+- **Il terminale è acceso di default.** I mostri possono lanciare comandi da subito: una squadra agentica senza i suoi
+  strumenti ha poco senso. Se usi già Monsters, il terminale si accende una volta; puoi rispegnerlo in Impostazioni →
+  Permessi, e quella scelta poi resta.
+- **I mostri leggono i siti che nomini.** Se chiedi di guardare un prodotto o un sito, il capo lo legge da solo invece
+  di chiederti una stampa o una presentazione. Anche le pagine fatte in JavaScript ora restituiscono la loro
+  descrizione.
+- **Consumi del piano ChatGPT.** Con un abbonamento ChatGPT, i consumi del piano compaiono nelle Impostazioni quando
+  OpenAI li manda; altrimenti il riquadro dice che non ci sono dati invece di mostrare 0.
+
+### Più affidabile
+- **«Al lavoro» vuol dire al lavoro.** L’app non mostra più al lavoro mostri fermi (scorrendo in su in una chat
+  tornavano stati vecchi).
+- **Niente più stop a metà.** Rileggere il contesto in cache non conta più nel limite di token di un mostro, così le
+  ricerche lunghe non si interrompono.
+- **Meno rifiuti sbagliati nel terminale.** I comandi di sola lettura non vengono più bloccati; solo le scritture vere
+  sui file di configurazione.
+- **I mostri Codex arrivano alla rete**, chiedendo prima a Monsters con gli stessi controlli del terminale di Claude, e
+  usano tutti gli strumenti di Monsters.
+- **«Gli strumenti della squadra non hanno risposto» ha una causa.** Se gli strumenti di Monsters non si collegano, il
+  lavoro riparte una volta o si ferma dicendo perché; una delega fermata dice chi l’ha fermata e perché.
+
 ## 0.1.0-alpha.20 · 21 ottobre 2026
 
 ### Cosa si vede

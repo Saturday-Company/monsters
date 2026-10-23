@@ -435,8 +435,12 @@ describe('Claude Agent harness', () => {
     expect(seen.at(-1)).toMatchObject({ type: 'done', reason: 'aborted' });
     const env = records(record).find((r) => r.kind === 'run')!['env'] as Record<string, string>;
     // The user's list stays, plus loopback and the address the core listens on.
-    expect(env['NO_PROXY']).toBe('intranet.example,localhost,127.0.0.1,::1,[::1],192.0.2.7');
-    expect(env['no_proxy']).toBe(env['NO_PROXY']);
+    // Windows keeps one of the two names (its environment ignores case): every one has the list.
+    const lists = Object.entries(env).filter(([k]) => k.toLowerCase() === 'no_proxy');
+    expect(lists.length).toBeGreaterThan(0);
+    for (const [, v] of lists) {
+      expect(v).toBe('intranet.example,localhost,127.0.0.1,::1,[::1],192.0.2.7');
+    }
   });
 
   it("keeps a CLAUDE_CODE_OAUTH_TOKEN the user set, never a session's variables", async () => {

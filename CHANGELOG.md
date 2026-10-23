@@ -2,6 +2,29 @@
 
 The Italian version is in [`CHANGELOG.it.md`](CHANGELOG.it.md).
 
+## 0.1.0-alpha.21 · 23 October 2026
+
+### What you’ll see
+- **The terminal is on by default.** Monsters can run commands from the start: an agentic squad without its tools
+  makes little sense. If you already use Monsters, the terminal is turned on once; you can turn it off again in
+  Settings → Permissions, and that choice then stays.
+- **Monsters read the sites you name.** Asked to look at a product or a site, the lead reads it on its own instead of
+  asking you for a printout or a presentation. Pages built in JavaScript now give back their description too.
+- **ChatGPT plan usage.** With a ChatGPT subscription, the usage of your plan shows up in Settings when OpenAI sends
+  it; otherwise the panel says there’s no data instead of showing 0.
+
+### More reliable
+- **“Working” means working.** The app no longer shows monsters at work when they’re idle (scrolling up in a chat
+  replayed old states).
+- **No more stops halfway.** Re-reading the cached context no longer counts against a monster’s token limit, so long
+  research isn’t cut short.
+- **Fewer false refusals in the terminal.** Read-only commands are no longer blocked; only real writes to the
+  configuration files are.
+- **Codex monsters reach the network**, asking Monsters first with the same checks as Claude’s terminal, and can use
+  all of Monsters’ tools.
+- **“The squad’s tools didn’t answer” has a cause.** If Monsters’ tools don’t connect, the job starts again once or
+  stops telling you why; a stopped delegation says who stopped it and why.
+
 ## 0.1.0-alpha.20 · 21 October 2026
 
 ### What you’ll see
