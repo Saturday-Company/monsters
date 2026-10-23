@@ -4,11 +4,13 @@ import { pick } from './i18n.ts';
 const en = {
   chartInApp: 'The chart is in the app.',
   best: 'recommended',
+  youCanReply: 'You can reply:',
 };
 
 const it: typeof en = {
   chartInApp: 'Il grafico è nell’app.',
   best: 'consigliata',
+  youCanReply: 'Puoi rispondere:',
 };
 
 export const uiBlockStrings = () => pick({ en, it });

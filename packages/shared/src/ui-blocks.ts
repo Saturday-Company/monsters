@@ -26,6 +26,9 @@ export const UI_BLOCK_MAX_CHARS = 20_000;
 /** Rows of a table, points of a series, items of a list drawn (the rest is counted). */
 export const UI_MAX_ROWS = 50;
 export const UI_MAX_SERIES = 6;
+/** Buttons of a block, and the longest label: what the user sends is the label, all of it. */
+export const UI_MAX_BUTTONS = 4;
+export const UI_BUTTON_MAX_CHARS = 80;
 
 const c = <T extends z.ZodObject>(name: string, description: string, props: T) =>
   defineComponent({ name, description, props, component: null });
@@ -139,6 +142,17 @@ export const Callout = c(
   z.object({ text: z.string(), tone: Tone.optional() }),
 );
 
+export const Button = c(
+  'Button',
+  'A reply the user may send with one tap: the label IS the message sent, in the user’s words; primary marks the suggested one',
+  z.object({ label: z.string(), primary: z.boolean().optional() }),
+);
+export const Buttons = c(
+  'Buttons',
+  'Up to 4 next steps the user may take, at the end of the block',
+  z.object({ items: z.array(Button.ref) }),
+);
+
 const PARTS = [
   Stats,
   Table,
@@ -151,6 +165,7 @@ const PARTS = [
   Timeline,
   Card,
   Callout,
+  Buttons,
 ] as const;
 
 export const Block = c(
@@ -162,7 +177,7 @@ export const Block = c(
 /** The library of the blocks: the same for the prompt, the app and the text fallback. */
 export const UI_LIBRARY = createLibrary({
   root: 'Block',
-  components: [Block, ...PARTS, Stat, Option, Step],
+  components: [Block, ...PARTS, Stat, Option, Step, Button],
 });
 
 export type UiNode = ElementNode;
@@ -334,9 +349,26 @@ export function uiNodeToText(node: UiNode): string {
       return `**${str(p['title'])}**${str(p['tag']) ? ` · ${str(p['tag'])}` : ''}\n${str(p['body'])}`;
     case 'Callout':
       return `> ${str(p['text'])}`;
+    case 'Buttons': {
+      const labels = nodes(p['items'])
+        .map((b) => uiButtonLabel(b.props['label']))
+        .filter(Boolean)
+        .slice(0, UI_MAX_BUTTONS);
+      return labels.length > 0 ? `${t.youCanReply} ${labels.map((l) => `«${l}»`).join(' · ')}` : '';
+    }
     default:
       return '';
   }
+}
+
+/**
+ * The text a button sends, which is the label the user sees (D-162): never a hidden message, so a
+ * block written after a page was read cannot make the user send words they did not read. One
+ * line, cut at `UI_BUTTON_MAX_CHARS`; empty when there is no text.
+ */
+export function uiButtonLabel(label: unknown): string {
+  const one = typeof label === 'string' ? label.replace(/\s+/g, ' ').trim() : '';
+  return [...one].slice(0, UI_BUTTON_MAX_CHARS).join('');
 }
 
 /** A block's source as text: its drawing in words, or the source when it does not parse. */
