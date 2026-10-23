@@ -305,7 +305,9 @@ export function uiNodeToText(node: UiNode): string {
       return `${title(p['title'])}${nodes(p['options']).map(uiNodeToText).join('\n\n')}`;
     case 'Option': {
       const best = p['best'] === true ? ` — ${t.best}` : '';
-      const points = list<string>(p['points']).map((x) => `  - ${x}`);
+      const points = list<unknown>(p['points'])
+        .filter((x): x is string => typeof x === 'string')
+        .map((x) => `  - ${x}`);
       const verdict = str(p['verdict']) ? [`  ${str(p['verdict'])}`] : [];
       return [`- **${str(p['name'])}**${best}`, ...points, ...verdict].join('\n');
     }
