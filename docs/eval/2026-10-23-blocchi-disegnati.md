@@ -27,4 +27,4 @@ inglese) e 14 di confine.
 - 1 giro senza blocco: il capo ha fatto prima una domanda all'utente (profili e budget) e ha risposto in prosa.
 - Difetti visti nei blocchi validi: uno `Stat` con la variazione usata come nota («1-2 canali»); un `Option` con il
   `true` di «consigliata» finito dentro la lista dei punti. Il parser li accetta; da guardare se si ripetono.
-- Risultati grezzi in `monsters-interno/packages/core/eval/results/ui-free*-2026-10-23*.json`.
+- Risultati grezzi: `packages/core/eval/results/ui-free*-2026-10-23*.json` (gitignored).
