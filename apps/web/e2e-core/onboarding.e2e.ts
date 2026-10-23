@@ -31,8 +31,9 @@ test('first start against the real core', async ({ page }) => {
   expect(profile).toContain('type: profile');
   expect(profile).toContain('I follow three restaurants');
   await page.getByRole('switch', { name: 'The web' }).click();
-  // The terminal; folders of the computer are granted later in the settings (D-053).
-  await page.getByRole('switch', { name: 'Terminal' }).click();
+  // The terminal is on by default (D-159); folders of the computer are granted later in the
+  // settings (D-053).
+  await expect(page.getByRole('switch', { name: 'Terminal' })).toBeChecked();
   await page.getByRole('button', { name: /Looks good, continue/ }).click();
 
   // The model's first answer is not JSON: the core retries and gets the team.
