@@ -240,13 +240,13 @@ function Entry({ e, agentId, focus }: { e: TermEntry; agentId: string; focus: bo
     case 'thought':
       return (
         <Line ts={e.ts} mark={MARK.thought} run={e.run} focus={focus}>
-          <Markdown text={e.text} streaming={e.live} className="text-screen-muted" />
+          <Markdown text={e.text} streaming={e.live} className="text-screen-muted" onScreen />
         </Line>
       );
     case 'message':
       return (
         <Line ts={e.ts} mark={MARK.message} tone="lit" run={e.run} focus={focus}>
-          <Markdown text={e.text} className="text-screen-ink" />
+          <Markdown text={e.text} className="text-screen-ink" onScreen />
         </Line>
       );
     case 'tool':

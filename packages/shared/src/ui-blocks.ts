@@ -6,6 +6,7 @@ import {
 } from '@openuidev/lang-core';
 import type { ElementNode, ParseResult, StreamParser } from '@openuidev/lang-core';
 import { z } from 'zod';
+import { isUiFence } from './ui-fence.ts';
 import { uiBlockStrings } from './ui-blocks.strings.ts';
 
 /*
@@ -18,9 +19,7 @@ import { uiBlockStrings } from './ui-blocks.strings.ts';
  * of the zod keys: never reorder them, a block already in the log would read differently.
  */
 
-/** The fence of a block, and the names a model may write for it. */
-export const UI_FENCE = 'ui';
-export const UI_FENCE_LANGS: readonly string[] = ['ui', 'openui', 'openui-lang'];
+export { UI_FENCE, UI_FENCE_LANGS, isUiFence } from './ui-fence.ts';
 
 /** Largest block drawn; past it the source is shown as text. */
 export const UI_BLOCK_MAX_CHARS = 20_000;
@@ -189,10 +188,6 @@ export function uiSignatures(): string[] {
     s.description ? `${s.signature} — ${s.description}` : s.signature,
   );
 }
-
-/** Is this the language of a fenced code block of ours? */
-export const isUiFence = (lang: string | undefined | null): boolean =>
-  !!lang && UI_FENCE_LANGS.includes(lang.trim().toLowerCase());
 
 const OPEN = /^[ \t]{0,3}(`{3,}|~{3,})[ \t]*([^\s`]*)/;
 
