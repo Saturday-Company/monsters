@@ -1,0 +1,231 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { setAppLang } from '../src/i18n.ts';
+import {
+  hasUiBlock,
+  isUiFence,
+  parseUiBlock,
+  replaceUiBlocks,
+  tableText,
+  uiBlocksToText,
+  uiBlockToText,
+  uiSignatures,
+  UI_BLOCK_MAX_CHARS,
+  UI_LIBRARY,
+} from '../src/ui-blocks.ts';
+
+/*
+ * The drawn blocks (D-162): the library shared by the prompt, the app and the text fallback.
+ * What is checked here is what the surfaces that cannot draw (Telegram, the terminal) rely on.
+ */
+
+afterEach(() => setAppLang('en'));
+
+const fence = (source: string, lang = 'ui') => `\`\`\`${lang}\n${source}\n\`\`\``;
+const code = (text: string) => `\`\`\`\n${text}\n\`\`\``;
+
+describe('the library', () => {
+  it('has a signature for every component, in the order of the props', () => {
+    const signatures = uiSignatures();
+    expect(signatures).toHaveLength(Object.keys(UI_LIBRARY.toSpec().components).length);
+    expect(signatures.some((s) => s.startsWith('Table(columns: string[], rows:'))).toBe(true);
+    expect(signatures.some((s) => s.startsWith('Stat(label: string, value: string, change?'))).toBe(
+      true,
+    );
+  });
+
+  it('parses a block: root present, no errors, every name defined', () => {
+    const parsed = parseUiBlock(
+      'root = Block([k, t])\nk = Stats([Stat("Open rate", "42%", "+3%", "up")])\nt = Table(["A"], [[1]])',
+    );
+    expect(parsed.root?.typeName).toBe('Block');
+    expect(parsed.meta.errors).toEqual([]);
+    expect(parsed.meta.unresolved).toEqual([]);
+  });
+});
+
+describe('replaceUiBlocks', () => {
+  const draw = (s: string) => `<${s.trim().split('\n').length} lines>`;
+
+  it('replaces blocks and leaves other fences and prose as they are', () => {
+    const md = [
+      'Intro',
+      fence('root = Block([])'),
+      '```ts',
+      'const a = 1;',
+      '```',
+      'Middle',
+      fence('root = Block([])\nx = 1', 'openui'),
+      'End',
+    ].join('\n');
+    expect(replaceUiBlocks(md, draw)).toBe(
+      ['Intro', '<1 lines>', '```ts', 'const a = 1;', '```', 'Middle', '<2 lines>', 'End'].join(
+        '\n',
+      ),
+    );
+  });
+
+  it('knows the names a model may write for the fence', () => {
+    for (const lang of ['ui', 'openui', 'openui-lang', 'UI']) expect(isUiFence(lang)).toBe(true);
+    for (const lang of ['', 'ts', 'uix', undefined, null]) expect(isUiFence(lang)).toBe(false);
+  });
+
+  it('a ui fence inside another fence is code, not a block', () => {
+    const md = '````md\n```ui\nroot = Block([])\n```\n````';
+    expect(replaceUiBlocks(md, () => 'X')).toBe(md);
+    expect(hasUiBlock(md)).toBe(false);
+  });
+
+  it('a block left open at the end of the reply (cut short) is replaced too', () => {
+    expect(replaceUiBlocks('Text\n```ui\nroot = Block([a', draw)).toBe('Text\n<1 lines>');
+  });
+
+  it('tilde fences and a longer closing fence work; the text around stays', () => {
+    expect(replaceUiBlocks('a\n~~~ui\nroot = Block([])\n~~~\nb', () => 'X')).toBe('a\nX\nb');
+    expect(replaceUiBlocks('a\n````ui\nroot = Block([])\n`````\nb', () => 'X')).toBe('a\nX\nb');
+  });
+
+  it('hasUiBlock', () => {
+    expect(hasUiBlock(`Hello\n${fence('root = Block([])')}`)).toBe(true);
+    expect(hasUiBlock('```ts\nconst a = 1;\n```')).toBe(false);
+    expect(hasUiBlock('no code at all')).toBe(false);
+  });
+});
+
+describe('uiBlockToText: each component as text', () => {
+  const text = (source: string) => uiBlockToText(`root = Block([x])\n${source}`);
+
+  it('Stat and Stats: a list of key numbers with the change', () => {
+    expect(text('x = Stats([Stat("Open rate", "42%", "+3%", "up"), Stat("Clicks", "1.2k")])')).toBe(
+      '- Open rate: **42%** (+3%)\n- Clicks: **1.2k**',
+    );
+  });
+
+  it('Table: aligned columns in a code block, numbers as numbers, with its caption', () => {
+    expect(text('x = Table(["Plan", "Price"], [["Free", 0], ["Pro", 12.5]], "Plans")')).toBe(
+      '**Plans**\n```\nPlan  Price\n────  ─────\nFree  0\nPro   12.5\n```',
+    );
+    expect(tableText(['A'], [['x']])).toBe('A\n─\nx');
+  });
+
+  it('BarChart and LineChart: the values, one line per label, and that the chart is in the app', () => {
+    expect(
+      text('x = BarChart(["Jan", "Feb"], [{label: "Sales", values: [3, 5]}], "Sales", "€")'),
+    ).toBe('**Sales**\n- Jan: 3 €\n- Feb: 5 €\n_The chart is in the app._');
+    expect(
+      text(
+        'x = LineChart(["Q1", "Q2"], [{label: "A", values: [1, 2]}, {label: "B", values: [3, 4]}])',
+      ),
+    ).toBe('- Q1: A 1, B 3\n- Q2: A 2, B 4\n_The chart is in the app._');
+  });
+
+  it('Donut', () => {
+    expect(
+      text('x = Donut([{label: "Rent", value: 60}, {label: "Food", value: 40}], "Budget", "%")'),
+    ).toBe('**Budget**\n- Rent: 60 %\n- Food: 40 %\n_The chart is in the app._');
+  });
+
+  it('Compare and Option: points, verdict, and the recommended one', () => {
+    expect(
+      text(
+        'x = Compare([Option("A", ["cheap", "slow"], "ok"), Option("B", ["fast"], "best value", true)], "Plans")',
+      ),
+    ).toBe(
+      '**Plans**\n- **A**\n  - cheap\n  - slow\n  ok\n\n- **B** — recommended\n  - fast\n  best value',
+    );
+  });
+
+  it('Steps and Step: numbered, with the status marks', () => {
+    expect(
+      text(
+        'x = Steps([Step("Open", "online", "done"), Step("Fill", null, "doing"), Step("Send")], "VAT")',
+      ),
+    ).toBe('**VAT**\n1. ✓ Open — online\n2. ▶ Fill\n3. Send');
+  });
+
+  it('Checklist', () => {
+    expect(
+      text('x = Checklist([{text: "Passport", done: true}, {text: "Tickets"}], "Bring")'),
+    ).toBe('**Bring**\n- ☑ Passport\n- ☐ Tickets');
+  });
+
+  it('Timeline', () => {
+    expect(
+      text(
+        'x = Timeline([{date: "1 Nov", label: "Launch", detail: "web"}, {date: "8 Nov", label: "Review"}], "Plan")',
+      ),
+    ).toBe('**Plan**\n- 1 Nov: Launch — web\n- 8 Nov: Review');
+  });
+
+  it('Card and Callout', () => {
+    expect(text('x = Card("Tip", "Save early", "new")')).toBe('**Tip** · new\nSave early');
+    expect(text('x = Callout("Mind the deadline", "warning")')).toBe('> Mind the deadline');
+  });
+
+  it('a block with several parts: one after the other, a blank line between', () => {
+    const out = uiBlockToText(
+      'root = Block([k, c])\nk = Stats([Stat("A", "1")])\nc = Callout("Note")',
+    );
+    expect(out).toBe('- A: **1**\n\n> Note');
+  });
+
+  it('follows the language: the Italian words of the chart line and of the best option', () => {
+    setAppLang('it');
+    expect(text('x = Donut([{label: "A", value: 1}])')).toContain('Il grafico è nell’app.');
+    expect(text('x = Compare([Option("A", ["x"], null, true)])')).toContain('consigliata');
+  });
+});
+
+describe('a block that cannot be drawn shows its source in a code fence', () => {
+  it('broken source (a statement cut short)', () => {
+    expect(uiBlockToText('root = Block([c')).toBe(code('root = Block([c'));
+  });
+
+  it('no root, nothing but prose, or an empty block', () => {
+    expect(uiBlockToText('x = Callout("a")')).toBe(code('x = Callout("a")'));
+    expect(uiBlockToText('just words')).toBe(code('just words'));
+    expect(uiBlockToText('   ')).toBe(code(''));
+  });
+
+  it('too large a block is not parsed at all', () => {
+    const big = `root = Block([c])\nc = Callout("${'x'.repeat(UI_BLOCK_MAX_CHARS)}")`;
+    expect(uiBlockToText(big)).toBe(code(big));
+  });
+});
+
+describe('uiBlocksToText: a whole reply', () => {
+  it('draws the blocks as text, keeps the prose, the other fences and the model history untouched', () => {
+    const reply = [
+      'Here is the comparison:',
+      fence('root = Block([t])\nt = Table(["A", "B"], [["x", 1]])'),
+      'Then the code:',
+      '```ts',
+      'const a = 1;',
+      '```',
+    ].join('\n');
+    expect(uiBlocksToText(reply)).toBe(
+      [
+        'Here is the comparison:',
+        '```\nA  B\n─  ─\nx  1\n```',
+        'Then the code:',
+        '```ts',
+        'const a = 1;',
+        '```',
+      ].join('\n'),
+    );
+    // Pure: the reply itself is not changed (the model keeps reading the block).
+    expect(reply).toContain('```ui');
+    // A reply without a block is the same text.
+    expect(uiBlocksToText('Only prose, `code` and **bold**.')).toBe(
+      'Only prose, `code` and **bold**.',
+    );
+  });
+
+  it('a mix of a good block, a broken one and an open one', () => {
+    const reply = [
+      fence('root = Block([c])\nc = Callout("ok")'),
+      fence('root = Block([c'),
+      '```ui\nroot = Block([d])\nd = Callout("cut")',
+    ].join('\n');
+    expect(uiBlocksToText(reply)).toBe(['> ok', '```\nroot = Block([c\n```', '> cut'].join('\n'));
+  });
+});

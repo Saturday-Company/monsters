@@ -47,7 +47,14 @@ import {
   draftCardLines,
   visibleLength,
 } from './draft-card.ts';
-import { clip, escapeHtml, splitHtml, splitMarkdown, toTelegramHtml } from './format.ts';
+import {
+  clip,
+  escapeHtml,
+  forTelegram,
+  splitHtml,
+  splitMarkdown,
+  toTelegramHtml,
+} from './format.ts';
 import { telegramClient, tokenCheckFailure, tokenRefused } from './net.ts';
 import { ChatPacer, editMoot, forbidden, retryWaitMs, type ChatGapMs } from './outbox.ts';
 import { Pairing } from './pairing.ts';
@@ -1271,7 +1278,7 @@ export class TelegramChannel {
       anyone?: boolean;
     } = {},
   ): void {
-    const pieces = options.html ? splitHtml(text) : splitMarkdown(text);
+    const pieces = options.html ? splitHtml(text) : splitMarkdown(forTelegram(text));
     pieces.forEach((piece, i) => {
       const last = i === pieces.length - 1;
       const html = options.html ? piece : toTelegramHtml(piece);

@@ -4,6 +4,8 @@ import {
   type AgentSummary,
   type LogEvent,
   type StatusResponse,
+  replaceUiBlocks,
+  uiBlockToText,
 } from '@monsters/shared';
 import WebSocket from 'ws';
 import { teamBanner } from './banner.ts';
@@ -103,6 +105,13 @@ export async function cmdChatInteractive(
       // another line (a tool call) came in between.
       if (!e.data.partial && streamed.delete(e.runId!)) {
         if (streaming?.runId === e.runId) endStream();
+        // The stream showed a drawn block (```ui, D-162) as its source: now it as text.
+        const drawn: string[] = [];
+        replaceUiBlocks(e.data.text, (source) => {
+          drawn.push(uiBlockToText(source));
+          return '';
+        });
+        if (drawn.length > 0) say(drawn.join('\n\n'));
         return;
       }
     }

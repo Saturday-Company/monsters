@@ -6,6 +6,15 @@
  * 4096-character limit, closing and reopening a code block that crosses a cut.
  */
 
+import { uiBlocksToText } from '@monsters/shared';
+
+/**
+ * A reply as Telegram can show it: a drawn block (```ui, D-162) written as text (a table comes
+ * out as a code block, so it shows as `<pre>`), the rest of the Markdown as it is. Done before
+ * the text is split, so a block is never cut in two.
+ */
+export const forTelegram = (markdown: string): string => uiBlocksToText(markdown);
+
 /** Telegram allows 4096 characters per message; markup and escapes make room for a margin. */
 export const TELEGRAM_CHUNK = 3800;
 
@@ -44,7 +53,9 @@ function inline(line: string): string {
 export function toTelegramHtml(markdown: string): string {
   const out: string[] = [];
   let code: { lang: string; lines: string[] } | null = null;
-  for (const raw of markdown.replace(/[\uE000\uE001]/g, '').split('\n')) {
+  for (const raw of forTelegram(markdown)
+    .replace(/[\uE000\uE001]/g, '')
+    .split('\n')) {
     const fence = /^\s*```\s*([\w+-]*)\s*$/.exec(raw);
     if (fence) {
       if (code) {

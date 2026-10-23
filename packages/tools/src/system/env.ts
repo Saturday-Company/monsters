@@ -22,10 +22,17 @@ const MONSTERS_SECRET_NAMES = new Set([
   'GROQ_API_KEY',
 ]);
 
-/** True for `MONSTERS_*` and the keys Monsters uses: never passed to a child process. */
+/**
+ * True for `MONSTERS_*`, the keys Monsters uses and `OPENUI_*`: never passed to a child process.
+ * OpenUI (the drawn blocks, D-162) has an opt-in runtime telemetry switch
+ * (`OPENUI_RUNTIME_TELEMETRY_ENABLED`): the core turns it off for itself and no child inherits a
+ * setting of it, on or off.
+ */
 export function isMonstersEnv(name: string): boolean {
   const upper = name.toUpperCase();
-  return upper.startsWith('MONSTERS_') || MONSTERS_SECRET_NAMES.has(upper);
+  return (
+    upper.startsWith('MONSTERS_') || upper.startsWith('OPENUI_') || MONSTERS_SECRET_NAMES.has(upper)
+  );
 }
 
 const CLAUDE_SESSION_NAMES = new Set(['CLAUDECODE', 'CLAUDE_PID', 'CLAUDE_EFFORT', 'AI_AGENT']);

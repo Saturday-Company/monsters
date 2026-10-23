@@ -27,6 +27,7 @@ import { TOOL_FAILURE_CAUSES } from './tools.ts';
  * - `final_question`: a question left in the text becomes a card;
  * - `route_hint`: which monster fits the request (a hint in the prompt);
  * - `tools`: rare tools and the web only when the request needs them;
+ * - `ui`: the manual of the drawn blocks (D-162) joins the turn when the request reads better drawn;
  * - `tier`: cheap model for simple turns, strong one for hard ones;
  * - `shortcut`: straight to one monster without the orchestrator (trial: shadow only);
  * - `outbound`: actions that leave the computer wait for the user;
@@ -41,6 +42,7 @@ export const INSTINCT_USES = [
   'final_question',
   'route_hint',
   'tools',
+  'ui',
   'tier',
   'shortcut',
   'outbound',
@@ -203,6 +205,7 @@ const USE_RULES: Readonly<Record<InstinctUse, UseRules>> = {
     jev: true,
   },
   tools: { id: 'tools', defaultMode: 'on', modes: ALL_MODES, rules: true, llm: false, jev: true },
+  ui: { id: 'ui', defaultMode: 'on', modes: ALL_MODES, rules: true, llm: false, jev: true },
   tier: { id: 'tier', defaultMode: 'on', modes: ALL_MODES, rules: false, llm: false, jev: true },
   shortcut: {
     id: 'shortcut',

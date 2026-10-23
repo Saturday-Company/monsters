@@ -96,6 +96,7 @@ import { projectTools } from './projects/tools.ts';
 import { HarnessToolSessions } from './agents/harness-tools.ts';
 import { runAgent, type AgentRunResult, type RunAgentOptions } from './agents/run-agent.ts';
 import type { CardContext } from './agents/monsters-card.ts';
+import { uiGuideHint, uiGuideTool } from './agents/ui-guide.ts';
 import {
   HARNESS_PROVIDER_IDS,
   harnessHookUrl,
@@ -202,7 +203,12 @@ import {
 import { MemoryProposals } from './team/memory-proposals.ts';
 import { withProvenance } from './team/vault-provenance.ts';
 import { ASK_USER_WAIT_MS, teamTools } from './team/team-tools.ts';
-import { needsRareTools, pinnedChain, withTurnDeferrals } from './team/toolsets.ts';
+import {
+  needsDrawnBlock,
+  needsRareTools,
+  pinnedChain,
+  withTurnDeferrals,
+} from './team/toolsets.ts';
 import { previewShowTool } from './team/preview-show.ts';
 import { ACCESS_REQUEST_TOOL, fullPermissions, isFreeChain } from './team/team-service.ts';
 import { AccessRequests } from './team/access-requests.ts';
@@ -2176,6 +2182,8 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
             [c.agent, ...members].some((a) => hasTiers(a.config.models, !!a.config.autoModels)),
           web: free && hasWeb,
           rare: free && !needsRareTools(request),
+          // Drawn blocks (D-162): Jev is asked when the words did not already say it.
+          ui: !needsDrawnBlock(request),
           rules: gate.rules,
         })
         .catch((err: unknown): TriageOutcome => {
@@ -2311,6 +2319,15 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       });
     }
     const runTier = tierOfRun.get(run);
+    // The manual of the drawn blocks joins THIS turn's message (D-162): Jev's answer or the words
+    // of the request, in OR, only with the use on (shadow: asked and logged, nothing attached).
+    // Never the system prompt (the cache) and never a message of the chat: the hint is the model's.
+    const drawn =
+      system1.rulesOn('ui') &&
+      ((xray.needsUi !== undefined && xray.needsUi >= BANDS.ui.attach) || needsDrawnBlock(request));
+    const turnHint = [coordinator ? xray.hint : undefined, drawn ? uiGuideHint() : undefined]
+      .filter(Boolean)
+      .join('\n\n');
     const tools = coordinator
       ? [
           ...baseTools,
@@ -2438,6 +2455,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
                   unbounded: harnessOf(sub)?.id === 'claude-agent',
                 })),
                 ...artifactFor(p.agent, p.brief.goal, p.run),
+                uiGuideTool(),
                 ...(briefNamesFile(p.brief, fileScope) ? [fileReadFor(fileScope)] : []),
               ];
               const memory = await team.memory(p.agent.config.id, p.scope.signal);
@@ -2535,6 +2553,8 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
             unbounded: harnessOf(agent)?.id === 'claude-agent',
           })),
           ...artifactFor(agent, request, run),
+          // Every monster, API or harness: the manual of the drawn blocks (D-162).
+          uiGuideTool(),
           ...fileRead,
         ],
         // After `toolsFor` (the key above): a server that just failed to start counts too.
@@ -2549,7 +2569,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         budget,
         memory,
         ...(profile ? { profile } : {}),
-        ...(coordinator && xray.hint ? { hint: xray.hint } : {}),
+        ...(turnHint ? { hint: turnHint } : {}),
         inbox: () => [
           ...c.inbox.splice(0).map((i) => {
             const asked = stranger(i.eventId);

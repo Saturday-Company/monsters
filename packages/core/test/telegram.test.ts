@@ -25,6 +25,7 @@ import {
   TelegramUsers,
   splitMarkdown,
   toTelegramHtml,
+  forTelegram,
   migrate,
   coreMigrations,
 } from '../src/index.ts';
@@ -377,6 +378,34 @@ describe('telegram: talking to the team', () => {
     expect(tg.calls.some((c) => c.method === 'sendChatAction')).toBe(true);
   });
 
+  it('a drawn block (```ui, D-162) arrives as text: a table in a <pre>; the log keeps the block', async () => {
+    const block = [
+      '```ui',
+      'root = Block([t])',
+      't = Table(["Piano", "Prezzo"], [["Free", 0], ["Pro", 12]], "Piani")',
+      '```',
+    ].join('\n');
+    const { t, tg } = await startBot({
+      titan: [fake.text(`Ecco il confronto:\n${block}\nConviene Pro.`)],
+    });
+    tg.text(GIULIO, 'confronta i piani');
+    const reply = await tg.waitMessage(
+      (m) => m.chat_id === GIULIO.id && m.text.includes('Ecco il confronto'),
+    );
+    expect(reply.parse_mode).toBe('HTML');
+    expect(reply.text).toContain('<b>Piani</b>');
+    expect(reply.text).toContain(
+      '<pre><code>Piano  Prezzo\n─────  ──────\nFree   0\nPro    12</code></pre>',
+    );
+    expect(reply.text).toContain('Conviene Pro.');
+    expect(reply.text).not.toContain('Block(');
+    // The model's history and the chat keep the block as written.
+    const answer = t
+      .events()
+      .find((e): e is LogEvent<'message'> => e.type === 'message' && e.data.role === 'agent');
+    expect(answer?.data.text).toContain('```ui\nroot = Block([t])');
+  });
+
   it('long answers are split under the Telegram limit', async () => {
     const long = Array.from(
       { length: 300 },
@@ -605,6 +634,23 @@ describe('telegram: formatting and pairing codes', () => {
     expect(toTelegramHtml('snake_case_name e `**non** grassetto`')).toBe(
       'snake_case_name e <code>**non** grassetto</code>',
     );
+  });
+
+  it('a drawn block becomes text, a broken one its source, other fences stay (D-162)', () => {
+    const table = '```ui\nroot = Block([t])\nt = Table(["A", "B"], [["x", 1]])\n```';
+    expect(toTelegramHtml(`Prima\n${table}\nDopo`)).toBe(
+      'Prima\n<pre><code>A  B\n─  ─\nx  1</code></pre>\nDopo',
+    );
+    const stats = '```ui\nroot = Block([s])\ns = Stats([Stat("Aperture", "42%", "+3%")])\n```';
+    expect(forTelegram(stats)).toBe('- Aperture: **42%** (+3%)');
+    expect(forTelegram('```ui\nroot = Block([c\n```')).toBe('```\nroot = Block([c\n```');
+    expect(forTelegram('```ts\nconst a = 1;\n```\n```json\n{}\n```')).toBe(
+      '```ts\nconst a = 1;\n```\n```json\n{}\n```',
+    );
+    // Written as text before it is split: a block is never cut in two.
+    const rows = Array.from({ length: 40 }, (_, i) => `["fila ${i}", ${i}]`).join(', ');
+    const big = `\`\`\`ui\nroot = Block([t])\nt = Table(["Voce", "N"], [${rows}])\n\`\`\``;
+    for (const part of splitMarkdown(forTelegram(big), 200)) expect(part).not.toContain('Block(');
   });
 
   it('splits long text on lines and reopens a code block cut in two', () => {

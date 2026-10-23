@@ -12,3 +12,4 @@ export * from './repair.ts';
 export * from './invisible.ts';
 export * from './monsters-card.ts';
 export * from './context-guard.ts';
+export * from './ui-guide.ts';

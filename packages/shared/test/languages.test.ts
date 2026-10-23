@@ -84,7 +84,7 @@ describe('the places of the app', () => {
 });
 
 describe('the instinct', () => {
-  it('has a title, three engines and twelve uses in both languages', () => {
+  it('has a title, three engines and thirteen uses in both languages', () => {
     expect(instinctTitle()).toBe('Monsters’ decisions');
     expect(instinctDescription()).toMatch(/^The quick calls the squad makes/);
     expect(INSTINCT_ENGINE_TEXTS.rules.label).toBe('Rules only');

@@ -1,7 +1,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { GrammyError, HttpError, type Api } from 'grammy';
 import type { InlineKeyboardMarkup } from 'grammy/types';
-import { splitHtml, splitMarkdown, toTelegramHtml } from './format.ts';
+import { forTelegram, splitHtml, splitMarkdown, toTelegramHtml } from './format.ts';
 
 /*
  * What a dedicated bot sends (D-107): one ordered queue per chat, sent again
@@ -284,7 +284,7 @@ export class Outbox {
 
   /** Text (Markdown by default) split into messages; HTML refused → plain text. */
   send(chatId: number, text: string, options: SendOptions = {}): void {
-    const pieces = options.html ? splitHtml(text) : splitMarkdown(text);
+    const pieces = options.html ? splitHtml(text) : splitMarkdown(forTelegram(text));
     pieces.forEach((piece, i) => {
       const last = i === pieces.length - 1;
       const html = options.html ? piece : toTelegramHtml(piece);

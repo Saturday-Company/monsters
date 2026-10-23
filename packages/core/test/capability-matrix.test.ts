@@ -69,6 +69,8 @@ interface Seen {
   after?: string[];
   /** System prompt (native), appended prompt + AGENTS.md (harness). */
   text: string;
+  /** Native: the whole request of the step, as the model got it. */
+  sent?: string;
   task?: HarnessTask;
   /** The instructions the core's MCP server gives the harness. */
   mcpInstructions?: string;
@@ -90,6 +92,7 @@ const TOOL_NAMES = new Set<string>([
   'project_docs_propose',
   'automation_propose',
   'artifact_create',
+  'ui_guide',
   'file_read',
   'preview_show',
   'result_read',
@@ -139,6 +142,7 @@ function probe(seen: Seen[], agent: string, first?: () => FakeStep): FakeScript 
       agent,
       visible: tools,
       text: systemOf(call.options.prompt),
+      sent: JSON.stringify(call.options.prompt),
     };
     seen.push(mine);
     if (first && !used) {
@@ -506,6 +510,22 @@ describe.each(MODES)('visible == executable on %s (D1, D-136)', (mode) => {
     await send(t, { to: 'leda', text: 'Cerca i tornei di sabato' });
     check(seen);
     expect(seen[0]!.text).toContain('la ricerca sul web è spenta per il progetto «Nebula»');
+  });
+});
+
+describe.each(MODES)('the manual of the drawn blocks on %s (D-162)', (mode) => {
+  it('reaches the turn’s message, never the system prompt, and ui_guide is a tool of the run', async () => {
+    inLang('it');
+    const { t, seen } = await hubFor(mode, ['titan']);
+    await send(t, { text: 'Confronta i piani di Notion e Obsidian' });
+    check(seen);
+    const s = seen[0]!;
+    expect(s.visible.some((n) => n === 'ui_guide' || n.endsWith('__ui_guide'))).toBe(true);
+    expect(s.text).toContain('`ui_guide`');
+    // Our loop: the user's message carries the manual; a harness: the prompt of the task.
+    expect(s.text).not.toContain('Manuale dei blocchi `ui`:');
+    if (s.task) expect(s.task.prompt).toContain('Manuale dei blocchi `ui`:');
+    else expect(s.sent).toContain('Manuale dei blocchi `ui`:');
   });
 });
 

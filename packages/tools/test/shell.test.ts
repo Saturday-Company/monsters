@@ -93,9 +93,13 @@ describe('childEnv', () => {
         // `npx` exports the user's npm prefix in lowercase (23/10/2026).
         npm_config_prefix: '/home/u/.local',
         npm_config_globalconfig: '/home/u/.npmrc-global',
+        // OpenUI's telemetry switches (D-162): no child inherits a setting of them, on or off.
+        OPENUI_RUNTIME_TELEMETRY_ENABLED: '1',
+        openui_telemetry_disabled: '1',
       },
       isSecret: (_n, v) => v.includes('known-secret'),
     });
+    expect(Object.keys(env).filter((k) => k.toUpperCase().startsWith('OPENUI_'))).toEqual([]);
     expect(env['HOME']).toBe('/home/u');
     expect(env['MONSTERS_HOME']).toBeUndefined();
     expect(env['monsters_dev']).toBeUndefined();

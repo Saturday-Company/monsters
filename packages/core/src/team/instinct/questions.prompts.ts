@@ -102,6 +102,16 @@ const en = {
       false: 'Reading, searching, writing or editing notes, doing research or texts',
     },
   },
+  // Drawn blocks (D-162): measured 23/10/2026 on 38 labelled requests (`eval/instinct/ui-measure.ts`).
+  ui: {
+    prompt:
+      'The answer to `request` is easier to read drawn (a chart, key numbers, a side-by-side comparison, steps or a table) than written as prose.',
+    criteria: {
+      true: 'Data to compare, numbers or trends, several options with the same features, steps to follow, a status of many items',
+      false:
+        'A chat, a text to write or send, one fact, an explanation, a translation, a small action on notes or the calendar',
+    },
+  },
   // --- actions that leave the computer (research 07, killer feature 1)
   outbound: {
     prompt:
@@ -249,6 +259,15 @@ const it: typeof en = {
     criteria: {
       true: 'Per esempio "annulla l’ultima modifica", "riporta la nota com’era ieri", "sposta le note vecchie in Archivio", "cancella la bozza"',
       false: 'Leggere, cercare, scrivere o modificare note, fare ricerche o testi',
+    },
+  },
+  ui: {
+    prompt:
+      'La risposta a `richiesta` si legge meglio disegnata (un grafico, numeri chiave, un confronto affiancato, dei passi o una tabella) che scritta in prosa.',
+    criteria: {
+      true: 'Dati da confrontare, numeri o andamenti, più opzioni con le stesse caratteristiche, passi da seguire, uno stato di tante cose',
+      false:
+        'Una chiacchierata, un testo da scrivere o da mandare, un fatto solo, una spiegazione, una traduzione, una piccola azione su note o calendario',
     },
   },
   outbound: {

@@ -2,7 +2,7 @@ import { pick } from './i18n.ts';
 
 /*
  * The words of the "Istinto" settings (D-067, D-153): the module's title, the three engines and the
- * twelve uses. The ids of the uses and of the engines are API values and stay as they are.
+ * thirteen uses. The ids of the uses and of the engines are API values and stay as they are.
  */
 
 interface UseTexts {
@@ -67,6 +67,12 @@ const en = {
       label: 'Gives each monster only the tools it needs',
       description:
         'Rare tools (undo, move, delete notes) and the web are offered only when the request calls for them: free models get less confused.',
+      sends: 'Your request (in the same question as “Hands the job to the right monster”).',
+    },
+    ui: {
+      label: 'Draws tables and charts in the chat',
+      description:
+        'When an answer reads better drawn (numbers, comparisons, steps), the monster gets the manual to draw it in the chat; otherwise it writes as usual.',
       sends: 'Your request (in the same question as “Hands the job to the right monster”).',
     },
     tier: {
@@ -167,6 +173,12 @@ const it: typeof en = {
       label: 'Dà a ogni mostro solo gli strumenti che servono',
       description:
         'Gli strumenti rari (annullare, spostare, cancellare note) e il web arrivano solo quando la richiesta li chiede: i modelli gratuiti si confondono meno.',
+      sends: 'La tua richiesta (nella stessa domanda di «Passa il lavoro al mostro giusto»).',
+    },
+    ui: {
+      label: 'Disegna tabelle e grafici nella chat',
+      description:
+        'Quando una risposta si legge meglio disegnata (numeri, confronti, passi), il mostro riceve il manuale per disegnarla nella chat; altrimenti scrive come sempre.',
       sends: 'La tua richiesta (nella stessa domanda di «Passa il lavoro al mostro giusto»).',
     },
     tier: {

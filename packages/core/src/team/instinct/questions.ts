@@ -21,7 +21,7 @@ import { questionPrompts, ROUTE_LEADS, ROUTE_TEAMS } from './questions.prompts.t
  */
 
 /** Version of this registry: it goes in the `decision` events with the answers. */
-export const INSTINCT_QUESTIONS_VERSION = '2026-10-17.2';
+export const INSTINCT_QUESTIONS_VERSION = '2026-10-23.1';
 
 /** The Jev version the thresholds were measured on. */
 export const INSTINCT_JEV_MODEL = 'jev-1.13.0';
@@ -43,6 +43,7 @@ const TIMEOUTS: Readonly<Record<InstinctUse, number>> = {
   final_question: CRITICAL_TIMEOUT_MS,
   route_hint: CRITICAL_TIMEOUT_MS,
   tools: CRITICAL_TIMEOUT_MS,
+  ui: CRITICAL_TIMEOUT_MS,
   tier: CRITICAL_TIMEOUT_MS,
   shortcut: CRITICAL_TIMEOUT_MS,
   outbound: CRITICAL_TIMEOUT_MS,
@@ -93,6 +94,12 @@ export const BANDS = {
   web: { drop: 0.2 },
   /** Rare tools: from 0.5 they are added (in OR with the words of the request). */
   rare: { add: 0.5 },
+  /**
+   * Drawn blocks (misurato 23/10, 38 hand-labelled requests: Jev 33/38, the words 29/38): from 0.5 the
+   * manual of the `ui` blocks joins the turn (in OR with the words). Jev errs toward drawing when
+   * it is not needed, a cheap error: a monster that has the manual may still write prose.
+   */
+  ui: { attach: 0.5 },
   /** Outbound action: ≥ 0.85 it waits for the user, ≥ 0.5 it is marked on the receipt. */
   outbound: { low: 0.5, high: 0.85 },
   /** Injection (misurato 18/20): ≥ 0.85 the block is removed, ≥ 0.5 a warning. */
@@ -292,6 +299,8 @@ export interface TriageQuestions {
   tier: boolean;
   web: boolean;
   rare: boolean;
+  /** Does the answer read better drawn (D-162)? */
+  ui?: boolean;
 }
 
 export function triageRequest(input: {
@@ -320,6 +329,7 @@ export function triageRequest(input: {
   if (input.ask.tier) questions.push({ id: 'tier', type: 'score', min: 0, max: 2, ...q.tier });
   if (input.ask.web) questions.push({ id: 'needs_web', type: 'noul', ...q.web });
   if (input.ask.rare) questions.push({ id: 'rare_tools', type: 'noul', ...q.rare });
+  if (input.ask.ui) questions.push({ id: 'needs_ui', type: 'noul', ...q.ui });
   return {
     state: {
       [q.keys.request]: clipText(input.request, 2_000),

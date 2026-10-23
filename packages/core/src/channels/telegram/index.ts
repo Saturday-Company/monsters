@@ -6,7 +6,14 @@ export {
   type TelegramChannelOptions,
   type TelegramErrorCode,
 } from './channel.ts';
-export { TELEGRAM_CHUNK, clip, escapeHtml, splitMarkdown, toTelegramHtml } from './format.ts';
+export {
+  TELEGRAM_CHUNK,
+  clip,
+  escapeHtml,
+  forTelegram,
+  splitMarkdown,
+  toTelegramHtml,
+} from './format.ts';
 export {
   PAIRING_CODE_LENGTH,
   PAIRING_MAX_ATTEMPTS,

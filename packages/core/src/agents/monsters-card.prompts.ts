@@ -22,6 +22,8 @@ const en = {
     `terminal and files: in this job’s folder${codex ? ' (a command that needs the network asks Monsters first: `sandbox_permissions: "require_escalated"`)' : ''}`,
   terminalGranted: 'terminal and files: only in the folders granted (`shell`, `fs_*`)',
   artifact: 'HTML pages for the user, among their Files (`artifact_create`)',
+  uiDraw:
+    'drawn data: a table, key numbers, a chart, a comparison or steps, in a ```ui block inside your reply (manual: `ui_guide`)',
   delegate: 'squad: you delegate to the other monsters (`delegate`)',
   askUser: 'questions to the user (`ask_user`)',
   projectPropose:
@@ -97,6 +99,8 @@ const it: typeof en = {
     `terminale e file: nella cartella di questo lavoro${codex ? ' (un comando che ha bisogno della rete chiede prima a Monsters: `sandbox_permissions: "require_escalated"`)' : ''}`,
   terminalGranted: 'terminale e file: solo nelle cartelle concesse (`shell`, `fs_*`)',
   artifact: 'pagine HTML per l’utente, tra i suoi File (`artifact_create`)',
+  uiDraw:
+    'dati disegnati: una tabella, numeri chiave, un grafico, un confronto o dei passi, in un blocco ```ui dentro la risposta (manuale: `ui_guide`)',
   delegate: 'squadra: deleghi agli altri mostri (`delegate`)',
   askUser: 'domande all’utente (`ask_user`)',
   projectPropose:

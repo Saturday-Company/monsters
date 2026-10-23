@@ -129,6 +129,12 @@ export interface ServerInfo {
  * without starting the HTTP server. Useful for tests and embedding.
  */
 export function createCoreServices(options: StartCoreOptions = {}): CoreServices {
+  // OpenUI (the drawn blocks, D-162) has an opt-in runtime telemetry (`OPENUI_RUNTIME_TELEMETRY_ENABLED`)
+  // that Monsters never sets. This turns it off for good in this process even if the user's
+  // environment has it on: `OPENUI_TELEMETRY_DISABLED` wins over it. The install-time one is
+  // blocked in `pnpm-workspace.yaml` (`allowBuilds`), and no child process inherits any `OPENUI_*`.
+  process.env['OPENUI_TELEMETRY_DISABLED'] ??= '1';
+  delete process.env['OPENUI_RUNTIME_TELEMETRY_ENABLED'];
   const config = loadConfig(options, options.env);
   if (!isLoopbackHost(config.host) && !config.allowNonLoopback) {
     throw new Error(

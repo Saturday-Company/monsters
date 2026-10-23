@@ -19,6 +19,8 @@ import { choiceOf, pOf, type QuestionLog, type System1 } from './system1.ts';
  *   coordinator's run; each delegation asks again on its brief, D-109);
  * - `tools`: the web is not needed (free chains lose the web tools for the
  *   turn) and the rare vault tools are needed (in OR with the words);
+ * - `ui`: the answer reads better drawn, so the manual of the `ui` blocks joins the turn
+ *   (D-162, in OR with the words; in shadow it is asked and logged, nothing more);
  * - `shortcut` (trial, shadow only): when the request could have gone
  *   straight to one monster, logged and nothing else.
  * Without an answer within 1.5 s the turn goes on as without the instinct.
@@ -34,6 +36,8 @@ export interface TriageOutcome {
   needsWeb?: number;
   /** p("the rare tools are needed"), when asked. */
   rareTools?: number;
+  /** p("the answer reads better drawn"), when asked and the use is on (D-162). */
+  needsUi?: number;
 }
 
 export interface TriageInput {
@@ -53,6 +57,8 @@ export interface TriageInput {
   web: boolean;
   /** Ask about the rare tools (free chain and the words did not say it). */
   rare: boolean;
+  /** Ask whether the answer reads better drawn (the use is available and the words did not say it). */
+  ui?: boolean;
   /** Rules of the gate: a request that touches an "ask always" one never takes the shortcut. */
   rules: readonly DecisionRule[];
 }
@@ -98,15 +104,18 @@ export class Triage {
       tier: input.tier && s1.available('tier'),
       web: input.web && s1.available('tools'),
       rare: input.rare && s1.available('tools'),
+      ui: input.ui === true && s1.available('ui'),
     };
-    if (!ask.route && !ask.tier && !ask.web && !ask.rare) return {};
+    if (!ask.route && !ask.tier && !ask.web && !ask.rare && !ask.ui) return {};
     const primary: InstinctUse = ask.route
       ? s1.available('route_hint')
         ? 'route_hint'
         : 'shortcut'
       : ask.tier
         ? 'tier'
-        : 'tools';
+        : ask.web || ask.rare
+          ? 'tools'
+          : 'ui';
     const routeUse: InstinctUse = s1.available('route_hint') ? 'route_hint' : 'shortcut';
     const logAs: Record<string, QuestionLog> = {
       route: { kind: 'route', use: routeUse },
@@ -114,6 +123,7 @@ export class Triage {
       tier: { kind: 'tier', use: 'tier' },
       needs_web: { kind: 'needs_web', use: 'tools', bands: { low: BANDS.web.drop, high: 0.85 } },
       rare_tools: { kind: 'rare_tools', use: 'tools', bands: { low: 0.15, high: BANDS.rare.add } },
+      needs_ui: { kind: 'needs_ui', use: 'ui', bands: { low: 0.15, high: BANDS.ui.attach } },
     };
     const answer = await s1
       .ask({
@@ -195,6 +205,10 @@ export class Triage {
       );
     }
 
+    if (this.#on('ui')) {
+      const ui = pOf(answer, 'needs_ui');
+      if (ui !== undefined) out.needsUi = ui;
+    }
     if (this.#on('tools')) {
       const web = pOf(answer, 'needs_web');
       const rare = pOf(answer, 'rare_tools');
@@ -224,7 +238,7 @@ export class Triage {
           request: input.subtask,
           history: [],
           members: [],
-          ask: { route: false, tier: true, web: false, rare: false },
+          ask: { route: false, tier: true, web: false, rare: false, ui: false },
         }),
         logAs: { tier: { kind: 'tier', use: 'tier' } },
         ...(input.signal ? { signal: input.signal } : {}),

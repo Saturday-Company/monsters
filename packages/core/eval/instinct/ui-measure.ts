@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { JevDecisionPort, TYPESAFE_KEY_ENV } from '../../src/team/jev.ts';
-import type { SystemOneRequest } from '../../src/team/decision.ts';
+import { triageRequest } from '../../src/team/instinct/questions.ts';
+import { needsDrawnBlock } from '../../src/team/toolsets.ts';
 
 /*
  * Does the answer to a request read better drawn (a chart, key numbers, a side-by-side
@@ -9,7 +10,10 @@ import type { SystemOneRequest } from '../../src/team/decision.ts';
  *
  *   node packages/core/eval/instinct/ui-measure.ts [--times 2]
  *
- * Needs TYPESAFE_API_KEY (from the environment or `.env` at the repo root).
+ * Needs TYPESAFE_API_KEY (from the environment or `.env` at the repo root). It asks what Monsters
+ * asks (`triageRequest`, the `needs_ui` question of the English family) and scores the rule
+ * Monsters uses (`needsDrawnBlock`), so the measure is the product's: change the question or the
+ * words and run it again.
  */
 
 interface Case {
@@ -99,22 +103,6 @@ const CASES: Case[] = [
   { id: 'b14', request: 'What will the weather be in London tomorrow?', ui: false },
 ];
 
-const QUESTION = {
-  id: 'needs_ui',
-  type: 'noul' as const,
-  prompt:
-    'The answer to `request` is easier to read drawn (a chart, key numbers, a side-by-side comparison, steps or a table) than written as prose.',
-  criteria: {
-    true: 'Data to compare, numbers or trends, several options with the same features, steps to follow, a status of many items',
-    false:
-      'A chat, a text to write or send, one fact, an explanation, a translation, a small action on notes or the calendar',
-  },
-};
-
-/** The rule the core would use without Jev: words that ask for data drawn. */
-const UI_WORDS =
-  /\b(confront\w*|compar\w*|tabell\w*|table|grafic\w*|chart|andament\w*|trend|numeri|numbers|prezz\w*|pric\w*|percentual\w*|statistic\w*|riepilog\w*|passi|steps|checklist|status|stato\s+de|month\s+by\s+month|mese\s+per\s+mese|categori\w*|quale\s+.*\s+tra|which\s+one|vs\.?|versus)\b/i;
-
 function key(): string {
   const env = process.env[TYPESAFE_KEY_ENV];
   if (env) return env;
@@ -136,16 +124,19 @@ for (const c of CASES) {
   const p: number[] = [];
   const ms: number[] = [];
   for (let i = 0; i < times; i++) {
-    const req: SystemOneRequest = {
-      state: { request: c.request, last_messages: [] },
-      questions: [QUESTION],
-    };
+    // The request Monsters sends: the `needs_ui` question of the English family.
+    const req = triageRequest({
+      request: c.request,
+      history: [],
+      members: [],
+      ask: { route: false, tier: false, web: false, rare: false, ui: true },
+    });
     const t0 = Date.now();
     const res = await port.decide(req);
     ms.push(Date.now() - t0);
     p.push(Number(res.answers.find((a) => a.id === 'needs_ui')?.value));
   }
-  rows.push({ c, p, rule: UI_WORDS.test(c.request), ms });
+  rows.push({ c, p, rule: needsDrawnBlock(c.request), ms });
 }
 
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;

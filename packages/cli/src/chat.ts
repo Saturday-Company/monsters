@@ -4,6 +4,7 @@ import {
   type AgentSummary,
   type LogEvent,
   type Question,
+  uiBlocksToText,
 } from '@monsters/shared';
 import WebSocket from 'ws';
 
@@ -99,7 +100,8 @@ function describeEvent(
       // Closing of an unfinished turn: the run event says what happened.
       if (e.data.status && !e.data.text.trim()) return null;
       if (e.parentId !== null && e.agent !== topAgent) return null;
-      return `\n${who}: ${e.data.text.trim()}\n`;
+      // A drawn block (```ui, D-162) is written as text here: the terminal cannot draw it.
+      return `\n${who}: ${uiBlocksToText(e.data.text.trim())}\n`;
     }
     case 'delegation': {
       const to = name(e.data.to);
@@ -107,7 +109,7 @@ function describeEvent(
         case 'started':
           return `→ ${who} delegates to ${to}: ${e.data.goal}`;
         case 'completed':
-          return `← ${to} finished:\n${indent(firstLines(e.data.summary ?? ''), '    ')}`;
+          return `← ${to} finished:\n${indent(firstLines(uiBlocksToText(e.data.summary ?? '')), '    ')}`;
         case 'failed':
           return `! ${to} failed: ${e.data.error ?? 'error'}`;
         case 'aborted':

@@ -5243,3 +5243,44 @@ the result". (5) The D-136 probe fails when `monsters` is not `connected` at the
 limit no longer counts in the scorecard (only completed and failed ones do) and is not returned again as an earlier
 report (AG-16). Claude Code's `pending` is final for the first request only: tools that connect later are not waited
 for (the run is restarted instead).
+
+### D-162 · Drawn blocks in chat: `ui` blocks in the Markdown, OpenUI Lang read by `lang-core` only
+**Status:** done (core side) · 23/10/2026 (the web app draws them, `UiBlock`)
+**Context:** a reply that compares plans, shows a trend, lists steps or the status of many things reads better as a
+table, key numbers, a chart or a checklist than as prose. We wanted the monsters to draw, not an app that renders
+whatever a model writes. OpenUI (openui.com) is a compact language for this, MIT, with a parser that streams.
+**Choice:** (1) Only `@openuidev/lang-core` (the language, the parser, the library description). `react-lang` and
+`react-ui` are not used: their weight, their devtools and observability dependencies and, above all, our own style
+(the monsters' look is ours). (2) The block lives in the text of the reply, a fenced block with language `ui`
+(`openui` and `openui-lang` too): no change to the message schema, nothing new to save, reload, search or send to the
+model; the model reads its own block back as written. (3) The library is ours and read-only
+(`packages/shared/src/ui-blocks.ts`: Stats, Table, BarChart, LineChart, Donut, Compare, Steps, Checklist, Timeline,
+Card, Callout): no actions, no `Query`, no `Mutation`, no `toolProvider`, because anything a block could run would
+skip the brake, the permissions and the `EventLog`. The positional order of the props is the order of the zod keys:
+never reordered. (4) Teaching it costs little and only when useful: one line in the capability card of every monster
+(~35 tokens: it can draw in a `ui` block, `ui_guide` has the components); the `ui_guide` core tool (no arguments,
+read-only, no permission, for every monster, API and harness alike through the `monsters` MCP server) gives a manual
+we wrote (`agents/ui-guide.prompts.ts`, EN and IT, ~750 tokens: when to draw and when not, the syntax, the
+signatures from `uiSignatures()`, an example), not lang-core's generic prompt, which says the whole response must be
+OpenUI Lang; and, when the request reads better drawn, the same manual is attached to THAT turn's message (the
+`hint` of `runAgent` and `runHarnessAgent`, like the routing hint), so the monster does not spend a step on the tool.
+Never the system prompt (the cache stays whole) and never a message of the chat. The decision is the new instinct
+use `ui` (default on, rules and Jev, off/shadow/on): Jev's `needs_ui` question in the same call as route, tier and
+tools, attached from p ≥ 0.5 (`BANDS.ui.attach`) OR a word of the request (`needsDrawnBlock`, in `toolsets.ts`, next
+to `needsRareTools`); when the words already say it Jev is not asked; in shadow it is asked and logged (`decision`
+events), nothing attached. Measured 23/10 on 38 hand-labelled requests (`eval/instinct/ui-measure.ts`, which now
+asks what Monsters asks and scores the rule Monsters uses): Jev 33/38, the words 29/38, 150 ms median. Jev errs toward
+drawing when it is not needed, a cheap error: a monster that has the manual may still answer in prose. (5) Surfaces
+that cannot draw get the text form (`uiBlocksToText`): Telegram before the text is split (a table becomes a code
+block, a `<pre>`), the terminal chat for the final message (the interactive stream shows the source as it arrives
+and then the block as text). Other fences are untouched, a block that does not parse is shown as its source in a code
+fence, and the model's history keeps the block as written. (6) Telemetry: the install-time telemetry of lang-core is
+a `postinstall` blocked in `pnpm-workspace.yaml` (`allowBuilds: false`); the runtime one is opt-in
+(`OPENUI_RUNTIME_TELEMETRY_ENABLED`), never set by us, and the core sets `OPENUI_TELEMETRY_DISABLED` (which wins over
+it) and removes the enabling variable at its start; no child process (commands of a monster, MCP servers) inherits an
+`OPENUI_*` variable. (7) Eval: the `confronta` case of the behaviour eval reports `uiBlocks` (blocks written,
+blocks with a root, no errors and every name defined); the instinct measure is `ui-measure.ts`.
+**Consequence:** a monster draws only where data reads better drawn; a model that writes a broken block costs the
+reader nothing but the source shown as code; the card grows by one line and a turn by ~750 tokens only when it is
+likely to be used. The `ui` use is in the settings list with the other uses. To move the threshold, the words or the
+manual, measure again with `ui-measure.ts`.

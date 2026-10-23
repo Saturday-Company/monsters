@@ -191,6 +191,38 @@ describe('monsters chat (interactive, for SSH)', () => {
     expect(screen.split('Vuoi che la pubblichi?').length - 1).toBe(1);
   });
 
+  it('a drawn block (```ui, D-162) is printed as text: the final message of a one-shot chat, and after the stream in the interactive one', async () => {
+    const block = [
+      '```ui',
+      'root = Block([t, c])',
+      't = Table(["Piano", "Prezzo"], [["Free", 0], ["Pro", 12]], "Piani")',
+      'c = Callout("Conviene Pro", "success")',
+      '```',
+    ].join('\n');
+    const reply = `Ecco il confronto:\n${block}\n\`\`\`ts\nconst a = 1;\n\`\`\``;
+    const text = ['Piano  Prezzo', '─────  ──────', 'Free   0', 'Pro    12', '> Conviene Pro'];
+
+    // One-shot: the final message only, never the source of the block; other fences stay.
+    const { home } = await core({ titan: [fake.text(reply)] });
+    const once = terminal();
+    const { write: _write, ...lines } = once;
+    expect(await run(['chat', 'confronta', '--home', home], lines)).toBe(0);
+    for (const line of text) expect(once.screen()).toContain(line);
+    expect(once.screen()).not.toContain('Block(');
+    expect(once.screen()).toContain('```ts\nconst a = 1;');
+
+    // Interactive: the stream is as written, then the block as text.
+    const { home: other } = await core({ titan: [fake.text(reply)] });
+    const tty = terminal();
+    const chat = run(['chat', '--home', other], tty);
+    await until(() => tty.screen().includes('/help for the commands'), 'banner');
+    tty.type('confronta');
+    await until(() => tty.screen().includes('(end: completed)'), 'end');
+    tty.type('/quit');
+    expect(await chat).toBe(0);
+    for (const line of text) expect(tty.screen()).toContain(line);
+  });
+
   it('agent text never drives the terminal: control sequences are stripped', async () => {
     const evil = 'Fatto\x1b]52;c;ZWNobyBwd25lZA==\x07\x1b[2J\x1b]8;;https://x.it\x07link\u202e.';
     const { home } = await core({

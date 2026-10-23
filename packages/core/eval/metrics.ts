@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
 import {
+  parseUiBlock,
+  replaceUiBlocks,
   vaultLayoutOf,
   URL_IN_TEXT,
   WEB_SEARCH_USAGE_PROVIDER,
@@ -376,11 +378,36 @@ export interface RunMetrics {
   delegations: string[];
   errors: string[];
   answer: string;
+  /** Drawn blocks of the orchestrator's final answer (D-162). Missing in older results. */
+  uiBlocks?: UiBlocksReport;
   /** Cost and waste of the loop (D-064). Missing in results saved before it. */
   loop?: LoopMetrics;
 }
 
 type Ev = LogEvent;
+
+/** The drawn blocks (```ui, D-162) of an answer: how many, and how many the library reads whole. */
+export interface UiBlocksReport {
+  drawn: number;
+  valid: number;
+}
+
+/**
+ * A valid block has a root, no validation errors, every name defined and is not cut short. This
+ * is what the app would draw: a block that fails is shown as its source.
+ */
+export function uiBlocksOf(text: string): UiBlocksReport {
+  const report: UiBlocksReport = { drawn: 0, valid: 0 };
+  replaceUiBlocks(text, (source) => {
+    report.drawn++;
+    const { root, meta } = parseUiBlock(source);
+    if (root && meta.errors.length === 0 && meta.unresolved.length === 0 && !meta.incomplete) {
+      report.valid++;
+    }
+    return '';
+  });
+  return report;
+}
 
 /** A question of taste: tone, variant, version, style, which draft; not "shall I publish/send?". */
 export function isTasteQuestion(text: string): boolean {
@@ -601,6 +628,7 @@ export function evaluateRun(params: {
     delegations: delegations.map((d) => `${d.data.to}: ${d.data.goal.slice(0, 160)}`),
     errors: errors.map((e) => `${e.agent}: ${e.data.code ?? ''} ${e.data.message}`.trim()),
     answer,
+    uiBlocks: uiBlocksOf(answer),
     loop,
   };
 }

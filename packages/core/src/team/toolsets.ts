@@ -39,6 +39,18 @@ const RARE_REQUEST = wordRegex(
 
 export const needsRareTools: RareToolsCheck = (request) => RARE_REQUEST.test(request);
 
+/**
+ * The words of a request whose answer reads better drawn (a table, a chart, key numbers, a
+ * comparison, steps; D-162). The instinct's `ui` use adds Jev's answer in OR with these:
+ * measured on 23/10/2026 on 38 labelled requests, the words alone 29/38, Jev 33/38.
+ */
+const UI_REQUEST = wordRegex(
+  '\\b(confront\\w*|compar\\w*|tabell\\w*|table|grafic\\w*|chart|andament\\w*|trend|numeri|numbers|prezz\\w*|pric\\w*|percentual\\w*|statistic\\w*|riepilog\\w*|passi|steps|checklist|status|stato\\s+de|month\\s+by\\s+month|mese\\s+per\\s+mese|categori\\w*|quale\\s+.*\\s+tra|which\\s+one|vs\\.?|versus)\\b', // i18n-ignore
+);
+
+/** Does the request ask for data that is easier to read drawn? */
+export const needsDrawnBlock: RareToolsCheck = (request) => UI_REQUEST.test(request);
+
 export interface TurnToolsOptions {
   /** Text of the request of this turn (the user's message, or the brief's goal). */
   request: string;

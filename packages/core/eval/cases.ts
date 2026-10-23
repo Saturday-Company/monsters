@@ -177,6 +177,19 @@ export const CASES: EvalCase[] = [
     },
   },
   {
+    // Drawn blocks (D-162): a comparison reads better drawn. The reply should hold a valid ```ui
+    // block (`uiBlocksOf`: root present, no errors, every name defined); the table shows it.
+    id: 'confronta',
+    label: '3 piani a confronto (blocco ui)',
+    text: 'Confrontami tre strumenti per programmare i post sui social: Buffer, Later e Metricool, con prezzi e cosa offrono',
+    expect: { research: true, writing: false, question: false },
+    searchQuery: 'confronto strumenti programmare post',
+    en: {
+      text: 'Compare three tools to schedule social media posts: Buffer, Later and Metricool, with prices and what they offer',
+      searchQuery: 'schedule posts tools comparison',
+    },
+  },
+  {
     id: 'recensioni',
     label: 'recensioni toscane',
     text: 'Cosa dicono le recensioni dei ristoranti toscani sui piatti autunnali?',
