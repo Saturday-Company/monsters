@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.0-alpha.22 · 23 ottobre 2026
+
+### Cosa si vede
+- **Risposte che si leggono al volo.** Quando i dati si leggono meglio disegnati, i mostri li mostrano direttamente in
+  chat: numeri chiave, tabelle, grafici a barre, a linee e a ciambella, confronti a colonne con l’opzione consigliata,
+  passi, checklist e date. Il testo intorno resta com’è, e funziona in chiaro, in scuro e sul telefono.
+- **Risposte suggerite.** Sotto alcune risposte trovi i bottoni con i passi successivi («Approfondisci Metricool»): un
+  tocco manda esattamente quel testo come tuo messaggio. Su Telegram sono tasti sotto il messaggio.
+- **Telegram e il terminale** ricevono le stesse risposte in testo: tabelle allineate, valori in righe e una nota che
+  il grafico è nell’app.
+
 ## 0.1.0-alpha.21 · 23 ottobre 2026
 
 ### Cosa si vede

@@ -2,6 +2,17 @@
 
 The Italian version is in [`CHANGELOG.it.md`](CHANGELOG.it.md).
 
+## 0.1.0-alpha.22 · 23 October 2026
+
+### What you’ll see
+- **Answers you can read at a glance.** When the data reads better drawn, your monsters show it right in the chat:
+  key numbers, tables, bar, line and donut charts, side-by-side comparisons with the recommended option, steps,
+  checklists and dates. The text around stays as it is, and it works in light and dark mode and on the phone.
+- **Suggested replies.** Under some answers you’ll find buttons with the next steps (“Look deeper into Metricool”):
+  one tap sends exactly that text as your message. On Telegram they’re keys under the message.
+- **Telegram and the terminal** get the same answers as text: aligned tables, values in rows, and a note that the
+  chart is in the app.
+
 ## 0.1.0-alpha.21 · 23 October 2026
 
 ### What you’ll see

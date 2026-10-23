@@ -88,8 +88,13 @@ describe('the changelog in two languages', () => {
     expect(en.map((v) => v.date.split(' ')[0])).toEqual(it_.map((v) => v.date.split(' ')[0]));
     for (const v of en) expect(v.date).toMatch(/^\d{1,2} (September|October|November) 2026$/);
     for (const v of it_) expect(v.date).toMatch(/^\d{1,2} (settembre|ottobre|novembre) 2026$/);
-    expect(en[0]!.sections.map((s) => s.title)).toEqual(['What you’ll see', 'More reliable']);
-    expect(it_[0]!.sections.map((s) => s.title)).toEqual(['Cosa si vede', 'Più affidabile']);
+    // The latest version has one of the two sections or both, never another heading.
+    for (const t of en[0]!.sections.map((s) => s.title)) {
+      expect(['What you’ll see', 'More reliable']).toContain(t);
+    }
+    for (const t of it_[0]!.sections.map((s) => s.title)) {
+      expect(['Cosa si vede', 'Più affidabile']).toContain(t);
+    }
   });
 
   it('keeps the Italian file as it was and shows no Italian in the English one', () => {
