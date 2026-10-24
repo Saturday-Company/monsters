@@ -276,7 +276,7 @@ describe('the Monsters card and the harness section, in English', () => {
     // The button is quoted from the dictionary that shows it, never retyped.
     expect(card).toContain('and the user taps “Yes, grant”');
     expect(card).toContain(
-      'You don’t have: web (Pixel has it: delegate the search); connected services (none is given to you: the user connects them and gives them to you in Settings → Connections → Other apps).',
+      'You don’t have: web (Pixel has it: delegate the search); connected services (none is given to you: the user connects them and gives them to you in Settings → Connections → Apps and services).',
     );
     expect(card).toContain(
       'Only the user, in Settings: Squad (create, change and archive monsters; who the user is to you), Models (models and spending; you don’t see it), Permissions, Connections (services, Telegram).',
@@ -299,7 +299,7 @@ describe('the Monsters card and the harness section, in English', () => {
       'web (web search is off for the project “Saturday”: the user turns it on from the “Saturday” project page, Connections tab)',
     );
     expect(monstersCard({ toolNames: ['vault_search'], unlinked: ['Gmail', 'Canva'] })).toContain(
-      'Gmail and Canva are not responding now (sign-in expired or an error): their tools are missing. If you need them, ask the user to reconnect them in Settings → Connections → Other apps.',
+      'Gmail and Canva are not responding now (sign-in expired or an error): their tools are missing. If you need them, ask the user to reconnect them in Settings → Connections → Apps and services.',
     );
   });
 

@@ -47,7 +47,7 @@ const en = {
     cancel: 'Cancel',
   },
   account: {
-    title: 'Sign-in',
+    title: 'Account and security',
     footer:
       'The password is for signing in from a browser, a phone or another computer. The app on the computer where Monsters runs signs in by itself.',
     yours: 'Your account',
@@ -65,7 +65,6 @@ const en = {
     copyFailed: 'I can’t copy it: select it and copy it by hand.',
   },
   secrets: {
-    title: 'Keys',
     where: 'Where the keys are kept',
     keychain: 'Encrypted, with the key in the system keychain.',
     files: (why: string) =>
@@ -133,7 +132,7 @@ const it: typeof en = {
     cancel: 'Annulla',
   },
   account: {
-    title: 'Accesso',
+    title: 'Account e sicurezza',
     footer:
       'La password serve per entrare dal browser, dal telefono o da un altro computer. L’app sul computer dove gira Monsters entra da sola.',
     yours: 'Il tuo account',
@@ -151,7 +150,6 @@ const it: typeof en = {
     copyFailed: 'Non riesco a copiarlo: selezionalo e copialo a mano.',
   },
   secrets: {
-    title: 'Chiavi',
     where: 'Dove stanno le chiavi',
     keychain: 'Cifrate, con la chiave nel portachiavi del sistema.',
     files: (why) =>

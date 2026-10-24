@@ -16,7 +16,7 @@ import {
 import { useAgent, useNameOf } from '../../store/hooks.ts';
 import { useProject } from '../../store/projects.ts';
 import { clipText, plainText } from '../../lib/markdown.ts';
-import { openPage, PATHS, projectPath } from '../../lib/router.ts';
+import { openPage, projectPath, settingsPath } from '../../lib/router.ts';
 import { cn, formatTime } from '../../lib/utils.ts';
 import { NoteChip } from '../ui/MarkdownRenderer.tsx';
 import { FileById } from '../files/FileChip.tsx';
@@ -365,7 +365,7 @@ export function withSettingsLinks(text: string): ReactNode[] {
     out.push(
       <a
         key={m.index}
-        href={`${PATHS.settings}?sezione=${m.tab}`}
+        href={settingsPath(m.tab)}
         className="font-medium underline underline-offset-2"
       >
         {m.text}

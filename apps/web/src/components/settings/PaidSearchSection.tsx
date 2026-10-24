@@ -1,13 +1,19 @@
-import type { PaidSearchEngineName, SettingsResponse, WebSearchSettings } from '@monsters/shared';
+import {
+  SETTINGS_TABS,
+  type PaidSearchEngineName,
+  type SettingsResponse,
+  type WebSearchSettings,
+} from '@monsters/shared';
 import { useState } from 'react';
 import { errorText, getApi, notify } from '../../store/app.ts';
 import { eurFirst } from '../../lib/utils.ts';
 import { Segmented, Switch } from '../ui/controls.tsx';
-import { Group, Row, RowBody } from './parts.tsx';
+import { Row, RowBody } from './parts.tsx';
 import { searchStrings } from './search.strings.ts';
 
 /*
- * Settings → Connections → Paid search (D-071; one place, U-12): the paid search on OpenRouter.
+ * Settings → Connections → Web search, the paid search row (D-071; one place, U-12): the paid
+ * search on OpenRouter.
  * One lever: on, the monsters search through OpenRouter with the key's credit
  * (~1 $ every 1,000 searches); off, the free chain (DuckDuckGo, then
  * Wikipedia). Untouched, it follows "Also use paid models". With the
@@ -32,7 +38,7 @@ export function paidSearchText(ws: WebSearchSettings): string {
     case 'no_credit':
       return s.noCredit;
     case 'key_rejected':
-      return s.keyRejected;
+      return s.keyRejected(SETTINGS_TABS.modelli);
     case 'paused':
       return s.paused;
     case 'free_only':
@@ -47,7 +53,8 @@ export function paidSearchOn(ws: WebSearchSettings, freeOnly: boolean): boolean 
   return ws.mode === 'on' || (ws.mode === 'auto' && !freeOnly);
 }
 
-export function PaidSearchSection({
+/** The paid search's row (and its engine) in the Web search group. */
+export function PaidSearchRow({
   settings,
   onChanged,
 }: {
@@ -80,54 +87,52 @@ export function PaidSearchSection({
   };
 
   return (
-    <Group title={s.title} testId="paid-search">
-      <div
-        data-testid="paid-search-row"
-        data-on={on ? 'yes' : 'no'}
-        data-active={ws.active ? 'yes' : 'no'}
+    <div
+      data-testid="paid-search-row"
+      data-on={on ? 'yes' : 'no'}
+      data-active={ws.active ? 'yes' : 'no'}
+    >
+      <Row
+        label={s.title}
+        description={<span data-testid="paid-search-status">{paidSearchText(ws)}</span>}
       >
-        <Row
+        <Switch
+          words
+          checked={on}
+          disabled={busy || (noKey && !on)}
+          onCheckedChange={(v) => void apply({ mode: v ? 'on' : 'off' })}
           label={s.title}
-          description={<span data-testid="paid-search-status">{paidSearchText(ws)}</span>}
-        >
-          <Switch
-            words
-            checked={on}
-            disabled={busy || (noKey && !on)}
-            onCheckedChange={(v) => void apply({ mode: v ? 'on' : 'off' })}
-            label={s.title}
-          />
-        </Row>
-        {(on || error) && (
-          <RowBody className="pt-0">
-            {on && (
-              <div className="flex flex-wrap items-center gap-3">
-                <Segmented
-                  size="sm"
-                  label={s.engine}
-                  value={ws.engine}
-                  onChange={(engine) => {
-                    if (engine !== ws.engine) void apply({ engine });
-                  }}
-                  options={[
-                    {
-                      value: 'parallel',
-                      label: s.cheap(per1000(ws.usdPer1000.parallel)),
-                    },
-                    { value: 'exa', label: s.precise(per1000(ws.usdPer1000.exa)) },
-                  ]}
-                />
-                <span className="text-footnote text-ink-muted">{s.per1000}</span>
-              </div>
-            )}
-            {error && (
-              <p className="text-footnote text-stop-ink" role="alert">
-                {error}
-              </p>
-            )}
-          </RowBody>
-        )}
-      </div>
-    </Group>
+        />
+      </Row>
+      {(on || error) && (
+        <RowBody className="pt-0">
+          {on && (
+            <div className="flex flex-wrap items-center gap-3">
+              <Segmented
+                size="sm"
+                label={s.engine}
+                value={ws.engine}
+                onChange={(engine) => {
+                  if (engine !== ws.engine) void apply({ engine });
+                }}
+                options={[
+                  {
+                    value: 'parallel',
+                    label: s.cheap(per1000(ws.usdPer1000.parallel)),
+                  },
+                  { value: 'exa', label: s.precise(per1000(ws.usdPer1000.exa)) },
+                ]}
+              />
+              <span className="text-footnote text-ink-muted">{s.per1000}</span>
+            </div>
+          )}
+          {error && (
+            <p className="text-footnote text-stop-ink" role="alert">
+              {error}
+            </p>
+          )}
+        </RowBody>
+      )}
+    </div>
   );
 }

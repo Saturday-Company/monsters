@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures.ts';
 
 /*
- * Settings → Permessi → Altri programmi (MCP, M2.5), on the mock core: add a
+ * Settings → Collegamenti → Apps and services (MCP, M2.5), on the mock core: add a
  * program, test it (its tools), choose who uses it, remove it; turn the
  * browser on. Addresses and commands stay under "Dettagli".
  * `MCP_SHOTS=<dir>` also writes screenshots in light and dark.
@@ -10,7 +10,7 @@ import { expect, test } from './fixtures.ts';
 test('settings: add an MCP server, test it, choose the monsters, remove it', async ({ page }) => {
   await page.goto('/?mock=demo#/impostazioni?sezione=collegamenti');
   const section = page.getByTestId('mcp-settings');
-  await expect(section.getByRole('heading', { name: 'Other apps' })).toBeVisible();
+  await expect(section.getByRole('heading', { name: 'Apps and services' })).toBeVisible();
   await expect(section).toContainText('MCP');
   // The demo has GitHub already, from the gallery (D-063): not in the list of other programs.
   await expect(section.getByTestId('gallery-github')).toContainText('Connected');
@@ -21,7 +21,7 @@ test('settings: add an MCP server, test it, choose the monsters, remove it', asy
     'false',
   );
 
-  await section.getByRole('button', { name: 'Add an app' }).click();
+  await section.getByRole('button', { name: 'Add a custom app' }).click();
   const form = section.getByTestId('mcp-add-form');
   // Checked in the page first.
   await form.getByLabel('Name').fill('Note Vecchie');
@@ -81,7 +81,7 @@ test('settings: add an MCP server, test it, choose the monsters, remove it', asy
 test('settings: a server that does not start says why', async ({ page }) => {
   await page.goto('/?mock=demo#/impostazioni?sezione=collegamenti');
   const section = page.getByTestId('mcp-settings');
-  await section.getByRole('button', { name: 'Add an app' }).click();
+  await section.getByRole('button', { name: 'Add a custom app' }).click();
   const form = section.getByTestId('mcp-add-form');
   await form.getByLabel('Name').fill('rotto');
   await form.getByLabel('Command').fill('program-that-does-not-exist');
@@ -135,7 +135,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.waitForTimeout(300);
       await page.screenshot({ path: `${SHOTS}/mcp-${theme}.png`, animations: 'disabled' });
 
-      await section.getByRole('button', { name: 'Add an app' }).click();
+      await section.getByRole('button', { name: 'Add a custom app' }).click();
       const form = section.getByTestId('mcp-add-form');
       await form.getByLabel('Name').fill('calendario');
       await form.getByLabel('Command').fill('npx -y @esempio/mcp-calendario');

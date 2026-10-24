@@ -49,7 +49,7 @@ const en = {
       settings: { label: 'Settings' },
       models: { label: 'Settings › Models' },
       permissions: { label: 'Settings › Permissions' },
-      links: { label: 'Settings › Connections', detail: 'Telegram, web search, other apps' },
+      links: { label: 'Settings › Connections', detail: 'Telegram, apps and services, web search' },
       light: { label: 'Light theme' },
       dark: { label: 'Dark theme' },
       system: { label: 'Same theme as the computer' },
@@ -222,7 +222,7 @@ const it: typeof en = {
       permissions: { label: 'Impostazioni › Permessi' },
       links: {
         label: 'Impostazioni › Collegamenti',
-        detail: 'Telegram, ricerca sul web, altri programmi',
+        detail: 'Telegram, app e servizi, ricerca sul web',
       },
       light: { label: 'Tema chiaro' },
       dark: { label: 'Tema scuro' },

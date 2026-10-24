@@ -281,7 +281,7 @@ describe('the reasons an access is missing, in English', () => {
       { agent: nova, runId: 'r', toolNames: ['vault_read'] },
     );
     expect(browser.browser?.why).toBe(
-      'the Monsters browser is off: the user turns it on in Settings → Connections → Other apps',
+      'the Monsters browser is off: the user turns it on in Settings → Connections → Apps and services',
     );
     const lead = monster('lea', 'Lea', ['vault_read'], 'lead');
     const noAsk = accessState(deps(), {

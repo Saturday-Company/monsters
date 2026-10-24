@@ -11,14 +11,13 @@ const en = {
       modelli: 'What the monsters think with: keys and subscriptions, and each one’s model.',
       permessi: 'What the monsters can do on their own, and what they always ask you first.',
       collegamenti:
-        'How you reach the monsters from outside and what they can use besides the notes: Telegram, web search, other apps.',
+        'How you reach the monsters from outside and what they can use besides the notes: Telegram, apps and services, web search.',
       generale: 'Look and feel, your sign-in and where the notes and keys are kept.',
     },
   },
   askAlways: {
     failed: 'I can’t read what they always ask you. Try again in a moment.',
     footerBefore: 'For everything else the monsters decide: you choose who decides in ',
-    footerLink: 'Squad → Monsters’ decisions',
     footerAfter: '.',
     fixed: 'Always: it can’t be turned off.',
     turnedOn: (what: string) => `From now on they ask you first: ${what.toLowerCase()}.`,
@@ -39,14 +38,13 @@ const it: typeof en = {
       modelli: 'Con cosa pensano i mostri: chiavi e abbonamenti, e il modello di ognuno.',
       permessi: 'Cosa possono fare i mostri da soli, e cosa ti chiedono sempre prima.',
       collegamenti:
-        'Come raggiungi i mostri da fuori e cosa possono usare oltre alle note: Telegram, la ricerca sul web, altri programmi.',
+        'Come raggiungi i mostri da fuori e cosa possono usare oltre alle note: Telegram, app e servizi, la ricerca sul web.',
       generale: 'Aspetto, il tuo accesso e dove stanno le note e le chiavi.',
     },
   },
   askAlways: {
     failed: 'Non riesco a leggere cosa ti chiedono sempre. Riprova tra poco.',
     footerBefore: 'Per tutto il resto decidono i mostri: chi decide lo scegli in ',
-    footerLink: 'Squadra → Decisioni dei mostri',
     footerAfter: '.',
     fixed: 'Sempre: non si può spegnere.',
     turnedOn: (what) => `Da ora ti chiedono prima di: ${what.toLowerCase()}.`,

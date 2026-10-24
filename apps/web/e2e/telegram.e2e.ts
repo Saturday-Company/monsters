@@ -8,10 +8,21 @@ import { expect, test } from './fixtures.ts';
  * `TELEGRAM_SHOTS=<dir>` also writes screenshots in light and dark.
  */
 
-async function openTelegram(page: Page) {
+/**
+ * The demo's main bot is connected, with Giulio paired; `disconnected` takes the account and the bot
+ * out first (from the page, as a user would), to start from a bot that is not connected yet.
+ */
+async function openTelegram(page: Page, { disconnected = true } = {}) {
   await page.goto('/?mock=demo#/impostazioni?sezione=collegamenti');
   const section = page.getByTestId('telegram-settings');
-  await expect(section.getByRole('heading', { name: 'Telegram' })).toBeVisible();
+  await expect(section.getByRole('heading', { name: 'Telegram', exact: true })).toBeVisible();
+  if (disconnected) {
+    await section.getByRole('button', { name: 'Remove Giulio' }).click();
+    await expect(section.getByTestId('telegram-user')).toHaveCount(0);
+    await section.getByRole('button', { name: 'Disconnect the bot' }).click();
+    await section.getByRole('button', { name: 'Yes, disconnect' }).click();
+    await expect(section.getByRole('button', { name: 'Connect a bot' })).toBeVisible();
+  }
   return section;
 }
 
@@ -29,6 +40,16 @@ async function connect(page: Page) {
   await expect(section.getByTestId('telegram-status')).toContainText('@MonstersDemoBot');
   return section;
 }
+
+test('settings: the demo’s main bot is connected, with its account and notifications', async ({
+  page,
+}) => {
+  const section = await openTelegram(page, { disconnected: false });
+  await expect(section.getByTestId('telegram-status')).toHaveAttribute('data-status', 'online');
+  await expect(section.getByTestId('telegram-status')).toContainText('@MonstersDemoBot');
+  await expect(section.getByTestId('telegram-user')).toContainText('Giulio · @giulio');
+  await expect(section.getByTestId('telegram-notifications')).toBeVisible();
+});
 
 test('settings: connect the bot, pair an account, quiet night, remove', async ({ page }) => {
   const section = await openTelegram(page);

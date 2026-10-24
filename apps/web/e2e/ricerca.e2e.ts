@@ -1,17 +1,19 @@
 import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
-/* Settings → Collegamenti → Ricerca a pagamento (D-071): the paid search on OpenRouter. */
+/* Settings → Collegamenti → Web search, the paid search row (D-071): the paid search on OpenRouter. */
 
 test('paid search: off with free models, one lever on, the engine, and back off', async ({
   page,
 }) => {
   await page.goto('/?mock=demo#/impostazioni?sezione=collegamenti');
-  const group = page.getByTestId('paid-search');
-  await expect(group.getByRole('heading', { name: 'Paid search' })).toBeVisible();
-  const row = page.getByTestId('paid-search-row');
+  // One group: the free search (and the Brave key) first, the paid search second.
+  const group = page.getByTestId('web-search');
+  await expect(group.getByRole('heading', { name: 'Web search' })).toBeVisible();
+  await expect(group.getByTestId('brave-key-status')).toContainText('DuckDuckGo');
+  const row = group.getByTestId('paid-search-row');
   // Untouched, it follows "Usa anche modelli a pagamento" (off): free search, cost said.
   await expect(row).toHaveAttribute('data-on', 'no');
-  await expect(page.getByTestId('paid-search-status')).toContainText('DuckDuckGo and Wikipedia');
+  await expect(page.getByTestId('paid-search-status')).toContainText('Off');
   await expect(page.getByTestId('paid-search-status')).toContainText('($1.1) per 1,000');
   await expect(group.getByRole('radiogroup')).toHaveCount(0);
 
@@ -20,7 +22,7 @@ test('paid search: off with free models, one lever on, the engine, and back off'
   await expect(row).toHaveAttribute('data-on', 'yes');
   await expect(row).toHaveAttribute('data-active', 'yes');
   await expect(page.getByText('Paid search on, right away.')).toBeVisible();
-  await expect(page.getByTestId('paid-search-status')).toContainText('search with OpenRouter');
+  await expect(page.getByTestId('paid-search-status')).toContainText('more reliable results');
 
   const engines = group.getByRole('radiogroup', { name: 'Paid search engine' });
   await expect(engines.getByRole('radio', { name: /Cheap/ })).toHaveAttribute(
@@ -34,8 +36,10 @@ test('paid search: off with free models, one lever on, the engine, and back off'
   );
   await expect(page.getByTestId('paid-search-status')).toContainText('($7.1) per 1,000');
 
-  // The free-search group above says where the searches go now.
-  await expect(page.getByTestId('brave-key-status')).toContainText('search with OpenRouter');
+  // The free-search row above says where the searches go now.
+  await expect(page.getByTestId('brave-key-status')).toContainText(
+    'take over when paid search is off',
+  );
 
   await page.getByTestId('paid-search-row').getByRole('switch').click();
   await expect(page.getByTestId('paid-search-row')).toHaveAttribute('data-on', 'no');

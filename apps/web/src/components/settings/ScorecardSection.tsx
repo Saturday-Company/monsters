@@ -8,7 +8,7 @@ import { AgentMark, Group, Row, RowBody, Status } from './parts.tsx';
 import { teamStrings } from './team.strings.ts';
 
 /*
- * Settings → Squad → Monster scorecard (D-067, D-068): for each monster and
+ * Settings → Squad → Advanced → Monster scorecard (D-067, D-068): for each monster and
  * model, how many jobs, how many really finished, what a job that worked
  * costs; when the scorecard moved a model first in a chain, it says so in
  * words. The numbers sit on a small screen with a bar in the monster's light.

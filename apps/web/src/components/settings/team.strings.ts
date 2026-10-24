@@ -5,6 +5,7 @@ import { defineStrings } from '../../lib/i18n.ts';
 const en = {
   tab: {
     youTitle: 'You',
+    advancedHint: 'How the squad makes quick calls, and how each model performs.',
     footerBefore: 'All of this is also in the note ',
     profileLink: 'Profile',
     footerMid:
@@ -15,10 +16,6 @@ const en = {
     yourNameHint: 'What the monsters call you.',
     yourNameLabel: 'your name',
     nameSaved: (name: string) => `From now on the monsters call you ${name}.`,
-    yourLead: 'Your lead',
-    yourLeadHint: 'Answers you first and hands tasks to the others.',
-    yourLeadNameLabel: 'your lead’s name',
-    leadRenamed: (name: string) => `Your lead is now called ${name}.`,
     tone: 'Tone',
     toneHint: 'How they write to you.',
     toneSaved: 'Tone saved.',
@@ -166,6 +163,7 @@ const en = {
 const it: typeof en = {
   tab: {
     youTitle: 'Tu',
+    advancedHint: 'Come la squadra prende le decisioni veloci, e come va ogni modello.',
     footerBefore: 'Tutto questo sta anche nella nota ',
     profileLink: 'Profilo',
     footerMid:
@@ -176,10 +174,6 @@ const it: typeof en = {
     yourNameHint: 'Come ti chiamano i mostri.',
     yourNameLabel: 'il tuo nome',
     nameSaved: (name) => `Da ora i mostri ti chiamano ${name}.`,
-    yourLead: 'Il tuo capo',
-    yourLeadHint: 'Ti risponde per primo e passa i compiti agli altri.',
-    yourLeadNameLabel: 'il nome del tuo capo',
-    leadRenamed: (name) => `Il tuo capo ora si chiama ${name}.`,
     tone: 'Tono',
     toneHint: 'Come ti scrivono.',
     toneSaved: 'Tono salvato.',

@@ -42,7 +42,7 @@ describe('the Monsters card', () => {
       - squadra: deleghi agli altri mostri (\`delegate\`)
       - domande all’utente (\`ask_user\`)
       - nuovi mostri: proponi una bozza (\`team_propose_monster\`), l’utente la crea
-      Non hai: servizi collegati (nessuno è dato a te: li collega e li dà l’utente in Impostazioni → Collegamenti → Altri programmi).
+      Non hai: servizi collegati (nessuno è dato a te: li collega e li dà l’utente in Impostazioni → Collegamenti → App e servizi).
       Solo l’utente, in Impostazioni: Squadra (creare, cambiare e archiviare mostri; chi è lui per voi), Modelli (modelli e spesa; tu non la vedi), Permessi, Collegamenti (servizi, Telegram). Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file."
     `);
   });
@@ -102,7 +102,7 @@ describe('the Monsters card', () => {
       Puoi:
       - note: cerchi, leggi e scrivi (\`vault_*\`)
       - web: \`web_search\`, pagine con \`web_fetch\`; un sito o un indirizzo che l’utente o il brief nominano lo leggi tu con \`web_fetch\`: mai chiedergli di incollarlo
-      Non hai: servizi collegati (nessuno è dato a te: li collega e li dà l’utente in Impostazioni → Collegamenti → Altri programmi).
+      Non hai: servizi collegati (nessuno è dato a te: li collega e li dà l’utente in Impostazioni → Collegamenti → App e servizi).
       Senza uno strumento apposta non pubblichi, non invii mail o messaggi, non paghi: prepari bozze.
       Solo l’utente, in Impostazioni: Squadra (creare, cambiare e archiviare mostri; chi è lui per voi), Modelli (modelli e spesa; tu non la vedi), Permessi, Collegamenti (servizi, Telegram). Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file."
     `);
@@ -114,7 +114,7 @@ describe('the Monsters card', () => {
       Sei in Monsters: mostri AI che lavorano per l’utente sul suo computer; lui li segue dall’app.
       Puoi:
       - note: cerchi, leggi e scrivi (\`vault_*\`)
-      Non hai: web; servizi collegati (nessuno è dato a te: li collega e li dà l’utente in Impostazioni → Collegamenti → Altri programmi).
+      Non hai: web; servizi collegati (nessuno è dato a te: li collega e li dà l’utente in Impostazioni → Collegamenti → App e servizi).
       Senza uno strumento apposta non pubblichi, non invii mail o messaggi, non paghi: prepari bozze.
       Solo l’utente, in Impostazioni: Squadra (creare, cambiare e archiviare mostri; chi è lui per voi), Modelli (modelli e spesa; tu non la vedi), Permessi, Collegamenti (servizi, Telegram). Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file."
     `);
@@ -166,7 +166,7 @@ describe('the Monsters card', () => {
     expect(monstersCard({ toolNames: dione })).not.toContain('non risponde');
     const one = monstersCard({ toolNames: dione, unlinked: ['Notion'] });
     expect(one).toContain(
-      'Notion non risponde ora (accesso scaduto o un errore): i suoi strumenti mancano. Se ti serve, chiedi all’utente di ricollegarlo in Impostazioni → Collegamenti → Altri programmi.',
+      'Notion non risponde ora (accesso scaduto o un errore): i suoi strumenti mancano. Se ti serve, chiedi all’utente di ricollegarlo in Impostazioni → Collegamenti → App e servizi.',
     );
     // Never "non è collegato": the service is connected, its access is not working (D-129).
     expect(one).not.toContain('non è collegato');

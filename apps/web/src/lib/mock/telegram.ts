@@ -129,6 +129,12 @@ export class MockTelegram {
     this.log({ agent: 'system', type: 'channel', data });
   }
 
+  /** The main bot already connected, with its paired account (the demo, like Calypso's bot). */
+  seedMain(at = Date.now()): void {
+    this.token = `${BOT.id}:AAHseededMainBotTokenForTheMock_abcdefgh`;
+    this.users = [{ id: 1001, name: 'Giulio', username: 'giulio', addedAt: at }];
+  }
+
   /** A dedicated bot already there (the demo: Calypso in the group of Saturday). */
   seedBot(agent: string, at = Date.now()): void {
     const name = this.agents().find((a) => a.id === agent)?.name ?? agent;

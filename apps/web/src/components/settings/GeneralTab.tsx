@@ -295,7 +295,7 @@ function PasswordForm({
   );
 }
 
-function Account() {
+function Account({ settings }: { settings: SettingsResponse | null }) {
   const s = generalStrings().account;
   const email = useApp((s) => s.email);
   const [changing, setChanging] = useState(false);
@@ -325,6 +325,7 @@ function Account() {
           </div>
         )}
       </div>
+      <Secrets settings={settings} />
     </Group>
   );
 }
@@ -369,43 +370,41 @@ function NotesFolder({ settings }: { settings: SettingsResponse | null }) {
   );
 }
 
-/** Where keys and tokens are kept (D-042): one row, plus what cannot be read now. */
+/** Where keys and tokens are kept (D-042): a row of the account group, plus what cannot be read now. */
 function Secrets({ settings }: { settings: SettingsResponse | null }) {
   const t = generalStrings().secrets;
   const s = settings?.secrets;
   if (!s) return null;
   const keychain = s.backend === 'keychain';
   return (
-    <Group title={t.title}>
-      <div data-testid="secrets-status" data-backend={s.backend}>
-        <Row
-          label={t.where}
-          leading={<span aria-hidden className="led" data-tone={keychain ? 'ok' : 'signal'} />}
-          description={
-            keychain ? (
-              // The name of the system's keychain ("Secret Service") only on hover: it is jargon.
-              <span title={s.keychain ?? undefined}>{t.keychain}</span>
-            ) : (
-              t.files(t.why[s.reason])
-            )
-          }
-        />
-        {(s.unreadable.length > 0 || (s.quarantined?.length ?? 0) > 0) && (
-          <RowBody className="set-seam-t">
-            {s.unreadable.length > 0 && (
-              <p className="text-footnote text-stop-ink" role="status">
-                {t.unreadable(s.unreadable.join(', '))} {keychain ? t.saveAgain : t.waitKeychain}
-              </p>
-            )}
-            {s.quarantined && s.quarantined.length > 0 && (
-              <p className="text-footnote text-stop-ink" role="status">
-                {t.quarantined(s.quarantined.join(', '))}
-              </p>
-            )}
-          </RowBody>
-        )}
-      </div>
-    </Group>
+    <div data-testid="secrets-status" data-backend={s.backend}>
+      <Row
+        label={t.where}
+        leading={<span aria-hidden className="led" data-tone={keychain ? 'ok' : 'signal'} />}
+        description={
+          keychain ? (
+            // The name of the system's keychain ("Secret Service") only on hover: it is jargon.
+            <span title={s.keychain ?? undefined}>{t.keychain}</span>
+          ) : (
+            t.files(t.why[s.reason])
+          )
+        }
+      />
+      {(s.unreadable.length > 0 || (s.quarantined?.length ?? 0) > 0) && (
+        <RowBody className="set-seam-t">
+          {s.unreadable.length > 0 && (
+            <p className="text-footnote text-stop-ink" role="status">
+              {t.unreadable(s.unreadable.join(', '))} {keychain ? t.saveAgain : t.waitKeychain}
+            </p>
+          )}
+          {s.quarantined && s.quarantined.length > 0 && (
+            <p className="text-footnote text-stop-ink" role="status">
+              {t.quarantined(s.quarantined.join(', '))}
+            </p>
+          )}
+        </RowBody>
+      )}
+    </div>
   );
 }
 
@@ -415,9 +414,8 @@ export function GeneralTab() {
     <>
       <Appearance />
       <DesktopApp />
-      <Account />
+      <Account settings={settings} />
       <NotesFolder settings={settings} />
-      <Secrets settings={settings} />
     </>
   );
 }

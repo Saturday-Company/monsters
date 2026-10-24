@@ -1,5 +1,6 @@
 import { ArrowCounterClockwise, Plus } from '@phosphor-icons/react';
 import {
+  SETTINGS_SECTIONS,
   vaultLayout,
   formatDate,
   type ArchivedMemberView,
@@ -21,17 +22,27 @@ import { Button } from '../ui/button.tsx';
 import { nameProblem, plainly, teamError } from './data.ts';
 import { InstinctSection } from './InstinctSection.tsx';
 import { partsStrings } from './parts.strings.ts';
-import { Group, InlineEdit, Row, RowBody, selectClass, TextSetting } from './parts.tsx';
+import {
+  DisclosureRow,
+  Group,
+  InlineEdit,
+  Row,
+  RowBody,
+  selectClass,
+  TextSetting,
+} from './parts.tsx';
 import { ScorecardSection } from './ScorecardSection.tsx';
+import { useSettingsTarget } from './settings-target.ts';
 import { teamStrings } from './team.strings.ts';
 import { AddMonster, MemberRow } from './TeamMembers.tsx';
 
 /*
  * Settings → Squadra (D-058, D-066): who is in the team (rename, look, role
- * and duties, remove: archived, can come back; add), who the user is for
- * the monsters (the profile, also in the note Profilo), the instinct of the
- * team (InstinctSection.tsx, D-068) and the pagella of the monsters. What they
- * always ask lives in Permessi (AskAlwaysSection.tsx).
+ * and duties, remove: archived, can come back; add; the lead is renamed on
+ * its own row), who the user is for the monsters (the profile, also in the
+ * note Profilo) and, in a closed drawer at the bottom (Advanced), the instinct
+ * of the team (InstinctSection.tsx, D-068) and the pagella of the monsters.
+ * What they always ask lives in Permessi (AskAlwaysSection.tsx).
  */
 
 /** A refused change that has no field of its own to show it: a toast. */
@@ -39,11 +50,9 @@ const complain = (err: unknown) => notify(teamError(err), 'error');
 
 function ProfileGroups({
   profile,
-  lead,
   save,
 }: {
   profile: ProfileView;
-  lead: TeamView['members'][number] | undefined;
   save: (update: ProfileUpdate, done: string) => Promise<void>;
 }) {
   const s = teamStrings().tab;
@@ -83,27 +92,6 @@ function ProfileGroups({
             testId="team-user-name"
             check={nameProblem}
             onSave={(userName) => plainly(() => save({ userName }, s.nameSaved(userName)))}
-          />
-        </Row>
-        <Row label={s.yourLead} description={s.yourLeadHint}>
-          <InlineEdit
-            value={profile.orchestratorName}
-            label={s.yourLeadNameLabel}
-            testId="team-lead-name"
-            check={nameProblem}
-            before={
-              lead && (
-                <MonsterScreen
-                  genome={genomeFrom(lead.genome, lead.name)}
-                  mood="idle"
-                  width={32}
-                  height={28}
-                />
-              )
-            }
-            onSave={(orchestratorName) =>
-              plainly(() => save({ orchestratorName }, s.leadRenamed(orchestratorName)))
-            }
           />
         </Row>
         <Row label={s.tone} htmlFor={toneId} description={s.toneHint}>
@@ -285,6 +273,45 @@ function ProjectSquads() {
   );
 }
 
+/** The parts of the tab inside Advanced: a link to one of them opens the drawer first. */
+const ADVANCED_PARTS: ReadonlySet<string> = new Set(['avanzate', 'istinto', 'pagella']);
+
+/**
+ * "Advanced": one closed drawer at the bottom with the instinct (who takes the quick calls) and
+ * the scorecard. A link to either (`?sezione=istinto`, `?sezione=pagella`) opens it, and the
+ * view then scrolls to the part.
+ */
+function Advanced() {
+  const s = teamStrings().tab;
+  const target = useSettingsTarget();
+  const [open, setOpen] = useState(false);
+  const [seen, setSeen] = useState<string | null>(null);
+  if (target !== seen) {
+    setSeen(target);
+    if (target && ADVANCED_PARTS.has(target)) setOpen(true);
+  }
+  return (
+    <>
+      <Group label={SETTINGS_SECTIONS.avanzate.label} id="settings-avanzate" testId="team-advanced">
+        <DisclosureRow
+          as="div"
+          label={SETTINGS_SECTIONS.avanzate.label}
+          description={s.advancedHint}
+          open={open}
+          onOpenChange={setOpen}
+          testId="team-advanced-toggle"
+        />
+      </Group>
+      {open && (
+        <>
+          <InstinctSection />
+          <ScorecardSection />
+        </>
+      )}
+    </>
+  );
+}
+
 export function TeamTab() {
   const s = teamStrings().tab;
   const [team, setTeam] = useState<TeamView | null>(null);
@@ -316,7 +343,6 @@ export function TeamTab() {
   const saveProfile = async (update: ProfileUpdate, done: string) => {
     setProfile(await getApi().updateProfile(update));
     notify(done, 'success');
-    if (update.orchestratorName) changed();
   };
 
   if (failed) {
@@ -394,11 +420,9 @@ export function TeamTab() {
         </Group>
       )}
 
-      <ProfileGroups profile={profile} lead={lead} save={saveProfile} />
+      <ProfileGroups profile={profile} save={saveProfile} />
 
-      <InstinctSection />
-
-      <ScorecardSection />
+      <Advanced />
     </>
   );
 }

@@ -2,7 +2,7 @@ import { expect, test } from './fixtures.ts';
 
 /*
  * D-072 on the mock core: "Cambia il token" on a connection with a token
- * (gallery and "Altri programmi") keeps who uses it; the sign-in with the core
+ * (gallery and "App e servizi") keeps who uses it; the sign-in with the core
  * on another computer, when the page of return does not open, is finished by
  * pasting its address.
  */
@@ -42,10 +42,10 @@ test('gallery: "Cambia il token" replaces the token and keeps who uses it', asyn
   await expect(page.locator('body')).not.toContainText('SEGRETO');
 });
 
-test('"Altri programmi": "Cambia il token" of a program with a secret', async ({ page }) => {
+test('"App e servizi": "Cambia il token" of a program with a secret', async ({ page }) => {
   await page.goto(URL);
   const section = page.getByTestId('mcp-settings');
-  await section.getByRole('button', { name: 'Add an app' }).click();
+  await section.getByRole('button', { name: 'Add a custom app' }).click();
   const form = section.getByTestId('mcp-add-form');
   await form.getByLabel('Name').fill('calendario');
   await form.getByLabel('Command').fill('npx -y @esempio/mcp-calendario');

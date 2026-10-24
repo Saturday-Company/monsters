@@ -176,10 +176,9 @@ const en = {
       'A bot of its own for a monster, to put in a Telegram group: whoever you admit here talks to it with @name, replying to its messages or with a command. Each bot has its own token.',
     footer:
       'The things you decide (the brake on an action, drafts of monsters, projects and automations, spending over the cap) are never approved in the group: they reach you in private on the main bot and in the app. In the group, only your own words count as yours, and anyone who isn’t you works with fewer tools until you turn them back on for that bot. From the group: ',
-    none: 'No dedicated bot',
-    noneText:
-      'For example a monster for the squad’s group: notes, tasks and projects for everyone.',
     addButton: 'Add a bot for a monster',
+    addHint: 'A bot of its own, for example for the squad’s Telegram group.',
+    howGroupsWork: 'How groups work',
   },
 };
 
@@ -348,10 +347,9 @@ const it: typeof en = {
       'Un bot tutto suo per un mostro, da mettere in un gruppo di Telegram: chi ammetti qui gli parla con @nome, rispondendo ai suoi messaggi o con un comando. Ogni bot ha il suo token.',
     footer:
       'Le cose che decidi tu (il freno su un’azione, le bozze di mostri, progetti e automazioni, la spesa oltre il tetto) non si approvano mai nel gruppo: arrivano a te in privato sul bot principale e nell’app. Nel gruppo, solo le parole tue contano come tue, e chi non sei tu lavora con meno strumenti finché non li riaccendi per quel bot. Dal gruppo: ',
-    none: 'Nessun bot dedicato',
-    noneText:
-      'Ad esempio un mostro per il gruppo della squadra: note, compiti e progetti per tutti.',
     addButton: 'Aggiungi un bot per un mostro',
+    addHint: 'Un bot tutto suo, per esempio per il gruppo Telegram della squadra.',
+    howGroupsWork: 'Come funzionano i gruppi',
   },
 };
 

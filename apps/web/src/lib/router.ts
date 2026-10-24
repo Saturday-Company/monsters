@@ -195,19 +195,14 @@ export const SETTINGS_ALIASES: Readonly<Record<string, { tab: SettingsTab; part?
   account: { tab: 'generale', part: 'account' },
   accesso: { tab: 'generale', part: 'account' },
   telegram: { tab: 'collegamenti', part: 'telegram' },
+  // Squad → Advanced holds both: the link opens the drawer and scrolls to the one it names.
+  avanzate: { tab: 'squadra', part: 'avanzate' },
   istinto: { tab: 'squadra', part: 'istinto' },
   pagella: { tab: 'squadra', part: 'pagella' },
   abbonamenti: { tab: 'modelli' },
   tetto: { tab: 'modelli', part: 'tetto' },
   pausa: { tab: 'collegamenti', part: 'pausa' },
 };
-
-/** Settings → Modelli → Tetto di spesa (D-070): "Alza il tetto" in the chat and the toasts. */
-export const SPEND_CAP_PATH = `${PATHS.settings}?sezione=tetto`;
-/** Settings → Collegamenti → Strumenti in pausa (D-070). */
-export const MCP_PAUSED_PATH = `${PATHS.settings}?sezione=pausa`;
-/** Settings → Collegamenti, where "Collega" is: a service asks to sign in again. */
-export const MCP_SIGN_IN_PATH = `${PATHS.settings}?sezione=collegamenti`;
 
 function aliasOf(param: string | null) {
   return param && Object.hasOwn(SETTINGS_ALIASES, param) ? SETTINGS_ALIASES[param] : undefined;
@@ -218,15 +213,28 @@ export function settingsTabOf(param: string | null): SettingsTab {
   return SETTINGS_TABS.find((t) => t === param) ?? aliasOf(param)?.tab ?? SETTINGS_TABS[0];
 }
 
-/** The part of a tab an old tab name points to (`?sezione=collegamenti` → `collegamenti`). */
+/** The part of a tab an old name points to (`?sezione=istinto` → `istinto`, a tab has no part). */
 export function settingsPartOf(param: string | null): string | null {
   return aliasOf(param)?.part ?? null;
 }
 
-/** Settings opened on one tab (`#/impostazioni?sezione=permessi`): links from elsewhere use it. */
-export function settingsPath(tab?: SettingsTab | null): string {
-  return tab && tab !== SETTINGS_TABS[0] ? `${PATHS.settings}?sezione=${tab}` : PATHS.settings;
+/**
+ * Settings opened on one tab (`#/impostazioni?sezione=permessi`; a `SettingsTab`), or on a part of
+ * one by its old name (`settingsPath('istinto')`, `'tetto'`, `'pausa'`: see `SETTINGS_ALIASES`): links from
+ * elsewhere use it, never a hand-written `?sezione=`.
+ */
+export function settingsPath(place?: string | null): string {
+  return place && place !== SETTINGS_TABS[0]
+    ? `${PATHS.settings}?sezione=${place}`
+    : PATHS.settings;
 }
+
+/** Settings → Modelli → Tetto di spesa (D-070): "Alza il tetto" in the chat and the toasts. */
+export const SPEND_CAP_PATH = settingsPath('tetto');
+/** Settings → Collegamenti → Strumenti in pausa (D-070). */
+export const MCP_PAUSED_PATH = settingsPath('pausa');
+/** Settings → Collegamenti, where "Collega" is: a service asks to sign in again. */
+export const MCP_SIGN_IN_PATH = settingsPath('collegamenti');
 
 /**
  * Moves to another hash without a new history entry (switching tabs is not a
