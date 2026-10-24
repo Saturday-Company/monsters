@@ -1,7 +1,7 @@
-import { SETTINGS_SECTIONS } from '@monsters/shared';
+import { SETTINGS_SECTIONS, settingsPath as placeName } from '@monsters/shared';
 import type { ProfileUpdate, ProfileView } from '@monsters/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { PATHS } from '../../lib/router.ts';
+import { settingsPath } from '../../lib/router.ts';
 import { getApi, notify } from '../../store/app.ts';
 import { Switch } from '../ui/controls.tsx';
 import { plainly, teamError } from './data.ts';
@@ -60,11 +60,11 @@ export function AskAlwaysSection() {
         <>
           {s.footerBefore}
           <a
-            href={`${PATHS.settings}?sezione=istinto`}
+            href={settingsPath('istinto')}
             className="font-medium text-ink underline underline-offset-2"
             data-testid="ask-always-instinct-link"
           >
-            {s.footerLink}
+            {placeName('istinto')}
           </a>
           {s.footerAfter}
         </>

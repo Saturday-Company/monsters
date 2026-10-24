@@ -108,13 +108,14 @@ test.describe('dedicated bots, desktop light', () => {
     await bot.getByRole('button', { name: 'Approve Livio' }).click();
     await expect(
       bot.locator('[data-testid="telegram-bot-person"][data-status="approved"]'),
-    ).toContainText('Livio');
+    ).toContainText(['Giulio', 'Livio']);
     await expect(bot).not.toContainText(/\d to approve/);
 
     // Someone added by id.
     await bot.getByLabel('Add with the Telegram ID').fill('5550009');
     await bot.getByRole('button', { name: 'Add', exact: true }).click();
-    await expect(bot.getByTestId('telegram-bot-person')).toHaveCount(2);
+    // Giulio (the paired account, always there), Livio and the one just added.
+    await expect(bot.getByTestId('telegram-bot-person')).toHaveCount(3);
     await shot(page, '03-approvati-chiaro', bot);
 
     // Removed: the bot is gone, Calypso's stays.
@@ -122,6 +123,36 @@ test.describe('dedicated bots, desktop light', () => {
     await bot.getByRole('button', { name: 'Yes, remove' }).click();
     await expect(page.getByText('@PandoraSaturdayBot no longer answers')).toBeVisible();
     await expect(bots.getByTestId('telegram-bot')).toHaveCount(1);
+  });
+
+  test('the long explanations wait: groups behind a disclosure, adding only once you start', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    const bots = await openBots(page);
+    // What is never approved in groups: behind "How groups work", closed.
+    const never = bots.getByText(/are never approved in the group/);
+    await expect(never).toBeHidden();
+    await bots.getByText('How groups work').click();
+    await expect(never).toBeVisible();
+
+    // Without a dedicated bot: one row, no title, no long text.
+    await bots.getByRole('button', { name: 'Remove bot' }).click();
+    await bots.getByRole('button', { name: 'Yes, remove' }).click();
+    await expect(bots.getByTestId('telegram-bot')).toHaveCount(0);
+    await expect(bots.getByRole('heading')).toHaveCount(0);
+    await expect(bots.getByText('How groups work')).toHaveCount(0);
+    await expect(bots.getByText(/A bot of its own for a monster/)).toHaveCount(0);
+    const add = bots.getByRole('button', { name: 'Add a bot for a monster' });
+    await expect(add).toBeVisible();
+
+    // Starting to add brings the explanation and the form.
+    await add.click();
+    await expect(bots.getByRole('heading', { name: 'Bots dedicated to a monster' })).toBeVisible();
+    await expect(bots.getByText(/A bot of its own for a monster/)).toBeVisible();
+    await expect(bots.getByTestId('telegram-bot-form')).toBeVisible();
+    await bots.getByRole('button', { name: 'Cancel' }).click();
+    await expect(bots.getByRole('heading')).toHaveCount(0);
   });
 
   test('the people of a bot work with fewer tools; on again bot by bot, after a warning (D-114)', async ({
@@ -163,6 +194,10 @@ test.describe('dedicated bots, desktop light', () => {
   test('the God is never offered, and the paired account is the owner', async ({ page }) => {
     const section = page.getByTestId('telegram-settings');
     await page.goto('/?mock=demo#/impostazioni?sezione=collegamenti');
+    // The demo's main bot is connected already, with Giulio: start from a bot not connected yet.
+    await section.getByRole('button', { name: 'Remove Giulio' }).click();
+    await section.getByRole('button', { name: 'Disconnect the bot' }).click();
+    await section.getByRole('button', { name: 'Yes, disconnect' }).click();
     await section.getByRole('button', { name: 'Connect a bot' }).click();
     await section.getByLabel('Bot code').fill('123456789:AAHdemoTokenForTheMockCore_abcdefgh');
     await section.getByRole('button', { name: 'Connect the bot' }).click();

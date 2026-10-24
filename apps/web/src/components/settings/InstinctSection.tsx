@@ -1,4 +1,5 @@
 import {
+  SETTINGS_SECTIONS,
   TypeSafeKeyRequestSchema,
   type DecisionEngine,
   type InstinctUseView,
@@ -17,7 +18,7 @@ import { DisclosureRow, fieldOnGroup, FormField, Group, Row, RowBody, Status } f
 import { partsStrings } from './parts.strings.ts';
 
 /*
- * Settings → Squad → Monsters’ decisions, the instinct (D-067, D-068): the quick decisions of the team,
+ * Settings → Squad → Advanced → Monsters’ decisions, the instinct (D-067, D-068): the quick decisions of the team,
  * who takes them (only the rules, a small model of yours, or Jev of TypeSafe)
  * and, in a drawer, what each of them does, with a lever. Small at the bottom,
  * what leaves the computer. The words come from shared/src/instinct.ts; none
@@ -205,7 +206,7 @@ export function InstinctSection() {
 
   return (
     <Group
-      title={view.title}
+      title={SETTINGS_SECTIONS.istinto.label}
       id="settings-istinto"
       testId="instinct-section"
       description={view.description}

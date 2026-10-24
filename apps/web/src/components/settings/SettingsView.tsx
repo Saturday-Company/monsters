@@ -15,6 +15,7 @@ import { GeneralTab } from './GeneralTab.tsx';
 import { LinksTab } from './LinksTab.tsx';
 import { ModelsTab } from './ModelsTab.tsx';
 import { PermissionsTab } from './PermissionsTab.tsx';
+import { SettingsTargetContext } from './settings-target.ts';
 import { settingsStrings } from './settings.strings.ts';
 import { TeamTab } from './TeamTab.tsx';
 
@@ -80,9 +81,10 @@ function panel(t: SettingsTab): ReactNode {
 /**
  * Settings page (`#/impostazioni?sezione=…`), in tabs. A tab is mounted the
  * first time it is opened and then kept (hidden), so a half-typed key or an
- * open form survives a look at another tab; each tab scrolls on its own. An
- * old tab name in the link (`?sezione=collegamenti`) opens the tab that holds
- * it now, at that part.
+ * open form survives a look at another tab; each tab scrolls on its own. A part
+ * or an old name in the link (`?sezione=istinto`, `?sezione=telegram`) opens the
+ * tab that holds it now, at that part; a closed drawer that holds it opens
+ * (`SettingsTargetContext`).
  */
 export function SettingsView() {
   const s = settingsStrings().view;
@@ -93,7 +95,7 @@ export function SettingsView() {
   const [visited, setVisited] = useState<ReadonlySet<SettingsTab>>(() => new Set([tab]));
   if (!visited.has(tab)) setVisited(new Set([...visited, tab]));
 
-  // An old name or a part: the link becomes the tab's own, the part scrolls into view once it
+  // A part or an old name: the link becomes the tab's own, the part scrolls into view once it
   // is there (the tab may still be loading). The target outlives the hash it came from.
   const [target, setTarget] = useState<string | null>(null);
   const [seenPart, setSeenPart] = useState<string | null>(null);
@@ -161,7 +163,7 @@ export function SettingsView() {
             >
               {t.hint}
             </p>
-            {panel(t.value)}
+            <SettingsTargetContext value={target}>{panel(t.value)}</SettingsTargetContext>
           </div>
         </div>
       ))}

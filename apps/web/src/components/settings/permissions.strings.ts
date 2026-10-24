@@ -23,7 +23,7 @@ const en = {
     text: 'Without it, it reads the notes but doesn’t change them. Every change can be undone.',
   },
   web: {
-    text: 'Search and read pages online, in all its work. In a project, the project’s web search is needed too (Connections tab); the browser follows this permission.',
+    text: 'Search and read pages online, in all its work. In a project, web search must also be on in the project’s own Connections tab; the browser follows this permission.',
   },
   terminal: {
     onWindows: (text: string) => `${text} On Windows the commands are PowerShell.`,
@@ -69,7 +69,7 @@ const it: typeof en = {
     text: 'Senza, legge le note ma non le cambia. Ogni modifica si può annullare.',
   },
   web: {
-    text: 'Cercare e leggere pagine online, in ogni suo lavoro. In un progetto serve anche la ricerca sul web del progetto (scheda Collegamenti); il browser segue questo permesso.',
+    text: 'Cercare e leggere pagine online, in ogni suo lavoro. In un progetto la ricerca sul web va accesa anche nella scheda Collegamenti del progetto; il browser segue questo permesso.',
   },
   terminal: {
     onWindows: (text) => `${text} Su Windows i comandi sono di PowerShell.`,

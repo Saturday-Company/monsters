@@ -66,7 +66,8 @@ for (const size of SIZES) {
         });
 
       test('settings: istinto and pagella', async ({ page }) => {
-        await page.goto('/?mock=demo#/impostazioni?sezione=squadra');
+        // The decisions and the scorecard are in Advanced: the link opens it.
+        await page.goto('/?mock=demo#/impostazioni?sezione=istinto');
         await page.getByTestId('instinct-section').waitFor();
         await into(page, 'instinct-section');
         await page.waitForTimeout(200);

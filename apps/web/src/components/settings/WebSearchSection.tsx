@@ -7,13 +7,14 @@ import { Button, buttonVariants } from '../ui/button.tsx';
 import { Input } from '../ui/field.tsx';
 import { partsStrings } from './parts.strings.ts';
 import { fieldOnGroup, FormField, Group, Row, RowBody } from './parts.tsx';
+import { PaidSearchRow } from './PaidSearchSection.tsx';
 import { searchStrings } from './search.strings.ts';
 
 /*
- * Settings → Connections → Web search: without a key the
- * monsters search with DuckDuckGo (Wikipedia as a fallback); a Brave Search
- * key searches the whole web. The paid search on OpenRouter (D-071) is turned
- * on just below (PaidSearchSection), in the same tab.
+ * Settings → Connections → Web search, one group with two rows: without a key the
+ * monsters search with DuckDuckGo (Wikipedia as a fallback), a Brave Search
+ * key searches the whole web; the paid search on OpenRouter (D-071) is the
+ * second row (PaidSearchRow).
  */
 export function WebSearchSection({
   settings,
@@ -57,10 +58,10 @@ export function WebSearchSection({
   return (
     <Group title={SETTINGS_SECTIONS.ricercaWeb.label} testId="web-search">
       <Row
-        label={paid ? s.paidLabel : isSet ? s.braveLabel : s.freeLabel}
+        label={isSet ? s.braveLabel : s.freeLabel}
         description={
           <span data-testid="brave-key-status" data-set={isSet ? 'yes' : 'no'}>
-            {paid ? s.paidText(isSet) : isSet ? s.braveText : s.freeText}
+            {paid ? s.behindPaid(isSet) : isSet ? s.braveText : s.freeText}
           </span>
         }
         wrap
@@ -114,6 +115,7 @@ export function WebSearchSection({
           </RowBody>
         </form>
       )}
+      <PaidSearchRow settings={settings} onChanged={onSaved} />
     </Group>
   );
 }

@@ -155,7 +155,7 @@ const it: typeof en = {
     'in questa chat di Telegram scrivono altre persone: terminale e file sono chiusi',
   terminalNotInRun: 'non sono tra gli strumenti di questo lavoro (non per un no dell’utente)',
   browserOff: () =>
-    'il browser di Monsters è spento: lo accende l’utente in Impostazioni → Collegamenti → Altri programmi',
+    'il browser di Monsters è spento: lo accende l’utente in Impostazioni → Collegamenti → App e servizi',
   browserNeedsWeb: 'il browser vuole il permesso del web, che è spento',
   browserNotResponding: 'il browser non risponde ora',
   browserNotGivenProject: (project) =>
@@ -166,7 +166,7 @@ const it: typeof en = {
     `${name} è collegato all’account dell’utente ma non a questo progetto: si dà nella pagina del progetto «${project}», scheda Collegamenti${ask}`,
   serviceNotResponding: (label) =>
     `${label} non risponde ora (accesso scaduto o un errore): si ricollega in Impostazioni → Collegamenti`,
-  serverOff: (label) => `${label} è spento in Impostazioni → Collegamenti → Altri programmi`,
+  serverOff: (label) => `${label} è spento in Impostazioni → Collegamenti → App e servizi`,
   serviceNotGiven: (label) =>
     `${label} è collegato all’account dell’utente ma non è dato a te: lo dà l’utente in Impostazioni → Collegamenti`,
   viaClaudeReconnect: (name) =>
@@ -233,9 +233,9 @@ const it: typeof en = {
   granted: (summary) =>
     `Fatto: Monsters ha concesso ${summary}. Vale dal prossimo lavoro di chi lo usa: delega di nuovo (tu lo hai dal tuo prossimo turno).`,
   browserNotSetUp: (user) =>
-    `Tell ${user} to turn it on in Impostazioni → Collegamenti → Altri programmi → Browser (with "Mostra la finestra del browser" to sign in to sites). You cannot ask it here.`,
+    `Tell ${user} to turn it on in Impostazioni → Collegamenti → App e servizi → Browser (with "Mostra la finestra del browser" to sign in to sites). You cannot ask it here.`,
   browserIsOff: () =>
-    'Tell the user to turn it on in Impostazioni → Collegamenti → Altri programmi → Browser.',
+    'Tell the user to turn it on in Impostazioni → Collegamenti → App e servizi → Browser.',
   serviceReaches: (label) =>
     `${label} reaches the monsters of the personal squad already when it is given to the whole team: if its tools are missing, it is not signed in (Impostazioni → Collegamenti).`,
   serviceYours: (label, prefix, unlinked) =>

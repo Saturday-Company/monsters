@@ -12,6 +12,7 @@ import {
 } from '@phosphor-icons/react';
 import {
   MCP_CATALOG,
+  SETTINGS_SECTIONS,
   catalogCreateUrl,
   catalogUrl,
   launcherOf,
@@ -26,7 +27,15 @@ import {
   type McpServerView,
   type McpServersResponse,
 } from '@monsters/shared';
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { cn, domId } from '../../lib/utils.ts';
 import { getApi, notify } from '../../store/app.ts';
@@ -670,10 +679,13 @@ export function McpGallery({
   data,
   onData,
   reload,
+  children,
 }: {
   data: McpServersResponse;
   onData: (d: McpServersResponse) => void;
   reload: () => void;
+  /** More rows of the same group, under the grid: the browser and the apps added by hand. */
+  children?: ReactNode;
 }) {
   const s = mcpStrings().gallery;
   const [open, setOpen] = useState<string | null>(null);
@@ -723,7 +735,12 @@ export function McpGallery({
   }, []);
 
   return (
-    <Group title={s.title} level={3} testId="mcp-gallery" description={s.description}>
+    <Group
+      title={SETTINGS_SECTIONS.altriProgrammi.label}
+      level={3}
+      testId="mcp-gallery"
+      description={s.description}
+    >
       <div className="grid gap-3 p-3 sm:p-4">
         <ul
           className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,264px),1fr))] gap-2.5"
@@ -769,6 +786,7 @@ export function McpGallery({
           </Button>
         )}
       </div>
+      {children}
       {current && (
         <ConnectPanel
           key={current.id}

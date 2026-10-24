@@ -14,7 +14,8 @@ test('gallery: services as keys, connected first, all of them on request', async
   await page.goto(URL);
   const gallery = page.getByTestId('mcp-gallery');
   await expect(gallery.getByRole('heading', { name: 'Apps and services' })).toBeVisible();
-  const keys = gallery.getByRole('listitem');
+  // The keys of the grid; the browser and "Add a custom app" are rows of the same group below it.
+  const keys = gallery.getByRole('list', { name: 'Apps and services' }).getByRole('listitem');
   await expect(keys).toHaveCount(8);
   // The demo's GitHub is connected: first.
   await expect(keys.first()).toContainText('GitHub');

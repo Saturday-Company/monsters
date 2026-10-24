@@ -8,7 +8,6 @@ import type {
 } from '@monsters/shared';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { cn } from '../../lib/utils.ts';
-import { PATHS } from '../../lib/router.ts';
 import { errorText, getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Switch } from '../ui/controls.tsx';
@@ -452,18 +451,6 @@ export function ModelsTab() {
           )}
         </div>
       )}
-
-      <Group title={t.search} testId="search-link">
-        <Row label={t.paidSearch} description={t.paidSearchText}>
-          <a
-            href={`${PATHS.settings}?sezione=collegamenti`}
-            className="text-footnote font-medium text-ink underline underline-offset-2"
-            data-testid="search-link-go"
-          >
-            {t.goToLinks}
-          </a>
-        </Row>
-      </Group>
 
       <ChainsGroup
         providers={data.providers}

@@ -186,6 +186,8 @@ export function DisclosureRow({
   children,
   testId,
   defaultOpen = false,
+  open: controlled,
+  onOpenChange,
   as = 'li',
 }: {
   label: ReactNode;
@@ -193,12 +195,22 @@ export function DisclosureRow({
   leading?: ReactNode;
   /** Shown before the chevron (a status pill). */
   trailing?: ReactNode;
-  children: ReactNode;
+  /** What opens under the row; leave it out when the caller shows the content itself. */
+  children?: ReactNode;
   testId?: string;
   defaultOpen?: boolean;
+  /** Controlled: the caller holds the state (a link can open the row). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   as?: 'div' | 'li';
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [own, setOwn] = useState(defaultOpen);
+  const open = controlled ?? own;
+  const setOpen = (next: (o: boolean) => boolean) => {
+    const value = next(open);
+    setOwn(value);
+    onOpenChange?.(value);
+  };
   const panelId = domId(useId());
   const Tag = as;
   return (
@@ -206,7 +218,7 @@ export function DisclosureRow({
       <button
         type="button"
         aria-expanded={open}
-        aria-controls={panelId}
+        aria-controls={children != null ? panelId : undefined}
         onClick={() => setOpen((o) => !o)}
         className="row-key flex min-h-[52px] w-full items-center gap-3 px-4 py-2.5 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
       >
@@ -224,7 +236,7 @@ export function DisclosureRow({
           className={cn('shrink-0 text-ink-muted turn', open && 'rotate-180')}
         />
       </button>
-      {open && (
+      {open && children != null && (
         <div id={panelId} className="set-seam-t bg-panel">
           {children}
         </div>

@@ -19,6 +19,19 @@ async function openMember(page: Page, id: string) {
   return row;
 }
 
+test('the lead is renamed on its own row of the squad, "You" has no row for it', async ({
+  page,
+}) => {
+  await openTeam(page);
+  await expect(page.getByTestId('team-you')).not.toContainText('Your lead');
+  const titan = await openMember(page, 'titan');
+  await titan.getByRole('button', { name: 'Change Titan’s name' }).click();
+  await titan.getByLabel('Titan’s name').fill('Atlante');
+  await titan.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Titan is now called Atlante.')).toBeVisible();
+  await expect(page.getByTestId('team-squad-boss')).toContainText('Atlante');
+});
+
 test('rename a monster and give it another look', async ({ page }) => {
   await openTeam(page);
   const rhea = await openMember(page, 'rhea');

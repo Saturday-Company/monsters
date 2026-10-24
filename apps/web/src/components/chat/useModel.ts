@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { PATHS } from '../../lib/router.ts';
+import { settingsPath } from '../../lib/router.ts';
 import { getApi } from '../../store/app.ts';
 
 /*
@@ -40,4 +40,4 @@ export function useNoModel(): boolean {
 }
 
 /** Settings → Modelli, where a model is connected (named, so the link says where it goes). */
-export const MODELS_PATH = `${PATHS.settings}?sezione=modelli`;
+export const MODELS_PATH = settingsPath('modelli');

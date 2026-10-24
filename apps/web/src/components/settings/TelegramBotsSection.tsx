@@ -766,21 +766,35 @@ export function TelegramBotsSection({
     }
   };
 
+  // No dedicated bot yet: one row, and the long explanation only once the user starts adding.
+  const none = view.bots.length === 0;
+  const collapsed = none && !adding;
+
   return (
     <Group
-      title={b.title}
+      title={collapsed ? undefined : b.title}
+      label={b.title}
       level={3}
       as="ul"
       testId="telegram-bots"
-      description={b.description}
+      description={collapsed ? undefined : b.description}
       footer={
-        <>
-          {b.footer}
-          <CommandList commands={telegramStrings().commands.group} />.
-        </>
+        collapsed ? undefined : (
+          <details className="group" data-testid="telegram-groups-help">
+            <summary className="cursor-pointer list-none font-medium text-ink-muted select-none hover:text-ink [&::-webkit-details-marker]:hidden">
+              <span aria-hidden className="mr-1 inline-block turn group-open:rotate-90">
+                ›
+              </span>
+              {b.howGroupsWork}
+            </summary>
+            <p className="mt-2">
+              {b.footer}
+              <CommandList commands={telegramStrings().commands.group} />.
+            </p>
+          </details>
+        )
       }
     >
-      {view.bots.length === 0 && !adding && <Row as="li" label={b.none} description={b.noneText} />}
       {view.bots.map((b) => (
         <BotEntry key={b.id} bot={b} risk={view.toolRisks?.[b.agent]} busy={busy} act={act} />
       ))}
@@ -801,10 +815,13 @@ export function TelegramBotsSection({
             type="button"
             disabled={busy}
             onClick={() => setAdding(true)}
-            className="row-key flex min-h-[52px] w-full items-center gap-2.5 px-4 text-left text-body font-medium text-ink [&_svg]:text-signal-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
+            className="row-key flex min-h-[52px] w-full items-center gap-2.5 px-4 py-2 text-left [&_svg]:text-signal-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
           >
             <Plus size={18} aria-hidden />
-            {b.addButton}
+            <span className="grid min-w-0">
+              <span className="text-body font-medium text-ink">{b.addButton}</span>
+              {collapsed && <span className="text-footnote text-ink-muted">{b.addHint}</span>}
+            </span>
           </button>
         )}
       </li>

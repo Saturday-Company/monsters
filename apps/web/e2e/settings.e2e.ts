@@ -51,10 +51,10 @@ test('settings open on Squadra, and a link opens another tab', async ({ page }) 
 
   await page.goto('/?mock=demo#/impostazioni?sezione=collegamenti');
   const links = page.getByRole('tabpanel', { name: 'Connections' });
-  await expect(links).toHaveAccessibleDescription(/Telegram, web search, other apps/);
+  await expect(links).toHaveAccessibleDescription(/Telegram, apps and services, web search/);
   await expect(links.getByRole('heading', { name: 'Telegram' })).toBeVisible();
   await expect(links.getByRole('heading', { name: 'Web search' })).toBeVisible();
-  await expect(links.getByRole('heading', { name: 'Other apps' })).toBeVisible();
+  await expect(links.getByRole('heading', { name: 'Apps and services' })).toBeVisible();
 
   // An unknown tab falls back on the first one.
   await page.goto('/?mock=demo#/impostazioni?sezione=boh');
@@ -69,7 +69,7 @@ test('the old tab names and parts open the tab that holds them now', async ({ pa
   );
   // The link becomes the tab's own, and the part comes into view.
   await expect(page).toHaveURL(/#\/impostazioni\?sezione=collegamenti$/);
-  await expect(page.getByRole('heading', { name: 'Telegram' })).toBeInViewport();
+  await expect(page.getByRole('heading', { name: 'Telegram', exact: true })).toBeInViewport();
 
   for (const old of ['aspetto', 'account']) {
     await page.goto(`/?mock=demo#/impostazioni?sezione=${old}`);
@@ -167,4 +167,52 @@ test.describe('narrow screen', () => {
     await page.getByRole('tab', { name: 'Connections' }).click();
     await expect(page.getByRole('heading', { name: 'Telegram' })).toBeVisible();
   });
+});
+
+test('Squad: the decisions and the scorecard wait in a closed "Advanced" at the bottom', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/impostazioni');
+  const panel = page.getByRole('tabpanel', { name: 'Squad' });
+  const advanced = panel.getByTestId('team-advanced-toggle').getByRole('button');
+  await expect(advanced).toContainText('Advanced');
+  await expect(advanced).toContainText('How the squad makes quick calls');
+  await expect(advanced).toHaveAttribute('aria-expanded', 'false');
+  await expect(panel.getByTestId('instinct-section')).toHaveCount(0);
+  await expect(panel.getByTestId('scorecard')).toHaveCount(0);
+  // It is the last thing of the tab.
+  const last = await panel.locator('section').last().getAttribute('data-testid');
+  expect(last).toBe('team-advanced');
+
+  await advanced.click();
+  await expect(advanced).toHaveAttribute('aria-expanded', 'true');
+  await expect(panel.getByTestId('instinct-section')).toBeVisible();
+  await expect(panel.getByTestId('scorecard')).toBeVisible();
+  await advanced.click();
+  await expect(panel.getByTestId('instinct-section')).toHaveCount(0);
+});
+
+test('a link to the decisions or the scorecard opens Advanced and scrolls to it', async ({
+  page,
+}) => {
+  const advanced = page.getByTestId('team-advanced-toggle').getByRole('button');
+  // A fresh page, then the tab already open (a link from elsewhere in the app).
+  for (const [part, shown, heading] of [
+    ['istinto', 'instinct-section', 'Monsters’ decisions'],
+    ['pagella', 'scorecard', 'Monster scorecard'],
+    ['avanzate', 'team-advanced', 'Advanced'],
+  ] as const) {
+    await page.goto(`/?mock=demo#/impostazioni?sezione=${part}`);
+    await expect(page.getByTestId(shown)).toBeVisible();
+    await expect(
+      page.getByTestId(shown).getByText(heading, { exact: true }).first(),
+    ).toBeInViewport();
+    await expect(advanced).toHaveAttribute('aria-expanded', 'true');
+    // The link becomes the tab's own.
+    await expect(page).toHaveURL(/#\/impostazioni$/);
+    await page.reload();
+    await advanced.click();
+    await advanced.click();
+    await expect(advanced).toHaveAttribute('aria-expanded', 'false');
+  }
 });

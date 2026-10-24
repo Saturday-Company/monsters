@@ -2826,6 +2826,7 @@ export class MockCore {
   private seedTelegramGroup(at: (minutes: number) => number): void {
     const agent = 'calypso';
     if (!this.agents.some((a) => a.id === agent)) return;
+    this.telegram.seedMain(at(0));
     this.telegram.seedBot(agent, at(0));
     const run = 'run_seed_telegram_group';
     const origin = {

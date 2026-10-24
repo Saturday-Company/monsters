@@ -31,6 +31,8 @@ const TAB_FILE: Record<SettingsTabId, string> = {
 
 /** The component that renders each section, and the one its tab renders it through. */
 const SECTION_FILE: Record<SettingsSectionId, { file: string; via?: string }> = {
+  avanzate: { file: 'settings/TeamTab.tsx' },
+  istinto: { file: 'settings/InstinctSection.tsx', via: 'InstinctSection' },
   abbonamenti: { file: 'settings/ModelsTab.tsx' },
   tettoDiSpesa: { file: 'settings/SpendSection.tsx', via: 'SpendSection' },
   teLoChiedonoSempre: { file: 'settings/AskAlwaysSection.tsx', via: 'AskAlwaysSection' },
@@ -38,7 +40,8 @@ const SECTION_FILE: Record<SettingsSectionId, { file: string; via?: string }> = 
   terminale: { file: 'settings/AgentPermissionsSettings.tsx', via: 'AgentPermissionsSettings' },
   telegram: { file: 'settings/TelegramSection.tsx', via: 'TelegramSection' },
   ricercaWeb: { file: 'settings/WebSearchSection.tsx', via: 'WebSearchSection' },
-  altriProgrammi: { file: 'settings/McpServersSection.tsx', via: 'McpServersSection' },
+  // The gallery of apps and services, with the browser and the apps added by hand under it.
+  altriProgrammi: { file: 'settings/McpGallery.tsx', via: 'McpServersSection' },
 };
 
 describe('the places of the app the monsters name (D-133)', () => {

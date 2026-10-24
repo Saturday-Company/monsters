@@ -140,11 +140,11 @@ describe('paid search', () => {
     usdPer1000: { parallel: 1, exa: 7 },
   };
   it('says why it is off, in both languages', () => {
-    expect(paidSearchText(ws)).toMatch(/^You need an OpenRouter key with credit/);
-    expect(paidSearchText({ ...ws, reason: undefined })).toMatch(/^Off: the monsters search/);
+    expect(paidSearchText(ws)).toMatch(/^Needs an OpenRouter key with credit/);
+    expect(paidSearchText({ ...ws, reason: undefined })).toMatch(/^Off: free search/);
     setAppLang('it');
     expect(paidSearchText(ws)).toMatch(/^Serve una chiave OpenRouter con credito/);
-    expect(paidSearchText({ ...ws, reason: undefined })).toMatch(/^Spenta: i mostri cercano/);
+    expect(paidSearchText({ ...ws, reason: undefined })).toMatch(/^Spenta: ricerca gratuita/);
   });
 });
 

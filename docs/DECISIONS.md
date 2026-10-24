@@ -5424,3 +5424,26 @@ when tee died first, the final "Stopping..." hit EPIPE and the process guard log
 **Consequence:** reading a config file is never refused for the words around it; the brake still stops every write it
 could follow, and when it cannot follow the line it blocks. A mid-run refusal is information, and a core behind a
 closed pipe stops cleanly.
+
+### D-167 · Settings with fewer places: one drawer for the advanced, one group for apps, one for web search
+**Status:** done · 24/10/2026
+**Context:** an audit of Settings found the Squad tab at 1,300–3,000 px and Connections at 2,700 px, with the same
+idea set up in several places: the lead's name twice, the paid search pointed to from Models and set in Connections,
+the browser and the apps added by hand apart from the gallery, the keys apart from the sign-in.
+**Choices:**
+- **Squad**: the lead is renamed on its own row of "The squad" (the core also writes `orchestratorName`), so "You"
+  has no "Your lead" row. The monsters' decisions and the scorecard sit in one closed drawer, "Advanced", at the
+  bottom (`SETTINGS_SECTIONS.avanzate`, `istinto`). A link to `?sezione=istinto|pagella|avanzate` opens it: the view
+  holds the part in `SettingsTargetContext` until it is scrolled to, and the drawer opens when it reads one of its
+  own. `settingsPath('istinto')` writes "Settings → Squad → Advanced → Monsters' decisions" (`under`).
+- **Connections**: paused tools first (only when something waits), then Telegram, Apps and services, Web search.
+  Apps and services is one group: the gallery, the browser, the apps added by hand, "Add a custom app"
+  (`SETTINGS_SECTIONS.altriProgrammi` keeps its id, its label is now "Apps and services": the core's texts and the
+  Italian family that name it follow, four entries of `italian-prompts.json` changed for that and nothing else).
+  Web search is one group: the free search with the Brave key, then the paid search with its engine. Without a
+  dedicated Telegram bot the section is one row; the long explanation comes when the user starts adding, and what is
+  never approved in groups is behind "How groups work".
+- **General**: "Keys" is a row of "Account and security".
+- Models no longer points to the paid search; `settingsPath(...)` of the router writes every link into Settings.
+**Consequence:** no setting changed place in `settings.json`; old links keep working through `SETTINGS_ALIASES`.
+The demo's main Telegram bot is connected (as Calypso's), the e2e that connect it start by disconnecting it.

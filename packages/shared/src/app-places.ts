@@ -1,11 +1,12 @@
 import { placesStrings, placesStringsOf } from './app-places.strings.ts';
+import { instinctStrings } from './instinct.strings.ts';
 import { LANGS } from './i18n.ts';
 
 /*
  * The names of the app's places, word for word as the UI shows them (D-133).
  * The UI renders its tabs and section titles from these constants, and the
  * texts of the core that send the user somewhere ("Settings → Connections →
- * Other apps", "the project page, Spending tab") are built from them, in the
+ * Apps and services", "the project page, Spending tab") are built from them, in the
  * language of the app (D-153): a renamed tab cannot leave a monster pointing at
  * a screen that does not exist (review of 19/10: «External tools»,
  * «Permessi → Altri programmi»).
@@ -42,10 +43,30 @@ export const SETTINGS_TABS = {
 };
 export type SettingsTabId = keyof typeof SETTINGS_TABS;
 
-type SettingsPlace = { readonly tab: SettingsTabId; readonly label: string };
+type SettingsPlace = {
+  readonly tab: SettingsTabId;
+  readonly label: string;
+  /** The section it sits inside (a drawer): its name comes between the tab and this one. */
+  readonly under?: string;
+};
 
 /** Section titles of the settings, with the tab they are in (the labels follow the language). */
 export const SETTINGS_SECTIONS = {
+  /** Squadra: the closed drawer at the bottom, with the decisions and the scorecard (`TeamTab`). */
+  avanzate: {
+    tab: 'squadra',
+    get label() {
+      return placesStrings().sections.avanzate;
+    },
+  },
+  /** Squadra, inside Advanced: who takes the quick decisions (`InstinctSection`). */
+  istinto: {
+    tab: 'squadra',
+    under: 'avanzate',
+    get label() {
+      return instinctStrings().title;
+    },
+  },
   /** Modelli: Claude and ChatGPT plans (`ModelsTab`). */
   abbonamenti: {
     tab: 'modelli',
@@ -95,7 +116,10 @@ export const SETTINGS_SECTIONS = {
       return placesStrings().sections.ricercaWeb;
     },
   },
-  /** Collegamenti: MCP servers and the browser (`McpServersSection`). */
+  /**
+   * Collegamenti: the gallery of apps and services, the browser and the apps added by hand
+   * (`McpServersSection`). The id is the old "other programs"; the group is one now.
+   */
   altriProgrammi: {
     tab: 'collegamenti',
     get label() {
@@ -132,16 +156,20 @@ export const PROJECT_TABS = {
 export type ProjectTabId = keyof typeof PROJECT_TABS;
 
 /**
- * "Settings → Connections", or "Settings → Connections → Other apps" (Italian: "Impostazioni →
- * Collegamenti"). A text puts "in" before it, in both languages.
+ * "Settings → Connections", or "Settings → Connections → Apps and services" (Italian: "Impostazioni →
+ * Collegamenti"); a section inside a drawer names it too ("Settings → Squad → Advanced →
+ * Monsters’ decisions"). A text puts "in" before it, in both languages.
  */
 export function settingsPath(
   place: SettingsTabId | SettingsSectionId,
   ...more: readonly string[]
 ): string {
   const section = (SETTINGS_SECTIONS as Record<string, SettingsPlace>)[place];
+  const parent = section?.under
+    ? (SETTINGS_SECTIONS as Record<string, SettingsPlace>)[section.under]
+    : undefined;
   const parts = section
-    ? [SETTINGS_TABS[section.tab], section.label]
+    ? [SETTINGS_TABS[section.tab], ...(parent ? [parent.label] : []), section.label]
     : [SETTINGS_TABS[place as SettingsTabId]];
   return [settingsLabel(), ...parts, ...more].join(' → ');
 }

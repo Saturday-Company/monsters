@@ -538,18 +538,20 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   "Undo" and "Redo" are keys (in narrow columns a 32 px key with ↺, the name in a tooltip and for screen readers).
   Hyphenated words (a date) don't wrap.
 - **Settings**: five tabs, one idea each (D-066), as a row of keys at the top: **Squad** (who is there, and who you are:
-  name, squad lead, tone, language, style; the Profile note), **Models** (what they think with: keys and
+  name, tone, language, style; the Profile note; the lead is renamed on its row of the squad; at the bottom a closed
+  "Advanced" drawer with the monsters' decisions and the scorecard, D-167), **Models** (what they think with: keys and
   subscriptions; the monsters' model, one for the whole squad until you choose "Choose for each monster"; a single
-  model has no arrows or ✕, and the name reads in words, "Free, chosen by OpenRouter"; the "Web search" module with the
-  "Paid search" lever and, when on, the Cheap / Precise segment with the cost per 1,000 searches, D-071),
+  model has no arrows or ✕, and the name reads in words, "Free, chosen by OpenRouter"),
   **Permissions** (first "They always ask you", then what each monster can use, at the bottom "Advanced"),
-  **Connections** (the roads to and from the outside: Telegram, web search, other apps), **General** (Look and feel,
-  Sign-in, the notes folder, the keys). In Connections, below Telegram's main bot, the **"Bots dedicated to a monster"**
+  **Connections** (the roads to and from the outside: paused tools when one waits, Telegram, "Apps and services" with
+  the gallery, the browser and "Add a custom app", and one "Web search" group: free search with the Brave key, then the
+  "Paid search" lever and, when on, the Cheap / Precise segment with the cost per 1,000 searches, D-071, D-167),
+  **General** (Look and feel, "Account and security" with the keys' row, the notes folder). In Connections, below Telegram's main bot, the **"Bots dedicated to a monster"**
   group (D-107): one entry per bot (@username, the "N TO APPROVE" tile, monster · project or "Personal squad", the
   state light, "Remove bot"), with the groups (Approve / Reject, then Remove), "Who can talk to it" (your account with
   "you" and no key, the others Approve / Reject / Remove, "Add with the Telegram ID") and "Today's messages"; "Add a
-  bot for a monster" opens the four steps (BotFather, privacy, one app per token, group and `/join`), the token, the
-  monster's menu (never the god) and the daily limit. Below the module a line says that the things you decide are
+  bot for a monster" (one row, with no title, while there is no dedicated bot) opens the four steps (BotFather, privacy, one app per token, group and `/join`), the token, the
+  monster's menu (never the god) and the daily limit. Behind "How groups work", below the module, a line says that the things you decide are
   never approved in the group. Below 680 px of width the tabs share the row, smaller words and no icons. Every group
   is a **module** (`--raised`, radius 14, seam) with the `.label` at the top left, 52 rows with lever switches; an open
   row shows a darker drawer. The monsters always appear on their small screen (`AgentMark`). In General: Theme (Light /
@@ -589,7 +591,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   with the light. The pane asks only for what is needed and leaves the rail (Stop) uncovered. When connected with a
   token, next to Test and Disconnect there is **"Change the token"** (D-072): it opens below a (password) field with
   "Create the token", "Save and test" and "Cancel"; only the token changes, then the test starts by itself. The same
-  key is in "Other apps" for the programs with hidden values (with several values, a segment to choose it). During a
+  key is in "Apps and services" for the programs with hidden values (with several values, a segment to choose it). During a
   pending sign-in, below the pane "Return page won't open?" (a drawer like "Details") opens the "Address of the
   return page" field with "Complete the sign-in"; when the core knows the page won't open (core reached over the
   network) the field is already open.

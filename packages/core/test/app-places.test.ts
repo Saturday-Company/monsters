@@ -37,8 +37,8 @@ function codeLines(path: string): { line: string; at: string }[] {
     .filter(({ line }) => !/^\s*(\*|\/\/|\/\*)/.test(line));
 }
 
-/** Sub-places under a section, by the name the app shows: the browser in Altri programmi. */
-const UNDER: Record<string, readonly string[]> = { 'Altri programmi': ['Browser'] };
+/** Sub-places under a section, by the name the app shows: the browser in App e servizi. */
+const UNDER: Record<string, readonly string[]> = { 'App e servizi': ['Browser'] };
 /** The tabs of the settings in English (docs/i18n.md glossary). */
 const ENGLISH_TABS = new Set(['General', 'Squad', 'Models', 'Permissions', 'Connections']);
 
@@ -86,9 +86,9 @@ describe('the places of the app in the texts (D-133)', () => {
   it('the helpers write the places as the app shows them, in the language in use', () => {
     setAppLang('it');
     expect(settingsPath('collegamenti')).toBe('Impostazioni → Collegamenti');
-    expect(settingsPath('altriProgrammi')).toBe('Impostazioni → Collegamenti → Altri programmi');
+    expect(settingsPath('altriProgrammi')).toBe('Impostazioni → Collegamenti → App e servizi');
     expect(settingsPath('altriProgrammi', 'Browser')).toBe(
-      'Impostazioni → Collegamenti → Altri programmi → Browser',
+      'Impostazioni → Collegamenti → App e servizi → Browser',
     );
     expect(settingsPath('ilWeb')).toBe('Impostazioni → Permessi → Il web');
     expect(settingsPath('abbonamenti')).toBe('Impostazioni → Modelli → Un abbonamento che hai già');
@@ -101,9 +101,9 @@ describe('the places of the app in the texts (D-133)', () => {
 
     setAppLang('en');
     expect(settingsPath('collegamenti')).toBe('Settings → Connections');
-    expect(settingsPath('altriProgrammi')).toBe('Settings → Connections → Other apps');
+    expect(settingsPath('altriProgrammi')).toBe('Settings → Connections → Apps and services');
     expect(settingsPath('altriProgrammi', 'Browser')).toBe(
-      'Settings → Connections → Other apps → Browser',
+      'Settings → Connections → Apps and services → Browser',
     );
     expect(settingsPath('ilWeb')).toBe('Settings → Permissions → The web');
     expect(settingsPath('abbonamenti')).toBe('Settings → Models → A subscription you already have');

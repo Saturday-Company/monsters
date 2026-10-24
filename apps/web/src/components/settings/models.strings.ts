@@ -156,10 +156,6 @@ const en = {
     connectAnother: 'Connect another model',
     subscriptionsText: 'The monsters use your plan, in the ways OpenAI and Anthropic allow.',
     keysOrLocal: 'With a key or on your computer',
-    search: 'Web search',
-    paidSearch: 'Paid search',
-    paidSearchText: 'You turn it on in Connections, along with free search and the Brave key.',
-    goToLinks: 'Go to Connections',
   },
 };
 
@@ -314,11 +310,6 @@ const it: typeof en = {
     connectAnother: 'Collega un altro modello',
     subscriptionsText: 'I mostri usano il tuo piano, nei modi che OpenAI e Anthropic permettono.',
     keysOrLocal: 'Con una chiave o sul tuo computer',
-    search: 'Ricerca sul web',
-    paidSearch: 'La ricerca a pagamento',
-    paidSearchText:
-      'Si accende in Collegamenti, insieme alla ricerca gratuita e alla chiave di Brave.',
-    goToLinks: 'Vai a Collegamenti',
   },
 };
 

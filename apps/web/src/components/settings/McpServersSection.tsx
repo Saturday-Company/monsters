@@ -12,7 +12,6 @@ import { getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
-import { McpPausedCard } from './McpPaused.tsx';
 import { McpGallery } from './McpGallery.tsx';
 import { mcpStrings } from './mcp.strings.ts';
 import { partsStrings } from './parts.strings.ts';
@@ -39,7 +38,7 @@ import {
 } from './parts.tsx';
 
 /*
- * Settings → Connections → other apps (MCP, M2.5): servers the monsters can use, who
+ * Settings → Connections → Apps and services (MCP, M2.5): servers the monsters can use, who
  * may use each one, a test that lists its tools, and the browser preset
  * (Playwright with a profile of its own), off until the user turns it on.
  */
@@ -437,11 +436,11 @@ function AddServerForm({
   );
 }
 
-export function McpServersSection() {
+/** The servers of the core, read once and kept: the tab shows them in two places (paused, apps). */
+export function useMcpServers() {
   const s = mcpStrings().servers;
   const [data, setData] = useState<McpServersResponse | null>(null);
   const [failed, setFailed] = useState(false);
-  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -468,6 +467,19 @@ export function McpServersSection() {
     setData(await getApi().removeMcpServer(name));
     notify(s.removed, 'success');
   };
+  return { data, setData, failed, onSave, reload, onRemove };
+}
+
+export type McpServers = ReturnType<typeof useMcpServers>;
+
+/**
+ * Apps and services, one group (D-063, M2.5): the gallery of services, then the
+ * browser, the apps added by hand and "Add a custom app" as its last rows.
+ */
+export function McpServersSection({ mcp }: { mcp: McpServers }) {
+  const s = mcpStrings().servers;
+  const { data, setData, failed, onSave, onRemove, reload } = mcp;
+  const [adding, setAdding] = useState(false);
 
   const browser = data?.servers.find((s) => s.preset === 'browser');
   const fromGallery = new Set(MCP_CATALOG.map((e) => e.id));
@@ -477,23 +489,20 @@ export function McpServersSection() {
     ) ?? [];
 
   return (
-    <div data-testid="mcp-settings" className="grid gap-5">
-      {data && <McpPausedCard data={data} onData={setData} />}
-      {data && <McpGallery data={data} onData={setData} reload={reload} />}
-      <Group
-        title={SETTINGS_SECTIONS.altriProgrammi.label}
-        level={3}
-        as="ul"
-        description={s.description}
-      >
-        {failed && <Row as="li" label={s.failed} />}
-        {data && (
-          <>
+    <div data-testid="mcp-settings">
+      {!data && failed && (
+        <Group title={SETTINGS_SECTIONS.altriProgrammi.label} level={3} as="ul">
+          <Row as="li" label={s.failed} />
+        </Group>
+      )}
+      {data && (
+        <McpGallery data={data} onData={setData} reload={reload}>
+          <ul className="set-rows">
             <BrowserRow data={data} server={browser} onSave={onSave} reload={reload} />
-            {others.map((s) => (
+            {others.map((o) => (
               <ServerRow
-                key={s.name}
-                server={s}
+                key={o.name}
+                server={o}
                 agents={data.agents}
                 onSave={onSave}
                 onRemove={onRemove}
@@ -504,7 +513,7 @@ export function McpServersSection() {
               {adding ? (
                 <AddServerForm
                   agents={data.agents}
-                  taken={data.servers.map((s) => s.name)}
+                  taken={data.servers.map((x) => x.name)}
                   onCancel={() => setAdding(false)}
                   onDone={(d, name) => {
                     setData(d);
@@ -516,16 +525,19 @@ export function McpServersSection() {
                 <button
                   type="button"
                   onClick={() => setAdding(true)}
-                  className="row-key flex min-h-[52px] w-full items-center gap-2.5 px-4 text-left text-body font-medium text-ink [&_svg]:text-signal-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
+                  className="row-key flex min-h-[52px] w-full items-center gap-2.5 px-4 py-2 text-left [&_svg]:text-signal-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
                 >
                   <Plus size={18} aria-hidden />
-                  {s.add.button}
+                  <span className="grid min-w-0">
+                    <span className="text-body font-medium text-ink">{s.add.button}</span>
+                    <span className="text-footnote text-ink-muted">{s.add.buttonHint}</span>
+                  </span>
                 </button>
               )}
             </li>
-          </>
-        )}
-      </Group>
+          </ul>
+        </McpGallery>
+      )}
     </div>
   );
 }

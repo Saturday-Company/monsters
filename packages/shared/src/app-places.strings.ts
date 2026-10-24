@@ -11,6 +11,7 @@ const en = {
     generale: 'General',
   },
   sections: {
+    avanzate: 'Advanced',
     abbonamenti: 'A subscription you already have',
     tettoDiSpesa: 'Spending cap',
     teLoChiedonoSempre: 'They always ask you',
@@ -18,7 +19,7 @@ const en = {
     terminale: 'Terminal',
     telegram: 'Telegram',
     ricercaWeb: 'Web search',
-    altriProgrammi: 'Other apps',
+    altriProgrammi: 'Apps and services',
   },
   projectTabs: {
     chat: 'Chat',
@@ -45,6 +46,7 @@ const it: typeof en = {
     generale: 'Generale',
   },
   sections: {
+    avanzate: 'Avanzate',
     abbonamenti: 'Un abbonamento che hai già',
     tettoDiSpesa: 'Tetto di spesa',
     teLoChiedonoSempre: 'Te lo chiedono sempre',
@@ -52,7 +54,7 @@ const it: typeof en = {
     terminale: 'Terminale',
     telegram: 'Telegram',
     ricercaWeb: 'Ricerca sul web',
-    altriProgrammi: 'Altri programmi',
+    altriProgrammi: 'App e servizi',
   },
   projectTabs: {
     chat: 'Chat',

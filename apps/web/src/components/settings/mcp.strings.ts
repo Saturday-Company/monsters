@@ -159,11 +159,11 @@ const en = {
       adding: 'Adding…',
       submit: 'Add',
       added: (name: string) => `App “${name}” added. Press “Test” to see its tools.`,
-      button: 'Add an app',
+      button: 'Add a custom app',
+      buttonHint:
+        'Any app that isn’t in the list, on this computer or on the web (an “MCP server”).',
     },
-    description:
-      'The monsters’ browser and the apps that aren’t in the list: any outside app the monsters can use, on the computer or on the web (an “MCP server”).',
-    failed: 'I can’t read the other apps right now.',
+    failed: 'I can’t read your apps right now.',
   },
   gallery: {
     state: {
@@ -187,7 +187,7 @@ const en = {
     disconnected: (name: string) => `${name} disconnected.`,
     close: 'Close',
     soonAdd:
-      'If you already have the app’s address and key (an “MCP server”), you can add it with “Add an app”.',
+      'If you already have the app’s address and key (an “MCP server”), you can add it with “Add a custom app”.',
     howToConnect: 'How to connect it',
     yourCompany: 'Your company',
     address: 'Address:',
@@ -382,11 +382,11 @@ const it: typeof en = {
       adding: 'Aggiungo…',
       submit: 'Aggiungi',
       added: (name) => `Programma “${name}” aggiunto. Premi “Prova” per vedere i suoi strumenti.`,
-      button: 'Aggiungi un programma',
+      button: 'Aggiungi un programma personalizzato',
+      buttonHint:
+        'Qualunque programma che non è in elenco, sul computer o sul web (un “server MCP”).',
     },
-    description:
-      'Il browser dei mostri e i programmi che non sono in elenco: qualunque programma esterno che i mostri possano usare, sul computer o sul web (un “server MCP”).',
-    failed: 'Non riesco a leggere gli altri programmi adesso.',
+    failed: 'Non riesco a leggere i tuoi programmi adesso.',
   },
   gallery: {
     state: {
@@ -410,7 +410,7 @@ const it: typeof en = {
     disconnected: (name) => `${name} scollegato.`,
     close: 'Chiudi',
     soonAdd:
-      'Se hai già l’indirizzo e la chiave del programma (un “server MCP”), puoi aggiungerlo da “Aggiungi un programma”.',
+      'Se hai già l’indirizzo e la chiave del programma (un “server MCP”), puoi aggiungerlo da “Aggiungi un programma personalizzato”.',
     howToConnect: 'Come collegarlo',
     yourCompany: 'La tua azienda',
     address: 'Indirizzo:',

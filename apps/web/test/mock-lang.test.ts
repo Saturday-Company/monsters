@@ -79,6 +79,8 @@ describe('the mock in two languages', () => {
 
   it('writes the answers of the scripted scenes in the language in use', () => {
     const core = demo('en');
+    // The demo's main bot is connected: take it out to see the answer of a bot without a token.
+    call(core, 'DELETE', '/api/telegram/token');
     expect(call(core, 'POST', '/api/telegram/pairing').body).toMatchObject({
       message: 'Connect the bot with its token first.',
     });
