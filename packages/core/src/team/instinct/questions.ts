@@ -88,8 +88,11 @@ export const BANDS = {
    * have every ordinary job at ≤ 1.24 and every hard one at ≥ 1.44, so 1.3 sits between them
    * (1.0 → 34/40, 1.2 → 39/40, 1.25-1.4 → 40/40). Tuned on those 40 cases: the `decision`
    * events of use `tier` in the log are the real dataset to measure it again.
+   * `hardConfidence` (D-169): Hard (Opus, high effort) also needs the engine to be sure of its
+   * score, as the prompt says ("in doubt between Medium and Hard it is Medium"): a score of 1.32
+   * with confidence 0 sent a turn to Opus on a guess. Below it the turn is Medium.
    */
-  tier: { simple: 0.3, hard: 1.3 },
+  tier: { simple: 0.3, hard: 1.3, hardConfidence: 0.5 },
   /** Web needed (misurato 18/20): below 0.2 a free chain gets no web tools this turn. */
   web: { drop: 0.2 },
   /** Rare tools: from 0.5 they are added (in OR with the words of the request). */
@@ -339,10 +342,22 @@ export function triageRequest(input: {
   };
 }
 
-/** Tier of a turn from the score, with the measured cuts (Jev underestimates difficulty). */
-export function tierOf(score: number): 'simple' | 'medium' | 'hard' {
-  return score >= BANDS.tier.hard ? 'hard' : score < BANDS.tier.simple ? 'simple' : 'medium';
+/** The tiers from the lightest, as the levels of the tier question are ordered. */
+export const TIER_LEVELS = ['simple', 'medium', 'hard'] as const;
+
+/**
+ * Tier of a turn from the score, with the measured cuts (Jev underestimates difficulty). Hard
+ * needs the hard score and a confidence of at least `BANDS.tier.hardConfidence` (D-169): an
+ * unsure answer is Medium, the same as the doubt rule of the question.
+ */
+export function tierOf(score: number, confidence: number): (typeof TIER_LEVELS)[number] {
+  if (score >= BANDS.tier.hard) return confidence >= BANDS.tier.hardConfidence ? 'hard' : 'medium';
+  return score < BANDS.tier.simple ? 'simple' : 'medium';
 }
+
+/** A tier answer, the tier it makes and the index of its level (what the decision event logs). */
+export const tierLevelOf = (score: number, confidence: number): number =>
+  TIER_LEVELS.indexOf(tierOf(score, confidence));
 
 // --- actions that leave the computer (research 07, killer feature 1) ---------------------
 

@@ -112,13 +112,17 @@ export const SpendViewSchema = z.object({
     .optional(),
   /** Not counted in the caps, this month: free models (requests). */
   free: z.object({ requests: z.number().int().nonnegative() }),
-  /** Not counted in the caps, this month: subscriptions (requests and tokens). */
+  /**
+   * Not counted in the caps, this month: subscriptions (requests and tokens). `tokens` is fresh
+   * input plus output; the input read from the prompt cache is `cachedTokens` (D-169).
+   */
   subscriptions: z.array(
     z.object({
       provider: z.string(),
       label: z.string(),
       requests: z.number().int().nonnegative(),
       tokens: z.number().int().nonnegative(),
+      cachedTokens: z.number().int().nonnegative(),
     }),
   ),
   /**
@@ -133,6 +137,7 @@ export const SpendViewSchema = z.object({
       label: z.string(),
       requests: z.number().int().nonnegative(),
       tokens: z.number().int().nonnegative(),
+      cachedTokens: z.number().int().nonnegative(),
     }),
   ),
   /**

@@ -5,7 +5,14 @@ import type { EventLog } from '../../log/event-log.ts';
 import { matchRule, type DecisionRule } from '../decision.ts';
 import { instinctStrings } from './instinct.strings.ts';
 import { instinctPrompts } from './instinct.prompts.ts';
-import { BANDS, isRouteLead, isRouteTeam, tierOf, triageRequest } from './questions.ts';
+import {
+  BANDS,
+  isRouteLead,
+  isRouteTeam,
+  tierLevelOf,
+  tierOf,
+  triageRequest,
+} from './questions.ts';
 import { choiceOf, pOf, type QuestionLog, type System1 } from './system1.ts';
 
 /*
@@ -120,7 +127,7 @@ export class Triage {
     const logAs: Record<string, QuestionLog> = {
       route: { kind: 'route', use: routeUse },
       route_rev: { kind: 'route', use: routeUse },
-      tier: { kind: 'tier', use: 'tier' },
+      tier: { kind: 'tier', use: 'tier', level: tierLevelOf },
       needs_web: { kind: 'needs_web', use: 'tools', bands: { low: BANDS.web.drop, high: 0.85 } },
       rare_tools: { kind: 'rare_tools', use: 'tools', bands: { low: 0.15, high: BANDS.rare.add } },
       needs_ui: { kind: 'needs_ui', use: 'ui', bands: { low: 0.15, high: BANDS.ui.attach } },
@@ -150,8 +157,9 @@ export class Triage {
     const route = choiceOf(answer, 'route');
     const reversed = choiceOf(answer, 'route_rev');
     const stable = route !== undefined && reversed !== undefined && route.value === reversed.value;
-    const score = answer.answers.get('tier')?.value;
-    const tier = typeof score === 'number' ? tierOf(score) : undefined;
+    const scored = answer.answers.get('tier');
+    const tier =
+      typeof scored?.value === 'number' ? tierOf(scored.value, scored.confidence) : undefined;
     if (tier && this.#on('tier')) out.tier = tier;
 
     if (route && stable && route.confidence >= BANDS.route.hint && this.#on('route_hint')) {
@@ -240,15 +248,17 @@ export class Triage {
           members: [],
           ask: { route: false, tier: true, web: false, rare: false, ui: false },
         }),
-        logAs: { tier: { kind: 'tier', use: 'tier' } },
+        logAs: { tier: { kind: 'tier', use: 'tier', level: tierLevelOf } },
         ...(input.signal ? { signal: input.signal } : {}),
       })
       .catch((err: unknown) => {
         if (input.signal?.aborted) throw err;
         return null;
       });
-    const score = answer?.answers.get('tier')?.value;
-    return typeof score === 'number' && this.#on('tier') ? tierOf(score) : undefined;
+    const scored = answer?.answers.get('tier');
+    return typeof scored?.value === 'number' && this.#on('tier')
+      ? tierOf(scored.value, scored.confidence)
+      : undefined;
   }
 
   #event(

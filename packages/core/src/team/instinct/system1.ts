@@ -58,6 +58,12 @@ export interface QuestionLog {
    * radiografia: route, tier, tools): its mode goes in the event.
    */
   use?: InstinctUse;
+  /**
+   * Score questions: the index of the level the core actually applies for this answer (D-169). The
+   * event's `choice` is that level, not the one the score rounds to (a hard score the core
+   * lowered because the engine was unsure reads as Medium); `value` and `confidence` stay raw.
+   */
+  level?: (value: number, confidence: number) => number;
 }
 
 export interface AskParams {
@@ -177,16 +183,20 @@ export class System1 {
             ? ['yes', 'no']
             : (q.levels ?? []);
       const levels = q.type === 'score' ? q.levels : undefined;
+      const applied =
+        how.level && typeof a.value === 'number' ? how.level(a.value, a.confidence) : undefined;
       const choice =
         typeof a.value === 'string'
           ? a.value
-          : q.type === 'noul'
-            ? a.value >= 0.5
-              ? 'yes'
-              : 'no'
-            : levels
-              ? (levels[Math.round(a.value)] ?? String(a.value))
-              : String(a.value);
+          : applied !== undefined && levels?.[applied] !== undefined
+            ? levels[applied]
+            : q.type === 'noul'
+              ? a.value >= 0.5
+                ? 'yes'
+                : 'no'
+              : levels
+                ? (levels[Math.round(a.value)] ?? String(a.value))
+                : String(a.value);
       const event = this.#o.log.append({
         agent: params.agent,
         runId: params.runId ?? null,

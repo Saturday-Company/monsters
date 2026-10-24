@@ -1096,10 +1096,48 @@ describe('spending caps', () => {
     });
     expect(v.free.requests).toBe(1);
     expect(v.subscriptions).toEqual([
-      { provider: 'claude-agent', label: 'claude-agent', requests: 1, tokens: 1500 },
+      {
+        provider: 'claude-agent',
+        label: 'claude-agent',
+        requests: 1,
+        tokens: 1500,
+        cachedTokens: 0,
+      },
     ]);
     expect(v.unpriced).toMatchObject([{ provider: 'anthropic', requests: 1 }]);
     expect(() => m.update({ agents: { nessuno: { dailyEur: 5 } } })).toThrow(/no monster/);
+  });
+
+  it('subscription tokens: fresh input plus output, the cache reads apart (D-169)', () => {
+    const s = services();
+    const { m } = meter(s);
+    // `inputTokens` holds the cache reads: 30,000 in, 24,000 of them read from the cache.
+    s.log.append({
+      agent: 'titan',
+      type: 'provider_usage',
+      data: {
+        provider: 'claude-agent',
+        model: 'sonnet',
+        inputTokens: 30_000,
+        outputTokens: 500,
+        cachedInputTokens: 24_000,
+        cacheWriteTokens: 2000,
+      },
+    });
+    const expected = [
+      {
+        provider: 'claude-agent',
+        label: 'claude-agent',
+        requests: 1,
+        tokens: 6000 + 500,
+        cachedTokens: 24_000,
+      },
+    ];
+    expect(m.view().subscriptions).toEqual(expected);
+    // The same totals read back from the log at the start of the core.
+    expect(meter(s).m.view().subscriptions).toEqual(expected);
+    // Nothing of it moves the cost caps: a subscription spends no money.
+    expect(m.view().month.spentEur).toBe(0);
   });
 
   it('a new day starts from zero', () => {

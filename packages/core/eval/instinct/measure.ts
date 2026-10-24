@@ -161,6 +161,9 @@ const num = (res: SystemOneResponse, id: string) => {
   const v = res.answers.find((a) => a.id === id)?.value;
   return typeof v === 'number' ? v : NaN;
 };
+/** The engine's confidence in an answer (0 when missing): the tier needs it (D-169). */
+const conf = (res: SystemOneResponse, id: string) =>
+  res.answers.find((a) => a.id === id)?.confidence ?? 0;
 const choice = (res: SystemOneResponse, id: string) => {
   const a = res.answers.find((x) => x.id === id);
   return a && typeof a.value === 'string'
@@ -252,6 +255,8 @@ function routingStats(
     conf: number;
     stable: boolean;
     tier: number;
+    /** Confidence of the tier answer: Hard needs it (D-169). */
+    tierConf: number;
     tierExpected: number;
     web: number;
     webExpected: boolean;
@@ -263,7 +268,8 @@ function routingStats(
   const shortcut = rows.filter(
     (r) => r.conf >= BANDS.route.shortcut && r.stable && !['capo', 'squadra'].includes(r.route),
   );
-  const level = (score: number) => ({ simple: 0, medium: 1, hard: 2 })[tierOf(score)];
+  const level = (score: number, confidence: number) =>
+    ({ simple: 0, medium: 1, hard: 2 })[tierOf(score, confidence)];
   return {
     route: `${rows.filter(ok).length}/${rows.length}`,
     normali: `${by('normali').filter(ok).length}/${by('normali').length}`,
@@ -273,7 +279,7 @@ function routingStats(
     /** What the shortcut (shadow) would take: one monster, ≥ 0.85, stable. */
     shortcut: `${shortcut.filter(ok).length}/${shortcut.length}`,
     stable: `${rows.filter((r) => r.stable).length}/${rows.length}`,
-    tier: `${rows.filter((r) => level(r.tier) === r.tierExpected).length}/${rows.length}`,
+    tier: `${rows.filter((r) => level(r.tier, r.tierConf) === r.tierExpected).length}/${rows.length}`,
     web: `${rows.filter((r) => r.web >= 0.5 === r.webExpected).length}/${rows.length}`,
     /** The web tools taken away (p < 0.2) when the request needed them: the costly error. */
     webDroppedWrongly: rows.filter((r) => r.web < BANDS.web.drop && r.webExpected).map((r) => r.id),
@@ -297,7 +303,7 @@ export interface TierReport {
   simpleAsHard: string[];
   errors: string[];
   cost: InstinctReport['cost'];
-  rows: { id: string; score: number; level: number; expected: number }[];
+  rows: { id: string; score: number; confidence: number; level: number; expected: number }[];
 }
 
 /**
@@ -311,7 +317,8 @@ export async function measureTier(
   port: MeteredPort,
   opts: { subtask?: boolean } = {},
 ): Promise<TierReport> {
-  const level = (score: number) => ({ simple: 0, medium: 1, hard: 2 })[tierOf(score)];
+  const level = (score: number, confidence: number) =>
+    ({ simple: 0, medium: 1, hard: 2 })[tierOf(score, confidence)];
   const rows: TierReport['rows'] = [];
   for (const c of cases) {
     const res = await port.decide(
@@ -323,7 +330,8 @@ export async function measureTier(
       }),
     );
     const score = num(res, 'tier');
-    rows.push({ id: c.id, score, level: level(score), expected: c.tier });
+    const confidence = conf(res, 'tier');
+    rows.push({ id: c.id, score, confidence, level: level(score, confidence), expected: c.tier });
   }
   const confusion = [0, 1, 2].map((e) =>
     [0, 1, 2].map((l) => rows.filter((r) => r.expected === e && r.level === l).length),
@@ -430,6 +438,7 @@ export async function measureInstinct(
       conf: route.confidence,
       stable: route.value === reversed.value,
       tier: num(res, 'tier'),
+      tierConf: conf(res, 'tier'),
       tierExpected: c.tier,
       web: num(res, 'needs_web'),
       webExpected: c.web,

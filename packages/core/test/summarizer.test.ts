@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ControlScope,
   coreMigrations,
+  CLAUDE_SUMMARY_EFFORT,
   createSummarizer,
   EventLog,
   migrate,
@@ -187,6 +188,9 @@ describe('createSummarizer', () => {
     expect(argv[argv.indexOf('--tools') + 1]).toBe('');
     expect(argv).not.toContain('--allowedTools');
     expect(argv[argv.indexOf('--max-turns') + 1]).toBe('1');
+    // Low effort and no extended thinking: a summary does not reason (D-169).
+    expect(argv[argv.indexOf('--effort') + 1]).toBe('low');
+    expect(CLAUDE_SUMMARY_EFFORT).toBe('low');
     expect(run.mcpConfig).toEqual({ mcpServers: {} });
     const appended = argv[argv.indexOf('--append-system-prompt-file') + 1];
     expect(appended).toBeDefined();

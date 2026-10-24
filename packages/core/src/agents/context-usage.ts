@@ -282,18 +282,32 @@ export class HarnessContextMeter {
 }
 
 /**
- * The harness's own prompt and tools when no earlier run measured it (D-076:
- * ~22k tokens on Claude Code 2.1.301); unknown harnesses count none.
+ * The harness's own prompt and built-in tools when no earlier run measured it (D-076: ~22k tokens
+ * on Claude Code 2.1.301); unknown harnesses count none. An estimate: a run measures it itself as
+ * what its first request holds beyond our parts (`HarnessContextMeter`), so it also takes in what
+ * the harness adds around Monsters' tools (the deferred list and ToolSearch, D-169).
  */
 export const HARNESS_BASE_TOKENS: Readonly<Record<string, number>> = { 'claude-agent': 22_000 };
 
-/** Tokens of Monsters' tools as a harness sees them over MCP (`mcp__monsters__<name>`). */
+/**
+ * Tokens of Monsters' tools as a harness sees them over MCP (`mcp__<server>__<name>`). With
+ * `loaded`, only those tools count at schema size (name, description, input schema): the others
+ * are deferred, Claude Code lists their names and loads a schema when the model asks for it
+ * through ToolSearch (D-169), so they count at name size. Without `loaded` every tool is sent whole
+ * (Codex, which gets the schemas of the tools it exposes).
+ */
 export function mcpToolTokens(
   tools: readonly Pick<MonstersTool, 'name' | 'description' | 'inputSchema' | 'inputJsonSchema'>[],
   server: string,
+  loaded?: ReadonlySet<string>,
 ): number {
   let total = 0;
   for (const t of tools) {
+    if (loaded && !loaded.has(t.name)) {
+      // A line of the deferred list: the name and the break.
+      total += estimateTokens(`mcp__${server}__${t.name}`) + 1;
+      continue;
+    }
     let schema: unknown = t.inputJsonSchema;
     if (schema === undefined) {
       try {
@@ -314,13 +328,16 @@ export function mcpToolTokens(
 /** Our parts of a harness's prompt (see `HarnessContextMeter`). */
 export function harnessParts(o: {
   agentsMd: string;
+  /** The appended prompt: AGENTS.md (when in it), memory, profile, rules; not the conversation. */
   instructions: string;
   memory?: string | undefined;
   profile?: string | undefined;
+  /** The conversation, which goes in the message of the turn before the new request. */
   history: string;
   /** The part of `history` that is the summary of the older turns (D-082). */
   summary?: string | undefined;
   tools: number;
+  /** The new request alone (task, hint, attached files): the conversation is `history`. */
   prompt: string;
 }): ContextParts {
   const memory = sectionTokens(o.memory) + sectionTokens(o.profile);
@@ -328,7 +345,8 @@ export function harnessParts(o: {
   const summary = o.summary ? Math.min(all, estimateTokens(o.summary)) : 0;
   const appended = estimateTokens(o.instructions);
   return {
-    instructions: estimateTokens(o.agentsMd) + Math.max(0, appended - memory - all),
+    // The conversation is in the turn's message, not in the appended prompt (D-169).
+    instructions: estimateTokens(o.agentsMd) + Math.max(0, appended - memory),
     memory,
     tools: o.tools,
     ...(summary > 0 ? { summary } : {}),

@@ -106,6 +106,8 @@ test('a monster on the Claude plan: its base apart, no money', async ({ page }) 
     'Mimas works on the subscription',
   );
   await expect(sheet.getByTestId('usage-session')).toContainText('Cache read');
+  // "Tokens in" is the fresh input; what came from the cache is said apart (D-169).
+  await expect(sheet.getByTestId('usage-in-cache')).toContainText(/^\+ [\d,]+ from cache$/);
 });
 
 test('"Riduci movimento": the lineette light up without frames', async ({ page }) => {

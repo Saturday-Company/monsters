@@ -78,6 +78,12 @@ Good to know:
 - Claude Code works in the monster's folder, where Monsters writes `AGENTS.md` and a `CLAUDE.md` that imports it. The
   Monsters tools reach it as an MCP server; it uses its own commands and files only if the monster has the terminal
   permission.
+- Each turn starts a new Claude Code process (and Codex run). The text Monsters appends to the system prompt (the
+  monster's rules, memory and profile) is the same from one turn to the next, so the plan's prompt cache reads it
+  instead of writing it again; the recent conversation and your new message go together in the message of the turn,
+  conversation first, marked as data. Claude Code loads the main Monsters tools (notes, `ask_user`, `delegate`) up
+  front and lists the others by name until a monster needs them. Usage shows "in" as fresh input and, apart, how much
+  came from the cache.
 - If the settings say Claude Code would use an API key, sign in with `claude` and your plan.
 - Monsters that can use the web search with Claude's search (`WebSearch`), included in the plan; they read pages with
   Monsters' own tool, which treats them as data and not as instructions.
