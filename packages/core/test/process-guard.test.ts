@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { installProcessGuard } from '../src/process-guard.ts';
+import { installProcessGuard, isBrokenStdio } from '../src/process-guard.ts';
 
 describe('installProcessGuard (F-M2)', () => {
   it('logs an unhandled rejection as an error event instead of letting it end the process', () => {
@@ -68,5 +68,53 @@ describe('installProcessGuard (F-M2)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('a write to a closed standard stream is no error of the core (`monsters start | tee`, D-166)', () => {
+    const events: unknown[] = [];
+    const lines: string[] = [];
+    let storms = 0;
+    const before = process.listeners('uncaughtException');
+    const guard = installProcessGuard({
+      log: { append: (e: unknown) => events.push(e) } as never,
+      onStorm: () => storms++,
+      stderr: (l) => lines.push(l),
+    });
+    const ours = process.listeners('uncaughtException').filter((l) => !before.includes(l))[0]!;
+    const epipe = Object.assign(new Error('write EPIPE'), {
+      code: 'EPIPE',
+      syscall: 'write',
+      errno: -32,
+    });
+    // Not a record, not stderr (it may be the broken one), and not a step towards the storm.
+    for (let i = 0; i < 40; i++) ours(epipe, 'uncaughtException');
+    ours(Object.assign(new Error('closed'), { code: 'ERR_STREAM_DESTROYED' }), 'uncaughtException');
+    expect(events).toEqual([]);
+    expect(lines).toEqual([]);
+    expect(storms).toBe(0);
+    // Any other failure is still told.
+    ours(new Error('boom'), 'uncaughtException');
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: 'error',
+        data: { code: 'uncaught_exception', message: 'boom' },
+      }),
+    ]);
+    guard.remove();
+  });
+
+  it('knows a broken standard stream from a broken socket and from other failures', () => {
+    const err = (props: object) => Object.assign(new Error('x'), props);
+    expect(isBrokenStdio(err({ code: 'EPIPE', syscall: 'write' }))).toBe(true);
+    expect(isBrokenStdio(err({ code: 'EPIPE' }))).toBe(true);
+    expect(isBrokenStdio(err({ code: 'ERR_STREAM_DESTROYED' }))).toBe(true);
+    // A network socket's EPIPE has an address: a real failure to tell.
+    expect(isBrokenStdio(err({ code: 'EPIPE', syscall: 'write', address: '127.0.0.1' }))).toBe(
+      false,
+    );
+    expect(isBrokenStdio(err({ code: 'ECONNRESET', syscall: 'read' }))).toBe(false);
+    expect(isBrokenStdio(new Error('write EPIPE'))).toBe(false);
+    expect(isBrokenStdio('EPIPE')).toBe(false);
+    expect(isBrokenStdio(null)).toBe(false);
   });
 });

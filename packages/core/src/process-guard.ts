@@ -11,6 +11,20 @@ const WINDOW_MS = 60_000;
  */
 const CLOSED_GRACE_MS = 10_000;
 
+/**
+ * A write to a standard stream whose other end is gone (`monsters start | tee`, a closed
+ * terminal): `write EPIPE` or a destroyed stream, with no address (a socket's error has one).
+ * Nobody reads what the process prints any more: not a failure of the core (D-166).
+ */
+export function isBrokenStdio(err: unknown): boolean {
+  const e = err as { code?: unknown; syscall?: unknown; address?: unknown } | null;
+  if (!e || typeof e !== 'object' || e.address !== undefined) return false;
+  return (
+    (e.code === 'EPIPE' && (e.syscall === undefined || e.syscall === 'write')) ||
+    e.code === 'ERR_STREAM_DESTROYED'
+  );
+}
+
 export interface ProcessGuardOptions {
   log: Pick<EventLog, 'append'>;
   /** Called when failures keep coming: the caller closes the core and ends the process. */
@@ -44,6 +58,8 @@ export function installProcessGuard(options: ProcessGuardOptions): ProcessGuard 
   let stopped = false;
   let closed = false;
   const handle = (code: string, err: unknown) => {
+    // Neither a record nor a step towards the storm: nobody to tell, nothing to stop.
+    if (isBrokenStdio(err)) return;
     const message = err instanceof Error ? err.message : String(err);
     if (closed) {
       stderr(`${code}: ${message}`);

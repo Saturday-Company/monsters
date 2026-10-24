@@ -18,6 +18,7 @@ import {
   injectionRemoved,
   injectionWarning,
 } from '../team/instinct/guard.ts';
+import { commandWritesConfig } from './command-writes-config.ts';
 import { stripInvisible } from './invisible.ts';
 import { runAgentPrompts } from './run-agent.prompts.ts';
 import { runAgentStrings } from './run-agent.strings.ts';
@@ -158,6 +159,8 @@ export interface HarnessHookContext {
   monstersServer: string;
   guard?: ToolGuard;
   onFinalAnswer?: (text: string) => FinalAnswerHook | Promise<FinalAnswerHook>;
+  /** A call the hook refused and recorded as `internal_denied` (D-166), by its tool use id. */
+  refused?: (toolUseId: string) => void;
   /** The `tool_call` event of a harness tool call: logged once, by the stream or the hook. */
   callEvent: (toolUseId: string, name: string, input: unknown) => string;
   /** The last complete answer seen in the stream (older binaries send no `last_assistant_message`). */
@@ -262,33 +265,6 @@ export function unavailableBuiltin(
 
 /** What the model reads when a call would write the harness configuration (D-079). */
 export const harnessConfigDenied = (): string => runHarnessPrompts().configDenied(settingsLabel());
-
-/** Names of the harness configuration inside a command line (a word, any path before it). */
-const CONFIG_WORD =
-  /(?:^|[\s'"`=;|&(<>/\\])(?:\.claude(?:[/\\]|\b)|\.mcp\.json\b|CLAUDE(?:\.local)?\.md\b|AGENTS(?:\.override)?\.md\b|\.codex(?:[/\\]|\b))/i;
-/** A command that writes, moves or removes files (a speed bump, like the lockout). */
-const WRITES =
-  /\b(?:tee|cp|mv|ln|rm|rmdir|mkdir|touch|install|dd|truncate|chmod|unlink|rsync|tar|unzip|curl|wget|python3?|node|perl|ruby|sed\s+(?:[^\s;&|]+\s+)*-[a-zA-Z]*i|Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item|Remove-Item|Rename-Item)\b/i;
-/**
- * Redirections that write no file (`2>&1`, `>&2`, `>/dev/null`, `2> NUL`): a read of
- * CLAUDE.md with `2>&1` elsewhere in the line was refused as a write (22/10/2026).
- */
-const NO_FILE_REDIRECT = /(?:\d*|&)>>?\s*(?:&\d+|&-|\/dev\/null\b|NUL\b|\$null\b)/gi;
-/** The target of each remaining redirection into a file. */
-const REDIRECT_TARGET = /(?:\d*|&)>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>]+)/g;
-
-/** A command line that may write the harness configuration: a writing command or a redirection into it. */
-function commandWritesConfig(raw: string): boolean {
-  const command = raw.replace(NO_FILE_REDIRECT, ' ');
-  if (!CONFIG_WORD.test(command)) return false;
-  if (WRITES.test(command)) return true;
-  for (const m of command.matchAll(REDIRECT_TARGET)) {
-    const target = m[1]!;
-    // A target named through a variable or a substitution may be any of them.
-    if (CONFIG_WORD.test(` ${target}`) || /[$`]/.test(target)) return true;
-  }
-  return false;
-}
 
 /**
  * A call of Claude Code's terminal or file tools that would write the
@@ -444,6 +420,29 @@ export async function answerHarnessHook(
   }
 }
 
+/**
+ * A call the core refuses (D-078, D-079): the `internal_denied` record under its `tool_call`. It is
+ * information, not a failure: the monster is told why and goes on (D-166), so the runner does not add an
+ * error for it at the end (`refused`).
+ */
+function refusedCall(
+  ctx: HarnessHookContext,
+  input: ClaudeHookInput,
+  source: string,
+  message: string,
+): void {
+  const name = input.tool_name ?? '';
+  const callEventId = ctx.callEvent(input.tool_use_id ?? '', name, input.tool_input ?? {});
+  ctx.log.append({
+    agent: 'system',
+    runId: ctx.runId,
+    parentId: callEventId,
+    type: 'security',
+    data: { action: 'internal_denied', source, tool: name, message },
+  });
+  ctx.refused?.(input.tool_use_id ?? '');
+}
+
 async function preToolUse(
   input: ClaudeHookInput,
   ctx: HarnessHookContext,
@@ -470,53 +469,17 @@ async function preToolUse(
     ctx.workspace &&
     (await harnessConfigWrite(name, input.tool_input, ctx.workspace, ctx.instructionFolders))
   ) {
-    const callEventId = ctx.callEvent(input.tool_use_id ?? '', name, input.tool_input ?? {});
-    ctx.log.append({
-      agent: 'system',
-      runId: ctx.runId,
-      parentId: callEventId,
-      type: 'security',
-      data: {
-        action: 'internal_denied',
-        source: 'harness_config',
-        tool: name,
-        message: runAgentStrings().configWriteStopped,
-      },
-    });
+    refusedCall(ctx, input, 'harness_config', runAgentStrings().configWriteStopped);
     return deny(harnessConfigDenied());
   }
   if (locked) {
-    const callEventId = ctx.callEvent(input.tool_use_id ?? '', name, input.tool_input ?? {});
-    ctx.log.append({
-      agent: 'system',
-      runId: ctx.runId,
-      parentId: callEventId,
-      type: 'security',
-      data: {
-        action: 'internal_denied',
-        source: locked.path.slice(0, 300),
-        tool: name,
-        message: runAgentStrings().internalFilesStopped,
-      },
-    });
+    refusedCall(ctx, input, locked.path.slice(0, 300), runAgentStrings().internalFilesStopped);
     return deny(`${locked.message} ${locked.hint}`);
   }
   for (const folder of ctx.closed ?? []) {
     const closed = lockedHarnessCall(name, input.tool_input, folder.cwd, folder.lock);
     if (!closed) continue;
-    const callEventId = ctx.callEvent(input.tool_use_id ?? '', name, input.tool_input ?? {});
-    ctx.log.append({
-      agent: 'system',
-      runId: ctx.runId,
-      parentId: callEventId,
-      type: 'security',
-      data: {
-        action: 'internal_denied',
-        source: closed.path.slice(0, 300),
-        tool: name,
-        message: folder.message,
-      },
-    });
+    refusedCall(ctx, input, closed.path.slice(0, 300), folder.message);
     return deny(folder.message);
   }
   const mapped = ctx.guard?.beforeCall
