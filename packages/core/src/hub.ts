@@ -95,6 +95,7 @@ import { ProjectService } from './projects/service.ts';
 import { projectTools } from './projects/tools.ts';
 import { HarnessToolSessions } from './agents/harness-tools.ts';
 import { runAgent, type AgentRunResult, type RunAgentOptions } from './agents/run-agent.ts';
+import { ToolSetMemory } from './agents/tool-search.ts';
 import type { CardContext } from './agents/monsters-card.ts';
 import { uiGuideHint, uiGuideTool } from './agents/ui-guide.ts';
 import {
@@ -1110,6 +1111,8 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       ...(Object.keys(labels).length > 0 ? { labels } : {}),
     };
   };
+  /** The tools each monster sent in its last run: the next one starts with them (prompt cache, D-168). */
+  const toolMemory = new ToolSetMemory();
   /**
    * Runs an agent on its harness when the first link of its chain is one,
    * otherwise in our loop. A harness never falls back to a paid model (D-035).
@@ -1170,6 +1173,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         contextWindow,
         price: priceOf,
         projectId,
+        toolMemory,
         ...o,
         onFinalAnswer: access.onFinalAnswer,
         ...(access.hint ? { hint: access.hint } : {}),

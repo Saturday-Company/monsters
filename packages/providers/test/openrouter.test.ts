@@ -225,7 +225,8 @@ describe('OpenRouterProvider', () => {
     };
     const marks = (bodies[0]!.match(/"cache_control"/g) ?? []).length;
     expect(marks).toBeLessThanOrEqual(4);
-    expect(marks).toBe(2);
+    // The system prompt, the user message (the end of the previous step) and the last result.
+    expect(marks).toBe(3);
     // The breakpoint is on the last result: the whole step is read from the cache next time.
     const tools = body.messages.filter((m) => m.role === 'tool');
     expect(tools.map((m) => m.cache_control !== undefined)).toEqual([false, false, false, true]);
