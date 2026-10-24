@@ -124,7 +124,9 @@ function monthStart(ts: number): number {
 interface Side {
   provider: string;
   requests: number;
+  /** Fresh input plus output, cache reads apart (D-166). */
   tokens: number;
+  cachedTokens: number;
 }
 
 export class SpendMeter {
@@ -157,8 +159,19 @@ export class SpendMeter {
       if (!this.#roll()) {
         const d = e.data;
         const cost = d.costUsd ?? 0;
-        const tokens = (d.inputTokens ?? 0) + (d.outputTokens ?? 0);
-        this.#add(e.agent, d.provider, d.model, 1, d.costUsd !== undefined ? 1 : 0, cost, tokens);
+        // `inputTokens` holds the cache reads: they are counted apart (D-166).
+        const cached = d.cachedInputTokens ?? 0;
+        const tokens = Math.max(0, (d.inputTokens ?? 0) - cached) + (d.outputTokens ?? 0);
+        this.#add(
+          e.agent,
+          d.provider,
+          d.model,
+          1,
+          d.costUsd !== undefined ? 1 : 0,
+          cost,
+          tokens,
+          cached,
+        );
         this.#addProject(e.agent, project, cost, 'month');
         if (e.ts >= this.#dayFrom) {
           this.#day.set(e.agent, (this.#day.get(e.agent) ?? 0) + cost);
@@ -198,6 +211,7 @@ export class SpendMeter {
     priced: number,
     costUsd: number,
     tokens: number,
+    cachedTokens: number,
   ): void {
     this.#month.set(agent, (this.#month.get(agent) ?? 0) + costUsd);
     const cls = this.#o.classify(provider, model, priced > 0);
@@ -205,9 +219,10 @@ export class SpendMeter {
     const side =
       cls === 'subscription' ? this.#subscriptions : cls === 'unpriced' ? this.#unpriced : null;
     if (side) {
-      const s = side.get(provider) ?? { provider, requests: 0, tokens: 0 };
+      const s = side.get(provider) ?? { provider, requests: 0, tokens: 0, cachedTokens: 0 };
       s.requests += requests;
       s.tokens += tokens;
+      s.cachedTokens += cachedTokens;
       side.set(provider, s);
     }
   }
@@ -227,7 +242,16 @@ export class SpendMeter {
     this.#subscriptions = new Map();
     this.#unpriced = new Map();
     for (const r of this.#o.log.usageTotals(this.#monthFrom)) {
-      this.#add(r.agent, r.provider, r.model, r.requests, r.priced, r.costUsd, r.tokens);
+      this.#add(
+        r.agent,
+        r.provider,
+        r.model,
+        r.requests,
+        r.priced,
+        r.costUsd,
+        r.tokens,
+        r.cachedTokens,
+      );
     }
     for (const r of this.#o.log.usageTotals(this.#dayFrom)) {
       this.#day.set(r.agent, (this.#day.get(r.agent) ?? 0) + r.costUsd);
@@ -486,7 +510,8 @@ export class SpendMeter {
     // The paid models without a price in use now, before their first request too (D-114).
     const unpriced = new Map(this.#unpriced);
     for (const { provider } of this.#unpricedModels()) {
-      if (!unpriced.has(provider)) unpriced.set(provider, { provider, requests: 0, tokens: 0 });
+      if (!unpriced.has(provider))
+        unpriced.set(provider, { provider, requests: 0, tokens: 0, cachedTokens: 0 });
     }
     const estimated = [...new Set((this.#o.estimatedModels?.() ?? []).map((m) => m.provider))]
       .filter((provider) => !unpriced.has(provider))

@@ -15,6 +15,7 @@ import { defineTool, ToolError, type LogEvent, type MonstersTool } from '@monste
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { parseAgentConfig } from '../src/agents/definition.ts';
+import { mcpToolTokens } from '../src/agents/context-usage.ts';
 import { harnessMcpServer, HarnessToolSessions } from '../src/agents/harness-tools.ts';
 import { runHarnessAgent } from '../src/agents/run-harness.ts';
 import { ControlScope } from '../src/kill/control-scope.ts';
@@ -414,7 +415,12 @@ describe('Codex with many MCP tools: the server lists the base, tools_call reach
     const codex = await measure('codex');
     const claude = await measure('claude-agent');
     expect(codex.tools).toBeGreaterThan(0);
-    expect(codex.tools).toBeLessThan(claude.tools / 2);
+    // Codex gets the schemas of the few tools it lists: far less than all 42 whole.
+    const whole = mcpToolTokens([vaultRead, ...crmTools([])], 'monsters');
+    expect(codex.tools).toBeLessThan(whole / 2);
+    // Claude Code defers them (D-166): the 42 count at name size, the loaded vault tool whole.
+    expect(claude.tools).toBeGreaterThan(0);
+    expect(claude.tools).toBeLessThan(whole / 2);
     const text = codex.r.seen.task.instructions ?? '';
     expect(text).toContain('`tools_call`');
     expect(text).toContain('{"name": "mcp__crm__');

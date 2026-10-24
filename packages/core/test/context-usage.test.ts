@@ -18,10 +18,13 @@ import {
 } from '@monsters/shared';
 import { tool, jsonSchema, type ModelMessage } from 'ai';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import {
   createContextMeter,
   estimateTokens,
   HarnessContextMeter,
+  harnessParts,
+  mcpToolTokens,
   messageParts,
   scaleParts,
   stepContext,
@@ -280,6 +283,44 @@ describe('harness steps', () => {
     expect(b.parts.tool_results).toBe(3000);
     // The rest of a turn's total is no request: no context.
     expect(usage[2]!.context).toBeUndefined();
+  });
+});
+
+describe('what a harness is counted as sending (D-166)', () => {
+  const big = (name: string) =>
+    ({
+      name,
+      description: 'Does a thing. '.repeat(40),
+      inputSchema: z.object({ path: z.string(), text: z.string().optional() }),
+    }) as const;
+  const tools = ['vault_read', 'vault_write', 'vault_history', 'web_fetch'].map(big);
+
+  it('counts deferred MCP tools at name size and the always-loaded ones at schema size', () => {
+    const everything = mcpToolTokens(tools, 'monsters');
+    const loaded = new Set(['vault_read', 'vault_write']);
+    const deferred = mcpToolTokens(tools, 'monsters', loaded);
+    const schemas = mcpToolTokens(tools.slice(0, 2), 'monsters');
+    const names = mcpToolTokens(tools.slice(2), 'monsters', new Set());
+    expect(deferred).toBe(schemas + names);
+    // The two deferred ones cost a few tokens each, not their whole schema.
+    expect(names).toBeLessThan(25);
+    expect(deferred).toBeLessThan(everything);
+    // Nothing loaded: only names; every tool loaded: as without the option.
+    expect(mcpToolTokens(tools, 'monsters', new Set())).toBeLessThan(50);
+    expect(mcpToolTokens(tools, 'monsters', new Set(tools.map((t) => t.name)))).toBe(everything);
+  });
+
+  it('the conversation is its own part, not taken out of the appended prompt', () => {
+    const history = 'User: hello there\nYou: hi, how can I help today?';
+    const parts = harnessParts({
+      agentsMd: '',
+      instructions: 'You are Rhea. '.repeat(50),
+      history,
+      tools: 100,
+      prompt: 'And the second one?',
+    });
+    expect(parts.instructions).toBe(estimateTokens('You are Rhea. '.repeat(50)));
+    expect(parts.conversation).toBe(estimateTokens(history) + 8);
   });
 });
 

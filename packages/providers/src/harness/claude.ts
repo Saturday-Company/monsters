@@ -250,6 +250,9 @@ export function claudeRunSettings(task: HarnessTask): Record<string, unknown> {
   // Claude Code's automatic memory is off in a run (review of 18/10, M6): what it wrote in the
   // working folder would be loaded again outside D-079 and the run's taint.
   const settings: Record<string, unknown> = { autoMemoryEnabled: false };
+  // A plain run (a summary: one turn, no tool) copies and condenses; extended thinking only adds
+  // output tokens (D-166).
+  if (task.plain) settings['alwaysThinkingEnabled'] = false;
   if (task.hooks) {
     const { url, token } = task.hooks;
     const http = (timeout: number, failClosed = false) => ({

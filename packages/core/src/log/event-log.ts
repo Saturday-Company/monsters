@@ -90,7 +90,10 @@ export interface UsageTotal {
   requests: number;
   priced: number;
   costUsd: number;
+  /** Fresh input plus output: the cache reads are in `cachedTokens` (D-166). */
   tokens: number;
+  /** Input tokens read from the provider's prompt cache. */
+  cachedTokens: number;
 }
 
 /**
@@ -360,8 +363,10 @@ export class EventLog {
               COUNT(*) AS requests,
               SUM(json_extract(data, '$.costUsd') IS NOT NULL) AS priced,
               COALESCE(SUM(json_extract(data, '$.costUsd')), 0) AS costUsd,
-              COALESCE(SUM(json_extract(data, '$.inputTokens')), 0)
-                + COALESCE(SUM(json_extract(data, '$.outputTokens')), 0) AS tokens
+              COALESCE(SUM(MAX(COALESCE(json_extract(data, '$.inputTokens'), 0)
+                - COALESCE(json_extract(data, '$.cachedInputTokens'), 0), 0)), 0)
+                + COALESCE(SUM(json_extract(data, '$.outputTokens')), 0) AS tokens,
+              COALESCE(SUM(json_extract(data, '$.cachedInputTokens')), 0) AS cachedTokens
        FROM events WHERE type = 'provider_usage' AND ts >= ?
        GROUP BY agent, provider, model`,
       since,

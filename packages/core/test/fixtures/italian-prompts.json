@@ -106,6 +106,7 @@
   "core/src/agents/run-harness.prompts.ts#runHarnessPrompts.codexAsk()": "82bb2191e2383de70c136f2cb89b3e7e88ac3f25beaef69375e58b669d53a185",
   "core/src/agents/run-harness.prompts.ts#runHarnessPrompts.codexNetwork": "e4272b2be697a6402d7d7677a96cae959a5800a988a9c92ff15f112d4f2a2462",
   "core/src/agents/run-harness.prompts.ts#runHarnessPrompts.configDenied()": "9f101f154d1cc3bce0ca91c940b350640d21594bd1b1e663225fadbff3171b36",
+  "core/src/agents/run-harness.prompts.ts#runHarnessPrompts.currentRequest": "b38f9a676b3f0f550e556d5a24ebfd58db3e6c967c7d948b7ee50b7462239729",
   "core/src/agents/run-harness.prompts.ts#runHarnessPrompts.head": "ff2db9d6e47f84c42f3048e89690cf1da1034abb78717f82dcdecb91069a07e7",
   "core/src/agents/run-harness.prompts.ts#runHarnessPrompts.here()": "3d0f3b823bdce1eb7c574c4e7fc233bdb6f20e43f826c305ac4095699622de59",
   "core/src/agents/run-harness.prompts.ts#runHarnessPrompts.recent": "5fe2c066804fe642def782e6e952c2b70f7811fc555138345571c5deb584f3c2",

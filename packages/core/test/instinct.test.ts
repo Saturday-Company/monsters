@@ -255,7 +255,7 @@ describe('questions of the instinct', () => {
 
   it('tier cuts on the score (Jev underestimates), team option only with two members', () => {
     setAppLang('it');
-    expect([tierOf(0.1), tierOf(0.5), tierOf(1.2), tierOf(1.4)]).toEqual([
+    expect([tierOf(0.1, 0.9), tierOf(0.5, 0.9), tierOf(1.2, 0.9), tierOf(1.4, 0.9)]).toEqual([
       'simple',
       'medium',
       'medium',

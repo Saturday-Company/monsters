@@ -81,7 +81,9 @@ const en = {
     estimated: 'The model didn’t report tokens: estimated from the characters.',
     freeModel: 'free, picked by OpenRouter',
     calls: (n: number) => (n === 1 ? '1 call' : `${n} calls`),
-    inOut: (input: string, output: string) => `${input} in · ${output} out`,
+    inOut: (input: string, output: string, cached?: string) =>
+      `${input} in${cached ? ` + ${cached} from cache` : ''} · ${output} out`,
+    fromCache: (n: string) => `+ ${n} from cache`,
     subscription: 'subscription',
     archived: (day: string) =>
       `Partial count: this conversation’s usage before ${day} is in the log archive and doesn’t count here. The month’s spending is complete.`,
@@ -200,7 +202,9 @@ const it: typeof en = {
     estimated: 'Il modello non ha detto i token: stima dalle lettere.',
     freeModel: 'gratuito, scelto da OpenRouter',
     calls: (n) => `${n} ${n === 1 ? 'chiamata' : 'chiamate'}`,
-    inOut: (input, output) => `${input} in · ${output} out`,
+    inOut: (input, output, cached) =>
+      `${input} in${cached ? ` + ${cached} dalla cache` : ''} · ${output} out`,
+    fromCache: (n) => `+ ${n} dalla cache`,
     subscription: 'abbonamento',
     archived: (day) =>
       `Conto parziale: i consumi di questa conversazione prima del ${day} sono nell’archivio del registro e qui non contano. La spesa del mese resta intera.`,

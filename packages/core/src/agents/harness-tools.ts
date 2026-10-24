@@ -238,6 +238,24 @@ export function toolsCallDescriptor(): Pick<MonstersTool, 'name' | 'description'
   };
 }
 
+/**
+ * Monsters' core tools Claude Code loads up front instead of deferring (D-166): the monsters
+ * called ToolSearch 32 times in 205 requests just to load these, each time a round trip with the
+ * whole context. Everything else stays deferred (names only). Claude Code reads the flag in the
+ * tool's `_meta` (verified on 2.1.308); other clients ignore it.
+ */
+export const ALWAYS_LOADED_TOOLS: ReadonlySet<string> = new Set([
+  'vault_read',
+  'vault_search',
+  'vault_write',
+  'vault_edit',
+  'ask_user',
+  'delegate',
+]);
+
+/** The `_meta` key that makes Claude Code load a tool's schema at the start. */
+export const ALWAYS_LOAD_META_KEY = 'anthropic/alwaysLoad';
+
 /** The MCP server of one session (built per request: the transport is stateless). */
 export function harnessMcpServer(session: HarnessToolSession, version: string): McpServer {
   const viaCall = session.callByName !== undefined;
@@ -258,6 +276,7 @@ export function harnessMcpServer(session: HarnessToolSession, version: string): 
           destructiveHint: t.destructive ?? false,
           openWorldHint: t.externalSource !== undefined,
         },
+        ...(ALWAYS_LOADED_TOOLS.has(t.name) ? { _meta: { [ALWAYS_LOAD_META_KEY]: true } } : {}),
       },
       // The harness gave up on the call (its timeout, its end): the tool stops too,
       // rather than going on with nobody to read its result (D-078).

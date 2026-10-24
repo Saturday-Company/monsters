@@ -42,6 +42,12 @@ export const SUMMARY_MAX_OUTPUT_TOKENS = 8000;
 const SUMMARY_TIMEOUT_MS = 30_000;
 /** The subscription's small model for a summary on Claude Code. */
 export const CLAUDE_SUMMARY_MODEL = 'haiku';
+/**
+ * Effort of that run (D-166): a summary copies and condenses, it does not reason. Without it
+ * Haiku spent 1.9-6.5k output tokens, mostly thinking, on summaries of 1-1.5k tokens (audit of
+ * 24/10, 205 requests). The run's settings also turn extended thinking off (`plain` runs).
+ */
+export const CLAUDE_SUMMARY_EFFORT = 'low';
 
 export const summarySystem = (): string => summarizerPrompts().system;
 
@@ -246,6 +252,7 @@ async function harnessSummary(
         cwd: dir,
         instructions: summarySystem(),
         model: CLAUDE_SUMMARY_MODEL,
+        effort: CLAUDE_SUMMARY_EFFORT,
         mcp: { name: 'monsters', url: '', token: '' },
         plain: true,
         systemTools: false,

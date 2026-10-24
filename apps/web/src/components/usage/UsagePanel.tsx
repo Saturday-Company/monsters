@@ -66,14 +66,41 @@ function Section({
   );
 }
 
-function Stat({ label, value, testId }: { label: string; value: string; testId?: string }) {
+function Stat({
+  label,
+  value,
+  note,
+  testId,
+}: {
+  label: string;
+  value: string;
+  /** A smaller line under the value (`+ 340,000 from cache`). */
+  note?: string | undefined;
+  testId?: string;
+}) {
   return (
     <div className="grid gap-0.5" data-testid={testId}>
       <dt className="label text-screen-muted">{label}</dt>
-      <dd className="text-footnote leading-5 text-screen-ink tabular-nums">{value}</dd>
+      <dd className="text-footnote leading-5 text-screen-ink tabular-nums">
+        {value}
+        {note && (
+          <span
+            className="block text-micro leading-[18px] text-screen-muted"
+            data-testid={testId && `${testId}-cache`}
+          >
+            {note}
+          </span>
+        )}
+      </dd>
     </div>
   );
 }
+
+/**
+ * "In" is the input the model read fresh: `inputTokens` also holds the cache reads (a run of
+ * Claude Code re-reads its whole context at each step), which are shown apart (D-166).
+ */
+const freshInput = (input: number, cacheRead: number) => Math.max(0, input - cacheRead);
 
 /** "Summary of the older messages: 18 messages, at 14:32" (D-082). */
 function SummaryNote({ summary }: { summary: UsageSummary }) {
@@ -186,7 +213,12 @@ function ModelRow({ m, subscription }: { m: UsageModel; subscription: boolean })
           {modelShort(m.model) ?? s.freeModel}
         </span>
         <span className="label block text-screen-muted">
-          {s.calls(m.calls)} · {s.inOut(formatTokens(m.inputTokens), formatTokens(m.outputTokens))}
+          {s.calls(m.calls)} ·{' '}
+          {s.inOut(
+            formatTokens(freshInput(m.inputTokens, m.cacheReadTokens)),
+            formatTokens(m.outputTokens),
+            m.cacheReadTokens > 0 ? formatTokens(m.cacheReadTokens) : undefined,
+          )}
         </span>
       </span>
       <span className="text-right text-footnote leading-5 text-screen-ink tabular-nums">
@@ -224,7 +256,12 @@ function SessionScreen({ view }: { view: AgentUsageView }) {
   return (
     <Section title={t.sessionTitle} testId="usage-session">
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-        <Stat label={t.tokensIn} value={formatCount(s.inputTokens)} testId="usage-in" />
+        <Stat
+          label={t.tokensIn}
+          value={formatCount(freshInput(s.inputTokens, s.cacheReadTokens))}
+          note={s.cacheReadTokens > 0 ? t.fromCache(formatCount(s.cacheReadTokens)) : undefined}
+          testId="usage-in"
+        />
         <Stat label={t.tokensOut} value={formatCount(s.outputTokens)} />
         <Stat label={t.callsLabel} value={formatCount(s.calls)} />
         <Stat label={t.cacheRead} value={formatCount(s.cacheReadTokens)} />

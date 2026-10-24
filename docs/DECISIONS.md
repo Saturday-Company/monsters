@@ -5396,3 +5396,37 @@ to its successor: at every start the core replaces it in every agent's chain (`r
 `autoModels` kept, never the same model twice), so the teams made with the old default chain move too and stay
 "default" for D-069.
 
+
+### D-166 · Token savings on the subscription harnesses: a stable system prompt, core tools loaded, honest tiers and meters
+**Status:** done · 24/10/2026
+**Context:** the audit of 24/10 measured 205 real Claude Code requests. Every lead turn starts a new process, and the
+appended system prompt (4-7k tokens) was identical turn to turn except the `## Recent conversation` at its end, so the
+whole cached block was written again each time: 8-17k cache-write tokens on the first request, 28% of the weighted
+cost. The 23 Monsters tools reach Claude Code deferred (names only) and the monsters called ToolSearch 32 times just to
+load `vault_read`, `vault_write`, `vault_edit` and `ask_user`. The tier question sent a turn to Hard (Opus, high
+effort) with score 1.32 and confidence 0, against its own rule "in doubt between Medium and Hard it is Medium". The
+Haiku summaries spent 1.9-6.5k output tokens, mostly thinking, on 1-1.5k-token texts. The usage panel's "Tokens in"
+held the cache reads without saying so (92% of the 400k tokens of D-159's case).
+**Choices:**
+- The history and the summary of the older turns (D-082, still whole and inside their data tag, turns labelled as
+  before) go in the message of the turn, under `## Recent conversation`, before a `## Current request` header and the
+  request; the appended prompt (and Codex's `developerInstructions`) no longer changes with the conversation. A first
+  turn is unchanged. The Italian family only gains the new header (`Richiesta attuale`). The API path
+  (`runAgent`) already sends the history as messages, so its system prompt was stable: untouched.
+- `harnessMcpServer` marks `vault_read`, `vault_search`, `vault_write`, `vault_edit`, `ask_user` and `delegate` (the
+  ones the agent has) with `_meta: { 'anthropic/alwaysLoad': true }` (honored by Claude Code 2.1.308; the MCP SDK
+  passes `_meta` through on `tools/list`). The other tools stay deferred.
+- `tierOf(score, confidence)`: Hard needs the hard score (1.3) and `BANDS.tier.hardConfidence` (0.5); below it the turn
+  is Medium. The `decision` event of the tier question logs the level actually applied as its `choice` (`value` and
+  `confidence` stay raw). The eval measures the same rule.
+- Summaries on Claude Code run with `effort: 'low'`, and the run's settings turn `alwaysThinkingEnabled` off for plain
+  runs.
+- The context meter counts the deferred MCP tools at name size and the always-loaded ones at schema size; the harness
+  base (measured as what the first request holds beyond our parts) takes in the rest. "Tokens in" is fresh input and
+  the cache reads are shown apart ("+ N from cache"); the spend view's `tokens` of subscriptions and unpriced models
+  follow it and add `cachedTokens`. Spending caps are untouched (they count cost; the token limits already exclude
+  cache reads, D-159).
+**Consequence:** while the cache is warm the system block is read instead of written again at each turn; the four
+core tools no longer cost a ToolSearch round trip; fewer turns go to Opus on a guess. The effect on summaries'
+thinking is expected, not measured (no real call was made); the next audit should check the output tokens of
+`purpose: 'compaction'` requests.

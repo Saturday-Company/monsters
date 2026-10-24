@@ -40,7 +40,11 @@ import {
   unavailableBuiltin,
   type RunWeb,
 } from './harness-hooks.ts';
-import { toolsCallDescriptor, type HarnessToolSessions } from './harness-tools.ts';
+import {
+  ALWAYS_LOADED_TOOLS,
+  toolsCallDescriptor,
+  type HarnessToolSessions,
+} from './harness-tools.ts';
 import type { CardContext } from './monsters-card.ts';
 import {
   abortCause,
@@ -215,7 +219,7 @@ export interface RunHarnessOptions {
   mcpUrl: () => string;
   /** Working folder of the agent. */
   workspace: string;
-  /** Summary of the turns older than `history` (D-082): first in the appended prompt. */
+  /** Summary of the turns older than `history` (D-082): first in the conversation of the turn's message. */
   summary?: string;
   /** Session of the harness to continue (its earlier turns are in the context, D-079). */
   resume?: string;
@@ -357,9 +361,9 @@ export function refusedBuiltin(
 export const HARNESS_HISTORY_CHARS = 6000;
 
 /**
- * Earlier turns as text: the harness gets the conversation in its
- * instructions: the summary of the older turns first (D-082, whole and as
- * data), then the newest turns within `max` characters.
+ * Earlier turns as text: the harness gets the conversation in the message of
+ * the turn (D-166), before the new request: the summary of the older turns
+ * first (D-082, whole and as data), then the newest turns within `max` characters.
  */
 export function historyText(
   history: ModelMessage[] | undefined,
@@ -701,13 +705,19 @@ async function runHarnessOnce(
           ...(files?.read.length ? { readFiles: files.read } : {}),
         })
       : undefined;
-  const prompt = [taskMessage(task), options.hint ?? '', files?.text ?? '']
+  const request = [taskMessage(task), options.hint ?? '', files?.text ?? '']
     .filter(Boolean)
     .join('\n\n');
   const history =
     options.history?.length || options.summary
       ? historyText(options.history, HARNESS_HISTORY_CHARS, options.summary)
       : '';
+  // The conversation goes with the task, before the new request, not in the appended system prompt
+  // (D-166): that text is identical turn after turn, so the harness's prompt cache keeps it. The
+  // summary stays inside its data tag and the turns keep their labels, as they were.
+  const prompt = history
+    ? `${runHarnessPrompts().recent}\n${history}\n\n${runHarnessPrompts().currentRequest}\n${request}`
+    : request;
   const instructions = [
     buildSystemPrompt({
       agent: agentsMdInPrompt ? agent : { ...agent, instructions: '' },
@@ -734,7 +744,6 @@ async function runHarnessOnce(
       team: tools.some((t) => t.name === 'delegate'),
       ask: tools.some((t) => t.name === 'ask_user'),
     }),
-    ...(history ? [`${runHarnessPrompts().recent}\n${history}`] : []),
   ].join('\n\n');
   // The context of each request (C.1): the total is the harness's, ours is estimated.
   const contextMeter = new HarnessContextMeter(
@@ -754,8 +763,10 @@ async function runHarnessOnce(
             ]
           : tools,
         HARNESS_MCP_SERVER,
+        // Claude Code sends only the names of the tools it defers (D-166).
+        harness.id === 'claude-agent' ? ALWAYS_LOADED_TOOLS : undefined,
       ),
-      prompt,
+      prompt: request,
     }),
     options.resume ? { resumed: { base: knownBase(log, agentId, harness.id) } } : {},
   );

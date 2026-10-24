@@ -312,7 +312,7 @@ describe('the spending caps with direct keys (D-114) and the projects (F-B13)', 
     });
     // Nothing spent yet: already said.
     expect(m.view().unpriced).toEqual([
-      { provider: 'anthropic', label: 'Anthropic', requests: 0, tokens: 0 },
+      { provider: 'anthropic', label: 'Anthropic', requests: 0, tokens: 0, cachedTokens: 0 },
     ]);
     expect(m.view().agents.find((a) => a.id === 'leda')).toMatchObject({ unpriced: ['Anthropic'] });
     expect(m.projectView('alfa').agents[0]).toMatchObject({ id: 'leda', unpriced: ['Anthropic'] });

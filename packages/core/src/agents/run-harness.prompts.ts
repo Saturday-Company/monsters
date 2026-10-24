@@ -37,6 +37,7 @@ const en = {
   claudeRule: (docs: boolean) =>
     `“denied by your permission settings” is a fixed rule of Monsters (its data, the Claude Code and Codex configuration in the folders, the folders closed to this job), not a permission of the user: do not ask them to change it${docs ? '; for the CLAUDE.md and AGENTS.md of a project, propose the text with `project_docs_propose`' : ''}.`,
   recent: '## Recent conversation',
+  currentRequest: '## Current request',
   userLabel: 'User',
   youLabel: 'You',
   configDenied: (settings: string) =>
@@ -75,6 +76,7 @@ const it: typeof en = {
   claudeRule: (docs) =>
     `«denied by your permission settings» è una regola fissa di Monsters (i suoi dati, la configurazione di Claude Code e Codex nelle cartelle, le cartelle chiuse a questo lavoro), non un permesso dell’utente: non chiedergli di cambiarlo${docs ? '; per CLAUDE.md e AGENTS.md di un progetto proponi il testo con `project_docs_propose`' : ''}.`,
   recent: '## Conversazione recente',
+  currentRequest: '## Richiesta attuale',
   userLabel: 'Utente',
   youLabel: 'Tu',
   configDenied: (settings) =>

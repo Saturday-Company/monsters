@@ -715,6 +715,24 @@ describe('Claude Agent harness', () => {
     });
   });
 
+  it('a plain run (a summary) turns extended thinking off; a normal run leaves it as it is (D-166)', () => {
+    const base = {
+      prompt: 'ok',
+      cwd: '/tmp/ws',
+      mcp: { name: 'monsters', url: 'http://127.0.0.1:1/mcp', token: 't' },
+      systemTools: false,
+      spawn: () => {
+        throw new Error('not used');
+      },
+      scratchDir: '/tmp/run',
+    };
+    expect(claudeRunSettings({ ...base, plain: true })).toEqual({
+      autoMemoryEnabled: false,
+      alwaysThinkingEnabled: false,
+    });
+    expect(claudeRunSettings(base)).toEqual({ autoMemoryEnabled: false });
+  });
+
   it('keeps --strict-mcp-config; the settings only switch the automatic memory off (M6)', async () => {
     const { h, record } = harness('tool', userEnv(loggedInHome()));
     await collect(h.run(task(), new AbortController().signal));
