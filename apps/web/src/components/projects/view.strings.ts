@@ -25,6 +25,8 @@ const en = {
   newProject: 'New project',
   loading: 'Loading…',
   missing: 'This project is gone.',
+  missingHint: 'It was deleted, or the link is old.',
+  missingHome: 'Back to the chats',
   draft: {
     saved: 'Draft name saved.',
     nameGroup: 'Name',
@@ -75,6 +77,8 @@ const it: typeof en = {
   newProject: 'Nuovo progetto',
   loading: 'Carico…',
   missing: 'Questo progetto non c’è più.',
+  missingHint: 'È stato eliminato, o il link è vecchio.',
+  missingHome: 'Torna alle chat',
   draft: {
     saved: 'Nome della bozza salvato.',
     nameGroup: 'Nome',

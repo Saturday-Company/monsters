@@ -5,6 +5,7 @@ import { HandPalm } from '@phosphor-icons/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { describeError } from '../../lib/api.ts';
 import {
+  goHome,
   projectPath,
   projectTabOf,
   replaceHash,
@@ -284,6 +285,15 @@ export default function ProjectsView() {
     return (
       <Scroll testId="project-missing">
         <p className="text-large font-semibold text-ink">{viewStrings().missing}</p>
+        <p className="mt-1 text-body text-ink-muted">{viewStrings().missingHint}</p>
+        <Button
+          variant="secondary"
+          className="mt-4"
+          onClick={goHome}
+          data-testid="project-missing-home"
+        >
+          {viewStrings().missingHome}
+        </Button>
       </Scroll>
     );
   }

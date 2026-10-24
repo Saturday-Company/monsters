@@ -39,7 +39,11 @@ export function NewsKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' }) {
     >
       <span
         aria-hidden
-        className="inline-flex h-[18px] items-center rounded-[3px] bg-signal px-1.5 font-sans text-micro leading-none font-extrabold tracking-[0.08em] text-on-signal italic"
+        // Signal orange is the one action colour: the bug wears it only while there is something new.
+        className={cn(
+          'inline-flex h-[18px] items-center rounded-[3px] px-1.5 font-sans text-micro leading-none font-extrabold tracking-[0.08em] italic',
+          fresh ? 'bg-signal text-on-signal' : 'bg-ink/10 text-ink-muted',
+        )}
       >
         NEWS
       </span>
