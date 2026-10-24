@@ -5412,6 +5412,9 @@ when tee died first, the final "Stopping..." hit EPIPE and the process guard log
   config folder, any later write blocks. `$(…)`, backticks, here-documents and process substitution keep blocking when a
   name is on the line. Reading commands (`cat`, `ls`, `du`, `grep`, `wc`, `find` without `-delete`/`-exec`,
   `git diff|log|show|status`…) pass whatever else is on the line. Lines that name no config are untouched, as before.
+  A reader stops being one when it can be told to run a program: variables other than locale, time zone and colours
+  set for it or earlier on the line (`PAGER`, `GIT_EXTERNAL_DIFF`, `LESSOPEN`…), git's `-c`, `--config-env`,
+  `--exec-path` and `--ext-diff`, `git grep -O`.
 - A refusal the hook made keeps its `security`/`internal_denied` record and nothing more. A denial only
   `permission_denials` reports becomes the same kind of record (`source: harness_rules`); `harness_refused` stays an
   `error` only when the run ends in one. The chat now reads these records with the core's own sentence (it said

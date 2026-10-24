@@ -5,6 +5,10 @@ import { commandWritesConfig } from '../src/agents/command-writes-config.ts';
 // a command is judged on its own, not by the words that happen to be elsewhere on the line (D-166).
 
 const PASS = [
+  // Harmless variables and plain git options keep a read a read.
+  'LC_ALL=C grep -n foo CLAUDE.md',
+  'git -C sub diff CLAUDE.md',
+  'git grep -n foo -- CLAUDE.md',
   // Real refusals of the owner's logs (24/10/2026).
   'du -sh .claude',
   'ls .claude',
@@ -74,6 +78,16 @@ const PASS = [
 ];
 
 const BLOCKED = [
+  // A reader told to run a program: git's own config, the pager and diff variables, `git grep -O`.
+  `git -c core.pager="sh -c 'echo x > CLAUDE.md'" log`,
+  'git --config-env=core.pager=P log -- CLAUDE.md',
+  'GIT_EXTERNAL_DIFF=./x.sh git diff CLAUDE.md',
+  'export GIT_EXTERNAL_DIFF=./x.sh; git diff CLAUDE.md',
+  'D=./x.sh; git diff CLAUDE.md',
+  'LESSOPEN="|./x.sh %s" less CLAUDE.md',
+  'env PAGER=./x git log -- CLAUDE.md',
+  'git grep -Ovim foo -- CLAUDE.md',
+  'git diff --ext-diff CLAUDE.md',
   // Redirections.
   'echo x > CLAUDE.md',
   'echo x>CLAUDE.md',

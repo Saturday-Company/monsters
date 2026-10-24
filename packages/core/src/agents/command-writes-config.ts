@@ -280,27 +280,32 @@ interface Parsed {
   cmd: string;
   args: Word[];
   xargs: boolean;
+  /** Variables set for this command only (`PAGER=… git log`, `env LESSOPEN=… less`). */
+  assigns: string[];
 }
 
 /** The command a simple command runs, after assignments, keywords and wrappers (`sudo`, `env`, `xargs`…). */
 function parseCommand(words: readonly Word[]): Parsed {
   let i = 0;
   let xargs = false;
+  const assigns: string[] = [];
+  const name = (t: string) => t.slice(0, t.indexOf('=')).replace(/\+$/, '');
   for (;;) {
     const w = words[i];
-    if (!w) return { cmd: '', args: [], xargs };
+    if (!w) return { cmd: '', args: [], xargs, assigns };
     const bare = w.text.replace(/^\\/, '');
     const wrapper = WRAPPERS[bare.toLowerCase()];
     if (ASSIGNMENT.test(w.text) || KEYWORDS.has(w.text)) {
+      if (ASSIGNMENT.test(w.text)) assigns.push(name(w.text));
       i++;
       continue;
     }
     if (!wrapper) {
       const cmd = (bare.split(/[/\\]/).pop() ?? bare).toLowerCase().replace(/\.exe$/, '');
-      return { cmd, args: words.slice(i + 1), xargs };
+      return { cmd, args: words.slice(i + 1), xargs, assigns };
     }
     if (bare.toLowerCase() === 'xargs') xargs = true;
-    const name = bare.toLowerCase();
+    const wrapperName = bare.toLowerCase();
     i++;
     // The wrapper's own options; one that cannot be read leaves the command unknown.
     for (let w2 = words[i]; w2; w2 = words[i]) {
@@ -309,24 +314,25 @@ function parseCommand(words: readonly Word[]): Parsed {
         i++;
         break;
       }
-      if (ASSIGNMENT.test(t) && name === 'env') {
+      if (ASSIGNMENT.test(t) && wrapperName === 'env') {
+        assigns.push(name(t));
         i++;
         continue;
       }
-      if (name === 'timeout' && /^[\d.]+[smhd]?$/.test(t)) {
+      if (wrapperName === 'timeout' && /^[\d.]+[smhd]?$/.test(t)) {
         i++;
         continue;
       }
       if (!t.startsWith('-') || t === '-') break;
       i++;
       if (t.startsWith('--')) {
-        if (!t.includes('=')) return { cmd: '?', args: [], xargs };
+        if (!t.includes('=')) return { cmd: '?', args: [], xargs, assigns };
         continue;
       }
       for (let k = 1; k < t.length; k++) {
         const letter = t[k]!;
         if (wrapper.flags.includes(letter)) continue;
-        if (!wrapper.values.includes(letter)) return { cmd: '?', args: [], xargs };
+        if (!wrapper.values.includes(letter)) return { cmd: '?', args: [], xargs, assigns };
         if (k === t.length - 1) i++;
         break;
       }
@@ -499,7 +505,16 @@ const GIT_READ = new Set([
   'diff-index',
 ]);
 /** Options of git that come before the subcommand, with the ones that take a value. */
-const GIT_GLOBAL_VALUE = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace']);
+const GIT_GLOBAL_VALUE = new Set(['-C', '--git-dir', '--work-tree', '--namespace']);
+/**
+ * Variables a read command may be given without becoming a writer: locale, time zone, colours. Any
+ * other (`PAGER`, `GIT_PAGER`, `GIT_EXTERNAL_DIFF`, `LESSOPEN`, `RIPGREP_CONFIG_PATH`…) can make a
+ * reader run a command of the model's choosing.
+ */
+/** Builtins that set variables for the commands after them. */
+const EXPORTS = new Set(['export', 'declare', 'typeset', 'readonly', 'local', 'set']);
+const HARMLESS_VARS =
+  /^(?:LC_\w+|LANG|LANGUAGE|TZ|NO_COLOR|CLICOLOR|CLICOLOR_FORCE|COLUMNS|LINES|TERM)$/;
 const INTERPRETERS =
   /^(?:node|nodejs|deno|bun|python[\d.]*|pypy[\d.]*|ruby|perl|php|lua|tclsh|osascript|pwsh|powershell|bash|sh|zsh|dash|ksh|fish|eval|source|\.)$/;
 const SHELL_EVAL = new Set(['eval', 'source', '.']);
@@ -555,7 +570,13 @@ function readsOnly(cmd: string, args: readonly Word[]): boolean {
     case 'git': {
       for (let i = 0; i < a.length; i++) {
         const t = a[i]!;
-        if (!t.startsWith('-')) return GIT_READ.has(t) && !has(/^--output/);
+        // `-c core.pager=…`, `--config-env`, `--exec-path=` choose programs git runs: never a plain read.
+        if (t === '-c' || /^--(?:config-env|exec-path)/.test(t)) return false;
+        if (!t.startsWith('-')) {
+          if (!GIT_READ.has(t) || has(/^--output|^--ext-diff$/)) return false;
+          // `git grep -O<cmd>` opens the matches with a program of its choosing.
+          return t !== 'grep' || !has(/^-O|^--open-files-in-pager/);
+        }
         if (GIT_GLOBAL_VALUE.has(t)) i++;
       }
       return false;
@@ -649,11 +670,22 @@ export function commandWritesConfig(raw: string): boolean {
   if (!lineNames) return false;
   if (opaque) return true;
   let moved = false;
+  // A variable set earlier in the line (`export GIT_EXTERNAL_DIFF=…; git diff CLAUDE.md`) reaches later readers.
+  let tainted = false;
   for (const c of commands) {
     // Redirected into the configuration, or into something that may be it.
     if (c.targets.some((t) => moved || namesConfig(t.text) || t.expands)) return true;
-    const { cmd, args, xargs } = parseCommand(c.words);
-    if (!cmd) continue;
+    const { cmd, args, xargs, assigns } = parseCommand(c.words);
+    const unsafe = (v: string) => !HARMLESS_VARS.test(v);
+    if (!cmd) {
+      if (assigns.some(unsafe)) tainted = true;
+      continue;
+    }
+    if (
+      EXPORTS.has(cmd) &&
+      args.some((w) => ASSIGNMENT.test(w.text) && unsafe(w.text.split(/\+?=/)[0]!))
+    )
+      tainted = true;
     const names = CONFIG_WORD.test(c.raw) || anyNames(c.words);
     const expands = anyExpands(c.words);
     if (CHDIR.has(cmd)) {
@@ -671,7 +703,7 @@ export function commandWritesConfig(raw: string): boolean {
       if (inline || stdin) return true;
       continue;
     }
-    if (readsOnly(cmd, args)) continue;
+    if (!tainted && !assigns.some(unsafe) && readsOnly(cmd, args)) continue;
     if (!xargs && (cmd === 'cp' || cmd === 'rsync')) {
       const verdict = copyWritesConfig(cmd, args);
       if (verdict !== null) {
