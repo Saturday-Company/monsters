@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.1.0-alpha.24 · 24 ottobre 2026
+
+### Cosa si vede
+- **Impostazioni più semplici.** Le decisioni e la pagella dei mostri stanno in «Avanzate», chiusa di default. Programmi,
+  servizi, browser e programmi tuoi sono un solo gruppo, e la ricerca web gratuita e a pagamento una sola voce. Bot
+  Telegram e notifiche sono righe chiuse con un riepilogo: la scheda Collegamenti è circa un terzo più corta.
+- **Contatori onesti.** «Token in» non conta più come input nuovo quello che si rilegge dalla cache (lo mostra a
+  parte, «+ N dalla cache»), e il contesto di una chat su Claude Code non conta più strumenti che non vengono mandati.
+- **Piccoli ritocchi.** L’etichetta NEWS è arancione solo quando c’è qualcosa di nuovo; un progetto eliminato offre
+  «Torna alle chat».
+
+### Consuma meno
+- **I piani di Claude Code e Codex durano di più.** Ogni messaggio non paga più di nuovo 8-17k token di istruzioni
+  fisse: la conversazione ora viaggia nel messaggio e la parte fissa si rilegge dalla cache.
+- **Gli strumenti di Monsters sono caricati subito** (note, domande, delega), senza un giro in più per trovarli.
+- **Il modello più forte solo quando serve.** Un lavoro conta come difficile solo se il capo ne è abbastanza sicuro,
+  non a caso.
+- **Riassunti senza ragionamento esteso**, e con le tue chiavi API la cache dei prompt ora regge da un turno
+  all’altro.
+
+### Più affidabile
+- **Meno rifiuti sbagliati nel terminale.** Leggere i file di configurazione (`ls .claude`, `grep … CLAUDE.md`) non è
+  più bloccato, e un rifiuto non segna più come fallito un lavoro finito. I comandi che sembrano letture ma lanciano un
+  altro programma restano fermati.
+- **Niente più errore «write EPIPE»** quando si chiude il terminale del core.
+
 ## 0.1.0-alpha.23 · 24 ottobre 2026
 
 ### Cosa si vede

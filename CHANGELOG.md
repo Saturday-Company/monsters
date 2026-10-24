@@ -2,6 +2,32 @@
 
 The Italian version is in [`CHANGELOG.it.md`](CHANGELOG.it.md).
 
+## 0.1.0-alpha.24 · 24 October 2026
+
+### What you’ll see
+- **Simpler settings.** The monsters’ decisions and their scorecard sit under “Advanced”, closed by default. Apps, services,
+  the browser and your own apps are one group, and free and paid web search are one. Telegram bots and notifications
+  are closed rows with a summary: the Connections tab is about a third shorter.
+- **Honest counters.** “Tokens in” no longer counts what is re-read from the cache as new input (it shows “+ N from
+  cache” beside it), and the context of a Claude Code chat no longer counts tools that are never sent.
+- **Small touches.** The NEWS label is orange only when there is something new; a deleted project offers “Back to the
+  chats”.
+
+### Uses less
+- **Claude Code and Codex plans last longer.** Each message no longer pays again for 8–17k tokens of fixed
+  instructions: the conversation now travels in the message, and the fixed part is read from the cache.
+- **Monsters’ own tools are loaded at once** (notes, questions, delegation), without an extra round to find them.
+- **The strongest model only when it’s needed.** A job counts as hard only when the lead is fairly sure of it, not on
+  a guess.
+- **Summaries without extended thinking**, and with your own API keys the prompt cache now holds from one turn to the
+  next.
+
+### More reliable
+- **Fewer false refusals in the terminal.** Reading Monsters’ configuration files (`ls .claude`, `grep … CLAUDE.md`)
+  is no longer blocked, and a refusal no longer marks a finished job as failed. Commands that only look like reads but
+  run another program are still stopped.
+- **No “write EPIPE” error** when the core’s terminal is closed.
+
 ## 0.1.0-alpha.23 · 24 October 2026
 
 ### What you’ll see
