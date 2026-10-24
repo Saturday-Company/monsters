@@ -12,8 +12,6 @@ The Italian version is in [`CHANGELOG.it.md`](CHANGELOG.it.md).
   cache” beside it), and the context of a Claude Code chat no longer counts tools that are never sent.
 - **Small touches.** The NEWS label is orange only when there is something new; a deleted project offers “Back to the
   chats”.
-
-### Uses less
 - **Claude Code and Codex plans last longer.** Each message no longer pays again for 8–17k tokens of fixed
   instructions: the conversation now travels in the message, and the fixed part is read from the cache.
 - **Monsters’ own tools are loaded at once** (notes, questions, delegation), without an extra round to find them.

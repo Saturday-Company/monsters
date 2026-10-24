@@ -10,8 +10,6 @@
   parte, «+ N dalla cache»), e il contesto di una chat su Claude Code non conta più strumenti che non vengono mandati.
 - **Piccoli ritocchi.** L’etichetta NEWS è arancione solo quando c’è qualcosa di nuovo; un progetto eliminato offre
   «Torna alle chat».
-
-### Consuma meno
 - **I piani di Claude Code e Codex durano di più.** Ogni messaggio non paga più di nuovo 8-17k token di istruzioni
   fisse: la conversazione ora viaggia nel messaggio e la parte fissa si rilegge dalla cache.
 - **Gli strumenti di Monsters sono caricati subito** (note, domande, delega), senza un giro in più per trovarli.
