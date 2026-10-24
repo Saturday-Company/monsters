@@ -38,6 +38,13 @@ async function noSideScroll(page: Page, width: number) {
   await expectNoSideScroll(page, width);
 }
 
+/** Opens a bot's row when it is closed (a row with a request waiting opens by itself). */
+async function openBot(bot: Locator) {
+  const toggle = bot.locator('button[aria-expanded]').first();
+  if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+}
+
 async function openBots(page: Page) {
   await page.goto('/?mock=demo#/impostazioni?sezione=collegamenti');
   const bots = page.getByTestId('telegram-bots');
@@ -81,6 +88,7 @@ test.describe('dedicated bots, desktop light', () => {
     const bot = bots.locator('[data-testid="telegram-bot"][data-bot="7212345677"]');
     await expect(bot.getByTestId('telegram-bot-username')).toHaveText('@PandoraSaturdayBot');
     await expect(bot.getByTestId('telegram-bot-status')).toContainText('Connected');
+    await openBot(bot);
     await expect(bot.getByTestId('telegram-bot-today')).toHaveText('Messages today: 0 of 150');
     await expect(bot).toContainText('No groups yet');
 
@@ -119,6 +127,7 @@ test.describe('dedicated bots, desktop light', () => {
     await shot(page, '03-approvati-chiaro', bot);
 
     // Removed: the bot is gone, Calypso's stays.
+    await openBot(bot);
     await bot.getByRole('button', { name: 'Remove bot' }).click();
     await bot.getByRole('button', { name: 'Yes, remove' }).click();
     await expect(page.getByText('@PandoraSaturdayBot no longer answers')).toBeVisible();
@@ -137,6 +146,7 @@ test.describe('dedicated bots, desktop light', () => {
     await expect(never).toBeVisible();
 
     // Without a dedicated bot: one row, no title, no long text.
+    await openBot(bots.getByTestId('telegram-bot'));
     await bots.getByRole('button', { name: 'Remove bot' }).click();
     await bots.getByRole('button', { name: 'Yes, remove' }).click();
     await expect(bots.getByTestId('telegram-bot')).toHaveCount(0);
@@ -155,12 +165,53 @@ test.describe('dedicated bots, desktop light', () => {
     await expect(bots.getByRole('heading')).toHaveCount(0);
   });
 
+  test('a bot is one closed row; a request waiting for approval shows its count and opens the row', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    const bots = await openBots(page);
+    // Calypso's bot has nothing waiting: one row with the handle, the monster and the status.
+    const calypso = bots.getByTestId('telegram-bot');
+    const toggle = calypso.locator('button[aria-expanded]').first();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toContainText('@CalypsoSaturdayBot');
+    await expect(toggle).toContainText('Calypso · Saturday Social');
+    await expect(toggle).toContainText('Connected');
+    await expect(calypso.getByTestId('telegram-bot-pending')).toHaveCount(0);
+    await expect(calypso.getByTestId('telegram-bot-tools')).toHaveCount(0);
+    await expect(calypso.getByTestId('telegram-bot-today')).toHaveCount(0);
+    await toggle.click();
+    await expect(calypso.getByTestId('telegram-bot-tools')).toBeVisible();
+    await expect(calypso.getByTestId('telegram-bot-today')).toBeVisible();
+    await toggle.click();
+    await expect(calypso.getByTestId('telegram-bot-tools')).toHaveCount(0);
+
+    // A new bot starts closed; when the group and Livio's /join arrive it opens by itself,
+    // with the count on the row.
+    await bots.getByRole('button', { name: 'Add a bot for a monster' }).click();
+    const form = bots.getByTestId('telegram-bot-form');
+    await form.getByLabel('Bot code (token)').fill(TOKEN);
+    await form
+      .getByLabel('The monster that answers')
+      .selectOption({ label: 'Pandora · Saturday Social' });
+    await form.getByRole('button', { name: 'Connect the bot' }).click();
+    const bot = bots.locator('[data-testid="telegram-bot"][data-bot="7212345677"]');
+    const botToggle = bot.locator('button[aria-expanded]').first();
+    await expect(botToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(botToggle).toHaveAttribute('aria-expanded', 'true', { timeout: 8000 });
+    await expect(bot.getByTestId('telegram-bot-pending')).toHaveText('2 to approve');
+    await expect(bot.getByTestId('telegram-bot-chat')).toHaveAttribute('data-status', 'pending');
+    // Calypso's stays closed.
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
   test('the people of a bot work with fewer tools; on again bot by bot, after a warning (D-114)', async ({
     page,
   }) => {
     await page.emulateMedia({ colorScheme: 'light' });
     const bots = await openBots(page);
     const bot = bots.getByTestId('telegram-bot').first();
+    await openBot(bot);
     // Calypso works with other programs: the entry says what the people of the group cannot do.
     await expect(bot.getByTestId('telegram-bot-risk')).toContainText('Calypso has connected apps');
     const tools = bot.getByTestId('telegram-bot-tools');
@@ -204,6 +255,7 @@ test.describe('dedicated bots, desktop light', () => {
     await section.getByRole('button', { name: 'Connect an account' }).click();
     await expect(page.getByText('Account connected: Giulio.')).toBeVisible({ timeout: 8000 });
     const bot = section.getByTestId('telegram-bot');
+    await openBot(bot);
     const owner = bot.locator('[data-testid="telegram-bot-person"][data-owner="true"]');
     await expect(owner).toContainText('Giulio');
     await expect(owner.getByRole('button')).toHaveCount(0);

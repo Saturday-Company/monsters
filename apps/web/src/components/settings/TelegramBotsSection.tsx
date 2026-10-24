@@ -12,6 +12,7 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type ClipboardEvent,
   type FormEvent,
@@ -28,10 +29,10 @@ import { partsStrings } from './parts.strings.ts';
 import { telegramStrings } from './telegram.strings.ts';
 import {
   ConfirmButton,
+  DisclosureRow,
   fieldOnGroup,
   FormField,
   Group,
-  Row,
   RowBody,
   selectClass,
 } from './parts.tsx';
@@ -596,9 +597,20 @@ function BotEntry({
   const pendingPeople = bot.people.filter((p) => p.status === 'pending').length;
   const pending = pendingChats + pendingPeople;
   const [changing, setChanging] = useState(false);
+  // Closed by default; a group or a person waiting for approval opens it, also when it arrives
+  // while the page is open.
+  const [open, setOpen] = useState(pending > 0);
+  const seen = useRef(pending);
+  useEffect(() => {
+    if (pending > seen.current) setOpen(true);
+    seen.current = pending;
+  }, [pending]);
   return (
     <li data-testid="telegram-bot" data-bot={bot.id} data-status={bot.status}>
-      <Row
+      <DisclosureRow
+        as="div"
+        open={open}
+        onOpenChange={setOpen}
         leading={
           <span
             className="well flex size-8 items-center justify-center rounded-[8px] text-ink-muted"
@@ -613,121 +625,125 @@ function BotEntry({
               @{bot.bot.username}
             </span>
             {pending > 0 && (
-              <span className="label rounded-[5px] px-1.5 py-px text-signal-ink shadow-[inset_0_0_0_1px_var(--seam)]">
+              <span
+                className="label rounded-[5px] px-1.5 py-px text-signal-ink shadow-[inset_0_0_0_1px_var(--seam)]"
+                data-testid="telegram-bot-pending"
+              >
                 {b.toApproveCount(pending)}
               </span>
             )}
           </span>
         }
         description={
-          <span className="flex flex-wrap items-center gap-x-1.5">
+          <>
             <span data-testid="telegram-bot-monster">{monster}</span>
-            <span aria-hidden>·</span>
-            <span className="flex items-center gap-1.5" data-testid="telegram-bot-status">
+            <span aria-hidden> · </span>
+            <span className="inline-flex items-center gap-1.5" data-testid="telegram-bot-status">
               <span className="led" data-tone={tone} aria-hidden />
               {bot.error ?? s.botStatus[bot.status]}
             </span>
-          </span>
+          </>
         }
-        wrap
       >
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={busy}
-          onClick={() => setChanging((v) => !v)}
-          data-testid="telegram-bot-change-token"
-        >
-          {b.changeToken}
-        </Button>
-        <ConfirmButton
-          label={b.removeBot}
-          question={b.removeQuestion(bot.bot.username)}
-          confirm={b.removeConfirm}
-          busy={busy}
-          onConfirm={() =>
-            void act(() => api.removeTelegramBot(bot.id), b.removedBot(bot.bot.username))
-          }
-        />
-      </Row>
-      <RowBody className="set-seam-t gap-4">
-        {changing && (
-          <ChangeToken bot={bot} busy={busy} act={act} onClose={() => setChanging(false)} />
-        )}
-        {risk && !bot.fullTools && (
-          <RiskNote name={monsterName} risk={risk} testId="telegram-bot-risk" />
-        )}
-        <div className="grid gap-1">
-          <h4 className="label text-ink-muted">{b.groups}</h4>
-          {bot.chats.length === 0 ? (
-            <p className="text-footnote leading-snug text-ink-muted">
-              {b.noGroups(bot.bot.username)}
-            </p>
-          ) : (
-            <ul className="grid" aria-label={b.groupsOf(bot.bot.username)}>
-              {bot.chats.map((c) => (
-                <ChatLine
-                  key={c.id}
-                  chat={c}
+        <RowBody className="gap-4">
+          <span className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={busy}
+              onClick={() => setChanging((v) => !v)}
+              data-testid="telegram-bot-change-token"
+            >
+              {b.changeToken}
+            </Button>
+            <ConfirmButton
+              label={b.removeBot}
+              question={b.removeQuestion(bot.bot.username)}
+              confirm={b.removeConfirm}
+              busy={busy}
+              onConfirm={() =>
+                void act(() => api.removeTelegramBot(bot.id), b.removedBot(bot.bot.username))
+              }
+            />
+          </span>
+          {changing && (
+            <ChangeToken bot={bot} busy={busy} act={act} onClose={() => setChanging(false)} />
+          )}
+          {risk && !bot.fullTools && (
+            <RiskNote name={monsterName} risk={risk} testId="telegram-bot-risk" />
+          )}
+          <div className="grid gap-1">
+            <h4 className="label text-ink-muted">{b.groups}</h4>
+            {bot.chats.length === 0 ? (
+              <p className="text-footnote leading-snug text-ink-muted">
+                {b.noGroups(bot.bot.username)}
+              </p>
+            ) : (
+              <ul className="grid" aria-label={b.groupsOf(bot.bot.username)}>
+                {bot.chats.map((c) => (
+                  <ChatLine
+                    key={c.id}
+                    chat={c}
+                    busy={busy}
+                    onApprove={() =>
+                      void act(
+                        () => api.approveTelegramBotChat(bot.id, c.id),
+                        b.groupApproved(c.title),
+                      )
+                    }
+                    onRemove={() =>
+                      void act(
+                        () => api.removeTelegramBotChat(bot.id, c.id),
+                        c.status === 'pending' ? b.groupRejected(c.title) : b.groupRemoved(c.title),
+                      )
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="grid gap-1">
+            <h4 className="label text-ink-muted">{b.whoCanTalk}</h4>
+            {bot.people.length === 0 && (
+              <p className="text-footnote leading-snug text-ink-muted">{b.noPeople}</p>
+            )}
+            <ul className="grid" aria-label={b.peopleOf(bot.bot.username)}>
+              {bot.people.map((p) => (
+                <PersonLine
+                  key={p.id}
+                  person={p}
                   busy={busy}
                   onApprove={() =>
                     void act(
-                      () => api.approveTelegramBotChat(bot.id, c.id),
-                      b.groupApproved(c.title),
+                      () => api.approveTelegramBotPerson(bot.id, p.id),
+                      b.personApproved(p.name, bot.bot.username),
                     )
                   }
                   onRemove={() =>
                     void act(
-                      () => api.removeTelegramBotChat(bot.id, c.id),
-                      c.status === 'pending' ? b.groupRejected(c.title) : b.groupRemoved(c.title),
+                      () => api.removeTelegramBotPerson(bot.id, p.id),
+                      b.personRemoved(p.name, bot.bot.username),
                     )
                   }
                 />
               ))}
             </ul>
-          )}
-        </div>
-        <div className="grid gap-1">
-          <h4 className="label text-ink-muted">{b.whoCanTalk}</h4>
-          {bot.people.length === 0 && (
-            <p className="text-footnote leading-snug text-ink-muted">{b.noPeople}</p>
-          )}
-          <ul className="grid" aria-label={b.peopleOf(bot.bot.username)}>
-            {bot.people.map((p) => (
-              <PersonLine
-                key={p.id}
-                person={p}
-                busy={busy}
-                onApprove={() =>
-                  void act(
-                    () => api.approveTelegramBotPerson(bot.id, p.id),
-                    b.personApproved(p.name, bot.bot.username),
-                  )
-                }
-                onRemove={() =>
-                  void act(
-                    () => api.removeTelegramBotPerson(bot.id, p.id),
-                    b.personRemoved(p.name, bot.bot.username),
-                  )
-                }
-              />
-            ))}
-          </ul>
-          <p className="text-footnote leading-snug text-ink-muted">
-            {b.othersBefore}
-            <Code>{JOIN}</Code>
-            {b.othersAfter}
+            <p className="text-footnote leading-snug text-ink-muted">
+              {b.othersBefore}
+              <Code>{JOIN}</Code>
+              {b.othersAfter}
+            </p>
+            <AddPerson
+              busy={busy}
+              onAdd={(id) => act(() => api.addTelegramBotPerson(bot.id, { id }), b.personAdded)}
+            />
+          </div>
+          <ToolsForOthers bot={bot} monster={monsterName} risk={risk} busy={busy} act={act} />
+          <p className="text-footnote text-ink-muted" data-testid="telegram-bot-today">
+            {b.today(bot.today, bot.dailyLimit)}
           </p>
-          <AddPerson
-            busy={busy}
-            onAdd={(id) => act(() => api.addTelegramBotPerson(bot.id, { id }), b.personAdded)}
-          />
-        </div>
-        <ToolsForOthers bot={bot} monster={monsterName} risk={risk} busy={busy} act={act} />
-        <p className="text-footnote text-ink-muted" data-testid="telegram-bot-today">
-          {b.today(bot.today, bot.dailyLimit)}
-        </p>
-      </RowBody>
+        </RowBody>
+      </DisclosureRow>
     </li>
   );
 }

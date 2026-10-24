@@ -17,7 +17,15 @@ import { Button, buttonVariants } from '../ui/button.tsx';
 import { Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { partsStrings } from './parts.strings.ts';
-import { ConfirmButton, fieldOnGroup, FormField, Group, Row, RowBody } from './parts.tsx';
+import {
+  ConfirmButton,
+  DisclosureRow,
+  fieldOnGroup,
+  FormField,
+  Group,
+  Row,
+  RowBody,
+} from './parts.tsx';
 import { telegramStrings } from './telegram.strings.ts';
 import { CommandList, pasteTelegramToken, TelegramBotsSection } from './TelegramBotsSection.tsx';
 
@@ -254,42 +262,51 @@ function Notifications({
     { key: 'done', title: s.notify.done, text: s.notify.doneText },
     { key: 'errors', title: s.notify.errors, text: s.notify.errorsText },
   ];
+  const on = rows.filter((r) => prefs.notify[r.key]).map((r) => r.key);
   return (
-    <Group title={s.notify.title} level={3} testId="telegram-notifications">
-      {rows.map((r) => (
-        <Row key={r.key} label={r.title} description={r.text}>
-          <Switch
-            words
-            checked={prefs.notify[r.key]}
-            onCheckedChange={(v) => onChange({ notify: { [r.key]: v } })}
-            label={r.title}
-          />
-        </Row>
-      ))}
-      <div>
-        <Row label={s.notify.quietNight} description={s.notify.quietNightText}>
-          <Switch
-            words
-            checked={prefs.quietHours.enabled}
-            onCheckedChange={(v) => onChange({ quietHours: { enabled: v } })}
-            label={s.notify.quietNight}
-          />
-        </Row>
-        {prefs.quietHours.enabled && (
-          <div className="flex flex-wrap gap-4 px-4 pb-3">
-            <TimeInput
-              label={s.quiet.from}
-              value={prefs.quietHours.from}
-              onChange={(v) => onChange({ quietHours: { from: v } })}
-            />
-            <TimeInput
-              label={s.quiet.to}
-              value={prefs.quietHours.to}
-              onChange={(v) => onChange({ quietHours: { to: v } })}
-            />
+    <Group label={s.notify.title} level={3} testId="telegram-notifications">
+      <DisclosureRow
+        as="div"
+        label={s.notify.rowTitle}
+        description={s.notify.summary(on, prefs.quietHours.enabled ? prefs.quietHours : null)}
+      >
+        <div className="set-rows">
+          {rows.map((r) => (
+            <Row key={r.key} label={r.title} description={r.text}>
+              <Switch
+                words
+                checked={prefs.notify[r.key]}
+                onCheckedChange={(v) => onChange({ notify: { [r.key]: v } })}
+                label={r.title}
+              />
+            </Row>
+          ))}
+          <div>
+            <Row label={s.notify.quietNight} description={s.notify.quietNightText}>
+              <Switch
+                words
+                checked={prefs.quietHours.enabled}
+                onCheckedChange={(v) => onChange({ quietHours: { enabled: v } })}
+                label={s.notify.quietNight}
+              />
+            </Row>
+            {prefs.quietHours.enabled && (
+              <div className="flex flex-wrap gap-4 px-4 pb-3">
+                <TimeInput
+                  label={s.quiet.from}
+                  value={prefs.quietHours.from}
+                  onChange={(v) => onChange({ quietHours: { from: v } })}
+                />
+                <TimeInput
+                  label={s.quiet.to}
+                  value={prefs.quietHours.to}
+                  onChange={(v) => onChange({ quietHours: { to: v } })}
+                />
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      </DisclosureRow>
     </Group>
   );
 }

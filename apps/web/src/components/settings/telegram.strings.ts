@@ -50,6 +50,15 @@ const en = {
     quietNight: 'Quiet at night',
     quietNightText:
       'Notifications wait until morning; a question that blocks the work still arrives, but without sound.',
+    rowTitle: 'Notifications',
+    summary: (
+      on: ('questions' | 'done' | 'errors')[],
+      quiet: { from: string; to: string } | null,
+    ) => {
+      const names = { questions: 'Questions', done: 'finished work', errors: 'errors' };
+      const list = on.length === 0 ? 'None' : on.map((k) => names[k]).join(', ');
+      return `${list.charAt(0).toUpperCase()}${list.slice(1)} · ${quiet ? `quiet at night ${quiet.from}–${quiet.to}` : 'quiet at night off'}`;
+    },
   },
   paired: (name: string) =>
     `Account connected: ${name}. They can command the monsters from Telegram.`,
@@ -228,6 +237,12 @@ const it: typeof en = {
     quietNight: 'Silenzioso di notte',
     quietNightText:
       'Le notifiche aspettano il mattino; una domanda che blocca il lavoro arriva lo stesso, ma senza suono.',
+    rowTitle: 'Notifiche',
+    summary: (on, quiet) => {
+      const names = { questions: 'domande', done: 'lavoro finito', errors: 'errori' };
+      const list = on.length === 0 ? 'nessuna' : on.map((k) => names[k]).join(', ');
+      return `${list.charAt(0).toUpperCase()}${list.slice(1)} · ${quiet ? `silenzioso di notte ${quiet.from}–${quiet.to}` : 'silenzioso di notte spento'}`;
+    },
   },
   paired: (name) => `Account collegato: ${name}. Può comandare i mostri da Telegram.`,
   section: {
