@@ -27,6 +27,7 @@ import { cmdAutomations } from './automations.ts';
 import { cmdAnswer, cmdChat, cmdVault, terminalSafe, type CoreAccess } from './chat.ts';
 import { runVaultMcp } from './mcp.ts';
 import { cmdLog } from './log.ts';
+import { ignoreBrokenPipe } from './broken-pipe.ts';
 import { cmdChatInteractive } from './repl.ts';
 import { cmdPassword } from './password.ts';
 import { cmdSecrets } from './secrets.ts';
@@ -433,6 +434,8 @@ export async function run(
   io: Io = defaultIo,
   signal?: AbortSignal,
 ): Promise<number> {
+  // The terminal or the pipe the output goes to may close before the last line (D-166).
+  if (io === defaultIo) ignoreBrokenPipe();
   // Nothing that reaches the terminal may carry control sequences (agent text, goals, errors).
   io = terminalSafe(io);
   let parsed;

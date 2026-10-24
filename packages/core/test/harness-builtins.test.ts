@@ -49,6 +49,8 @@ function toolsArg(task: HarnessTask): string {
 function recordingHarness(
   events: HarnessEvent[] = [],
   denials?: { tool: string; id: string }[],
+  /** The run ends in a failure instead of an answer. */
+  failure?: string,
 ): HarnessProvider & { tasks: HarnessTask[] } {
   const tasks: HarnessTask[] = [];
   return {
@@ -62,11 +64,124 @@ function recordingHarness(
       tasks.push(task);
       await Promise.resolve();
       for (const e of events) yield e;
+      if (failure !== undefined) {
+        yield { type: 'done', reason: 'error', error: failure, ...(denials ? { denials } : {}) };
+        return;
+      }
       yield { type: 'text', text: 'ok' };
       yield { type: 'done', reason: 'stop', text: 'ok', ...(denials ? { denials } : {}) };
     },
   };
 }
+
+/** A run on a harness that ends the way the test says, with the denials the binary reports. */
+async function runRefused(
+  failure: string | undefined,
+  events: HarnessEvent[] = [],
+  denials: { tool: string; id: string }[] = [{ tool: 'Bash', id: 't1' }],
+) {
+  inLang('it');
+  const dir = mkdtempSync(join(tmpdir(), 'monsters-refused-'));
+  dirs.push(dir);
+  const harness = recordingHarness(events, denials, failure);
+  const db = openDb(':memory:');
+  migrate(db, 'core', coreMigrations);
+  const log = new EventLog(db);
+  const agent: AgentDefinition = {
+    config: parseAgentConfig({
+      id: 'nova',
+      name: 'Nova',
+      role: 'regole',
+      color: '#336699',
+      models: [{ provider: 'claude-agent', model: 'sonnet' }],
+      tools: ['vault_read'],
+    }),
+    instructions: 'Sei Nova.',
+  };
+  const vaultRead: MonstersTool = {
+    name: 'vault_read',
+    description: 'Reads a note',
+    inputSchema: z.object({}),
+    execute: () => Promise.resolve('x'),
+  };
+  const scope = new ControlScope('run', 'r1', null, 100);
+  const result = await runHarnessAgent({
+    agent,
+    harness,
+    task: 'cerca',
+    tools: [vaultRead],
+    signal: scope.signal,
+    scope,
+    log,
+    runId: 'r1',
+    sessions: new HarnessToolSessions(log),
+    mcpUrl: () => 'http://127.0.0.1:1/api/harness/mcp',
+    workspace: join(dir, 'ws'),
+    scratchRoot: join(dir, 'scratch'),
+    systemTools: true,
+    hookUrl: () => 'http://127.0.0.1:1/api/harness/hook',
+  });
+  return { log: log.query({ limit: 100 }), result };
+}
+
+describe('a refusal of the run’s rules is an error only if the run ends in one (D-166)', () => {
+  const bash = [
+    { type: 'tool-call', id: 't1', name: 'Bash', input: { command: 'x' } },
+    { type: 'tool-result', id: 't1', output: 'Nope.', isError: true },
+  ] satisfies HarnessEvent[];
+
+  it('a run that completed shows a record, never a red error', async () => {
+    const { log, result } = await runRefused(undefined, bash);
+    expect(result.status).toBe('completed');
+    expect(log.filter((e) => e.type === 'error')).toEqual([]);
+    expect(log.filter((e) => e.type === 'security').map((e) => e.data)).toMatchObject([
+      { action: 'internal_denied', tool: 'Bash', source: 'harness_rules' },
+    ]);
+  });
+
+  it('a run that ended in an error says the refusal as an error too', async () => {
+    const { log, result } = await runRefused('Claude Code si è fermato', bash);
+    expect(result.status).toBe('failed');
+    const codes = log
+      .filter((e): e is LogEvent<'error'> => e.type === 'error')
+      .map((e) => e.data.code);
+    expect(codes).toEqual(['harness_refused', 'agent_failed']);
+    expect(log.some((e) => e.type === 'security')).toBe(false);
+  });
+
+  it('a call the hook refused has its record already: the end adds nothing', async () => {
+    const records: unknown[] = [];
+    const refused: string[] = [];
+    const ctx = {
+      log: { append: (e: unknown) => (records.push(e), e) } as never,
+      agentId: 'nova',
+      runId: 'r1',
+      parentId: null,
+      monstersServer: 'monsters',
+      callEvent: () => '01JABCDEFGHJKMNPQRSTVWXYZ1',
+      refused: (id: string) => void refused.push(id),
+      lastText: () => '',
+      workspace: '/tmp/ws',
+    };
+    const answer = await answerHarnessHook(
+      {
+        hook_event_name: 'PreToolUse',
+        tool_use_id: 't9',
+        tool_name: 'Bash',
+        tool_input: { command: 'echo x > CLAUDE.md' },
+      },
+      ctx,
+      new AbortController().signal,
+    );
+    expect(JSON.stringify(answer)).toContain('deny');
+    expect(refused).toEqual(['t9']);
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      type: 'security',
+      data: { action: 'internal_denied', source: 'harness_config' },
+    });
+  });
+});
 
 describe('a capo of a project on Claude Code (Luna, 19/10)', () => {
   it('sees no WebSearch when its squad has the web, and knows who has it', async () => {
@@ -423,15 +538,18 @@ describe('harness runner: a refused built-in in the log (D-127)', () => {
     expect(rule.data).toMatchObject({ refusal: 'monsters_rule', ok: false });
     expect(rule.data.error).toContain('regola fissa di Monsters');
     expect(rule.data.error).toContain('non per un tuo permesso');
-    // Only the refusal the core could not read gets a line of its own.
-    const refused = log
-      .query({ limit: 100 })
-      .filter(
-        (e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'harness_refused',
-      );
+    // Only the refusal the core could not read gets a line of its own, and the run went on: it is a
+    // record of the instinct, not an error on a run that completed (D-166).
+    const all = log.query({ limit: 100 });
+    expect(all.filter((e) => e.type === 'error')).toEqual([]);
+    const refused = all.filter(
+      (e): e is LogEvent<'security'> =>
+        e.type === 'security' && e.data.action === 'internal_denied',
+    );
     expect(refused.map((e) => e.data.message)).toEqual([
       'Bash di Claude Code è stato rifiutato dalle regole di questo lavoro, non da te.',
     ]);
+    expect(refused[0]!.data).toMatchObject({ source: 'harness_rules', tool: 'Bash' });
     // The receipt says why, never that the user denied it.
     const receipt = buildReceipt({
       log,

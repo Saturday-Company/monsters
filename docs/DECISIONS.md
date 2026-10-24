@@ -5396,3 +5396,28 @@ to its successor: at every start the core replaces it in every agent's chain (`r
 `autoModels` kept, never the same model twice), so the teams made with the old default chain move too and stay
 "default" for D-069.
 
+### D-166 · The terminal brake judges each command, a refusal is not an error, a closed pipe is not a failure
+**Status:** done · 24/10/2026
+**Context:** three classes of noise from the owner's real logs (24/10). (1) The brake on Claude Code's Bash (D-079)
+refused a command when a config name (`CLAUDE.md`, `.claude`…) and any "write word" (`install`, `tar`, `node`…) appeared
+anywhere on the line: `du -sh .claude`, `ls .claude`, `grep -n install CLAUDE.md`, `cat CLAUDE.md | head; node -v`. (2)
+The refusal came back as a red `error` (`harness_refused`) on runs that completed. (3) `monsters start | tee core.log`:
+when tee died first, the final "Stopping..." hit EPIPE and the process guard logged `write EPIPE` as `uncaught_exception`.
+**Choices:**
+- `commandWritesConfig` (`command-writes-config.ts`) cuts the line into commands (`;`, `&&`, `||`, `|`, newlines, groups;
+  quotes respected) and judges each one. It writes the config if it redirects into it (or into a word the shell expands),
+  or it is not a known read-only command and names it (wrappers `sudo`/`env`/`xargs`… and `VAR=x` skipped; `cp`/`rsync`
+  only by their destination, `tar` by its mode and archive, `dd` by `of=`, `git` only for its reading subcommands), or an
+  interpreter runs code inline (`-e`, `-c`, `-`, a piped shell, `eval`) on a line that names it. After a `cd` into a
+  config folder, any later write blocks. `$(…)`, backticks, here-documents and process substitution keep blocking when a
+  name is on the line. Reading commands (`cat`, `ls`, `du`, `grep`, `wc`, `find` without `-delete`/`-exec`,
+  `git diff|log|show|status`…) pass whatever else is on the line. Lines that name no config are untouched, as before.
+- A refusal the hook made keeps its `security`/`internal_denied` record and nothing more. A denial only
+  `permission_denials` reports becomes the same kind of record (`source: harness_rules`); `harness_refused` stays an
+  `error` only when the run ends in one. The chat now reads these records with the core's own sentence (it said
+  "sentences aimed at the monsters").
+- The CLI ignores EPIPE and ERR_STREAM_DESTROYED on stdout and stderr (`broken-pipe.ts`, in `bin/monsters.js` and `run`);
+  the process guard neither records nor counts a write EPIPE without an address.
+**Consequence:** reading a config file is never refused for the words around it; the brake still stops every write it
+could follow, and when it cannot follow the line it blocks. A mid-run refusal is information, and a core behind a
+closed pipe stops cleanly.

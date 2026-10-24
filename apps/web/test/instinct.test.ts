@@ -151,6 +151,15 @@ describe('sentences of the instinct', () => {
         message: '',
       }),
     ).toBe('Ho tolto da una pagina web (visitlisboa.com) un testo che dava ordini ai mostri');
+    // A call the core refused is told in the core's words (D-166).
+    expect(
+      securitySentence({
+        action: 'internal_denied',
+        source: 'harness_rules',
+        tool: 'Bash',
+        message: 'Bash di Claude Code è stato rifiutato dalle regole di questo lavoro, non da te.',
+      }),
+    ).toBe('Bash di Claude Code è stato rifiutato dalle regole di questo lavoro, non da te');
     expect(chainModelName('openrouter:openrouter/free')).toBe('il modello gratuito di OpenRouter');
   });
 

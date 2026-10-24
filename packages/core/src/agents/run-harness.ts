@@ -771,6 +771,8 @@ async function runHarnessOnce(
   const toolNames = new Map<string, string>();
   /** Refused calls already told in plain words (D-127): `permission_denials` adds only the others. */
   const explained = new Set<string>();
+  /** Calls the core's own hook refused and recorded as `internal_denied` (D-166). */
+  const hookRefused = new Set<string>();
   /** `tool_call` events of the harness's own tools, by call id: logged once (stream or hook). */
   const callEvents = new Map<string, string>();
   const callEvent = (id: string, name: string, input: unknown): string => {
@@ -880,6 +882,7 @@ async function runHarnessOnce(
     ...(options.guard ? { guard: options.guard } : {}),
     ...(onFinalAnswer ? { onFinalAnswer } : {}),
     callEvent,
+    refused: (id) => hookRefused.add(id),
     lastText: () => lastText,
     ...(lock ? { lockout: { lock, cwd } } : {}),
     ...(options.closedFolders?.length && options.systemTools
@@ -1299,16 +1302,26 @@ async function runHarnessOnce(
           for (const d of e.denials ?? []) {
             if (explained.has(d.id) || d.tool.startsWith(`mcp__${HARNESS_MCP_SERVER}__`)) continue;
             explained.add(d.id);
-            log.append({
-              agent: agentId,
-              runId,
-              parentId,
-              type: 'error',
-              data: {
-                code: 'harness_refused',
-                message: runAgentStrings().harnessRefused(d.tool),
-              },
-            });
+            const message = runAgentStrings().harnessRefused(d.tool);
+            // A refusal mid-run is information: the monster read why and went on (D-166). It is an
+            // error only when the run ended in one; one the hook recorded already says it as a record.
+            if (e.reason === 'error') {
+              log.append({
+                agent: agentId,
+                runId,
+                parentId,
+                type: 'error',
+                data: { code: 'harness_refused', message },
+              });
+            } else if (!hookRefused.has(d.id)) {
+              log.append({
+                agent: agentId,
+                runId,
+                parentId: callEvents.get(d.id) ?? parentId,
+                type: 'security',
+                data: { action: 'internal_denied', source: 'harness_rules', tool: d.tool, message },
+              });
+            }
           }
           break;
       }

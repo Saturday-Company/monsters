@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 // Runs the TypeScript sources directly (Node >= 24 strips types natively).
 // Published builds will point to dist/ instead.
+import { ignoreBrokenPipe } from '../src/broken-pipe.ts';
 import { run } from '../src/main.ts';
+
+// `monsters start | tee`: a pipe that closed first is not a failure of the core (D-166).
+ignoreBrokenPipe();
 
 process.exitCode = await run(process.argv.slice(2));
 

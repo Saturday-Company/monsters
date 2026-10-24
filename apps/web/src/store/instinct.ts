@@ -60,9 +60,11 @@ export function securitySentence(d: EventDataMap['security']): string {
       return s.injectionRemoved(from);
     case 'invisible_removed':
       return s.invisibleRemoved(from);
-    // Tools of another program changed (D-070): the core's sentence names it as the user does.
+    // Tools of another program changed (D-070), a call the core refused (D-078, D-079, D-166): the
+    // core's sentence names it as the user does.
     case 'mcp_tools_changed':
     case 'mcp_tools_accepted':
+    case 'internal_denied':
       return d.message.replace(/\.$/, '');
     default:
       return s.flagged(from);
