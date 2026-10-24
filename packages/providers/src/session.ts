@@ -78,10 +78,13 @@ export function isStreamStart(raw: unknown): boolean {
 const CACHE_CONTROL = { anthropic: { cacheControl: { type: 'ephemeral' } } } as const;
 
 /**
- * The prompt with cache breakpoints on the system message and on the last
- * message: the stable prefix (tools, system) and the conversation so far are
- * read from the cache at the next step (AG-20). Two breakpoints of the four
- * Anthropic allows.
+ * The prompt with cache breakpoints (AG-20, D-166), three of the four Anthropic allows:
+ * - the last system message: the tools and the system prompt, the stable prefix;
+ * - the last message: the conversation so far, read at the next step;
+ * - the `user` or `tool` message before the last one: the end of the previous step. Anthropic
+ *   finds a cached prefix by looking back at most 20 blocks from a breakpoint, and a step with
+ *   many parallel calls adds more than that; this mark is where the last step's cache was
+ *   written, so it is read whatever the step added (a rolling breakpoint).
  *
  * A `tool` message holds one result per call of the step, and OpenRouter
  * copies a message-level breakpoint onto each of them: four calls in parallel
@@ -92,10 +95,13 @@ const CACHE_CONTROL = { anthropic: { cacheControl: { type: 'ephemeral' } } } as 
 export function withPromptCache(prompt: LanguageModelV4Prompt): LanguageModelV4Prompt {
   const lastSystem = prompt.findLastIndex((m) => m.role === 'system');
   const last = prompt.length - 1;
+  const previous = prompt.findLastIndex(
+    (m, i) => i < last && (m.role === 'user' || m.role === 'tool'),
+  );
   return prompt.map((m, i) => {
     if (i === lastSystem)
       return { ...m, providerOptions: { ...m.providerOptions, ...CACHE_CONTROL } };
-    if (i !== last || m.role === 'system') return m;
+    if ((i !== last && i !== previous) || m.role === 'system') return m;
     if (m.role === 'tool') {
       const at = m.content.findLastIndex((p) => p.type === 'tool-result');
       if (at < 0) return m;

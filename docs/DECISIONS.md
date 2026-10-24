@@ -5396,3 +5396,36 @@ to its successor: at every start the core replaces it in every agent's chain (`r
 `autoModels` kept, never the same model twice), so the teams made with the old default chain move too and stay
 "default" for D-069.
 
+### D-166 · Prompt cache on the API-key path: the tools stay put, a third breakpoint rolls
+**Status:** done · 24/10/2026
+**Context:** the owner's rule is that Monsters never costs more than the model used directly. Anthropic (a key, or
+Claude on OpenRouter) caches what the request marks and reads the prompt in this order: tools, system prompt, messages;
+a change early in that list rewrites everything after it (1.25x instead of 0.1x). I captured the exact bodies the core
+sends for two turns with Anteiku's 124 tools (real providers, fake wire, `test/prompt-cache.test.ts`). Already right:
+the breakpoints on the system prompt and the last message (D-064), a system prompt with nothing of the turn, tools in a
+fixed order that only grows inside a run (`toolOrder`, D-163), masking by chunks (D-075). Broken: (1) the preload of
+the MCP tools is ranked by the turn's words and the recent use, so turn 2's first request had other tools than turn
+1's last one (first difference at tool 2 of 15) with the same system prompt and first message: the whole cache was
+rewritten at every turn; (2) `tools_search` said how many tools wait, and the number moved with the preload; (3) one
+breakpoint on the conversation: Anthropic looks back 20 blocks from it, and a step with many parallel calls adds more.
+**Choices:**
+- `ToolSetMemory` (`tool-search.ts`, one per hub, passed to `runAgent` as `toolMemory`): at the end of a run the
+  agent's list is kept for 5 minutes (the life of the cache); the next run starts with it, same order, and what its
+  words point at that it lacked is appended, like a load. A list past twice the preload starts over (a provider that
+  does not cache would pay for tools it does not use); loads by search keep their own cap. After 5 minutes the cache
+  is cold and nothing is kept.
+- `tools_search` counts all the tools that wait, the preloaded ones too: its description is fixed for the agent.
+- Third breakpoint (`withPromptCache`): the `user` or `tool` message before the last, where the previous step wrote
+  its cache (on a `tool` message the last result only, as before). Three of the four allowed. Other providers get none
+  and cache by prefix, so the stable prefix is what counts there.
+- Not done: a tool loaded in the middle of a run is still appended to `tools`, and since tools come first that one
+  request rewrites the cache; defining it elsewhere (schemas in the search result, called through a wrapper, as for
+  Codex) would give up native tool calls. A forced last step (`activeTools: []`) also changes the tools; it only
+  happens when a run uses all its steps. Usage was already right: OpenRouter's `cached_tokens`, `cache_write_tokens`
+  and `cost`, Anthropic's `cache_creation_input_tokens` and `cache_read_input_tokens` reach `provider_usage`, the
+  token limit counts reads apart and the estimate prices them (tests added).
+**Consequence:** a conversation within 5 minutes reads tools, system prompt and history from the cache from the first
+request of each turn, unless the turn needs tools it did not have (then that one request writes). Real check, Haiku 4.5
+on OpenRouter, 2 turns, 9.3k tokens of prompt: 9317 written, 9317 read at the next step and 9317 read at the first
+request of turn 2; $0.0146 for three requests that would cost $0.029 uncached.
+

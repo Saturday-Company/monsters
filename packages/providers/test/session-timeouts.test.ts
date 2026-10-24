@@ -266,12 +266,55 @@ describe('prompt cache breakpoints (D-064, AG-20)', () => {
     { role: 'user', content: [{ type: 'text', text: 'scrivi un post' }] },
   ];
 
-  it('marks the system prompt and the last message, nothing else', () => {
+  it('marks the system prompt, the last message and the end of the previous step, nothing else', () => {
     const marked = withPromptCache(prompt);
     const flags = marked.map((m) => m.providerOptions?.anthropic?.cacheControl);
-    expect(flags).toEqual([{ type: 'ephemeral' }, undefined, undefined, { type: 'ephemeral' }]);
+    const on = { type: 'ephemeral' };
+    expect(flags).toEqual([on, on, undefined, on]);
+    // Never more than the four Anthropic allows, the first request of a run has two.
+    expect(
+      withPromptCache(prompt.slice(0, 2)).filter((m) => m.providerOptions?.anthropic).length,
+    ).toBe(2);
     // The input is not changed.
     expect(prompt.every((m) => m.providerOptions === undefined)).toBe(true);
+  });
+
+  it('the rolling mark sits on the last result of the previous step’s tool message', () => {
+    const call = (id: string) => ({
+      type: 'tool-call' as const,
+      toolCallId: id,
+      toolName: 'vault_read',
+      input: {},
+    });
+    const result = (id: string) => ({
+      type: 'tool-result' as const,
+      toolCallId: id,
+      toolName: 'vault_read',
+      output: { type: 'text' as const, value: id },
+    });
+    const long: LanguageModelV4Prompt = [
+      { role: 'system', content: 'Sei Titan.' },
+      { role: 'user', content: [{ type: 'text', text: 'leggi' }] },
+      { role: 'assistant', content: [call('a'), call('b')] },
+      { role: 'tool', content: [result('a'), result('b')] },
+      { role: 'assistant', content: [call('c'), call('d')] },
+      { role: 'tool', content: [result('c'), result('d')] },
+    ];
+    const marked = withPromptCache(long);
+    const at = (i: number) =>
+      marked[i]!.role === 'tool'
+        ? (marked[i]!.content as { providerOptions?: unknown }[]).map(
+            (p) => p.providerOptions !== undefined,
+          )
+        : marked[i]!.providerOptions !== undefined;
+    expect([0, 1, 2, 3, 4, 5].map(at)).toEqual([
+      true,
+      false,
+      false,
+      [false, true],
+      false,
+      [false, true],
+    ]);
   });
 
   it('only for the links whose model caches on request', async () => {

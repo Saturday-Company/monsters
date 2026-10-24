@@ -48,6 +48,7 @@ import {
   recentToolUse,
   toolSearchConfigFor,
   type ToolSearchConfig,
+  type ToolSetMemory,
 } from './tool-search.ts';
 import { cacheUsage } from './usage.ts';
 import { runAgentPrompts, SUMMARY_TAGS } from './run-agent.prompts.ts';
@@ -146,6 +147,12 @@ export interface RunAgentOptions {
    * send them all.
    */
   toolSearch?: ToolSearchConfig | false;
+  /**
+   * Where the agent's tools of the last run are kept (D-166): a run that follows soon starts with
+   * the same tools in the same order, so the prompt cache, which reads the tools first, is not
+   * rewritten by a different preload.
+   */
+  toolMemory?: ToolSetMemory;
   /**
    * Own tools of the run that wait for `tools_search` in this turn, with the group the card
    * names them by (D-134): on a free chain the web for a request that does not seem to need it,
@@ -697,6 +704,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
             ),
           options.deferOwn,
           turnWords(task, options.history ?? []),
+          options.toolMemory?.get(agentId),
         );
   const agentTools = deferral ? [...withContext, deferral.tool()] : withContext;
 
@@ -1478,6 +1486,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
   } finally {
     session.setContextRescue(null);
     session.setToolFilter(null);
+    if (deferral) options.toolMemory?.set(agentId, deferral.kept());
     if (held !== null) {
       // The extra steps called no tool: their text is dropped, the first answer stands.
       parts = heldParts;

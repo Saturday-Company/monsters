@@ -429,6 +429,63 @@ export type MissedTool =
   | { name: string; state: 'unknown' };
 
 /**
+ * The tools an agent had sent at the end of its last run (D-166): `preload` the ones sent from
+ * the first step, `loaded` the ones searches and direct calls added, both in the order they went.
+ */
+export interface KeptTools {
+  preload: readonly string[];
+  loaded: readonly string[];
+}
+
+/** How long the tools of a run are kept for the next one: the life of the providers' prompt cache. */
+export const TOOL_SET_TTL_MS = 5 * 60_000;
+
+/**
+ * The tools each agent sent at the end of its last run (D-166). The tools come first in the
+ * prompt, so a turn that preloads other tools than the turn before rewrites the whole cache even
+ * if the system prompt and the history are the same. A turn that follows within the life of the
+ * cache starts with the tools of the last one, in the same order, and what its own words point at
+ * comes after: the list only grows, as it does inside a run, and a cache that is still warm is
+ * read. After `ttlMs` the entry is forgotten (the cache is cold, a stale tool would only cost
+ * tokens) and a list grown past twice the preload is dropped (`DeferredTools`).
+ */
+export class ToolSetMemory {
+  readonly #sets = new Map<string, { at: number; kept: KeptTools }>();
+  readonly #ttlMs: number;
+  readonly #now: () => number;
+  readonly #max: number;
+
+  constructor(options: { ttlMs?: number; now?: () => number; max?: number } = {}) {
+    this.#ttlMs = options.ttlMs ?? TOOL_SET_TTL_MS;
+    this.#now = options.now ?? Date.now;
+    this.#max = options.max ?? 200;
+  }
+
+  get(key: string): KeptTools | undefined {
+    const entry = this.#sets.get(key);
+    if (!entry) return undefined;
+    if (this.#now() - entry.at > this.#ttlMs) {
+      this.#sets.delete(key);
+      return undefined;
+    }
+    return entry.kept;
+  }
+
+  set(key: string, kept: KeptTools): void {
+    this.#sets.delete(key);
+    this.#sets.set(key, {
+      at: this.#now(),
+      kept: { preload: [...kept.preload], loaded: [...kept.loaded] },
+    });
+    // Oldest first out: a map keeps the order things were set in.
+    for (const old of this.#sets.keys()) {
+      if (this.#sets.size <= this.#max) break;
+      this.#sets.delete(old);
+    }
+  }
+}
+
+/**
  * The tools of one run of an agent when its MCP tools are many, or when some
  * of its own wait for this turn: what is sent at each step (`activeNames`) and
  * the `tools_search` tool that adds to it.
@@ -449,8 +506,14 @@ export class DeferredTools {
   /** Every tool of the run (but `tools_search`), by name: what a search can find. */
   readonly #all: Map<string, MonstersTool>;
   readonly #index: ToolIndex;
-  /** Loaded by searches, in the order they came. */
+  /** Loaded by searches (after the ones kept from the last run), in the order they came. */
   readonly #loaded: string[] = [];
+  /** The first of `#loaded` came with the last run's tools or the turn's words, not from a search. */
+  #carried = 0;
+  /** The MCP tools of `base`, the ones preloaded (what the next run keeps). */
+  readonly #preloaded: string[];
+  /** Every tool that waits, the preloaded ones too (what `tools_search` says it holds). */
+  readonly #waiting: readonly MonstersTool[];
   /** The MCP tools wait too (they are many). */
   readonly mcp: boolean;
   /** Own tools that wait for this turn only, with the group the card names them by. */
@@ -465,6 +528,8 @@ export class DeferredTools {
     turn: ReadonlyMap<string, string>,
     /** The words of the turn (the request, the last messages), for the preload (D-163). */
     query: string,
+    /** The tools the last run of the agent sent, while the cache is warm (D-166). */
+    kept?: KeptTools,
   ) {
     this.config = config;
     this.mcp = mcp;
@@ -482,10 +547,29 @@ export class DeferredTools {
           )
         : [],
     );
-    this.base = [...tools.filter((t) => !waits(t)).map((t) => t.name), ...[...preload].sort()];
+    this.#waiting = deferred;
+    // The last run's list first, in its order, then what the words of this turn point at that it
+    // did not have, appended like a load (D-166). A list grown past twice the preload is let go
+    // (a model whose provider does not cache would pay for the tools it does not use) and the
+    // turn starts over from its own words, as it did before.
+    const waiting = new Set(deferred.map((t) => t.name));
+    const fresh = [...preload].sort();
+    let keptPreload = (kept?.preload ?? []).filter((n) => waiting.has(n));
+    let keptLoaded = (kept?.loaded ?? []).filter((n) => waiting.has(n) && !keptPreload.includes(n));
+    const news = fresh.filter((n) => !keptPreload.includes(n) && !keptLoaded.includes(n));
+    if (keptPreload.length + keptLoaded.length + news.length > config.preload * 2) {
+      keptPreload = [];
+      keptLoaded = [];
+    }
+    const sticky = keptPreload.length + keptLoaded.length > 0;
+    this.#preloaded = sticky ? keptPreload : fresh;
+    this.#loaded.push(...(sticky ? [...keptLoaded, ...news] : []));
+    this.#carried = this.#loaded.length;
+    const inBase = new Set(this.#preloaded);
+    this.base = [...tools.filter((t) => !waits(t)).map((t) => t.name), ...this.#preloaded];
     this.#deferred = new Map(
       deferred
-        .filter((t) => !preload.has(t.name))
+        .filter((t) => !inBase.has(t.name))
         .sort((a, b) => (a.name < b.name ? -1 : 1))
         .map((t) => [t.name, t]),
     );
@@ -505,6 +589,7 @@ export class DeferredTools {
     recent: () => string[] = () => [],
     turn: ReadonlyMap<string, string> = new Map(),
     query = '',
+    kept?: KeptTools,
   ): DeferredTools | null {
     const mcp = tools.filter((t) => deferrable(t) && !DEFERRABLE_OWN_TOOLS.has(t.name)).length;
     const own = tools.some((t) => DEFERRABLE_OWN_TOOLS.has(t.name) || turn.has(t.name));
@@ -516,7 +601,13 @@ export class DeferredTools {
       mcp > config.threshold,
       new Map([...turn].filter(([n]) => tools.some((t) => t.name === n))),
       query,
+      kept,
     );
+  }
+
+  /** What the next run of the agent starts from while the cache is warm (`ToolSetMemory`). */
+  kept(): KeptTools {
+    return { preload: [...this.#preloaded], loaded: [...this.#loaded] };
   }
 
   get loaded(): readonly string[] {
@@ -563,7 +654,7 @@ export class DeferredTools {
     const added: string[] = [];
     for (const n of [...names].sort()) {
       if (!this.#deferred.has(n) || this.#loaded.includes(n)) continue;
-      if (this.#loaded.length >= this.config.maxLoaded) break;
+      if (this.#loaded.length - this.#carried >= this.config.maxLoaded) break;
       this.#loaded.push(n);
       added.push(n);
     }
@@ -587,8 +678,10 @@ export class DeferredTools {
 
   /** Servers and how many of their tools wait: `anteiku (124)`. */
   #servers(): string {
+    // All that wait, the preloaded ones too: the search holds them all, and the number must not
+    // change with the turn's preload, or the tool's description (first in the prompt) would (D-166).
     const by = new Map<string, number>();
-    for (const n of this.#deferred.keys()) {
+    for (const { name: n } of this.#waiting) {
       const s =
         splitAgentToolName(n)?.server ??
         DEFERRABLE_OWN_TOOLS.get(n) ??
