@@ -87,6 +87,11 @@ test('settings: connect the bot, pair an account, quiet night, remove', async ({
   await expect(section.getByTestId('telegram-user')).toContainText('Giulio · @giulio');
 
   // Quiet night: hours appear when it is on.
+  const notifications = section.getByTestId('telegram-notifications');
+  await expect(notifications).toContainText(
+    'Questions, finished work, errors · quiet at night off',
+  );
+  await notifications.getByRole('button', { name: /Notifications/ }).click();
   const quiet = section.getByRole('switch', { name: 'Quiet at night' });
   await expect(quiet).toHaveAttribute('aria-checked', 'false');
   await quiet.click();
@@ -97,6 +102,7 @@ test('settings: connect the bot, pair an account, quiet night, remove', async ({
   const done = section.getByRole('switch', { name: 'Work finished' });
   await done.click();
   await expect(done).toHaveAttribute('aria-checked', 'false');
+  await expect(notifications).toContainText('Questions, errors · quiet at night 22:00–07:30');
 
   // Remove the account; then the bot.
   await section.getByRole('button', { name: 'Remove Giulio' }).click();
