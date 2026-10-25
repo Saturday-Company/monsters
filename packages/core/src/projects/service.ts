@@ -690,6 +690,28 @@ export class ProjectService {
     return this.#serial(id, () => this.#update(id, u, by));
   }
 
+  /**
+   * Takes a service off the project's list of those turned off (D-164), reading the list in its
+   * turn: another change of the same project queued before cannot be overwritten by a list read
+   * earlier (C-10). Nothing to do when it is not turned off.
+   */
+  allowConnection(
+    id: string,
+    via: 'mcp' | 'claude',
+    service: string,
+    by: Channel,
+  ): Promise<ProjectView> {
+    return this.#serial(id, async () => {
+      const current = this.#active(id);
+      const off = current.connectionsOff[via];
+      if (!off.includes(service)) return this.view(current);
+      const u = ProjectUpdateRequestSchema.parse({
+        connectionsOff: { [via]: off.filter((x) => x !== service) },
+      });
+      return this.#update(id, u, by);
+    });
+  }
+
   async #update(
     id: string,
     u: ReturnType<typeof ProjectUpdateRequestSchema.parse>,

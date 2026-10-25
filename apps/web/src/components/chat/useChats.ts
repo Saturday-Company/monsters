@@ -4,7 +4,7 @@ import {
   automationWork,
   buildChat,
   capitalize,
-  chatThread,
+  chatThreads,
   runOwners,
   withoutAutomationRuns,
   type ChatItem,
@@ -62,7 +62,11 @@ export function chatData(
   const items = buildChat(chat, pending, (id) => names.get(id) ?? capitalize(id));
   const owners = runOwners(chat);
   const scope = { orchestrator, owners };
-  const threads = new Map(agents.map((a) => [a.id, chatThread(items, a.id, scope)]));
+  const threads = chatThreads(
+    items,
+    agents.map((a) => a.id),
+    scope,
+  );
   const waiting = new Map<string, Question[]>();
   for (const q of Object.values(questions)) {
     if (q.status !== 'open' || auto.has(q.runId)) continue;

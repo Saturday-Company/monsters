@@ -336,6 +336,7 @@ function AddBotForm({
             onChange={(e) => setAgent(e.target.value)}
             className={`${selectClass} w-full sm:w-[340px]`}
             aria-invalid={errors.agent ? true : undefined}
+            aria-describedby={errors.agent ? `${ids}-agent-error` : `${ids}-agent-hint`}
             data-testid="telegram-bot-agent"
           >
             <option value="" disabled>
@@ -369,6 +370,7 @@ function AddBotForm({
             onChange={(e) => setLimit(e.target.value.replace(/[^\d]/g, ''))}
             className={`${fieldOnGroup} w-36 tabular-nums`}
             aria-invalid={errors.limit ? true : undefined}
+            aria-describedby={errors.limit ? `${ids}-limit-error` : `${ids}-limit-hint`}
           />
         </FormField>
         {errors.form && (

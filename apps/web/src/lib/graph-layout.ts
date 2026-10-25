@@ -1,3 +1,5 @@
+import type { VaultEdge, VaultNoteSummary } from '@monsters/shared';
+
 /*
  * Small force layout for the link graph of the vault (no dependency): many-body
  * repulsion with a Barnes-Hut quadtree (O(n log n) per tick), springs on the
@@ -91,7 +93,45 @@ function seed(n: number, x: Float64Array, y: Float64Array): void {
   }
 }
 
-export function createGraphLayout(n: number, links: readonly [number, number][]): GraphLayout {
+export interface LayoutStart {
+  /** Where each note was before (null = new): a refresh keeps the places the user knows. */
+  positions?: readonly ({ x: number; y: number } | null)[];
+  /** Starting temperature: low for a refresh of a laid out graph, 1 (default) for a first layout. */
+  alpha?: number;
+}
+
+/** The temperature a refresh of a laid-out graph starts from: the notes shift, they do not explode. */
+export const REFRESH_ALPHA = 0.25;
+
+/**
+ * Starting points for a refresh: the places of the notes that were already there (by path); a new
+ * note starts next to the notes it links to, or, with none placed, on the seed spiral.
+ */
+export function startPositions(
+  paths: readonly string[],
+  links: readonly [number, number][],
+  before: ReadonlyMap<string, { x: number; y: number }>,
+): ({ x: number; y: number } | null)[] {
+  const out = paths.map((p) => before.get(p) ?? null);
+  const near = new Map<number, { x: number; y: number }[]>();
+  for (const [a, b] of links) {
+    if (out[a] && !out[b]) near.set(b, [...(near.get(b) ?? []), out[a]]);
+    if (out[b] && !out[a]) near.set(a, [...(near.get(a) ?? []), out[b]]);
+  }
+  for (const [i, ps] of near) {
+    const x = ps.reduce((sum, p) => sum + p.x, 0) / ps.length;
+    const y = ps.reduce((sum, p) => sum + p.y, 0) / ps.length;
+    // A small deterministic offset, so two new notes on the same neighbour do not overlap.
+    out[i] = { x: x + ((i * 7) % 11) - 5, y: y + ((i * 13) % 11) - 5 };
+  }
+  return out;
+}
+
+export function createGraphLayout(
+  n: number,
+  links: readonly [number, number][],
+  start: LayoutStart = {},
+): GraphLayout {
   const x = new Float64Array(n);
   const y = new Float64Array(n);
   const vx = new Float64Array(n);
@@ -106,7 +146,16 @@ export function createGraphLayout(n: number, links: readonly [number, number][])
   const strength = valid.map(([a, b]) => 1 / Math.max(1, Math.min(degree[a]!, degree[b]!)));
   const bias = valid.map(([a, b]) => degree[a]! / Math.max(1, degree[a]! + degree[b]!));
   seed(n, x, y);
-  let alpha = n > 0 ? 1 : 0;
+  if (start.positions) {
+    for (let i = 0; i < n; i++) {
+      const p = start.positions[i];
+      if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+        x[i] = p.x;
+        y[i] = p.y;
+      }
+    }
+  }
+  let alpha = n > 0 ? (start.alpha ?? 1) : 0;
   const all = Array.from({ length: n }, (_, i) => i);
 
   const repel = (root: Quad, i: number) => {
@@ -278,4 +327,28 @@ export function placeLabels(
     out.add(c.id);
   }
   return out;
+}
+
+/** What the graph draws of the vault: who is there, how they are called, who wrote them, the links. */
+export interface GraphInput {
+  notes: readonly Pick<VaultNoteSummary, 'path' | 'title' | 'author'>[];
+  edges: readonly VaultEdge[];
+}
+
+/**
+ * True when two reads of the vault look the same on the graph: a refresh after an agent edited the
+ * body of a note (new `updated`, same links) must not lay the graph out again.
+ */
+export function sameGraph(a: GraphInput, b: GraphInput): boolean {
+  if (a === b) return true;
+  if (a.notes.length !== b.notes.length || a.edges.length !== b.edges.length) return false;
+  for (let i = 0; i < a.notes.length; i++) {
+    const p = a.notes[i]!;
+    const q = b.notes[i]!;
+    if (p.path !== q.path || p.title !== q.title || p.author !== q.author) return false;
+  }
+  for (let i = 0; i < a.edges.length; i++) {
+    if (a.edges[i]!.from !== b.edges[i]!.from || a.edges[i]!.to !== b.edges[i]!.to) return false;
+  }
+  return true;
 }

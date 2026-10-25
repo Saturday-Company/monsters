@@ -148,6 +148,38 @@ test.describe('dedicated bots, desktop light', () => {
     await expect(bots.getByTestId('telegram-bot')).toHaveCount(1);
   });
 
+  test('a missing monster and a bad limit are said under their own field, not under the code (W-33)', async ({
+    page,
+  }) => {
+    const bots = await openBots(page);
+    await bots.getByRole('button', { name: 'Add a bot for a monster' }).click();
+    const form = bots.getByTestId('telegram-bot-form');
+    const token = form.getByLabel('Bot code (from BotFather)');
+    const select = form.getByLabel('The monster that answers');
+    const limit = form.getByLabel('Messages per day (optional)');
+    await token.fill(TOKEN);
+    await limit.fill('99999');
+    await form.getByRole('button', { name: 'Connect the bot' }).click();
+    const alerts = form.getByRole('alert');
+    await expect(alerts).toHaveCount(2);
+    await expect(alerts.nth(0)).toHaveText('Choose the monster that answers from this bot.');
+    await expect(alerts.nth(1)).toContainText('whole number between 1 and 10000');
+    await expect(select).toHaveAttribute('aria-invalid', 'true');
+    await expect(limit).toHaveAttribute('aria-invalid', 'true');
+    await expect(token).not.toHaveAttribute('aria-invalid', 'true');
+    // Each error sits in its own field and is its description.
+    await expect(select.locator('xpath=..')).toContainText('Choose the monster');
+    await expect(token.locator('xpath=..')).not.toContainText('Choose the monster');
+    await expect(select).toHaveAccessibleDescription(
+      'Choose the monster that answers from this bot.',
+    );
+    // Fixing the field and sending again clears them.
+    await select.selectOption({ label: 'Pandora · Saturday Social' });
+    await limit.fill('150');
+    await form.getByRole('button', { name: 'Connect the bot' }).click();
+    await expect(page.getByText('Bot @PandoraSaturdayBot connected to Pandora.')).toBeVisible();
+  });
+
   test('the group bots are one closed Advanced row; the long explanations wait behind "How groups work"', async ({
     page,
   }) => {

@@ -1,6 +1,7 @@
 import { createSocket } from 'node:dgram';
 import type { Page } from '@playwright/test';
 import { STUN_PROBE_PORT } from '../src/lib/mock/files-data.ts';
+import type * as VaultApi from '../src/components/vault/api.ts';
 import type * as PreviewStore from '../src/store/preview.ts';
 import type { MockCore } from '../src/lib/mock/core.ts';
 import { expect, test } from './fixtures.ts';
@@ -113,6 +114,26 @@ test('a PDF, a note and a page of the chat; the strip keeps them', async ({ page
     if (n > 0) await expect(strip.getByTestId('preview-chip')).toHaveCount(n);
   }
   await expect(dock(page)).toHaveCount(0);
+});
+
+test('a note made after the first preview resolves in the links of the next one (W-38)', async ({
+  page,
+}) => {
+  await page.goto(SCENE);
+  await open(page, { kind: 'note', path: 'Inbox/Quick idea.md' });
+  const body = dock(page).getByTestId('vault-note-body');
+  await expect(body.getByTestId('vault-link-missing')).toHaveText('Note to write');
+  // Someone writes the note the link names; the vault tells the app.
+  await page.evaluate(async (src) => {
+    const { vaultApi } = (await import(/* @vite-ignore */ src)) as typeof VaultApi;
+    await vaultApi.create('Inbox', 'Note to write', 'Written afterwards.');
+  }, '/src/components/vault/api.ts');
+  await open(page, { kind: 'note', path: 'Resources/Tram 28.md' });
+  await expect(dock(page).getByTestId('preview-title')).toHaveText('Tram 28');
+  await open(page, { kind: 'note', path: 'Inbox/Quick idea.md' });
+  await expect(dock(page).getByTestId('preview-title')).toHaveText('Quick idea');
+  await expect(body.getByTestId('vault-link-missing')).toHaveCount(0);
+  await expect(body.getByRole('link', { name: 'Note to write' })).toBeVisible();
 });
 
 test('text, CSV, JSON, code and other files', async ({ page }) => {

@@ -13,6 +13,7 @@ import { desktop } from '../../lib/desktop.ts';
 import { getApi, notify } from '../../store/app.ts';
 import { formatBytes, kindWord, replaceFileMeta, textFlavor } from './files.ts';
 import { previewStrings } from './preview.strings.ts';
+import { readCappedText } from './read-capped.ts';
 import {
   commentMarks,
   parseCsv,
@@ -229,9 +230,7 @@ function useText(url: string): TextState {
     (async () => {
       const res = await fetch(url, { credentials: 'same-origin', signal: ctl.signal });
       if (!res.ok) throw new Error(`http_${res.status}`);
-      const buf = await res.arrayBuffer();
-      const cut = buf.byteLength > TEXT_MAX_BYTES;
-      const text = new TextDecoder('utf-8').decode(cut ? buf.slice(0, TEXT_MAX_BYTES) : buf);
+      const { text, cut } = await readCappedText(res, TEXT_MAX_BYTES);
       if (alive) setState({ url, value: { state: 'ready', text, cut } });
     })().catch(() => alive && setState({ url, value: { state: 'error' } }));
     return () => {

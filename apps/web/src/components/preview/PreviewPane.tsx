@@ -26,10 +26,11 @@ import {
 import { desktop } from '../../lib/desktop.ts';
 import { hashParam, openPage, tagPath, vaultPath } from '../../lib/router.ts';
 import { linkIndex, withoutTitle } from '../../lib/vault-markdown.ts';
-import { notify } from '../../store/app.ts';
+import { notify, useApp } from '../../store/app.ts';
 import { useNameOf } from '../../store/hooks.ts';
 import { openPreview, previewKey, usePreview } from '../../store/preview.ts';
 import { vaultApi, vaultError } from '../vault/api.ts';
+import { lastVaultChange } from '../vault/shared.tsx';
 import { VaultMarkdown } from '../vault/VaultMarkdown.tsx';
 import {
   downloadHref,
@@ -279,17 +280,24 @@ function FileItem({ fileId }: { fileId: string }) {
   );
 }
 
-let overview: Promise<(target: string) => string | null> | null = null;
-/** The links of the notes, resolved like Notes does (read once per session). */
-function noteLinks(): Promise<(target: string) => string | null> {
-  overview ??= vaultApi
-    .overview()
-    .then((o) => linkIndex(o.notes.map((n) => n.path)))
-    .catch((err: unknown) => {
-      overview = null;
-      throw err;
-    });
-  return overview;
+let overview: { change: string | null; read: Promise<(target: string) => string | null> } | null =
+  null;
+/**
+ * The links of the notes, resolved like Notes does. The list is read again when the vault changed
+ * since it was read (a note made after the first preview must resolve too, W-38).
+ */
+function noteLinks(change: string | null): Promise<(target: string) => string | null> {
+  if (overview?.change !== change) {
+    const read = vaultApi
+      .overview()
+      .then((o) => linkIndex(o.notes.map((n) => n.path)))
+      .catch((err: unknown) => {
+        if (overview?.read === read) overview = null;
+        throw err;
+      });
+    overview = { change, read };
+  }
+  return overview.read;
 }
 
 function NoteItem({ path }: { path: string }) {
@@ -303,7 +311,7 @@ function NoteItem({ path }: { path: string }) {
   useEffect(() => {
     let alive = true;
     // A wikilink names a note by its title: resolved like Notes does, then read.
-    noteLinks()
+    noteLinks(lastVaultChange(useApp.getState()))
       .catch((): ((t: string) => string | null) => () => null)
       .then(async (resolve) => ({ resolve, note: await vaultApi.note(resolve(path) ?? path) }))
       .then(({ note, resolve }) => alive && setState({ path, note, resolve }))

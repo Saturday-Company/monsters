@@ -26,6 +26,7 @@ import type { Transport } from '../lib/transport.ts';
 import { automationPath, MCP_SIGN_IN_PATH, PATHS, SPEND_CAP_PATH } from '../lib/router.ts';
 import { appStrings } from './app.strings.ts';
 import { keepHeld, storedHeld, takeHeld } from './drafts.ts';
+import { appendFolding, chatsAfterTrim, EVENTS_KEEP, trimEvents } from './event-cap.ts';
 import { usePreview } from './preview.ts';
 import { listsInUse, refreshDrafts, refreshProjects, resetLists } from './projects.ts';
 import {
@@ -242,6 +243,8 @@ const choiceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const chatLoads = new Map<string, Promise<number>>();
 /** The core has `GET /api/chats/:agent/history` (false after its 404: a core of before it). */
 let chatRoute = true;
+/** Events of pages of history loaded in this session: the cap of the store makes room for them. */
+let pagedIn = 0;
 /** Moves on at every sign-out: an answer of the session before is dropped. */
 let sessionSeq = 0;
 
@@ -309,8 +312,33 @@ export function ingest(batch: readonly LogEvent[], opts: IngestOptions = {}): vo
     let events = s.events;
     if (fresh.length > 0) {
       const last = events[events.length - 1];
-      if (!last || fresh[0]!.id > last.id) events = [...events, ...fresh];
+      if (!last || fresh[0]!.id > last.id)
+        events = opts.history ? [...events, ...fresh] : appendFolding(events, fresh);
       else events = [...events, ...fresh].sort(byId);
+    }
+    // A long session keeps the newest events; older ones are read again from the core (W-25).
+    // Pages of history the user asked for count apart, or they would go with the next event.
+    let trim: Partial<Pick<AppState, 'hasOlder' | 'historyFloor' | 'chats'>> = {};
+    if (opts.history) pagedIn += fresh.length;
+    else {
+      const cut = trimEvents(
+        events,
+        EVENTS_KEEP + pagedIn,
+        (e) => e.type === 'question' && s.questions[e.data.questionId]?.status === 'open',
+      );
+      if (cut) {
+        events = cut.events;
+        for (const e of cut.dropped) {
+          seen.delete(e.id);
+          localIds.delete(e.id);
+        }
+        trim = {
+          hasOlder: true,
+          historyFloor:
+            s.historyFloor !== null && s.historyFloor > cut.floor ? s.historyFloor : cut.floor,
+          chats: chatsAfterTrim(s.chats, cut.floor),
+        };
+      }
     }
 
     let live = s.live;
@@ -372,7 +400,7 @@ export function ingest(batch: readonly LogEvent[], opts: IngestOptions = {}): vo
         liveAt = e.id;
       }
     }
-    return { events, live, liveAt, questions, halted, haltedReason, undone };
+    return { events, live, liveAt, questions, halted, haltedReason, undone, ...trim };
   });
   if (opts.history) return;
   // The spending cap (D-070): a warning or a stop that just happened is a toast too.
@@ -633,6 +661,7 @@ function streamCursor(): string | undefined {
 /** The module's own memory of a session (the store's state is reset by the callers). */
 function clearModuleState(): void {
   seen.clear();
+  pagedIn = 0;
   endedRuns.clear();
   localIds.clear();
   keptHeld.clear();

@@ -148,6 +148,36 @@ test('graph: a click on a node opens the note, keyboard too', async ({ page }) =
   await expect(title(page)).toHaveText(name);
 });
 
+test('graph: typing in the search does not lay the graph out again (W-11)', async ({ page }) => {
+  await openVault(page, '#/note?vista=grafo');
+  await expect(page.getByTestId('vault-graph').locator('canvas')).toBeVisible();
+  const pointOf = () =>
+    page.evaluate(() => {
+      const hook = (window as unknown as { __monstersGraph?: GraphHook }).__monstersGraph;
+      return hook?.pointOf('People/Sara.md') ?? null;
+    });
+  // Wait until the layout has settled (the point stops moving).
+  let last = { x: 0, y: 0 };
+  await expect
+    .poll(
+      async () => {
+        const p = await pointOf();
+        if (!p) return false;
+        const still = Math.hypot(p.x - last.x, p.y - last.y) < 0.5;
+        last = p;
+        return still;
+      },
+      { timeout: 15_000, intervals: [300] },
+    )
+    .toBe(true);
+  const search = page.getByTestId('vault-search');
+  await search.pressSequentially('tra', { delay: 80 });
+  await expect(page.getByText(/The (note found is|\d+ notes found are) highlighted/)).toBeVisible();
+  await page.waitForTimeout(400);
+  const after = await pointOf();
+  expect(Math.hypot(after!.x - last.x, after!.y - last.y)).toBeLessThan(0.5);
+});
+
 test('trash: restore a note where it was', async ({ page }) => {
   await openVault(page);
   await page.getByTestId('vault-trash-link').click();

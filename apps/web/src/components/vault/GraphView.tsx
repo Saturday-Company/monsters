@@ -6,6 +6,8 @@ import {
   createGraphLayout,
   layoutBounds,
   placeLabels,
+  REFRESH_ALPHA,
+  startPositions,
   type GraphLayout,
 } from '../../lib/graph-layout.ts';
 import { noteStrings } from './note.strings.ts';
@@ -65,10 +67,12 @@ export default function GraphView({
   const theme = useResolvedTheme();
   const paletteRef = useRef(THEMES[theme]);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [selected, setSelected] = useState<number>(-1);
+  // The selection is a path: a refresh of the vault moves the indexes, not the note.
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [announce, setAnnounce] = useState('');
 
   const index = useMemo(() => new Map(notes.map((n, i) => [n.path, i])), [notes]);
+  const selected = selectedPath === null ? -1 : (index.get(selectedPath) ?? -1);
   const links = useMemo(() => {
     const out: [number, number][] = [];
     for (const e of edges) {
@@ -103,8 +107,9 @@ export default function GraphView({
   // Mutable state of the drawing loop (no re-render per frame).
   const state = useRef({
     layout: null as GraphLayout | null,
+    /** The notes of `layout`, by position: a new layout starts from their places. */
+    paths: [] as string[],
     view: { k: 1, tx: 0, ty: 0 },
-    fitted: false,
     userMoved: false,
     hover: -1,
     selected: -1,
@@ -136,11 +141,28 @@ export default function GraphView({
 
   useEffect(() => {
     const s = state.current;
-    const layout = createGraphLayout(notes.length, links);
+    /*
+     * A refresh of a graph already on screen (a note added, a link edited) starts from where the
+     * notes are and keeps the user's pan and zoom; only a first layout starts from the seed.
+     */
+    const before = s.layout;
+    const places = new Map<string, { x: number; y: number }>();
+    if (before)
+      s.paths.forEach((path, i) => {
+        if (i < before.x.length) places.set(path, { x: before.x[i]!, y: before.y[i]! });
+      });
+    const paths = notes.map((n) => n.path);
+    const layout = createGraphLayout(
+      notes.length,
+      links,
+      before
+        ? { positions: startPositions(paths, links, places), alpha: REFRESH_ALPHA }
+        : undefined,
+    );
     if (reduceMotion) layout.settle();
     s.layout = layout;
-    s.fitted = false;
-    s.userMoved = false;
+    s.paths = paths;
+    if (!before) s.userMoved = false;
     s.hover = -1;
     s.dirty = true;
   }, [notes, links, reduceMotion]);
@@ -514,8 +536,8 @@ export default function GraphView({
   }, [notes, links, neighbours, colors]);
 
   const select = (i: number) => {
-    setSelected(i);
     const n = notes[i];
+    setSelectedPath(n?.path ?? null);
     if (!n) return;
     const count = neighbours[i]!.length;
     setAnnounce(noteStrings().graph.selected(n.title, count));
@@ -535,7 +557,7 @@ export default function GraphView({
       onOpen(notes[selected]!.path);
     } else if (e.key === 'Escape' && selected >= 0) {
       e.preventDefault();
-      setSelected(-1);
+      setSelectedPath(null);
       setAnnounce('');
     }
   };
@@ -548,7 +570,7 @@ export default function GraphView({
         role="img"
         aria-label={noteStrings().graph.label(notes.length, links.length)}
         onKeyDown={onKey}
-        onBlur={() => setSelected(-1)}
+        onBlur={() => setSelectedPath(null)}
         className="absolute inset-0 cursor-grab touch-none rounded-[12px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal"
       />
       <p className="sr-only" aria-live="polite" data-testid="graph-selection">

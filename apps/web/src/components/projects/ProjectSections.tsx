@@ -8,7 +8,6 @@ import {
   type ProjectSpendView,
   type ProjectView,
   type SpendView,
-  type VaultNoteSummary,
 } from '@monsters/shared';
 import { ArrowRight, Copy, Plus } from '@phosphor-icons/react';
 import { useEffect, useId, useState, type FormEvent } from 'react';
@@ -54,6 +53,7 @@ import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { ProjectDocsDrafts } from './DraftCards.tsx';
 import { Details } from './Details.tsx';
+import { loadProjectNotes, type ProjectNotes } from './project-notes.ts';
 import { FolderPickButton, useCanPickFolder } from './FolderPicker.tsx';
 import { sectionsStrings } from './sections.strings.ts';
 
@@ -77,31 +77,20 @@ import { sectionsStrings } from './sections.strings.ts';
 
 export function ProjectNotes({ p }: { p: ProjectView }) {
   const s = sectionsStrings().notes;
-  const [notes, setNotes] = useState<VaultNoteSummary[] | null>(null);
+  const [found, setFound] = useState<ProjectNotes | null>(null);
   const [failed, setFailed] = useState(false);
-  /** The overview cuts a very large vault: the list may miss notes of this project (W-37). */
-  const [capped, setCapped] = useState(false);
   const [attempt, retry] = useRetry(() => setFailed(false));
   const area = p.vaultArea;
   useEffect(() => {
     let alive = true;
-    vaultApi
-      .overview()
-      .then((o) => {
-        if (!alive) return;
-        setCapped(o.total > o.notes.length);
-        const prefix = `${area}/`.toLowerCase();
-        setNotes(
-          o.notes
-            .filter((n) => n.path.toLowerCase().startsWith(prefix))
-            .sort((a, b) => b.updated.localeCompare(a.updated)),
-        );
-      })
+    loadProjectNotes(vaultApi, area)
+      .then((r) => alive && setFound(r))
       .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
     };
   }, [area, attempt]);
+  const notes = found?.notes ?? null;
 
   return (
     <Group
@@ -162,11 +151,11 @@ export function ProjectNotes({ p }: { p: ProjectView }) {
           </a>
         </li>
       ))}
-      {capped && (
+      {found?.cut && (
         <li>
           <RowBody>
             <p className="text-footnote text-ink-muted" data-testid="project-notes-capped">
-              {s.capped}
+              {s.capped(found.notes.length)}
             </p>
           </RowBody>
         </li>
