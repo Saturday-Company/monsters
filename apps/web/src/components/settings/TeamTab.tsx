@@ -301,6 +301,7 @@ function Advanced() {
           open={open}
           onOpenChange={setOpen}
           testId="team-advanced-toggle"
+          advanced
         />
       </Group>
       {open && (

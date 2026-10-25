@@ -190,6 +190,7 @@ export function DisclosureRow({
   open: controlled,
   onOpenChange,
   as = 'li',
+  advanced = false,
 }: {
   label: ReactNode;
   description?: ReactNode;
@@ -204,6 +205,8 @@ export function DisclosureRow({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   as?: 'div' | 'li';
+  /** An "Advanced" drawer: what a person needs only when asking for more (counted apart by `misura-controlli.e2e.ts`). */
+  advanced?: boolean;
 }) {
   const [own, setOwn] = useState(defaultOpen);
   const open = controlled ?? own;
@@ -215,7 +218,7 @@ export function DisclosureRow({
   const panelId = domId(useId());
   const Tag = as;
   return (
-    <Tag data-testid={testId}>
+    <Tag data-testid={testId} data-advanced={advanced || undefined}>
       <button
         type="button"
         aria-expanded={open}
