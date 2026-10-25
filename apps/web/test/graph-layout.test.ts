@@ -184,7 +184,7 @@ describe('refreshing a laid-out graph (W-11)', () => {
       { path: 'A.md', title: 'A', author: 'x', updated: 1 },
       { path: 'B.md', title: 'B', author: null, updated: 1 },
     ];
-    const edges = [{ from: 'A.md', to: 'B.md' }];
+    const edges = [{ from: 'A.md', to: 'B.md', embed: false }];
     expect(
       sameGraph(
         { notes, edges },

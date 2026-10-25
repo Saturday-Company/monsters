@@ -1160,11 +1160,30 @@ export interface ChatScope {
 }
 
 /**
+ * A derivation of the log computed once per list of events: the chat, the sidebar, a question
+ * card and the Activity page all ask for the same thing at every new event. What it returns is
+ * shared, so it is only read.
+ */
+function onceFor<T>(
+  derive: (events: readonly LogEvent[]) => T,
+): (events: readonly LogEvent[]) => T {
+  const done = new WeakMap<readonly LogEvent[], T>();
+  return (events) => {
+    let out = done.get(events);
+    if (out === undefined) {
+      out = derive(events);
+      done.set(events, out);
+    }
+    return out;
+  };
+}
+
+/**
  * Who each run belongs to: the agent of its `run started`, else the addressee
  * of its first message, else who delegates in it (a delegated monster works in
  * the run of who asked, D-021).
  */
-export function runOwners(events: readonly LogEvent[]): Map<string, string> {
+export const runOwners = onceFor((events): Map<string, string> => {
   const out = new Map<string, string>();
   for (const e of events) {
     if (!e.runId || out.has(e.runId)) continue;
@@ -1174,7 +1193,7 @@ export function runOwners(events: readonly LogEvent[]): Map<string, string> {
     else if (e.type === 'delegation' && e.data.status === 'started') out.set(e.runId, e.data.from);
   }
   return out;
-}
+});
 
 /**
  * The chat a question belongs to: the one whose run it was asked in (a monster
@@ -1238,6 +1257,27 @@ export function chatThread(
     const t = threadsOf(it, scope);
     return t === null || t.includes(agentId);
   });
+}
+
+/**
+ * The thread of every monster in one pass over the items (`chatThread` for each: the same
+ * lists, but `threadsOf` is asked once per item and not once per item and monster).
+ */
+export function chatThreads(
+  items: readonly ChatItem[],
+  agentIds: readonly string[],
+  scope: ChatScope,
+): Map<string, ChatItem[]> {
+  const out = new Map<string, ChatItem[]>(agentIds.map((id) => [id, []]));
+  for (const it of items) {
+    const where = threadsOf(it, scope);
+    if (where === null) {
+      for (const list of out.values()) list.push(it);
+    } else {
+      for (const id of new Set(where)) out.get(id)?.push(it);
+    }
+  }
+  return out;
 }
 
 /** What the chat list shows of one chat. */
@@ -1377,14 +1417,14 @@ export function splitConversation(
 }
 
 /** Id of the event that closed each question (its answer or its expiry). */
-export function questionsClosedAt(events: readonly LogEvent[]): Map<string, string> {
+export const questionsClosedAt = onceFor((events): Map<string, string> => {
   const out = new Map<string, string>();
   for (const e of events) {
     if ((e.type === 'answer' || e.type === 'question_expired') && !out.has(e.data.questionId))
       out.set(e.data.questionId, e.id);
   }
   return out;
-}
+});
 
 /** Messages (bubbles) in a list of chat items. */
 export function countMessages(items: readonly ChatItem[]): number {
@@ -2351,7 +2391,7 @@ function isFreeModel(id: string | undefined): boolean {
 }
 
 /** Stats of every run in the log, in one pass. */
-export function runStatsIndex(events: readonly LogEvent[]): Map<string, RunStats> {
+export const runStatsIndex = onceFor((events): Map<string, RunStats> => {
   const out = new Map<string, RunStats>();
   const started = new Map<string, number>();
   const requests = new Map<string, number>();
@@ -2423,7 +2463,7 @@ export function runStatsIndex(events: readonly LogEvent[]): Map<string, RunStats
     }
   }
   return out;
-}
+});
 
 /** The cost as the instrument says it: "free" on free models (or a reported 0), else dollars. */
 export function costText(s: { costUsd?: number | undefined; free: boolean }): string | null {
@@ -2575,7 +2615,7 @@ export interface AutomationWork {
  * (its chat says so: a message written now starts after it), and how many
  * giri wait for an answer.
  */
-export function automationWork(events: readonly LogEvent[]): AutomationWork {
+export const automationWork = onceFor((events): AutomationWork => {
   const runs = new Set<string>();
   const open = new Map<string, { agent: string; busy: AutomationBusy }>();
   const giri = new Map<string, 'running' | 'waiting' | 'done'>();
@@ -2604,7 +2644,7 @@ export function automationWork(events: readonly LogEvent[]): AutomationWork {
   let waiting = 0;
   for (const s of giri.values()) if (s === 'waiting') waiting++;
   return { runs, busy, waiting };
-}
+});
 
 /** The events of the chats: everything but the giri of the automations. */
 export function withoutAutomationRuns(
