@@ -933,9 +933,18 @@ async function runHarnessOnce(
   /**
    * The wrap-up after a limit (D-170), as our loop's last step without tools (AG-03): every tool
    * is refused with `reason`, and the report the model then writes ends the run at the limit.
-   * `told`: the model read it (a refused call, Codex's note); `requests` made since.
+   * `told`: the model read it (a refused call); `steered`: Codex got the note; `requests` made
+   * since. On Codex the note counts as read only once a later request follows it (C-12): a
+   * complete answer that ends the very request that reached the limit stays completed, as on
+   * Claude Code, where only a refused call tells the model.
    */
-  let wrapUp = null as { why: string; reason: string; requests: number; told: boolean } | null;
+  let wrapUp = null as {
+    why: string;
+    reason: string;
+    requests: number;
+    told: boolean;
+    steered: boolean;
+  } | null;
   /** Calls refused because of the limit: their results say so (`cause: limit`). */
   const limitRefused = new Set<string>();
   const wrapUpMs = options.wrapUpMs ?? WRAP_UP_MS;
@@ -956,14 +965,20 @@ async function runHarnessOnce(
       return;
     }
     const why = limitHit ?? runAgentPrompts().agentTokensWhy(maxTokens ?? 0);
-    const wrap = { why, reason: runAgentPrompts().limitWrapUp(why), requests: 0, told: false };
+    const wrap = {
+      why,
+      reason: runAgentPrompts().limitWrapUp(why),
+      requests: 0,
+      told: false,
+      steered: false,
+    };
     wrapUp = wrap;
     limitTimer = setTimeout(stopForLimit, wrapUpMs);
     // Claude Code reads it in the refusal of its next call; Codex gets it as a note at once.
     if (!hooked && steer) {
       void steer(wrap.reason).then((ok) => {
         if (ok) {
-          wrap.told = true;
+          wrap.steered = true;
         } else if (wrapUp === wrap && !scope.aborted) {
           // Not told: the stop as without a wrap-up.
           wrapUp = null;
@@ -1596,7 +1611,8 @@ async function runHarnessOnce(
    * turn. Still a stop at the limit, as the report of our loop's last step (AG-03), but with its
    * text: a delegation hands it back as a partial report.
    */
-  const limitStatus = wrapUp?.told ? (limitHit ? 'run_limit' : 'token_limit') : null;
+  const wrapUpTold = wrapUp !== null && (wrapUp.told || (wrapUp.steered && wrapUp.requests > 0));
+  const limitStatus = wrapUpTold ? (limitHit ? 'run_limit' : 'token_limit') : null;
   const wrapUpLimit =
     limitStatus === 'run_limit'
       ? limitReason
