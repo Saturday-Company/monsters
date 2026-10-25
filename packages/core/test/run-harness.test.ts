@@ -114,7 +114,7 @@ describe('harness runner and limits', () => {
   });
 
   it('keeps a complete answer whose last request reaches the run budget', async () => {
-    const budget = new RunBudget(RunLimitsSchema.parse({ maxRunSteps: 1 }));
+    const budget = new RunBudget(RunLimitsSchema.parse({ plan: { maxRunSteps: 1 } }));
     const r = await run(scripted(answer), agent(), budget);
     expect(r.status).toBe('completed');
     const final = r.events.filter((e) => e.type === 'message' && !e.data.partial).at(-1);
@@ -123,7 +123,7 @@ describe('harness runner and limits', () => {
   });
 
   it('stops a harness that goes on after the run budget is used', async () => {
-    const budget = new RunBudget(RunLimitsSchema.parse({ maxRunSteps: 1 }));
+    const budget = new RunBudget(RunLimitsSchema.parse({ plan: { maxRunSteps: 1 } }));
     const r = await run(
       scripted(
         [
@@ -137,7 +137,11 @@ describe('harness runner and limits', () => {
       budget,
     );
     expect(r.status).toBe('run_limit');
-    expect(r.events.some((e) => e.type === 'error' && e.data.code === 'run_limit')).toBe(true);
+    const error = r.events.find((e) => e.type === 'error' && e.data.code === 'run_limit');
+    expect(error).toBeDefined();
+    // The cap is the subscription's, and the event says so as data for the UI.
+    expect(error?.data).toMatchObject({ limit: { kind: 'steps', value: 1, plan: true } });
+    expect(budget.usage).toMatchObject({ steps: 0, planSteps: 1 });
   });
 
   it("applies the agent's token limit (maxTotalTokens)", async () => {
@@ -153,7 +157,10 @@ describe('harness runner and limits', () => {
     );
     expect(r.status).toBe('token_limit');
     const error = r.events.find((e) => e.type === 'error');
-    expect(error?.data).toMatchObject({ code: 'token_limit' });
+    expect(error?.data).toMatchObject({
+      code: 'token_limit',
+      limit: { kind: 'agent_tokens', value: 1000, own: true },
+    });
   });
 
   it('leaves prompt-cache reads out of the token limit and the run budget', async () => {
@@ -172,7 +179,8 @@ describe('harness runner and limits', () => {
       budget,
     );
     expect(r.status).toBe('completed');
-    expect(budget.usage.tokens).toBe(9 * 4500);
+    expect(budget.usage.planTokens).toBe(9 * 4500);
+    expect(budget.usage.tokens).toBe(0);
     // The log keeps the real input, cache reads included.
     const usage = r.events.find((e) => e.type === 'provider_usage');
     expect(usage?.data).toMatchObject({ inputTokens: 50_000, cachedInputTokens: 46_000 });

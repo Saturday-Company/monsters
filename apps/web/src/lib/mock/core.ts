@@ -43,6 +43,7 @@ import { MockProviders } from './providers.ts';
 import { MOCK_GROUP, MOCK_LIVIO, MockTelegram } from './telegram.ts';
 import { MockDecisions } from './decisions.ts';
 import { MockInstinct, mockReceipt } from './instinct.ts';
+import { MockRunLimits } from './limits.ts';
 import { MockSpend } from './spend.ts';
 import { handleUsage, MOCK_MODEL, mockContext, turnsOf } from './usage.ts';
 import { MockVault } from './vault.ts';
@@ -204,6 +205,8 @@ export class MockCore {
   });
   /** Spending caps (D-070): created with the mode (the demo has spent a little). */
   private spend!: MockSpend;
+  /** The limits of each job, in the settings under the spending cap. */
+  private readonly runLimits = new MockRunLimits();
   private live: Record<string, LiveState> = {};
   private readonly questions = new Map<string, Question>();
   private readonly undone = new Set<string>();
@@ -646,6 +649,8 @@ export class MockCore {
     if (mcp) return mcp;
     const spend = this.spend.handle(method, path, body);
     if (spend) return spend;
+    const limits = this.runLimits.handle(method, path, body);
+    if (limits) return limits;
     const usage = handleUsage(method, path, {
       events: this.events,
       agents: () => this.agents,

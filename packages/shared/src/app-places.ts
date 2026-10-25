@@ -81,6 +81,14 @@ export const SETTINGS_SECTIONS = {
       return placesStrings().sections.tettoDiSpesa;
     },
   },
+  /** Modelli, inside the spending cap: steps, tokens and cost of one job (`SpendSection`). */
+  limiti: {
+    tab: 'modelli',
+    under: 'tettoDiSpesa',
+    get label() {
+      return placesStrings().sections.limiti;
+    },
+  },
   /** Permessi: what they always ask first (`AskAlwaysSection`). */
   teLoChiedonoSempre: {
     tab: 'permessi',
@@ -204,22 +212,25 @@ const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export function findSettingsPlaces(text: string): { index: number; text: string; tab: string }[] {
   const byName = new Map<string, string>();
   const settings = new Set<string>();
+  /** "Models → Spending cap → Limits of each job" in each language: a link to that row. */
+  const limits = new Set<string>();
   for (const lang of LANGS) {
     const t = placesStringsOf(lang);
     settings.add(t.settings);
     for (const tab of ['modelli', 'permessi', 'collegamenti'] as const)
       byName.set(t.tabs[tab], tab);
+    limits.add(` → ${t.sections.tettoDiSpesa} → ${t.sections.limiti}`);
   }
   // Tabs of earlier versions of the app: their route still leads somewhere.
   // i18n-ignore: names of screens of the first Italian app, matched in old texts
   byName.set('Aspetto', 'aspetto').set('Account', 'account');
   const pattern = new RegExp(
-    `(?:${[...settings].map(escapeRegex).join('|')}) → (${[...byName.keys()].map(escapeRegex).join('|')})`,
+    `(?:${[...settings].map(escapeRegex).join('|')}) → (${[...byName.keys()].map(escapeRegex).join('|')})(${[...limits].map(escapeRegex).join('|')})?`,
     'g',
   );
   return [...text.matchAll(pattern)].map((m) => ({
     index: m.index,
     text: m[0],
-    tab: byName.get(m[1]!)!,
+    tab: m[2] ? 'limiti' : byName.get(m[1]!)!,
   }));
 }

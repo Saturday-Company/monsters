@@ -578,7 +578,9 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   in words how much was spent and out of how much ("Spent €0.42 today out of €10 (4%)"), on the right a small screen
   with 10 segments in `--screen-ink` that turn `--signal` at 80% and `--stop` at 100%, and "€0.42 / €10" in Martian
   Mono. Below, the two fields "Per day (€)" and "Per month (€)" (empty: no cap) with "Save", orange only if something
-  changed; the "Per monster" drawer for the monsters with paid models. At the cap a line says the paid jobs are
+  changed; the "Per monster" drawer for the monsters with paid models; the closed row "Limits of each job" (steps,
+  tokens, cost and delegations of one job, for paid-per-use models and, apart, for subscriptions; "Restore the
+  defaults"). At the cap a line says the paid jobs are
   stopped and "Raise the cap" (double, rounded to €5) restarts them. At the bottom, small, what doesn't count (free
   models, subscriptions) and the fixed exchange rate. In the chat the 80% and the cap are lines between the seams
   (`--signal`, `--stop`), the stopped job has "Raise the cap" in place of "Try again"; also a notice at the bottom.

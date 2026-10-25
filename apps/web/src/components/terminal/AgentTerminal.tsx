@@ -13,6 +13,7 @@ import { useApp } from '../../store/app.ts';
 import {
   agentFileText,
   baseName,
+  delegationLimitSentence,
   describeTool,
   errorSentence,
   formatDuration,
@@ -252,6 +253,10 @@ function Entry({ e, agentId, focus }: { e: TermEntry; agentId: string; focus: bo
     case 'tool':
       return <ToolLine e={e} focus={focus} />;
     case 'delegation': {
+      // A stop at a limit says which cap in the person's language; the core's `error` is the
+      // English for the model.
+      const delegated = e.dir === 'out' ? e.other : agentId;
+      const limitLine = delegationLimitSentence(e, nameOf(delegated));
       return (
         <Line
           ts={e.ts}
@@ -266,14 +271,20 @@ function Entry({ e, agentId, focus }: { e: TermEntry; agentId: string; focus: bo
             </span>
             {taskText(e.status === 'completed' && e.summary ? e.summary : e.goal, 220)}
           </p>
-          {e.error && !isStopText(e.error) && <p className="mt-0.5 text-screen-stop">{e.error}</p>}
+          {limitLine ? (
+            <p className="mt-0.5 text-screen-stop" data-testid="terminal-limit">
+              {limitLine}
+            </p>
+          ) : (
+            e.error && !isStopText(e.error) && <p className="mt-0.5 text-screen-stop">{e.error}</p>
+          )}
         </Line>
       );
     }
     case 'error': {
       const quiet = e.code === 'aborted' || isStopText(e.message);
       const text = errorSentence(
-        { agent: agentId, data: { code: e.code, message: e.message } },
+        { agent: agentId, data: { code: e.code, message: e.message, limit: e.limit } },
         nameOf,
       );
       return (

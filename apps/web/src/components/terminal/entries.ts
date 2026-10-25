@@ -1,6 +1,7 @@
 import {
   originalRequest,
   type EventDataMap,
+  type LimitReason,
   type LogEvent,
   type ReceiptData,
 } from '@monsters/shared';
@@ -34,8 +35,18 @@ export type TermEntry = (
       status: string;
       summary?: string | undefined;
       error?: string | undefined;
+      /** The agent's run status when it stopped at a limit (`run_limit`…), with which cap. */
+      runStatus?: string | undefined;
+      limit?: LimitReason | undefined;
     }
-  | { kind: 'error'; id: string; ts: number; message: string; code?: string | undefined }
+  | {
+      kind: 'error';
+      id: string;
+      ts: number;
+      message: string;
+      code?: string | undefined;
+      limit?: LimitReason | undefined;
+    }
   | {
       kind: 'vault';
       id: string;
@@ -159,6 +170,8 @@ export function buildTerminal(events: readonly LogEvent[], agentId: string): Ter
           status: d.status,
           summary: d.summary,
           error: d.error,
+          runStatus: d.runStatus,
+          limit: d.limit,
         });
         tag();
       }
@@ -248,7 +261,14 @@ export function buildTerminal(events: readonly LogEvent[], agentId: string): Ter
         break;
       }
       case 'error':
-        out.push({ kind: 'error', id: e.id, ts: e.ts, message: e.data.message, code: e.data.code });
+        out.push({
+          kind: 'error',
+          id: e.id,
+          ts: e.ts,
+          message: e.data.message,
+          code: e.data.code,
+          limit: e.data.limit,
+        });
         break;
       case 'vault_change':
         out.push({

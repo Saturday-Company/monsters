@@ -17,6 +17,7 @@ import {
 import {
   settingsPath,
   type Effort,
+  type LimitReason,
   type MonstersTool,
   type PlanLimitsReading,
 } from '@monsters/shared';
@@ -24,7 +25,12 @@ import { forbiddenEntries, type DataDirLock } from '@monsters/tools';
 import type { ModelMessage } from 'ai';
 import { KilledError, type ControlScope } from '../kill/control-scope.ts';
 import type { EventLog } from '../log/event-log.ts';
-import { agentTokenLimit, limitTokens, type RunBudget } from '../team/run-limits.ts';
+import {
+  agentTokenLimit,
+  agentTokenLimitReason,
+  limitTokens,
+  type RunBudget,
+} from '../team/run-limits.ts';
 import {
   HARNESS_BASE_TOKENS,
   HarnessContextMeter,
@@ -663,16 +669,20 @@ async function runHarnessOnce(
   let counted = 0;
   let servedModel: AgentRunResult['model'] = null;
 
-  const runLimit = budget?.exhausted() ?? null;
-  if (runLimit) {
+  const runStop = budget?.exhaustedBy() ?? null;
+  if (runStop) {
     log.append({
       agent: agentId,
       runId,
       parentId,
       type: 'error',
-      data: { code: 'run_limit', message: runAgentStrings().noStart(agent.config.name, runLimit) },
+      data: {
+        code: 'run_limit',
+        message: runAgentStrings().noStart(agent.config.name, runStop.message),
+        limit: runStop.limit,
+      },
     });
-    return base('run_limit', '', { error: runLimit });
+    return base('run_limit', '', { error: runStop.message, limit: runStop.limit });
   }
 
   // Codex reads AGENTS.md from the folder: the same text the prompt gets for these tools (D-134).
@@ -1002,7 +1012,10 @@ async function runHarnessOnce(
   /** Failed calls that never reached the core, already logged here (per tool). */
   const unseenLogged = new Map<string, number>();
   let limitHit = null as string | null;
-  const maxTokens = agentTokenLimit(agent.config, budget?.limits);
+  /** Which cap `limitHit` says, as data for the UI. */
+  let limitReason: LimitReason | undefined;
+  // A harness runs on a subscription: the plan's caps (`limits.plan`), apart from the API's.
+  const maxTokens = agentTokenLimit(agent.config, budget?.limits, true);
   let tokenLimitHit = false as boolean;
   let limitTimer: NodeJS.Timeout | undefined;
   /** A limit was reached: the harness stops (now, or after a grace in which its answer may end). */
@@ -1046,9 +1059,11 @@ async function runHarnessOnce(
     });
     started = Date.now();
     steps++;
-    budget?.addStep(fresh);
+    budget?.addStep(fresh, 0, true);
     if (afterAbort || limitHit || tokenLimitHit) return;
-    limitHit = budget?.exhausted() ?? null;
+    const hit = budget?.exhaustedBy();
+    limitHit = hit?.message ?? null;
+    limitReason = hit?.limit;
     tokenLimitHit = !limitHit && maxTokens !== undefined && counted >= maxTokens;
     // The request that reached the limit may be the last of a complete answer:
     // the harness stops as soon as it does more work, or after a short grace.
@@ -1387,22 +1402,30 @@ async function runHarnessOnce(
       runId,
       parentId,
       type: 'error',
-      data: { code: 'run_limit', message: runAgentStrings().stops(agent.config.name, limitHit) },
+      data: {
+        code: 'run_limit',
+        message: runAgentStrings().stops(agent.config.name, limitHit),
+        ...(limitReason ? { limit: limitReason } : {}),
+      },
     });
     closeDraft('aborted');
-    return base('run_limit', lastText, { error: limitHit });
+    return base('run_limit', lastText, {
+      error: limitHit,
+      ...(limitReason ? { limit: limitReason } : {}),
+    });
   }
   if (tokenLimitHit && !answered) {
-    const message = runAgentStrings().tokenLimit(agent.config.name, maxTokens ?? 0);
+    const message = runAgentStrings().tokenLimit(agent.config.name, maxTokens ?? 0, true);
+    const limit = agentTokenLimitReason(agent.config, maxTokens ?? 0, true);
     log.append({
       agent: agentId,
       runId,
       parentId,
       type: 'error',
-      data: { code: 'token_limit', message },
+      data: { code: 'token_limit', message, limit },
     });
     closeDraft('aborted');
-    return base('token_limit', lastText, { error: message });
+    return base('token_limit', lastText, { error: message, limit });
   }
   if (stalled && !answered && !options.signal.aborted) {
     const message = runAgentStrings().harnessStalled(
@@ -1472,6 +1495,7 @@ async function runHarnessOnce(
       data: {
         code: 'max_steps',
         message: runAgentStrings().maxSteps(agent.config.name, agent.config.limits.maxSteps),
+        limit: { kind: 'agent_steps', value: agent.config.limits.maxSteps },
       },
     });
   }

@@ -35,6 +35,8 @@ const SECTION_FILE: Record<SettingsSectionId, { file: string; via?: string }> = 
   istinto: { file: 'settings/InstinctSection.tsx', via: 'InstinctSection' },
   abbonamenti: { file: 'settings/ModelsTab.tsx' },
   tettoDiSpesa: { file: 'settings/SpendSection.tsx', via: 'SpendSection' },
+  // A closed row inside the spending cap's group.
+  limiti: { file: 'settings/RunLimitsRow.tsx', via: 'SpendSection' },
   teLoChiedonoSempre: { file: 'settings/AskAlwaysSection.tsx', via: 'AskAlwaysSection' },
   ilWeb: { file: 'settings/AgentPermissionsSettings.tsx', via: 'AgentPermissionsSettings' },
   terminale: { file: 'settings/AgentPermissionsSettings.tsx', via: 'AgentPermissionsSettings' },

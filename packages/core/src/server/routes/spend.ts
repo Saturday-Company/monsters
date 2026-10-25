@@ -1,4 +1,4 @@
-import { SpendUpdateSchema } from '@monsters/shared';
+import { RunLimitsUpdateSchema, SpendUpdateSchema } from '@monsters/shared';
 import type { Hono } from 'hono';
 import type { Hub } from '../../hub.ts';
 import { SpendError } from '../../team/spend.ts';
@@ -7,6 +7,8 @@ import type { AppEnv, RouteHelpers } from '../app.ts';
 /*
  * Spending caps (D-070; contract in shared/src/spend.ts): what the team spent
  * today and this month, in euros, and the caps of the team and of each monster.
+ * The limits of each job (steps, tokens, cost; contract in shared/src/limits.ts) live here too:
+ * the settings show them under the spending cap.
  */
 
 export function registerSpendRoutes(app: Hono<AppEnv>, h: RouteHelpers, deps: { hub: Hub }): void {
@@ -25,4 +27,14 @@ export function registerSpendRoutes(app: Hono<AppEnv>, h: RouteHelpers, deps: { 
       throw err;
     }
   });
+
+  app.get('/api/settings/limits', requireAuth, (c) => c.json(hub.runLimits.view()));
+
+  app.put('/api/settings/limits', requireAuth, async (c) => {
+    const body = await parseBody(c, RunLimitsUpdateSchema);
+    if (!body.ok) return body.res;
+    return c.json(hub.runLimits.update(body.data));
+  });
+
+  app.delete('/api/settings/limits', requireAuth, (c) => c.json(hub.runLimits.reset()));
 }

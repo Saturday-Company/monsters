@@ -112,5 +112,9 @@ stay connected to your Claude account until you remove them on claude.ai.
 ## For all three
 
 - Every step ends up in the action log; the **Stop everything** button also closes Codex and Claude Code at once.
-- The limits of every job (steps and tokens, the `limits` settings) apply to them too.
+- The limits of every job apply to them too, with caps of their own: by default 400 requests (every Claude Code request
+  counts as a step) and 5 million fresh tokens for a whole job, and 1.5 million per delegated monster. Their cost is
+  notional, but they use your plan's quota, so they stay bounded to stop a runaway. When one stops a job, the line says
+  which one, and you can change them in Settings → Models → Spending cap → Limits of each job (or in `settings.json`,
+  `limits.plan`).
 - OpenAI's and Anthropic's rules change often: we recheck them at every release that touches the providers.

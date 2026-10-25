@@ -102,6 +102,30 @@ export const MessageDataSchema = z.object({
   telegram: TelegramOriginSchema.optional(),
 });
 
+/**
+ * Which cap of a run or of an agent stopped a job, as data: the UI words it in its own language
+ * (the `message` of the event is a sentence in the core's language, for the log and the model).
+ * `plan`: the cap of a subscription harness (Claude Code, Codex), not the one of the API models.
+ * `own`: the agent's own limit (its `agent.yaml`), not the run's. `value` is missing for the
+ * spending cap (its figure is in euros, in the message).
+ */
+export const LIMIT_KINDS = [
+  'steps',
+  'tokens',
+  'cost',
+  'tree_cost',
+  'spend',
+  'agent_tokens',
+  'agent_steps',
+] as const;
+export const LimitReasonSchema = z.object({
+  kind: z.enum(LIMIT_KINDS),
+  value: z.number().nonnegative().optional(),
+  plan: z.boolean().optional(),
+  own: z.boolean().optional(),
+});
+export type LimitReason = z.infer<typeof LimitReasonSchema>;
+
 export const DelegationDataSchema = z.object({
   from: AgentIdSchema,
   to: AgentIdSchema,
@@ -142,6 +166,8 @@ export const DelegationDataSchema = z.object({
   costUsd: z.number().nonnegative().optional(),
   /** Agent run status when it differs from the delegation's (`max_steps`…). */
   runStatus: z.string().optional(),
+  /** With a limit as `runStatus`: which cap stopped the agent (older events have none). */
+  limit: LimitReasonSchema.optional(),
 });
 
 export const ToolCallDataSchema = z.object({
@@ -417,6 +443,8 @@ export const ProviderUsageDataSchema = z.object({
 export const ErrorDataSchema = z.object({
   message: z.string(),
   code: z.string().optional(),
+  /** With `run_limit`, `token_limit` and `max_steps`: which cap stopped the job. */
+  limit: LimitReasonSchema.optional(),
   stack: z.string().optional(),
   /**
    * `provider_fallback` from a harness (D-093): the plan's limit on one model,

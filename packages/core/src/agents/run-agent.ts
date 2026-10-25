@@ -19,12 +19,17 @@ import {
   type ProviderRegistry,
   type SessionEvent,
 } from '@monsters/providers';
-import { LANGS, type MonstersTool } from '@monsters/shared';
+import { LANGS, type LimitReason, type MonstersTool } from '@monsters/shared';
 import { isStepCount, streamText, type ModelMessage, type StopCondition, type ToolSet } from 'ai';
 import type { UserPart } from '../files/model-input.ts';
 import { KilledError, type ControlScope } from '../kill/control-scope.ts';
 import type { EventLog } from '../log/event-log.ts';
-import { agentTokenLimit, limitTokens, type RunBudget } from '../team/run-limits.ts';
+import {
+  agentTokenLimit,
+  agentTokenLimitReason,
+  limitTokens,
+  type RunBudget,
+} from '../team/run-limits.ts';
 import { CallTracker, errorStreakReminder } from './call-tracker.ts';
 import { contextLimitsFor, RunContext, type ContextLimits } from './context.ts';
 import {
@@ -283,6 +288,8 @@ export interface AgentRunResult {
   followUp?: boolean;
   /** Why a run that did not complete stopped, when the status alone does not say (D-160). */
   stopCause?: RunStopCause;
+  /** With a limit as status: which cap stopped the run, as data for the UI. */
+  limit?: LimitReason;
 }
 
 export function resolveAgentTools(
@@ -864,10 +871,18 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
   let forced: 'max_steps' | 'token_limit' | 'run_limit' | null = null;
   const stopWhen: StopCondition<ToolSet>[] = [isStepCount(limits.maxSteps)];
   let runLimit: string | null = null;
+  /** Which cap of the run `runLimit` says, as data for the UI. */
+  let runLimitReason: LimitReason | undefined;
+  /** The run's reason to stop now (kept in `runLimit`/`runLimitReason`), or null. */
+  const checkRunLimit = (): string | null => {
+    const hit = budget?.exhaustedBy(agentId);
+    runLimitReason = hit?.limit;
+    return (runLimit = hit?.message ?? null);
+  };
   if (budget) {
-    runLimit = budget.exhausted(agentId);
+    checkRunLimit();
     // The report step comes first: the loop stops after it.
-    stopWhen.push(() => (runLimit = budget.exhausted(agentId)) !== null && forced !== null);
+    stopWhen.push(() => checkRunLimit() !== null && forced !== null);
   }
   if (maxTokens !== undefined) {
     stopWhen.push(() => {
@@ -1045,7 +1060,11 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
       runId,
       parentId,
       type: 'error',
-      data: { code: 'run_limit', message: runAgentStrings().noStart(agent.config.name, runLimit) },
+      data: {
+        code: 'run_limit',
+        message: runAgentStrings().noStart(agent.config.name, runLimit),
+        ...(runLimitReason ? { limit: runLimitReason } : {}),
+      },
     });
     return {
       text: '',
@@ -1056,6 +1075,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
       missingTools: missing,
       status: 'run_limit',
       error: runLimit,
+      ...(runLimitReason ? { limit: runLimitReason } : {}),
     };
   }
 
@@ -1599,7 +1619,21 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     closeDraft('failed');
     return { ...base, status: 'failed', error: message };
   }
+  let stoppedBy: LimitReason | undefined;
   if (status !== 'completed') {
+    // Which cap it was, as data: the UI words it (the message below is for the log).
+    if (status === 'max_steps') stoppedBy = { kind: 'agent_steps', value: limits.maxSteps };
+    else if (status === 'token_limit')
+      stoppedBy = agentTokenLimitReason(agent.config, maxTokens ?? 0);
+    else {
+      const hit = runLimit === null ? budget?.exhaustedBy(agentId) : undefined;
+      runLimit ??= hit?.message ?? null;
+      // No cap reached yet: the last step was kept for the report (`stepsLeft`), the steps' cap.
+      stoppedBy =
+        runLimitReason ??
+        hit?.limit ??
+        (budget ? { kind: 'steps', value: budget.limits.maxRunSteps } : undefined);
+    }
     log.append({
       agent: agentId,
       runId,
@@ -1613,12 +1647,10 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
               ? runAgentStrings().maxSteps(agent.config.name, limits.maxSteps)
               : runAgentStrings().extraSteps(agent.config.name)
             : status === 'run_limit'
-              ? runAgentStrings().stops(
-                  agent.config.name,
-                  runLimit ?? budget?.exhausted(agentId) ?? runAgentStrings().taskLimit,
-                )
+              ? runAgentStrings().stops(agent.config.name, runLimit ?? runAgentStrings().taskLimit)
               : runAgentStrings().tokenLimit(agent.config.name, maxTokens ?? 0)) +
           (forced !== null && answer() ? runAgentStrings().reportAtLastStep : ''),
+        ...(stoppedBy ? { limit: stoppedBy } : {}),
       },
     });
   }
@@ -1631,7 +1663,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
       data: { role: 'agent', text: answer() },
     });
   }
-  return { ...base, status };
+  return { ...base, status, ...(stoppedBy ? { limit: stoppedBy } : {}) };
 }
 
 /** Arguments of a call in one short line, for the watcher. */

@@ -416,7 +416,10 @@ export function ErrorRow({ item }: { item: Extract<ChatItem, { kind: 'error' }> 
         <span>
           {withSettingsLinks(
             errorSentence(
-              { agent: item.agent, data: { code: item.code, message: item.text } },
+              {
+                agent: item.agent,
+                data: { code: item.code, message: item.text, limit: item.limit },
+              },
               nameOf,
             ),
           )}

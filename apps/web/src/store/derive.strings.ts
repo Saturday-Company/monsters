@@ -307,6 +307,29 @@ const en = {
     killHook: 'The stop couldn’t close everything right away',
     internal: 'Monsters internal error',
     runLimit: (who: string) => `${who} stops here: this job reached its limit`,
+    // Which cap stopped a job, from the data of the error (`limit`): see `limitStopSentence`.
+    limit: {
+      stopsHere: (who: string, why: string, raiseIn: string | null) =>
+        `${who} stops here: ${why}.${raiseIn ? ` You can raise the limit in ${raiseIn}.` : ''}`,
+      partial: 'It wrote a partial report.',
+      noReport: 'It wrote no report.',
+      why: {
+        steps: (n: string, plan: boolean) =>
+          `the job used all its ${n} ${plan ? 'steps on the subscription' : 'model steps'}`,
+        tokens: (n: string, plan: boolean) =>
+          `the job used all its ${n} tokens${plan ? ' on the subscription' : ''}`,
+        cost: (usd: string) => `the job spent its ${usd} $ limit`,
+        treeCost: (usd: string) =>
+          `the job, with the work sent to projects, spent its ${usd} $ limit`,
+        agentTokens: (n: string, plan: boolean) =>
+          `it used all its ${n} tokens for this task${plan ? ' on the subscription' : ''}`,
+        agentSteps: (n: string) => `it used all its ${n} steps without finishing`,
+        // Older events and kinds without a figure.
+        runLimit: 'this job reached its limit',
+        tokenLimit: 'it reached its token limit',
+        maxSteps: 'it used all its steps without finishing',
+      },
+    },
     contextGuard: (who: string) => `${who}’s context was almost full: it made room`,
     truncated: (who: string) => `${who}’s reply was cut off: the model reached its maximum length`,
     contextRescue: (who: string) =>
@@ -854,6 +877,27 @@ const it: typeof en = {
     killHook: 'Lo stop non è riuscito a chiudere tutto subito',
     internal: 'Errore interno di Monsters',
     runLimit: (who) => `${who} si ferma qui: questo lavoro ha raggiunto il suo limite`,
+    limit: {
+      stopsHere: (who, why, raiseIn) =>
+        `${who} si ferma qui: ${why}.${raiseIn ? ` Puoi alzare il limite in ${raiseIn}.` : ''}`,
+      partial: 'Ha scritto un rapporto parziale.',
+      noReport: 'Non ha scritto nessun rapporto.',
+      why: {
+        steps: (n, plan) =>
+          `il lavoro ha usato tutti i suoi ${n} ${plan ? 'passi sull’abbonamento' : 'passi del modello'}`,
+        tokens: (n, plan) =>
+          `il lavoro ha usato tutti i suoi ${n} token${plan ? ' sull’abbonamento' : ''}`,
+        cost: (usd) => `il lavoro ha speso il suo limite di ${usd} $`,
+        treeCost: (usd) =>
+          `il lavoro, con quello mandato ai progetti, ha speso il suo limite di ${usd} $`,
+        agentTokens: (n, plan) =>
+          `ha usato tutti i suoi ${n} token per questo compito${plan ? ' sull’abbonamento' : ''}`,
+        agentSteps: (n) => `ha usato tutti i suoi ${n} passi senza finire`,
+        runLimit: 'questo lavoro ha raggiunto il suo limite',
+        tokenLimit: 'ha raggiunto il suo limite di token',
+        maxSteps: 'ha usato tutti i suoi passi senza finire',
+      },
+    },
     contextGuard: (who) => `Il contesto di ${who} era quasi pieno: ha fatto spazio`,
     truncated: (who) =>
       `La risposta di ${who} è stata tagliata: il modello è arrivato alla lunghezza massima`,

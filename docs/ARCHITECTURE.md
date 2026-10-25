@@ -183,7 +183,10 @@ third-party source on, the data that leaves (addresses, searches, browser pages,
 the notes read in the run, the profile and the memory. External texts lose invisible characters before reaching the
 model (`agents/invisible.ts`). The **spending cap** (`team/spend.ts`) adds up the `costUsd` of `provider_usage` by day
 and month, squad and monster, and stops the monsters using paid models (`RunBudget.spendCheck` and at the start of the
-turn). The MCP manager keeps the **fingerprint** of every server's tools (`mcp_pins:<name>` in the state) and pauses
+turn). The **limits of each job** (`team/run-limits.ts`, `settings.json` → `limits`, Settings → Models → Spending cap)
+stop a run that runs away: steps, fresh tokens and dollars of the whole run, and tokens per delegated monster; the
+requests served by a subscription harness have caps of their own (`limits.plan`). A stop at a limit logs the cap as
+data (`error.data.limit`, `delegation.data.limit`) so the UI can word it. The MCP manager keeps the **fingerprint** of every server's tools (`mcp_pins:<name>` in the state) and pauses
 new or changed ones.
 
 ### 5.6 Provider
