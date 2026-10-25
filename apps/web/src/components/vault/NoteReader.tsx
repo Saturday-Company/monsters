@@ -13,7 +13,7 @@ import {
   type VaultNote,
   type VaultSearchHit,
 } from '@monsters/shared';
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ApiError } from '../../lib/api.ts';
 import { lineDiff } from '../../lib/line-diff.ts';
 import { vaultPath } from '../../lib/router.ts';
@@ -31,6 +31,7 @@ import { folderLabel } from './NoteList.tsx';
 import { noteStrings } from './note.strings.ts';
 import { vaultStrings } from './vault.strings.ts';
 import { agoText, AuthorScreen, isAgentNote, longDate, PrivateMark, stampDate } from './shared.tsx';
+import { useUnsavedGuard } from './unsaved.tsx';
 import { VaultMarkdown } from './VaultMarkdown.tsx';
 
 function goTo(hash: string): void {
@@ -212,9 +213,12 @@ function Editor({
   onSaved,
   onCancel,
   onStale,
+  refreshError,
 }: {
   /** The note as it is now (reloaded when the vault changes). */
   note: VaultNote;
+  /** The last read of the note failed while editing: the draft stays, this is said above it. */
+  refreshError?: string | null;
   onSaved: () => void;
   onCancel: () => void;
   /** The core refused a stale save: read the note again. */
@@ -229,20 +233,28 @@ function Editor({
   const [showChanges, setShowChanges] = useState(false);
   const changed = note.hash !== base.hash;
 
-  const save = async (from: VaultNote) => {
+  const save = async (from: VaultNote): Promise<boolean> => {
     setBusy(true);
     setError(null);
     try {
       await vaultApi.save(from.path, text, from.hash);
       notify(s.saved, 'success');
       onSaved();
+      return true;
     } catch (err) {
       if (err instanceof ApiError && err.code === 'conflict') onStale();
       else setError(vaultError(err));
+      return false;
     } finally {
       setBusy(false);
     }
   };
+  // Leaving with a draft asks first; when the note changed under it only "discard" and "keep
+  // editing" make sense, because a save would be refused (the conflict card above is the way).
+  const { question } = useUnsavedGuard({
+    dirty: text !== (base.content ?? ''),
+    save: changed ? undefined : () => save(base),
+  });
   const overwrite = () => {
     setBase(note);
     setShowChanges(false);
@@ -251,9 +263,19 @@ function Editor({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
+      {question}
       <label htmlFor={`${id}-text`} className="sr-only">
         {s.label}
       </label>
+      {refreshError && (
+        <p
+          role="alert"
+          className="rounded-[10px] bg-stop-soft px-3.5 py-2.5 text-body text-stop-ink"
+          data-testid="vault-editor-refresh-error"
+        >
+          {s.refreshFailed(refreshError)}
+        </p>
+      )}
       {note.frontmatterError && (
         <p
           className="well rounded-[10px] px-3.5 py-2.5 text-body text-ink-muted"
@@ -407,6 +429,10 @@ export function NoteReader({
   const [relatedOf, setRelatedOf] = useState<{ hash: string; hits: VaultSearchHit[] } | null>(null);
   const [pane, setPane] = useState<Pane>('nota');
   const [editing, setEditing] = useState(false);
+  const editingRef = useRef(false);
+  useEffect(() => {
+    editingRef.current = editing;
+  });
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
@@ -425,7 +451,8 @@ export function NoteReader({
       })
       .catch((err: unknown) => {
         if (!alive) return;
-        setNote(null);
+        // While editing, the note on screen stays: the editor holds the draft (W-9).
+        setNote((current) => (editingRef.current ? current : null));
         const missing = err instanceof ApiError && err.code === 'not_found';
         setError({ text: vaultError(err), missing });
       });
@@ -470,7 +497,7 @@ export function NoteReader({
     </Button>
   );
 
-  if (error)
+  if (error && !(editing && note))
     return (
       <div className="vault-sheet flex min-h-0 flex-1 flex-col gap-3 px-5 py-4 sm:px-10">
         {back && <div>{back}</div>}
@@ -653,6 +680,7 @@ export function NoteReader({
                   setReload((r) => r + 1);
                 }}
                 onStale={() => setReload((r) => r + 1)}
+                refreshError={error ? (error.missing ? s.missingText(path) : error.text) : null}
               />
             ) : (
               <>

@@ -453,6 +453,21 @@ export class MockCore {
     for (const run of waiting) run();
   }
 
+  /** Requests that fail on purpose (`failRequests`): the text they must contain, how many are left. */
+  private failures: { match: string; times: number }[] = [];
+
+  /**
+   * Test hook: the next `times` requests whose "METHOD /path" contains `match` are answered with
+   * a 503, as a core that is busy or restarting does; `clearFailures` ends it.
+   */
+  failRequests(match: string, times = Number.POSITIVE_INFINITY): void {
+    this.failures.push({ match, times });
+  }
+
+  clearFailures(): void {
+    this.failures = [];
+  }
+
   /** Test hook: the monster works on the Claude plan from now on (Consumi, D-075). */
   useSubscription(agentId: string): void {
     this.providers.setChain(agentId, [{ provider: 'claude-agent', model: 'sonnet' }]);
@@ -632,6 +647,12 @@ export class MockCore {
     }
 
     if (!this.auth.loggedIn) return fail(401, 'unauthorized');
+
+    const failing = this.failures.find((f) => f.times > 0 && route.includes(f.match));
+    if (failing) {
+      failing.times--;
+      return fail(503, 'unavailable', tr('The core is busy.', 'Il core è occupato.'));
+    }
 
     const onboarding = this.onboarding.handle(method, path, body);
     if (onboarding) return onboarding;

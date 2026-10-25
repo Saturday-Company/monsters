@@ -30,6 +30,16 @@ const en = {
     cancel: 'Cancel',
     saving: 'Saving…',
     save: 'Save',
+    refreshFailed: (text: string) =>
+      `I couldn’t read the note again while you edit it, so your draft is kept as it is. ${text}`,
+  },
+  unsaved: {
+    title: 'You have changes that aren’t saved',
+    text: 'If you leave now they are lost.',
+    textNew: 'This note hasn’t been created yet: if you leave now what you wrote is lost.',
+    save: 'Save',
+    discard: 'Discard changes',
+    keep: 'Keep editing',
   },
   reader: {
     inTrash: (title: string) => `“${title}” is in the trash: you can put it back from there.`,
@@ -123,6 +133,17 @@ const it: typeof en = {
     cancel: 'Annulla',
     saving: 'Salvo…',
     save: 'Salva',
+    refreshFailed: (text) =>
+      `Non sono riuscito a rileggere la nota mentre la modifichi, quindi la tua bozza resta com’è. ${text}`,
+  },
+  unsaved: {
+    title: 'Hai modifiche non salvate',
+    text: 'Se esci adesso vanno perse.',
+    textNew:
+      'Questa nota non è ancora stata creata: se esci adesso quello che hai scritto va perso.',
+    save: 'Salva',
+    discard: 'Scarta le modifiche',
+    keep: 'Continua a modificare',
   },
   reader: {
     inTrash: (title) => `“${title}” è nel cestino: puoi rimetterla a posto da lì.`,

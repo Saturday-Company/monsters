@@ -18,7 +18,8 @@ const en = {
   estimated: (names: readonly string[], whose?: string) =>
     `With ${formatList(names)} the cost is estimated: Monsters counts tokens at the price of OpenRouter’s public list. ${whose ?? 'The cap'} counts it and stops jobs when you reach it; the real figure is on the provider’s site.`,
   form: {
-    invalid: 'Type an amount in euros (at least €0.50), like 1000 or 12.50, or leave empty for no cap.',
+    invalid:
+      'Type an amount in euros (at least €0.50), like 1000 or 12.50, or leave empty for no cap.',
     day: 'Per day (€)',
     month: 'Per month (€)',
   },
@@ -64,7 +65,8 @@ const it: typeof en = {
   estimated: (names, whose) =>
     `Con ${formatList(names)} il costo è stimato: Monsters conta i token al prezzo del listino pubblico di OpenRouter. ${whose ?? 'Il tetto'} lo conta e ferma i lavori quando lo raggiungi; la cifra vera è sul sito del fornitore.`,
   form: {
-    invalid: 'Scrivi una cifra in euro (almeno 0,50), come 1000 o 12,50, o lascia vuoto per nessun tetto.',
+    invalid:
+      'Scrivi una cifra in euro (almeno 0,50), come 1000 o 12,50, o lascia vuoto per nessun tetto.',
     day: 'Al giorno (€)',
     month: 'Al mese (€)',
   },

@@ -8,6 +8,7 @@ import { Button } from '../ui/button.tsx';
 import { Field, Input } from '../ui/field.tsx';
 import { vaultApi, vaultError } from './api.ts';
 import { folderLabel } from './NoteList.tsx';
+import { useUnsavedGuard } from './unsaved.tsx';
 import { vaultStrings } from './vault.strings.ts';
 
 /** Characters Obsidian does not accept in a note name (as the vault checks them). */
@@ -73,20 +74,38 @@ export function NewNote({
   const ready =
     !!title.trim() && !problem && (!creatingFolder || folderProblem(newFolder) === null);
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!ready) return;
-    playSound('click');
+  const create = async (): Promise<boolean> => {
     setBusy(true);
     setError(null);
     try {
       const res = await vaultApi.create(folder, title.trim(), text);
       notify(s.created, 'success');
+      allow();
       onCreated(res.path);
+      return true;
     } catch (err) {
       setError(vaultError(err));
       setBusy(false);
+      return false;
     }
+  };
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!ready) return;
+    playSound('click');
+    await create();
+  };
+  // Leaving with something written asks first (W-4); a note that cannot be created as it is can
+  // only be discarded or kept.
+  const { question, allow } = useUnsavedGuard({
+    dirty: title.trim() !== '' || text.trim() !== '' || newFolder.trim() !== '',
+    isNew: true,
+    save: ready && !busy ? create : undefined,
+  });
+  // "Cancel" is the person saying so: no question.
+  const cancel = () => {
+    allow();
+    onCancel();
   };
 
   return (
@@ -96,11 +115,12 @@ export function NewNote({
       aria-labelledby={`${id}-heading`}
       data-testid="vault-new-note"
     >
+      {question}
       <div className="mx-auto flex w-full max-w-[calc(68ch+6rem)] flex-1 flex-col gap-5 px-5 pt-4 pb-8 sm:px-12 sm:pt-10">
         <Button
           variant="ghost"
           size="sm"
-          onClick={onCancel}
+          onClick={cancel}
           className="-ml-2.5 self-start px-2.5 text-signal-ink min-[900px]:hidden"
         >
           <ArrowLeft size={16} weight="bold" aria-hidden /> {vaultStrings().notes}
@@ -190,7 +210,7 @@ export function NewNote({
           </p>
         )}
         <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="ghost" onClick={onCancel} disabled={busy}>
+          <Button variant="ghost" onClick={cancel} disabled={busy}>
             {s.cancel}
           </Button>
           <Button type="submit" disabled={busy || !ready} data-testid="vault-new-save">
