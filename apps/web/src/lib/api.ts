@@ -5,6 +5,7 @@ import {
   type Lang,
 } from '@monsters/shared';
 import { formatNumber, MemoryOwnResponseSchema, type MemoryOwnResponse } from '@monsters/shared';
+import { ChatHistoryResponseSchema } from '@monsters/shared';
 import { LogArchiveStatusSchema, type LogArchiveStatus } from '@monsters/shared';
 import {
   McpOAuthFinishResponseSchema,
@@ -472,6 +473,27 @@ export class ApiClient {
       EventsResponseSchema,
     );
     return parseEvents(res.events);
+  }
+
+  /**
+   * One page of a chat's history in one request (`GET /api/chats/:agent/history`), before `before`;
+   * null from a core without that route (the caller asks `/api/events` instead).
+   */
+  async chatHistory(
+    agent: string,
+    before?: string,
+  ): Promise<{ events: LogEvent[]; floor: string | null; own: number } | null> {
+    try {
+      const res = await this.call(
+        'GET',
+        `/api/chats/${encodeURIComponent(agent)}/history${toQuery({ before })}`,
+        ChatHistoryResponseSchema,
+      );
+      return { ...res, events: parseEvents(res.events) };
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    }
   }
 
   agents(): Promise<AgentSummary[]> {

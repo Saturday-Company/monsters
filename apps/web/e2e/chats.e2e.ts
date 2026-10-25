@@ -355,6 +355,49 @@ test('a chat loads its own history, beyond the newest page of the whole log (W-1
   ).toHaveAttribute('data-status', 'open');
 });
 
+/** The requests the mock core answered so far ("METHOD /path?query"). */
+const mockRequests = (page: Page) =>
+  page.evaluate(() =>
+    (window as unknown as { __monstersMock: { requests: string[] } }).__monstersMock.requests.map(
+      decodeURIComponent,
+    ),
+  );
+
+test('a chat opened for the first time costs one request, and an older core still works', async ({
+  page,
+}) => {
+  const bubbles = [
+    'Dione, can you write me a short bio for Instagram?',
+    'Use this photo for Saturday’s post, and show me the menu on a page.',
+  ];
+  await page.goto('/?mock=demo&mockNoise=500#/?chat=dione');
+  await expect(page.getByTestId('user-bubble')).toHaveText(bubbles);
+  let seen = await mockRequests(page);
+  // The core chooses what the chat shows: one route, never the three pages of `/api/events`.
+  expect(seen.filter((r) => r.startsWith('GET /api/chats/dione/history'))).toHaveLength(1);
+  expect(seen.some((r) => r.startsWith('GET /api/events') && r.includes('agent=dione'))).toBe(
+    false,
+  );
+
+  // A core without that route (404): the same history over `/api/events`.
+  await page.addInitScript(() => {
+    let mock: { withoutChatHistory: boolean } | undefined;
+    Object.defineProperty(window, '__monstersMock', {
+      configurable: true,
+      get: () => mock,
+      set: (m: { withoutChatHistory: boolean }) => {
+        mock = m;
+        m.withoutChatHistory = true;
+      },
+    });
+  });
+  await page.reload();
+  await expect(page.getByTestId('user-bubble')).toHaveText(bubbles);
+  seen = await mockRequests(page);
+  expect(seen.filter((r) => r.startsWith('GET /api/chats/'))).toHaveLength(1);
+  expect(seen.some((r) => r.startsWith('GET /api/events') && r.includes('agent=dione'))).toBe(true);
+});
+
 test('a chat opens at the very bottom, and a message sent while scrolled up comes into view (V-2, W-21)', async ({
   page,
 }) => {
