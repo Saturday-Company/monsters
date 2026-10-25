@@ -2,7 +2,7 @@ import { setAppLang } from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { composerPlaceholder } from '../src/components/chat/Composer.tsx';
 import { greetingWords } from '../src/components/chat/Greeting.tsx';
-import { keypadAccepts, lettersText } from '../src/components/chat/QuestionCard.tsx';
+import { keypadAccepts, keypadPick, lettersText } from '../src/components/chat/QuestionCard.tsx';
 import { fitDots } from '../src/components/monster/MonsterScreen.tsx';
 import { chatPath } from '../src/lib/router.ts';
 import { formatListTime } from '../src/lib/utils.ts';
@@ -46,9 +46,9 @@ describe('composer', () => {
   it('says what the field does now', () => {
     expect(composerPlaceholder(base)).toBe('Message Titan… (@ for another monster)');
     expect(composerPlaceholder({ ...base, name: 'Atlas', wide: false })).toBe('Message Atlas…');
-    // A keypad: with a keyboard the letters answer; on a phone, the keys.
+    // A keypad: with a keyboard a letter and Enter answer; on a phone, the keys.
     expect(composerPlaceholder({ ...base, question: { id: 'q', from: 'Rhea', options: 3 } })).toBe(
-      'Message Rhea, or press A, B or C',
+      'Message Rhea, or type A, B or C and press Enter',
     );
     expect(
       composerPlaceholder({
@@ -73,7 +73,7 @@ describe('composer', () => {
     expect(composerPlaceholder(base)).toBe('Scrivi a Titan… (@ per un altro mostro)');
     expect(composerPlaceholder({ ...base, name: 'Atlas', wide: false })).toBe('Scrivi ad Atlas…');
     expect(composerPlaceholder({ ...base, question: { id: 'q', from: 'Rhea', options: 3 } })).toBe(
-      'Scrivi a Rhea, oppure premi A, B o C',
+      'Scrivi a Rhea, oppure digita A, B o C e premi Invio',
     );
     expect(
       composerPlaceholder({
@@ -113,17 +113,31 @@ describe('keypad', () => {
     expect(lettersText(4)).toBe('A, B, C o D');
   });
 
-  it('takes the letters only with the composer empty and no other field in use', () => {
+  it('takes the letters only with the focus outside every text field, the empty composer too (V-1)', () => {
     expect(keypadAccepts(key, null)).toBe(true);
+    expect(keypadAccepts(key, { tagName: 'BODY' })).toBe(true);
     expect(keypadAccepts(key, { tagName: 'BUTTON' })).toBe(true);
-    expect(keypadAccepts(key, { tagName: 'TEXTAREA', id: 'composer-input', value: '' })).toBe(true);
-    expect(keypadAccepts(key, { tagName: 'TEXTAREA', id: 'composer-input', value: 'b' })).toBe(
-      false,
-    );
-    expect(keypadAccepts(key, { tagName: 'INPUT', id: 'monster-search' })).toBe(false);
+    // The composer has the focus by default: "Can you…" is a sentence, not the option C.
+    const composer = { tagName: 'TEXTAREA', id: 'composer-input', value: '' };
+    const typed = { ...composer, value: 'b' };
+    expect(keypadAccepts(key, composer)).toBe(false);
+    expect(keypadAccepts(key, typed)).toBe(false);
+    expect(keypadAccepts(key, { tagName: 'INPUT' })).toBe(false);
+    expect(keypadAccepts(key, { tagName: 'SELECT' })).toBe(false);
     expect(keypadAccepts(key, { tagName: 'DIV', isContentEditable: true })).toBe(false);
     expect(keypadAccepts({ ...key, metaKey: true }, null)).toBe(false);
     expect(keypadAccepts({ ...key, repeat: true }, null)).toBe(false);
+  });
+
+  it('in the composer, a letter alone picks its option; anything else is words', () => {
+    expect(keypadPick('c', 3)).toBe(2);
+    expect(keypadPick(' B ', 3)).toBe(1);
+    expect(keypadPick('d', 3)).toBeNull();
+    expect(keypadPick('d', 4)).toBe(3);
+    expect(keypadPick('Can you also', 3)).toBeNull();
+    expect(keypadPick('A.', 3)).toBeNull();
+    expect(keypadPick('', 3)).toBeNull();
+    expect(keypadPick('a', 0)).toBeNull();
   });
 });
 

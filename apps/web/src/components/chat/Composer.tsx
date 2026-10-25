@@ -6,21 +6,32 @@ import {
   WifiSlash,
   X,
 } from '@phosphor-icons/react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 import {
   answerQuestion,
+  chooseOption,
   errorText,
   notify,
   sendMessage,
   startNewConversation,
   useApp,
 } from '../../store/app.ts';
+import { draftOf, saveDraft } from '../../store/drafts.ts';
 import { useAgents, useConnection, useMediaQuery, type AgentView } from '../../store/hooks.ts';
 import { openChat } from '../../lib/router.ts';
 import { cn } from '../../lib/utils.ts';
+import { plainText } from '../../lib/markdown.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { Button, KeyCap } from '../ui/button.tsx';
-import { lettersText } from './QuestionCard.tsx';
+import { keypadPick, lettersText } from './QuestionCard.tsx';
 import { ACCEPT } from '../../lib/files.ts';
 import { FileChip } from '../files/FileChip.tsx';
 import { useAttachments } from './attachments.ts';
@@ -87,6 +98,8 @@ export interface ComposerQuestion {
   from: string;
   /** How many options the question has (0: an open question); they are keys A, B, C… */
   options: number;
+  /** The options, in order: a letter alone and Enter picks one (V-1). */
+  picks?: readonly { id: string; label: string }[];
   /**
    * The monster's work waits on it: the core takes any message to that monster
    * as the answer, so it cannot be turned into a normal message here.
@@ -142,7 +155,24 @@ export function Composer({
   const offline = useConnection() === 'closed';
   const wide = useMediaQuery('(min-width: 640px)');
   const keyboard = !useMediaQuery('(pointer: coarse)');
-  const [text, setText] = useState('');
+  const account = useApp((s) => s.email);
+  // The draft of this chat survives a chat switch, a page change, a language switch and a
+  // reload (W-7); it goes when the message is sent.
+  const [text, setTextState] = useState(() => draftOf(account, agent.id));
+  const draftFor = useRef(agent.id);
+  const setText = useCallback(
+    (t: string) => {
+      setTextState(t);
+      saveDraft(account, agent.id, t);
+    },
+    [account, agent.id],
+  );
+  useEffect(() => {
+    // The same field for another chat (a page that does not mount it again): that chat's draft.
+    if (draftFor.current === agent.id) return;
+    draftFor.current = agent.id;
+    setTextState(draftOf(account, agent.id));
+  }, [account, agent.id]);
   const [caret, setCaret] = useState(0);
   const [active, setActive] = useState(0);
   const [sending, setSending] = useState(false);
@@ -184,6 +214,9 @@ export function Composer({
   const answering = canAnswer && (question.blocking === true || notAnswerTo !== question.id);
   // A mention being typed ("@", "@Rh") is not an answer yet: the line waits for real words.
   const mentioning = /^@\S*$/.test(text.trim());
+  // A letter of the keypad alone: Enter picks that option, with the moment to undo it (V-1).
+  const pickAt = answering && question.picks ? keypadPick(text, question.picks.length) : null;
+  const pick = pickAt !== null ? question?.picks?.[pickAt] : undefined;
 
   useEffect(() => {
     const onPrefill = (e: Event) => {
@@ -199,7 +232,7 @@ export function Composer({
     };
     window.addEventListener(PREFILL, onPrefill);
     return () => window.removeEventListener(PREFILL, onPrefill);
-  }, []);
+  }, [setText]);
 
   // Auto-grow up to ~6 lines.
   useLayoutEffect(() => {
@@ -217,7 +250,7 @@ export function Composer({
     }
   }, [text]);
 
-  const pick = (a: AgentView) => {
+  const pickMention = (a: AgentView) => {
     if (!mq) return;
     const next = `${text.slice(0, mq.start)}@${a.name} ${text.slice(caret)}`;
     const pos = mq.start + a.name.length + 2;
@@ -236,6 +269,7 @@ export function Composer({
     try {
       const command = sent.length === 0 ? newConversationCommand(t) : null;
       if (command) await startNewConversation(command.to ?? agent.id);
+      else if (pick && question) chooseOption(question.id, pick.id);
       else if (answering && question) await answerQuestion(question.id, { text: t });
       else {
         // The orchestrator's messages go without an addressee, as always: the core routes them to it.
@@ -262,7 +296,7 @@ export function Composer({
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        pick(suggestions[Math.min(active, suggestions.length - 1)]!);
+        pickMention(suggestions[Math.min(active, suggestions.length - 1)]!);
         return;
       }
       if (e.key === 'Escape') {
@@ -303,7 +337,7 @@ export function Composer({
                 type="button"
                 tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => pick(a)}
+                onClick={() => pickMention(a)}
                 onMouseEnter={() => setActive(i)}
                 className={cn(
                   'flex w-full items-center gap-3 rounded-[10px] px-2 py-1.5 text-left',
@@ -356,11 +390,18 @@ export function Composer({
             {answering ? (
               <>
                 <ArrowBendDownRight size={16} weight="bold" aria-hidden />
-                <span>
-                  {s.answeringBefore}
-                  <strong className="font-semibold text-ink">{question.from}</strong>
-                  {s.answeringAfter}
-                </span>
+                {pick ? (
+                  <span data-testid="composer-pick">
+                    {s.pickBefore}
+                    <strong className="font-semibold text-ink">{plainText(pick.label)}</strong>
+                  </span>
+                ) : (
+                  <span>
+                    {s.answeringBefore}
+                    <strong className="font-semibold text-ink">{question.from}</strong>
+                    {s.answeringAfter}
+                  </span>
+                )}
                 {!question.blocking && (
                   <button
                     type="button"
