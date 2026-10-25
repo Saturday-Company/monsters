@@ -478,11 +478,7 @@ function isCallForbidden(err: unknown): boolean {
  * work: a call that may write is told it may have been applied, to be checked
  * before it is repeated (review of 25/10, C-2); only a read is "retry later".
  */
-export function httpFailure(
-  server: string,
-  err: unknown,
-  readOnly = false,
-): ToolError | undefined {
+export function httpFailure(server: string, err: unknown, readOnly = false): ToolError | undefined {
   if (!(err instanceof SdkHttpError)) return undefined;
   if (err.status === 429) {
     return new ToolError(
