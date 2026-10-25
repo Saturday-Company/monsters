@@ -8,6 +8,7 @@ import {
   type MonsterGenome,
 } from '@monsters/monster-kit';
 import {
+  LEGACY_QUESTION_IDS,
   MOON_NAMES,
   MonsterRegenerateRequestSchema,
   ONBOARDING_QUESTIONS,
@@ -40,6 +41,8 @@ interface Host {
   hasProvider(id: string): boolean;
   /** The team starts on this chain (the composer shows the ChatGPT plan, …). */
   setChain(agentId: string, models: { provider: string; model: string }[]): void;
+  /** What the first start decided about the user, for the profile in the settings. */
+  setProfile(profile: { userName: string; tone: string; language: string }): void;
 }
 
 /** First link of the agents' chain for each way to a model. */
@@ -87,11 +90,11 @@ export class MockOnboarding {
     return this.host.agents().length > 0;
   }
 
+  /** The names are all the first start needs. */
   private complete(): boolean {
-    return ONBOARDING_QUESTIONS.every((q) => {
-      const a = this.answers[q.id];
-      return a !== undefined && checkOnboardingAnswer(q, a).length === 0;
-    });
+    const q = ONBOARDING_QUESTIONS.find((x) => x.id === 'nomi')!;
+    const a = this.answers['nomi'];
+    return a !== undefined && checkOnboardingAnswer(q, a).length === 0;
   }
 
   private value(q: string, g: string): string | undefined {
@@ -247,6 +250,7 @@ export class MockOnboarding {
         const p = OnboardingAnswersRequestSchema.safeParse(body ?? {});
         if (!p.success) return fail(400, 'invalid_request');
         for (const [id, a] of Object.entries(p.data.answers ?? {})) {
+          if (LEGACY_QUESTION_IDS.includes(id)) continue;
           const q = ONBOARDING_QUESTIONS.find((x) => x.id === id);
           if (!q || checkOnboardingAnswer(q, a).length > 0) return fail(400, 'invalid_request');
           this.answers[id] = a;
@@ -323,6 +327,11 @@ export class MockOnboarding {
           });
         }
         this.host.setAgents(agents);
+        this.host.setProfile({
+          userName: cap(this.value('nomi', 'user') ?? tr('you', 'tu')),
+          tone: this.value('tono', 'tono') ?? 'amichevole',
+          language: this.value('tono', 'lingua') ?? tr('en', 'it'),
+        });
         if (this.access)
           for (const a of agents) this.host.setChain(a.id, [ACCESS_MODEL[this.access]]);
         const user = cap(this.value('nomi', 'user') ?? '');

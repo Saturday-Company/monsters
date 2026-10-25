@@ -1,21 +1,14 @@
+import { SETTINGS_TABS, settingsLabel } from '@monsters/shared';
 import { defineStrings } from '../lib/i18n.ts';
 import { toNameIt } from '../lib/utils.strings.ts';
 
-/* First start: the frame, the model chains, the birth, the permissions (D-153). */
+/* First start: the frame, the model chains, the birth, what they may do (D-153, C1). */
 
 const en = {
-  stages: ['Model', 'About you', 'What they can do', 'Squad'],
+  stages: ['Model', 'Your name', 'Squad'],
   progress: 'Progress',
   done: ', done',
   todo: ', to do',
-  moduleTitle: {
-    key: 'Model',
-    questions: 'About you',
-    permissions: 'What they can do',
-    team: 'Squad',
-    birth: 'The squad is born',
-    other: 'First start',
-  },
   loadFailed: 'I can’t load the squad. Reload the page.',
   signOut: 'Sign out',
   retry: 'Try again',
@@ -41,8 +34,6 @@ const en = {
     lead: (name: string) => `${name} · your lead`,
     first: 'Your first monster',
   },
-  progressCount: (label: string, n: number, total: number) => `${label} ${n} of ${total}`,
-  question: 'Question',
   birth: {
     on: 'Squad is on',
     switching: (n: number, total: number) => `Switching on ${n}/${total}`,
@@ -57,34 +48,17 @@ const en = {
   permissions: {
     terminal:
       'Run commands and install programs in their own folder, without administrator rights. Commands can read and change the files of your account.',
-    notesTitle: 'Your notes',
-    notesText: 'Write in your notes: research, drafts, jottings. Every change can be undone.',
-    webTitle: 'The web',
-    webText: 'Search and read pages online, always citing sources.',
-    terminalTitle: 'Terminal',
-    saidSaved: 'Perfect! Now I’ll put the squad together.',
-    said: 'What can we do without bothering you?',
-    hint: 'Computer folders, the browser and other apps you can add whenever you like, in the settings.',
-    list: 'The monsters’ permissions',
-    back: 'Back',
-    working: 'One moment…',
-    next: 'Looks good, continue',
+    /** On the squad screen: what they may do from the start, and where to change it. */
+    note: (where: string) =>
+      `They can write in your notes, search the web and run commands on this computer. You can change that in ${where}.`,
   },
 };
 
 const it: typeof en = {
-  stages: ['Modello', 'Su di te', 'Cosa possono fare', 'Squadra'],
+  stages: ['Modello', 'Il tuo nome', 'Squadra'],
   progress: 'Avanzamento',
   done: ', fatto',
   todo: ', da fare',
-  moduleTitle: {
-    key: 'Modello',
-    questions: 'Su di te',
-    permissions: 'Cosa possono fare',
-    team: 'Squadra',
-    birth: 'Nascita della squadra',
-    other: 'Primo avvio',
-  },
   loadFailed: 'Non riesco a caricare la squadra: ricarica la pagina.',
   signOut: 'Esci dall’account',
   retry: 'Riprova',
@@ -109,8 +83,6 @@ const it: typeof en = {
     lead: (name) => `${name} · il tuo capo`,
     first: 'Il tuo primo mostro',
   },
-  progressCount: (label, n, total) => `${label} ${n} di ${total}`,
-  question: 'Domanda',
   birth: {
     on: 'Squadra accesa',
     switching: (n, total) => `Accensione ${n}/${total}`,
@@ -125,19 +97,20 @@ const it: typeof en = {
   permissions: {
     terminal:
       'Eseguire comandi e installare programmi nella propria cartella, senza permessi di amministratore. I comandi possono leggere e cambiare i file del tuo account.',
-    notesTitle: 'Le tue note',
-    notesText: 'Scrivere nelle tue note: ricerche, bozze, appunti. Ogni modifica si può annullare.',
-    webTitle: 'Il web',
-    webText: 'Cercare e leggere pagine online, sempre citando le fonti.',
-    terminalTitle: 'Terminale',
-    saidSaved: 'Perfetto! Adesso preparo la squadra.',
-    said: 'Cosa possiamo fare senza disturbarti?',
-    hint: 'Cartelle del computer, browser e altri programmi li aggiungi quando vuoi, nelle impostazioni.',
-    list: 'Permessi degli agenti',
-    back: 'Indietro',
-    working: 'Un attimo…',
-    next: 'Va bene, continua',
+    note: (where) =>
+      `Possono scrivere nelle tue note, cercare sul web ed eseguire comandi su questo computer. Puoi cambiarlo in ${where}.`,
   },
 };
 
 export const onboardingStrings = defineStrings({ en, it });
+
+/** One true sentence about the commands, the same in Settings → Permissions (audit 2.9). */
+export function terminalText(): string {
+  return onboardingStrings().permissions.terminal;
+}
+
+/** "Settings → Permissions": the place to change what the monsters may do. */
+export function permissionsPlace(): string {
+  // Held together: the sentence may end the line, the place never splits.
+  return `${settingsLabel()}\u00a0→\u00a0${SETTINGS_TABS.permessi}`;
+}

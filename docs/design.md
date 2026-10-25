@@ -684,13 +684,17 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   scrolls into view and takes the focus.
 - **First start** (power-on sequence): below the rail (wordmark in Doto, a row of lights for the steps: green done,
   slowly blinking orange the one in progress, a dashed ring for the model left for later; on the phone only the lights;
-  on the right a small "SIGN OUT") each step sits in a big module (`--panel`, radius 18, seam) anchored at the top, with
-  the step's `.label` and `01 / 04` at the head. Four steps: **Model**, **About you** (the questions), **What they can
-  do** (the permissions), **Squad**. A single orange key per step: the OpenRouter key has "Verify and continue"
+  on the right a small "SIGN OUT") each step sits in a big module (`--panel`, radius 18, seam) anchored at the top
+  (no header: the rail already says where you are). Three steps (express, C1): **Model**, **Your name** (yours and the
+  lead's, already "Titan", on one screen) and **Squad** (the proposal, "Looks good" the one main key, Back, and a sentence
+  that says what the monsters may do and where to change it). Work, hand-offs, what they always ask, tone and writing
+  language are the "Tell me more about you" card in the lead's chat after its first answer, with one compact row of
+  first jobs. A single orange key per step: the OpenRouter key has "Verify and continue"
   (verifies and goes on), "I'll do it later" disappears as soon as there is a model. The guide speaks from a screen with
   its monster: the sentence in Martian Mono `--screen-ink` with the block cursor, the hint below in `--screen-muted`.
   Options as keys with the light, progress as a strip of segments in a well, the proposed monsters on their screens with
-  the actions at the bottom of the card, each with its name under the icon (Tasks, Name, Look, Remove). When the squad is
+  the actions at the bottom of the card behind one "Edit" key, each with its name under the icon (What it does, Name,
+  Look, Remove). When the squad is
   born every monster **lights up dot by dot** on its screen (`DotReveal`: `dotGrid` + `dotPalette`, random order from
   the seed, ~700 ms, one after the other, the squad lead first), with a "tick" for each monster and the "task done"
   sound at the last if sounds are on; "POWER-ON n/N" counts (with the dashes running, then the green light) and every

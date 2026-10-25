@@ -12,7 +12,7 @@ import { errorText, getApi, notify } from '../../store/app.ts';
 import { useAgents } from '../../store/hooks.ts';
 import { useProjects } from '../../store/projects.ts';
 import { Switch } from '../ui/controls.tsx';
-import { terminalText } from '../../onboarding/PermissionsStep.tsx';
+import { terminalText } from '../../onboarding/onboarding.strings.ts';
 import { FolderGrants } from './FolderGrants.tsx';
 import { AgentMark, DisclosureRow, Group, LoadFailed, Row, RowBody, useRetry } from './parts.tsx';
 import { permissionsStrings } from './permissions.strings.ts';

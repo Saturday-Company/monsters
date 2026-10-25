@@ -6,9 +6,9 @@ import { defineStrings } from '../lib/i18n.ts';
 const en = {
   ways: {
     'claude-agent': {
-      title: 'Claude subscription',
+      title: 'Claude plan',
       text: 'With Claude Code and your plan, on the computer where Monsters runs.',
-      done: 'Claude Code and your subscription',
+      done: 'Claude Code and your plan',
     },
     chatgpt: {
       title: 'ChatGPT plan',
@@ -44,7 +44,7 @@ const en = {
   },
   claude: {
     readySubscription: (version: string | undefined) =>
-      `Claude Code is ready with your subscription${version ? ` (version ${version})` : ''}.`,
+      `Claude Code is ready with your plan${version ? ` (version ${version})` : ''}.`,
     readyOther: 'Claude Code is ready, with the sign-in method you set up yourself.',
     recheck: 'Check again',
     introBefore: 'Monsters uses Claude Code installed',
@@ -56,13 +56,12 @@ const en = {
       `I can’t find Claude Code on that computer. You can install it yourself, or let Monsters install Anthropic’s official component (${name} ${version}, ${license} license).`,
     install: 'Install and use Claude Code',
     use: 'Use Claude Code',
-    apiKeyBefore:
-      'Claude Code would use an API key: you’d pay per use, not with the subscription. Run',
+    apiKeyBefore: 'Claude Code would use an API key: you’d pay per use, not with your plan. Run',
     apiKeyAfter: 'and sign in with your plan.',
     lostIt:
       'I can’t find Claude Code on that computer anymore: install it and press “Check again”.',
     terminalStrong: 'On the computer where Monsters runs, open a terminal and run',
-    terminalMid: ', then sign in with your subscription (',
+    terminalMid: ', then sign in with your plan (',
     terminalAfter: '). I’ll notice on my own, or press “Check again”.',
   },
   chatgpt: {
@@ -82,7 +81,7 @@ const en = {
     hint: 'One is enough. You can add the others whenever you like.',
   },
   waysLabel: 'How I reach a model',
-  subsFailed: 'I can’t read the subscriptions. Try again in a moment.',
+  subsFailed: 'I can’t read the plans. Try again in a moment.',
   looking: 'Checking what’s on that computer…',
   other: {
     verified: (label: string) => `${label} key verified: the monsters will use its (paid) models.`,
@@ -102,9 +101,9 @@ const en = {
 const it: typeof en = {
   ways: {
     'claude-agent': {
-      title: 'Abbonamento Claude',
+      title: 'Piano Claude',
       text: 'Con Claude Code e il tuo piano, sul computer dove gira Monsters.',
-      done: 'Claude Code e il tuo abbonamento',
+      done: 'Claude Code e il tuo piano',
     },
     chatgpt: {
       title: 'Piano ChatGPT',
@@ -139,7 +138,7 @@ const it: typeof en = {
   },
   claude: {
     readySubscription: (version) =>
-      `Claude Code è pronto con il tuo abbonamento${version ? ` (versione ${version})` : ''}.`,
+      `Claude Code è pronto con il tuo piano${version ? ` (versione ${version})` : ''}.`,
     readyOther: 'Claude Code è pronto, con il metodo di accesso che hai impostato tu.',
     recheck: 'Ricontrolla',
     introBefore: 'Monsters usa Claude Code installato',
@@ -152,11 +151,11 @@ const it: typeof en = {
     install: 'Installa e usa Claude Code',
     use: 'Usa Claude Code',
     apiKeyBefore:
-      'Claude Code userebbe una chiave API: pagheresti a consumo, non con l’abbonamento. Esegui',
+      'Claude Code userebbe una chiave API: pagheresti a consumo, non con il tuo piano. Esegui',
     apiKeyAfter: 'e accedi con il tuo piano.',
     lostIt: 'Non trovo più Claude Code su quel computer: installalo e premi «Ricontrolla».',
     terminalStrong: 'Sul computer dove gira Monsters apri un terminale ed esegui',
-    terminalMid: ', poi accedi con il tuo abbonamento (',
+    terminalMid: ', poi accedi con il tuo piano (',
     terminalAfter: '). Me ne accorgo da solo, oppure premi «Ricontrolla».',
   },
   chatgpt: {
@@ -176,7 +175,7 @@ const it: typeof en = {
     hint: 'Ne basta uno. Gli altri li aggiungi quando vuoi.',
   },
   waysLabel: 'Come raggiungo un modello',
-  subsFailed: 'Non riesco a leggere gli abbonamenti. Riprova tra poco.',
+  subsFailed: 'Non riesco a leggere i piani. Riprova tra poco.',
   looking: 'Guardo cosa c’è su quel computer…',
   other: {
     verified: (label) =>

@@ -1,18 +1,17 @@
 import { defineStrings } from '../lib/i18n.ts';
 
-/* First start, step 4: the proposed squad (D-153). */
+/* First start, the squad screen: the proposed squad, "Looks good" the only main key (D-153, C1). */
 
 const en = {
-  atLeastOne: 'At least one task is needed.',
-  atMost: (n: number) => `At most ${n} tasks, one per line.`,
-  dutyProblem: (duty: string, message: string | null) =>
-    `Task “${duty}”: ${message ?? 'not valid'}`,
+  atLeastOne: 'Write at least one line about what it does.',
+  atMost: (n: number) => `At most ${n} lines about what it does, one per line.`,
+  dutyProblem: (duty: string, message: string | null) => `“${duty}”: ${message ?? 'not valid'}`,
   editor: {
-    duties: (name: string) => `${name}’s tasks (one per line)`,
+    duties: (name: string) => `What ${name} does (one per line)`,
     folder: (name: string) => `${name}’s folder in the notes`,
     cancel: 'Cancel',
     save: 'Save',
-    saveLabel: (name: string) => `Save ${name}’s tasks and folder`,
+    saveLabel: (name: string) => `Save what ${name} does and its folder`,
   },
   card: {
     onlyLetters: 'Letters only, 24 at most.',
@@ -22,9 +21,11 @@ const en = {
     area: (area: string) => `Saves its work in the notes folder “${area}”.`,
     searchesWeb: 'Searches the web',
     saved: 'Saved',
-    tasks: 'Tasks',
-    customize: (name: string) => `Customize ${name}`,
-    tasksTitle: 'Tasks and folder',
+    tasks: 'What it does',
+    customize: (name: string) => `Change what ${name} does`,
+    tasksTitle: 'What it does, and its folder',
+    editKey: 'Edit',
+    edit: (name: string) => `Edit ${name}`,
     name: 'Name',
     rename: (name: string) => `Rename ${name}`,
     renameTitle: 'Rename',
@@ -42,7 +43,7 @@ const en = {
   proposed: (n: number) =>
     `Here’s the squad I suggest: ${n === 1 ? 'one monster' : `${n} monsters`} plus me.`,
   proposedHint:
-    'You can remove someone, change a name or a look, and with “Tasks” what each one does and where it writes.',
+    'Happy with it? Press Looks good. Or tap Edit on a card to change a name, a look or what it does.',
   writtenBy: (model: string) => `Written by ${model}`,
   tailored: 'Suggestion tailored to you',
   starter: 'Starter squad, adapted to you',
@@ -50,21 +51,22 @@ const en = {
   listLabel: 'The suggested squad',
   removed: 'Removed:',
   putBack: (name: string) => `Put ${name} back on the squad`,
+  back: 'Back',
   another: 'Suggest another squad',
   waking: 'Waking them up…',
-  confirm: 'Confirm the squad',
+  confirm: 'Looks good',
 };
 
 const it: typeof en = {
-  atLeastOne: 'Serve almeno un compito.',
-  atMost: (n) => `Al massimo ${n} compiti, uno per riga.`,
-  dutyProblem: (duty, message) => `Compito "${duty}": ${message ?? 'non valido'}`,
+  atLeastOne: 'Scrivi almeno una riga su cosa fa.',
+  atMost: (n) => `Al massimo ${n} righe su cosa fa, una per riga.`,
+  dutyProblem: (duty, message) => `«${duty}»: ${message ?? 'non valido'}`,
   editor: {
-    duties: (name) => `Compiti di ${name} (uno per riga)`,
+    duties: (name) => `Cosa fa ${name} (una cosa per riga)`,
     folder: (name) => `Cartella nelle note di ${name}`,
     cancel: 'Annulla',
     save: 'Salva',
-    saveLabel: (name) => `Salva compiti e cartella di ${name}`,
+    saveLabel: (name) => `Salva cosa fa ${name} e la sua cartella`,
   },
   card: {
     onlyLetters: 'Solo lettere, massimo 24.',
@@ -74,9 +76,11 @@ const it: typeof en = {
     area: (area) => `Lascia il suo lavoro nelle note «${area}».`,
     searchesWeb: 'Cerca sul web',
     saved: 'Salvato',
-    tasks: 'Compiti',
-    customize: (name) => `Personalizza ${name}`,
-    tasksTitle: 'Compiti e cartella',
+    tasks: 'Cosa fa',
+    customize: (name) => `Cambia cosa fa ${name}`,
+    tasksTitle: 'Cosa fa, e la sua cartella',
+    editKey: 'Modifica',
+    edit: (name) => `Modifica ${name}`,
     name: 'Nome',
     rename: (name) => `Rinomina ${name}`,
     renameTitle: 'Rinomina',
@@ -94,7 +98,7 @@ const it: typeof en = {
   proposed: (n) =>
     `Ecco la squadra che ti propongo: ${n === 1 ? 'un mostro' : `${n} mostri`} più me.`,
   proposedHint:
-    'Puoi togliere qualcuno, cambiare un nome o un aspetto, e con «Compiti» cosa fa ciascuno e dove scrive.',
+    'Ti va bene? Premi Va bene. Oppure tocca Modifica su una carta per cambiare un nome, un aspetto o cosa fa.',
   writtenBy: (model) => `Scritta da ${model}`,
   tailored: 'Proposta su misura',
   starter: 'Squadra di partenza, adattata a te',
@@ -102,9 +106,10 @@ const it: typeof en = {
   listLabel: 'La squadra proposta',
   removed: 'Tolti:',
   putBack: (name) => `Rimetti ${name} nella squadra`,
+  back: 'Indietro',
   another: 'Proponi un’altra squadra',
   waking: 'Li sveglio…',
-  confirm: 'Conferma la squadra',
+  confirm: 'Va bene',
 };
 
 export const teamStrings = defineStrings({ en, it });
