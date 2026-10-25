@@ -91,6 +91,7 @@ const en = {
   },
   toolNeverReached: (detail: string) =>
     `The call never reached Monsters: ${detail || 'the program gave no reason'}`,
+  harnessCallUnanswered: 'The program ended before the result of this call.',
   configWriteStopped:
     'A monster wanted to change Claude Code’s configuration in its folder: stopped.',
   internalFilesStopped: 'A monster wanted to use Monsters’ internal files: stopped.',
@@ -190,6 +191,7 @@ const it: typeof en = {
   },
   toolNeverReached: (detail) =>
     `La chiamata non è mai arrivata a Monsters: ${detail || 'il programma non ha detto perché'}`,
+  harnessCallUnanswered: 'Il programma si è chiuso prima del risultato di questa chiamata.',
   configWriteStopped:
     'Un mostro voleva cambiare la configurazione di Claude Code nella sua cartella: fermato.',
   internalFilesStopped: 'Un mostro voleva usare i file interni di Monsters: fermato.',
