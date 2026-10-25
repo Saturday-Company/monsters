@@ -7,6 +7,7 @@ import {
   type AgentSummary,
   type Lang,
   type AnswerRequest,
+  type EventType,
   type LogEvent,
   type Question,
   type StatusResponse,
@@ -21,6 +22,7 @@ import { joinTabs, recoverSessionSecret, sessionSecret } from '../lib/session-se
 import type { Transport } from '../lib/transport.ts';
 import { automationPath, MCP_SIGN_IN_PATH, SPEND_CAP_PATH } from '../lib/router.ts';
 import { appStrings } from './app.strings.ts';
+import { keepHeld, storedHeld, takeHeld } from './drafts.ts';
 import { usePreview } from './preview.ts';
 import { listsInUse, refreshDrafts, refreshProjects, resetLists } from './projects.ts';
 import {
@@ -75,7 +77,19 @@ export interface AppState {
   events: LogEvent[];
   /** True when older history is still available on the core. */
   hasOlder: boolean;
+  /**
+   * The oldest event of the pages of the whole hub (the first one, then "Load older" in
+   * Activity): from there on every chat is complete. Null with no history.
+   */
+  historyFloor: string | null;
+  /** The history each chat loaded on its own (W-1), by monster: see `chatHistoryOf`. */
+  chats: Record<string, ChatHistory>;
   questions: Record<string, Question>;
+  /**
+   * Options picked with a letter of the keypad that have not left yet (question id →
+   * option id): they go after `ANSWER_UNDO_MS`, unless undone (V-1).
+   */
+  choices: Record<string, string>;
   /** Vault actions undone (actionId → commit of the undo), from the log and from this UI. */
   undone: Record<string, string>;
   /** Undos refused because the files changed afterwards (actionId → those files). */
@@ -114,7 +128,10 @@ const INITIAL: AppState = {
   liveAt: null,
   events: [],
   hasOlder: false,
+  historyFloor: null,
+  chats: {},
   questions: {},
+  choices: {},
   undone: {},
   undoConflicts: {},
   pending: [],
@@ -126,6 +143,70 @@ const INITIAL: AppState = {
 };
 
 export const HISTORY_PAGE = 400;
+
+/** One page of a chat's own history: its monster's events, of every kind (W-1). */
+export const CHAT_PAGE = 300;
+/** The pages of what the chats of other monsters bring along (delegations, questions…). */
+export const AROUND_PAGE = 1000;
+
+/**
+ * What a chat shows besides its own monster's events: a task given by the lead, a question
+ * asked by a monster working for this chat, a file, a stop, a receipt… They are rare
+ * kinds, so one page of them covers a long time (the streamed words are never among them).
+ */
+export const CHAT_TYPES: readonly EventType[] = [
+  'run',
+  'delegation',
+  'question',
+  'answer',
+  'question_expired',
+  'question_parked',
+  'new_conversation',
+  'kill',
+  'resume',
+  'instinct',
+  'security',
+  'spend',
+  'monster_proposal',
+  'preview',
+  'file',
+  'project_report',
+  'receipt',
+  'vault_change',
+  'error',
+];
+
+/** The history a chat loaded on its own (W-1). */
+export interface ChatHistory {
+  /** Everything of this chat newer than this id is loaded (null: from the newest). */
+  before: string | null;
+  /** Something older may be on the core. */
+  hasOlder: boolean;
+  loading: boolean;
+}
+
+/**
+ * Where a chat's history stands: its own pages, or the pages of the whole hub when those
+ * went further back (or the chat never loaded any).
+ */
+export function chatHistoryOf(
+  s: Pick<AppState, 'chats' | 'historyFloor' | 'hasOlder'>,
+  agentId: string,
+): ChatHistory {
+  const own = s.chats[agentId];
+  const hub: ChatHistory = { before: s.historyFloor, hasOlder: s.hasOlder, loading: false };
+  if (!own) return hub;
+  if (!own.hasOlder) return own;
+  if (
+    !s.hasOlder ||
+    (s.historyFloor !== null && own.before !== null && s.historyFloor < own.before)
+  )
+    return { ...hub, loading: own.loading };
+  return own;
+}
+
+/** How long a letter of the keypad can be undone before its answer leaves (V-1). */
+export const ANSWER_UNDO_MS = 3000;
 
 /** How long the stream may keep reconnecting before the UI calls the link lost. */
 export const LINK_LOST_MS = 10_000;
@@ -166,6 +247,19 @@ let noticeSeq = 0;
 const seen = new Set<string>();
 /** Runs whose end the app has seen: their late words and tools are not work (`applyLive`). */
 const endedRuns = new Set<string>();
+/**
+ * Events this UI added before the stream brought them (a new conversation, W-24): they are
+ * not news for the live state and not the stream's cursor until the stream's copy comes.
+ */
+const localIds = new Set<string>();
+/** Held messages this tab put in storage or took from it (see `flushHeld`). */
+const keptHeld = new Set<string>();
+/** The timers of the options picked with the keypad, by question (`chooseOption`). */
+const choiceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+/** A chat's page of history being loaded, by monster. */
+const chatLoads = new Map<string, Promise<number>>();
+/** Moves on at every sign-out: an answer of the session before is dropped. */
+let sessionSeq = 0;
 
 function client(): ApiClient {
   if (!api) throw new Error('store not initialised: call initApp(transport) first');
@@ -192,18 +286,48 @@ function questionFromEvent(e: LogEvent<'question'>): Question {
   };
 }
 
+const byId = (a: LogEvent, b: LogEvent) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+function liveContext(questions: () => Record<string, Question>): LiveContext {
+  return {
+    askerOf: (id) => questions()[id]?.from,
+    runEnded: (runId) => endedRuns.has(runId),
+  };
+}
+
+export interface IngestOptions {
+  /**
+   * Added by this UI ahead of the stream (W-24): kept out of the live state and of the
+   * stream's cursor; the stream's own copy, when it comes, counts then.
+   */
+  local?: boolean;
+  /** A page of older history: no toasts, and nothing reloaded because of what it holds. */
+  history?: boolean;
+}
+
 /** Adds events (any order, duplicates ignored) and updates the derived state. */
-export function ingest(batch: readonly LogEvent[]): void {
-  const fresh = batch.filter((e) => !seen.has(e.id));
-  if (fresh.length === 0) return;
-  for (const e of fresh) seen.add(e.id);
-  fresh.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+export function ingest(batch: readonly LogEvent[], opts: IngestOptions = {}): void {
+  // The stream's copy of an event this UI added first: it is news for the live state now.
+  const confirmed = opts.local ? [] : batch.filter((e) => localIds.delete(e.id));
+  // New ids only, each once (pages asked side by side overlap).
+  const fresh: LogEvent[] = [];
+  for (const e of batch) {
+    if (seen.has(e.id)) continue;
+    seen.add(e.id);
+    if (opts.local) localIds.add(e.id);
+    fresh.push(e);
+  }
+  if (fresh.length === 0 && confirmed.length === 0) return;
+  fresh.sort(byId);
+  const news = opts.local ? [] : [...fresh, ...confirmed].sort(byId);
 
   useApp.setState((s) => {
     let events = s.events;
-    const last = events[events.length - 1];
-    if (!last || fresh[0]!.id > last.id) events = [...events, ...fresh];
-    else events = [...events, ...fresh].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    if (fresh.length > 0) {
+      const last = events[events.length - 1];
+      if (!last || fresh[0]!.id > last.id) events = [...events, ...fresh];
+      else events = [...events, ...fresh].sort(byId);
+    }
 
     let live = s.live;
     let liveAt = s.liveAt;
@@ -212,19 +336,11 @@ export function ingest(batch: readonly LogEvent[]): void {
     let haltedReason = s.haltedReason;
     let undone = s.undone;
     const ids = s.agentOrder;
-    const ctx: LiveContext = {
-      askerOf: (id) => questions[id]?.from,
-      runEnded: (runId) => endedRuns.has(runId),
-    };
+    const ctx = liveContext(() => questions);
     for (const e of fresh) {
       if (e.type === 'run' && e.runId && e.data.status !== 'started') endedRuns.add(e.runId);
     }
     for (const e of fresh) {
-      // Only what happened after the live state is news for it (an older page is history).
-      if (liveAt === null || e.id > liveAt) {
-        live = applyLive(live, e, ids, ctx);
-        liveAt = e.id;
-      }
       if (e.type === 'question') {
         if (!questions[e.data.questionId] || questions[e.data.questionId]!.status === 'open') {
           questions = {
@@ -264,8 +380,17 @@ export function ingest(batch: readonly LogEvent[]): void {
         haltedReason = null;
       }
     }
+    // After the questions of the batch: an answer finds who asked (`askerOf`).
+    for (const e of news) {
+      // Only what happened after the live state is news for it (an older page is history).
+      if (liveAt === null || e.id > liveAt) {
+        live = applyLive(live, e, ids, ctx);
+        liveAt = e.id;
+      }
+    }
     return { events, live, liveAt, questions, halted, haltedReason, undone };
   });
+  if (opts.history) return;
   // The spending cap (D-070): a warning or a stop that just happened is a toast too.
   const spend = fresh.findLast(
     (e): e is LogEvent<'spend'> => e.type === 'spend' && Date.now() - e.ts < 60_000,
@@ -355,7 +480,18 @@ export function ingest(batch: readonly LogEvent[]): void {
   if (inUse.drafts && fresh.some((e) => drafts.includes(e.type))) void refreshDrafts();
 }
 
-function setAgents(list: readonly AgentSummary[]): void {
+/** The newest event the live state had taken in when a snapshot was asked for (W-2). */
+function liveCursor(): string | null {
+  return useApp.getState().liveAt;
+}
+
+/**
+ * The team as the core sent it, with the live state of its snapshot. `from` is where the
+ * live state stood when the snapshot was asked for: the events the stream brought since
+ * then may be newer than the snapshot (a run that ended meanwhile), so they are played
+ * again on it, and a late answer never puts back what they changed (W-2).
+ */
+function setAgents(list: readonly AgentSummary[], from: string | null): void {
   const agents: Record<string, AgentSummary> = {};
   for (const a of list) agents[a.id] = a;
   // Orchestrator first, then the order given by the core.
@@ -378,12 +514,24 @@ function setAgents(list: readonly AgentSummary[]): void {
       ...(work.length > 0 ? { work } : {}),
     };
   }
-  useApp.setState({ agents, agentOrder: order, live });
+  useApp.setState((s) => {
+    let next = live;
+    const until = s.liveAt;
+    if (until !== null && (from === null || from < until)) {
+      const ctx = liveContext(() => s.questions);
+      for (const e of s.events) {
+        if ((from !== null && e.id <= from) || e.id > until || localIds.has(e.id)) continue;
+        next = applyLive(next, e, order, ctx);
+      }
+    }
+    return { agents, agentOrder: order, live: next };
+  });
 }
 
 /** Reloads the team from the core (e.g. after the onboarding created it). */
 export async function refreshAgents(): Promise<void> {
-  setAgents(await client().agents());
+  const from = liveCursor();
+  setAgents(await client().agents(), from);
 }
 
 function applyStatus(st: StatusResponse): void {
@@ -459,8 +607,31 @@ export function initApp(transport: Transport): void {
         void checkSession();
       },
     },
-    { cursor: () => useApp.getState().events.at(-1)?.id },
+    { cursor: streamCursor },
   );
+}
+
+/** Where the stream resumes: the newest event, not one this UI added ahead of it (W-24). */
+function streamCursor(): string | undefined {
+  const events = useApp.getState().events;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const id = events[i]!.id;
+    if (!localIds.has(id)) return id;
+  }
+  return undefined;
+}
+
+/** The module's own memory of a session (the store's state is reset by the callers). */
+function clearModuleState(): void {
+  seen.clear();
+  endedRuns.clear();
+  localIds.clear();
+  keptHeld.clear();
+  for (const t of choiceTimers.values()) clearTimeout(t);
+  choiceTimers.clear();
+  chatLoads.clear();
+  sessionSeq++;
+  resetLists();
 }
 
 /** Resets everything that belongs to a session. */
@@ -468,9 +639,7 @@ function clearSession(): void {
   answerOwnerPrompt(false);
   stream?.stop();
   clearLostTimer();
-  seen.clear();
-  endedRuns.clear();
-  resetLists();
+  clearModuleState();
   useApp.setState({
     ...INITIAL,
     phase: 'login',
@@ -528,31 +697,51 @@ export async function boot(): Promise<void> {
 
 async function loadWorkspace(): Promise<void> {
   const c = client();
-  const [agents, status, history, known] = await Promise.all([
+  const page = c.events({ limit: HISTORY_PAGE, order: 'desc' });
+  // The live mood (the confused face too) comes from the core's snapshot, not from replaying
+  // old history: asked once the page is in, it is never older than the page (W-2).
+  const team = page.then(() =>
     c.agents().catch((err: unknown) => {
       if (err instanceof ApiError && err.status === 404) return [] as AgentSummary[];
       throw err;
     }),
+  );
+  // Awaited below; a failed page fails the boot first.
+  team.catch(() => {});
+  const [history, status, known] = await Promise.all([
+    page,
     c.status(),
-    c.events({ limit: HISTORY_PAGE, order: 'desc' }),
     c.questions('all').catch(() => [] as Question[]),
   ]);
-  setAgents(agents);
   ingest(history);
-  // The live mood (the confused face too) comes from the core snapshot, not from replaying old history.
-  setAgents(agents);
+  const from = liveCursor();
+  setAgents(await team, from);
   applyStatus(status);
   mergeQuestions(known);
-  useApp.setState({ phase: 'ready', hasOlder: history.length >= HISTORY_PAGE });
+  useApp.setState({
+    phase: 'ready',
+    hasOlder: history.length >= HISTORY_PAGE,
+    historyFloor: history.at(-1)?.id ?? null,
+  });
+  restoreHeld();
   stream?.start();
 }
 
-/** The core's list is the truth (status included), also for questions older than the history page. */
+/**
+ * The core's list is the truth (status included), also for questions older than the history
+ * page; but a snapshot older than the event that closed a question never opens it again, nor
+ * takes back its "paused" mark (W-2): the next message would go out as its answer.
+ */
 function mergeQuestions(known: readonly Question[]): void {
   if (!known.length) return;
   useApp.setState((s) => {
     const questions = { ...s.questions };
-    for (const q of known) questions[q.id] = q;
+    for (const q of known) {
+      const cur = questions[q.id];
+      if (cur && cur.status !== 'open' && q.status === 'open') continue;
+      questions[q.id] =
+        cur?.parked && q.status === 'open' && !q.parked ? { ...q, parked: true } : q;
+    }
     return { questions };
   });
 }
@@ -565,10 +754,11 @@ function mergeQuestions(known: readonly Question[]): void {
 async function resync(): Promise<void> {
   if (useApp.getState().phase !== 'ready') return;
   const c = client();
+  const from = liveCursor();
   try {
     const [agents, known] = await Promise.all([c.agents(), c.questions('all')]);
     if (useApp.getState().phase !== 'ready') return;
-    setAgents(agents);
+    setAgents(agents, from);
     mergeQuestions(known);
   } catch {
     // core unreachable again: the next hello retries
@@ -634,16 +824,69 @@ export async function logout(): Promise<void> {
   }
 }
 
+/** The next page of the whole hub's history, before the oldest one loaded (Activity). */
 export async function loadOlder(): Promise<number> {
-  const oldest = useApp.getState().events[0];
+  // Not the oldest event in memory: a chat's own pages go further back for that chat only.
+  const floor = useApp.getState().historyFloor;
   const older = await client().events({
     limit: HISTORY_PAGE,
     order: 'desc',
-    ...(oldest ? { before: oldest.id } : {}),
+    ...(floor ? { before: floor } : {}),
   });
-  ingest(older);
-  useApp.setState({ hasOlder: older.length >= HISTORY_PAGE });
+  ingest(older, { history: true });
+  useApp.setState((s) => ({
+    hasOlder: older.length >= HISTORY_PAGE,
+    historyFloor: older.at(-1)?.id ?? s.historyFloor,
+  }));
   return older.length;
+}
+
+function setChat(agentId: string, h: ChatHistory): void {
+  useApp.setState((s) => ({ chats: { ...s.chats, [agentId]: h } }));
+}
+
+/**
+ * The next page of one chat's history (W-1): the events of its monster, of every kind, and
+ * in the same span what the chat shows of the others (`CHAT_TYPES`) and the user's
+ * messages. The chat is then complete down to the newest edge of the pages that were cut.
+ * Resolves to how many events of its monster came; 0 when there is nothing older.
+ */
+export function loadChatOlder(agentId: string): Promise<number> {
+  const running = chatLoads.get(agentId);
+  if (running) return running;
+  const cur = chatHistoryOf(useApp.getState(), agentId);
+  if (!cur.hasOlder) return Promise.resolve(0);
+  const at = sessionSeq;
+  const job = (async () => {
+    setChat(agentId, { ...cur, loading: true });
+    const c = client();
+    try {
+      const range = cur.before ? { before: cur.before } : {};
+      const own = await c.events({ agent: [agentId], limit: CHAT_PAGE, order: 'desc', ...range });
+      const cut = own.length >= CHAT_PAGE ? own.at(-1)!.id : null;
+      const span = { ...range, ...(cut ? { after: cut } : {}), order: 'desc' as const };
+      const [around, words] = await Promise.all([
+        c.events({ ...span, type: [...CHAT_TYPES], limit: AROUND_PAGE }),
+        c.events({ ...span, agent: ['user'], type: ['message'], limit: AROUND_PAGE }),
+      ]);
+      if (at !== sessionSeq) return 0;
+      let floor = cut;
+      for (const page of [around, words]) {
+        const edge = page.length >= AROUND_PAGE ? page.at(-1)!.id : null;
+        if (edge && (floor === null || edge > floor)) floor = edge;
+      }
+      ingest([...own, ...around, ...words], { history: true });
+      setChat(agentId, { before: floor ?? cur.before, hasOlder: floor !== null, loading: false });
+      return own.length;
+    } catch (err) {
+      if (at === sessionSeq) setChat(agentId, { ...cur, loading: false });
+      throw err;
+    } finally {
+      chatLoads.delete(agentId);
+    }
+  })();
+  chatLoads.set(agentId, job);
+  return job;
 }
 
 let tempSeq = 0;
@@ -659,15 +902,21 @@ export async function sendMessage(
   /** Ids of files already uploaded (`POST /api/files`). */
   attachments?: readonly string[],
 ): Promise<void> {
-  const tempId = `pending-${++tempSeq}`;
+  // Unique across reloads too: a held message kept in storage comes back with its id.
+  const tempId = `pending-${Date.now().toString(36)}-${++tempSeq}`;
   const files = attachments?.length ? [...attachments] : undefined;
   if (useApp.getState().halted) {
-    useApp.setState((s) => ({
-      pending: [
-        ...s.pending,
-        { tempId, text, to, ts: Date.now(), held: true, ...(files ? { attachments: files } : {}) },
-      ],
-    }));
+    const held: PendingSend = {
+      tempId,
+      text,
+      to,
+      ts: Date.now(),
+      held: true,
+      ...(files ? { attachments: files } : {}),
+    };
+    // Kept in storage too (W-6): a reload or closing the app does not lose it.
+    if (keepHeld(useApp.getState().email, held)) keptHeld.add(tempId);
+    useApp.setState((s) => ({ pending: [...s.pending, held] }));
     return;
   }
   useApp.setState((s) => ({
@@ -694,15 +943,34 @@ export async function sendMessage(
 
 /** Drops a message held while the monsters are stopped. */
 export function dropHeld(tempId: string): void {
+  takeHeld(useApp.getState().email, [tempId]);
+  keptHeld.delete(tempId);
   useApp.setState((s) => ({ pending: s.pending.filter((p) => p.tempId !== tempId) }));
+}
+
+/** The messages held before a reload (or in another tab), back in their chats (W-6). */
+function restoreHeld(): void {
+  const stored = storedHeld(useApp.getState().email);
+  if (stored.length === 0) return;
+  for (const p of stored) keptHeld.add(p.tempId);
+  useApp.setState((s) => {
+    const have = new Set(s.pending.map((p) => p.tempId));
+    return { pending: [...s.pending, ...stored.filter((p) => !have.has(p.tempId))] };
+  });
+  // Resumed while the app was closed: they go now, as promised.
+  if (!useApp.getState().halted) void flushHeld();
 }
 
 /** Sends the messages held while the monsters were stopped, in order. */
 async function flushHeld(): Promise<void> {
-  const held = useApp.getState().pending.filter((p) => p.held);
-  if (held.length === 0) return;
-  const ids = new Set(held.map((p) => p.tempId));
+  const all = useApp.getState().pending.filter((p) => p.held);
+  if (all.length === 0) return;
+  const ids = new Set(all.map((p) => p.tempId));
   useApp.setState((s) => ({ pending: s.pending.filter((p) => !ids.has(p.tempId)) }));
+  // Those kept in storage that are gone from it were sent by another tab first.
+  const gone = takeHeld(useApp.getState().email, [...ids]);
+  const held = all.filter((p) => !(keptHeld.has(p.tempId) && gone.has(p.tempId)));
+  for (const id of ids) keptHeld.delete(id);
   for (const p of held) {
     try {
       await sendMessage(p.text, p.to, p.attachments);
@@ -723,22 +991,70 @@ useApp.subscribe((s, prev) => {
  */
 export async function startNewConversation(to?: string): Promise<void> {
   const res = await client().newConversation(to);
-  ingest([
-    {
-      id: res.id,
-      ts: res.ts,
-      agent: 'user',
-      runId: null,
-      parentId: null,
-      type: 'new_conversation',
-      data: { ...(res.to ? { to: res.to } : {}), channel: 'ui' },
-    },
-  ]);
+  // Local until the stream's copy comes: events still in flight before it keep counting (W-24).
+  ingest(
+    [
+      {
+        id: res.id,
+        ts: res.ts,
+        agent: 'user',
+        runId: null,
+        parentId: null,
+        type: 'new_conversation',
+        data: { ...(res.to ? { to: res.to } : {}), channel: 'ui' },
+      },
+    ],
+    { local: true },
+  );
 }
 
 export async function answerQuestion(id: string, body: AnswerRequest): Promise<void> {
   const q = await client().answer(id, body);
   useApp.setState((s) => ({ questions: { ...s.questions, [q.id]: q } }));
+}
+
+function dropChoice(questionId: string): void {
+  const t = choiceTimers.get(questionId);
+  if (t) clearTimeout(t);
+  choiceTimers.delete(questionId);
+  if (!(questionId in useApp.getState().choices)) return;
+  useApp.setState((s) => {
+    const choices = { ...s.choices };
+    delete choices[questionId];
+    return { choices };
+  });
+}
+
+/**
+ * An option picked with a letter of the keyboard (V-1): it shows as sent, and leaves after
+ * `ANSWER_UNDO_MS` unless `undoChoice` comes first. A letter typed by mistake costs nothing.
+ */
+export function chooseOption(questionId: string, optionId: string): void {
+  if (choiceTimers.has(questionId) || questionId in useApp.getState().choices) return;
+  useApp.setState((s) => ({ choices: { ...s.choices, [questionId]: optionId } }));
+  const at = sessionSeq;
+  choiceTimers.set(
+    questionId,
+    setTimeout(() => {
+      choiceTimers.delete(questionId);
+      if (at !== sessionSeq) return;
+      // Answered meanwhile (another tab, Telegram) or gone: nothing to send.
+      if (useApp.getState().questions[questionId]?.status !== 'open') {
+        dropChoice(questionId);
+        return;
+      }
+      answerQuestion(questionId, { optionId })
+        .catch((err: unknown) => notify(describeError(err), 'error'))
+        .finally(() => dropChoice(questionId));
+    }, ANSWER_UNDO_MS),
+  );
+}
+
+/** "Annulla" on an option picked with the keyboard: it does not leave. True when it was waiting. */
+export function undoChoice(questionId: string): boolean {
+  if (!choiceTimers.has(questionId)) return false;
+  dropChoice(questionId);
+  return true;
 }
 
 /**
@@ -906,8 +1222,6 @@ onAppLang(() => {
 
 /** Test helper: back to a blank store. */
 export function resetForTests(): void {
-  seen.clear();
-  endedRuns.clear();
-  resetLists();
+  clearModuleState();
   useApp.setState({ ...INITIAL });
 }

@@ -85,6 +85,11 @@ export interface MockOptions {
   vaultNotes?: number;
   /** A chat with files and notes to open in Anteprima (`?anteprima=1`, D-075). */
   previewScene?: boolean;
+  /**
+   * Steps of one long job of Enceladus logged after the demo's history (`?mockNoise=500`):
+   * the chats' own history lies beyond the first page of the log (W-1).
+   */
+  noise?: number;
 }
 
 interface AuthState {
@@ -342,6 +347,7 @@ export class MockCore {
       this.mcp.seedPaused(Date.now() - 3 * 3_600_000);
       if (opts.previewScene) seedPreviewScene((event, ts) => this.append(event, ts));
     }
+    if (opts.noise && opts.mode !== 'fresh') this.seedNoise(opts.noise);
     if (opts.ambient && opts.mode !== 'fresh') this.startAmbient();
   }
 
@@ -2262,6 +2268,30 @@ export class MockCore {
   }
 
   /** History for `?mock=demo`: a conversation in progress with an open question. */
+  /** A long job of tool calls, after everything else: it fills the newest pages of the log. */
+  private seedNoise(steps: number): void {
+    const last = this.events.reduce((t, e) => Math.max(t, e.ts), Date.now() - 60_000);
+    let t = last;
+    const runId = 'run_seed_noise';
+    const step = () => (t += 1);
+    this.append(
+      { agent: 'enceladus', runId, type: 'run', data: { status: 'started', goal: 'Index' } },
+      step(),
+    );
+    for (let i = 0; i < steps; i++) {
+      this.append(
+        {
+          agent: 'enceladus',
+          runId,
+          type: 'tool_call',
+          data: { callId: `n${i}`, tool: 'vault_list', input: {} },
+        },
+        step(),
+      );
+    }
+    this.append({ agent: 'enceladus', runId, type: 'run', data: { status: 'completed' } }, step());
+  }
+
   private seedDemo(): void {
     const now = Date.now();
     let t = now - 42 * 60_000;
