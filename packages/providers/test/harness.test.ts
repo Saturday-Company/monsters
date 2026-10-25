@@ -793,6 +793,16 @@ describe('Claude Agent harness', () => {
     for (const t of ['Bash', 'Read', 'Grep', 'WebSearch', 'ToolSearch', 'mcp__monsters__x']) {
       expect(m.test(t), t).toBe(false);
     }
+    // Every built-in of the run reaches a hook, so at a limit the core can refuse it (D-170):
+    // `ToolSearch` through its own matcher, which fails open.
+    const pre = settings.hooks['PreToolUse']!;
+    for (const t of ['Bash', 'Read', 'Edit', 'Write', 'Glob', 'Grep', 'LS', 'WebSearch']) {
+      expect(pre.filter((g) => new RegExp(g.matcher).test(t)).length, t).toBe(1);
+    }
+    const search = pre.filter((g) => new RegExp(g.matcher).test('ToolSearch'));
+    expect(search).toHaveLength(1);
+    expect(search[0]!.hooks[0]).not.toHaveProperty('onFailure');
+    expect(pre.some((g) => new RegExp(g.matcher).test('mcp__monsters__x'))).toBe(false);
     // Without the web, WebSearch is outside too.
     const noWeb = claudeRunSettings({
       ...task({ systemTools: true }),

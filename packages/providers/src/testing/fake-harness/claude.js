@@ -1,6 +1,7 @@
 // A fake `claude` binary for the tests: it speaks the documented stream-json
 // protocol of `claude -p` and `claude auth status`. Fake options come first:
-//   node claude.mjs --fake-record=<file> --fake-scenario=<tool|hooks|remind|denied|ask|files|nostream|linger|hang|notlogged> <claude args…>
+//   node claude.mjs --fake-record=<file> --fake-scenario=<tool|hooks|remind|denied|ask|files|limit|nostream|linger|hang|notlogged> <claude args…>
+// `--fake-wrap=obey|ignore|hang`: what the `limit` scenario does once the core refused its tools (D-170).
 // `--fake-limits=off|rejected`: the plan limits events (D-111).
 // `--fake-mcp=failed|pending|needs-auth`: the status of Monsters' server at the init (D-160).
 // `--fake-error=<text>`: the run ends with an error result saying <text> (after the limits events).
@@ -547,6 +548,88 @@ if (scenario === 'hooks') {
     result: 'Fatto.',
     session_id: session,
     num_turns: 1,
+    usage: {},
+  });
+} else if (scenario === 'limit') {
+  // D-170: the first request reaches a limit of the run, then the model calls a built-in, the
+  // built-in search and one of Monsters' tools: the core refuses them all and asks for the
+  // report. `--fake-wrap=obey` (default) writes it and stops; `ignore` keeps calling tools
+  // until it is stopped; `hang` waits after the refusals (a kill switch, the wrap-up's time).
+  const wrap = fake.wrap ?? 'obey';
+  // The real binary runs a tool after the request's last lines: the core reads them first.
+  const pause = () => new Promise((resolve) => setTimeout(resolve, 100));
+  request({
+    id: 'msg_l1',
+    start: { input_tokens: 1200, output_tokens: 1 },
+    end: { output_tokens: 20 },
+    blocks: [
+      { type: 'text', text: 'Comincio dal terminale.' },
+      { type: 'tool_use', id: 'toolu_l1', name: 'Bash', input: { command: 'ls' } },
+      { type: 'tool_use', id: 'toolu_l2', name: 'ToolSearch', input: { query: 'vault' } },
+      {
+        type: 'tool_use',
+        id: 'toolu_l3',
+        name: `mcp__${server[0]}__vault_search`,
+        input: { query: 'lune' },
+      },
+    ],
+  });
+  await pause();
+  await hookedTool('toolu_l1', 'Bash', { command: 'ls' }, 'note.md');
+  await hookedTool('toolu_l2', 'ToolSearch', { query: 'vault' }, 'vault_search');
+  const called = await callMcpTool(
+    server[1].url,
+    String(server[1].headers.Authorization).replace(/^Bearer /, ''),
+    'vault_search',
+    { query: 'lune' },
+  );
+  record({ kind: 'mcp', ...called });
+  out({
+    type: 'user',
+    message: {
+      role: 'user',
+      content: [
+        {
+          type: 'tool_result',
+          tool_use_id: 'toolu_l3',
+          content: called.result?.content ?? [{ type: 'text', text: String(called.error) }],
+          is_error: Boolean(called.error || called.result?.isError),
+        },
+      ],
+    },
+    parent_tool_use_id: null,
+    session_id: session,
+  });
+  if (wrap === 'hang') {
+    await new Promise((resolve) => setTimeout(resolve, 30_000));
+  } else if (wrap === 'ignore') {
+    for (let i = 2; i <= 10; i++) {
+      record({ kind: 'more-work', request: i });
+      request({
+        id: `msg_l${i}`,
+        start: { input_tokens: 50, output_tokens: 1 },
+        end: { output_tokens: 5 },
+        blocks: [{ type: 'tool_use', id: `toolu_m${i}`, name: 'Bash', input: { command: 'ls' } }],
+      });
+      await pause();
+      await hookedTool(`toolu_m${i}`, 'Bash', { command: 'ls' }, 'note.md');
+    }
+  }
+  const text = 'Rapporto: trovate 2 lune, salvate in Ricerche/Lune.md; manca la terza.';
+  request({
+    id: 'msg_lr',
+    start: { input_tokens: 60, output_tokens: 1 },
+    end: { output_tokens: 15 },
+    blocks: [{ type: 'text', text }],
+  });
+  await callHook('Stop', { stop_hook_active: false, last_assistant_message: text });
+  out({
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    result: text,
+    session_id: session,
+    num_turns: 2,
     usage: {},
   });
 } else if (scenario === 'hang') {

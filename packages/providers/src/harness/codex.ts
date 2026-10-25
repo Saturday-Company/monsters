@@ -708,6 +708,32 @@ export class CodexHarness implements HarnessProvider {
       if (!threadId) throw new Error('codex app-server did not return a thread');
       if (started.model) model = started.model;
       yield { type: 'session', id: threadId, model };
+      // A note for the model mid-turn (D-170): the `developer` message of D-158, which lands
+      // before the next request. Checked on 0.159.2; `turn/steer` is newer than the pinned one.
+      const thread = threadId;
+      task.steer?.((text) =>
+        signal.aborted
+          ? Promise.resolve(false)
+          : peer
+              .request(
+                'thread/inject_items',
+                {
+                  threadId: thread,
+                  items: [
+                    {
+                      type: 'message',
+                      role: 'developer',
+                      content: [{ type: 'input_text', text }],
+                    },
+                  ],
+                },
+                rpcMs,
+              )
+              .then(
+                () => true,
+                () => false,
+              ),
+      );
       const turn = (await peer.request(
         'turn/start',
         {

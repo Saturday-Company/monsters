@@ -223,6 +223,13 @@ export interface HarnessTask {
    * it before a kill closes the run. That usage is then not yielded.
    */
   onAbortUsage?: (usage: HarnessUsageEvent) => void;
+  /**
+   * Hands the caller a way to tell the model something during the turn (D-170: the wrap-up at
+   * a limit). `send` adds `text` before the next model request and resolves to false when it
+   * could not. Codex only (a `developer` note in the thread); Claude Code's stdin is closed
+   * after the first message, there the core's hooks say it.
+   */
+  steer?: (send: (text: string) => Promise<boolean>) => void;
 }
 
 export type HarnessUsageEvent = Extract<HarnessEvent, { type: 'usage' }>;

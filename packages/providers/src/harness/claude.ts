@@ -53,8 +53,10 @@ import {
  *
  * D-069: a `--settings` file of the run (0600, like the MCP config) holds
  * HTTP hooks to the core (`PreToolUse` on the terminal, the web search and the
- * services reached through Claude, `PostToolUse` on the last two (D-073:
- * taint and injections), `Stop` for "finito davvero?") and, when
+ * services reached through Claude, then every other built-in so that at a
+ * limit the core refuses all of them and asks for the report (D-170),
+ * `PostToolUse` on the web search and the services (D-073: taint and
+ * injections), `Stop` for "finito davvero?") and, when
  * the user chose claude.ai connectors, the `allowedMcpServers` list that
  * admits only those: then `--strict-mcp-config` is left out, because it
  * excludes the connectors too.
@@ -275,14 +277,30 @@ export function claudeRunSettings(task: HarnessTask): Record<string, unknown> {
     if (before.length > 0) {
       pre.push({ matcher: `^(${before.join('|')})$`, hooks: [http(CLAUDE_HOOK_TIMEOUT_S, true)] });
     }
-    // A built-in outside the run's list (D-127): the core says it is not the run's, not the user's no.
     if (!task.plain) {
+      const readsOnly = !task.systemTools && (task.readFiles?.length ?? 0) > 0;
+      /*
+       * The run's built-ins no other matcher covers (`ToolSearch`): with them every tool of the
+       * run reaches a hook (Monsters' own are checked by the core), so at a limit the core can
+       * refuse them all and ask for the report (D-170). One call on 127.0.0.1 per use, a few a
+       * run; it fails open, since it guards nothing but the wrap-up.
+       */
+      const unwatched = claudeBuiltinTools(task).filter(
+        (t) => !before.includes(t) && !(readsOnly && t === 'Read'),
+      );
+      if (unwatched.length > 0) {
+        pre.push({
+          matcher: `^(${unwatched.map(escapeRegex).join('|')})$`,
+          hooks: [http(POST_HOOK_TIMEOUT_S)],
+        });
+      }
+      // A built-in outside the run's list (D-127): the core says it is not the run's, not the user's no.
       pre.push({
         matcher: claudeOutsideMatcher(claudeBuiltinTools(task)),
         hooks: [http(POST_HOOK_TIMEOUT_S, true)],
       });
       // `Read` of the attached files only (no terminal): another path gets the core's words too.
-      if (!task.systemTools && (task.readFiles?.length ?? 0) > 0) {
+      if (readsOnly) {
         pre.push({ matcher: '^Read$', hooks: [http(POST_HOOK_TIMEOUT_S, true)] });
       }
     }

@@ -16,6 +16,7 @@ import {
 } from '@monsters/providers';
 import {
   settingsPath,
+  ToolError,
   type Effort,
   type LimitReason,
   type MonstersTool,
@@ -68,6 +69,7 @@ import {
   summaryText,
   turnWords,
 } from './run-agent.ts';
+import { runAgentPrompts } from './run-agent.prompts.ts';
 import { runAgentStrings } from './run-agent.strings.ts';
 import { listWords, runHarnessPrompts } from './run-harness.prompts.ts';
 import type { ToolGuard } from './tool-adapter.ts';
@@ -87,7 +89,10 @@ import type { HarnessAttachments } from '../files/model-input.ts';
  *   `tool_call`/`tool_result`, `provider_usage` (calls to Monsters' tools are
  *   logged by the MCP endpoint itself);
  * - the process starts through the scope (`scope.spawn`): the kill switch, a
- *   `killRun` or the run budget stop it with its whole process group.
+ *   `killRun` or the run budget stop it with its whole process group;
+ * - at a limit (the run budget, the agent's tokens) the harness first gets a
+ *   wrap-up (D-170): its tools are refused with words that ask for the report,
+ *   which ends the run at the limit with that text; stopped past a bound.
  */
 
 export const HARNESS_MCP_SERVER = 'monsters';
@@ -108,6 +113,13 @@ export const HARNESS_ACTION_IDLE_MS = 60 * 60_000;
 
 /** How long a harness may go on after a request that reached a limit, to finish its answer. */
 const LIMIT_GRACE_MS = 1500;
+/**
+ * The wrap-up after a limit (D-170): every tool is refused with words that ask for the report,
+ * and the harness has this long, and this many more model requests, to write it. Then it is
+ * stopped as without a wrap-up. A refused call and the report take two requests.
+ */
+export const WRAP_UP_MS = 90_000;
+export const WRAP_UP_REQUESTS = 3;
 /** Events that end an answer rather than start more work (no stop for a limit on them). */
 const LIMIT_TAIL_EVENTS = new Set<HarnessEvent['type']>([
   'usage',
@@ -296,6 +308,8 @@ export interface RunHarnessOptions {
   actionIdleTimeoutMs?: number;
   /** The project the run works for, on every `provider_usage` (F-B13). */
   projectId?: string | null;
+  /** How long the wrap-up after a limit may last (default `WRAP_UP_MS`, D-170). */
+  wrapUpMs?: number;
 }
 
 /** Harnesses with a web search of their own (D-069). */
@@ -836,6 +850,8 @@ async function runHarnessOnce(
   };
   const onFinalAnswer = options.onFinalAnswer
     ? async (text: string): Promise<FinalAnswerHook> => {
+        // Past a limit the answer is the report (D-170): no "finito davvero?" asking for more work.
+        if (limitHit || tokenLimitHit) return null;
         const hooked = await options.onFinalAnswer!(text);
         const reminder = typeof hooked === 'string' ? hooked : hooked?.text;
         if (reminder && held === null && delivered === null) {
@@ -893,6 +909,78 @@ async function runHarnessOnce(
       lastEvent = Date.now();
     }
   };
+  let limitHit = null as string | null;
+  /** Which cap `limitHit` says, as data for the UI. */
+  let limitReason: LimitReason | undefined;
+  // A harness runs on a subscription: the plan's caps (`limits.plan`), apart from the API's.
+  const maxTokens = agentTokenLimit(agent.config, budget?.limits, true);
+  let tokenLimitHit = false as boolean;
+  let limitTimer: NodeJS.Timeout | undefined;
+  /** A limit was reached: the harness stops (now, or after a grace in which its answer may end). */
+  const stopForLimit = () => {
+    if (limitTimer) clearTimeout(limitTimer);
+    limitTimer = undefined;
+    if (!scope.aborted) {
+      void scope.abort(
+        new KilledError('agent', limitHit ?? `token limit ${maxTokens ?? ''}`.trim()),
+      );
+    }
+  };
+  /** Codex's way to tell the model something mid-turn (D-170), once the thread exists. */
+  let steer: ((text: string) => Promise<boolean>) | undefined;
+  /** The harness can be told to wrap up: Claude Code's hooks refuse its tools, Codex is told. */
+  const canWrapUp = () => hooked || steer !== undefined;
+  /**
+   * The wrap-up after a limit (D-170), as our loop's last step without tools (AG-03): every tool
+   * is refused with `reason`, and the report the model then writes ends the run at the limit.
+   * `told`: the model read it (a refused call, Codex's note); `requests` made since.
+   */
+  let wrapUp = null as { why: string; reason: string; requests: number; told: boolean } | null;
+  /** Calls refused because of the limit: their results say so (`cause: limit`). */
+  const limitRefused = new Set<string>();
+  const wrapUpMs = options.wrapUpMs ?? WRAP_UP_MS;
+  /**
+   * Checks the run budget and the agent's token limit. The first time one is reached the
+   * wrap-up starts when the harness allows it; otherwise the harness stops as soon as it does
+   * more work, or after a short grace (the request that reached it may end a complete answer).
+   */
+  const reachLimit = (): void => {
+    if (limitHit || tokenLimitHit || scope.aborted) return;
+    const hit = budget?.exhaustedBy();
+    limitHit = hit?.message ?? null;
+    limitReason = hit?.limit;
+    tokenLimitHit = !limitHit && maxTokens !== undefined && counted >= maxTokens;
+    if (!limitHit && !tokenLimitHit) return;
+    if (!canWrapUp()) {
+      limitTimer = setTimeout(stopForLimit, LIMIT_GRACE_MS);
+      return;
+    }
+    const why = limitHit ?? runAgentPrompts().agentTokensWhy(maxTokens ?? 0);
+    const wrap = { why, reason: runAgentPrompts().limitWrapUp(why), requests: 0, told: false };
+    wrapUp = wrap;
+    limitTimer = setTimeout(stopForLimit, wrapUpMs);
+    // Claude Code reads it in the refusal of its next call; Codex gets it as a note at once.
+    if (!hooked && steer) {
+      void steer(wrap.reason).then((ok) => {
+        if (ok) {
+          wrap.told = true;
+        } else if (wrapUp === wrap && !scope.aborted) {
+          // Not told: the stop as without a wrap-up.
+          wrapUp = null;
+          if (limitTimer) clearTimeout(limitTimer);
+          limitTimer = setTimeout(stopForLimit, LIMIT_GRACE_MS);
+        }
+      });
+    }
+  };
+  /** During the wrap-up: the refusal for one call, recorded as refused for the limit. */
+  const wrapUpRefusal = (callId: string): string | null => {
+    if (canWrapUp()) reachLimit();
+    if (!wrapUp) return null;
+    wrapUp.told = true;
+    if (callId) limitRefused.add(callId);
+    return wrapUp.reason;
+  };
   /** What the core checks before the harness's own tools (D-069, D-078, D-079, D-127), per call. */
   const hookContext = (): HarnessHookContext => ({
     log,
@@ -905,6 +993,7 @@ async function runHarnessOnce(
     callEvent,
     refused: (id) => hookRefused.add(id),
     lastText: () => lastText,
+    wrapUp: wrapUpRefusal,
     ...(lock ? { lockout: { lock, cwd } } : {}),
     ...(options.closedFolders?.length && options.systemTools
       ? {
@@ -957,7 +1046,26 @@ async function runHarnessOnce(
       signal: scope.signal,
       scope,
       parentId,
-      ...(budget ? { budget } : {}),
+      /*
+       * The run budget, and the wrap-up (D-170): past a limit, the agent's token limit too,
+       * every one of Monsters' tools answers `LIMIT_REACHED` with the words that ask for the report.
+       */
+      ...(budget || maxTokens !== undefined
+        ? {
+            budget: {
+              assertActive: (id?: string) => {
+                const reason = wrapUpRefusal('');
+                if (reason && wrapUp) {
+                  throw new ToolError('LIMIT_REACHED', `limit reached: ${wrapUp.why}`, {
+                    hint: reason,
+                  });
+                }
+                budget?.assertActive(id);
+              },
+              addCost: (costUsd: number) => budget?.addCost(costUsd),
+            },
+          }
+        : {}),
       knownText: [instructions, prompt].join('\n'),
       // Monsters' tools of a harness pass the same brake and injection check as our loop.
       ...(options.guard ? { guard: options.guard } : {}),
@@ -1011,23 +1119,6 @@ async function runHarnessOnce(
   const harnessCalls = new Map<string, number>();
   /** Failed calls that never reached the core, already logged here (per tool). */
   const unseenLogged = new Map<string, number>();
-  let limitHit = null as string | null;
-  /** Which cap `limitHit` says, as data for the UI. */
-  let limitReason: LimitReason | undefined;
-  // A harness runs on a subscription: the plan's caps (`limits.plan`), apart from the API's.
-  const maxTokens = agentTokenLimit(agent.config, budget?.limits, true);
-  let tokenLimitHit = false as boolean;
-  let limitTimer: NodeJS.Timeout | undefined;
-  /** A limit was reached: the harness stops (now, or after a grace in which its answer may end). */
-  const stopForLimit = () => {
-    if (limitTimer) clearTimeout(limitTimer);
-    limitTimer = undefined;
-    if (!scope.aborted) {
-      void scope.abort(
-        new KilledError('agent', limitHit ?? `token limit ${maxTokens ?? ''}`.trim()),
-      );
-    }
-  };
   let started = Date.now();
   /** One served model request: `provider_usage`, run budget, the agent's token limit. */
   const recordUsage = (e: HarnessUsageEvent, afterAbort: boolean) => {
@@ -1060,14 +1151,13 @@ async function runHarnessOnce(
     started = Date.now();
     steps++;
     budget?.addStep(fresh, 0, true);
-    if (afterAbort || limitHit || tokenLimitHit) return;
-    const hit = budget?.exhaustedBy();
-    limitHit = hit?.message ?? null;
-    limitReason = hit?.limit;
-    tokenLimitHit = !limitHit && maxTokens !== undefined && counted >= maxTokens;
-    // The request that reached the limit may be the last of a complete answer:
-    // the harness stops as soon as it does more work, or after a short grace.
-    if (limitHit || tokenLimitHit) limitTimer = setTimeout(stopForLimit, LIMIT_GRACE_MS);
+    if (afterAbort) return;
+    // A request of the wrap-up (D-170): counted against its bound, never a new limit.
+    if (wrapUp) {
+      wrapUp.requests++;
+      return;
+    }
+    reachLimit();
   };
 
   /** The last status of Monsters' server the harness reported (D-160). */
@@ -1136,12 +1226,22 @@ async function runHarnessOnce(
         scratchDir,
         // A kill closes the run at once: the request in flight is recorded first.
         onAbortUsage: (usage) => recordUsage(usage, true),
+        steer: (send) => {
+          steer = send;
+        },
       },
       scope.signal,
     );
     stream: for await (const e of untilStalled(events, stallSignal)) {
       lastEvent = Date.now();
-      if (limitTimer && !LIMIT_TAIL_EVENTS.has(e.type)) stopForLimit();
+      // More work after a limit stops the harness; in the wrap-up only past its requests (D-170).
+      if (
+        limitTimer &&
+        !LIMIT_TAIL_EVENTS.has(e.type) &&
+        (!wrapUp || wrapUp.requests >= WRAP_UP_REQUESTS)
+      ) {
+        stopForLimit();
+      }
       // The model starts while Monsters' server is still connecting: its first request goes
       // without vault, web and team (Claude Code's `pending` at the init, D-160).
       if (toolsStatus === 'pending' && ACTING_EVENTS.has(e.type)) {
@@ -1271,7 +1371,8 @@ async function runHarnessOnce(
           session.seen(e.output);
           {
             const name = toolNames.get(e.id) ?? 'tool';
-            const refused = e.isError ? refusedBuiltin(name, e.output, builtins) : null;
+            const limited = e.isError === true && limitRefused.has(e.id);
+            const refused = e.isError && !limited ? refusedBuiltin(name, e.output, builtins) : null;
             if (refused) explained.add(e.id);
             log.append({
               agent: agentId,
@@ -1295,11 +1396,13 @@ async function runHarnessOnce(
                 // The cause of every failure (D-132), as on the native loop's tools.
                 ...(e.isError
                   ? {
-                      cause: refused
-                        ? refused.refusal === 'monsters_rule'
-                          ? ('monsters_policy' as const)
-                          : ('not_in_run' as const)
-                        : ('error' as const),
+                      cause: limited
+                        ? ('limit' as const)
+                        : refused
+                          ? refused.refusal === 'monsters_rule'
+                            ? ('monsters_policy' as const)
+                            : ('not_in_run' as const)
+                          : ('error' as const),
                     }
                   : {}),
               },
@@ -1376,7 +1479,8 @@ async function runHarnessOnce(
     });
   };
 
-  // An answer the harness completed stays completed even if its last request reached a limit.
+  // An answer the harness completed stays completed even if its last request reached a limit,
+  // unless the model wrote it in the wrap-up (D-170, below).
   const answered = done?.reason === 'stop' && !options.signal.aborted;
   if (toolsDown && !answered && !options.signal.aborted) {
     // The `mcp_server` line already says why: a new start says nothing more.
@@ -1396,7 +1500,8 @@ async function runHarnessOnce(
     closeDraft('failed');
     return base('failed', lastText, { error: message, stopCause: 'tools_unavailable' });
   }
-  if (limitHit && !answered) {
+  // The user's stop or the kill switch during the wrap-up is theirs, not the limit's (D-170).
+  if (limitHit && !answered && !options.signal.aborted) {
     log.append({
       agent: agentId,
       runId,
@@ -1414,7 +1519,7 @@ async function runHarnessOnce(
       ...(limitReason ? { limit: limitReason } : {}),
     });
   }
-  if (tokenLimitHit && !answered) {
+  if (tokenLimitHit && !answered && !options.signal.aborted) {
     const message = runAgentStrings().tokenLimit(agent.config.name, maxTokens ?? 0, true);
     const limit = agentTokenLimitReason(agent.config, maxTokens ?? 0, true);
     log.append({
@@ -1486,7 +1591,32 @@ async function runHarnessOnce(
     text = delivered;
     logged = true;
   }
-  if (done.reason === 'max-steps') {
+  /*
+   * The report of the wrap-up (D-170): the model was told it had no more tools and ended its
+   * turn. Still a stop at the limit, as the report of our loop's last step (AG-03), but with its
+   * text: a delegation hands it back as a partial report.
+   */
+  const limitStatus = wrapUp?.told ? (limitHit ? 'run_limit' : 'token_limit') : null;
+  const wrapUpLimit =
+    limitStatus === 'run_limit'
+      ? limitReason
+      : limitStatus === 'token_limit'
+        ? agentTokenLimitReason(agent.config, maxTokens ?? 0, true)
+        : undefined;
+  if (limitStatus) {
+    const why =
+      limitStatus === 'run_limit'
+        ? runAgentStrings().stops(agent.config.name, limitHit ?? '')
+        : runAgentStrings().tokenLimit(agent.config.name, maxTokens ?? 0, true);
+    const message = why + (text.trim() ? runAgentStrings().reportAtLastStep : '');
+    log.append({
+      agent: agentId,
+      runId,
+      parentId,
+      type: 'error',
+      data: { code: limitStatus, message, ...(wrapUpLimit ? { limit: wrapUpLimit } : {}) },
+    });
+  } else if (done.reason === 'max-steps') {
     log.append({
       agent: agentId,
       runId,
@@ -1501,6 +1631,12 @@ async function runHarnessOnce(
   }
   if (!logged) {
     log.append({ agent: agentId, runId, parentId, type: 'message', data: { role: 'agent', text } });
+  }
+  if (limitStatus) {
+    return base(limitStatus, text, {
+      error: limitHit ?? runAgentStrings().tokenLimit(agent.config.name, maxTokens ?? 0, true),
+      ...(wrapUpLimit ? { limit: wrapUpLimit } : {}),
+    });
   }
   return base(done.reason === 'max-steps' ? 'max_steps' : 'completed', text);
 }

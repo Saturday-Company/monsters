@@ -5514,3 +5514,61 @@ held the cache reads without saying so (92% of the 400k tokens of D-159's case).
 core tools no longer cost a ToolSearch round trip; fewer turns go to Opus on a guess. The effect on summaries'
 thinking is expected, not measured (no real call was made); the next audit should check the output tokens of
 `purpose: 'compaction'` requests.
+
+### D-170 · A wrap-up at the limit on the subscription harnesses: tools refused, the report kept
+**Status:** done · 25/10/2026
+**Context:** a tester's delegated monster (Claude Code on the subscription, Opus) hit the run budget mid-work. The UI
+said "stopped at its limit (run_limit) without a report" and all the work was lost. On the API-key path the step after
+a limit has no tools and asks for the report (AG-03, D-064). A harness was simply stopped: SIGINT 1.5 s after the
+request that reached the limit, or at once at its next action. Claude Code's stdin is closed after the first message,
+so no new message can reach it mid-run. Monsters' MCP tools already answered `LIMIT_REACHED` for the run budget, but
+not for the agent's own token limit.
+**Choices:**
+- At a limit (run budget, or the agent's tokens) a harness that can be told gets a wrap-up. On Claude Code, the core's
+  `PreToolUse` hook denies every tool with the words of our last step ("[System] Limit reached (…): you have no more
+  tools. Write the report now…"). Monsters' tools answer `LIMIT_REACHED` with the same words as hint, for both limits.
+  On Codex, the same words go into the thread as a `developer` note (`thread/inject_items`, as in D-158); `turn/steer`
+  is newer than the pinned 0.159.2.
+- Every built-in of a Claude run now reaches a hook: one more matcher for the run's built-ins no other matcher covers
+  (`ToolSearch`), fail-open, one call on 127.0.0.1 per use. No catch-all: it would call the core on every MCP call and
+  hook Bash twice.
+- Bound: 90 s and 3 more model requests after the limit. After that the harness is stopped as before. The wrap-up's
+  requests are still recorded (`provider_usage`, budget) but never trigger a new limit. A user stop or the kill switch
+  during the wrap-up stops at once and ends as `aborted`.
+- A report written in the wrap-up ends the run as `run_limit`/`token_limit` with its text, and the error event says
+  "(report written at the last step)". A delegation hands it back as a partial report. A model that finishes without
+  trying any tool after the limit stays `completed`, as before. Past a limit the Stop hook sends no "finito davvero?".
+- Codex cannot refuse commands that stay in its sandbox, or file changes in its workspace: there only the bound stops
+  them. Checked against the real codex 0.163.0 with a local Responses backend: the call after the limit got
+  `LIMIT_REACHED`, the note landed before the following request, and the report ended the run at `run_limit`.
+**Consequence:** a delegated monster at a limit returns what it did, what is left and where the results are, instead
+of "without a report", on both subscription harnesses. Tools of the very request that reached the limit may still
+run on Claude Code, if the binary runs them before the core has read that request's usage.
+
+### D-171 · Separate caps for subscription steps, the exact limit in every stop, and the limits in Settings
+**Status:** done · 25/10/2026
+**Context:** the same tester read only "this job reached its limit" (UI) and an English line meant for the model
+(delegation). They had set no limit and their Claude plan was fine, so they took it for a bug. It was the per-run
+budget of D-064 (150 steps, 1.5M fresh tokens, 0.50 $, 400k per delegated agent), sized for pay-per-use. On a Claude
+Code subscription every request counts as a step and cache writes count as fresh tokens, so a real multi-monster job
+reaches it. The cause was written nowhere the person could read it, and the limits could not be changed from the app.
+**Choices:**
+- `RunLimits.plan` (`maxRunSteps` 400, `maxRunTokens` 5M, `maxSubagentTokens` 1.5M) caps the requests served by a
+  subscription harness. Their cost is notional but they use the plan's quota, so they stay bounded to stop a runaway.
+  `RunBudget` keeps separate counters (`addStep(tokens, cost, plan)`); `exhausted()` checks each against its own cap;
+  `stepsLeft()` stays about the API steps (the last-step-without-tools logic). The harness path counts with
+  `plan = true`, and a delegated agent on a harness gets `plan.maxSubagentTokens` (its own `maxTotalTokens` still
+  wins). Automations merge `plan` field by field, and their own steps/tokens bound both counters. The numbers are a
+  first guess: the biggest job measured on our machine used 57 requests and ~210k fresh tokens for the whole team.
+- Every `run_limit`, `token_limit` and `max_steps` error carries `limit: { kind, value?, plan?, own? }` (kinds: steps,
+  tokens, cost, tree_cost, spend, agent_tokens, agent_steps); the delegation event carries it too (`runStatus` +
+  `limit`). `RunBudget.exhaustedBy()` returns the sentence for the model and the log plus this data; the UI words it in
+  its own language ("Franco stops here: the job used all its 400 steps on the subscription. You can raise the limit in
+  Settings → Models → Spending cap → Limits of each job.", the path is a link) and the delegation line is localized,
+  with "partial report" or "no report". Events without `limit` keep the old text.
+- `GET`/`PUT`/`DELETE /api/settings/limits` (owner-only like the spending cap: a monster must not raise its own limits)
+  show, save and reset the run limits; `settings.json` keeps only the values that differ from the defaults, so a later
+  version's defaults apply to what the person never touched, and new runs use them at once. The UI is a closed row
+  "Limits of each job" inside the spending-cap group (D-167: no new section).
+**Consequence:** a job on a subscription has room for several monsters before the net catches it, and when it does
+the person reads which cap, what number, and where to change it.

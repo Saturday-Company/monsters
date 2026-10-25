@@ -62,6 +62,11 @@ import type { ToolGuard } from './tool-adapter.ts';
  *   each run, this is the third layer (a brake on Bash, exact on the file
  *   tools).
  *
+ * - D-170: past a limit of the run or of the agent, `PreToolUse` refuses every
+ *   tool with the words that ask for the report (the matchers cover all the
+ *   run's built-ins; Monsters' own tools answer `LIMIT_REACHED` in the core),
+ *   and `Stop` sends no reminder.
+ *
  * A hook never answers `allow` (that would skip the permission rules of the
  * run): nothing means "go on as the rules say", `deny` stops that tool only.
  */
@@ -165,6 +170,11 @@ export interface HarnessHookContext {
   callEvent: (toolUseId: string, name: string, input: unknown) => string;
   /** The last complete answer seen in the stream (older binaries send no `last_assistant_message`). */
   lastText: () => string;
+  /**
+   * Past a limit (D-170): the words that refuse any tool and ask for the report, or null while
+   * the run may work. Called once per `PreToolUse`, with the call's id.
+   */
+  wrapUp?: (toolUseId: string) => string | null;
   /** The data folder of Monsters is off limits (D-078); `cwd`: the agent's working folder. */
   lockout?: { lock: DataDirLock; cwd: string };
   /**
@@ -450,6 +460,9 @@ async function preToolUse(
   holdMs: number,
 ): Promise<ClaudeHookOutput> {
   const name = input.tool_name ?? '';
+  // Past a limit (D-170): nothing runs any more, whatever the tool; the model writes its report.
+  const limit = ctx.wrapUp?.(input.tool_use_id ?? '');
+  if (limit) return deny(limit);
   // A built-in the run does not have (D-127): its own words, before `dontAsk`'s "let the user decide".
   if (ctx.outside && name && !name.startsWith('mcp__') && !ctx.outside.builtins.includes(name)) {
     return deny(ctx.outside.reason(name));
