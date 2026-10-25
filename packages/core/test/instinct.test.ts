@@ -604,6 +604,86 @@ describe('outbound actions: who can see or change something (D-073)', () => {
     });
   });
 
+  it('starts, the bin, money and drafts by their names, EN and IT, any spelling (review of 25/10, C-3, C-13)', () => {
+    const c = (name: string) => classifyOutbound(tool(`mcp__srv__${name}`), { id: 'x' });
+    const cases: [string, 'pass' | 'instinct' | 'publish' | 'contact' | 'spend' | 'delete'][] = [
+      // Starting something: what starts decides. A timer, a meeting or a session is a plain write.
+      ['avvia_campagna', 'instinct'],
+      ['avviaCampagna', 'instinct'],
+      ['avvia-invio', 'instinct'],
+      ['inizia_spedizione', 'instinct'],
+      ['ferma_campagna', 'instinct'],
+      ['start_campaign', 'instinct'],
+      ['start_workflow', 'instinct'],
+      ['timer_avvia', 'pass'],
+      ['riunioni_inizia', 'pass'],
+      ['start_timer', 'pass'],
+      ['stopTimer', 'pass'],
+      ['start-meeting', 'pass'],
+      // A payment started pays; one recorded is a plain write.
+      ['avvia_pagamento', 'spend'],
+      ['effettuaPagamento', 'spend'],
+      ['registra_pagamento', 'pass'],
+      ['pagamenti_crea', 'pass'],
+      // Money that moves, or a channel for others: never a plain write.
+      ['create_payout', 'spend'],
+      ['crea_bonifico', 'spend'],
+      ['effettua-bonifico', 'spend'],
+      ['create_subscription', 'instinct'],
+      ['createSubscription', 'instinct'],
+      ['crea_abbonamento', 'instinct'],
+      ['create_invoice', 'instinct'],
+      ['crea_fattura', 'instinct'],
+      ['create_webhook', 'instinct'],
+      ['create_api_key', 'instinct'],
+      ['createApiKey', 'instinct'],
+      ['create_campaign', 'instinct'],
+      ['create_refund', 'spend'],
+      ['send_invoice', 'contact'],
+      // Into the bin is a delete; out of it is not.
+      ['sposta_nel_cestino', 'delete'],
+      ['spostaNelCestino', 'delete'],
+      ['move_to_bin', 'delete'],
+      ['move-to-recycle-bin', 'delete'],
+      ['move_to_trash', 'delete'],
+      ['discard_changes', 'delete'],
+      ['empty_trash', 'delete'],
+      ['restore_from_bin', 'instinct'],
+      ['elenca_cestino', 'pass'],
+      // Drafts: a message drafted is not sent; a verb that sends still sends.
+      ['create_email_draft', 'pass'],
+      ['createEmailDraft', 'pass'],
+      ['save-email-draft', 'pass'],
+      ['create_message_draft', 'pass'],
+      ['create_reply_draft', 'pass'],
+      ['crea_bozza_email', 'pass'],
+      ['crea_email_bozza', 'pass'],
+      ['draft_reply', 'pass'],
+      ['update_draft', 'pass'],
+      ['send_draft', 'contact'],
+      ['send-email-draft', 'contact'],
+      ['email_draft', 'contact'],
+      ['draft_and_send_email', 'contact'],
+      ['preview_and_publish', 'publish'],
+      ['delete_draft', 'delete'],
+      // Plain writes stay plain (D-163).
+      ['update_issue', 'pass'],
+      ['anteiku_task_crea', 'pass'],
+      ['create_contact', 'pass'],
+    ];
+    for (const [name, want] of cases) {
+      const got = c(name);
+      const seen =
+        got === null
+          ? 'pass'
+          : got.category === undefined && !got.certain
+            ? 'instinct'
+            : got.category;
+      expect([name, seen]).toEqual([name, want]);
+      if (want !== 'pass' && want !== 'instinct') expect(got?.certain, name).toBe(true);
+    }
+  });
+
   it('a candidate with people to invite in its arguments, or a description that says so', () => {
     const update = tool('mcp__calendar__update_event', { description: 'Updates an event' });
     expect(
