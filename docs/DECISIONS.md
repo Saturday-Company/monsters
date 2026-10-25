@@ -5572,3 +5572,107 @@ reaches it. The cause was written nowhere the person could read it, and the limi
   "Limits of each job" inside the spending-cap group (D-167: no new section).
 **Consequence:** a job on a subscription has room for several monsters before the net catches it, and when it does
 the person reads which cap, what number, and where to change it.
+
+### D-172 · Numbers follow the app language; an unsaved draft holds the navigation
+**Status:** done · 25/10/2026
+**Context:** the review of 25/10 (W-3, W-4) found that typing "1,000" in an English spending cap or run limit saved 1
+(any comma was read as a decimal mark), and that the note editor threw a draft away on a note switch, a link or a
+closed window.
+**Choices:**
+- `parseAmount(text, lang = appLang())` in `apps/web/src/lib/utils.ts` reads grouping and decimal marks by the app
+  language ("1,000" in English and "1.000" in Italian are a thousand). A separator that can only mean one thing is
+  accepted in both languages ("12,5" is 12.5 in English too); a lone mark before exactly three digits that is the
+  language's decimal mark ("1.000" in English) is refused with a field error, never guessed. Caps, run limits and the
+  automation caps use it.
+- `lib/navigation-guard.ts` listens to `hashchange` before React (imported first by the router): with a dirty editor
+  it puts the old hash back and lets a dialog decide (Save / Discard changes / Keep editing); `beforeunload` covers
+  closing the window. A failed refetch while editing keeps the editor and the draft.
+**Consequence:** a silent truncation of money limits is gone; a stricter reading refuses English "1.000", which used
+to be a thousand.
+
+### D-173 · Each chat loads its own history; snapshots never undo newer stream events
+**Status:** done · 25/10/2026
+**Context:** a chat showed only what was in the newest 400 events of the whole hub (W-1): on our real database that is
+58 hours, so after a reload a monster that had been quiet opened on the greeting. REST snapshots (`/api/agents`,
+`/api/questions`) that resolved after newer stream events overwrote them (W-2): a monster stayed "at work" after its
+run, an answered question reopened.
+**Choices:**
+- `/api/events` filters by actor and type only, and a chat also shows events of other actors (the lead logs the
+  delegations, delegates' questions belong to the lead's chat). Each page of a chat makes three requests bounded to the
+  same id span: the monster's events (300), the chat-relevant types of every actor (`CHAT_TYPES`, 1000), the user's
+  messages (1000). The chat is complete down to the newest edge of any page that came back full; "Earlier messages"
+  and the scroll to the top load the next page, keeping the reading position. The global page stays for the sidebar
+  and Activity, whose "Load older" now starts from the bottom of the hub pages.
+- A snapshot is applied, then the stream events ingested since its request started are replayed on top (`applyLive`
+  is idempotent on work keys). A question never goes back from answered or expired to open because of a snapshot. At
+  boot the agents are asked after the history page. The synthetic `new_conversation` no longer moves the live state or
+  the stream cursor.
+**Consequence:** no core change; opening a chat for the first time costs three requests. More events in memory make
+the derivations heavier (W-25, still open).
+
+### D-174 · The question keypad never takes a sentence; drafts survive
+**Status:** done · 25/10/2026
+**Context:** with a question open, the letters A–D answered it whenever the composer was empty (V-1): typing "Can you
+also…" picked option C and swallowed the text. The composer draft was lost on every chat switch, page change or reload,
+and messages written while the monsters were stopped lived only in the tab (W-6, W-7).
+**Choices:**
+- The letters press a key only with the focus outside text fields. In the composer a lone letter followed by Enter
+  picks it ("Press Enter to pick Ironic"). A keyboard pick waits 3 s with "Sent: Ironic · Undo" (Esc too), announced
+  with `role=status`; a click sends at once, since the bug only came from the keyboard.
+- `store/drafts.ts` keeps the draft of each chat and the messages queued while stopped in `localStorage`, per account,
+  cleared on send; queued messages leave once the monsters run again, and only once across tabs.
+**Consequence:** a sentence is never an answer, and nothing typed is lost by moving around the app.
+
+### D-175 · Tool-name repair stays inside its server; a failed write may have run
+**Status:** done · 25/10/2026
+**Context:** `matchToolName` dropped the server name, so `mcp__gmail__send_message` could run Slack's `send_message`,
+and any unique tail matched a longer tool (`delete_contacts` → `bulk_delete_contacts`), skipping the brake of the right
+service (C-1). A 5xx or a dropped connection on a write told the model "retry later", inviting a duplicate (C-2).
+**Choices:**
+- A name with `mcp__<server>__` resolves only inside that server (only `mcp__monsters__` maps to Monsters' own tools).
+  The repairs allowed are case, separators, a `functions.` prefix, a missing `mcp__<server>__` and the server's own
+  namespace head (its name, a word of it, or a head all its 3+ tools share). A suffix of a longer name is not a repair.
+- On a call that may write, a 5xx, a timeout or a dropped connection says the change may already have been applied and
+  to check before repeating it; reads keep "retry later" (D-163 did the same for dropped sockets).
+
+### D-176 · The brakes judge words by meaning, and expanded names are judged
+**Status:** done · 25/10/2026
+**Context:** the D-163 outbound brake let Italian start verbs (`avvia_campagna`, `avvia_pagamento`), deletes by another
+name (`sposta_nel_cestino`) and money nouns (`create_subscription`, `create_payout`) through as plain writes, and
+braked `create_email_draft` as a send (C-3, C-13). The D-166 terminal brake judged `cp ../template/CLAUDE.md .` and
+`rsync … .claude ./` as reads, could be dodged by spelling (backslashes, glued options, `sed w`), knew few inline-code
+flags, left lines with globs unchecked and still refused some plain reads (C-17…C-22); a regex was quadratic on long
+digit runs (C-19).
+**Choices:**
+- Outbound: start and stop verbs in both languages go to the instinct, except for timers, meetings and sessions;
+  money nouns are judged per noun (`pagamento` is spend only after a start verb; payouts and bank transfers are
+  certain spend); moving to the bin is a delete (`bin` only after to/into/empty, so `create_bin` stays a write);
+  campaigns, mailings, shipments, subscriptions, invoices, webhooks, API keys and tokens are never plain writes; in a
+  draft name the message words are what is drafted (`draft_and_send_email` is a send). Anteiku's classification is
+  unchanged.
+- Terminal: a config copied into a folder is a write (unless the folder is a temporary one); bash's backslash reading,
+  `{ , :` and glued short options are name boundaries; `sed`/`awk` scripts are parsed; more interpreters with inline
+  code and package runners (`npx`, `pnpm exec/dlx`) are unwrapped; globs, braces and `$'…'` are expanded and matched
+  against the config names. This corrects D-166's wording: still not followed are a variable's value on a line that
+  names no config and writers that never name a file (`git stash pop`), to keep its per-command judging. The digit
+  regex is linear (100k digits in ~20 ms).
+**Consequence:** `rm *.md`, `mv *.md docs/` and `cp CLAUDE.md sub` are now refused in a folder with a harness config;
+`start_timer` and `stop_timer` pass without the instinct.
+
+### D-177 · Retired models never stop the start; plan caps for the ChatGPT plan; closing rounds resume
+**Status:** done · 25/10/2026
+**Context:** fixes of the review of 25/10 in the core (C-4…C-9, C-11, C-12, C-16).
+**Choices:**
+- A retired model in an `agent.yaml` that cannot be written is replaced in memory, reported as an `error` event with
+  code `retired_model` (one Activity line per replacement) and saved again at the next start; the start never fails
+  on it. Archived monsters (when restored), draft monsters and projects get the same replacement; when two links
+  collapse the stronger tier is kept.
+- A request counts on the subscription caps of D-171 when the provider that served it is a subscription, so the
+  ChatGPT plan is treated like Claude Code and Codex; the delegated-agent token cap follows the first link of the chain.
+- While the core is closing, the automation service starts nothing ("Run now" gets a message, a scheduled slot waits
+  for the catch-up of the next start) and an interrupted round resumes at the next start.
+- A run that ends clears only its own blocking questions (`waiting` maps question to run).
+- The old `connections` allow-list of a project is dropped at start with one Activity line naming what it allowed;
+  new `connectionsOff` names must be known connections (400 otherwise), unknown stored names are warned and ignored.
+- On Codex the wrap-up note counts as read only if a later request follows it, so a complete answer on the request
+  that reached the limit stays `completed`; long results are cut to the smallest window of the chain.
