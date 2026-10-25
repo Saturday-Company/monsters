@@ -652,7 +652,10 @@ describe('the ChatGPT plan is a subscription for the caps (C-5)', () => {
       outputTokens: { total: 7, text: 7, reasoning: undefined },
     };
     const env = chatgptEnv({
-      a: [{ ...fake.toolCall('lookup', { q: 'rea' }), usage: big }, fake.text('Rapporto.')],
+      a: [
+        { kind: 'tool-calls', calls: [{ name: 'lookup', input: { q: 'rea' } }], usage: big },
+        fake.text('Rapporto.'),
+      ],
     });
     const limits = RunLimitsSchema.parse({
       maxSubagentTokens: 1_000_000,

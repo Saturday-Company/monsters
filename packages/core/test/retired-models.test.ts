@@ -2,6 +2,7 @@ import { chmodSync, readFileSync, writeFileSync, accessSync, constants } from 'n
 import { join } from 'node:path';
 import { ProviderRegistry } from '@monsters/providers';
 import { FakeProvider } from '@monsters/providers/testing';
+import type { LogEvent } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_FREE_CHAIN, RETIRED_MODELS, replaceRetired } from '../src/agents/archetypes.ts';
 import { startTestHub } from './hub-helpers.ts';
@@ -12,6 +13,11 @@ import { startTestHub } from './hub-helpers.ts';
  */
 
 const OLD = { provider: 'openrouter', model: 'nvidia/nemotron-3-super-120b-a12b:free' };
+const retiredLines = (events: LogEvent[]) =>
+  events.filter(
+    (e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'retired_model',
+  );
+
 const NEW = { provider: 'openrouter', model: 'nvidia/nemotron-3-ultra-550b-a55b:free' };
 
 describe('retired models (D-165)', () => {
@@ -56,9 +62,7 @@ describe('retired models (D-165)', () => {
     await t.core.hub.team.setModels('rhea', [OLD]);
     await t.core.close();
     const again = await startTestHub({}, { withoutTeam: true, home: t.home });
-    const lines = again.core.log
-      .query({ type: 'error' })
-      .filter((e) => e.data.code === 'retired_model');
+    const lines = retiredLines(again.core.log.query({ type: 'error' }));
     expect(lines).toHaveLength(1);
     expect(lines[0]!.agent).toBe('system');
     expect(lines[0]!.data.message).toContain('Rhea');
@@ -91,9 +95,7 @@ describe('retired models (D-165)', () => {
         { provider: 'openrouter', model: 'openrouter/free' },
       ]);
       expect(readFileSync(file, 'utf8')).toBe(before);
-      const lines = again.core.log
-        .query({ type: 'error' })
-        .filter((e) => e.data.code === 'retired_model');
+      const lines = retiredLines(again.core.log.query({ type: 'error' }));
       expect(lines).toHaveLength(1);
       expect(lines[0]!.data.message).toContain('could not be saved');
       // The other agents are untouched and the core answers.
