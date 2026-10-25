@@ -695,6 +695,8 @@ export class AutomationService {
 
   /** A giro answered goes on: now, or after the giro of the automation open meanwhile (B4). */
   #continueGiro(a: Automation, giro: string, item: InboxItem): void {
+    // Closing: the answer stays in the log and the next start takes it up (C-7).
+    if (this.#o.runs.closing) return;
     // Paused (or back to a draft) since the question: the giro does not go on by itself (B4).
     if (a.status !== 'active') {
       this.#closeGiro(giro, a, 'aborted', automationStrings().pausedNoResume);
@@ -732,6 +734,7 @@ export class AutomationService {
   #takeQueued(id: string): void {
     const queue = this.#queued.get(id);
     if (!queue || queue.length === 0) return;
+    if (this.#o.runs.closing) return;
     if (this.#activeGiro(id) || this.#pending.has(id)) return;
     const next = queue.shift()!;
     if (queue.length === 0) this.#queued.delete(id);
@@ -839,6 +842,12 @@ export class AutomationService {
     if (this.#o.runs.halted) {
       return fail('halted', automationStrings().halted, 'halted');
     }
+    // The core is closing: nothing new starts, and the giro cut by the closing is not touched.
+    // A slot due now is left for the start, which runs or skips what it finds missed (C-7).
+    if (this.#o.runs.closing) {
+      if (manual) throw new AutomationError('halted', automationStrings().closing);
+      return null;
+    }
     const lead = this.#o.team.byId(a.lead);
     if (!lead) return fail('no_lead', automationStrings().leadGone(a.lead), 'unknown_agent');
     if (!this.#o.canRun(lead)) {
@@ -879,6 +888,11 @@ export class AutomationService {
     const tick = () => {
       p.timer = undefined;
       if (this.#pending.get(a.id) !== p) return;
+      // Closing: nothing starts now; the giro that waits stays as it is for the start (C-7).
+      if (this.#o.runs.closing) {
+        p.timer = this.#clock.setTimer(tick, this.#waitPollMs);
+        return;
+      }
       const current = this.#store.get(a.id);
       const lead = current ? this.#o.team.byId(current.lead) : undefined;
       if (!current || this.#o.runs.halted || !lead) {
@@ -1050,10 +1064,11 @@ export class AutomationService {
     if (e.type !== 'run' || !e.runId || e.data.status === 'started') return;
     const giro = this.#byRun.get(e.runId);
     if (giro === undefined) return;
-    this.#byRun.delete(e.runId);
     // The core is closing (an update, a restart): the giro is not over, the next start takes
-    // it up again (B3). No end in the log, nothing on Telegram.
+    // it up again (B3). No end in the log, nothing on Telegram. Its run stays known until the
+    // service stops, so a read in the closing window does not take the giro for a leftover (C-7).
     if (e.data.status === 'aborted' && e.data.reason === 'shutdown') return;
+    this.#byRun.delete(e.runId);
     const g = this.#giri.get(giro);
     const a = g ? this.#store.get(g.automationId) : undefined;
     this.#finish(giro, e.runId, a, e.data.status, e.data.error, g?.automationId);
