@@ -335,7 +335,7 @@ test('buttons: a message typed by hand closes them too', async ({ page }) => {
   await expect(buttons.first()).not.toHaveAttribute('aria-disabled', 'true');
   // A message typed by hand closes them too: the user spoke after this reply.
   await holdMock(page);
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('Something else first');
   await input.press('Enter');
   await expect(page.getByTestId('user-bubble').last()).toHaveText('Something else first');

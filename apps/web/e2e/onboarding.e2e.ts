@@ -135,8 +135,8 @@ test('first start: model, name, squad, birth', async ({ page }) => {
   const ideas = page.getByTestId('suggestions');
   await expect(ideas.getByRole('button')).toHaveCount(3);
   await ideas.getByRole('button', { name: 'Do some research on…' }).click();
-  await expect(page.getByRole('combobox', { name: 'Message' })).toHaveValue('Do some research on ');
-  await expect(page.getByRole('combobox', { name: 'Message' })).toBeFocused();
+  await expect(page.getByTestId('composer-input')).toHaveValue('Do some research on ');
+  await expect(page.getByTestId('composer-input')).toBeFocused();
 });
 
 test('the express path: three screens, three clicks, two text fields', async ({ page }) => {
@@ -254,7 +254,7 @@ test('without a model the home page says so', async ({ page }) => {
   const greeting = page.getByTestId('agent-bubble').first();
   await expect(greeting).toContainText('To work I’m only missing a model');
   await expect(page.getByTestId('chat-status')).toContainText('Waiting for a model');
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await expect(input).toBeDisabled();
   await expect(input).toHaveAttribute('placeholder', 'Connect a model first');
   const notice = greeting.getByTestId('no-model');

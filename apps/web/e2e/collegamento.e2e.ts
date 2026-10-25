@@ -42,7 +42,7 @@ test('Core that does not answer: non collegato everywhere, the message waits in 
   await expect(page.getByTestId('status-display')).toHaveAttribute('data-state', 'offline');
   await expect(page.getByTestId('status-display')).toContainText('Not connected');
 
-  const field = page.getByRole('combobox', { name: 'Message' });
+  const field = page.getByTestId('composer-input');
   await field.fill('Are you there?');
   await expect(page.getByTestId('composer-offline')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Send' })).toBeDisabled();

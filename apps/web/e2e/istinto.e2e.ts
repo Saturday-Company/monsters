@@ -219,7 +219,7 @@ test('the confused face comes from the snapshot of the core, also on a new conne
 
 test('the brake: an action that leaves the computer waits for a yes', async ({ page }) => {
   await page.goto('/?mock=demo&mockSpeed=0.2#/?chat=dione');
-  const composer = page.getByRole('combobox', { name: 'Message' });
+  const composer = page.getByTestId('composer-input');
   await composer.fill('Publish the first post on Instagram');
   await composer.press('Enter');
   const card = page.getByTestId('question-card').filter({ hasText: 'Go ahead?' });

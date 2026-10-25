@@ -91,7 +91,7 @@ test('the palette keeps the focus inside, gives it back, and leaves the kill swi
   page,
 }) => {
   await page.goto('/?mock=demo#/?chat=titan');
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.focus();
   await page.keyboard.press('ControlOrMeta+k');
   await expect(page.getByTestId('palette-input')).toBeFocused();
@@ -122,7 +122,7 @@ test('a toast with a key stays, waits in line and the keyboard reaches it (W-18)
   page,
 }) => {
   await page.goto('/?mock=demo#/?chat=titan');
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await expect(input).toBeVisible();
   await clearNotices(page);
   const notice = page.getByTestId('notice');
@@ -165,7 +165,7 @@ test('a toast with a key stays, waits in line and the keyboard reaches it (W-18)
 
 test('Escape on a focused toast dismisses it and gives the focus back (W-18)', async ({ page }) => {
   await page.goto('/?mock=demo#/?chat=titan');
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await expect(input).toBeVisible();
   await clearNotices(page);
   await input.focus();
@@ -227,13 +227,19 @@ test('a confirmation in place: the safe choice has the focus, Escape and Cancel 
 
 test('the @ list tells a screen reader which monster is chosen (W-30)', async ({ page }) => {
   await page.goto('/?mock=demo#/?chat=titan');
-  const input = page.getByRole('combobox', { name: 'Message' });
-  await expect(input).toHaveAttribute('aria-expanded', 'false');
+  const input = page.getByTestId('composer-input');
+  // Closed, the composer is a plain text box: no combobox, no popup attributes.
+  await expect(page.getByRole('textbox', { name: 'Message' })).toBeVisible();
+  await expect(page.getByRole('combobox')).toHaveCount(0);
+  await expect(input).not.toHaveAttribute('aria-expanded', /.*/);
   await expect(input).not.toHaveAttribute('aria-activedescendant', /.+/);
   await input.fill('@');
   const options = page.getByRole('listbox').getByRole('option');
   await expect(options.first()).toBeVisible();
+  // Open, it is a combobox that owns the list.
+  await expect(page.getByRole('combobox', { name: 'Message' })).toBeVisible();
   await expect(input).toHaveAttribute('aria-expanded', 'true');
+  await expect(input).toHaveAttribute('aria-controls', /.+/);
   const first = await options.first().getAttribute('id');
   expect(first).toBeTruthy();
   await expect(input).toHaveAttribute('aria-activedescendant', first!);
@@ -244,4 +250,5 @@ test('the @ list tells a screen reader which monster is chosen (W-30)', async ({
   await page.keyboard.press('Escape');
   await expect(options.first()).toBeHidden();
   await expect(input).not.toHaveAttribute('aria-activedescendant', /.+/);
+  await expect(page.getByRole('textbox', { name: 'Message' })).toBeVisible();
 });

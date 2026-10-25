@@ -503,6 +503,7 @@ export function Composer({
           </label>
           <textarea
             id="composer-input"
+            data-testid="composer-input"
             ref={ref}
             rows={1}
             value={text}
@@ -520,14 +521,17 @@ export function Composer({
               e.preventDefault();
               files.add(pasted);
             }}
-            role="combobox"
-            aria-expanded={showList}
-            aria-controls={showList ? listId : undefined}
-            aria-autocomplete="list"
-            aria-haspopup="listbox"
-            aria-activedescendant={
-              showList ? `${listId}-${Math.min(active, suggestions.length - 1)}` : undefined
-            }
+            // A plain text box until the @ list is open: a combobox that never opens is noise (W-30).
+            {...(showList
+              ? {
+                  role: 'combobox',
+                  'aria-expanded': true,
+                  'aria-controls': listId,
+                  'aria-autocomplete': 'list' as const,
+                  'aria-haspopup': 'listbox' as const,
+                  'aria-activedescendant': `${listId}-${Math.min(active, suggestions.length - 1)}`,
+                }
+              : {})}
             placeholder={composerPlaceholder({
               name: agent.name,
               halted,

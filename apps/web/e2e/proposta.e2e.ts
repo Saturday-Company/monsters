@@ -18,7 +18,7 @@ async function propose(page: Page) {
   await page.getByRole('button', { name: 'Create account' }).click();
   await page.getByTestId('sidebar').waitFor();
   await page.evaluate(() => (window.location.hash = '#/?chat=titan'));
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('Create a monster that keeps my ideas in order');
   await input.press('Enter');
   const card = page.getByTestId('proposal-card');

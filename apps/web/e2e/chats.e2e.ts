@@ -78,7 +78,7 @@ test('one chat per monster, in the team order, the orchestrator open', async ({ 
     'Use this photo for Saturday’s post, and show me the menu on a page.',
   ]);
   await expect(page.getByTestId('question-card')).toHaveCount(0);
-  await expect(page.getByRole('combobox', { name: 'Message' })).toHaveAttribute(
+  await expect(page.getByTestId('composer-input')).toHaveAttribute(
     'placeholder',
     'Message Dione… (@ for another monster)',
   );
@@ -158,7 +158,7 @@ test('keyboard: arrows move between chats, Ctrl/Cmd+K finds a monster in the pal
   ).toHaveCount(1);
   await expect(god(page)).toHaveAttribute('tabindex', '0');
 
-  await page.getByRole('combobox', { name: 'Message' }).focus();
+  await page.getByTestId('composer-input').focus();
   await page.keyboard.press('ControlOrMeta+k');
   const search = page.getByTestId('palette-input');
   await expect(search).toBeFocused();
@@ -299,7 +299,7 @@ test('the keypad: a sentence typed in the composer stays words, a letter picks w
     .getByTestId('question-card')
     .filter({ hasText: 'What tone should we give the posts?' });
   await expect(card).toHaveAttribute('data-keypad', 'on');
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await expect(input).toHaveAttribute(
     'placeholder',
     'Message Titan, or type A, B or C and press Enter',
@@ -419,7 +419,7 @@ test('a chat opens at the very bottom, and a message sent while scrolled up come
   await expect.poll(gap).toBeLessThanOrEqual(1);
   await scroller.evaluate((el) => el.scrollTo({ top: 0 }));
   await expect.poll(gap).toBeGreaterThan(150);
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('One more thing: keep it short');
   await input.press('Enter');
   await expect(
@@ -431,7 +431,7 @@ test('the draft of each chat stays through a chat switch and a reload, and goes 
   page,
 }) => {
   await page.goto('/?mock=demo#/?chat=dione');
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('Half a thought for Dione');
   await row(page, 'Rhea').click();
   await expect(page).toHaveURL(/chat=rhea/);
@@ -460,7 +460,7 @@ test('a message written while the monsters are stopped is not lost in a reload (
   await page.getByTestId('kill').click();
   await page.getByTestId('kill').click();
   await expect(page.getByTestId('halt-banner')).toBeVisible();
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('When you’re back, a caption for the photo');
   await input.press('Enter');
   const held = page.getByTestId('user-bubble').filter({ hasText: 'a caption for the photo' });

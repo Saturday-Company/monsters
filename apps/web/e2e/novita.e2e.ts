@@ -59,7 +59,7 @@ test('older versions are collapsed and open on click', async ({ page }) => {
 
 test('the palette opens Novità', async ({ page }) => {
   await page.goto('/?mock=demo#/?chat=titan');
-  await page.getByRole('combobox', { name: 'Message' }).focus();
+  await page.getByTestId('composer-input').focus();
   await page.keyboard.press('ControlOrMeta+k');
   await page.getByTestId('palette-input').fill('What’s new');
   await page.getByTestId('palette-item').first().click();

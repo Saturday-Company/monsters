@@ -107,7 +107,7 @@ test('Consumi of a monster on the Claude plan carries the same block', async ({ 
       window as unknown as { __monstersMock: { useSubscription(id: string): void } }
     ).__monstersMock.useSubscription('mimas'),
   );
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('Hi Mimas, where are we on the accounts?');
   await input.press('Enter');
   await expect(key.getByTestId('context-amount')).toHaveText(/^\d+%$/, { timeout: 15_000 });
