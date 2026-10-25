@@ -7,9 +7,21 @@ import {
 } from '@monsters/shared';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ApiError } from '../../lib/api.ts';
+import { settingsPath } from '../../lib/router.ts';
 import { cn, domId } from '../../lib/utils.ts';
 import { errorText, getApi, notify } from '../../store/app.ts';
-import { isTrial, modeWord, onMode, needsOf, titleOfUse } from '../../store/instinct.ts';
+import {
+  engineOfQuick,
+  isTrial,
+  modeWord,
+  needsOf,
+  onMode,
+  privacyUses,
+  quickChoiceOf,
+  switchUses,
+  titleOfUse,
+  type QuickChoice,
+} from '../../store/instinct.ts';
 import { Button } from '../ui/button.tsx';
 import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
@@ -28,11 +40,14 @@ import {
 import { partsStrings } from './parts.strings.ts';
 
 /*
- * Settings → Squad → Advanced → Monsters’ decisions, the instinct (D-067, D-068): the quick decisions of the team,
- * who takes them (only the rules, a small model of yours, or Jev of TypeSafe)
- * and, in a drawer, what each of them does, with a lever. Small at the bottom,
- * what leaves the computer. The words come from shared/src/instinct.ts; none
- * of "System 1", "gate", "shadow" or thresholds reaches the screen.
+ * Settings → Squad → Advanced → Monsters’ decisions, the instinct (D-067, D-068): the quick decisions of the team.
+ * One control in front, "Basic / Smarter" (C4): Basic is the rules (or a small model of yours, chosen
+ * in the drawer), Smarter is the expert model (Jev of TypeSafe, needs its key). Behind "Choose one by
+ * one": who decides in three steps and a lever for each use. Two uses have no lever: the trial
+ * shortcut changes nothing, and the brake on actions that leave the computer always applies, so it is
+ * a sentence with a link to where it is chosen (Permissions). Small at the bottom, what leaves the
+ * computer. The words come from shared/src/instinct.ts; none of "System 1", "gate", "shadow" or
+ * thresholds reaches the screen.
  */
 
 /** A short tag after a use's name: "On trial", "Notes only", "Needs Jev". */
@@ -57,6 +72,13 @@ function keyError(err: unknown): string {
     if (err.code === 'key_from_env') return s.keyFromEnv;
   }
   return errorText(err);
+}
+
+/** One sentence under "Quick decisions": who takes them now, and what Smarter needs. */
+function quickAbout(engine: DecisionEngine): string {
+  const s = instinctStrings();
+  if (engine === 'jev') return s.aboutSmarter;
+  return `${engine === 'llm' ? s.aboutSmall : s.aboutRules} ${s.smarterNeeds}`;
 }
 
 function UseRow({
@@ -205,12 +227,10 @@ export function InstinctSection() {
   };
 
   const showForm = engine === 'jev' && (!view.jev.keySet || changingKey);
-  const on = view.uses.filter((u) => u.mode !== 'off');
+  const shown = switchUses(view.uses);
+  const on = shown.filter((u) => u.mode !== 'off');
   const waiting = on.filter((u) => needsOf(u, view) !== null).length;
-  const usesLine = [
-    s.usesOn(on.length, view.uses.length),
-    waiting > 0 ? s.usesWaiting(waiting) : null,
-  ]
+  const usesLine = [s.usesOn(on.length, shown.length), waiting > 0 ? s.usesWaiting(waiting) : null]
     .filter(Boolean)
     .join(' · ');
 
@@ -223,16 +243,22 @@ export function InstinctSection() {
       footer={<PrivacyNote view={view} />}
     >
       <Row
-        label={s.whoDecides}
-        description={<span data-testid="instinct-engine-about">{about?.description}</span>}
+        label={s.quick}
+        description={<span data-testid="instinct-quick-about">{quickAbout(engine)}</span>}
         wrap
       >
-        <Segmented<DecisionEngine>
-          value={engine}
-          onChange={(v) => void onEngine(v)}
-          label={s.whoDecides}
+        <Segmented<QuickChoice>
+          value={quickChoiceOf(engine)}
+          onChange={(v) => {
+            // Basic over a small model of yours leaves it as it is.
+            if (v !== quickChoiceOf(engine)) void onEngine(engineOfQuick(v));
+          }}
+          label={s.quick}
           size="sm"
-          options={view.engines.map((e) => ({ value: e.id, label: e.label }))}
+          options={[
+            { value: 'basic', label: s.basic },
+            { value: 'smarter', label: s.smarter },
+          ]}
         />
       </Row>
 
@@ -317,18 +343,55 @@ export function InstinctSection() {
         </RowBody>
       )}
 
-      <DisclosureRow as="div" testId="instinct-uses" label={s.whatItDoes} description={usesLine}>
-        <ul className="set-rows" aria-label={s.whatTheyDecide}>
-          {view.uses.map((u) => (
-            <UseRow
-              key={u.id}
-              use={u}
-              view={view}
-              busy={busyUse === u.id}
-              onChange={(use, v) => onUse(use, v)}
+      <Row
+        label={s.outboundTitle}
+        description={
+          <span data-testid="instinct-outbound">
+            {s.outboundBefore}
+            <a
+              href={settingsPath('permessi')}
+              className="font-medium text-ink underline underline-offset-2"
+              data-testid="instinct-outbound-link"
+            >
+              {s.outboundLink}
+            </a>
+            {s.outboundAfter}
+          </span>
+        }
+      />
+
+      <DisclosureRow
+        as="div"
+        testId="instinct-uses"
+        label={s.chooseOneByOne}
+        description={usesLine}
+      >
+        <div className="set-rows">
+          <Row
+            label={s.whoDecides}
+            description={<span data-testid="instinct-engine-about">{about?.description}</span>}
+            wrap
+          >
+            <Segmented<DecisionEngine>
+              value={engine}
+              onChange={(v) => void onEngine(v)}
+              label={s.whoDecides}
+              size="sm"
+              options={view.engines.map((e) => ({ value: e.id, label: e.label }))}
             />
-          ))}
-        </ul>
+          </Row>
+          <ul className="set-rows" aria-label={s.whatTheyDecide}>
+            {shown.map((u) => (
+              <UseRow
+                key={u.id}
+                use={u}
+                view={view}
+                busy={busyUse === u.id}
+                onChange={(use, v) => onUse(use, v)}
+              />
+            ))}
+          </ul>
+        </div>
       </DisclosureRow>
     </Group>
   );
@@ -348,7 +411,7 @@ function PrivacyNote({ view }: { view: InstinctView }) {
       <div className="mt-2 grid gap-2">
         <p>{s.privacy[view.engine]}</p>
         <dl className="grid gap-1.5">
-          {view.uses.map((u) => (
+          {privacyUses(view.uses).map((u) => (
             <div key={u.id} className="grid gap-0.5">
               <dt className="text-ink">{titleOfUse(u)}</dt>
               <dd>{u.sends}</dd>

@@ -1,6 +1,7 @@
 import {
   agentOfPath,
   vaultLayout,
+  type DecisionEngine,
   type DelegationVerdict,
   type Effort,
   type EventDataMap,
@@ -410,6 +411,37 @@ export function titleOfUse(use: InstinctUseView): string {
   return use.label.replace(/\s*\((?:in prova|trial)\)\s*$/i, '');
 }
 
+/**
+ * The quick decisions in two words (C4): "Basic" is every engine that works without the expert
+ * model (the rules, or a small model of yours), "Smarter" is the expert model (TypeSafe).
+ */
+export type QuickChoice = 'basic' | 'smarter';
+
+export function quickChoiceOf(engine: DecisionEngine): QuickChoice {
+  return engine === 'jev' ? 'smarter' : 'basic';
+}
+
+/** The engine a click on a quick choice sets; "Basic" is the rules, the small model is one level down. */
+export function engineOfQuick(choice: QuickChoice): DecisionEngine {
+  return choice === 'smarter' ? 'jev' : 'rules';
+}
+
+/**
+ * Uses with a switch of their own. Two stay off the list but in the data: `shortcut` is a trial
+ * that changes nothing yet, and `outbound` always applies (it cannot be turned off for real), so
+ * the screen says it in a sentence.
+ */
+const NO_SWITCH: ReadonlySet<string> = new Set(['shortcut', 'outbound']);
+
+export function switchUses(uses: readonly InstinctUseView[]): InstinctUseView[] {
+  return uses.filter((u) => !NO_SWITCH.has(u.id));
+}
+
+/** The uses whose data the "what leaves the computer" note lists: all but the trial that does nothing. */
+export function privacyUses(uses: readonly InstinctUseView[]): InstinctUseView[] {
+  return uses.filter((u) => u.id !== 'shortcut');
+}
+
 /** The label of a use for Activity ("Checks that the jobs are really finished"). */
 export function labelOfUse(use: string): string | null {
   const info = (INSTINCT_USE_INFO as Record<string, { label: string } | undefined>)[use];
@@ -456,6 +488,17 @@ export function scoreLines(view: ScorecardView): ScoreLine[] {
     avgSteps: r.avgSteps,
     missing: Math.max(0, view.minDelegations - r.checked),
   }));
+}
+
+/**
+ * The scorecard is worth showing once at least one model has the checked jobs it needs to move
+ * a chain (C4): before that it is an empty module. A chain it has already moved counts too.
+ */
+export function scorecardReady(view: ScorecardView): boolean {
+  return (
+    view.rows.some((r) => r.checked >= view.minDelegations) ||
+    Object.values(view.reordered).some((chain) => chain.length > 0)
+  );
 }
 
 /** "Now Rhea tries llama 3.3 70b first: it finishes more jobs and costs less." for a reordered chain. */

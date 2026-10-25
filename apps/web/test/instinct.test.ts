@@ -32,6 +32,11 @@ import {
   securitySentence,
   sourceText,
   needsOf,
+  engineOfQuick,
+  privacyUses,
+  quickChoiceOf,
+  scorecardReady,
+  switchUses,
 } from '../src/store/instinct.ts';
 
 // The Italian copy is pinned in this file; the English one is in log-strings.test.ts.
@@ -500,5 +505,53 @@ describe('settings: uses and pagella', () => {
     expect(reorderedLines(view, names)).toEqual([
       'Ora Rhea usa prima llama 3.3 70b: finisce più lavori e costa meno.',
     ]);
+  });
+});
+
+describe('settings: quick decisions in one control (C4)', () => {
+  it('maps Basic and Smarter on the engine', () => {
+    expect(quickChoiceOf('rules')).toBe('basic');
+    expect(quickChoiceOf('llm')).toBe('basic');
+    expect(quickChoiceOf('jev')).toBe('smarter');
+    expect(engineOfQuick('basic')).toBe('rules');
+    expect(engineOfQuick('smarter')).toBe('jev');
+  });
+
+  it('keeps the trial shortcut and the brake that always applies off the switches', () => {
+    const uses = (['gate', 'shortcut', 'outbound', 'scorecard'] as const).map(
+      (id) => ({ id }) as InstinctUseView,
+    );
+    expect(switchUses(uses).map((u) => u.id)).toEqual(['gate', 'scorecard']);
+    // The note on what leaves the computer still lists the brake, not the trial that does nothing.
+    expect(privacyUses(uses).map((u) => u.id)).toEqual(['gate', 'outbound', 'scorecard']);
+  });
+
+  it('shows the scorecard only once a model has the checked jobs it needs', () => {
+    const row = (checked: number) => ({
+      agent: 'rhea',
+      agentName: 'Rhea',
+      model: 'openrouter:openrouter/free',
+      tier: 'any' as const,
+      delegations: checked,
+      checked,
+      verified: checked,
+      doubt: 0,
+      incomplete: 0,
+      failed: 0,
+      successRate: 1,
+      avgSteps: 3,
+      avgCostUsd: 0,
+      costPerVerifiedUsd: 0,
+    });
+    const view = (rows: ReturnType<typeof row>[], reordered = {}) => ({
+      enabled: true,
+      minDelegations: 20,
+      rows,
+      reordered,
+    });
+    expect(scorecardReady(view([]))).toBe(false);
+    expect(scorecardReady(view([row(19)]))).toBe(false);
+    expect(scorecardReady(view([row(5), row(20)]))).toBe(true);
+    expect(scorecardReady(view([row(5)], { rhea: ['openrouter:x/y'] }))).toBe(true);
   });
 });

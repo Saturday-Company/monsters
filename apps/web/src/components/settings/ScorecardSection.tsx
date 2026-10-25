@@ -3,12 +3,18 @@ import { formatNumber, type ScorecardView } from '@monsters/shared';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { getApi } from '../../store/app.ts';
 import { useAgent, useNameOf } from '../../store/hooks.ts';
-import { reorderedLines, scoreLines, type ScoreLine } from '../../store/instinct.ts';
+import {
+  reorderedLines,
+  scoreLines,
+  scorecardReady,
+  type ScoreLine,
+} from '../../store/instinct.ts';
 import { AgentMark, Group, LoadFailed, Row, RowBody, Status, useRetry } from './parts.tsx';
 import { teamStrings } from './team.strings.ts';
 
 /*
- * Settings → Squad → Advanced → Monster scorecard (D-067, D-068): for each monster and
+ * Settings → Squad → Advanced → Monster scorecard (D-067, D-068), shown once a model has the checked
+ * jobs it needs (C4): for each monster and
  * model, how many jobs, how many really finished, what a job that worked
  * costs; when the scorecard moved a model first in a chain, it says so in
  * words. The numbers sit on a small screen with a bar in the monster's light.
@@ -72,42 +78,24 @@ export function ScorecardSection() {
   if (failed) return <LoadFailed what={s.what} onRetry={retry} />;
   if (!view) return null;
 
+  // Nothing to show until a model has the checked jobs the scorecard needs (C4): no module that
+  // only says it is empty.
+  if (!scorecardReady(view)) return null;
   const lines = scoreLines(view);
-  // Nothing to show until a model has been checked at least once (U2-34): no empty module.
-  if (lines.length === 0 && reorderedLines(view, nameOf).length === 0) return null;
   const moved = reorderedLines(view, nameOf);
-  const min = view.minDelegations;
-  const ready = lines.filter((l) => l.missing === 0);
-  const closest = [...lines].sort((a, b) => a.missing - b.missing)[0];
-
-  let footer: string;
-  if (!view.enabled) footer = s.footerOff;
-  else if (lines.length === 0) footer = s.footerNone(min);
-  else if (ready.length === 0 && closest)
-    footer = s.footerClosest(min, closest.agentName, closest.checked);
-  else footer = s.footerReady(min);
+  const footer = view.enabled ? s.footerReady(view.minDelegations) : s.footerOff;
 
   return (
     <Group
       title={s.title}
       id="settings-pagella"
       testId="scorecard"
-      as={lines.length > 0 ? 'ul' : 'div'}
+      as="ul"
       description={s.description}
       footer={footer}
     >
-      {moved.length > 0 &&
-        (lines.length > 0 ? (
-          <li>
-            <RowBody>
-              {moved.map((m) => (
-                <Status key={m} ok testId="scorecard-reordered">
-                  {m}
-                </Status>
-              ))}
-            </RowBody>
-          </li>
-        ) : (
+      {moved.length > 0 && (
+        <li>
           <RowBody>
             {moved.map((m) => (
               <Status key={m} ok testId="scorecard-reordered">
@@ -115,43 +103,36 @@ export function ScorecardSection() {
               </Status>
             ))}
           </RowBody>
-        ))}
-      {lines.length === 0 ? (
-        <RowBody>
-          <p className="text-footnote leading-snug text-ink-muted" data-testid="scorecard-empty">
-            {s.empty}
-          </p>
-        </RowBody>
-      ) : (
-        lines.map((l) => (
-          <li key={l.key} data-testid={`scorecard-row-${l.agent}`}>
-            <Row
-              className="max-sm:items-start"
-              leading={<AgentMark id={l.agent} color="var(--ink-muted)" width={40} height={34} />}
-              label={
-                <span className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-medium">{l.agentName}</span>
-                  <span className="font-mono text-micro text-ink-muted">{l.model}</span>
-                </span>
-              }
-              description={
-                <>
-                  {lineDescription(l)}
-                  {/* On a phone the display goes under the words, in their column. */}
-                  <span className="mt-2 block sm:hidden">
-                    <ScoreDisplay line={l} />
-                  </span>
-                </>
-              }
-            >
-              <span className="max-sm:hidden">
-                <ScoreDisplay line={l} />
-              </span>
-              <span className="sr-only">{s.checkedOf(l.verified, l.checked)}</span>
-            </Row>
-          </li>
-        ))
+        </li>
       )}
+      {lines.map((l) => (
+        <li key={l.key} data-testid={`scorecard-row-${l.agent}`}>
+          <Row
+            className="max-sm:items-start"
+            leading={<AgentMark id={l.agent} color="var(--ink-muted)" width={40} height={34} />}
+            label={
+              <span className="flex flex-wrap items-baseline gap-x-2">
+                <span className="font-medium">{l.agentName}</span>
+                <span className="font-mono text-micro text-ink-muted">{l.model}</span>
+              </span>
+            }
+            description={
+              <>
+                {lineDescription(l)}
+                {/* On a phone the display goes under the words, in their column. */}
+                <span className="mt-2 block sm:hidden">
+                  <ScoreDisplay line={l} />
+                </span>
+              </>
+            }
+          >
+            <span className="max-sm:hidden">
+              <ScoreDisplay line={l} />
+            </span>
+            <span className="sr-only">{s.checkedOf(l.verified, l.checked)}</span>
+          </Row>
+        </li>
+      ))}
     </Group>
   );
 }
