@@ -474,8 +474,15 @@ function isCallForbidden(err: unknown): boolean {
 /**
  * A remote server answered the call with 429 or 5xx: the arguments are fine,
  * the service is not. The model must wait or move on, not rephrase and retry.
+ * A 5xx (a 502/504/524 of a proxy above all) can come after the server did the
+ * work: a call that may write is told it may have been applied, to be checked
+ * before it is repeated (review of 25/10, C-2); only a read is "retry later".
  */
-export function httpFailure(server: string, err: unknown): ToolError | undefined {
+export function httpFailure(
+  server: string,
+  err: unknown,
+  readOnly = false,
+): ToolError | undefined {
   if (!(err instanceof SdkHttpError)) return undefined;
   if (err.status === 429) {
     return new ToolError(
@@ -490,7 +497,11 @@ export function httpFailure(server: string, err: unknown): ToolError | undefined
     return new ToolError(
       'UNAVAILABLE',
       `The MCP server "${server}" is having problems (HTTP ${err.status}).`,
-      { hint: 'The service is in trouble, not your arguments: retry later or use another source.' },
+      {
+        hint: readOnly
+          ? 'The service is in trouble, not your arguments: retry later or use another source.'
+          : 'The service is in trouble, not your arguments, but the call may already have been applied on the server: check whether it was (read or list what it should have created or changed) before repeating it, and never repeat a send or a payment without checking.',
+      },
     );
   }
   return undefined;
@@ -955,7 +966,9 @@ class Connection {
             'UNAVAILABLE',
             `The connection to the MCP server "${this.name}" was lost.`,
             {
-              hint: 'It restarts at the next call: check whether the action was done, then retry.',
+              hint: options.readOnly
+                ? 'It restarts at the next call: retry.'
+                : 'It restarts at the next call. The call may already have been applied before the connection dropped: check whether the action was done before repeating it.',
             },
           );
         }
@@ -1013,7 +1026,7 @@ class Connection {
             continue;
           }
         }
-        const http = httpFailure(this.name, err);
+        const http = httpFailure(this.name, err, options.readOnly === true);
         if (http) throw http;
         const message = this.#m.redact(err instanceof Error ? err.message : String(err));
         throw new ToolError(

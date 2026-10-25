@@ -233,6 +233,7 @@ describe('MCP over HTTP: the server drops the connection or fails', () => {
     expect(err.code).toBe('UNAVAILABLE');
     expect(err.message).toMatch(/connection to the MCP server "anteiku" was lost/);
     expect(err.hint).toMatch(/check whether the action was done/);
+    expect(err.hint).toMatch(/may already have been applied/);
     // The write was not repeated behind the model's back.
     expect(fa.calls).toHaveLength(1);
     expect(view(t).status).not.toBe('error');
@@ -253,6 +254,9 @@ describe('MCP over HTTP: the server drops the connection or fails', () => {
     expect(err.code).toBe('UNAVAILABLE');
     expect(err.message).toContain('HTTP 500');
     expect(err.hint).toMatch(/not your arguments/);
+    // The server may have done the work before failing: check, do not just retry (C-2).
+    expect(err.hint).toMatch(/may already have been applied/);
+    expect(err.hint).not.toMatch(/retry later/);
     expect(fa.calls).toHaveLength(1);
 
     await write.execute({ nome: 'Tre' }, ctx());
