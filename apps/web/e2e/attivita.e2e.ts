@@ -23,6 +23,66 @@ test('the filters line up: "Chi" and the keys start on the same top edge', async
   expect(Math.abs(who!.y - types!.y)).toBeLessThanOrEqual(1);
 });
 
+/** A ULID of the given time (Crockford base32); `n` tells apart ids of one millisecond. */
+function ulidAt(time: number, n: number): string {
+  const alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+  let t = time;
+  let head = '';
+  for (let i = 0; i < 10; i++) {
+    head = alphabet.charAt(t % 32) + head;
+    t = Math.floor(t / 32);
+  }
+  let tail = '';
+  let r = n;
+  for (let i = 0; i < 16; i++) {
+    tail = alphabet.charAt(r % 32) + tail;
+    r = Math.floor(r / 32);
+  }
+  return head + tail;
+}
+
+test('"Load older" past 600 events makes the list longer, one page at a time (W-8)', async ({
+  page,
+}) => {
+  // 1500 old replies in the mock's log before the app reads it: the first page (400) is full of them.
+  const base = Date.now() - 60 * 24 * 3_600_000;
+  const seed = Array.from({ length: 1500 }, (_, i) => ({
+    id: ulidAt(base + i * 1000, i),
+    ts: base + i * 1000,
+    agent: 'titan',
+    runId: null,
+    parentId: null,
+    type: 'message',
+    data: { role: 'agent', text: `Old reply ${i}` },
+  }));
+  await page.addInitScript((events) => {
+    let mock: { events: { id: string }[] } | undefined;
+    Object.defineProperty(window, '__monstersMock', {
+      configurable: true,
+      get: () => mock,
+      set: (m: { events: { id: string }[] }) => {
+        mock = m;
+        m.events.push(...events);
+        m.events.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      },
+    });
+  }, seed);
+  await page.goto('/?mock=demo#/log');
+  await page.getByRole('radio', { name: 'Everything' }).click();
+  const rows = page.getByTestId('event-row');
+  await expect(rows.first()).toBeVisible();
+  const more = page.getByRole('button', { name: 'Load older' });
+  // Each press adds a page to the list, past the 600 it started with.
+  let seen = await rows.count();
+  expect(seen).toBeLessThanOrEqual(600);
+  for (let i = 0; i < 3; i++) {
+    await more.click();
+    await expect.poll(() => rows.count()).toBeGreaterThan(seen);
+    seen = await rows.count();
+  }
+  expect(seen).toBeGreaterThan(600);
+});
+
 test.describe('phone', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
