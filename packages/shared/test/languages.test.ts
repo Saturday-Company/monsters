@@ -120,7 +120,7 @@ describe('the onboarding questions', () => {
     const shape = () =>
       JSON.parse(
         JSON.stringify(ONBOARDING_QUESTIONS, function (this: { id?: string }, k, v: unknown) {
-          if (['title', 'hint', 'freeText', 'reply', 'label', 'placeholder'].includes(k)) return '';
+          if (['title', 'hint', 'freeText', 'label', 'placeholder'].includes(k)) return '';
           // The writing language's default follows the app's language (next test).
           return k === 'defaults' && this.id === 'lingua' ? [] : v;
         }),
@@ -168,11 +168,8 @@ describe('the onboarding questions', () => {
 
   it('say the first question in the language in use', () => {
     const nomi = () => ONBOARDING_QUESTIONS.find((q) => q.id === 'nomi')!;
-    expect(nomi().title).toBe(
-      'Nice to meet you! What’s your name? And what should we call your lead?',
-    );
+    expect(nomi().title).toBe('What should I call you?');
     expect(nomi().groups[0]!.label).toBe('Your name');
-    expect(nomi().reply).toContain('{orchestrator}');
     const tono = ONBOARDING_QUESTIONS.find((q) => q.id === 'tono')!;
     expect(tono.groups[0]!.options.map((o) => o.label)).toEqual([
       'Friendly',
@@ -184,7 +181,7 @@ describe('the onboarding questions', () => {
     expect(tono.groups[1]!.options.map((o) => o.label)).toContain('Italiano');
 
     setAppLang('it');
-    expect(nomi().title).toBe('Piacere! Come ti chiami? E come chiamiamo il tuo capo?');
+    expect(nomi().title).toBe('Come ti chiamo?');
     expect(tono.groups[0]!.options[0]!.label).toBe('Amichevole');
     expect(tono.groups[0]!.label).toBe('Tono');
   });
@@ -198,10 +195,17 @@ describe('the onboarding questions', () => {
       setAppLang(lang);
       for (const q of ONBOARDING_QUESTIONS) {
         expect(q.title.length, q.id).toBeGreaterThan(3);
-        expect(q.reply.length, q.id).toBeGreaterThan(3);
         for (const g of q.groups) for (const o of g.options) expect(o.label, o.id).not.toBe('');
       }
     }
+    // The express first start no longer has the goals and tools questions.
+    expect(ONBOARDING_QUESTIONS.map((q) => q.id)).toEqual([
+      'nomi',
+      'lavoro',
+      'deleghe',
+      'chiedi',
+      'tono',
+    ]);
     const lavoro = ONBOARDING_QUESTIONS.find((q) => q.id === 'lavoro')!;
     expect(checkOnboardingAnswer(lavoro, { values: { cosa: ['social'] } })).toEqual([]);
     expect(checkOnboardingAnswer(lavoro, { values: { cosa: ['nope'] } })).toEqual([

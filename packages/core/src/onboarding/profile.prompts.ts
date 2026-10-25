@@ -29,9 +29,11 @@ export interface ProfileTexts {
     user: string;
     orchestrator: string;
     occupation: string;
-    goals: string;
+    /** Only an install that answered the old goals question has them. */
+    goals: string | undefined;
     delegate: string;
-    tools: string;
+    /** As `goals`. */
+    tools: string | undefined;
     ask: string;
     tone: string;
     language: string;
@@ -48,6 +50,8 @@ export interface ProfileTexts {
     language: string;
     style: string;
     askHeading: string;
+    occupationHeading: string;
+    delegateHeading: string;
   };
   /** The sentence about the user (`contextSentence`). */
   context: {
@@ -95,16 +99,10 @@ Quello che ${p.user} ha raccontato al primo avvio. Si può modificare quando vuo
 ## Di cosa si occupa
 ${p.occupation}
 
-## Obiettivi delle prossime settimane
-${p.goals}
-
-## Attività da delegare
+${p.goals ? `## Obiettivi delle prossime settimane\n${p.goals}\n\n` : ''}## Attività da delegare
 ${p.delegate}
 
-## Strumenti e account
-${p.tools}
-
-## Chiedere sempre prima di
+${p.tools ? `## Strumenti e account\n${p.tools}\n\n` : ''}## Chiedere sempre prima di
 ${p.ask}
 
 ## Tono e lingua
@@ -120,6 +118,8 @@ ${p.can ? `\n## Permessi degli agenti\n${p.can}\n` : ''}`,
     language: '- Lingua: ',
     style: '- Stile: ',
     askHeading: '## Chiedere sempre prima di',
+    occupationHeading: '## Di cosa si occupa',
+    delegateHeading: '## Attività da delegare',
   },
   context: {
     verbs: {
@@ -167,16 +167,10 @@ What ${p.user} said at the first start. They can change it whenever they like: t
 ## What they do
 ${p.occupation}
 
-## Goals for the next few weeks
-${p.goals}
-
-## Tasks to hand off
+${p.goals ? `## Goals for the next few weeks\n${p.goals}\n\n` : ''}## Tasks to hand off
 ${p.delegate}
 
-## Tools and accounts
-${p.tools}
-
-## Always ask before
+${p.tools ? `## Tools and accounts\n${p.tools}\n\n` : ''}## Always ask before
 ${p.ask}
 
 ## Tone and language
@@ -192,6 +186,8 @@ ${p.can ? `\n## The agents’ permissions\n${p.can}\n` : ''}`,
     language: '- Language: ',
     style: '- Style: ',
     askHeading: '## Always ask before',
+    occupationHeading: '## What they do',
+    delegateHeading: '## Tasks to hand off',
   },
   context: {
     verbs: { 'i run a business': 'runs a business' },
@@ -211,3 +207,40 @@ export const PROFILE_TEXTS: Record<Lang, ProfileTexts> = { it, en };
 export function profileTexts(lang?: Lang): ProfileTexts {
   return pick(PROFILE_TEXTS, lang);
 }
+
+/**
+ * Labels of the options of the goals and tools questions, which the first start no longer asks
+ *: an install that answered them before keeps its profile in words. Product names are
+ * the same in every language.
+ */
+const LEGACY_PRODUCTS: Record<string, string> = {
+  gmail: 'Gmail',
+  calendar: 'Google Calendar',
+  notion: 'Notion',
+  obsidian: 'Obsidian',
+  instagram: 'Instagram',
+  linkedin: 'LinkedIn',
+  github: 'GitHub',
+  slack: 'Slack',
+};
+
+export const LEGACY_LABELS: Record<Lang, Record<string, string>> = {
+  it: {
+    costanza: 'Pubblicare con costanza',
+    clienti: 'Trovare nuovi clienti',
+    lancio: 'Lanciare un progetto',
+    ordine: 'Mettere ordine nelle idee',
+    imparare: 'Imparare un argomento',
+    tempo: 'Liberare tempo',
+    ...LEGACY_PRODUCTS,
+  },
+  en: {
+    costanza: 'Publish consistently',
+    clienti: 'Find new clients',
+    lancio: 'Launch a project',
+    ordine: 'Get my ideas in order',
+    imparare: 'Learn a topic',
+    tempo: 'Free up time',
+    ...LEGACY_PRODUCTS,
+  },
+};

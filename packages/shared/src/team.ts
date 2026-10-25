@@ -243,6 +243,16 @@ export const AskExtraSchema = z.enum(ASK_ALWAYS_EXTRAS);
 
 export const ProfileOptionSchema = z.object({ id: z.string(), label: z.string() });
 
+/**
+ * An answer of the "Tell me more about you" card: the options picked (ids of `ProfileView.options`)
+ * and the user's own words.
+ */
+export const ProfileAnswerSchema = z.object({
+  options: z.array(z.string().min(1).max(40)).max(12),
+  text: z.string().trim().max(1000),
+});
+export type ProfileAnswer = z.infer<typeof ProfileAnswerSchema>;
+
 export const ProfileViewSchema = z.object({
   userName: z.string(),
   /** Name of the capo squadra. */
@@ -261,10 +271,16 @@ export const ProfileViewSchema = z.object({
     /** "Altro da chiederti sempre", in the user's words. */
     text: z.string(),
   }),
+  /** What the user does; null until they answered or skipped the "Tell me more" card (older cores omit it). */
+  work: ProfileAnswerSchema.nullable().default(null),
+  /** What the user would like to hand off; null as `work`. */
+  delegate: ProfileAnswerSchema.nullable().default(null),
   options: z.object({
     tones: z.array(ProfileOptionSchema),
     languages: z.array(ProfileOptionSchema),
     extras: z.array(ProfileOptionSchema),
+    work: z.array(ProfileOptionSchema).default([]),
+    delegate: z.array(ProfileOptionSchema).default([]),
   }),
 });
 export type ProfileView = z.infer<typeof ProfileViewSchema>;
@@ -282,6 +298,10 @@ export const ProfileUpdateSchema = z.object({
       text: z.string().trim().max(1000),
     })
     .optional(),
+  /** What the user does (an empty answer means "skipped": the card does not come back). */
+  work: ProfileAnswerSchema.optional(),
+  /** What the user would like to hand off. */
+  delegate: ProfileAnswerSchema.optional(),
 });
 export type ProfileUpdate = z.infer<typeof ProfileUpdateSchema>;
 

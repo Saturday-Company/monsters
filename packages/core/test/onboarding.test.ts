@@ -457,15 +457,25 @@ describe('onboarding API', () => {
     });
     expect(bad.status).toBe(400);
 
+    // No team without the names (the only answers the first start needs, C1).
+    const propose = await t.api('POST', '/api/onboarding/team/propose');
+    expect(propose.status).toBe(409);
     state = await t.json<OnboardingState>('POST', '/api/onboarding/answers', {
       answers: { nomi: ANSWERS['nomi'] },
     });
     expect(state.guide.name).toBe('Atlas');
-    const propose = await t.api('POST', '/api/onboarding/team/propose');
-    expect(propose.status).toBe(409);
+    expect(state.step).toBe('permissions');
 
+    // The answers of the old questions are accepted and left out (`obiettivi`, `strumenti`).
     state = await t.json<OnboardingState>('POST', '/api/onboarding/answers', { answers: ANSWERS });
     expect(state.step).toBe('permissions');
+    expect(Object.keys(state.answers).sort()).toEqual([
+      'chiedi',
+      'deleghe',
+      'lavoro',
+      'nomi',
+      'tono',
+    ]);
     const vault = t.core.hub.vault.root;
     const profile = readFileSync(join(vault, 'profilo.md'), 'utf8');
     expect(profile).toMatch(/^---\n[\s\S]*type: profile[\s\S]*---\n# Profilo di Giulio/);

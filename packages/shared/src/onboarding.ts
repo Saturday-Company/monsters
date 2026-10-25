@@ -4,7 +4,9 @@ import { onboardingStrings, onboardingStringsOf } from './onboarding.strings.ts'
 /*
  * First start (ARCHITECTURE §7, research 03 §5): the fixed questions of the
  * starting agent. They are plain data shared by the core (validation, profile)
- * and the UI (rendering), so nothing here needs a model.
+ * and the UI (rendering), so nothing here needs a model. The express first start
+ * asks only the names; work, hand-offs, rules, tone and language are the
+ * "Tell me more about you" card of the lead's chat, saved through the profile.
  */
 
 export interface OnboardingOption {
@@ -39,12 +41,13 @@ export interface OnboardingQuestion {
   groups: OnboardingGroup[];
   /** Placeholder of the free text field; absent when the question has none. */
   freeText?: string;
-  /**
-   * Friendly comment of the starting agent once answered. `{orchestrator}` and
-   * `{user}` are replaced with the names given in the first question.
-   */
-  reply: string;
 }
+
+/**
+ * Questions the first start once asked and no longer does (D-053): an install that answered them
+ * keeps the answers (the profile reads them), a client that still sends them is not an error.
+ */
+export const LEGACY_QUESTION_IDS: readonly string[] = ['obiettivi', 'strumenti'];
 
 /** An option: an id whose label is in the dictionary, or an id with a label that is a name (never translated). */
 type OptionShape = string | { id: string; label: string };
@@ -110,7 +113,6 @@ function buildQuestion(shape: QuestionShape, lang?: Lang): OnboardingQuestion {
     title: () => texts().title,
     ...(shape.hint ? { hint: () => texts().hint ?? '' } : {}),
     ...(shape.freeText ? { freeText: () => texts().freeText ?? '' } : {}),
-    reply: () => texts().reply,
   });
 }
 
@@ -171,19 +173,6 @@ const QUESTION_SHAPES: readonly QuestionShape[] = [
     ],
   },
   {
-    id: 'obiettivi',
-    freeText: true,
-    groups: [
-      {
-        id: 'cosa',
-        kind: 'multi',
-        options: ['costanza', 'clienti', 'lancio', 'ordine', 'imparare', 'tempo'],
-        defaults: [],
-        required: false,
-      },
-    ],
-  },
-  {
     id: 'deleghe',
     freeText: true,
     groups: [
@@ -203,30 +192,6 @@ const QUESTION_SHAPES: readonly QuestionShape[] = [
           'docs',
           'review',
           'capire',
-        ],
-        defaults: [],
-        required: false,
-      },
-    ],
-  },
-  {
-    id: 'strumenti',
-    hint: true,
-    freeText: true,
-    groups: [
-      {
-        id: 'cosa',
-        kind: 'multi',
-        // Names of products: the same in every language.
-        options: [
-          { id: 'gmail', label: 'Gmail' },
-          { id: 'calendar', label: 'Google Calendar' },
-          { id: 'notion', label: 'Notion' },
-          { id: 'obsidian', label: 'Obsidian' },
-          { id: 'instagram', label: 'Instagram' },
-          { id: 'linkedin', label: 'LinkedIn' },
-          { id: 'github', label: 'GitHub' },
-          { id: 'slack', label: 'Slack' },
         ],
         defaults: [],
         required: false,

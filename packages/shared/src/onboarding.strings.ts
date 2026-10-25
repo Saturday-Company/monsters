@@ -10,7 +10,6 @@ export interface OnboardingQuestionTexts {
   hint?: string;
   /** The placeholder of the free text field. */
   freeText?: string;
-  reply: string;
   /** Label and placeholder of each group, by group id. */
   groups?: Record<string, { label?: string; placeholder?: string }>;
   /** Label of each option, by option id (the ones whose label is a name are in the code). */
@@ -19,13 +18,12 @@ export interface OnboardingQuestionTexts {
 
 const en: Record<string, OnboardingQuestionTexts> = {
   nomi: {
-    title: 'Nice to meet you! What’s your name? And what should we call your lead?',
-    hint: 'Your lead coordinates the other monsters: you’ll usually talk to it.',
+    title: 'What should I call you?',
+    hint: 'Your lead coordinates the other monsters, and you’ll usually talk to it. Give it another name if you like.',
     groups: {
       user: { label: 'Your name', placeholder: 'What you’d like to be called' },
       orchestrator: { label: 'Your lead’s name', placeholder: 'Another name' },
     },
-    reply: 'Great name! From now on {orchestrator} coordinates your squad, {user}.',
   },
   lavoro: {
     title: 'What do you do?',
@@ -40,23 +38,9 @@ const en: Record<string, OnboardingQuestionTexts> = {
       scrittura: 'Writing and communication',
     },
     freeText: 'Something else, or a few more words',
-    reply: 'Nice! That helps me see which monsters you need.',
-  },
-  obiettivi: {
-    title: 'What do you want to achieve in the next few weeks?',
-    options: {
-      costanza: 'Publish consistently',
-      clienti: 'Find new clients',
-      lancio: 'Launch a project',
-      ordine: 'Get my ideas in order',
-      imparare: 'Learn a topic',
-      tempo: 'Free up time',
-    },
-    freeText: 'A specific goal, if you have one',
-    reply: 'Noted. We’ll work on that.',
   },
   deleghe: {
-    title: 'Which tasks take up most of your time and you’d like to hand off?',
+    title: 'What takes up most of your time and you’d like to hand off?',
     options: {
       ricerche: 'Online research',
       bozze: 'Drafts of posts and emails',
@@ -71,13 +55,6 @@ const en: Record<string, OnboardingQuestionTexts> = {
       capire: 'Understanding new code',
     },
     freeText: 'Anything else that weighs on you',
-    reply: 'Perfect, we’ll take those.',
-  },
-  strumenti: {
-    title: 'Which tools and accounts do you use?',
-    hint: 'For now the monsters use the web and your notes; accounts are coming soon.',
-    freeText: 'Other tools',
-    reply: 'Noted: when accounts arrive, we’ll start with these.',
   },
   chiedi: {
     title: 'What should they never do without asking you first?',
@@ -89,12 +66,11 @@ const en: Record<string, OnboardingQuestionTexts> = {
       delete: 'Delete',
       goal: 'Change a goal',
     },
-    freeText: 'For example: before touching my work files',
-    reply: 'Promise: on these we always ask first.',
+    freeText: 'For example: before touching my work files, or answering a client',
   },
   tono: {
     title: 'What tone do you want in messages? And in which language?',
-    groups: { tono: { label: 'Tone' }, lingua: { label: 'Language' } },
+    groups: { tono: { label: 'Tone' }, lingua: { label: 'Monsters’ writing language' } },
     options: {
       amichevole: 'Friendly',
       diretto: 'Direct',
@@ -102,19 +78,17 @@ const en: Record<string, OnboardingQuestionTexts> = {
       scherzoso: 'Playful',
     },
     freeText: 'Any other style preferences',
-    reply: 'Done! Now let’s see what the monsters can do.',
   },
 };
 
 const it: typeof en = {
   nomi: {
-    title: 'Piacere! Come ti chiami? E come chiamiamo il tuo capo?',
-    hint: 'Il tuo capo coordina gli altri mostri: di solito scrivi a lui.',
+    title: 'Come ti chiamo?',
+    hint: 'Il tuo capo coordina gli altri mostri, e di solito scrivi a lui. Se vuoi, dagli un altro nome.',
     groups: {
       user: { label: 'Il tuo nome', placeholder: 'Come vuoi che ti chiamino' },
       orchestrator: { label: 'Il nome del tuo capo', placeholder: 'Un altro nome' },
     },
-    reply: 'Bel nome! Da adesso {orchestrator} coordina la tua squadra, {user}.',
   },
   lavoro: {
     title: 'Di cosa ti occupi?',
@@ -129,23 +103,9 @@ const it: typeof en = {
       scrittura: 'Scrittura e comunicazione',
     },
     freeText: 'Altro, o due parole in più',
-    reply: 'Bello! Così capisco quali mostri ti servono.',
-  },
-  obiettivi: {
-    title: 'Cosa vuoi ottenere nelle prossime settimane?',
-    options: {
-      costanza: 'Pubblicare con costanza',
-      clienti: 'Trovare nuovi clienti',
-      lancio: 'Lanciare un progetto',
-      ordine: 'Mettere ordine nelle idee',
-      imparare: 'Imparare un argomento',
-      tempo: 'Liberare tempo',
-    },
-    freeText: 'Un obiettivo preciso, se ce l’hai',
-    reply: 'Segnato. Lavoriamo su questo.',
   },
   deleghe: {
-    title: 'Quali attività ti rubano più tempo e vorresti delegare?',
+    title: 'Cosa ti ruba più tempo e vorresti delegare?',
     options: {
       ricerche: 'Ricerche online',
       bozze: 'Bozze di post e mail',
@@ -160,13 +120,6 @@ const it: typeof en = {
       capire: 'Capire codice nuovo',
     },
     freeText: 'Altro che ti pesa',
-    reply: 'Perfetto, queste le prendiamo noi.',
-  },
-  strumenti: {
-    title: 'Quali strumenti e account usi?',
-    hint: 'Per ora i mostri usano il web e le note; gli account arrivano presto.',
-    freeText: 'Altri strumenti',
-    reply: 'Me lo segno: quando arrivano gli account, partiamo da questi.',
   },
   chiedi: {
     title: 'Cosa non devono mai fare senza chiederti?',
@@ -178,12 +131,11 @@ const it: typeof en = {
       delete: 'Cancellare',
       goal: 'Cambiare un obiettivo',
     },
-    freeText: 'Altro da chiederti sempre',
-    reply: 'Promesso: su queste cose chiediamo sempre prima.',
+    freeText: 'Per esempio: prima di toccare i miei file di lavoro, o di rispondere a un cliente',
   },
   tono: {
     title: 'Che tono vuoi nei messaggi? E in che lingua?',
-    groups: { tono: { label: 'Tono' }, lingua: { label: 'Lingua' } },
+    groups: { tono: { label: 'Tono' }, lingua: { label: 'Lingua in cui scrivono i mostri' } },
     options: {
       amichevole: 'Amichevole',
       diretto: 'Diretto',
@@ -191,7 +143,6 @@ const it: typeof en = {
       scherzoso: 'Scherzoso',
     },
     freeText: 'Qualche preferenza in più sullo stile',
-    reply: 'Fatto! Ora vediamo cosa possono fare i mostri.',
   },
 };
 
