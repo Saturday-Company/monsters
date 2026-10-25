@@ -1,5 +1,5 @@
 import { dotPalette, type MonsterGenome } from '@monsters/monster-kit';
-import { ASKED_ACTIVITY, CONFUSED_TEXT, capitalize, type LiveState } from '../../store/derive.ts';
+import { CONFUSED_TEXT, capitalize, type LiveState } from '../../store/derive.ts';
 import { godStrings } from './god.strings.ts';
 
 /*
@@ -30,12 +30,11 @@ export const SPEED = {
 /** A monster at work: a run, words coming, or waiting for another monster (not for the user). */
 export function isBusy(l: LiveState | undefined): boolean {
   if (!l) return false;
-  if (l.mood === 'waiting' && l.activity === ASKED_ACTIVITY) return false;
+  if (l.mood === 'waiting' && l.asked === true) return false;
   return l.mood === 'working' || l.mood === 'talking' || l.mood === 'waiting';
 }
 
-const waitsForUser = (l: LiveState | undefined) =>
-  l?.mood === 'waiting' && l.activity === ASKED_ACTIVITY;
+const waitsForUser = (l: LiveState | undefined) => l?.mood === 'waiting' && l.asked === true;
 
 export interface GodStateInput {
   halted: boolean;

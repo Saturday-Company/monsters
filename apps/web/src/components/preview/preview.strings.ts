@@ -49,6 +49,8 @@ const en = {
     label: (name: string, pages: number) => `${name}, ${pages} ${pages === 1 ? 'page' : 'pages'}`,
     loading: 'Loading the PDF…',
     page: (page: number, pages: number) => `Page ${page} / ${pages}`,
+    pageLabel: (page: number, pages: number) => `Page ${page} of ${pages}, shown as a picture`,
+    textHint: 'The pages are pictures: download the PDF to read its text with a screen reader.',
   },
   image: {
     failed: 'This image doesn’t open: maybe the file is damaged. Download it to try it elsewhere.',
@@ -147,6 +149,9 @@ const it: typeof en = {
     label: (name, pages) => `${name}, ${pages} ${pages === 1 ? 'pagina' : 'pagine'}`,
     loading: 'Carico il PDF…',
     page: (page, pages) => `Pagina ${page} / ${pages}`,
+    pageLabel: (page, pages) => `Pagina ${page} di ${pages}, mostrata come immagine`,
+    textHint:
+      'Le pagine sono immagini: scarica il PDF per leggerne il testo con uno screen reader.',
   },
   image: {
     failed:

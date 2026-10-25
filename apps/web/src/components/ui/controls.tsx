@@ -124,11 +124,14 @@ export function Segmented<T extends string>({
   className,
   size = 'md',
   fill = false,
+  focusKey,
 }: {
   value: T | null;
   onChange: (v: T) => void;
   options: readonly SegmentOption<T>[];
   label: string;
+  /** A name other code can find the group by (`[data-focus-key=…]`), to give it the focus back. */
+  focusKey?: string;
   className?: string;
   size?: 'sm' | 'md';
   /** Take the width of the parent and share it between the keys (labels truncate), never overflow. */
@@ -141,6 +144,7 @@ export function Segmented<T extends string>({
       role="radiogroup"
       aria-label={label}
       id={group}
+      data-focus-key={focusKey}
       className={cn(
         'relative items-center pb-[3px]',
         fill ? 'flex w-full min-w-0' : 'inline-flex',

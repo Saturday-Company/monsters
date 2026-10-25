@@ -10,6 +10,7 @@ import { useEffect, useId, useState, type FormEvent } from 'react';
 import { desktop, loginItemState, type DesktopLoginItem } from '../../lib/desktop.ts';
 import { playSound } from '../../lib/sound.ts';
 import { applyLang, LANG_NAMES, useAppLang } from '../../lib/i18n.ts';
+import { keepFocusThroughLangSwitch } from '../../LangRoot.tsx';
 import { domId } from '../../lib/utils.ts';
 import { ApiError } from '../../lib/api.ts';
 import { getApi, logout, notify, useApp } from '../../store/app.ts';
@@ -39,7 +40,8 @@ function Language() {
       const settings = await getApi().setLanguage(next);
       // A vault not used yet takes the language's folder names (D-154).
       if (settings.vaultLayout) setVaultLayout(settings.vaultLayout);
-      // Remounts the UI in the new language: this row goes with it.
+      // Remounts the UI in the new language: this row goes with it, the focus comes back to its key.
+      keepFocusThroughLangSwitch('[data-focus-key="app-language"] [aria-checked="true"]');
       applyLang(next);
     } catch {
       notify(s.failed, 'error');
@@ -54,6 +56,7 @@ function Language() {
           if (!busy) void change(v);
         }}
         label={s.label}
+        focusKey="app-language"
         size="sm"
         options={LANGS.map((l) => ({ value: l, label: <span lang={l}>{LANG_NAMES[l]}</span> }))}
       />

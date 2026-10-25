@@ -38,6 +38,7 @@ const at = (mood: LiveState['mood'], since = NOW - 1000, activity?: string): Liv
   mood,
   since,
   activity,
+  ...(mood === 'waiting' && activity === ASKED_ACTIVITY ? { asked: true as const } : {}),
 });
 
 describe('god bar: the state of the house', () => {

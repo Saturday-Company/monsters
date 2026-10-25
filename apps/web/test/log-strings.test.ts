@@ -36,7 +36,7 @@ import {
   VERDICT,
   LEVEL_WORD,
 } from '../src/store/instinct.ts';
-import { moodText, statusText } from '../src/store/hooks.ts';
+import { moodText, statusText, waitsForUser } from '../src/store/hooks.ts';
 
 /*
  * The sentences of the store and of Attività in both languages (D-153): English
@@ -293,6 +293,26 @@ describe('the live activity follows the language', () => {
         lang === 'en' ? 'waiting for your answer' : 'aspetta una tua risposta',
       );
     }
+  });
+
+  it('a waiting monster is still recognised after the language changes (W-39)', () => {
+    setAppLang('en');
+    const live = applyLive(
+      {},
+      ev({
+        agent: 'rhea',
+        type: 'question',
+        data: { questionId: 'q', question: '?', options: [], blocking: true },
+      }),
+      ['rhea'],
+    );
+    const state: LiveState = live['rhea']!;
+    expect(waitsForUser(state)).toBe(true);
+    // The text was written in English; the app is now in Italian and has not heard again.
+    setAppLang('it');
+    expect(state.activity).not.toBe(ASKED_ACTIVITY);
+    expect(waitsForUser(state)).toBe(true);
+    expect(statusText(state)).toBe('aspetta una tua risposta');
   });
 
   it('says the mood in neutral words', () => {
