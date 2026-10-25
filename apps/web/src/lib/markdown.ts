@@ -3,6 +3,7 @@
  * rules (which links are allowed, how wikilinks become note chips) are tested
  * without a browser.
  */
+import { isAppLinkPath } from './route-names.ts';
 
 /** Scheme used internally for links to vault notes (`[[Nota]]`, `[x](Risorse/x.md)`). */
 export const NOTE_SCHEME = 'nota:';
@@ -92,11 +93,9 @@ export function noteTargetOf(href: string): string | null {
 }
 
 /** True for links that may leave the app: only http(s) and mailto. */
-/** A link to a page of the app (`#/impostazioni?sezione=modelli`, `#/note?nota=…`): opened in place. */
-const APP_LINK = /^#\/(impostazioni|note|log)(\?[^\s]*)?$/;
-
+/** A link to a page of the app (`#/settings?section=models`, `#/notes?note=…`, or the old Italian forms): opened in place. */
 export function isAppLink(href: string): boolean {
-  return APP_LINK.test(href.trim());
+  return isAppLinkPath(href.trim());
 }
 
 export function isExternalUrl(href: string): boolean {

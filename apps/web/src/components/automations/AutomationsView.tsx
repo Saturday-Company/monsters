@@ -88,9 +88,9 @@ function GiroPage({ a, giro, tick }: { a: AutomationView; giro: string; tick: st
 
 export default function AutomationsView() {
   const s = automationsStrings();
-  const id = useHashParam('automazione');
-  const giro = useHashParam('giro');
-  const mode = useHashParam('vista');
+  const id = useHashParam('automation');
+  const giro = useHashParam('run');
+  const mode = useHashParam('view');
   const tick = useAutomationTick();
   const phone = useMediaQuery('(max-width: 767px)');
   const roomy = useMediaQuery('(min-width: 1280px)');

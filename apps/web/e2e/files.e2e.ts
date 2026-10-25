@@ -196,7 +196,7 @@ test('File: Ctrl 4, filters, search, delete with "Di nuovo"', async ({ page }) =
   await page.keyboard.press('ControlOrMeta+4');
   const toolbar = page.locator('[data-titlebar]');
   await expect(toolbar.getByRole('heading', { name: 'File', level: 1 })).toBeVisible();
-  await expect(page).toHaveURL(/#\/file$/);
+  await expect(page).toHaveURL(/#\/files$/);
   const tiles = page.getByTestId('file-tile');
   await expect(tiles).toHaveCount(9);
   await expect(page.getByTestId('files-count')).toHaveText('9 files');

@@ -45,7 +45,7 @@ test('setup with the one-time code, logout and login', async ({ page }) => {
   await page.getByLabel('Setup code').fill(MOCK_SETUP_CODE);
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByTestId('onboarding')).toBeVisible();
-  await expect(page).toHaveURL(/#\/benvenuto$/);
+  await expect(page).toHaveURL(/#\/welcome$/);
 
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
@@ -137,7 +137,7 @@ test('agent messages render Markdown and note chips open the note in Anteprima',
   const dock = page.getByTestId('right-dock');
   await expect(dock.getByTestId('preview-title')).toHaveText('Post drafts');
   await dock.getByTestId('preview-open-notes').click();
-  await expect(page).toHaveURL(/#\/note\?nota=Projects%2FSocial%2FPost(%20|\+)drafts/);
+  await expect(page).toHaveURL(/#\/notes\?note=Projects%2FSocial%2FPost(%20|\+)drafts/);
   await expect(page.getByRole('heading', { name: 'Post drafts' }).first()).toBeVisible();
 });
 

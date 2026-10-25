@@ -435,7 +435,7 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     await page.getByTestId('project-lead-name').fill('Atlas');
     await page.getByTestId('project-copies').getByTestId('pick-rhea').click();
     await page.getByTestId('project-create').click();
-    await expect(page).toHaveURL(/#\/progetto\?id=newsletter$/);
+    await expect(page).toHaveURL(/#\/project\?id=newsletter$/);
     // The core made the folder and the lead; the copy has a name of its own.
     expect(existsSync(folder)).toBe(true);
     await expect(page.getByTestId('chat-panel')).toHaveAttribute('data-agent', 'atlas');

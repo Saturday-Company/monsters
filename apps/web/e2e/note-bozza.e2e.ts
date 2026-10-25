@@ -39,7 +39,7 @@ test('switching note with a draft asks; keep editing leaves everything as it was
   await dialog.getByTestId('unsaved-keep').click();
   await expect(dialog).toBeHidden();
   await expect(editor).toHaveValue('# Running\n\nMy draft.\n');
-  await expect(page).toHaveURL(/nota=Areas%2FHealth%2FRunning\.md$/);
+  await expect(page).toHaveURL(/note=Areas%2FHealth%2FRunning\.md$/);
 });
 
 test('discard goes on to the note that was asked for', async ({ page }) => {

@@ -2,7 +2,8 @@ import { Lock } from '@phosphor-icons/react';
 import { SETTINGS_TABS, settingsLabel } from '@monsters/shared';
 import type { ProfileUpdate, ProfileView } from '@monsters/shared';
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { chatPath, settingsPath } from '../../lib/router.ts';
+import { settingsPath } from '../../lib/router.ts';
+import { hashOf } from '../../lib/route-names.ts';
 import { domId } from '../../lib/utils.ts';
 import { errorText, getApi, notify, sendMessage, useApp } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
@@ -22,7 +23,7 @@ import { firstStepsStrings } from './first-steps.strings.ts';
 
 /** The lead's chat with the card open: for a link from anywhere (a settings page, a message). */
 export function tellMorePath(leadId: string): string {
-  return `${chatPath(leadId)}&profilo=1`;
+  return hashOf('home', { chat: leadId, profile: '1' });
 }
 
 /**

@@ -23,7 +23,7 @@ import { desktop } from '../lib/desktop.ts';
 import { applyLang } from '../lib/i18n.ts';
 import { joinTabs, recoverSessionSecret, sessionSecret } from '../lib/session-secret.ts';
 import type { Transport } from '../lib/transport.ts';
-import { automationPath, MCP_SIGN_IN_PATH, SPEND_CAP_PATH } from '../lib/router.ts';
+import { automationPath, MCP_SIGN_IN_PATH, PATHS, SPEND_CAP_PATH } from '../lib/router.ts';
 import { appStrings } from './app.strings.ts';
 import { keepHeld, storedHeld, takeHeld } from './drafts.ts';
 import { usePreview } from './preview.ts';
@@ -800,7 +800,7 @@ export async function setup(body: SetupBody, opts: EnterOptions = {}): Promise<v
   await opts.beforeEnter?.();
   useApp.setState({ email: res.email });
   await loadWorkspace();
-  window.location.hash = '#/benvenuto';
+  window.location.hash = PATHS.welcome;
 }
 
 export async function login(
@@ -829,7 +829,7 @@ export async function logout(): Promise<void> {
     await client().logout();
   } finally {
     clearSession();
-    window.location.hash = '#/';
+    window.location.hash = PATHS.home;
   }
 }
 

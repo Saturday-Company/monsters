@@ -279,7 +279,7 @@ const ADVANCED_PARTS: ReadonlySet<string> = new Set(['avanzate', 'istinto', 'pag
 
 /**
  * "Advanced": one closed drawer at the bottom with the instinct (who takes the quick calls) and
- * the scorecard. A link to either (`?sezione=istinto`, `?sezione=pagella`) opens it, and the
+ * the scorecard. A link to either (`?section=instinct`, `?section=scorecard`) opens it, and the
  * view then scrolls to the part.
  */
 function Advanced() {

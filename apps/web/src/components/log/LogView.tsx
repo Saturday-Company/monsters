@@ -182,7 +182,7 @@ export function LogView() {
   const [now] = useState(() => Date.now());
   const s = logStrings();
   const phone = useMediaQuery('(max-width: 767px)');
-  const note = useHashParam('nota');
+  const note = useHashParam('note');
   const key = note ? noteKey(note) : null;
 
   const matching = useMemo(() => {

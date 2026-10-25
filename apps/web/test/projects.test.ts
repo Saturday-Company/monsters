@@ -15,6 +15,7 @@ import {
   type SquadMember,
 } from '../src/lib/projects.ts';
 import {
+  hashParam,
   PROJECT_TABS,
   projectPartOf,
   projectPath,
@@ -211,10 +212,13 @@ describe('the plan of a proposed project', () => {
 
 describe('the page of a project in the address', () => {
   it('has its own route, its tabs and the form of a new one', () => {
+    expect(routeOf('#/project?id=social')).toBe('project');
     expect(routeOf('#/progetto?id=social')).toBe('project');
-    expect(projectPath('social')).toBe('#/progetto?id=social');
-    expect(projectPath('social', 'spesa')).toBe('#/progetto?id=social&sezione=spesa');
-    expect(projectPath(null)).toBe('#/progetto?vista=nuovo');
+    expect(projectPath('social')).toBe('#/project?id=social');
+    expect(projectPath('social', 'squadra')).toBe('#/project?id=social&section=squad');
+    expect(projectPath('social', 'impostazioni')).toBe('#/project?id=social&section=settings');
+    expect(projectPath('social', 'spesa')).toBe('#/project?id=social&section=spending');
+    expect(projectPath(null)).toBe('#/project?view=new');
     expect(projectTabOf('note')).toBe('note');
     expect(projectTabOf('impostazioni')).toBe('impostazioni');
     expect(projectTabOf('altro')).toBe('chat');
@@ -232,7 +236,9 @@ describe('the page of a project in the address', () => {
       expect(projectTabOf(old)).toBe('impostazioni');
       expect(projectPartOf(old)).toBe(part);
       // A link built with the old name still lands on the part.
-      expect(projectPath('social', old)).toBe(`#/progetto?id=social&sezione=${old}`);
+      expect(projectPath('social', old)).toMatch(new RegExp(`^#/project\\?id=social&section=`));
+      // …and the link as it was written before reads the same.
+      expect(hashParam(`#/progetto?id=social&sezione=${old}`, 'section')).toBe(old);
     }
     // A tab has no part, and a name that is not an alias is not looked up in the prototype.
     expect(projectPartOf('squadra')).toBeNull();

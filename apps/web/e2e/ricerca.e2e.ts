@@ -20,7 +20,7 @@ test('paid search: off with free models, one lever on, the engine, and back off'
   await expect(page.getByTestId('paid-search-status')).toContainText('because paid models are off');
   await expect(
     row.getByTestId('paid-search-models').getByRole('link', { name: 'Models' }),
-  ).toHaveAttribute('href', '#/impostazioni?sezione=modelli');
+  ).toHaveAttribute('href', '#/settings?section=models');
 
   const lever = row.getByRole('switch', { name: 'Paid search' });
   await lever.click();

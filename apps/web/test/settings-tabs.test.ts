@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { panelId, tabId, tabKeyTarget, Tabs } from '../src/components/ui/tabs.tsx';
 import {
+  hashParam,
   PATHS,
   routeOf,
   SETTINGS_TABS,
@@ -11,7 +12,7 @@ import {
   settingsTabOf,
 } from '../src/lib/router.ts';
 
-/* Settings in tabs: the keyboard of the tablist, its ARIA and the `?sezione=` links. */
+/* Settings in tabs: the keyboard of the tablist, its ARIA and the `?section=` links. */
 
 describe('tablist keyboard', () => {
   it('moves with the arrows and wraps around', () => {
@@ -104,13 +105,14 @@ describe('settings links', () => {
 
   it('builds a link for every tab that leads back to it', () => {
     expect(settingsPath()).toBe(PATHS.settings);
-    expect(settingsPath('squadra')).toBe('#/impostazioni');
-    expect(settingsPath('modelli')).toBe('#/impostazioni?sezione=modelli');
-    expect(settingsPath('generale')).toBe('#/impostazioni?sezione=generale');
+    expect(settingsPath('squadra')).toBe('#/settings');
+    expect(settingsPath('modelli')).toBe('#/settings?section=models');
+    expect(settingsPath('collegamenti')).toBe('#/settings?section=apps');
+    expect(settingsPath('generale')).toBe('#/settings?section=general');
     for (const tab of SETTINGS_TABS) {
       const path = settingsPath(tab);
       expect(routeOf(path)).toBe('settings');
-      const param = new URLSearchParams(path.split('?')[1] ?? '').get('sezione');
+      const param = hashParam(path, 'section');
       expect(settingsTabOf(param)).toBe(tab);
     }
   });

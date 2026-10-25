@@ -343,7 +343,7 @@ export function RunLimitsRow() {
   const s = limitsStrings();
   const target = useSettingsTarget();
   const [open, setOpen] = useState(false);
-  // A link to it (`?sezione=limiti`, from the line of a job that stopped at a limit) opens the row
+  // A link to it (`?section=limits`, from the line of a job that stopped at a limit) opens the row
   // and its exact limits: the job may have stopped at steps or tokens, which are only there.
   const [linked, setLinked] = useState(false);
   const [seen, setSeen] = useState<string | null>(null);

@@ -193,7 +193,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
   const projects = useProjects();
   const live = (projects ?? []).filter(isLive);
   // "Nuova automazione" from a project's page (`&progetto=…`) starts in its squad.
-  const fromProject = useHashParam('progetto') ?? '';
+  const fromProject = useHashParam('project') ?? '';
   const [f, setF] = useState<FormState>(() => {
     const project = a ? (a.project ?? '') : fromProject;
     const first = squadMembers(allAgents, project)[0]?.id;

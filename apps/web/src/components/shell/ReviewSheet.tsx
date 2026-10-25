@@ -89,7 +89,7 @@ export function showReview(): void {
   if (
     window.matchMedia(REVIEW_COLUMN_QUERY).matches &&
     hash.startsWith('#/') &&
-    reviewColumnPage(routeOf(hash), hashParam(hash, 'id'), hashParam(hash, 'sezione'))
+    reviewColumnPage(routeOf(hash), hashParam(hash, 'id'), hashParam(hash, 'section'))
   ) {
     // The column sits next to a chat: the home's, or a project's (D-100).
     setPrefs({ activityPanel: true });
@@ -103,7 +103,7 @@ export function showReview(): void {
 export function ReviewKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' }) {
   const route = useRoute();
   const project = useHashParam('id');
-  const tab = useHashParam('sezione');
+  const tab = useHashParam('section');
   // The key is in the rail of every page: the column is only there on the pages that have a place for it.
   const column = useMediaQuery(REVIEW_COLUMN_QUERY) && reviewColumnPage(route, project, tab);
   const shown = useReviewColumn() && column;

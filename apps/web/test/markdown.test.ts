@@ -96,7 +96,7 @@ describe('Markdown', () => {
   it('shows wikilinks as note chips that open the note', () => {
     const html = render('Vedi [[Risorse/Lisbona, spunti]]');
     expect(html).toContain('data-testid="note-chip"');
-    expect(html).toContain('href="#/note?nota=Risorse%2FLisbona%2C%20spunti"');
+    expect(html).toContain('href="#/notes?note=Risorse%2FLisbona%2C%20spunti"');
     expect(html).toContain('Lisbona, spunti');
     expect(html).not.toContain('[[');
   });

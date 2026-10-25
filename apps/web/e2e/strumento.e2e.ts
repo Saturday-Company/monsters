@@ -119,7 +119,7 @@ test('the palette finds notes and messages, and runs commands (UI-03, UX 2)', as
   await expect(palette.getByRole('group', { name: 'Messages' })).toContainText('Lisbon');
   // Arrows and Enter: the first note opens in Note.
   await input.press('Enter');
-  await expect(page).toHaveURL(/#\/note\?nota=/);
+  await expect(page).toHaveURL(/#\/notes\?note=/);
   await expect(palette).toHaveCount(0);
 
   // A command: the theme, from anywhere.

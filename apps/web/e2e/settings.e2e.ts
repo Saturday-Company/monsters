@@ -76,7 +76,7 @@ test('the old tab names and parts open the tab that holds them now', async ({ pa
     'true',
   );
   // The link becomes the tab's own, and the part comes into view.
-  await expect(page).toHaveURL(/#\/impostazioni\?sezione=collegamenti$/);
+  await expect(page).toHaveURL(/#\/settings\?section=apps$/);
   await expect(page.getByRole('heading', { name: 'Telegram', exact: true })).toBeInViewport();
 
   for (const old of ['aspetto', 'account']) {
@@ -85,7 +85,7 @@ test('the old tab names and parts open the tab that holds them now', async ({ pa
       'aria-selected',
       'true',
     );
-    await expect(page).toHaveURL(/#\/impostazioni\?sezione=generale$/);
+    await expect(page).toHaveURL(/#\/settings\?section=general$/);
   }
   await expect(page.getByRole('switch', { name: 'Reduce motion' })).toBeVisible();
 });
@@ -203,14 +203,14 @@ test('the arrows move between tabs, the URL follows, Back leaves the page', asyn
   await expect(modelli).toBeFocused();
   await expect(modelli).toHaveAttribute('aria-selected', 'true');
   await expect(modelli).toHaveAttribute('tabindex', '0');
-  await expect(page).toHaveURL(/#\/impostazioni\?sezione=modelli$/);
+  await expect(page).toHaveURL(/#\/settings\?section=models$/);
 
   await page.keyboard.press('End');
   await expect(page.getByRole('tab', { name: 'General' })).toBeFocused();
   await expect(page.getByTestId('general-advanced')).toBeVisible();
   await page.keyboard.press('ArrowRight');
   await expect(squadra).toBeFocused();
-  await expect(page).toHaveURL(/#\/impostazioni$/);
+  await expect(page).toHaveURL(/#\/settings$/);
   await page.keyboard.press('ArrowLeft');
   await expect(page.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
 
@@ -293,7 +293,7 @@ test('a link to the decisions or the scorecard opens Advanced and scrolls to it'
     ).toBeInViewport();
     await expect(advanced).toHaveAttribute('aria-expanded', 'true');
     // The link becomes the tab's own.
-    await expect(page).toHaveURL(/#\/impostazioni$/);
+    await expect(page).toHaveURL(/#\/settings$/);
     await page.reload();
     await advanced.click();
     await advanced.click();

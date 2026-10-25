@@ -24,7 +24,7 @@ import {
   type ReactNode,
 } from 'react';
 import { desktop } from '../../lib/desktop.ts';
-import { openPage, vaultPath } from '../../lib/router.ts';
+import { hashParam, openPage, tagPath, vaultPath } from '../../lib/router.ts';
 import { linkIndex, withoutTitle } from '../../lib/vault-markdown.ts';
 import { notify } from '../../store/app.ts';
 import { useNameOf } from '../../store/hooks.ts';
@@ -327,7 +327,7 @@ function NoteItem({ path }: { path: string }) {
     const a = (e.target as HTMLElement).closest('a[data-testid="vault-link"], a.vault-embed');
     if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     const href = a.getAttribute('href') ?? '';
-    const target = new URLSearchParams(href.split('?')[1] ?? '').get('nota');
+    const target = hashParam(href, 'note');
     if (!target) return;
     e.preventDefault();
     openPreview({ kind: 'note', path: target });
@@ -378,7 +378,7 @@ function NoteItem({ path }: { path: string }) {
             <VaultMarkdown
               text={withoutTitle(note.content, note.title)}
               resolve={resolve}
-              onTag={(tag) => openPage(`#/note?tag=${encodeURIComponent(tag)}`)}
+              onTag={(tag) => openPage(tagPath(tag))}
             />
           )}
           {note.truncated && <p className="mt-4 text-footnote text-ink-muted">{s.longNote}</p>}

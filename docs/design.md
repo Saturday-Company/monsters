@@ -505,7 +505,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   depending on proportions), the others as cards. A message of only files has no bubble. The monsters' files are a line
   between the seams ("RHEA SAVED A SCREENSHOT · 18:01", "DIONE CREATED A PAGE: WEEKEND IN LISBON") with the file below.
   Every file opens in the Preview on the right; a deleted one is "FILE DELETED".
-- **Files section** (`#/file`, `⌘4`): at the top the filters as a row of joined keys (All, Images, Documents, From the
+- **Files section** (`#/files`, `⌘4`): at the top the filters as a row of joined keys (All, Images, Documents, From the
   monsters; on the phone four equal columns) and the "Search files" field (name and extracted text; a file found by its
   text shows the snippet around the words), the count in `.label`. Below, a seam and the grid of cards (`--raised`,
   radius 14, 200 px columns, two on the phone): at the top the 4:3 thumbnail on `--well` (or the type's small screen
@@ -605,7 +605,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   network) the field is already open.
 
 ## Automations (D-094, D-096)
-- **Section** `#/automazioni` (`⌘2`), above Notes in the sidebar. A column up to 920 px, three levels that on the phone
+- **Section** `#/automations` (`⌘2`), above Notes in the sidebar. A column up to 920 px, three levels that on the phone
   open one above the other (the rail says "‹ Automations", "‹ Runs"): list, automation, run. In the rail "New
   automation".
 - **List by squad**: the `.label` "PERSONAL SQUAD · 1" (then one per project, `project` field), a module with a row per
@@ -634,10 +634,10 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   answer") with "See".
 
 ## Projects (D-097, D-098, D-100)
-- **Page** `#/progetto?id=…` (rail title: the project's name). Below the rail a row of joined keys: **Chat · Squad ·
+- **Page** `#/project?id=…&section=…` (rail title: the project's name). Below the rail a row of joined keys: **Chat · Squad ·
   Notes · Automations · Settings** (on the phone it scrolls sideways, the chosen tab stays in view). A column up to
-  920 px for the tabs that are not the chat. The old tab names (`sezione=cartella`, `collegamenti`, `spesa`,
-  `archivio`) open Settings scrolled to their part.
+  920 px for the tabs that are not the chat. The old tab names (`section=folder`, `apps`, `spending`,
+  `archive`; before alpha.25 `sezione=cartella`, `collegamenti`, `spesa`, `archivio`) open Settings scrolled to their part.
 - **Chat**: the lead's chat as it is at home (monitor, bubbles, field), with in the rail the project's name, "Stop
   project" and "To review". `@Name` reaches the project's monsters (in the @ menu they come first).
 - **Stop project**: a ghost key in the rail with the open hand and the `.label` ("STOP" on the phone). First touch:
@@ -658,7 +658,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   to all monsters; those of a single monster, in words. "PROJECT CAP" (Today, This month with the 10-segment screen,
   the two fields), the cap for all monsters in words below, "PER MONSTER" with the fields of the monsters with paid
   models. "ARCHIVE THE PROJECT" at the foot.
-- **New project** (`#/progetto?vista=nuovo`, from the sidebar row): the module "THE PROJECT" (name, where the notes
+- **New project** (`#/project?view=new`, from the sidebar row): the module "THE PROJECT" (name, where the notes
   will go) and a closed row "More options" (it opens by itself when something behind it needs fixing). Behind it:
   "FOLDER" (None / An existing one / A new one; the new one follows the name in `~/Monsters Progetti/<name>`),
   "PROJECT LEAD" (A new one with an optional name, else a free one / Copy a monster: the monsters as keys with their

@@ -194,7 +194,7 @@ export function pausedToolEvents(events: readonly LogEvent[]): LogEvent<'securit
     .sort((a, b) => (a.id < b.id ? -1 : 1));
 }
 
-/** Events about one note (`#/log?nota=…`). */
+/** Events about one note (`#/log?note=…`). */
 export function touchesNote(e: LogEvent, key: string): boolean {
   const is = (p: unknown) => typeof p === 'string' && noteKey(p) === key;
   switch (e.type) {
@@ -213,7 +213,7 @@ export function touchesNote(e: LogEvent, key: string): boolean {
 
 /** Attività filtered on one note. */
 export function noteActivityPath(path: string): string {
-  return `${PATHS.log}?nota=${encodeURIComponent(path)}`;
+  return `${PATHS.log}?note=${encodeURIComponent(path)}`;
 }
 
 export interface ActivityFilter {
@@ -223,7 +223,7 @@ export interface ActivityFilter {
   types: ReadonlySet<EventCategory>;
   all: boolean;
   since: number;
-  /** `noteKey` of the note of `?nota=`. */
+  /** `noteKey` of the note of `?note=`. */
   note: string | null;
 }
 

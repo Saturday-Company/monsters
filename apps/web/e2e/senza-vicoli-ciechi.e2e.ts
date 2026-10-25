@@ -141,7 +141,7 @@ test('Attività: a tool paused until you accept it has "Review", which leads to 
     .filter({ hasText: 'GitHub changed the “create_issue” tool' });
   await expect(row).toBeVisible();
   await row.getByTestId('review-row').click();
-  await expect(page).toHaveURL(/#\/impostazioni\?sezione=pausa$/);
+  await expect(page).toHaveURL(/#\/settings\?section=paused$/);
 });
 
 test('Attività: a draft that waits to be confirmed has "Review", which opens "To review"', async ({

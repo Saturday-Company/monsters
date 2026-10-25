@@ -34,14 +34,14 @@ import '../settings/settings.css';
 
 /*
  * A project's page (plan of 17/10 §3 B1, D-097, D-100; docs/design.md,
- * "Progetti"): `#/progetto?id=…&sezione=…`. The chat with its lead first (the
+ * "Progetti"): `#/project?id=…&section=…`. The chat with its lead first (the
  * `@Nome` of the composer reaches its monsters), then Squadra, Note,
  * Automazioni and Impostazioni (folder, apps, spending, archive: one page that
  * scrolls) as tabs of one row of joined keys. The old tabs' names (`cartella`,
  * `collegamenti`, `spesa`) open Impostazioni at their part.
  * "Ferma i mostri di questo progetto", in the page header, stops its monsters only
  * (the kill switch stays Ferma). A draft shows its plan with Conferma, an
- * archived project its "Ripristina"; `?vista=nuovo` is the form of a new one.
+ * archived project its "Ripristina"; `?view=new` is the form of a new one.
  */
 
 const TABS: { value: ProjectTab; label: string }[] = [
@@ -158,7 +158,7 @@ function LeadChat({ p }: { p: ProjectView }) {
 function ProjectPage({ p, tab, part }: { p: ProjectView; tab: ProjectTab; part: string | null }) {
   const onChanged = (next: ProjectView) => putProject(next);
 
-  // An old tab's name (`?sezione=spesa`): the link becomes Settings' own, and its part scrolls into
+  // An old tab's name (`?section=spending`): the link becomes Settings' own, and its part scrolls into
   // view once it is there (the section may still be loading). The target outlives the hash.
   const [target, setTarget] = useState<string | null>(null);
   const [seenPart, setSeenPart] = useState<string | null>(null);
@@ -265,7 +265,7 @@ function ProjectPage({ p, tab, part }: { p: ProjectView; tab: ProjectTab; part: 
 
 export default function ProjectsView() {
   const id = useHashParam('id');
-  const param = useHashParam('sezione');
+  const param = useHashParam('section');
   const tab = projectTabOf(param);
   const part = projectPartOf(param);
   const projects = useProjects();
