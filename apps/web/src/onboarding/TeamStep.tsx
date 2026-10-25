@@ -1,6 +1,7 @@
 import {
   ArrowClockwise,
   ArrowCounterClockwise,
+  ArrowLeft,
   Check,
   FolderSimple,
   ListChecks,
@@ -29,6 +30,7 @@ import { useResolvedTheme } from '../store/hooks.ts';
 import { accentInk } from '../theme/bubbles.ts';
 import { onboardingApi, onboardingError } from './api.ts';
 import { Guide } from './Guide.tsx';
+import { onboardingStrings, permissionsPlace } from './onboarding.strings.ts';
 import { modelLabel } from '../store/derive.ts';
 import { Badge, DoneCheck, ErrorLine, genomeFrom } from './parts.tsx';
 import { teamStrings } from './team.strings.ts';
@@ -43,6 +45,15 @@ interface MemberDetails {
   duties: string[];
   area: string;
 }
+
+/** What the user changed on the proposal: kept while they go Back to the names and return. */
+export interface SquadDraft {
+  names: Record<string, string>;
+  edited: Record<string, MemberDetails>;
+  removed: string[];
+}
+
+export const emptySquadDraft = (): SquadDraft => ({ names: {}, edited: {}, removed: [] });
 
 /** Problems of edited details, in the app's language; null when they can be saved. */
 function detailsProblem(d: MemberDetails): string | null {
@@ -167,6 +178,9 @@ function MemberCard({
     return () => clearTimeout(t);
   }, [saved]);
   const [editingDetails, setEditingDetails] = useState(false);
+  // The four ways to change a card are one tap away, not four keys on every card.
+  const [open, setOpen] = useState(false);
+  const showKeys = open || editing || editingDetails;
   const [value, setValue] = useState(name);
   const [problem, setProblem] = useState<string | null>(null);
   const id = domId(useId());
@@ -267,50 +281,67 @@ function MemberCard({
           )}
         </span>
         {/* Every action says its name: an icon alone is a guess (audit UI-36). */}
-        <span className="ml-auto flex max-w-full flex-wrap items-end justify-end gap-0.5">
-          <LabeledKey
-            layout="stacked"
-            label={s.tasks}
-            onClick={() => setEditingDetails(true)}
-            disabled={busy || editingDetails}
-            aria-label={s.customize(name)}
-            title={s.tasksTitle}
+        {showKeys ? (
+          <span
+            className="ml-auto flex max-w-full flex-wrap items-end justify-end gap-0.5"
+            data-testid="member-keys"
           >
-            <ListChecks size={18} aria-hidden />
-          </LabeledKey>
-          <LabeledKey
-            layout="stacked"
-            label={s.name}
-            onClick={() => {
-              setValue(name);
-              setEditing(true);
-            }}
+            <LabeledKey
+              layout="stacked"
+              label={s.tasks}
+              onClick={() => setEditingDetails(true)}
+              disabled={busy || editingDetails}
+              aria-label={s.customize(name)}
+              title={s.tasksTitle}
+            >
+              <ListChecks size={18} aria-hidden />
+            </LabeledKey>
+            <LabeledKey
+              layout="stacked"
+              label={s.name}
+              onClick={() => {
+                setValue(name);
+                setEditing(true);
+              }}
+              disabled={busy}
+              aria-label={s.rename(name)}
+              title={s.renameTitle}
+            >
+              <PencilSimple size={18} aria-hidden />
+            </LabeledKey>
+            <LabeledKey
+              layout="stacked"
+              label={s.look}
+              onClick={onRegenerate}
+              disabled={busy}
+              aria-label={s.otherLook(name)}
+              title={s.otherLookTitle}
+            >
+              <Shuffle size={18} aria-hidden />
+            </LabeledKey>
+            <LabeledKey
+              layout="stacked"
+              label={s.remove}
+              onClick={onRemove}
+              disabled={busy || !canRemove}
+              aria-label={s.removeLabel(name)}
+            >
+              <X size={16} aria-hidden />
+            </LabeledKey>
+          </span>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto"
+            onClick={() => setOpen(true)}
             disabled={busy}
-            aria-label={s.rename(name)}
-            title={s.renameTitle}
+            aria-label={s.edit(name)}
+            aria-expanded={false}
           >
-            <PencilSimple size={18} aria-hidden />
-          </LabeledKey>
-          <LabeledKey
-            layout="stacked"
-            label={s.look}
-            onClick={onRegenerate}
-            disabled={busy}
-            aria-label={s.otherLook(name)}
-            title={s.otherLookTitle}
-          >
-            <Shuffle size={18} aria-hidden />
-          </LabeledKey>
-          <LabeledKey
-            layout="stacked"
-            label={s.remove}
-            onClick={onRemove}
-            disabled={busy || !canRemove}
-            aria-label={s.removeLabel(name)}
-          >
-            <X size={16} aria-hidden />
-          </LabeledKey>
-        </span>
+            <PencilSimple size={16} aria-hidden /> {s.editKey}
+          </Button>
+        )}
       </div>
     </li>
   );
@@ -321,16 +352,27 @@ export function TeamStep({
   state,
   onState,
   onConfirmed,
+  onBack,
+  draft,
+  onDraft,
 }: {
   state: OnboardingState;
   onState: (s: OnboardingState) => void;
   onConfirmed: (res: TeamConfirmResponse) => void;
+  /** Back to the names; the proposal stays as it is unless a name changes. */
+  onBack: () => void;
+  /** The edits of the proposal as the parent kept them across a Back, and where each change goes. */
+  draft: SquadDraft;
+  onDraft: (d: SquadDraft) => void;
 }) {
   const s = teamStrings();
   const [proposal, setProposal] = useState<TeamProposal | null>(state.proposal);
-  const [names, setNames] = useState<Record<string, string>>({});
-  const [edited, setEdited] = useState<Record<string, MemberDetails>>({});
-  const [removed, setRemoved] = useState<string[]>([]);
+  const [names, setNames] = useState<Record<string, string>>(() => draft.names);
+  const [edited, setEdited] = useState<Record<string, MemberDetails>>(() => draft.edited);
+  const [removed, setRemoved] = useState<string[]>(() => draft.removed);
+  useEffect(() => {
+    onDraft({ names, edited, removed });
+  }, [onDraft, names, edited, removed]);
   /** The monster just taken out: the focus goes to its "Put back" key, not to the page. */
   const justRemoved = useRef<string | null>(null);
   const restoreRef = useRef<HTMLDivElement>(null);
@@ -379,9 +421,12 @@ export function TeamStep({
     setError(null);
     try {
       const next = await onboardingApi.regenerate(id);
-      setProposal((p) =>
-        p ? { ...p, members: p.members.map((m) => (m.id === id ? next : m)) } : p,
-      );
+      const updated = proposal
+        ? { ...proposal, members: proposal.members.map((m) => (m.id === id ? next : m)) }
+        : null;
+      setProposal(updated);
+      // The new look is part of the proposal the parent keeps (Back and Next find it again).
+      if (updated) onState({ ...state, proposal: updated });
     } catch (err) {
       setError(onboardingError(err));
     } finally {
@@ -428,16 +473,17 @@ export function TeamStep({
           say={error ? s.stuck : s.thinking}
           hint={error ? undefined : s.thinkingHint}
         />
-        {error && (
-          <>
-            <ErrorLine>{error}</ErrorLine>
-            <div className="flex justify-end">
-              <Button size="lg" onClick={() => void propose()}>
-                <ArrowClockwise size={18} aria-hidden /> {s.retry}
-              </Button>
-            </div>
-          </>
-        )}
+        {error && <ErrorLine>{error}</ErrorLine>}
+        <div className="flex items-center justify-between gap-3">
+          <Button variant="ghost" onClick={onBack}>
+            <ArrowLeft size={18} aria-hidden /> {s.back}
+          </Button>
+          {error && (
+            <Button size="lg" onClick={() => void propose()}>
+              <ArrowClockwise size={18} aria-hidden /> {s.retry}
+            </Button>
+          )}
+        </div>
         {!error && (
           <div className="grid gap-3 sm:grid-cols-2" aria-hidden>
             {[0, 1].map((i) => (
@@ -529,14 +575,22 @@ export function TeamStep({
         </div>
       )}
 
+      {/* Honest and short: what they may do from the start, and where to change it. */}
+      <p className="text-footnote text-ink-muted" data-testid="permissions-note">
+        {onboardingStrings().permissions.note(permissionsPlace())}
+      </p>
+
       {error && <ErrorLine>{error}</ErrorLine>}
 
-      <div
-        className={cn('flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between')}
-      >
-        <Button variant="secondary" onClick={() => void propose()} disabled={busy !== null}>
-          <ArrowClockwise size={18} aria-hidden /> {s.another}
-        </Button>
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <span className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+          <Button variant="ghost" onClick={onBack} disabled={busy === 'confirm'}>
+            <ArrowLeft size={18} aria-hidden /> {s.back}
+          </Button>
+          <Button variant="secondary" onClick={() => void propose()} disabled={busy !== null}>
+            <ArrowClockwise size={18} aria-hidden /> {s.another}
+          </Button>
+        </span>
         <Button
           size="lg"
           onClick={() => {

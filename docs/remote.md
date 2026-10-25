@@ -48,7 +48,7 @@ With input from a file or a pipe (`echo "summarize the week" | monsters chat`) t
 to finish and then exits. The single commands are still there: `monsters chat "<text>"`, `monsters answer <id>
 <n|text>`, `monsters status`, `monsters kill`, `monsters resume`.
 
-The first start (account, squad, permissions) is done in the web UI: from SSH use the tunnel below.
+The first start (account, model, your name, squad) is done in the web UI: from SSH use the tunnel below.
 
 ### The web UI through a tunnel
 ```sh

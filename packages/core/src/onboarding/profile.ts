@@ -1,5 +1,6 @@
 import {
   appLang,
+  ASK_ALWAYS_FIXED,
   ONBOARDING_QUESTIONS,
   onboardingQuestionsIn,
   checkOnboardingAnswer,
@@ -10,7 +11,7 @@ import {
 } from '@monsters/shared';
 import type { DecisionRuleInput } from '../team/decision.ts';
 import { teamStrings } from '../team/team.strings.ts';
-import { PROFILE_TEXTS } from './profile.prompts.ts';
+import { LEGACY_LABELS, PROFILE_TEXTS } from './profile.prompts.ts';
 
 /*
  * From the answers of the first start to a typed profile, `profilo.md` (memory,
@@ -46,9 +47,17 @@ export interface Profile {
   lang: Lang;
 }
 
-/** Ids of the questions still without a valid answer. */
+/**
+ * The questions the first start cannot go on without: the names. The others (work,
+ * hand-offs, rules, tone, language) are the "Tell me more" card after the first answer, or the
+ * defaults of the profile; an install that answered them before keeps the answers.
+ */
+const REQUIRED_ANSWERS: readonly string[] = ['nomi'];
+
+/** Ids of the required questions still without a valid answer. */
 export function missingAnswers(answers: Answers): string[] {
   return ONBOARDING_QUESTIONS.filter((q) => {
+    if (!REQUIRED_ANSWERS.includes(q.id)) return false;
     const a = answers[q.id];
     return !a || checkOnboardingAnswer(q, a).length > 0;
   }).map((q) => q.id);
@@ -87,6 +96,24 @@ export function cleanName(name: string): string {
   return one.charAt(0).toUpperCase() + one.slice(1);
 }
 
+/**
+ * Answers of questions the first start no longer asks (`LEGACY_QUESTION_IDS`): the option labels
+ * from the old table, then the free text.
+ */
+function legacy(answers: Answers, qid: string, lang: Lang): string[] {
+  const a = answers[qid];
+  if (!a) return [];
+  const names = LEGACY_LABELS[lang];
+  const text = a.text?.trim();
+  return [
+    ...(a.values['cosa'] ?? [])
+      .map((v) => v.trim())
+      .filter(Boolean)
+      .map((v) => names[v] ?? v),
+    ...(text ? [text] : []),
+  ];
+}
+
 export function profileFromAnswers(answers: Answers, lang: Lang = appLang()): Profile {
   // No answer: the monsters write in the language of the profile's words (D-153).
   const languageId = values(answers, 'tono', 'lingua')[0] ?? lang;
@@ -95,11 +122,12 @@ export function profileFromAnswers(answers: Answers, lang: Lang = appLang()): Pr
     orchestratorName: cleanName(values(answers, 'nomi', 'orchestrator')[0] ?? 'Titan'),
     occupation: labels(answers, 'lavoro', lang),
     occupationText: answers['lavoro']?.text?.trim() || undefined,
-    goals: labels(answers, 'obiettivi', lang),
+    goals: legacy(answers, 'obiettivi', lang),
     goalsText: answers['obiettivi']?.text?.trim() || undefined,
     delegate: labels(answers, 'deleghe', lang),
-    tools: labels(answers, 'strumenti', lang),
-    askFirst: values(answers, 'chiedi', 'cosa'),
+    tools: legacy(answers, 'strumenti', lang),
+    // Never asked: the four always-asked kinds (D-058), not "nothing" (that would turn the rules off).
+    askFirst: answers['chiedi'] ? values(answers, 'chiedi', 'cosa') : [...ASK_ALWAYS_FIXED],
     askFirstText: answers['chiedi']?.text?.trim() || undefined,
     tone: label(answers, 'tono', 'tono', lang).toLowerCase(),
     languageId,
@@ -209,9 +237,9 @@ export function renderProfile(p: Profile, permissions: AgentPermissions | null):
     user: p.userName,
     orchestrator: p.orchestratorName,
     occupation: list(p.occupation, t.none),
-    goals: list(p.goals, t.none),
+    goals: p.goals.length > 0 ? list(p.goals, t.none) : undefined,
     delegate: list(p.delegate, t.none),
-    tools: list(p.tools, t.none),
+    tools: p.tools.length > 0 ? list(p.tools, t.none) : undefined,
     ask: list(ask, t.nothingToAsk),
     tone: p.tone,
     language: p.language,

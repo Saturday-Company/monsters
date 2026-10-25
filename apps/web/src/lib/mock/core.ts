@@ -171,6 +171,7 @@ export class MockCore {
       this.append({ agent, type: 'message', data: { role: 'agent', text, channel: 'system' } }),
     hasProvider: (id) => this.providers.isActive(id),
     setChain: (agent, models) => this.providers.setChain(agent, models),
+    setProfile: (profile) => this.squad.seedProfile(profile),
   });
   /** Permissions of the agents after the onboarding (M2.1). */
   private readonly permissions = new MockPermissions({
@@ -322,7 +323,11 @@ export class MockCore {
     this.storage = opts.storage ?? null;
     this.agents = opts.mode === 'fresh' ? [] : mockTeam(opts.teamSize ?? 5);
     // A fresh install has no key yet: the onboarding (or the settings) adds it.
-    if (opts.mode === 'fresh') this.providers.setOpenRouter(false);
+    if (opts.mode === 'fresh') {
+      this.providers.setOpenRouter(false);
+      // Nobody told the monsters what they do yet: the "Tell me more" card comes.
+      this.squad.forgetWork();
+    }
     const saved = this.loadAuth();
     this.auth =
       saved ??

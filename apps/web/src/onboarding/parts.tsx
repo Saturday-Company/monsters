@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { useStill } from '../lib/motion.ts';
 import { monsterFor } from '../lib/monsters.ts';
 import { cn } from '../lib/utils.ts';
-import { onboardingStrings } from './onboarding.strings.ts';
 
 export { useStill };
 
@@ -52,59 +51,6 @@ export function DoneCheck({
         />
       </svg>
     </span>
-  );
-}
-
-/**
- * Progress inside a step: a strip of segments sunk in a well, lit in the
- * signal colour as the screens are done (the current one half lit). Decoration
- * (`aria-hidden`): screen readers get a single "Question n of m" (audit 2.15).
- */
-export function ScreenProgress({
-  total,
-  current,
-  done,
-  label = onboardingStrings().question,
-  flash = false,
-}: {
-  total: number;
-  /** Index of the screen on show. */
-  current: number;
-  /** Screens completed (the current one counts once confirmed). */
-  done: number;
-  /** Word before "n of m". */
-  label?: string;
-  /** Just confirmed: a check next to the counter. */
-  flash?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-3" data-testid="screen-progress">
-      <div className="well flex flex-1 items-center gap-[3px] rounded-[6px] p-[3px]" aria-hidden>
-        {Array.from({ length: total }, (_, i) => {
-          const complete = i < done;
-          const active = i === current && !complete;
-          return (
-            <span
-              key={i}
-              className={cn(
-                'h-1.5 flex-1 rounded-[2px]',
-                complete
-                  ? 'bg-signal'
-                  : active
-                    ? 'bg-[repeating-linear-gradient(90deg,var(--signal)_0_3px,transparent_3px_6px)]'
-                    : 'bg-[color-mix(in_oklab,var(--ink),transparent_88%)]',
-              )}
-            />
-          );
-        })}
-      </div>
-      <span className="flex h-6 items-center justify-end gap-1.5">
-        {flash && <DoneCheck size={18} />}
-        <span className="label whitespace-nowrap text-ink-muted">
-          {onboardingStrings().progressCount(label, Math.min(current + 1, total), total)}
-        </span>
-      </span>
-    </div>
   );
 }
 

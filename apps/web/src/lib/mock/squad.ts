@@ -25,6 +25,7 @@ import {
   type ArchivedMemberView,
   type DraftView,
   type EventInput,
+  type ProfileAnswer,
   type ProfileView,
   type TeamDraft,
   type TeamMemberView,
@@ -215,7 +216,21 @@ export class MockSquad {
     style: '',
     extras: [] as string[],
     text: '',
+    // The demo has told the monsters; a fresh install has not (`forgetWork`).
+    work: { options: [], text: '' } as ProfileAnswer | null,
+    delegate: { options: [], text: '' } as ProfileAnswer | null,
   };
+
+  /** What the first start decided: the name, the tone and the writing language. */
+  seedProfile(profile: { userName: string; tone: string; language: string }): void {
+    Object.assign(this.profile, profile);
+  }
+
+  /** A fresh install: work and hand-offs not answered yet, the "Tell me more" card comes. */
+  forgetWork(): void {
+    this.profile.work = null;
+    this.profile.delegate = null;
+  }
 
   /** Proposals of the capo squadra (D-075): id of the `proposed` event → who and whether open. */
   private readonly proposals = new Map<
@@ -490,9 +505,13 @@ export class MockSquad {
         extras: ASK_ALWAYS_EXTRAS.filter((id) => this.profile.extras.includes(id)),
         text: this.profile.text,
       },
+      work: this.profile.work,
+      delegate: this.profile.delegate,
       options: {
         tones: group('tono'),
         languages: group('lingua'),
+        work: ONBOARDING_QUESTIONS.find((q) => q.id === 'lavoro')!.groups[0]!.options,
+        delegate: ONBOARDING_QUESTIONS.find((q) => q.id === 'deleghe')!.groups[0]!.options,
         extras: ASK_ALWAYS_EXTRAS.map((id) => ({ id, label: labelsNow[id] ?? id })),
       },
     };
@@ -914,6 +933,24 @@ export class MockSquad {
     if (r.style !== undefined && r.style !== this.profile.style) {
       this.profile.style = r.style;
       fields.push('style');
+    }
+    for (const [field, answer, qid] of [
+      ['work', r.work, 'lavoro'],
+      ['delegate', r.delegate, 'deleghe'],
+    ] as const) {
+      if (!answer) continue;
+      const known = ONBOARDING_QUESTIONS.find((q) => q.id === qid)!.groups[0]!.options;
+      if (answer.options.some((o) => !known.some((k) => k.id === o))) {
+        return fail(400, 'invalid_request', `unknown option in ${field}`);
+      }
+    }
+    for (const [field, answer] of [
+      ['work', r.work],
+      ['delegate', r.delegate],
+    ] as const) {
+      if (!answer) continue;
+      this.profile[field] = { options: [...new Set(answer.options)], text: answer.text };
+      fields.push(field);
     }
     if (r.askAlways) {
       this.profile.extras = [...new Set(r.askAlways.extras)];

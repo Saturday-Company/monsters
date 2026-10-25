@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { MOCK_SETUP_CODE } from '../src/lib/mock/constants.ts';
 import { expect, test } from './fixtures.ts';
-import { answerQuestions, connectOpenRouter, createAccount } from './onboarding-helpers.ts';
+import { answerNames, connectOpenRouter, createAccount } from './onboarding-helpers.ts';
 
 /*
  * Visual check of the first start: `SCREENSHOTS=1 pnpm exec playwright test
@@ -59,33 +59,44 @@ for (const size of SIZES) {
         await page.getByRole('button', { name: 'Other ways' }).click();
         await page.getByRole('radio', { name: /ChatGPT plan/ }).click();
         await shot('1-modello-chatgpt');
-        await page.getByRole('radio', { name: /Claude subscription/ }).click();
+        await page.getByRole('radio', { name: /Claude plan/ }).click();
         await page.getByRole('button', { name: 'Use Claude Code' }).click();
         await expect(page.getByTestId('claude-terminal-hint')).toBeVisible();
         await shot('1-modello-claude');
         await connectOpenRouter(page);
 
-        await answerQuestions(page, {
+        await answerNames(page, {
           shot: async (name) => {
-            const n = { 'domanda-nomi': '3', 'domanda-lavoro': '4', 'domanda-regole': '5' }[name];
-            await shot(`${n}-${name}`);
+            await shot(`2-${name}`);
           },
         });
-        await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'permissions');
-        await shot('6-permessi');
-        await page.getByRole('button', { name: /Looks good, continue/ }).click();
-        await expect(page.getByTestId('member')).toHaveCount(3);
-        await shot('7-squadra');
-        await page.getByRole('button', { name: 'Rename Tethys' }).click();
-        await page.getByLabel('New name for Tethys').fill('Calendar');
-        await shot('8-squadra-rinomina');
+        await expect(page.getByTestId('member')).toHaveCount(2);
+        await shot('3-squadra');
+        await page.getByRole('button', { name: 'Edit Rhea' }).click();
+        await page.getByRole('button', { name: 'Rename Rhea' }).click();
+        await page.getByLabel('New name for Rhea').fill('Calendar');
+        await shot('4-squadra-modifica');
         await page.getByRole('button', { name: 'Save the name' }).click();
-        await page.getByRole('button', { name: /Confirm the squad/ }).click();
+        await page.getByRole('button', { name: 'Looks good' }).click();
         await expect(page.getByTestId('welcome')).toBeVisible();
-        await shot('9-nascita');
+        await shot('5-nascita');
         await page.getByRole('button', { name: /^Message / }).click();
         await expect(page.getByTestId('chat-panel')).toBeVisible();
-        await shot('10-chat');
+        await shot('6-chat');
+        // The first answer of the lead brings the card and the row of first jobs.
+        const input = page.getByRole('combobox', { name: 'Message' });
+        await input.fill('hello');
+        await input.press('Enter');
+        await expect(page.getByText('What tone should we give the posts?')).toBeVisible({
+          timeout: 20_000,
+        });
+        await input.fill('A');
+        await input.press('Enter');
+        await expect(page.getByTestId('tell-more-invite')).toBeVisible({ timeout: 40_000 });
+        await shot('7-chat-invito');
+        await page.getByRole('button', { name: 'Tell me more', exact: true }).click();
+        await expect(page.getByTestId('tell-more')).toBeVisible();
+        await shot('8-chat-dimmi-di-piu');
       });
     });
   }

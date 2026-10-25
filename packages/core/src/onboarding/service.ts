@@ -15,6 +15,7 @@ import {
   checkOnboardingAnswer,
   isClaudePlanChain,
   isReservedActor,
+  LEGACY_QUESTION_IDS,
   type AgentPermissions,
   type Lang,
   type FolderGrant,
@@ -334,6 +335,8 @@ export class OnboardingService {
     let changed = false;
     if (req.answers) {
       for (const [id, answer] of Object.entries(req.answers)) {
+        // A client that still sends the questions the start dropped (D-053): nothing to keep.
+        if (LEGACY_QUESTION_IDS.includes(id)) continue;
         const q = ONBOARDING_QUESTIONS.find((x) => x.id === id);
         if (!q) throw new OnboardingError('invalid_request', `unknown question ${id}`);
         const problems = checkOnboardingAnswer(q, answer);

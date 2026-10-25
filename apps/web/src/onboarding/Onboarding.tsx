@@ -1,5 +1,10 @@
 import { ArrowClockwise, SignOut } from '@phosphor-icons/react';
-import type { OnboardingState, OnboardingStep, TeamConfirmResponse } from '@monsters/shared';
+import {
+  DEFAULT_AGENT_PERMISSIONS,
+  type OnboardingState,
+  type OnboardingStep,
+  type TeamConfirmResponse,
+} from '@monsters/shared';
 import { useEffect, useState } from 'react';
 import { Monster } from '../components/monster/Monster.tsx';
 import { Button } from '../components/ui/button.tsx';
@@ -14,17 +19,17 @@ import { settleModels } from './models.ts';
 import { onboardingStrings } from './onboarding.strings.ts';
 import { genomeFrom } from './parts.tsx';
 import './boot.css';
-import { PermissionsStep } from './PermissionsStep.tsx';
-import { QuestionsStep } from './QuestionsStep.tsx';
-import { TeamStep } from './TeamStep.tsx';
+import { NameStep } from './NameStep.tsx';
+import { emptySquadDraft, TeamStep, type SquadDraft } from './TeamStep.tsx';
 
 /*
- * First start (M1.6, simplified in D-053, D-066): four steps, then the birth.
+ * First start (M1.6, simplified in D-053, D-066, express in C1): three steps, then the birth.
  * 1. Modello: how Monsters reaches a model (OpenRouter key, Claude
  *    subscription, ChatGPT plan, a paid key, or later).
- * 2. Su di te: names, work, rules and tone (three short screens).
- * 3. Cosa possono fare: the permissions.
- * 4. Squadra: the proposed team, editable, then confirmed.
+ * 2. Il tuo nome: yours and the lead's, on one screen. Work, hand-offs, rules, tone and
+ *    language are the "Tell me more" card in the lead's chat; the permissions start as
+ *    D-159 says and the squad screen says so.
+ * 3. Squadra: the proposed team, editable, then confirmed ("Looks good").
  * The core keeps the progress, so a reload lands on the same step.
  * Layout (docs/design.md, "Primo avvio"): the 52 px rail with the steps as
  * indicator lights, then each step in one big module on the chassis.
@@ -38,8 +43,8 @@ interface Stage {
 const STAGES: Stage[] = [
   { steps: ['key'] },
   { steps: ['questions'] },
-  { steps: ['permissions'] },
-  { steps: ['team'] },
+  // The permissions are no longer a screen: an older start stopped there goes on to the squad.
+  { steps: ['permissions', 'team'] },
 ];
 
 function stageOf(step: OnboardingStep): number {
@@ -111,26 +116,15 @@ function Progress({ step, skipped }: { step: OnboardingStep; skipped: boolean })
   );
 }
 
-/** What the module of a step says in its header. */
-function moduleTitle(view: string): string {
-  const t = onboardingStrings().moduleTitle;
-  switch (view) {
-    case 'key':
-    case 'questions':
-    case 'permissions':
-    case 'team':
-    case 'birth':
-      return t[view];
-    default:
-      return t.other;
-  }
-}
-
 export function Onboarding() {
   const s = onboardingStrings();
   const [state, setState] = useState<OnboardingState | null>(null);
   const [born, setBorn] = useState<TeamConfirmResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Back from the squad to the names; the progress in the core does not move. */
+  const [back, setBack] = useState(false);
+  /** The user's edits of the proposed squad, kept across a Back to the names. */
+  const [squadDraft, setSquadDraft] = useState<SquadDraft>(emptySquadDraft);
 
   const fetchState = () =>
     onboardingApi
@@ -163,9 +157,33 @@ export function Onboarding() {
       .catch(() => notify(onboardingStrings().loadFailed, 'error'));
   };
 
-  const step: OnboardingStep = born ? 'done' : (state?.step ?? 'key');
+  // The start of an older version stopped at the permissions: they start as D-159 says.
+  const stale = state?.step === 'permissions' && !back;
+  useEffect(() => {
+    if (!stale) return;
+    void onboardingApi
+      .submit({ permissions: { ...(state?.permissions ?? DEFAULT_AGENT_PERMISSIONS) } })
+      .then(setState)
+      .catch((err: unknown) => setError(onboardingError(err)));
+  }, [stale, state?.permissions]);
+
+  const step: OnboardingStep = born
+    ? 'done'
+    : back && state?.step !== 'key'
+      ? 'questions'
+      : (state?.step ?? 'key');
   // One key per screen: a new step switches in by frames.
-  const view = !state ? (error ? 'error' : 'loading') : born ? 'birth' : step;
+  const view = !state
+    ? error
+      ? 'error'
+      : 'loading'
+    : born
+      ? 'birth'
+      : stale
+        ? error
+          ? 'error'
+          : 'loading'
+        : step;
 
   return (
     // The window is the chassis: the rail on top, the step in a module set into it (docs/design.md).
@@ -208,11 +226,6 @@ export function Onboarding() {
             data-step={step}
           >
             <div className="boot-module overflow-clip rounded-[18px]">
-              {/* The header of the module: which part of the boot, and where we are. */}
-              <div className="flex h-11 items-center justify-between gap-3 px-4 sm:px-6">
-                <span className="label text-ink-muted">{moduleTitle(view)}</span>
-              </div>
-              <div aria-hidden className="seam-h" />
               <div key={view} className="rise-in px-4 pt-5 pb-6 sm:px-8 sm:pt-7 sm:pb-8">
                 {view === 'error' && (
                   <div className="flex flex-col items-center gap-4 py-8 text-center">
@@ -242,13 +255,17 @@ export function Onboarding() {
                   />
                 )}
                 {state && !born && step === 'questions' && (
-                  <QuestionsStep state={state} onState={setState} />
+                  <NameStep state={state} onState={setState} onDone={() => setBack(false)} />
                 )}
-                {state && !born && step === 'permissions' && (
-                  <PermissionsStep state={state} onState={setState} />
-                )}
-                {state && !born && step === 'team' && (
-                  <TeamStep state={state} onState={setState} onConfirmed={confirmed} />
+                {state && !born && view === 'team' && (
+                  <TeamStep
+                    state={state}
+                    onState={setState}
+                    onConfirmed={confirmed}
+                    onBack={() => setBack(true)}
+                    draft={squadDraft}
+                    onDraft={setSquadDraft}
+                  />
                 )}
               </div>
             </div>

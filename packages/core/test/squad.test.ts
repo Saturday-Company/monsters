@@ -527,4 +527,49 @@ describe('profile', () => {
     expect(again).not.toContain('user-ask');
     expect(again).toEqual(expect.arrayContaining([...ASK_ALWAYS_FIXED]));
   });
+
+  it('saves the work and the hand-offs of the "Tell me more" card in the profile note', async () => {
+    const t = await startTestHub({}, italian());
+    let profile = await t.json<ProfileView>('GET', '/api/profile');
+    // Nobody answered yet: the card comes; the options are the first start's.
+    expect(profile.work).toBeNull();
+    expect(profile.delegate).toBeNull();
+    expect(profile.options.work.map((o) => o.id)).toContain('sviluppo');
+    expect(profile.options.delegate.map((o) => o.id)).toContain('ricerche');
+
+    const bad = await t.api('PUT', '/api/profile', { work: { options: ['astronauta'], text: '' } });
+    expect(bad.status).toBe(400);
+    expect((await t.json<ProfileView>('GET', '/api/profile')).work).toBeNull();
+
+    profile = await t.json<ProfileView>('PUT', '/api/profile', {
+      work: { options: ['social', 'consulenza'], text: 'Seguo tre clienti nel food' },
+      delegate: { options: ['ricerche', 'bozze'], text: '' },
+    });
+    expect(profile.work).toEqual({
+      options: ['social', 'consulenza'],
+      text: 'Seguo tre clienti nel food',
+    });
+    expect(profile.delegate).toEqual({ options: ['ricerche', 'bozze'], text: '' });
+    const path = join(t.core.hub.vault.root, 'profilo.md');
+    const note = readFileSync(path, 'utf8');
+    expect(note).toContain(
+      '## Di cosa si occupa\n- Social e contenuti\n- Consulenza o freelance\n- Seguo tre clienti nel food\n',
+    );
+    expect(note).toContain('## Attività da delegare\n- Ricerche online\n- Bozze di post e mail\n');
+    expect(teamEvents(t).at(-1)!.data).toMatchObject({
+      action: 'profile',
+      fields: ['work', 'delegate'],
+    });
+
+    // Skipping saves an empty answer: the card does not come back, the note says "not given".
+    // The user's own sections and the hand-offs are left alone.
+    writeFileSync(path, `${note}\n## Note mie\n- Odio le emoji.\n`);
+    await t.core.hub.vault.reindex();
+    profile = await t.json<ProfileView>('PUT', '/api/profile', { work: { options: [], text: '' } });
+    expect(profile.work).toEqual({ options: [], text: '' });
+    const after = readFileSync(path, 'utf8');
+    expect(after).toContain('## Di cosa si occupa\n- non indicato\n');
+    expect(after).toContain('- Bozze di post e mail');
+    expect(after).toContain('- Odio le emoji.');
+  });
 });

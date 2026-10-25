@@ -1,12 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '../e2e/fixtures.ts';
-import { answerQuestions, createAccount } from '../e2e/onboarding-helpers.ts';
+import { answerNames, createAccount } from '../e2e/onboarding-helpers.ts';
 
 /*
- * The whole first start against a real core (packages/core/test/e2e-server.ts):
- * account, questions, permissions, team proposal by a (fake) model with one
- * retry, edits, confirmation, files on disk, first chat.
+ * The whole express first start against a real core (packages/core/test/e2e-server.ts, C1):
+ * account, the names, team proposal by a (fake) model with one retry, edits, confirmation, files
+ * on disk, first chat, and the "Tell me more about you" card saved to the profile note.
  */
 
 const HOME = process.env['MONSTERS_E2E_HOME']!;
@@ -19,22 +19,25 @@ test('first start against the real core', async ({ page }) => {
 
   // The fake provider counts as a configured model: no key step.
   await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'questions');
-  await answerQuestions(page, { orchestrator: 'Atlas' });
+  await answerNames(page, { orchestrator: 'Atlas' });
 
-  await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'permissions');
+  // The names are all it asked: the profile note is written and says what it does not know.
   // A new install in English: an English vault (D-154), never the Italian names.
   const vault = join(HOME, 'Monsters Notes');
-  const profile = readFileSync(join(vault, 'profile.md'), 'utf8');
+  const profilePath = join(vault, 'profile.md');
+  const profile = readFileSync(profilePath, 'utf8');
   expect(existsSync(join(vault, 'profilo.md'))).toBe(false);
   expect(existsSync(join(vault, 'Agents'))).toBe(true);
   expect(existsSync(join(vault, 'Agenti'))).toBe(false);
   expect(profile).toContain('type: profile');
-  expect(profile).toContain('I follow three restaurants');
-  await page.getByRole('switch', { name: 'The web' }).click();
-  // The terminal is on by default (D-159); folders of the computer are granted later in the
-  // settings (D-053).
-  await expect(page.getByRole('switch', { name: 'Terminal' })).toBeChecked();
-  await page.getByRole('button', { name: /Looks good, continue/ }).click();
+  expect(profile).toContain('- Name: Giulio');
+  expect(profile).toContain('## What they do\n- not given');
+  // They may use the notes, the web and run commands from the start (D-159), and the squad says so.
+  await expect(page.getByTestId('permissions-note')).toContainText('run commands');
+  const started = JSON.parse(readFileSync(join(HOME, 'settings.json'), 'utf8')) as {
+    permissions: unknown;
+  };
+  expect(started.permissions).toMatchObject({ vault: true, web: true, shell: true, folders: [] });
 
   // The model's first answer is not JSON: the core retries and gets the team.
   const members = page.getByTestId('member');
@@ -44,23 +47,26 @@ test('first start against the real core', async ({ page }) => {
 
   const tethys = page.locator('[data-member="tethys"]');
   const before = await tethys.locator('svg').first().innerHTML();
+  await page.getByRole('button', { name: 'Edit Tethys' }).click();
   await page.getByRole('button', { name: 'Another look for Tethys' }).click();
   await expect.poll(() => tethys.locator('svg').first().innerHTML()).not.toBe(before);
   await page.getByRole('button', { name: 'Rename Tethys' }).click();
   await page.getByLabel('New name for Tethys').fill('Calendar');
   await page.getByRole('button', { name: 'Save the name' }).click();
-  // Duties and folder are reviewed before the confirmation, and editable.
+  // What each one does and its folder are reviewed before the confirmation, and editable.
   const rhea = page.locator('[data-member="rhea"]');
-  await page.getByRole('button', { name: 'Customize Rhea' }).click();
-  await expect(page.getByLabel('Rhea’s tasks (one per line)')).toHaveValue(
+  await page.getByRole('button', { name: 'Edit Rhea' }).click();
+  await page.getByRole('button', { name: 'Change what Rhea does' }).click();
+  await expect(page.getByLabel('What Rhea does (one per line)')).toHaveValue(
     /You always check the date of the sources\./,
   );
   await page.getByLabel('Rhea’s folder in the notes').fill('Resources/Food');
-  await page.getByRole('button', { name: 'Save Rhea’s tasks and folder' }).click();
+  await page.getByRole('button', { name: 'Save what Rhea does and its folder' }).click();
   await expect(rhea.getByTestId('member-area')).toContainText('in the notes folder “Food”');
+  await page.getByRole('button', { name: 'Edit Dione' }).click();
   await page.getByRole('button', { name: 'Remove Dione from the squad' }).click();
   await expect(members).toHaveCount(2);
-  await page.getByRole('button', { name: /Confirm the squad/ }).click();
+  await page.getByRole('button', { name: 'Looks good' }).click();
 
   await expect(page.getByTestId('birth')).toBeVisible();
   await expect(page.getByTestId('welcome')).toContainText('Hi Giulio! I’m Atlas');
@@ -71,16 +77,11 @@ test('first start against the real core', async ({ page }) => {
   const settings = JSON.parse(readFileSync(join(HOME, 'settings.json'), 'utf8')) as {
     permissions: unknown;
   };
-  expect(settings.permissions).toMatchObject({ web: false, shell: true, folders: [] });
-  expect(readFileSync(join(HOME, 'agents', 'rhea', 'agent.yaml'), 'utf8')).toContain(
-    'Resources/Food/**',
-  );
-  expect(readFileSync(join(HOME, 'agents', 'rhea', 'agent.yaml'), 'utf8')).toContain(
-    'Agents/Rhea/**',
-  );
-  expect(readFileSync(join(HOME, 'agents', 'rhea', 'agent.yaml'), 'utf8')).not.toContain(
-    'web_search',
-  );
+  expect(settings.permissions).toMatchObject({ web: true, shell: true, folders: [] });
+  const rheaYaml = readFileSync(join(HOME, 'agents', 'rhea', 'agent.yaml'), 'utf8');
+  expect(rheaYaml).toContain('Resources/Food/**');
+  expect(rheaYaml).toContain('Agents/Rhea/**');
+  expect(rheaYaml).toContain('web_search');
 
   await page.getByRole('button', { name: 'Message Atlas' }).click();
   await expect(page.getByRole('heading', { name: 'Atlas', level: 1 })).toBeVisible();
@@ -99,7 +100,27 @@ test('first start against the real core', async ({ page }) => {
   await expect(reply).toHaveAttribute('data-streaming', 'false', { timeout: 15_000 });
   await expect(bubbles).toHaveCount(2);
 
-  // A reload stays in the chat: the onboarding is over.
+  // After its first answer: the card. What the old questions asked goes to the profile note,
+  // through the same API as Settings → Squad → You.
+  await page.getByTestId('tell-more-invite').getByRole('button', { name: 'Tell me more' }).click();
+  const card = page.getByTestId('tell-more');
+  await expect(card).toBeVisible();
+  await card.getByRole('button', { name: 'Social media and content' }).click();
+  await card.getByLabel('In your own words (if you like)').fill('I follow three restaurants');
+  await card.getByRole('button', { name: 'Online research' }).click();
+  await card.getByRole('radio', { name: 'Direct' }).click();
+  await card.getByRole('button', { name: 'Save' }).click();
+  await expect(card).toHaveCount(0);
+  await expect(page.getByTestId('tell-more-saved')).toBeVisible();
+  const saved = readFileSync(profilePath, 'utf8');
+  expect(saved).toContain(
+    '## What they do\n- Social media and content\n- I follow three restaurants\n',
+  );
+  expect(saved).toContain('## Tasks to hand off\n- Online research\n');
+  expect(saved).toContain('- Tone: direct');
+
+  // A reload stays in the chat: the onboarding is over, and the card does not come back.
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Atlas', level: 1 })).toBeVisible();
+  await expect(page.getByTestId('tell-more')).toHaveCount(0);
 });

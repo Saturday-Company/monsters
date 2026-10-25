@@ -87,6 +87,7 @@ import { chatStrings } from './chat.strings.ts';
 import { ReceiptBlock } from './Receipt.tsx';
 import { behindTheScenes, ChatMonitor } from './ChatMonitor.tsx';
 import { Composer, prefillComposer, type ComposerQuestion } from './Composer.tsx';
+import { FirstSteps } from './FirstSteps.tsx';
 import { Greeting } from './Greeting.tsx';
 import {
   answeredIds,
@@ -101,7 +102,7 @@ import { ProposalCard } from './ProposalCard.tsx';
 import { MODELS_PATH, useNoModel } from './useModel.ts';
 import { FileById } from '../files/FileChip.tsx';
 import { attachToComposer } from './attachments.ts';
-import { automationPath, SPEND_CAP_PATH } from '../../lib/router.ts';
+import { automationPath, SPEND_CAP_PATH, useHashParam } from '../../lib/router.ts';
 import './chat.css';
 
 /*
@@ -926,6 +927,20 @@ export function ChatPanel({
     (it) => it.kind === 'user' || it.kind === 'relayed' || it.kind === 'telegram',
   );
   const lastItem = shown.at(-1)?.item;
+  // After the lead's first answer: first jobs to try and the "Tell me more about you" card.
+  const tellMe = useHashParam('profilo') === '1';
+  // Counted over the whole chat, not the conversation: a new one does not bring the first jobs back.
+  const userCount = thread.filter((it) => it.kind === 'user').length;
+  const firstUser = current.findIndex((it) => it.kind === 'user');
+  const answeredOnce =
+    firstUser >= 0 &&
+    current.slice(firstUser + 1).some((it) => it.kind === 'agent' && !it.streaming);
+  const showFirstSteps =
+    !!agent?.isOrchestrator &&
+    !fresh &&
+    !noModel &&
+    (tellMe ||
+      (answeredOnce && userCount <= 3 && lastItem?.kind !== 'error' && !openQuestion && !working));
   // Without a model the greeting carries the way out (audit 2.4), else a bar above the composer.
   const greetingId =
     noModel && lastItem?.kind === 'agent' && !lastItem.streaming ? lastItem.id : null;
@@ -1330,6 +1345,11 @@ export function ChatPanel({
                     <Suggestions agent={agent} />
                   </div>
                 )
+              )}
+              {showFirstSteps && !streaming && (
+                <div className="pb-5">
+                  <FirstSteps forceOpen={tellMe} />
+                </div>
               )}
               {working && !busyWith && <WorkingRow agent={agent} />}
             </div>

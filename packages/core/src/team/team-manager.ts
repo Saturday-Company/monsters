@@ -33,6 +33,8 @@ import {
   type LogEvent,
   type Project,
   type ProjectLeadPlan,
+  type OnboardingAnswer,
+  type ProfileAnswer,
   type ProfileUpdate,
   type ProfileView,
   type ProposedAgent,
@@ -381,9 +383,13 @@ export class TeamManager {
         extras: ASK_ALWAYS_EXTRAS.filter((id) => chosen.includes(id)),
         text: p.askFirstText ?? '',
       },
+      work: answerView(answers['lavoro']),
+      delegate: answerView(answers['deleghe']),
       options: {
         tones: group('tono').options,
         languages: group('lingua').options,
+        work: ONBOARDING_QUESTIONS.find((q) => q.id === 'lavoro')!.groups[0]!.options,
+        delegate: ONBOARDING_QUESTIONS.find((q) => q.id === 'deleghe')!.groups[0]!.options,
         extras: ASK_ALWAYS_EXTRAS.map((id) => ({
           id,
           label: teamManagerStrings().askLabels[id] ?? id,
@@ -409,6 +415,16 @@ export class TeamManager {
     }
     if (req.language !== undefined && !options('lingua').some((o) => o.id === req.language)) {
       throw new TeamError('invalid_request', `unknown language ${req.language}`);
+    }
+    // The work and the hand-offs: only options the first start knows.
+    for (const [qid, answer] of [
+      ['lavoro', req.work],
+      ['deleghe', req.delegate],
+    ] as const) {
+      const known = ONBOARDING_QUESTIONS.find((q) => q.id === qid)!.groups[0]!.options;
+      const unknown = answer?.options.find((o) => !known.some((k) => k.id === o));
+      if (unknown !== undefined)
+        throw new TeamError('invalid_request', `unknown option ${unknown}`);
     }
     const userName = req.userName !== undefined ? cleanName(req.userName) : before.userName;
     const fields: string[] = [];
@@ -438,6 +454,14 @@ export class TeamManager {
     };
     if (req.style !== undefined) tone.text = req.style;
     answers['tono'] = tone;
+    for (const [qid, answer, field] of [
+      ['lavoro', req.work, 'work'],
+      ['deleghe', req.delegate, 'delegate'],
+    ] as const) {
+      if (!answer) continue;
+      answers[qid] = { values: { cosa: [...new Set(answer.options)] }, text: answer.text };
+      fields.push(field);
+    }
     if (req.askAlways) {
       answers['chiedi'] = {
         values: { cosa: [...ASK_ALWAYS_FIXED, ...new Set(req.askAlways.extras)] },
@@ -501,7 +525,10 @@ export class TeamManager {
     if (renameOrchestrator && orchestrator) {
       await this.#rename(orchestrator.config.id, cleanName(req.orchestratorName!), by);
     }
-    await this.#writeProfileNote(after, userName);
+    await this.#writeProfileNote(after, userName, {
+      work: req.work !== undefined,
+      delegate: req.delegate !== undefined,
+    });
     if (fields.length > 0) this.#event({ action: 'profile', fields, by });
     return this.profile();
   }
@@ -511,7 +538,12 @@ export class TeamManager {
    * is the user's. A note on disk keeps the family it was written in (D-153): its lines are found
    * and written in that one.
    */
-  async #writeProfileNote(after: Profile, userName: string): Promise<void> {
+  async #writeProfileNote(
+    after: Profile,
+    userName: string,
+    /** The sections the settings changed now: the others are the user's, never rewritten. */
+    sections: { work?: boolean; delegate?: boolean } = {},
+  ): Promise<void> {
     const { vault, team, settings } = this.#d;
     const orchestratorName = team.orchestrator()?.config.name ?? after.orchestratorName;
     const full = { ...after, userName, orchestratorName };
@@ -561,6 +593,25 @@ export class TeamManager {
     } else {
       text = text.replace(new RegExp(`^${escapeRegex(t.style)}.*\n?`, 'm'), '');
     }
+    const bullets = (items: string[]) =>
+      (items.length > 0 ? items : [PROFILE_TEXTS[lang].none]).map((i) => `- ${i}`).join('\n');
+    // A section the card changed: its lines replaced, or added before "always ask" if the note has none.
+    const replaceSection = (heading: string, items: string[]) => {
+      const rows = text.split('\n');
+      const at = rows.indexOf(heading);
+      const block = [heading, ...bullets(items).split('\n'), ''];
+      if (at >= 0) {
+        let end = at + 1;
+        while (end < rows.length && !rows[end]!.startsWith('## ')) end++;
+        text = [...rows.slice(0, at), ...block, ...rows.slice(end)].join('\n');
+        return;
+      }
+      const ask = rows.indexOf(t.askHeading);
+      if (ask >= 0) text = [...rows.slice(0, ask), ...block, ...rows.slice(ask)].join('\n');
+      else text = `${text.replace(/\s+$/, '')}\n\n${block.join('\n')}`;
+    };
+    if (sections.work) replaceSection(t.occupationHeading, words.occupation);
+    if (sections.delegate) replaceSection(t.delegateHeading, words.delegate);
     const ask = [
       ...words.askFirst.map((id) => PROFILE_TEXTS[lang].ask[id] ?? id),
       ...(words.askFirstText ? [words.askFirstText] : []),
@@ -2388,6 +2439,12 @@ export function createRequestOf(draft: TeamDraft): TeamMemberCreateRequest {
     genome: draft.genome as Record<string, unknown>,
     archetype: draft.archetype,
   };
+}
+
+/** An answer of the "Tell me more" card as the profile shows it; null while never answered. */
+function answerView(a: OnboardingAnswer | undefined): ProfileAnswer | null {
+  if (!a) return null;
+  return { options: (a.values['cosa'] ?? []).filter(Boolean), text: a.text?.trim() ?? '' };
 }
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
