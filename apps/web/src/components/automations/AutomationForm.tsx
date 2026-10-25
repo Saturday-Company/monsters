@@ -1,4 +1,4 @@
-import { appLang, formatNumber, VaultFolderSchema, type AutomationView } from '@monsters/shared';
+import { formatNumber, VaultFolderSchema, type AutomationView } from '@monsters/shared';
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { describeError } from '../../lib/api.ts';
 import {
@@ -15,7 +15,7 @@ import {
 } from '../../lib/automations.ts';
 import { isLive } from '../../lib/projects.ts';
 import { automationPath, openPage, useHashParam } from '../../lib/router.ts';
-import { cn, domId } from '../../lib/utils.ts';
+import { cn, domId, parseAmount } from '../../lib/utils.ts';
 import { getApi, notify } from '../../store/app.ts';
 import { useAgents, useOrchestrator, type AgentView } from '../../store/hooks.ts';
 import { useProjects } from '../../store/projects.ts';
@@ -105,22 +105,12 @@ function zones(current: string): string[] {
 }
 
 /**
- * A number field read: undefined when empty, NaN when not a number. The
- * separator of the thousands goes ("1.000" in Italian, "1,000" in English).
+ * A number field read with the app language's marks (`parseAmount`, D-172): undefined when
+ * empty, NaN when not a number, so "1,000" in English is a thousand and never 1.
  */
 function numberOf(s: string): number | undefined {
-  const t = s.trim();
-  if (!t) return undefined;
-  return appLang() === 'it'
-    ? Number(t.replace(/\./g, '').replace(',', '.'))
-    : Number(t.replace(/,/g, ''));
-}
-
-/** An amount in euros: a comma or a dot for the decimals. */
-function eurOf(s: string): number | undefined {
-  const t = s.trim().replace(',', '.');
-  if (!t) return undefined;
-  return Number(t);
+  const n = parseAmount(s);
+  return n === null ? undefined : (n ?? NaN);
 }
 
 type Errors = Partial<Record<'name' | 'objective' | 'schedule' | 'folder' | 'limits', string>>;
@@ -248,7 +238,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
     }
     const steps = numberOf(f.maxSteps);
     const tokens = numberOf(f.maxTokens);
-    const eur = eurOf(f.maxEur);
+    const eur = numberOf(f.maxEur);
     if (
       (steps !== undefined && !(Number.isInteger(steps) && steps >= 1 && steps <= 2000)) ||
       (tokens !== undefined &&
@@ -267,7 +257,7 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
     if (Object.keys(e).length > 0) return;
     const steps = numberOf(f.maxSteps);
     const tokens = numberOf(f.maxTokens);
-    const eur = eurOf(f.maxEur);
+    const eur = numberOf(f.maxEur);
     const limits = {
       ...(steps !== undefined ? { maxSteps: steps } : {}),
       ...(tokens !== undefined ? { maxTotalTokens: tokens } : {}),
