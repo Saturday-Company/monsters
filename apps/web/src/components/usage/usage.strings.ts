@@ -86,12 +86,28 @@ const en = {
     inOut: (input: string, output: string, cached?: string) =>
       `${input} in${cached ? ` + ${cached} from cache` : ''} · ${output} out`,
     fromCache: (n: string) => `+ ${n} from cache`,
-    subscription: 'subscription',
+    subscription: 'plan',
     archived: (day: string) =>
       `Partial count: this conversation’s usage before ${day} is in the log archive and doesn’t count here. The month’s spending is complete.`,
     sessionTitle: 'This conversation',
+    sessionDetailsTitle: 'Tokens and calls',
     sessionEmpty: 'Nothing yet: no work since the last “New conversation”.',
-    includedInSubscription: 'included in the subscription',
+    details: 'Details',
+    /** The first line of the panel, in words (U2-10). */
+    sentence: {
+      memory: (pct: string, cost: string | null) =>
+        `This conversation uses ${pct} of the model’s memory${cost ? `; ${cost}` : ''}.`,
+      memoryUnknown: (cost: string | null) =>
+        `The size of the model’s memory isn’t known yet${cost ? `; ${cost}` : ''}.`,
+      cost: (amount: string) => `it cost ${amount}`,
+      costFree: 'it was free',
+      lessThanCent: 'less than €0.01',
+      onPlan: (plan: string) => `It runs on your ${plan} plan, so it costs nothing extra.`,
+      planUsed: (plan: string, label: string, pct: number, note: string) =>
+        `Your ${plan} plan: ${label} is ${pct}% used (${note}).`,
+      near: 'Almost full: the older messages will be summarized soon.',
+    },
+    includedInSubscription: 'included in your plan',
     tokensIn: 'Tokens in',
     tokensOut: 'Tokens out',
     callsLabel: 'Calls',
@@ -115,7 +131,7 @@ const en = {
     spendTitle: 'Today · this month',
     teamLabel: (label: string) => `${label} · the squad`,
     onSubscription: (name: string) =>
-      `${name} works on the subscription: it’s included in the plan and doesn’t count toward the spending cap.`,
+      `${name} works on your plan: it’s included and doesn’t count toward the spending cap.`,
     agentSpend: (name: string, day: string, month: string) =>
       `${name}: ${day} today · ${month} this month`,
     capsLink: 'Spending cap · Settings → Models',
@@ -208,12 +224,27 @@ const it: typeof en = {
     inOut: (input, output, cached) =>
       `${input} in${cached ? ` + ${cached} dalla cache` : ''} · ${output} out`,
     fromCache: (n) => `+ ${n} dalla cache`,
-    subscription: 'abbonamento',
+    subscription: 'piano',
     archived: (day) =>
       `Conto parziale: i consumi di questa conversazione prima del ${day} sono nell’archivio del registro e qui non contano. La spesa del mese resta intera.`,
     sessionTitle: 'Questa conversazione',
+    sessionDetailsTitle: 'Token e chiamate',
     sessionEmpty: 'Ancora niente: nessun lavoro dall’ultima “Nuova conversazione”.',
-    includedInSubscription: 'incluso nell’abbonamento',
+    details: 'Dettagli',
+    sentence: {
+      memory: (pct, cost) =>
+        `Questa conversazione usa la memoria del modello al ${pct}${cost ? `; ${cost}` : ''}.`,
+      memoryUnknown: (cost) =>
+        `La dimensione della memoria del modello non è ancora nota${cost ? `; ${cost}` : ''}.`,
+      cost: (amount) => `è costata ${amount}`,
+      costFree: 'è gratis',
+      lessThanCent: 'meno di 0,01 €',
+      onPlan: (plan) => `Lavora con il tuo piano ${plan}, quindi non costa niente in più.`,
+      planUsed: (plan, label, pct, note) =>
+        `Il tuo piano ${plan}: ${label} è usato al ${pct}% (${note}).`,
+      near: 'Quasi piena: i messaggi più vecchi saranno presto riassunti.',
+    },
+    includedInSubscription: 'incluso nel tuo piano',
     tokensIn: 'Token in',
     tokensOut: 'Token out',
     callsLabel: 'Chiamate',
@@ -237,7 +268,7 @@ const it: typeof en = {
     spendTitle: 'Oggi · questo mese',
     teamLabel: (label) => `${label} · la squadra`,
     onSubscription: (name) =>
-      `${name} lavora con l’abbonamento: è incluso nel piano e non conta nel tetto di spesa.`,
+      `${name} lavora con il tuo piano: è incluso e non conta nel tetto di spesa.`,
     agentSpend: (name, day, month) => `${name}: ${day} oggi · ${month} questo mese`,
     capsLink: 'Tetto di spesa · Impostazioni → Modelli',
     loading: 'Leggo i consumi…',
