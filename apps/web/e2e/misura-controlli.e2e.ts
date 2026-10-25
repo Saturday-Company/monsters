@@ -70,4 +70,8 @@ async function measureSettings(page: Page): Promise<Record<string, number>> {
 test('settings: visible controls per tab', async ({ page }) => {
   const counts = await measureSettings(page);
   if (process.env['MONSTERS_MEASURE']) console.warn('settings', JSON.stringify(counts));
+  // Wave C (D-181…D-187): 71 / 194 / 211 before, 71 / 86 / 233 after. What a person meets with every
+  // row open must not creep back; Advanced may grow.
+  expect(counts['total']).toBeLessThanOrEqual(75);
+  expect(counts['total+rows']).toBeLessThanOrEqual(90);
 });
