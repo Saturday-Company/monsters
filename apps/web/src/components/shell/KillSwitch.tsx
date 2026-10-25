@@ -166,7 +166,10 @@ export function KillSwitch({ compact = false }: { compact?: boolean }) {
       data-state={state}
       data-armed={state === 'armed' ? 'true' : undefined}
       data-working={working ? 'true' : undefined}
-      className="kill group relative flex h-11 shrink-0 items-center gap-2.5 rounded-[12px] pr-1.5 pl-1 select-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-signal-ink disabled:cursor-wait"
+      className={cn(
+        'kill group relative flex h-11 shrink-0 items-center rounded-[12px] select-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-signal-ink disabled:cursor-wait',
+        compact ? 'gap-1.5 pr-1 pl-0.5' : 'gap-2.5 pr-1.5 pl-1',
+      )}
     >
       <span aria-hidden className="kill-house">
         <span className="kill-lever" />
@@ -174,19 +177,21 @@ export function KillSwitch({ compact = false }: { compact?: boolean }) {
       </span>
       <span
         aria-hidden
-        // On a phone the cover speaks for itself at rest: the light only, words when it matters.
+        // On a phone the word stays (the stripes alone say nothing); the light comes only when it matters.
         className={cn('flex items-center gap-2', !compact && 'w-[92px]')}
       >
-        <span
-          className="led"
-          data-tone={led}
-          data-blink={state === 'armed' ? '' : undefined}
-          data-testid="kill-light"
-        />
+        {(!compact || state !== 'idle') && (
+          <span
+            className="led"
+            data-tone={led}
+            data-blink={state === 'armed' ? '' : undefined}
+            data-testid="kill-light"
+          />
+        )}
         {state === 'armed' ? (
           // The whole sentence is in the title and in the announcement below.
           <span className="label text-micro text-stop-ink">{s.again}</span>
-        ) : compact ? null : (
+        ) : (
           <span
             className={cn('label text-micro', state === 'halted' ? 'text-ink' : 'text-stop-ink')}
           >

@@ -16,6 +16,8 @@ import { hideDock, usePreview } from '../../store/preview.ts';
 import { closeByBack } from '../dock/back.ts';
 import { useMediaQuery } from '../../store/hooks.ts';
 import { KillSwitch } from './KillSwitch.tsx';
+import { NewsKey } from './NewsSheet.tsx';
+import { ReviewKey } from './ReviewSheet.tsx';
 import { shellStrings } from './shell.strings.ts';
 import { StatusDisplay } from './StatusDisplay.tsx';
 
@@ -24,7 +26,7 @@ import { StatusDisplay } from './StatusDisplay.tsx';
  * across the whole window, and the window's title bar. On the left, as wide as
  * the sidebar, room for the traffic lights (macOS) and the monsters wordmark;
  * a seam; the title of the view and its keys; on the right the status display
- * and Ferma, always there; on Windows and Linux the room of the system
+ * and Ferma, always there, and before them the keys "Da rivedere" and "Novità" of every page; on Windows and Linux the room of the system
  * buttons. The shell owns the rail, so the stop stays even when a view is
  * loading or broken; each view puts its title and keys in it through
  * `<ToolbarContent>` (a portal). Until it does, the rail shows the page's name.
@@ -133,7 +135,10 @@ function BackKey() {
       className="key-ghost flex h-10 items-center gap-0.5 pr-2.5 pl-1 text-body font-semibold text-signal-ink"
     >
       <CaretLeft size={20} weight="bold" aria-hidden />
-      {sheet || !target ? shellStrings().toolbar.back : target.label}
+      {/* On a small phone the arrow says it; the word is still its name. */}
+      <span className="max-[439px]:sr-only">
+        {sheet || !target ? shellStrings().toolbar.back : target.label}
+      </span>
     </button>
   );
 }
@@ -164,7 +169,7 @@ function Wordmark({ mock }: { mock: boolean }) {
         {/* the wordmark is not translated */ 'monsters'}
       </span>
       {mock && (
-        <span className="label rounded-[5px] px-1.5 text-signal-ink shadow-[inset_0_0_0_1px_currentColor]">
+        <span className="label rounded-[5px] px-1.5 text-signal-ink shadow-[inset_0_0_0_1px_currentColor] max-[479px]:hidden">
           {shellStrings().toolbar.demo}
         </span>
       )}
@@ -192,6 +197,8 @@ export function Toolbar({
   mock?: boolean;
 }) {
   const wide = useMediaQuery('(min-width: 1100px)');
+  // A big phone, or one held sideways, has room for the words of the status; a small one, for its light and count.
+  const roomy = useMediaQuery('(min-width: 540px)');
   // Above every layer of the shell (terminal z-30, menus z-40): Ferma is always
   // visible and clickable.
   return (
@@ -246,8 +253,20 @@ export function Toolbar({
           {title}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-        <StatusDisplay size={phone ? 'dot' : wide ? 'full' : 'compact'} />
+      <div className="flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-3">
+        {/*
+          "To review" and "What's new" are in the rail of every page: the drafts and the paused
+          tools wait there whatever page is open. The news key is quiet until there is news.
+        */}
+        <div className="flex shrink-0 items-center">
+          {/* Without room for the word (a phone, a narrow window) the tray with its count says how many things wait. */}
+          <ReviewKey layout={wide ? 'inline' : 'icon'} />
+          {/* On a phone inside a page the title needs the room: the news key waits for the home. */}
+          {(!phone || atHome) && (
+            <NewsKey layout={phone ? 'icon' : 'inline'} hideQuiet={phone || !wide} />
+          )}
+        </div>
+        <StatusDisplay size={phone ? (roomy ? 'compact' : 'dot') : wide ? 'full' : 'compact'} />
         <KillSwitch compact={phone} />
       </div>
     </header>

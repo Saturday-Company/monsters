@@ -1,6 +1,7 @@
 import {
   USD_TO_EUR_DEFAULT,
   appLang,
+  appLocale,
   formatDate,
   formatNumber,
   timeOptions,
@@ -35,6 +36,27 @@ export function cn(...inputs: ClassValue[]): string {
 
 export function formatTime(ts: number): string {
   return formatDate(ts, timeOptions());
+}
+
+/** A clock time in its parts ("8", "27", "PM"), written as `formatTime` does: for the segment clock. */
+export interface TimeParts {
+  /** The whole time as `formatTime` says it. */
+  text: string;
+  hour: string;
+  minute: string;
+  /** "AM" / "PM" in a 12-hour language, otherwise null. */
+  period: string | null;
+}
+
+export function timeParts(ts: number): TimeParts {
+  const parts = new Intl.DateTimeFormat(appLocale(), timeOptions()).formatToParts(ts);
+  const of = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value;
+  return {
+    text: formatTime(ts),
+    hour: of('hour') ?? '',
+    minute: of('minute') ?? '',
+    period: of('dayPeriod') ?? null,
+  };
 }
 
 /** Whole calendar days from `ts` to `now`, local time (0 = today, 1 = yesterday). */

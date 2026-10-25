@@ -56,7 +56,6 @@ import {
   useAgents,
   useConnection,
   useLive,
-  useMediaQuery,
   useNameOf,
   useResolvedTheme,
   waitsForUser,
@@ -69,8 +68,6 @@ import { THEMES } from '../../theme/tokens.ts';
 import { playSound } from '../../lib/sound.ts';
 import { cn, dayKey, formatDay, formatTime } from '../../lib/utils.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
-import { NewsKey } from '../shell/NewsSheet.tsx';
-import { ReviewKey } from '../shell/ReviewSheet.tsx';
 import { ToolbarActions, ToolbarContent, ToolbarTitle } from '../shell/Toolbar.tsx';
 import { openTerminalAt } from '../terminal/focus.ts';
 import { Button, buttonVariants } from '../ui/button.tsx';
@@ -786,18 +783,6 @@ function ConnectModel({ className }: { className?: string }) {
   );
 }
 
-/** "To review" and "What’s new" in the rail: their names beside the key, under it on a phone. */
-function ActivityToggle() {
-  const phone = useMediaQuery('(max-width: 767px)');
-  const layout = phone ? 'stacked' : 'inline';
-  return (
-    <>
-      <ReviewKey layout={layout} />
-      <NewsKey layout={layout} />
-    </>
-  );
-}
-
 /** Above the composer while the open question is out of sight: one tap brings it back. */
 function QuestionBar({ name, onShow }: { name: string; onShow: () => void }) {
   const s = chatStrings().panel;
@@ -1235,10 +1220,7 @@ export function ChatPanel({
             )}
           </p>
         </div>
-        <ToolbarActions>
-          {rail?.keys}
-          <ActivityToggle />
-        </ToolbarActions>
+        <ToolbarActions>{rail?.keys}</ToolbarActions>
       </ToolbarContent>
 
       <ChatMonitor
