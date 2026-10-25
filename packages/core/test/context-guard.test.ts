@@ -1,6 +1,5 @@
 import { ProviderRegistry } from '@monsters/providers';
 import {
-  fake,
   FakeProvider,
   type FakeCall,
   type FakeScript,

@@ -124,7 +124,7 @@ export class ProjectStore {
 /** The names in the `connections` allow-list of a file of before D-164, or null when it has none. */
 function legacyAllowList(raw: unknown): string[] | null {
   if (typeof raw !== 'object' || raw === null || !('connections' in raw)) return null;
-  const c = (raw as { connections: unknown }).connections;
+  const c = raw.connections;
   if (typeof c !== 'object' || c === null) return [];
   const names = Object.values(c).flatMap((v) =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [],
