@@ -4,6 +4,7 @@ import {
   expectNoSideScroll,
   holdMock,
   releaseMock,
+  setTechnicalDetails,
   stepMockUntil,
   test,
 } from './fixtures.ts';
@@ -90,6 +91,10 @@ test('Automazioni: from the sidebar, the list by squad, the detail and a giro', 
   await expect(giri).toHaveCount(2);
   await expect(giri.first()).toHaveAttribute('data-state', 'completed');
   await expect(giri.first()).toContainText('on schedule');
+  // The tokens are technical details: off by default (D-181), here when they are turned on.
+  await expect(giri.first()).toContainText(/4 steps · free/i);
+  await expect(giri.first()).not.toContainText('tokens');
+  await setTechnicalDetails(page, true);
   await expect(giri.first()).toContainText(/4 steps · 16,480 tokens · free/i);
 
   await giri.first().getByRole('link').click();

@@ -10,7 +10,7 @@ export interface Prefs {
   reduceMotion: boolean;
   /** The synthesized sounds of the instrument (lib/sound.ts): off by default. */
   sounds: boolean;
-  /** The instrumentation line under the monsters' turns in the chat (on by default). */
+  /** The instrumentation line under the monsters' turns, tokens, model ids (off by default, D-181). */
   showDetails: boolean;
   /** The "Attività" column next to the chat (wide windows only). */
   activityPanel: boolean;
@@ -27,12 +27,24 @@ export const DOCK_WIDTH_MIN = 380;
 
 const KEY = 'monsters-prefs';
 
+/**
+ * Version of the stored preferences. Version 2 (D-181) turned the technical details off for
+ * everyone: a store written before it (no version) has its `showDetails` reset once; after that
+ * the person's own choice sticks again.
+ */
+export const PREFS_VERSION = 2;
+
+/** The preferences as they are stored: the version beside them, so a later reset can tell old from new. */
+function stored(p: Prefs): string {
+  return JSON.stringify({ ...p, version: PREFS_VERSION });
+}
+
 function load(): Prefs {
   const fallback: Prefs = {
     theme: 'system',
     reduceMotion: false,
     sounds: false,
-    showDetails: true,
+    showDetails: false,
     activityPanel: false,
     dockWidth: DOCK_WIDTH_DEFAULT,
     foldedSquads: [],
@@ -40,12 +52,14 @@ function load(): Prefs {
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return fallback;
-    const p = JSON.parse(raw) as Partial<Prefs>;
-    return {
+    const p = JSON.parse(raw) as Partial<Prefs> & { version?: unknown };
+    const current = typeof p.version === 'number' && p.version >= PREFS_VERSION;
+    const prefs: Prefs = {
       theme: p.theme === 'light' || p.theme === 'dark' ? p.theme : 'system',
       reduceMotion: p.reduceMotion === true,
       sounds: p.sounds === true,
-      showDetails: p.showDetails !== false,
+      // Before version 2 the details were on unless switched off: that value is not a choice any more.
+      showDetails: current ? p.showDetails === true : false,
       activityPanel: p.activityPanel === true,
       dockWidth:
         typeof p.dockWidth === 'number' && Number.isFinite(p.dockWidth)
@@ -55,6 +69,14 @@ function load(): Prefs {
         ? p.foldedSquads.filter((k): k is string => typeof k === 'string').slice(0, 100)
         : [],
     };
+    if (!current) {
+      try {
+        window.localStorage.setItem(KEY, stored(prefs));
+      } catch {
+        // private mode: the reset repeats at the next start, with the same result
+      }
+    }
+    return prefs;
   } catch {
     return fallback;
   }
@@ -65,7 +87,7 @@ export const usePrefs = create<Prefs>()(() => load());
 export function setPrefs(patch: Partial<Prefs>): void {
   usePrefs.setState(patch);
   try {
-    window.localStorage.setItem(KEY, JSON.stringify(usePrefs.getState()));
+    window.localStorage.setItem(KEY, stored(usePrefs.getState()));
   } catch {
     // private mode: preferences last for this tab only
   }
