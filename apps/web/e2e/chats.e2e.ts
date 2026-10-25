@@ -289,20 +289,144 @@ test('the monitor of the monster, the instrumentation line and "Dietro le quinte
   await expect(page.getByTestId('chat-summary')).toHaveCount(0);
 });
 
-test('the keypad: a letter presses the key when the composer is empty', async ({ page }) => {
+test('the keypad: a sentence typed in the composer stays words, a letter picks with a moment to undo (V-1)', async ({
+  page,
+}) => {
   await page.goto('/?mock=demo&mockSpeed=0.4');
   const card = page
     .getByTestId('question-card')
     .filter({ hasText: 'What tone should we give the posts?' });
   await expect(card).toHaveAttribute('data-keypad', 'on');
   const input = page.getByRole('combobox', { name: 'Message' });
-  await expect(input).toHaveAttribute('placeholder', 'Message Titan, or press A, B or C');
-  // Typing in the composer is writing, not pressing.
-  await input.fill('c');
-  await input.press('b');
+  await expect(input).toHaveAttribute(
+    'placeholder',
+    'Message Titan, or type A, B or C and press Enter',
+  );
+  await expect(card).toContainText('Type A, B or C and press Enter, or write your answer below.');
+  // The empty composer has the focus: "Can you also…" starts with C, and it is a sentence.
+  await input.focus();
+  await page.keyboard.type('Can you also');
+  await expect(input).toHaveValue('Can you also');
   await expect(card).toHaveAttribute('data-status', 'open');
-  await input.fill('');
-  await input.press('b');
-  await expect(card).toHaveAttribute('data-status', 'answered');
+  await expect(card.getByTestId('answer-undo')).toHaveCount(0);
+
+  // A letter alone and Enter picks that key; Esc takes it back before it leaves.
+  await input.fill('b');
+  await expect(page.getByTestId('composer-pick')).toHaveText('Press Enter to pick Ironic');
+  await input.press('Enter');
+  await expect(card.getByTestId('answer-undo')).toContainText('Sent: Ironic');
+  await expect(input).toHaveValue('');
+  await page.keyboard.press('Escape');
+  await expect(card.getByTestId('answer-undo')).toHaveCount(0);
+  await expect(card).toHaveAttribute('data-status', 'open');
+
+  // Outside the text fields the letter alone presses the key, and "Undo" is one Tab away.
+  await input.blur();
+  await page.keyboard.press('a');
+  await expect(card.getByTestId('answer-undo')).toContainText('Sent: Friendly');
+  await expect(card.getByRole('button', { name: 'Undo the answer' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(card.getByTestId('answer-undo')).toHaveCount(0);
+  await expect(card).toHaveAttribute('data-status', 'open');
+  await page.keyboard.press('b');
+  await expect(card.getByTestId('answer-undo')).toContainText('Sent: Ironic');
+  // Left alone, it goes after the moment.
+  await expect(card).toHaveAttribute('data-status', 'answered', { timeout: 10_000 });
   await expect(card).toContainText('You chose: Ironic');
+});
+
+test('a chat loads its own history, beyond the newest page of the whole log (W-1)', async ({
+  page,
+}) => {
+  // A long job of Enceladus after the demo: the newest page of the log is all its steps.
+  await page.goto('/?mock=demo&mockNoise=500#/?chat=dione');
+  const bubbles = [
+    'Dione, can you write me a short bio for Instagram?',
+    'Use this photo for Saturday’s post, and show me the menu on a page.',
+  ];
+  await expect(page.getByTestId('user-bubble')).toHaveText(bubbles);
+  await expect(page.getByTestId('chat-panel')).toContainText('Slow travels, crooked photos');
+  await page.reload();
+  await expect(page.getByTestId('user-bubble')).toHaveText(bubbles);
+  // The lead's chat too: the open question is back with its card.
+  await god(page).click();
+  await expect(
+    page.getByTestId('question-card').filter({ hasText: 'What tone should we give the posts?' }),
+  ).toHaveAttribute('data-status', 'open');
+});
+
+test('a chat opens at the very bottom, and a message sent while scrolled up comes into view (V-2, W-21)', async ({
+  page,
+}) => {
+  // The lead's chat ends on the card of its open question: the chat grows after the first
+  // layout, and its last lines stayed under the composer.
+  await page.goto('/?mock=demo');
+  const scroller = page.getByTestId('chat-scroller');
+  const gap = () =>
+    scroller.evaluate((el) => Math.round(el.scrollHeight - el.scrollTop - el.clientHeight));
+  await expect(page.getByTestId('question-card').first()).toBeVisible();
+  await expect.poll(gap).toBeLessThanOrEqual(1);
+
+  // Dione's chat: up to re-read something, then a message. It is not left off screen.
+  await page.setViewportSize({ width: 1440, height: 600 });
+  await row(page, 'Dione').click();
+  await expect(page.getByTestId('user-bubble').first()).toBeVisible();
+  await expect.poll(gap).toBeLessThanOrEqual(1);
+  await scroller.evaluate((el) => el.scrollTo({ top: 0 }));
+  await expect.poll(gap).toBeGreaterThan(150);
+  const input = page.getByRole('combobox', { name: 'Message' });
+  await input.fill('One more thing: keep it short');
+  await input.press('Enter');
+  await expect(
+    page.getByTestId('user-bubble').filter({ hasText: 'keep it short' }),
+  ).toBeInViewport();
+});
+
+test('the draft of each chat stays through a chat switch and a reload, and goes once sent (W-7)', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/?chat=dione');
+  const input = page.getByRole('combobox', { name: 'Message' });
+  await input.fill('Half a thought for Dione');
+  await row(page, 'Rhea').click();
+  await expect(page).toHaveURL(/chat=rhea/);
+  await expect(input).toHaveValue('');
+  await input.fill('And one for Rhea');
+  await row(page, 'Dione').click();
+  await expect(input).toHaveValue('Half a thought for Dione');
+  await page.reload();
+  await expect(input).toHaveValue('Half a thought for Dione');
+  await input.press('Enter');
+  await expect(
+    page.getByTestId('user-bubble').filter({ hasText: 'Half a thought for Dione' }),
+  ).toBeVisible();
+  await expect(input).toHaveValue('');
+  await page.reload();
+  await expect(page.getByTestId('chat-panel')).toBeVisible();
+  await expect(input).toHaveValue('');
+  await row(page, 'Rhea').click();
+  await expect(input).toHaveValue('And one for Rhea');
+});
+
+test('a message written while the monsters are stopped is not lost in a reload (W-6)', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/?chat=dione');
+  await page.getByTestId('kill').click();
+  await page.getByTestId('kill').click();
+  await expect(page.getByTestId('halt-banner')).toBeVisible();
+  const input = page.getByRole('combobox', { name: 'Message' });
+  await input.fill('When you’re back, a caption for the photo');
+  await input.press('Enter');
+  const held = page.getByTestId('user-bubble').filter({ hasText: 'a caption for the photo' });
+  await expect(held).toHaveAttribute('data-held', 'true');
+  // The page reloads (an update, a crash): the mock core starts again, running. The message
+  // was kept, and goes now as promised.
+  await page.reload();
+  await expect(held).toBeVisible();
+  await expect(held).not.toHaveAttribute('data-held', 'true');
+  await expect(page.getByTestId('held-note')).toHaveCount(0);
+  // Sent once: another reload does not send it again.
+  await page.reload();
+  await expect(held).toHaveCount(0);
 });
