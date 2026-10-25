@@ -111,7 +111,7 @@ describe('project_propose: the participants may name the monster a copy comes fr
 });
 
 describe('the stop at the project’s cap says where to raise it', () => {
-  it('"nella scheda Spesa del progetto", not "Impostazioni → Modelli"', async () => {
+  it('"nella scheda Impostazioni del progetto", not "Impostazioni → Modelli"', async () => {
     inLang('it');
     const t = await startTestHub({ titan: [] }, { lang: 'it' });
     const project = await t.json<{ id: string; lead: string }>('POST', '/api/projects', {

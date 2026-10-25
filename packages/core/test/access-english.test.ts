@@ -249,7 +249,7 @@ describe('the reasons an access is missing, in English', () => {
     const canva = state.services.find((s) => s.name === 'Canva')!;
     expect(canva).toMatchObject({ has: false, off: false, project: true });
     expect(canva.why).toBe(
-      'Canva is connected to the user’s account but not to this project: it is given on the “Social project” project page, Connections tab (you can ask for it with `access_request`)',
+      'Canva is connected to the user’s account but not to this project: it is given on the “Social project” project page, Settings tab (you can ask for it with `access_request`)',
     );
     const gallery = state.services.find((s) => s.aliases?.includes('Gmail'))!;
     expect(gallery.why).toBe(

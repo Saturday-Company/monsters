@@ -81,7 +81,13 @@ test('Progetti: the squads in the sidebar, the page of a project and its tabs', 
     'page',
   );
   const tabs = page.getByRole('tablist', { name: 'Saturday Social sections' });
-  await expect(tabs.getByRole('tab')).toHaveCount(7);
+  await expect(tabs.getByRole('tab')).toHaveText([
+    'Chat',
+    'Squad',
+    'Notes',
+    'Automations',
+    'Settings',
+  ]);
   await expect(page.getByTestId('chat-panel')).toHaveAttribute('data-agent', 'iapetus');
   await expect(page.getByTestId('project-stop')).toBeVisible();
   await shot(page, 'progetti-pagina-chat-chiaro');
@@ -96,30 +102,70 @@ test('Progetti: the squads in the sidebar, the page of a project and its tabs', 
   await tabs.getByRole('tab', { name: 'Note' }).click();
   // The giri of "Post della settimana" wrote their notes in the project's area.
   await expect(page.getByTestId('project-note')).toHaveCount(2);
-  await tabs.getByRole('tab', { name: 'Folder' }).click();
-  await expect(page.getByTestId('project-folder-path')).toHaveText(
-    '/home/andrea/Projects/social-saturday',
-  );
-  await tabs.getByRole('tab', { name: 'Connections' }).click();
-  await expect(page.getByTestId('project-web').getByRole('switch')).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
   await tabs.getByRole('tab', { name: 'Automations' }).click();
   const auto = page.getByTestId('automation-row');
   await expect(auto).toHaveCount(1);
   await expect(auto).toContainText('Weekly posts');
-  await tabs.getByRole('tab', { name: 'Spending' }).click();
+  // Settings: the folder, the apps, the spending and the archive, one page that scrolls.
+  await tabs.getByRole('tab', { name: 'Settings' }).click();
+  await expect(page).toHaveURL(/sezione=impostazioni/);
+  await expect(page.getByTestId('project-folder-path')).toHaveText(
+    '/home/andrea/Projects/social-saturday',
+  );
+  await expect(page.getByTestId('project-web').getByRole('switch')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
   await expect(page.getByTestId('project-spend')).toContainText('This month');
   await expect(page.getByTestId('project-caps-month')).toHaveValue('20');
-  await expect(page.getByTestId('project-spend-team')).toContainText('whole squad');
-  await shot(page, 'progetti-pagina-spesa-chiaro');
+  await expect(page.getByTestId('project-spend-team')).toContainText('all monsters');
+  await expect(page.getByTestId('project-archive')).toBeVisible();
+  await shot(page, 'progetti-pagina-impostazioni-chiaro');
 
   // Automazioni groups by project, with the project's name.
   await page.getByTestId('sidebar').getByRole('link', { name: 'Automations' }).click();
   await expect(page.getByTestId('automation-squad').getByRole('heading')).toHaveText(
     'Saturday Social · 1',
   );
+});
+
+test('Progetti: a project with the name only; folder, lead and apps stay behind More options', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?mock=demo');
+  await page.getByTestId('project-new').click();
+  const form = page.getByTestId('project-form');
+  // What it asks as it opens: the name, and a closed row for the rest.
+  await expect(form.getByTestId('project-name')).toBeVisible();
+  const more = form.getByRole('button', { name: /More options/ });
+  await expect(more).toHaveAttribute('aria-expanded', 'false');
+  await expect(form.getByTestId('project-path')).toHaveCount(0);
+  await expect(form.getByTestId('project-lead-name')).toHaveCount(0);
+  await expect(form.getByRole('radio')).toHaveCount(0);
+  await shot(page, 'progetti-nuovo-solo-nome-chiaro');
+
+  await page.getByTestId('project-name').fill('Taccuino');
+  await page.getByTestId('project-create').click();
+  await expect(page).toHaveURL(/#\/progetto\?id=taccuino$/);
+  // The lead has a name the core picked, and there is no folder: the defaults of always.
+  const lead = squad(page, 'taccuino').getByTestId('chat-row');
+  await expect(lead).toHaveCount(1);
+  await expect(page.getByTestId('chat-panel')).not.toHaveAttribute('data-agent', 'titan');
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await expect(page.getByTestId('project-folder')).toContainText('No folder');
+  await expect(page.getByTestId('project-folder-path')).toHaveCount(0);
+
+  // A problem with something behind the row opens it by itself.
+  await page.getByTestId('project-new').click();
+  await page.getByTestId('project-name').fill('Rotta');
+  await page.getByRole('button', { name: /More options/ }).click();
+  await form.getByRole('radio', { name: 'An existing one' }).click();
+  await page.getByRole('button', { name: /More options/ }).click();
+  await expect(page.getByTestId('project-path')).toHaveCount(0);
+  await page.getByTestId('project-create').click();
+  await expect(page.getByTestId('project-path')).toBeVisible();
+  await expect(form).toContainText('Type the full path of the folder');
 });
 
 test('Progetti: a new project from the sidebar, with its lead and a copied monster', async ({
@@ -134,6 +180,7 @@ test('Progetti: a new project from the sidebar, with its lead and a copied monst
   await page.getByTestId('project-create').click();
   await expect(form).toContainText('Give the project a name.');
   await page.getByTestId('project-name').fill('Newsletter');
+  await form.getByRole('button', { name: /More options/ }).click();
   await form
     .getByRole('radiogroup', { name: 'The project’s folder' })
     .getByRole('radio', { name: 'A new one' })
@@ -180,8 +227,8 @@ test('Progetti: a new project from the sidebar, with its lead and a copied monst
   await dione.getByRole('button', { name: 'Yes, remove' }).click();
   await expect(page.getByTestId('project-member')).toHaveCount(2);
 
-  // Archive (at the foot of Cartella), then restore from the archived projects of the sidebar.
-  await page.getByRole('tab', { name: 'Folder' }).click();
+  // Archive (at the foot of Settings), then restore from the archived projects of the sidebar.
+  await page.getByRole('tab', { name: 'Settings' }).click();
   await page.getByTestId('project-archive').getByRole('button', { name: 'Archive' }).click();
   await page.getByTestId('project-archive').getByRole('button', { name: 'Yes, archive' }).click();
   await expect(page.getByTestId('project-archived-page')).toBeVisible();
@@ -210,6 +257,7 @@ test('Progetti: a new project has the team’s connections on, the user turns of
   });
   await page.getByTestId('project-new').click();
   await page.getByTestId('project-name').fill('Nebula');
+  await page.getByRole('button', { name: /More options/ }).click();
   const links = page.getByTestId('project-form-links');
   await expect(links.getByTestId('project-form-link')).toHaveCount(2);
   const canva = links.getByRole('switch', { name: 'Canva for the project' });
@@ -220,7 +268,7 @@ test('Progetti: a new project has the team’s connections on, the user turns of
   await expect(figma).toHaveAttribute('aria-checked', 'false');
   await page.getByTestId('project-create').click();
   await expect(page).toHaveURL(/#\/progetto\?id=nebula$/);
-  await page.getByRole('tab', { name: 'Connections' }).click();
+  await page.getByRole('tab', { name: 'Settings' }).click();
   const chosen = page.getByTestId('project-links');
   await expect(chosen.getByRole('switch', { name: 'Canva for the project' })).toHaveAttribute(
     'aria-checked',
@@ -293,6 +341,113 @@ test('Progetti: Ferma progetto stops its monsters with two presses, not the kill
   await expect(page.getByTestId('halt-banner')).toHaveCount(0);
 });
 
+/** The mock core of the page, to change what the page then reads (permissions, a project). */
+type MockHandle = { handle(m: string, p: string, b: unknown): unknown };
+const mockHandle = (page: Page, method: string, path: string, body?: unknown) =>
+  page.evaluate(
+    ([m, p, b]) =>
+      (window as unknown as { __monstersMock: MockHandle }).__monstersMock.handle(m, p, b),
+    [method, path, body] as const,
+  );
+
+/** Settings read again what the mock now holds (the mock lives in the page: a reload would reset it). */
+async function reopenSettings(page: Page) {
+  await page.getByRole('tab', { name: 'Squad' }).click();
+  await expect(page.getByTestId('project-members')).toBeVisible();
+  await page.getByRole('tab', { name: 'Settings' }).click();
+}
+
+test('Progetti: the old tabs’ names (cartella, collegamenti, spesa) open Settings at their part', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 700 });
+  const tabs = page.getByRole('tablist', { name: 'Saturday Social sections' });
+  for (const [old, part] of [
+    ['cartella', 'project-folder'],
+    ['collegamenti', 'project-links'],
+    ['spesa', 'project-spend'],
+    ['archivio', 'project-archive'],
+  ] as const) {
+    await page.goto(`/?mock=demo#/progetto?id=social-di-saturday&sezione=${old}`);
+    await expect(tabs.getByRole('tab', { name: 'Settings' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    // The link becomes Settings’ own, and the part is in view (the column scrolled to it).
+    await expect(page).toHaveURL(/sezione=impostazioni$/);
+    await expect(page.getByTestId(part)).toBeInViewport();
+  }
+});
+
+test('Progetti: Settings lists the monsters that cannot search the web, with why and "Allow"', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?mock=demo#/progetto?id=social-di-saturday&sezione=impostazioni');
+  await page.waitForFunction(() => '__monstersMock' in window);
+  const web = page.getByTestId('project-web');
+  // Everyone can: one line says so, and there is no list.
+  await expect(web.getByTestId('project-web-all-ok')).toBeVisible();
+  await expect(page.getByTestId('project-web-blocked')).toHaveCount(0);
+
+  // Calypso’s own web permission is off.
+  await mockHandle(page, 'PUT', '/api/permissions', {
+    agents: { calypso: { vault: true, web: false, shell: false, folders: [] } },
+  });
+  await reopenSettings(page);
+  const blocked = page.getByTestId('project-web-blocked');
+  await expect(blocked.getByTestId('project-web-blocked-monster')).toHaveCount(1);
+  await expect(blocked).toContainText('Calypso');
+  await expect(blocked).toContainText('Its web permission is off');
+  await expect(blocked.getByRole('heading')).toHaveText('Can’t search the web · 1');
+  // The web permission of each monster lives in Settings → Permissions: a link there.
+  await expect(web.getByRole('link', { name: 'Settings → Permissions' })).toHaveAttribute(
+    'href',
+    '#/impostazioni?sezione=permessi',
+  );
+  await blocked.getByRole('button', { name: 'Allow Calypso to search the web' }).click();
+  await expect(page.getByText('Calypso can search the web now.')).toBeVisible();
+  await expect(page.getByTestId('project-web-blocked')).toHaveCount(0);
+  await expect(web.getByTestId('project-web-all-ok')).toBeVisible();
+  // It went through the permissions API: Settings → Permissions says the same.
+  const permissions = JSON.stringify(await mockHandle(page, 'GET', '/api/permissions'));
+  expect(permissions).toMatch(/"id":"calypso"[^}]*"permissions":\{"vault":true,"web":true/);
+
+  // The project’s web search off: every monster of the project is on the list, for that reason.
+  await web.getByRole('switch', { name: 'Web search for the project' }).click();
+  await expect(blocked.getByTestId('project-web-blocked-monster')).toHaveCount(3);
+  await expect(blocked).toContainText('Web search is off for the project');
+  // One "Allow" turns it back on, for everyone whose own permission is on.
+  await blocked.getByRole('button', { name: 'Allow Pandora to search the web' }).click();
+  await expect(web.getByRole('switch', { name: 'Web search for the project' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(page.getByTestId('project-web-blocked')).toHaveCount(0);
+});
+
+test('Progetti: a monster that is off in both places is allowed in both with one "Allow"', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?mock=demo#/progetto?id=social-di-saturday&sezione=impostazioni');
+  await page.waitForFunction(() => '__monstersMock' in window);
+  await mockHandle(page, 'PUT', '/api/permissions', {
+    agents: { pandora: { vault: true, web: false, shell: false, folders: [] } },
+  });
+  await page.getByRole('switch', { name: 'Web search for the project' }).click();
+  await reopenSettings(page);
+  const blocked = page.getByTestId('project-web-blocked');
+  const pandora = blocked.getByTestId('project-web-blocked-monster').filter({ hasText: 'Pandora' });
+  await expect(pandora).toContainText('Off for the project and in its own permission');
+  await pandora.getByRole('button', { name: 'Allow Pandora to search the web' }).click();
+  await expect(page.getByText('Pandora can search the web now.')).toBeVisible();
+  await expect(page.getByTestId('project-web-blocked')).toHaveCount(0);
+  await expect(
+    page.getByTestId('project-web').getByRole('switch', { name: 'Web search for the project' }),
+  ).toHaveAttribute('aria-checked', 'true');
+});
+
 for (const scheme of ['dark', 'light'] as const) {
   test(`Progetti on a phone in ${scheme}: squads, the page, Da rivedere, no sideways scroll`, async ({
     page,
@@ -311,9 +466,24 @@ for (const scheme of ['dark', 'light'] as const) {
     await page.getByRole('tab', { name: 'Squad' }).click();
     await expect(page.getByTestId('project-member')).toHaveCount(3);
     await noSideScroll(page, 390);
+    // (The rows first show a plain version, then the full one once the monster is read.)
+    await expect(
+      page.getByTestId('project-member').getByRole('button', { expanded: false }),
+    ).toHaveCount(3);
+    // What flaked here with many workers: a screen-reader-only status after a truncated line sat
+    // outside the clipped box (its status text is long only for some of the mock's moods), and
+    // pushed the page 45 px sideways. Every such span must be clipped by the line that holds it.
+    expect(
+      await page.evaluate(
+        () =>
+          [...document.querySelectorAll<HTMLElement>('.truncate .sr-only')].filter(
+            (el) => !el.closest('.truncate')?.contains(el.offsetParent),
+          ).length,
+      ),
+    ).toBe(0);
     await shot(page, `progetti-pagina-squadra-telefono-${tag}`);
-    await page.getByRole('tab', { name: 'Spending' }).click();
-    await expect(page.getByTestId('project-spend')).toBeVisible();
+    await page.getByRole('tab', { name: 'Settings' }).click();
+    await expect(page.getByTestId('project-spend')).toBeAttached();
     await noSideScroll(page, 390);
     await page.getByRole('tab', { name: 'Chat' }).click();
     await page.getByTestId('review-toggle').click();

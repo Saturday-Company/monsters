@@ -189,7 +189,7 @@ describe('the prompt of a project’s monster says what the user turned off (D-1
       'Canva (tramite Claude) è collegato all’account dell’utente, ma l’utente l’ha spento per questo progetto',
     );
     expect(seen).toContain('Non dire che non è collegato');
-    expect(seen).toContain('nella pagina del progetto «Saturday», scheda Collegamenti');
+    expect(seen).toContain('nella pagina del progetto «Saturday», scheda Impostazioni');
     expect(seen).toContain('access_request');
   });
 
