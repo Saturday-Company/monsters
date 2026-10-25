@@ -19,19 +19,19 @@
  * configuration (`rm -rf sub`), and writers that never name a file (`git stash pop`, `git checkout main`).
  */
 
-import { readdirSync } from 'node:fs';
+import { opendirSync, realpathSync, statSync, type Dir } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 /**
  * Names of the harness configuration inside a command line (a word, any path before it). A folder name
  * may follow a brace or a comma (`{a,.claude}`), a host (`host:.claude`) or a short option glued to it
  * (`-t.claude`), or the write command of a script glued to it (`sed 'w.claude/x'`, `1w.claude/x`, ed's and
  * vim's `w!.claude/x`); `CLAUDE.md` and `AGENTS.md` count anywhere (`-oCLAUDE.md`, `sed 1wCLAUDE.md`):
- * review of 25/10, C-18.
+ * review of 25/10, C-18. Windows' short names count too (`CLAUDE~1.MD`, `CLAUDE~1` for `.claude`).
  */
 const CONFIG_WORD =
-  /(?:(?:^|[\s'"`=;|&(<>/\\{,:]|(?:^|\s)-[A-Za-z]{1,12}|(?:^|[\s'"`;:/\d$!}])[wW][q!]?)(?:\.claude(?:[/\\]|\b)|\.mcp\.json\b|\.codex(?:[/\\]|\b))|CLAUDE(?:\.local)?\.md\b|AGENTS(?:\.override)?\.md\b)/i;
+  /(?:(?:^|[\s'"`=;|&(<>/\\{,:]|(?:^|\s)-[A-Za-z]{1,12}|(?:^|[\s'"`;:/\d$!}])[wW][q!]?)(?:\.claude(?:[/\\]|\b)|\.mcp\.json\b|\.codex(?:[/\\]|\b))|CLAUDE(?:\.local)?\.md\b|AGENTS(?:\.override)?\.md\b|(?:^|[\s'"`=;|&(<>/\\{,:])(?:CLAUDE|AGENTS|CODEX|MCP)~\d)/i;
 /** The same names as whole path segments, for the words the shell expands (`CLAU*`, `{CLAUDE,x}.md`). */
 const CONFIG_SEGMENTS = [
   '.claude',
@@ -116,6 +116,23 @@ function braces(pattern: string, limit = 64): string[] {
 const STAR = '\0*';
 const ANY = '\0?';
 
+/** Where the bracket expression that opens at `at` closes (the index of its `]`), or -1. */
+function bracketEnd(segment: string, at: number): number {
+  let j = at + 1;
+  if (segment[j] === '!' || segment[j] === '^') j++;
+  if (segment[j] === ']') j++;
+  for (; j < segment.length; j++) {
+    const c = segment[j]!;
+    if (c === '\\') j++;
+    else if (c === '[' && /[:.=]/.test(segment[j + 1] ?? '')) {
+      const close = segment.indexOf(`${segment[j + 1]!}]`, j + 2);
+      if (close === -1) return -1;
+      j = close + 1;
+    } else if (c === ']') return j;
+  }
+  return -1;
+}
+
 /** A glob path segment as tokens: `STAR`, `ANY` (also for a `[…]` class) or one literal character. */
 function globTokens(segment: string): string[] {
   const out: string[] = [];
@@ -127,7 +144,8 @@ function globTokens(segment: string): string[] {
       if (out[out.length - 1] !== STAR) out.push(STAR);
     } else if (c === '?') out.push(ANY);
     else if (c === '[') {
-      const end = segment.indexOf(']', i + 2);
+      // A bracket expression, `[!…]`, `[]…]` and POSIX classes (`[[:upper:]]`) included: any one character.
+      const end = bracketEnd(segment, i);
       if (end === -1) out.push(c);
       else {
         out.push(ANY);
@@ -139,8 +157,8 @@ function globTokens(segment: string): string[] {
 }
 
 /** Does a glob segment match a name, case aside? Linear wildcard matching; `*` skips a leading dot, as in bash. */
-function globMatch(tokens: readonly string[], name: string): boolean {
-  if (name.startsWith('.') && tokens[0] !== '.') return false;
+function globMatch(tokens: readonly string[], name: string, period = true): boolean {
+  if (period && name.startsWith('.') && tokens[0] !== '.') return false;
   let p = 0;
   let s = 0;
   let star = -1;
@@ -188,66 +206,144 @@ function globNames(pattern: string): boolean {
   });
 }
 
-/** Most folder entries looked at to expand one word: past it the pattern alone decides. */
+/** Most folder entries read to judge one line: past it the patterns alone decide. */
 const EXPAND_MAX = 4096;
+/** Most glob words of one line expanded on disk: past it the patterns alone decide. */
+const EXPAND_WORDS = 64;
+
+/** The segments of a path, for the part one path adds to another. */
+const segmentsOf = (path: string) => path.split(/[/\\]+/).filter(Boolean);
+
+/**
+ * The disk as the line will find it, read once per line: folder listings and real paths, under one
+ * budget of entries (a folder of 200,000 files is not read whole, C-19 for the disk).
+ */
+class Disk {
+  readonly root: string;
+  readonly #entries = new Map<string, string[] | null>();
+  readonly #real = new Map<string, string>();
+  #budget = EXPAND_MAX;
+
+  constructor(root: string) {
+    this.root = root;
+  }
+
+  /** The names in a folder, or null when it cannot be told (missing, unreadable, past the budget). */
+  list(dir: string): string[] | null {
+    const known = this.#entries.get(dir);
+    if (known !== undefined) return known;
+    let out: string[] | null = [];
+    let d: Dir | undefined;
+    try {
+      d = opendirSync(dir);
+      for (let e = d.readSync(); e; e = d.readSync()) {
+        if (--this.#budget < 0) {
+          out = null;
+          break;
+        }
+        out.push(e.name);
+      }
+    } catch {
+      // Missing too: a folder made earlier on the line (`unzip -d t && cp t/* .`) is not empty.
+      out = null;
+    } finally {
+      try {
+        d?.closeSync();
+      } catch {
+        // Closed already.
+      }
+    }
+    this.#entries.set(dir, out);
+    return out;
+  }
+
+  isDir(path: string): boolean {
+    try {
+      return statSync(path).isDirectory();
+    } catch {
+      return false;
+    }
+  }
+
+  real(path: string): string {
+    let r = this.#real.get(path);
+    if (r === undefined) {
+      try {
+        r = realpathSync.native(path);
+      } catch {
+        r = path;
+      }
+      this.#real.set(path, r);
+    }
+    return r;
+  }
+
+  /**
+   * What a path adds, once links are followed, to the folder the line starts in (`cfg/x` with
+   * `cfg -> .claude` is `.claude/x`). The folder itself may sit under a `.claude`: never judged.
+   */
+  added(path: string): string {
+    const root = segmentsOf(this.real(this.root));
+    const real = segmentsOf(this.real(path));
+    let k = 0;
+    while (k < root.length && k < real.length && root[k] === real[k]) k++;
+    return real.slice(k).join('/');
+  }
+}
 
 /**
  * Does the shell's expansion of this pattern, run in `cwd`, name a configuration? Each glob segment is
- * matched against the entries of its folder, as bash does (`*` skips the names that start with a dot); a
- * pattern that matches nothing stays itself, a word that names nothing. Undefined when it cannot be told:
- * a folder it may not list, `~user`, too many entries.
+ * matched against the entries of its folder, as bash does (`*` skips the names that start with a dot), and
+ * each match is judged with its links followed. Undefined when it cannot be told, and then the pattern
+ * decides: a brace (`{A..Z}` makes names that do not exist yet), `**` (any depth with globstar), a
+ * folder that cannot be listed or does not exist yet, `~user`, the budget spent.
  */
-function expansionNames(pattern: string, cwd: string): boolean | undefined {
-  let seen = 0;
-  for (const p of braces(pattern)) {
-    let segments = p.split('/');
-    /** The paths matched so far: on disk, and as the pattern wrote them. */
-    let paths: { abs: string; rel: string }[];
-    if (p.startsWith('/')) {
-      paths = [{ abs: '/', rel: '' }];
-      segments = segments.slice(1);
-    } else if (segments[0] === '~') {
-      paths = [{ abs: homedir(), rel: '~' }];
-      segments = segments.slice(1);
-    } else if (segments[0]!.startsWith('~')) return undefined;
-    else paths = [{ abs: cwd, rel: '.' }];
-    for (const segment of segments) {
-      if (segment === '') continue;
-      if (!/[*?[]/.test(segment.replace(/\\./g, ''))) {
-        const name = segment.replace(/\\(.)/g, '$1');
-        paths = paths.map((x) => ({ abs: join(x.abs, name), rel: `${x.rel}/${name}` }));
-        continue;
-      }
-      // Longer than any name can be: it matches nothing (and stays linear on a long line, C-19).
-      if (segment.length > 1_024) {
-        paths = [];
-        break;
-      }
-      const tokens = globTokens(segment);
-      const next: typeof paths = [];
-      for (const x of paths) {
-        let entries: string[];
-        try {
-          entries = readdirSync(x.abs);
-        } catch (err) {
-          // No such folder: nothing to expand there (bash leaves the pattern as it is).
-          const code = (err as NodeJS.ErrnoException).code;
-          if (code === 'ENOENT' || code === 'ENOTDIR') continue;
-          return undefined;
-        }
-        seen += entries.length;
-        if (seen > EXPAND_MAX) return undefined;
-        for (const e of entries) {
-          if (globMatch(tokens, e)) next.push({ abs: join(x.abs, e), rel: `${x.rel}/${e}` });
-        }
-      }
-      paths = next;
-      if (paths.length === 0) break;
+function expansionNames(
+  pattern: string,
+  cwd: string,
+  disk: Disk,
+  stale: (dir: string) => boolean = () => false,
+): boolean | undefined {
+  if (/(?:^|[^\\])[{]/.test(pattern) || /\*\*/.test(pattern)) return undefined;
+  let segments = pattern.split('/');
+  /** The paths matched so far: on disk, and as the pattern wrote them. */
+  let paths: { abs: string; rel: string }[];
+  if (pattern.startsWith('/')) {
+    paths = [{ abs: '/', rel: '' }];
+    segments = segments.slice(1);
+  } else if (segments[0] === '~') {
+    paths = [{ abs: homedir(), rel: '~' }];
+    segments = segments.slice(1);
+  } else if (segments[0]!.startsWith('~')) return undefined;
+  else paths = [{ abs: cwd, rel: '.' }];
+  for (const segment of segments) {
+    if (segment === '') continue;
+    if (!/[*?[]/.test(segment.replace(/\\./g, ''))) {
+      const name = segment.replace(/\\(.)/g, '$1');
+      // `..` is resolved by the system on the real folder: `d/..` with `d -> ../docs` is `docs/..`.
+      paths = paths.map((x) => ({
+        abs: name === '..' ? join(disk.real(x.abs), '..') : join(x.abs, name),
+        rel: `${x.rel}/${name}`,
+      }));
+      continue;
     }
-    // Only what the pattern adds is judged: the folder it runs in may itself sit under a `.claude`.
-    if (paths.some((x) => namesConfig(x.rel))) return true;
+    // Longer than any name can be: it matches nothing (and stays linear on a long line, C-19).
+    if (segment.length > 1_024) return false;
+    const tokens = globTokens(segment);
+    const next: typeof paths = [];
+    for (const x of paths) {
+      // A folder a command before it on the line may have changed: the disk is out of date there.
+      if (stale(resolve(x.abs))) return undefined;
+      const entries = disk.list(x.abs);
+      if (entries === null) return undefined;
+      for (const e of entries) {
+        if (globMatch(tokens, e)) next.push({ abs: join(x.abs, e), rel: `${x.rel}/${e}` });
+      }
+    }
+    paths = next;
+    if (paths.length === 0) return false;
   }
-  return false;
+  return paths.some((x) => namesConfig(x.rel) || namesConfig(`./${disk.added(x.abs)}`));
 }
 
 /** Does this word name the configuration, as written, as bash reads it, or once the shell expands it? */
@@ -261,6 +357,14 @@ const wordNames = (w: Word): boolean =>
 const expandsNow = (w: Word): boolean => w.expands && (w.vars === true || w.found !== false);
 
 interface Command {
+  /** Joined to the command before it by `&&`: it runs only if that one succeeded. */
+  joined: boolean;
+  /** The folders it runs in, when the line's folder is known (`expandGlobs`); null: not known. */
+  dirs?: string[] | null;
+  /** A `cd` whose folder, links followed, is a configuration folder (`cd cfg` with `cfg -> .claude`). */
+  intoConfig?: boolean;
+  /** The folders the commands before it may have changed (`expandGlobs`). */
+  staleAt?: (dir: string) => boolean;
   words: Word[];
   /** Targets of the redirections that write (`>`, `>>`, `>|`, `&>`, `<>`). */
   targets: Word[];
@@ -374,6 +478,7 @@ function lex(src: string): Lexed {
   let groups = false;
   let start = 0;
   let piped = false;
+  let joined = false;
 
   const endWord = () => {
     if (!inWord) return;
@@ -423,9 +528,10 @@ function lex(src: string): Lexed {
     endWord();
     redirect = false;
     if (words.length > 0 || targets.length > 0) {
-      commands.push({ words, targets, raw: src.slice(start, at), piped });
+      commands.push({ words, targets, raw: src.slice(start, at), piped, joined });
     }
     piped = false;
+    joined = false;
     words = [];
     targets = [];
     start = at + 1;
@@ -564,6 +670,7 @@ function lex(src: string): Lexed {
         continue;
       }
       endCommand(i);
+      joined = next === '&';
       i += next === '&' ? 2 : 1;
       continue;
     }
@@ -1343,43 +1450,357 @@ function inlineQuotedHeredocs(line: string): string {
   return out + line.slice(last);
 }
 
-/** The folders a `cd` leaves the next commands in, or undefined when it cannot be told (`cd $D`, `cd -`). */
-function chdirTo(from: readonly string[], args: readonly Word[]): string[] | undefined {
+/**
+ * The folders a `cd` moves to from `from`, or undefined when it cannot be told: `cd $D`, `cd -`, a folder
+ * that does not exist (the `cd` fails), `~user`.
+ */
+function chdirTo(from: readonly string[], args: readonly Word[], disk: Disk): string[] | undefined {
+  const physical = args.some((w) => /^-[LPe@]*P/.test(w.text));
   const a = args.filter((w) => w.text !== '--' && !/^-[LPe@]+$/.test(w.text));
   if (a.length === 0) return [homedir()];
   if (a.length > 1 || a[0]!.expands || a[0]!.text === '-') return undefined;
   const to = a[0]!.bash ?? a[0]!.text;
-  if (to === '~' || to.startsWith('~/')) return [join(homedir(), to.slice(1))];
-  if (to.startsWith('~')) return undefined;
-  return from.map((d) => join(d, to));
+  if (to.startsWith('~') && to !== '~' && !to.startsWith('~/')) return undefined;
+  const out =
+    to === '~' || to.startsWith('~/')
+      ? [join(homedir(), to.slice(1))]
+      : from.map((d) => (to.startsWith('/') ? to : join(d, to)));
+  // `cd -P lnk/..` goes to the real folder's parent, not back here.
+  if (physical && to.split('/').includes('..')) return undefined;
+  return out.every((d) => disk.isDir(d)) ? out : undefined;
+}
+
+/**
+ * Lines whose globs the disk cannot answer for: shell options and variables that change what a glob
+ * matches or where `cd` goes (`shopt -s dotglob`, `GLOBIGNORE`, zsh's `setopt` and qualifiers `*(D)`,
+ * `CDPATH`), and subshells (a `cd` in one does not last).
+ */
+const GLOB_OPTIONS =
+  /\b(?:shopt|setopt|unsetopt|GLOBIGNORE|GLOBSORT|CDPATH|FIGNORE)\b|\bset\s+[-+]o\b/;
+
+/** Writers whose files are their arguments: what they change is in the folders they name. */
+const PATH_WRITERS = new Set([
+  'mkdir',
+  'touch',
+  'rm',
+  'rmdir',
+  'unlink',
+  'cp',
+  'mv',
+  'ln',
+  'install',
+  'tee',
+  'truncate',
+  'chmod',
+  'chown',
+  'chgrp',
+  'rsync',
+  'dd',
+]);
+/** Extractors: the whole folder they extract into (`-d`, `-C`, `-o`, else the current one) changes. */
+const EXTRACTORS: Record<string, RegExp> = {
+  unzip: /^-d$/,
+  tar: /^(?:-C|--directory)$/,
+  bsdtar: /^(?:-C|--directory)$/,
+  '7z': /^-o/,
+};
+
+/**
+ * The folders a writer may have changed, for the globs after it on the line (`unzip -d t && cp t/* .`):
+ * `deep` folders change at any depth, `shallow` ones only in their own entries; undefined when it may
+ * change anything (`npm run build`, `make`, a `git` that checks out, a name in a variable).
+ */
+function writtenBy(
+  cmd: string,
+  args: readonly Word[],
+  dirs: readonly string[],
+): { deep: string[]; shallow: string[] } | undefined {
+  const deep: string[] = [];
+  const shallow: string[] = [];
+  const at = (path: string) => dirs.map((d) => resolve(d, path));
+  const named = (w: Word) => {
+    if (w.vars) return false;
+    const path = (w.bash ?? w.text).replace(/^[\w-]+=/, '');
+    for (const p of at(path)) {
+      deep.push(p);
+      shallow.push(dirname(p));
+    }
+    return true;
+  };
+  const extract = EXTRACTORS[cmd];
+  if (extract) {
+    const k = args.findIndex((w) => extract.test(w.text));
+    const into = k === -1 ? undefined : args[k]!.text.slice(2) || args[k + 1]?.text;
+    if (into === undefined) deep.push(...dirs.map((d) => resolve(d)));
+    else if (/[$`]/.test(into)) return undefined;
+    else deep.push(...at(into));
+    return { deep, shallow };
+  }
+  if (cmd === 'git') {
+    const a = argText(args);
+    const sub = a.findIndex((x) => !x.startsWith('-'));
+    if (a[sub] === 'worktree' && a[sub + 1] === 'add') {
+      const dir = a.slice(sub + 2).find((x) => !x.startsWith('-'));
+      if (dir) return { deep: at(dir), shallow: dirs.map((d) => resolve(d)) };
+    }
+    if (a[sub] === 'clone') {
+      const rest = a.slice(sub + 1).filter((x) => !x.startsWith('-'));
+      const dir = rest[1] ?? baseName(rest[0] ?? '').replace(/\.git$/, '');
+      if (dir) return { deep: at(dir), shallow: dirs.map((d) => resolve(d)) };
+    }
+    return undefined;
+  }
+  if (!PATH_WRITERS.has(cmd)) return undefined;
+  for (const w of args) if (!w.text.startsWith('-') && !named(w)) return undefined;
+  return { deep, shallow };
 }
 
 /**
  * Where the globs of each command are expanded (the leftover of C-21): the folder the line starts in,
- * moved by `cd` with a plain path. Inside a subshell a `cd` does not last, so after one the folders
- * before it count too. Each glob word gets `found`: whether its expansion there names a configuration.
+ * moved by `cd` with a plain path to a folder that exists. After `cd x &&` the next commands run in `x`;
+ * after `cd x;` or `||` in either folder, as the `cd` may fail. A folder a command before it may have
+ * changed is out of date on disk (`unzip -d t && cp t/* .`, `echo x > t; rm *`): there the patterns
+ * decide; a writer that may change anything (`npm run build && rm -rf dist/*`) dates the whole line.
+ * Each glob word gets `found`: whether its expansion names a configuration.
  */
-function expandGlobs(commands: readonly Command[], cwd: string, groups: boolean): void {
-  let dirs: string[] | undefined = [cwd];
+function expandGlobs(
+  commands: readonly Command[],
+  disk: Disk,
+  line: string,
+  groups: boolean,
+): void {
+  if (groups || GLOB_OPTIONS.test(line) || /[*?\]]\(/.test(line)) return;
+  /** The folders if every `cd` so far worked, and every folder the line may be in. */
+  let sure: string[] | null = [disk.root];
+  let maybe: string[] | null = [disk.root];
+  let chain = false;
+  let all = false;
+  const deep: string[] = [];
+  const shallow = new Set<string>();
+  let expanded = 0;
   for (const c of commands) {
-    if (dirs) {
-      for (const w of [...c.words, ...c.targets]) {
-        if (w.glob === undefined || w.vars) continue;
-        const seen = dirs.map((d) => expansionNames(w.glob!, d));
-        w.found = seen.includes(true) ? true : seen.includes(undefined) ? undefined : false;
-        w.names = undefined;
-      }
+    if (!c.joined) chain = false;
+    const dirs: string[] | null = all ? null : chain ? sure : maybe;
+    const deepNow = [...deep];
+    const shallowNow = new Set(shallow);
+    const staleAt = (dir: string) =>
+      shallowNow.has(dir) || deepNow.some((d) => dir === d || dir.startsWith(`${d}/`));
+    c.dirs = dirs;
+    c.staleAt = staleAt;
+    for (const w of [...c.words, ...c.targets]) {
+      if (w.glob === undefined || w.vars || !dirs || ++expanded > EXPAND_WORDS) continue;
+      const seen = dirs.map((d) => expansionNames(w.glob!, d, disk, staleAt));
+      w.found = seen.includes(true) ? true : seen.includes(undefined) ? undefined : false;
+      w.names = undefined;
     }
     const { cmd, args } = parseCommand(c.words);
-    if (!CHDIR.has(cmd)) continue;
-    const to: string[] | undefined =
+    // What it writes: the files it redirects into, and its own.
+    const writes: { deep: string[]; shallow: string[] }[] = [];
+    if (dirs) {
+      for (const t of c.targets) {
+        if (t.vars) all = true;
+        else writes.push(writtenBy('tee', [t], dirs)!);
+      }
+    }
+    if (CHDIR.has(cmd)) {
       // `popd` and a bare `pushd` go back to a folder of the stack, not known here.
-      cmd === 'popd' || (cmd === 'pushd' && args.length === 0) || !dirs
-        ? undefined
-        : chdirTo(dirs, args);
-    dirs = to && groups ? [...new Set([...dirs!, ...to])] : to;
+      const to: string[] | undefined =
+        cmd === 'popd' || (cmd === 'pushd' && args.length === 0) || !dirs
+          ? undefined
+          : chdirTo(dirs, args, disk);
+      if (to?.some((d) => namesConfig(`./${disk.added(d)}`))) c.intoConfig = true;
+      sure = to ?? null;
+      maybe = to && maybe ? [...new Set([...maybe, ...to])] : null;
+      chain = true;
+    } else if (cmd && !readsOnly(cmd, args)) {
+      const w = dirs ? writtenBy(cmd, args, dirs) : undefined;
+      if (w) writes.push(w);
+      else all = true;
+    }
+    for (const w of writes) {
+      deep.push(...w.deep);
+      for (const d of w.shallow) shallow.add(d);
+    }
   }
 }
+
+/**
+ * Could this `find` or `fd`, which deletes or runs commands, reach a configuration? Its folders are
+ * walked on the disk's budget: yes when one holds a configuration at any depth, or when it cannot be
+ * told (no folder known, a folder it cannot list, the budget spent).
+ */
+function searchReaches(
+  c: Command,
+  cmd: string,
+  args: readonly Word[],
+  disk: Disk | undefined,
+): boolean {
+  // Names that can be no configuration nor anything in one (`-name "*.log"`): nothing to walk.
+  if (cmd === 'find' && findNames(args) === false) return false;
+  if (!disk || !c.dirs) return true;
+  const starts: Word[] = [];
+  if (cmd === 'find') {
+    for (const w of args) {
+      if (/^[-(!]/.test(w.text)) break;
+      starts.push(w);
+    }
+  } else starts.push(...args.filter((w) => !w.text.startsWith('-')).slice(1));
+  if (starts.some((w) => w.vars || w.glob !== undefined)) return true;
+  const roots = starts.length > 0 ? starts.map((w) => w.bash ?? w.text) : ['.'];
+  for (const dir of c.dirs) {
+    const todo = roots.map((r) => (r.startsWith('/') ? r : join(dir, r)));
+    if (todo.some((d) => namesConfig(`./${disk.added(d)}`))) return true;
+    while (todo.length > 0) {
+      const d = todo.pop()!;
+      if (c.staleAt?.(resolve(d))) return true;
+      const entries = disk.list(d);
+      if (entries === null) return true;
+      for (const e of entries) {
+        if (namesConfig(`./${e}`)) return true;
+        const sub = join(d, e);
+        if (disk.isDir(sub)) todo.push(sub);
+      }
+    }
+  }
+  return false;
+}
+
+/** `find` tests that take a value, and the ones that take none, that `findNames` can reason about. */
+const FIND_VALUE = new Set([
+  '-name',
+  '-iname',
+  '-type',
+  '-maxdepth',
+  '-mindepth',
+  '-mtime',
+  '-mmin',
+  '-atime',
+  '-ctime',
+  '-size',
+  '-newer',
+  '-user',
+  '-group',
+  '-perm',
+]);
+const FIND_PLAIN = new Set([
+  '-o',
+  '-or',
+  '-a',
+  '-and',
+  '!',
+  '-not',
+  '(',
+  ')',
+  '-prune',
+  '-print',
+  '-print0',
+  '-delete',
+  '-depth',
+  '-xdev',
+  '-mount',
+  '-empty',
+  '-true',
+  '-false',
+]);
+/** Names a configuration folder holds, besides the configuration names themselves. */
+const CONFIG_INSIDE = [
+  'settings.json',
+  'settings.local.json',
+  'config.toml',
+  'x.md',
+  'x.json',
+  'x.toml',
+  'x.sh',
+  'x.js',
+  'x.mjs',
+  'x.ts',
+  'x.py',
+];
+
+/**
+ * A `find` that deletes with tests it can reason about (`-name`, `-type`, `-prune`, `-maxdepth`…): false
+ * when no `-name` pattern can match a configuration name or a file such a folder holds (`*.log`,
+ * `.DS_Store`): it reaches none, wherever it runs. Undefined otherwise (`*.md`, no name, `-path`,
+ * `-exec`, `-regex`…): the tree is walked.
+ */
+function findNames(args: readonly Word[]): false | undefined {
+  const patterns: string[] = [];
+  let i = args.findIndex((w) => /^[-(!]/.test(w.text));
+  if (i === -1) return undefined;
+  for (; i < args.length; i++) {
+    const t = args[i]!.text;
+    if (FIND_VALUE.has(t)) {
+      const v = args[++i];
+      if (!v || v.vars) return undefined;
+      if (t === '-name' || t === '-iname') patterns.push(v.text);
+    } else if (!FIND_PLAIN.has(t)) return undefined;
+  }
+  if (patterns.length === 0) return undefined;
+  // `-name` matches the leading dot too (`*` is `.claude`), and `-iname` any case: as globMatch.
+  const names = [...CONFIG_SEGMENTS, ...CONFIG_INSIDE];
+  return patterns.some((p) => names.some((n) => globMatch(globTokens(p), n, false)))
+    ? undefined
+    : false;
+}
+
+/** Commands that run a command line of theirs: judged as a line of their own (`bash -c "rm C*"`). */
+const SHELLS = /^(?:ba|z|da|k|a)?sh$/;
+/** Commands that run another command for each line of their input, like `xargs`. */
+const STDIN_RUNNERS = new Set(['parallel', 'rush', 'xe']);
+/** PowerShell's writers: fed by a pipe (`Get-ChildItem -Filter CLAUDE.md | Remove-Item`) they write. */
+const PS_WRITERS = new Set([
+  'remove-item',
+  'ri',
+  'del',
+  'erase',
+  'rd',
+  'rmdir',
+  'rm',
+  'move-item',
+  'mi',
+  'move',
+  'mv',
+  'copy-item',
+  'cpi',
+  'copy',
+  'cp',
+  'rename-item',
+  'rni',
+  'ren',
+  'set-content',
+  'sc',
+  'add-content',
+  'ac',
+  'clear-content',
+  'clc',
+  'out-file',
+  'new-item',
+  'ni',
+  'set-item',
+  'tee-object',
+  'tee',
+]);
+
+/** The command lines a command runs itself: `sh -c '…'`, and `find -exec sh -c '…'`. */
+function scriptsOf(cmd: string, args: readonly Word[]): string[] {
+  const shell = (c: string, a: readonly Word[]): string[] => {
+    if (!SHELLS.test(c)) return [];
+    const k = a.findIndex((w) => /^-[a-zA-Z]*c[a-zA-Z]*$/.test(w.text));
+    return k === -1 || !a[k + 1] ? [] : [a[k + 1]!.text];
+  };
+  if (cmd !== 'find') return shell(cmd, args);
+  const out: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (!/^-(?:exec|execdir|ok|okdir)$/.test(args[i]!.text)) continue;
+    const end = args.findIndex((w, k) => k > i && (w.text === ';' || w.text === '+'));
+    const sub = parseCommand(args.slice(i + 1, end === -1 ? undefined : end));
+    out.push(...shell(sub.cmd, sub.args));
+  }
+  return out;
+}
+
+/** Nesting of the lines judged inside a line (`bash -c "bash -c '…'"`): past it, a write. */
+let nested = 0;
 
 /** Options of the judgement: where the line runs. */
 export interface CommandWritesConfigOptions {
@@ -1393,6 +1814,12 @@ export interface CommandWritesConfigOptions {
    * `shell` tool): every command but a read writes it, as after a `cd` into it on the line.
    */
   inConfig?: boolean;
+  /**
+   * The line is PowerShell's (the `shell` tool on Windows), read conservatively with the bash parser:
+   * a backslash is a path separator, never an escape; no glob is expanded on disk; and any glob names
+   * the configuration, since PowerShell's `*` also matches `.claude` (`Remove-Item -Force .\*`).
+   */
+  windows?: boolean;
 }
 
 /** Does a Bash command line write the harness configuration? */
@@ -1400,20 +1827,47 @@ export function commandWritesConfig(
   raw: string,
   options: CommandWritesConfigOptions = {},
 ): boolean {
-  const line = inlineQuotedHeredocs(raw.replace(NO_FILE_REDIRECT, ' '));
+  const text = options.windows ? raw.replace(/\\/g, '/') : raw;
+  const line = inlineQuotedHeredocs(text.replace(NO_FILE_REDIRECT, ' '));
   const lexed = lex(line);
   const { commands } = lexed;
   // `$((x))` evaluates what `x` holds, and a value may spell a substitution: one on the line, opaque.
   const opaque = lexed.opaque || (lexed.arith && /\$\((?!\()|`/.test(line));
-  if (options.cwd !== undefined) expandGlobs(commands, options.cwd, lexed.groups);
-  /** Files a reader's own script writes (`sed 'w.claude/x'`). */
-  const scriptNames = (c: Command) => {
+  const disk = options.cwd !== undefined && !options.windows ? new Disk(options.cwd) : undefined;
+  if (disk) expandGlobs(commands, disk, line, lexed.groups);
+  if (options.windows) {
+    for (const c of commands)
+      for (const w of [...c.words, ...c.targets]) if (w.glob) w.found = true;
+  }
+  /**
+   * What a command reaches without naming it: the files its `sed` script writes (`sed 'w.claude/x'`),
+   * the tree a `find -delete` or `fd -x` walks (`find . -name "*.md" -delete`).
+   */
+  const reaches = (c: Command) => {
     const { cmd, args } = parseCommand(c.words);
-    return (cmd === 'sed' || cmd === 'gsed') && sedNames(argText(args));
+    if (cmd === 'sed' || cmd === 'gsed') return sedNames(argText(args));
+    // A line a shell runs, judged as a line (without the disk: its folder may be another).
+    const scripts = scriptsOf(cmd, args);
+    if (scripts.length > 0) {
+      if (nested >= 3) return true;
+      nested++;
+      try {
+        if (scripts.some((x) => commandWritesConfig(x, options.windows ? { windows: true } : {})))
+          return true;
+      } finally {
+        nested--;
+      }
+    }
+    if (cmd === 'find' || cmd === 'fd' || cmd === 'fdfind') {
+      return !readsOnly(cmd, args) && searchReaches(c, cmd, args, disk);
+    }
+    return false;
   };
   const lineNames =
     CONFIG_WORD.test(line) ||
-    commands.some((c) => anyNames(c.words) || anyNames(c.targets) || scriptNames(c));
+    commands.some(
+      (c) => anyNames(c.words) || anyNames(c.targets) || c.intoConfig === true || reaches(c),
+    );
   if (!lineNames && !options.inConfig) return false;
   if (opaque) return true;
   let moved = options.inConfig === true;
@@ -1422,7 +1876,13 @@ export function commandWritesConfig(
   for (const c of commands) {
     // Redirected into the configuration, or into something that may be it.
     if (c.targets.some((t) => moved || wordNames(t) || expandsNow(t))) return true;
-    const { cmd, args, xargs, assigns } = parseCommand(c.words);
+    const parsed = parseCommand(c.words);
+    const { cmd, args, assigns } = parsed;
+    // Fed a list on its input: `xargs`, `parallel`, a PowerShell writer after a pipe.
+    const xargs =
+      parsed.xargs ||
+      STDIN_RUNNERS.has(cmd) ||
+      (options.windows === true && c.piped && PS_WRITERS.has(cmd));
     const unsafe = (v: string) => !HARMLESS_VARS.test(v);
     if (!cmd) {
       if (assigns.some(unsafe)) tainted = true;
@@ -1433,10 +1893,10 @@ export function commandWritesConfig(
       args.some((w) => ASSIGNMENT.test(w.text) && unsafe(w.text.split(/\+?=/)[0]!))
     )
       tainted = true;
-    const names = CONFIG_WORD.test(c.raw) || anyNames(c.words) || scriptNames(c);
+    const names = CONFIG_WORD.test(c.raw) || anyNames(c.words) || reaches(c);
     const expands = anyExpands(c.words);
     if (CHDIR.has(cmd)) {
-      if (names || (expands && lineNames)) moved = true;
+      if (names || c.intoConfig || (expands && lineNames)) moved = true;
       continue;
     }
     if (INTERPRETERS.test(cmd)) {
@@ -1475,7 +1935,7 @@ export function commandWritesConfig(
     // Any other command: it writes if it names the configuration, runs in its folder, or may reach it
     // through a word the shell expands, a list on its input or a search that runs commands.
     if (names || moved) return true;
-    if (expands || xargs || cmd === 'find' || cmd === 'fd' || cmd === 'fdfind') return true;
+    if (expands || xargs) return true;
   }
   return false;
 }

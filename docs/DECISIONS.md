@@ -5841,3 +5841,27 @@ internals were on by default (U2-9, U2-10, V-12); the notes list exposed retriev
   the job holds a tool of that service, otherwise the real cause: not responding, paused, cut, not selected (C-15).
 - The orchestrator test (d) waited for one delegation's start only; a delegation stopped while its brief is written
   never logs "started".
+
+### D-189 · The brake reads the disk only where bash would see the same thing; one brake for both terminals
+**Status:** done · 25/10/2026 · extends D-166 and D-176
+**Context:** wildcard-only words (`rm -rf dist/*`) were not judged, `sed 'w.claude/x'` passed, and the native `shell`
+tool still had older, weaker rules than the Claude Code hook. Two independent reviews of the first fix then found
+bypasses through brace ranges, `**`, a failed `cd`, folders made earlier on the same line, glob options, POSIX
+classes, `..` after a link, PowerShell pipelines, stdin runners and nested shells, plus false refusals of common
+commands.
+**Choices:**
+- One brake in `packages/tools` (`command-writes-config.ts`) for both terminals; the hook fails closed on an error.
+- A glob is expanded against the folder the line runs in only when bash's result is certain: no braces, `**`, glob
+  options or subshells; `cd` only into folders that exist (after `;` or `||` both folders are judged); `..` and links
+  resolved on disk; folders a writer named earlier on the line count as unknown, and a build or interpreter makes
+  the whole line unknown; within 4096 directory entries and 64 glob words per line. Otherwise the pattern decides,
+  which means a refusal when it could be a config name.
+- `sed` scripts are parsed for the files they write; readers that can run programs (`less +!`, `--pager`,
+  `sort --compress-program`, `tar -I`…) count as writers; `parallel`, `rush`, `xe` count like `xargs`; `sh -c` lines
+  are judged on their own; `find`/`fd` that delete or run are walked unless their name tests can match nothing of a
+  config.
+- On Windows the native tool reads the line as PowerShell, conservatively: no disk expansion, a glob or a pipe into a
+  writer cmdlet counts as a write.
+- A refusal tells the model to run the earlier step and the wildcard command as separate calls.
+**Accepted risks:** a file name a program computes, a folder removed or copied whole that holds a config
+(`rm -rf sub`), a `cd .claude` made in an earlier call is seen only through the hook's `cwd`.
