@@ -2,7 +2,9 @@ import { pick } from './i18n.ts';
 
 /*
  * The words of the "Istinto" settings (D-067, D-153): the module's title, the three engines and the
- * thirteen uses. The ids of the uses and of the engines are API values and stay as they are.
+ * thirteen uses. The ids of the uses and of the engines are API values and stay as they are. The
+ * settings show eleven of the thirteen as switches: the `shortcut` trial does nothing yet (it stays in
+ * the data, off the screen) and `outbound` always applies, so it is a sentence there (wave C, C4).
  */
 
 interface UseTexts {
@@ -14,7 +16,7 @@ interface UseTexts {
 const en = {
   title: 'Monsters’ decisions',
   description:
-    'The quick calls the squad makes: who to hand a job to, whether to ask you, whether a result is really done, whether a monster is going in circles. Publishing, writing to others, spending and deleting always ask you first.',
+    'The quick calls the squad makes while it works. Publishing, writing to others, spending and deleting always ask you first.',
   engines: {
     rules: {
       label: 'Rules only',
@@ -26,9 +28,9 @@ const en = {
         'Uses one of your models: it’s free, but slower and sometimes wrong. Only for decisions that can wait a few seconds.',
     },
     jev: {
-      label: 'An expert model (TypeSafe)',
+      label: 'The expert model',
       description:
-        'A model built to decide in an instant. It costs very little (about €1 per 2,000 jobs) and needs a TypeSafe key. It gets your request, the summaries of the jobs and the web pages the monsters read, never your notes.',
+        'A model built to decide in an instant. It costs very little (about €1 per 2,000 jobs) and needs its own key. It gets your request, the summaries of the jobs and the web pages the monsters read, never your notes.',
     },
   },
   uses: {
@@ -119,7 +121,7 @@ const en = {
 const it: typeof en = {
   title: 'Decisioni dei mostri',
   description:
-    'Le decisioni al volo della squadra: a chi passare un lavoro, se serve chiederti, se un risultato è finito davvero, se un mostro gira a vuoto. Pubblicare, scrivere ad altri, spendere e cancellare te li chiedono sempre.',
+    'Le decisioni al volo della squadra mentre lavora. Pubblicare, scrivere ad altri, spendere e cancellare te li chiedono sempre.',
   engines: {
     rules: {
       label: 'Solo regole',
@@ -131,9 +133,9 @@ const it: typeof en = {
         'Usa uno dei tuoi modelli: è gratis, ma più lento e a volte sbaglia. Solo per le decisioni che possono aspettare qualche secondo.',
     },
     jev: {
-      label: 'Un modello esperto (TypeSafe)',
+      label: 'Il modello esperto',
       description:
-        'Un modello fatto apposta per decidere in un attimo. Costa pochissimo (circa 1 € ogni 2.000 lavori) e serve una chiave di TypeSafe. Riceve la richiesta, i riassunti dei lavori e le pagine web che i mostri leggono, mai le tue note.',
+        'Un modello fatto apposta per decidere in un attimo. Costa pochissimo (circa 1 € ogni 2.000 lavori) e serve una sua chiave. Riceve la richiesta, i riassunti dei lavori e le pagine web che i mostri leggono, mai le tue note.',
     },
   },
   uses: {

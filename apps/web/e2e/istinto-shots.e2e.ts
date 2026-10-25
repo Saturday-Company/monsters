@@ -74,16 +74,16 @@ for (const size of SIZES) {
         await shot(page, '01-istinto');
         await page
           .getByTestId('instinct-uses')
-          .getByRole('button', { name: /What it does/ })
+          .getByRole('button', { name: /Choose one by one/ })
           .click();
         await page.waitForTimeout(150);
         await into(page, 'instinct-uses');
         await shot(page, '02-istinto-cosa-fa');
         await page
           .getByTestId('instinct-uses')
-          .getByRole('button', { name: /What it does/ })
+          .getByRole('button', { name: /Choose one by one/ })
           .click();
-        await page.getByRole('radio', { name: 'An expert model (TypeSafe)' }).click();
+        await page.getByRole('radio', { name: 'Smarter' }).click();
         await page.getByTestId('no-key').waitFor();
         await into(page, 'instinct-section');
         await page.waitForTimeout(150);

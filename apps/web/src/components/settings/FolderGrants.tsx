@@ -6,13 +6,16 @@ import { errorText } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
+import { FolderPickButton, useCanPickFolder } from '../projects/FolderPicker.tsx';
 import { fieldOnGroup } from './parts.tsx';
 import { permissionsStrings } from './permissions.strings.ts';
 
 /**
  * Folders of the computer an agent may use, outside the vault: a list with
- * "can edit" and remove, plus a field to add one by path. `onChange`
- * may reject (e.g. the core refuses a folder): the error shows under the field.
+ * "can edit" and remove, plus the system's folder dialog to add one (desktop app on this
+ * computer, C7) or a field to add it by path (always possible: "Type a path instead" when the
+ * dialog is there). `onChange` may reject (e.g. the core refuses a folder): the error shows under
+ * the field.
  */
 export function FolderGrants({
   folders,
@@ -36,6 +39,8 @@ export function FolderGrants({
   const [path, setPath] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const canPick = useCanPickFolder();
+  const [typing, setTyping] = useState(false);
 
   const apply = async (next: FolderGrant[]): Promise<boolean> => {
     setError(null);
@@ -51,19 +56,24 @@ export function FolderGrants({
     }
   };
 
-  const add = async (e: FormEvent) => {
-    e.preventDefault();
-    const p = path.trim();
-    if (!p) return;
+  /** A path from the folder dialog or from the field: checked here, then offered to the core. */
+  const addPath = async (raw: string): Promise<boolean> => {
+    const p = raw.trim();
+    if (!p) return false;
     if (!p.startsWith('/') && !p.startsWith('~') && !/^[A-Za-z]:[\\/]/.test(p)) {
       setError(s.needFullPath);
-      return;
+      return false;
     }
     if (folders.some((f) => folderKey(f.path, home) === folderKey(p, home))) {
       setError(s.alreadyThere);
-      return;
+      return false;
     }
-    if (await apply([...folders, { path: p, write: false }])) setPath('');
+    return apply([...folders, { path: p, write: false }]);
+  };
+
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    if (await addPath(path)) setPath('');
   };
 
   return (
@@ -116,30 +126,43 @@ export function FolderGrants({
           {s.launchFiles}
         </p>
       )}
-      <form onSubmit={(e) => void add(e)} className="flex gap-2" noValidate>
-        <Input
-          id={id}
-          value={path}
-          onChange={(e) => setPath(e.target.value)}
-          placeholder={placeholder}
-          spellCheck={false}
-          autoComplete="off"
-          aria-label={s.addTo(shownLabel)}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${id}-error` : undefined}
-          className={`h-10 font-mono text-footnote ${fieldOnGroup}`}
-          disabled={disabled}
-        />
-        <Button
-          type="submit"
-          variant="secondary"
-          size="sm"
-          className="h-9"
-          disabled={disabled || busy || !path.trim()}
-        >
-          <Plus size={16} aria-hidden /> {s.add}
-        </Button>
-      </form>
+      {canPick && !typing ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <FolderPickButton
+            disabled={disabled || busy}
+            onPicked={(p) => void addPath(p)}
+            testId="folder-grant-pick"
+          />
+          <Button variant="ghost" size="sm" onClick={() => setTyping(true)}>
+            {s.typePath}
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={(e) => void add(e)} className="flex gap-2" noValidate>
+          <Input
+            id={id}
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+            placeholder={placeholder}
+            spellCheck={false}
+            autoComplete="off"
+            aria-label={s.addTo(shownLabel)}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${id}-error` : undefined}
+            className={`h-10 font-mono text-footnote ${fieldOnGroup}`}
+            disabled={disabled}
+          />
+          <Button
+            type="submit"
+            variant="secondary"
+            size="sm"
+            className="h-9"
+            disabled={disabled || busy || !path.trim()}
+          >
+            <Plus size={16} aria-hidden /> {s.add}
+          </Button>
+        </form>
+      )}
       {error && (
         <p id={`${id}-error`} role="alert" className="text-footnote text-stop-ink">
           {error}

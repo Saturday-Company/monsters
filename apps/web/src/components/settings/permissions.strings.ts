@@ -5,7 +5,8 @@ import { defineStrings } from '../../lib/i18n.ts';
 const en = {
   title: 'What the monsters can do',
   description:
-    'For each monster, choose what it can use. A permission you give applies from the next job, one you take away applies right away.',
+    'Choose how far each monster can go. A permission you give applies from the next job, one you take away applies right away.',
+  footer: 'Running commands lets a monster do anything you can do on this computer.',
   what: 'the permissions',
   lead: 'your lead',
   leadGroup: 'Your lead',
@@ -15,20 +16,43 @@ const en = {
     notes: 'notes',
     notesReadOnly: 'read-only notes',
     web: 'web',
-    terminal: 'terminal',
+    commands: 'commands',
     folders: (n: number) => (n === 1 ? '1 folder' : `${n} folders`),
+  },
+  preset: {
+    label: (name: string) => `What ${name} can do`,
+    notes: 'Notes only',
+    web: 'Notes and web',
+    commands: 'Also runs commands',
+    custom: 'Custom',
+  },
+  all: {
+    label: 'The same for everyone',
+    text: 'Set every monster to one of the three levels. Notes and folders stay as they are.',
+    choose: 'Choose…',
+    selectLabel: 'Level for all monsters',
+    apply: 'Apply to all',
+    askCommands: 'Let every monster run commands?',
+    confirm: 'Yes, apply',
+    done: 'Done: every monster is set.',
+  },
+  webOffIn: (project: string) => `Web: off in project ${project}`,
+  fine: {
+    label: 'Switches and folders',
+    text: 'Notes, web, commands and computer folders, one monster at a time.',
   },
   vault: {
     title: 'Write in the notes',
     text: 'Without it, it reads the notes but doesn’t change them. Every change can be undone.',
   },
   web: {
-    text: 'Search and read pages online, in all its work. In a project, web search must also be on in the project’s own Connections tab; the browser follows this permission.',
+    text: 'Search and read pages online, in all its work. In a project, the project’s own page can switch the web off; the browser follows this permission.',
   },
-  terminal: {
+  commands: {
+    text: 'Run commands and install programs in their own folder, without administrator rights. Commands can read and change the files of your account.',
     onWindows: (text: string) => `${text} On Windows the commands are PowerShell.`,
     warning: (name: string) =>
-      `With the terminal, ${name} can do anything on the computer that you can, even outside the folders below. Every command is logged in Activity, and Stop interrupts it.`,
+      `With commands on, ${name} can do anything on the computer that you can, even outside the folders below. Every command is logged in Activity, and Stop interrupts it.`,
   },
   folders: {
     label: 'Computer folders',
@@ -42,16 +66,19 @@ const en = {
     remove: (path: string) => `Remove ${path}`,
     none: 'No folders: the files on the computer stay off limits.',
     launchFiles:
-      'Without the terminal a monster still can’t change .git folders or files that start programs (.bashrc, .profile, autostart).',
+      'Unless it can run commands, a monster still can’t change .git folders or files that start programs (.bashrc, .profile, autostart).',
     addTo: (label: string) => `Add a folder: ${label.toLowerCase()}`,
     add: 'Add',
+    typePath: 'Type a path instead',
   },
 };
 
 const it: typeof en = {
   title: 'Cosa possono fare i mostri',
   description:
-    'Per ogni mostro scegli cosa può usare. Un permesso dato vale dal prossimo lavoro, uno tolto subito.',
+    'Scegli fin dove può arrivare ogni mostro. Un permesso dato vale dal prossimo lavoro, uno tolto subito.',
+  footer:
+    'Eseguire comandi permette a un mostro di fare sul computer tutto quello che puoi fare tu.',
   what: 'i permessi',
   lead: 'il tuo capo',
   leadGroup: 'Il tuo capo',
@@ -61,20 +88,43 @@ const it: typeof en = {
     notes: 'note',
     notesReadOnly: 'note in sola lettura',
     web: 'web',
-    terminal: 'terminale',
+    commands: 'comandi',
     folders: (n) => (n === 1 ? '1 cartella' : `${n} cartelle`),
+  },
+  preset: {
+    label: (name) => `Cosa può fare ${name}`,
+    notes: 'Solo note',
+    web: 'Note e web',
+    commands: 'Esegue anche comandi',
+    custom: 'Personalizzato',
+  },
+  all: {
+    label: 'Uguale per tutti',
+    text: 'Porta ogni mostro a uno dei tre livelli. Note e cartelle restano come sono.',
+    choose: 'Scegli…',
+    selectLabel: 'Livello per tutti i mostri',
+    apply: 'Applica a tutti',
+    askCommands: 'Far eseguire comandi a tutti i mostri?',
+    confirm: 'Sì, applica',
+    done: 'Fatto: ogni mostro è impostato.',
+  },
+  webOffIn: (project) => `Web: spento nel progetto ${project}`,
+  fine: {
+    label: 'Interruttori e cartelle',
+    text: 'Note, web, comandi e cartelle del computer, un mostro alla volta.',
   },
   vault: {
     title: 'Scrivere nelle note',
     text: 'Senza, legge le note ma non le cambia. Ogni modifica si può annullare.',
   },
   web: {
-    text: 'Cercare e leggere pagine online, in ogni suo lavoro. In un progetto la ricerca sul web va accesa anche nella scheda Collegamenti del progetto; il browser segue questo permesso.',
+    text: 'Cercare e leggere pagine online, in ogni suo lavoro. In un progetto la pagina del progetto può spegnere il web; il browser segue questo permesso.',
   },
-  terminal: {
+  commands: {
+    text: 'Eseguire comandi e installare programmi nella propria cartella, senza permessi di amministratore. I comandi possono leggere e cambiare i file del tuo account.',
     onWindows: (text) => `${text} Su Windows i comandi sono di PowerShell.`,
     warning: (name) =>
-      `Con il terminale ${name} può fare sul computer tutto quello che puoi fare tu, anche fuori dalle cartelle qui sotto. Ogni comando finisce in Attività e “Ferma” lo interrompe.`,
+      `Con i comandi accesi ${name} può fare sul computer tutto quello che puoi fare tu, anche fuori dalle cartelle qui sotto. Ogni comando finisce in Attività e “Ferma” lo interrompe.`,
   },
   folders: {
     label: 'Cartelle del computer',
@@ -89,9 +139,10 @@ const it: typeof en = {
     remove: (path) => `Togli ${path}`,
     none: 'Nessuna cartella: i file del computer restano chiusi.',
     launchFiles:
-      'Senza il terminale un mostro non cambia comunque le cartelle .git né i file che avviano programmi (.bashrc, .profile, avvio automatico).',
+      'Se non può eseguire comandi, un mostro non cambia comunque le cartelle .git né i file che avviano programmi (.bashrc, .profile, avvio automatico).',
     addTo: (label) => `Aggiungi una cartella a ${label.toLowerCase()}`,
     add: 'Aggiungi',
+    typePath: 'Scrivi un percorso',
   },
 };
 

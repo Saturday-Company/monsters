@@ -340,17 +340,22 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     ).toBeVisible();
   });
 
-  await test.step('permissions: the terminal off for one monster, saved in settings.json', async () => {
+  await test.step('permissions: commands off for one monster, saved in settings.json', async () => {
     await page.goto('/#/impostazioni?sezione=permessi');
     const rhea = page.getByTestId('agent-permissions-rhea');
-    await rhea.getByRole('button', { expanded: false }).click();
-    // On by default (D-159): one monster without it.
-    await expect(rhea.getByTestId('permissions-summary')).toContainText('terminal');
-    await rhea.getByRole('switch', { name: 'Terminal' }).click();
-    await expect(rhea.getByTestId('permissions-summary')).not.toContainText('terminal');
-    await rhea.getByLabel('Add a folder: computer folders').fill(HOME);
-    await rhea.getByRole('button', { name: 'Add' }).click();
-    await expect(rhea.getByRole('alert')).toContainText('Monsters data folder');
+    // On by default (D-159): one monster without it, chosen in the level next to its name.
+    await expect(rhea.getByTestId('permissions-summary')).toContainText('commands');
+    await rhea.getByLabel('What Rhea can do').selectOption('web');
+    await expect(rhea.getByTestId('permissions-summary')).not.toContainText('commands');
+    const fine = page.getByTestId('agent-permissions-fine-rhea');
+    await page
+      .getByTestId('permissions-fine')
+      .getByRole('button', { name: 'Switches and folders' })
+      .click();
+    await fine.getByRole('button', { expanded: false }).click();
+    await fine.getByLabel('Add a folder: computer folders').fill(HOME);
+    await fine.getByRole('button', { name: 'Add' }).click();
+    await expect(fine.getByRole('alert')).toContainText('Monsters data folder');
     const settings = JSON.parse(readFileSync(join(HOME, 'settings.json'), 'utf8')) as {
       permissions: { agents: Record<string, { shell: boolean }> };
     };

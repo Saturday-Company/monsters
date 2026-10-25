@@ -244,43 +244,48 @@ export class MockInstinct {
   }
 
   private scorecard(): ScorecardView {
+    // An install with no job yet (`?mock=team`) has nothing checked: the scorecard stays hidden.
+    const worked = this.deps.events().some((e) => e.type === 'receipt');
     return {
       enabled: (this.uses.scorecard ?? 'on') === 'on',
       minDelegations: 20,
-      rows: [
-        {
-          agent: 'rhea',
-          agentName: this.deps.agentName('rhea'),
-          model: 'openrouter:openrouter/free',
-          tier: 'any',
-          delegations: 14,
-          checked: 12,
-          verified: 10,
-          doubt: 1,
-          incomplete: 1,
-          failed: 0,
-          successRate: 10 / 12,
-          avgSteps: 6.5,
-          avgCostUsd: 0,
-          costPerVerifiedUsd: 0,
-        },
-        {
-          agent: 'dione',
-          agentName: this.deps.agentName('dione'),
-          model: 'openrouter:openrouter/free',
-          tier: 'any',
-          delegations: 9,
-          checked: 9,
-          verified: 8,
-          doubt: 0,
-          incomplete: 1,
-          failed: 0,
-          successRate: 8 / 9,
-          avgSteps: 4.2,
-          avgCostUsd: 0,
-          costPerVerifiedUsd: 0,
-        },
-      ],
+      rows: !worked
+        ? []
+        : [
+            {
+              agent: 'rhea',
+              agentName: this.deps.agentName('rhea'),
+              model: 'openrouter:openrouter/free',
+              tier: 'any',
+              delegations: 14,
+              checked: 12,
+              verified: 10,
+              doubt: 1,
+              incomplete: 1,
+              failed: 0,
+              successRate: 10 / 12,
+              avgSteps: 6.5,
+              avgCostUsd: 0,
+              costPerVerifiedUsd: 0,
+            },
+            {
+              agent: 'dione',
+              agentName: this.deps.agentName('dione'),
+              model: 'openrouter:openrouter/free',
+              tier: 'any',
+              // Past the 20 checked jobs a model needs: the scorecard is shown (C4).
+              delegations: 24,
+              checked: 22,
+              verified: 19,
+              doubt: 1,
+              incomplete: 2,
+              failed: 0,
+              successRate: 19 / 22,
+              avgSteps: 4.2,
+              avgCostUsd: 0,
+              costPerVerifiedUsd: 0,
+            },
+          ],
       reordered: {},
     };
   }

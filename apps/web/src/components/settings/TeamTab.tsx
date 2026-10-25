@@ -259,7 +259,7 @@ function ProjectSquads() {
                 description={m.role}
               >
                 <a
-                  href={`#${projectPath(sq.key, 'squadra')}`}
+                  href={projectPath(sq.key, 'squadra')}
                   className="text-footnote font-medium text-signal-ink hover:underline"
                   aria-label={s.openSquadOf(sq.label)}
                 >

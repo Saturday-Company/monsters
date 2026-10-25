@@ -22,19 +22,10 @@ import { statusText, useLive } from '../../store/hooks.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { Button } from '../ui/button.tsx';
 import { Chip, Switch } from '../ui/controls.tsx';
-import { nameProblem, plainly, teamError } from './data.ts';
+import { nameProblem, teamError } from './data.ts';
 import { partsStrings } from './parts.strings.ts';
 import { teamStrings } from './team.strings.ts';
-import {
-  ConfirmButton,
-  DisclosureRow,
-  FormField,
-  Group,
-  InlineEdit,
-  Row,
-  RowBody,
-  textareaClass,
-} from './parts.tsx';
+import { ConfirmButton, FormField, Group, Row, RowBody, textareaClass } from './parts.tsx';
 
 /*
  * One monster of Settings → Squadra (name, look, role and duties, remove) and
@@ -171,17 +162,30 @@ function RoleInputs({
   );
 }
 
-function RoleForm({
+/**
+ * Everything about one monster in one form: its name, its look, and (not for a lead) what it does,
+ * where it writes and whether it does web research, with "Remove" under it. One "Edit" opens it, so
+ * a row of the squad is a single key until someone asks for more.
+ */
+function EditMember({
   member,
+  lead,
+  taken,
+  remove,
   onSaved,
   onCancel,
 }: {
   member: TeamMemberView;
+  lead: boolean;
+  taken: (name: string, self?: string) => boolean;
+  /** "Remove" of the personal squad's archive, or a project's own kind. */
+  remove: { label: string; description: string; busy: boolean; run: () => void };
   onSaved: () => void;
   onCancel: () => void;
 }) {
   const s = teamStrings().members;
   const common = partsStrings();
+  const nameId = domId(useId());
   const start: RoleFields = {
     role: member.role,
     mission: member.mission ?? '',
@@ -189,29 +193,40 @@ function RoleForm({
     area: member.area ?? '',
     web: member.web,
   };
+  const [name, setName] = useState(member.name);
   const [fields, setFields] = useState(start);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [overwrite, setOverwrite] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [looking, setLooking] = useState(false);
 
   const send = async (force: boolean) => {
+    const n = name.replace(/\s+/g, ' ').trim();
     const update: TeamMemberUpdate = {};
-    if (fields.role.trim() !== start.role) update.role = fields.role.trim();
-    if (fields.mission.trim() !== start.mission) update.mission = fields.mission.trim();
-    const duties = dutiesOf(fields.duties);
-    if (duties.join('\n') !== start.duties) update.duties = duties;
-    const area = normalizeAgentArea(fields.area);
-    if (area !== start.area) update.area = area;
-    if (fields.web !== start.web) update.web = fields.web;
+    if (n !== member.name) update.name = n;
+    if (!lead) {
+      if (fields.role.trim() !== start.role) update.role = fields.role.trim();
+      if (fields.mission.trim() !== start.mission) update.mission = fields.mission.trim();
+      const duties = dutiesOf(fields.duties);
+      if (duties.join('\n') !== start.duties) update.duties = duties;
+      const area = normalizeAgentArea(fields.area);
+      if (area !== start.area) update.area = area;
+      if (fields.web !== start.web) update.web = fields.web;
+    }
     if (Object.keys(update).length === 0) return onCancel();
     setBusy(true);
     try {
       await getApi().updateMember(member.id, force ? { ...update, force: true } : update);
-      notify(s.roleSaved(member.name), 'success');
+      if (update.name) notify(s.renamed(member.name, n), 'success');
+      if (Object.keys(update).some((k) => k !== 'name')) {
+        notify(s.roleSaved(update.name ?? member.name), 'success');
+      }
       onSaved();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'instructions_edited') setOverwrite(true);
-      else setErrors({ form: teamError(err) });
+      else if (err instanceof ApiError && err.code === 'name_taken') {
+        setErrors({ name: teamError(err) });
+      } else setErrors({ form: teamError(err) });
     } finally {
       setBusy(false);
     }
@@ -219,55 +234,102 @@ function RoleForm({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const found = roleProblems(fields);
-    setErrors(found);
-    if (Object.keys(found).length === 0) void send(member.instructionsEdited && overwrite);
+    const n = name.replace(/\s+/g, ' ').trim();
+    const found = lead ? {} : roleProblems(fields);
+    const np = nameProblem(n) ?? (taken(n, member.id) ? s.nameTaken : null);
+    const all: Record<string, string> = np ? { ...found, name: np } : found;
+    setErrors(all);
+    if (Object.keys(all).length === 0) void send(member.instructionsEdited && overwrite);
   };
 
   return (
-    <form onSubmit={submit} noValidate data-testid={`team-role-form-${member.id}`}>
-      <RowBody className="sm:max-w-[520px]">
-        <RoleInputs
-          name={member.name}
-          title={member.title ?? s.titleDefault}
-          fields={fields}
-          set={(patch) => setFields((f) => ({ ...f, ...patch }))}
-          errors={errors}
-        />
-        {overwrite && (
-          <div
-            className="grid gap-2 rounded-[10px] bg-panel px-3.5 py-3 shadow-[0_0_0_1px_var(--seam)]"
-            role="alert"
-            data-testid="team-overwrite"
-          >
-            <p className="text-footnote leading-snug text-ink">{s.overwrite(member.name)}</p>
-            <div className="flex gap-2">
-              <Button size="sm" disabled={busy} onClick={() => void send(true)}>
-                {s.replace}
+    <>
+      <form onSubmit={submit} noValidate data-testid={`team-role-form-${member.id}`}>
+        <RowBody className="sm:max-w-[520px]">
+          <FormField id={nameId} label={s.name} error={errors['name']}>
+            <input
+              id={nameId}
+              value={name}
+              maxLength={24}
+              onChange={(e) => setName(e.target.value)}
+              className={inputClass}
+              aria-invalid={errors['name'] ? true : undefined}
+            />
+          </FormField>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-footnote font-medium text-ink">{s.look}</p>
+            {!looking && (
+              <Button variant="secondary" size="sm" onClick={() => setLooking(true)}>
+                {s.changeLook}
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setOverwrite(false)}>
+            )}
+          </div>
+          {looking && (
+            <div className="-mx-4">
+              <LookPicker member={member} onSaved={onSaved} onClose={() => setLooking(false)} />
+            </div>
+          )}
+          {lead ? (
+            <p className="text-footnote leading-snug text-ink-muted">
+              {member.isLead ? s.leadOfProject : s.leadOfSquad}
+            </p>
+          ) : (
+            <RoleInputs
+              name={member.name}
+              title={member.title ?? s.titleDefault}
+              fields={fields}
+              set={(patch) => setFields((f) => ({ ...f, ...patch }))}
+              errors={errors}
+            />
+          )}
+          {overwrite && (
+            <div
+              className="grid gap-2 rounded-[10px] bg-panel px-3.5 py-3 shadow-[0_0_0_1px_var(--seam)]"
+              role="alert"
+              data-testid="team-overwrite"
+            >
+              <p className="text-footnote leading-snug text-ink">{s.overwrite(member.name)}</p>
+              <div className="flex gap-2">
+                <Button size="sm" disabled={busy} onClick={() => void send(true)}>
+                  {s.replace}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setOverwrite(false)}>
+                  {common.cancel}
+                </Button>
+              </div>
+            </div>
+          )}
+          {errors['form'] && (
+            <p role="alert" className="text-footnote text-stop-ink">
+              {errors['form']}
+            </p>
+          )}
+          {!overwrite && (
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" disabled={busy}>
+                {busy ? common.saving : common.save}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onCancel}>
                 {common.cancel}
               </Button>
             </div>
-          </div>
-        )}
-        {errors['form'] && (
-          <p role="alert" className="text-footnote text-stop-ink">
-            {errors['form']}
-          </p>
-        )}
-        {!overwrite && (
-          <div className="flex gap-2">
-            <Button type="submit" size="sm" disabled={busy}>
-              {busy ? common.saving : common.save}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onCancel}>
-              {common.cancel}
-            </Button>
-          </div>
-        )}
-      </RowBody>
-    </form>
+          )}
+        </RowBody>
+      </form>
+      {!lead && (
+        <div className="set-seam-t">
+          <Row label={remove.label} description={remove.description}>
+            <ConfirmButton
+              label={s.remove}
+              question={s.removeQuestion(member.name)}
+              confirm={s.removeConfirm}
+              busy={remove.busy}
+              onConfirm={remove.run}
+            />
+          </Row>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -400,8 +462,9 @@ function LiveNote({ id }: { id: string }) {
 
 /**
  * One monster of a squad: the personal one (Impostazioni → Squadra) or a
- * project's (its Squadra tab, D-097), with the same name, look, role and duties.
- * The capo of a squad (the orchestrator, a project's lead) keeps its role.
+ * project's (its Squadra tab, D-097). The row is the monster and one "Edit": the name, the look,
+ * what it does and "Remove" open under it (`EditMember`). The capo of a squad (the orchestrator, a
+ * project's lead) keeps its role: only its name and look change.
  */
 export function MemberRow({
   member,
@@ -415,7 +478,7 @@ export function MemberRow({
   member: TeamMemberView;
   taken: (name: string, self?: string) => boolean;
   onChanged: () => void;
-  /** A "Write" row that opens the monster's chat (the project's tab). */
+  /** A "Write" key that opens the monster's chat (the project's tab). */
   chat?: boolean;
   /** Its screen follows what it is doing, and its status is read out. */
   live?: boolean;
@@ -424,7 +487,7 @@ export function MemberRow({
   testId?: string;
 }) {
   const s = teamStrings().members;
-  const [open, setOpen] = useState<'look' | 'role' | null>(null);
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const lead = member.isOrchestrator || member.isLead === true;
 
@@ -446,119 +509,70 @@ export function MemberRow({
   };
 
   return (
-    <DisclosureRow
-      testId={testId ?? `team-member-${member.id}`}
-      leading={<MemberScreen member={member} live={live} />}
-      label={
-        <span className="flex flex-wrap items-baseline gap-x-2.5">
-          <span className="text-large font-semibold">{member.name}</span>
-          {member.isOrchestrator && <span className="label text-signal-ink">{s.lead}</span>}
-          {member.isLead && <span className="label text-signal-ink">{s.leadShort}</span>}
-        </span>
-      }
-      description={
-        <>
-          {member.isLead ? s.coordinatesProject : member.role}
-          {live && <LiveNote id={member.id} />}
-        </>
-      }
-    >
-      <div className="set-rows">
-        {chat && (
-          <Row label={s.chat} description={s.writeFromChat(member.name)}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => openChat(member.id)}
-              aria-label={s.writeTo(member.name)}
-            >
-              <ChatCircle size={16} aria-hidden /> {s.write}
-            </Button>
-          </Row>
-        )}
-        <Row label={s.name}>
-          <InlineEdit
-            value={member.name}
-            label={s.nameOf(member.name)}
-            check={(n) => nameProblem(n) ?? (taken(n, member.id) ? s.nameTaken : null)}
-            onSave={(name) =>
-              plainly(async () => {
-                await getApi().updateMember(member.id, { name });
-                notify(s.renamed(member.name, name), 'success');
-                onChanged();
-              })
-            }
-          />
-        </Row>
-        <div>
-          <Row label={s.look}>
-            {open !== 'look' && (
-              <Button variant="secondary" size="sm" onClick={() => setOpen('look')}>
-                {s.changeLook}
-              </Button>
-            )}
-          </Row>
-          {open === 'look' && (
-            <div className="set-seam-t">
-              <LookPicker
-                member={member}
-                onSaved={() => {
-                  setOpen(null);
-                  onChanged();
-                }}
-                onClose={() => setOpen(null)}
-              />
-            </div>
-          )}
-        </div>
-        {lead ? (
-          <Row label={s.role} description={member.isLead ? s.leadOfProject : s.leadOfSquad} />
-        ) : (
+    <li data-testid={testId ?? `team-member-${member.id}`}>
+      <Row
+        leading={<MemberScreen member={member} live={live} />}
+        label={
+          <span className="flex flex-wrap items-baseline gap-x-2.5">
+            <span className="text-large font-semibold">{member.name}</span>
+            {member.isOrchestrator && <span className="label text-signal-ink">{s.lead}</span>}
+            {member.isLead && <span className="label text-signal-ink">{s.leadShort}</span>}
+          </span>
+        }
+        description={
           <>
-            <div>
-              <Row
-                label={s.roleAndDuties}
-                description={s.dutiesLine(
-                  member.duties?.length ?? 0,
-                  member.area ?? '…',
-                  member.web,
-                )}
-              >
-                {open !== 'role' && (
-                  <Button variant="secondary" size="sm" onClick={() => setOpen('role')}>
-                    {s.edit}
-                  </Button>
-                )}
-              </Row>
-              {open === 'role' && (
-                <div className="set-seam-t">
-                  <RoleForm
-                    member={member}
-                    onCancel={() => setOpen(null)}
-                    onSaved={() => {
-                      setOpen(null);
-                      onChanged();
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-            <Row
-              label={removal ? s.removeFromProject : s.removeFromSquad}
-              description={removal?.description ?? s.removeText}
-            >
-              <ConfirmButton
-                label={s.remove}
-                question={s.removeQuestion(member.name)}
-                confirm={s.removeConfirm}
-                busy={busy}
-                onConfirm={() => void archive()}
-              />
-            </Row>
+            {member.isLead ? s.coordinatesProject : member.role}
+            {!lead && (
+              <span className="block">
+                {s.dutiesLine(member.duties?.length ?? 0, member.area ?? '…', member.web)}
+              </span>
+            )}
+            {live && <LiveNote id={member.id} />}
           </>
+        }
+      >
+        {chat && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => openChat(member.id)}
+            aria-label={s.writeTo(member.name)}
+          >
+            <ChatCircle size={16} aria-hidden /> {s.write}
+          </Button>
         )}
-      </div>
-    </DisclosureRow>
+        {!editing && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setEditing(true)}
+            aria-label={s.editMonster(member.name)}
+          >
+            {s.edit}
+          </Button>
+        )}
+      </Row>
+      {editing && (
+        <div className="set-seam-t bg-panel">
+          <EditMember
+            member={member}
+            lead={lead}
+            taken={taken}
+            remove={{
+              label: removal ? s.removeFromProject : s.removeFromSquad,
+              description: removal?.description ?? s.removeText,
+              busy,
+              run: () => void archive(),
+            }}
+            onCancel={() => setEditing(false)}
+            onSaved={() => {
+              setEditing(false);
+              onChanged();
+            }}
+          />
+        </div>
+      )}
+    </li>
   );
 }
 
