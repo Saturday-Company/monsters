@@ -578,7 +578,7 @@ describe('context: offload and masking (C.2)', () => {
           (e: unknown) => e,
         )) as ToolError | null;
         expect(err).toMatchObject({ code: 'LIMIT_REACHED' });
-        expect(err!.hint).toMatch(hint!);
+        expect(err!.hint).toMatch(hint);
         // Never "call it with its filters" for a tool that has none.
         if (tool === plain.name) expect(err!.hint).not.toMatch(/filters/);
       }

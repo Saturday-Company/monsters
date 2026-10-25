@@ -11,7 +11,6 @@ import {
   type AgentSummary,
   type Lang,
   type AnswerRequest,
-  type EventType,
   type LogEvent,
   type Question,
   type StatusResponse,
