@@ -53,7 +53,7 @@ const openRheaTerminal = (page: Page) =>
 async function openChatGPTModal(page: Page) {
   // Settings → Modelli, with the list of what can still be connected open.
   await page.evaluate(() => (window.location.hash = '#/impostazioni?sezione=modelli'));
-  await page.getByRole('button', { name: 'Connect another model' }).click();
+  await page.getByRole('button', { name: 'Add a model' }).click();
   const card = page.getByTestId('subscription-chatgpt');
   const popup = page.waitForEvent('popup');
   await card.getByRole('button', { name: 'Continue with ChatGPT' }).click();

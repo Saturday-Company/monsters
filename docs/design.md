@@ -542,9 +542,11 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   Hyphenated words (a date) don't wrap.
 - **Settings**: five tabs, one idea each (D-066), as a row of keys at the top: **Squad** (who is there, and who you are:
   name, tone, language, style; the Profile note; the lead is renamed on its row of the squad; at the bottom a closed
-  "Advanced" drawer with the monsters' decisions and the scorecard, D-167), **Models** (what they think with: keys and
-  subscriptions; the monsters' model, one for the whole squad until you choose "Choose for each monster"; a single
-  model has no arrows or ✕, and the name reads in words, "Free, chosen by OpenRouter"),
+  "Advanced" drawer with the monsters' decisions and the scorecard, D-167), **Models** (what they think with: the plans and
+  accounts that are on, "Add a model"; then "Main model" and "If it doesn't answer, use" for the whole squad, the
+  spending, and at the bottom a closed "Advanced" drawer with a model for each monster, the order, up to six links, the
+  Quick / Balanced / Thorough tiers and "Automatic"; a squad whose monsters differ says "Different for some monsters";
+  the name reads in words, "Free, chosen by OpenRouter"),
   **Permissions** (first "They always ask you", then what each monster can use, at the bottom "Advanced"),
   **Connections** (the roads to and from the outside: paused tools when one waits, Telegram, "Apps and services" with
   the gallery, the browser and "Add a custom app", and one "Web search" group: free search with the Brave key, then the

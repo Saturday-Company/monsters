@@ -101,7 +101,7 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     // No OpenRouter key: it waits among the models to connect (open when nothing is).
     await expect(page.getByTestId('models-connected')).toBeVisible();
     if ((await page.getByTestId('models-add').count()) === 0) {
-      await page.getByRole('button', { name: 'Connect another model' }).click();
+      await page.getByRole('button', { name: 'Add a model' }).click();
     }
     await expect(page.getByTestId('key-status')).toHaveAttribute('data-set', 'no');
     await page.getByRole('tab', { name: 'General' }).click();

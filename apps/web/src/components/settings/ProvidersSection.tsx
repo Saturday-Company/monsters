@@ -1,4 +1,11 @@
-import { ArrowSquareOut, ArrowUp, CurrencyCircleDollar, Plus, X } from '@phosphor-icons/react';
+import {
+  ArrowSquareOut,
+  ArrowUp,
+  CurrencyCircleDollar,
+  Info,
+  Plus,
+  X,
+} from '@phosphor-icons/react';
 import {
   AUTO_MODELS_PROVIDER,
   autoChain,
@@ -7,6 +14,7 @@ import {
   EFFORT_WORD,
   isOpenRouterFreeModel,
   ProviderKeyRequestSchema,
+  SETTINGS_SECTIONS,
   ProviderUrlRequestSchema,
   type AgentModels,
   type AutoBase,
@@ -16,6 +24,7 @@ import {
 } from '@monsters/shared';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ApiError, describeError } from '../../lib/api.ts';
+import { settingsPath } from '../../lib/router.ts';
 import { cn, domId } from '../../lib/utils.ts';
 import { getApi, notify, refreshAgents } from '../../store/app.ts';
 import { Button, buttonVariants } from '../ui/button.tsx';
@@ -25,14 +34,33 @@ import { ModelPicker, modelName, type ModelList } from './ModelPicker.tsx';
 import { serviceLabel } from './data.ts';
 import { modelsStrings } from './models.strings.ts';
 import { partsStrings } from './parts.strings.ts';
-import { AgentMark, fieldOnGroup, FormField, Group, RowBody, selectClass } from './parts.tsx';
+import {
+  AgentMark,
+  DisclosureRow,
+  fieldOnGroup,
+  FormField,
+  Group,
+  RowBody,
+  selectClass,
+} from './parts.tsx';
 
 /*
- * Settings → Modelli, the services with a key or an address (M2.2) and the
- * chain of models of every monster, saved by itself at each change.
+ * Settings → Modelli, the accounts with a key or an address (M2.2) and, in Advanced, the chain of
+ * models of every monster, saved by itself at each change.
  */
 
-/** One line on what each service is, in plain words. */
+/**
+ * What a model provider is called: "OpenRouter account" for one with a key, the plan for Claude and
+ * ChatGPT, the program for a local server (glossary: an account, never a "service").
+ */
+export function accountLabel(
+  p: Pick<ProviderView, 'id' | 'label'> & { local?: boolean; subscription?: boolean },
+): string {
+  if (p.local || p.subscription) return serviceLabel(p.id, p.label);
+  return serviceLabel(p.id, modelsStrings().providers.account(p.label));
+}
+
+/** One line on what each account is, in plain words. */
 export function aboutOf(id: string): string | undefined {
   return modelsStrings().providers.about[id];
 }
@@ -211,15 +239,15 @@ export function ProviderForm({
   );
 }
 
-type ModelLists = Record<string, ModelInfoView[] | 'loading' | 'error'>;
+export type ModelLists = Record<string, ModelInfoView[] | 'loading' | 'error'>;
 
 export { modelName };
 
 /** The OpenRouter cost note: paid models are billed to the user's OpenRouter account. */
-const OPENROUTER_PAID = { label: 'OpenRouter', freeTier: false };
+export const OPENROUTER_PAID = { label: 'OpenRouter', freeTier: false };
 
 /** A paid OpenRouter model (anything but the free router and `:free` variants). */
-function isPaidOpenRouter(link: ModelRefView): boolean {
+export function isPaidOpenRouter(link: ModelRefView): boolean {
   return (
     link.provider === 'openrouter' &&
     !!link.model.trim() &&
@@ -232,7 +260,7 @@ function isPaidOpenRouter(link: ModelRefView): boolean {
  * chain cannot be saved, and the user can turn paid models on right here,
  * after reading what they cost.
  */
-function PaidBlocked({ models, onEnabled }: { models: string[]; onEnabled: () => void }) {
+export function PaidBlocked({ models, onEnabled }: { models: string[]; onEnabled: () => void }) {
   const s = modelsStrings().providers.blocked;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -320,6 +348,58 @@ const stateOf = (a: AgentModels): ChainState => ({
 });
 const sameState = (a: ChainState, b: ChainState) => a.auto === b.auto && same(a.links, b.links);
 
+/**
+ * What "Automatic" needs (U2-29): the expert model decides whether a request is quick or thorough.
+ * Without it the base stays; the row says so and links to where it is turned on (Squad > Advanced >
+ * Monsters' decisions), instead of naming the place in plain text.
+ */
+function NeedsExpert() {
+  const s = modelsStrings().providers.chain;
+  const [state, setState] = useState<'unknown' | 'ready' | 'off' | 'needs'>('unknown');
+  useEffect(() => {
+    let alive = true;
+    getApi()
+      .instinct()
+      .then((view) => {
+        if (!alive) return;
+        const tier = view.uses.find((u) => u.id === 'tier');
+        setState(
+          tier?.active && tier.mode === 'on' ? 'ready' : tier?.mode === 'off' ? 'off' : 'needs',
+        );
+      })
+      .catch(() => alive && setState('unknown'));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return (
+    <div className="grid gap-1.5" data-testid="auto-expert" data-state={state}>
+      {(state === 'off' || state === 'needs') && (
+        <p
+          className="flex items-start gap-1.5 text-footnote leading-snug text-ink"
+          data-testid="auto-needs-expert"
+        >
+          <Info size={17} aria-hidden className="mt-px shrink-0 text-ink-muted" />
+          <span>
+            <strong className="font-semibold">
+              {state === 'off' ? s.expertOff : s.needsExpert}
+            </strong>{' '}
+            {s.needsExpertText}{' '}
+            <a
+              href={settingsPath('istinto')}
+              className="font-medium text-ink underline underline-offset-2"
+              data-testid="auto-expert-link"
+            >
+              {s.expertLink}
+            </a>
+          </span>
+        </p>
+      )}
+      <p className="text-footnote leading-snug text-ink-muted">{s.limitFallback}</p>
+    </div>
+  );
+}
+
 function ChainEditor({
   agent,
   team,
@@ -356,7 +436,10 @@ function ChainEditor({
   const [error, setError] = useState<string | null>(null);
   const configured = providers.filter((p) => p.configured);
   const claude = configured.some((p) => p.id === AUTO_MODELS_PROVIDER);
-  const label = (id: string) => serviceLabel(id, providers.find((p) => p.id === id)?.label);
+  const label = (id: string) => {
+    const p = providers.find((x) => x.id === id);
+    return p ? accountLabel(p) : serviceLabel(id);
+  };
   const dirty = !sameState(edit, base);
   const manual = auto === null;
   const paid = manual
@@ -444,7 +527,7 @@ function ChainEditor({
 
   const pickProvider = (i: number, provider: string) => {
     const list = models[provider];
-    // A new service: its default model, and no tier (it was the other model's).
+    // A new account: its default model, and no tier (it was the other model's).
     update(i, { provider, model: firstModel(provider, list), tier: undefined });
     // The list arrives later: its first model fills a link still empty.
     void needModels(provider).then((loaded) => {
@@ -536,7 +619,7 @@ function ChainEditor({
               </p>
             </>
           )}
-          <p className="text-footnote leading-snug text-ink-muted">{s.withoutExpert}</p>
+          <NeedsExpert />
         </div>
       ) : (
         <ol className="grid gap-1.5">
@@ -555,7 +638,7 @@ function ChainEditor({
                 </span>
                 <select
                   className={cn(selectClass, 'h-10 w-full')}
-                  aria-label={s.serviceOf(i + 1, who)}
+                  aria-label={s.accountOf(i + 1, who)}
                   value={l.provider}
                   onChange={(e) => pickProvider(i, e.target.value)}
                 >
@@ -564,7 +647,7 @@ function ChainEditor({
                   )}
                   {configured.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {serviceLabel(p.id, p.label)}
+                      {accountLabel(p)}
                     </option>
                   ))}
                 </select>
@@ -652,39 +735,34 @@ function ChainEditor({
 }
 
 /** The model a new link of a service starts on: Sonnet on the Claude plan, else the first. */
-function firstModel(provider: string, list: ModelList): string {
+export function firstModel(provider: string, list: ModelList): string {
   if (!Array.isArray(list)) return '';
   if (provider === AUTO_MODELS_PROVIDER && list.some((m) => m.id === 'sonnet')) return 'sonnet';
   return list[0]?.id ?? '';
 }
 
-/** "Each monster's model": one chain per monster, each saved by itself. */
-export function ChainsGroup({
-  providers,
-  agents,
-  onPaidEnabled,
-  onSaved,
-}: {
-  providers: ProviderView[];
-  agents: AgentModels[];
-  onPaidEnabled: () => void;
-  onSaved: (saved: AgentModels) => void;
-}) {
-  const s = modelsStrings().providers.group;
+export type ModelListsState = {
+  models: ModelLists;
+  needModels: (provider: string) => Promise<ModelInfoView[] | null>;
+};
+
+const NO_PROVIDERS: ProviderView[] = [];
+
+/**
+ * Model lists by account, for one set of configured accounts: an account added, changed or removed
+ * makes a new set, and its lists are read again. The simple view and Advanced share them.
+ */
+export function useModelLists(providers: ProviderView[] = NO_PROVIDERS): ModelListsState {
   const configuredKey = providers
     .filter((p) => p.configured)
     .map((p) => `${p.id}:${p.freeOnly ?? ''}:${p.baseURL ?? ''}`)
     .join('|');
-  /**
-   * Model lists by service, for one set of configured services: a service
-   * added, changed or removed makes a new set, and its lists are read again.
-   */
   const [lists, setLists] = useState<{ key: string; models: ModelLists }>({
     key: configuredKey,
     models: {},
   });
   const models = lists.key === configuredKey ? lists.models : {};
-  /** Model lists asked for, by set and service (one request each). */
+  /** Model lists asked for, by set and account (one request each). */
   const requested = useRef(new Map<string, Promise<ModelInfoView[] | null>>());
 
   const needModels = useCallback(
@@ -714,11 +792,37 @@ export function ChainsGroup({
       requested.current.set(id, loading);
       return loading;
     },
-    // The set of configured services is all that matters here.
+    // The set of configured accounts is all that matters here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [configuredKey],
   );
+  return { models, needModels };
+}
 
+/**
+ * Advanced: one chain per monster, each saved by itself, with the order, up to six links, the
+ * Quick / Balanced / Thorough tiers and "Automatic". The simple view above edits the first two
+ * links of the same chains.
+ */
+export function ChainsAdvanced({
+  providers,
+  agents,
+  lists,
+  open,
+  onOpenChange,
+  onPaidEnabled,
+  onSaved,
+}: {
+  providers: ProviderView[];
+  agents: AgentModels[];
+  lists: ModelListsState;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPaidEnabled: () => void;
+  onSaved: (saved: AgentModels) => void;
+}) {
+  const s = modelsStrings().providers.group;
+  const { models, needModels } = lists;
   const first = agents[0];
   // Every monster in "Automatica" counts as the same choice, whatever its base (D-093).
   const alike =
@@ -747,37 +851,47 @@ export function ChainsGroup({
   );
 
   return (
-    <Group
-      title={each ? s.titleEach : s.titleAll}
-      description={s.description}
-      as="ul"
-      testId="chains"
-    >
-      {each
-        ? agents.map((a) => (
-            <ChainEditor
-              key={a.id}
-              agent={a}
-              providers={providers}
-              models={models}
-              needModels={needModels}
-              onPaidEnabled={onPaidEnabled}
-              onSaved={onSaved}
-            />
-          ))
-        : first && (
-            <ChainEditor
-              key="team"
-              agent={first}
-              team={agents}
-              providers={providers}
-              models={models}
-              needModels={needModels}
-              onPaidEnabled={onPaidEnabled}
-              onSaved={onSaved}
-            />
-          )}
-      {agents.length > 1 && (alike || each) && toggle}
+    <Group label={SETTINGS_SECTIONS.avanzate.label} id="settings-modelli-avanzate" testId="chains">
+      <DisclosureRow
+        as="div"
+        label={SETTINGS_SECTIONS.avanzate.label}
+        description={s.advancedHint}
+        open={open}
+        onOpenChange={onOpenChange}
+        testId="chains-advanced-toggle"
+        advanced
+      >
+        <p className="max-w-[62ch] px-4 pt-3 text-footnote leading-snug text-ink-muted">
+          {s.description}
+        </p>
+        <ul className="set-rows" data-testid="chains-list">
+          {each
+            ? agents.map((a) => (
+                <ChainEditor
+                  key={a.id}
+                  agent={a}
+                  providers={providers}
+                  models={models}
+                  needModels={needModels}
+                  onPaidEnabled={onPaidEnabled}
+                  onSaved={onSaved}
+                />
+              ))
+            : first && (
+                <ChainEditor
+                  key="team"
+                  agent={first}
+                  team={agents}
+                  providers={providers}
+                  models={models}
+                  needModels={needModels}
+                  onPaidEnabled={onPaidEnabled}
+                  onSaved={onSaved}
+                />
+              )}
+          {agents.length > 1 && (alike || each) && toggle}
+        </ul>
+      </DisclosureRow>
     </Group>
   );
 }

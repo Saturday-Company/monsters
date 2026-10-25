@@ -1,22 +1,18 @@
 import { SETTINGS_SECTIONS } from '@monsters/shared';
 import { Plus } from '@phosphor-icons/react';
-import type {
-  AgentModels,
-  ProviderView,
-  ProvidersResponse,
-  SettingsResponse,
-} from '@monsters/shared';
+import type { AgentModels, ProviderView, ProvidersResponse } from '@monsters/shared';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { cn } from '../../lib/utils.ts';
 import { errorText, getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Switch } from '../ui/controls.tsx';
-import { serviceLabel, useSettings } from './data.ts';
+import { useSettings } from './data.ts';
 import { SpendSection } from './SpendSection.tsx';
 import { modelsStrings } from './models.strings.ts';
 import { partsStrings } from './parts.strings.ts';
 import {
   ConfirmButton,
+  DisclosureRow,
   Group,
   LoadFailed,
   LoadNotice,
@@ -26,12 +22,15 @@ import {
 } from './parts.tsx';
 import {
   aboutOf,
-  ChainsGroup,
+  accountLabel,
+  ChainsAdvanced,
   errorOf,
   PaidNotice,
   ProviderForm,
   tagOf,
+  useModelLists,
 } from './ProvidersSection.tsx';
+import { SquadModels } from './SquadModels.tsx';
 import {
   ChatGPTAdd,
   ChatGPTConnected,
@@ -44,10 +43,10 @@ import {
 } from './SubscriptionsSection.tsx';
 
 /*
- * Settings → Modelli (audit 6.2, 6.3): first what the monsters think with
- * ("Claude subscription · OpenRouter…"), each with Change or Disconnect; "Connect
- * another model" opens the rest; then the model of each monster, saved by
- * itself.
+ * Settings → Modelli (audit 6.2, 6.3; wave C3): first what the monsters think with (the plans and
+ * accounts that are on, each with Change or Disconnect) and "Add a model"; then "Main model" and
+ * "If it doesn't answer, use" for the whole squad; the spending; and, in Advanced, the chain of
+ * every monster (a model each, the order, Quick / Balanced / Thorough, Automatic).
  */
 
 /**
@@ -132,13 +131,13 @@ function OpenRouterPaidModels({
 function Disconnect({ p, onChanged }: { p: ProviderView; onChanged: () => void }) {
   const s = modelsStrings().tab;
   const [busy, setBusy] = useState(false);
-  const label = serviceLabel(p.id, p.label);
+  const label = accountLabel(p);
   const remove = async () => {
     setBusy(true);
     try {
       if (p.local) await getApi().removeProviderUrl(p.id);
       else await getApi().removeProviderKey(p.id);
-      notify(p.local ? s.disconnected(label) : s.keyRemoved(label), 'success');
+      notify(s.disconnected(label), 'success');
       onChanged();
     } catch (err) {
       notify(errorOf(err), 'error');
@@ -158,88 +157,35 @@ function Disconnect({ p, onChanged }: { p: ProviderView; onChanged: () => void }
   );
 }
 
-function OpenRouterConnected({
+/** A model account that is on: its key (or address), Change and Disconnect. */
+function ProviderConnected({
   p,
-  settings,
+  keyName,
   onChanged,
 }: {
   p: ProviderView;
-  settings: SettingsResponse | null;
+  /** The name given to the OpenRouter key, when there is one. */
+  keyName?: string;
   onChanged: () => void;
 }) {
   const s = modelsStrings().tab;
   const [open, setOpen] = useState(false);
-  const [changingKey, setChangingKey] = useState(false);
-  const freeOnly = p.freeOnly ?? settings?.openrouterKey.freeOnly ?? true;
-  const keyName = settings?.openrouterKey.label;
   const fromEnv = p.source === 'env';
-  return (
-    <ServiceRow
-      testId="provider-row-openrouter"
-      configured
-      title="OpenRouter"
-      tag={freeOnly ? s.freeOnly : s.alsoPaid}
-      status={
-        <span data-testid="key-status" data-set="yes">
-          {s.keyActive(keyName, fromEnv ? (p.envVar ?? '') : undefined)}
-        </span>
-      }
-      actions={
-        <>
-          <Button
-            variant="secondary"
-            size="sm"
-            aria-expanded={open}
-            onClick={() => {
-              setOpen((o) => !o);
-              setChangingKey(false);
-            }}
-          >
-            {open ? s.close : s.change}
-          </Button>
-          <Disconnect p={p} onChanged={onChanged} />
-        </>
-      }
-    >
-      {open && (
-        <div className="set-rows">
-          <OpenRouterPaidModels freeOnly={freeOnly} onChanged={onChanged} />
-          {!fromEnv &&
-            (changingKey ? (
-              <ProviderForm
-                p={p}
-                onCancel={() => setChangingKey(false)}
-                onDone={() => {
-                  setChangingKey(false);
-                  onChanged();
-                }}
-              />
-            ) : (
-              <Row label={s.key} description={s.savedKeyHidden}>
-                <Button variant="secondary" size="sm" onClick={() => setChangingKey(true)}>
-                  {s.changeKey}
-                </Button>
-              </Row>
-            ))}
-        </div>
-      )}
-    </ServiceRow>
+  const tag = p.id === 'openrouter' ? ((p.freeOnly ?? true) ? s.freeOnly : s.alsoPaid) : tagOf(p);
+  const status = p.local ? (
+    s.connectedTo(p.baseURL ?? '')
+  ) : (
+    // The name of the variable is a detail, kept for whoever sets it: on hover.
+    <span data-testid="key-status" data-set="yes" title={fromEnv ? p.envVar : undefined}>
+      {s.keyActive(keyName, fromEnv ? (p.envVar ?? '') : undefined)}
+    </span>
   );
-}
-
-function ProviderConnected({ p, onChanged }: { p: ProviderView; onChanged: () => void }) {
-  const s = modelsStrings().tab;
-  const [open, setOpen] = useState(false);
-  const fromEnv = p.source === 'env';
-  const status = p.local
-    ? s.connectedTo(p.baseURL ?? '')
-    : s.keyActive(undefined, fromEnv ? (p.envVar ?? '') : undefined);
   return (
     <ServiceRow
       testId={`provider-row-${p.id}`}
       configured
-      title={serviceLabel(p.id, p.label)}
-      tag={tagOf(p)}
+      title={accountLabel(p)}
+      tag={tag}
       status={status}
       actions={
         <>
@@ -286,7 +232,7 @@ function ProviderAdd({
     <ServiceRow
       testId={`provider-row-${p.id}`}
       configured={false}
-      title={serviceLabel(p.id, p.label)}
+      title={accountLabel(p)}
       tag={tagOf(p)}
       status={status ?? aboutOf(p.id)}
       actions={
@@ -311,6 +257,16 @@ function ProviderAdd({
   );
 }
 
+/** Opens Advanced and brings it into view (only the settings panel scrolls, not the window). */
+function scrollToAdvanced() {
+  setTimeout(() => {
+    const el = document.getElementById('settings-modelli-avanzate');
+    const box = el?.closest<HTMLElement>('[role="tabpanel"]');
+    if (el && box)
+      box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top - 16;
+  }, 50);
+}
+
 export function ModelsTab() {
   const t = modelsStrings().tab;
   const [settings, reloadSettings] = useSettings();
@@ -318,8 +274,10 @@ export function ModelsTab() {
   const [failed, setFailed] = useState(false);
   const [version, setVersion] = useState(0);
   const [adding, setAdding] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const reloadProviders = useCallback(() => setVersion((v) => v + 1), []);
   const subs = useSubscriptions(reloadProviders);
+  const lists = useModelLists(data?.providers);
 
   useEffect(() => {
     let alive = true;
@@ -370,23 +328,25 @@ export function ModelsTab() {
   const others = keyed.filter((p) => p.id !== 'openrouter');
 
   const connected: ReactNode[] = [];
-  const subsToAdd: ReactNode[] = [];
-  const keysToAdd: ReactNode[] = [];
-  (s.claude.enabled ? connected : subsToAdd).push(
+  const plansToAdd: ReactNode[] = [];
+  const accountsToAdd: ReactNode[] = [];
+  const moreToAdd: ReactNode[] = [];
+  (s.claude.enabled ? connected : plansToAdd).push(
     s.claude.enabled ? (
       <ClaudeConnected key="claude" s={s} refresh={refresh} />
     ) : (
       <ClaudeAdd key="claude" s={s} refresh={refresh} />
     ),
   );
-  (s.chatgpt.signedIn ? connected : subsToAdd).push(
+  (s.chatgpt.signedIn ? connected : plansToAdd).push(
     s.chatgpt.signedIn ? (
       <ChatGPTConnected key="chatgpt" s={s} refresh={refresh} />
     ) : (
       <ChatGPTAdd key="chatgpt" s={s} refresh={refresh} />
     ),
   );
-  (s.codex.enabled ? connected : subsToAdd).push(
+  // Codex is a plan for coding: with the other accounts and the local servers, behind "more".
+  (s.codex.enabled ? connected : moreToAdd).push(
     s.codex.enabled ? (
       <CodexConnected key="codex" s={s} refresh={refresh} />
     ) : (
@@ -395,10 +355,10 @@ export function ModelsTab() {
   );
   if (openrouter?.configured) {
     connected.push(
-      <OpenRouterConnected
+      <ProviderConnected
         key="openrouter"
         p={openrouter}
-        settings={settings}
+        keyName={settings?.openrouterKey.label}
         onChanged={changed}
       />,
     );
@@ -408,7 +368,7 @@ export function ModelsTab() {
   }
   const none = connected.length === 0;
   if (openrouter && !openrouter.configured) {
-    keysToAdd.push(
+    accountsToAdd.push(
       <ProviderAdd
         key="openrouter"
         p={openrouter}
@@ -422,9 +382,14 @@ export function ModelsTab() {
     );
   }
   for (const p of others) {
-    if (!p.configured) keysToAdd.push(<ProviderAdd key={p.id} p={p} onChanged={changed} />);
+    if (!p.configured) moreToAdd.push(<ProviderAdd key={p.id} p={p} onChanged={changed} />);
   }
   const showAdd = none || adding;
+
+  const openAdvanced = () => {
+    setAdvancedOpen(true);
+    scrollToAdvanced();
+  };
 
   return (
     <>
@@ -441,40 +406,75 @@ export function ModelsTab() {
               className="row-key flex min-h-[52px] w-full items-center gap-2.5 px-4 text-left text-body font-medium text-ink [&_svg]:text-signal-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
             >
               <Plus size={16} aria-hidden className={cn('turn', adding && 'rotate-45')} />
-              {t.connectAnother}
+              {t.addModel}
             </button>
           </li>
         )}
       </Group>
 
-      {showAdd && (subsToAdd.length > 0 || keysToAdd.length > 0) && (
+      {showAdd && (plansToAdd.length > 0 || accountsToAdd.length > 0 || moreToAdd.length > 0) && (
         <div className="grid gap-5" data-testid="models-add">
-          {subsToAdd.length > 0 && (
+          {plansToAdd.length > 0 && (
             <Group
               title={SETTINGS_SECTIONS.abbonamenti.label}
               description={t.subscriptionsText}
               as="ul"
               level={3}
+              testId="models-plans"
             >
-              {subsToAdd}
+              {plansToAdd}
             </Group>
           )}
-          {keysToAdd.length > 0 && (
-            <Group title={t.keysOrLocal} as="ul" level={3} testId="providers">
-              {keysToAdd}
+          {(accountsToAdd.length > 0 || moreToAdd.length > 0) && (
+            <Group title={t.accounts} as="ul" level={3} testId="models-accounts">
+              {accountsToAdd}
+              {moreToAdd.length > 0 && (
+                <DisclosureRow
+                  label={t.moreTitle}
+                  description={t.moreText}
+                  testId="models-add-more"
+                  advanced
+                >
+                  <ul className="set-rows" data-testid="providers">
+                    {moreToAdd}
+                  </ul>
+                </DisclosureRow>
+              )}
             </Group>
           )}
         </div>
       )}
 
-      <ChainsGroup
+      <SquadModels
         providers={data.providers}
         agents={data.agents}
-        onPaidEnabled={changed}
+        lists={lists}
         onSaved={onChainSaved}
+        onPaidEnabled={changed}
+        onOpenAdvanced={openAdvanced}
+        footer={
+          openrouter?.configured && (
+            <li>
+              <OpenRouterPaidModels
+                freeOnly={openrouter.freeOnly ?? settings?.openrouterKey.freeOnly ?? true}
+                onChanged={changed}
+              />
+            </li>
+          )
+        }
       />
 
       <SpendSection />
+
+      <ChainsAdvanced
+        providers={data.providers}
+        agents={data.agents}
+        lists={lists}
+        open={advancedOpen}
+        onOpenChange={setAdvancedOpen}
+        onPaidEnabled={changed}
+        onSaved={onChainSaved}
+      />
 
       <ChatGPTWelcomeOnce s={s} onSeen={subs.setData} />
     </>

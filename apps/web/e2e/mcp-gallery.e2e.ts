@@ -207,7 +207,7 @@ test('gallery: with the Claude plan, Figma and Slack connect through Claude (D-0
 }) => {
   // The Claude plan first (Impostazioni → Modelli), as the user does.
   await page.goto('/?mock=demo#/impostazioni?sezione=modelli');
-  await page.getByRole('button', { name: 'Connect another model' }).click();
+  await page.getByRole('button', { name: 'Add a model' }).click();
   await page.getByTestId('subscription-claude').getByRole('button', { name: 'Connect' }).click();
   const card = page.getByTestId('models-connected').getByTestId('subscription-claude');
   await card.getByRole('button', { name: 'Check again' }).click();

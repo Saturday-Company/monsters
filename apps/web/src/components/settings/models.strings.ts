@@ -1,6 +1,6 @@
 import { defineStrings } from '../../lib/i18n.ts';
 
-/* Settings → Models: the services, the keys and the chain of models of every monster (D-153). */
+/* Settings → Models: the accounts, the plans, the main model and fallback, and in Advanced the chain of every monster (D-153). */
 
 const lowerFirst = (text: string) => `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
 
@@ -23,7 +23,30 @@ const en = {
     partial: (shown: number, total: number) => `${shown} of ${total} · type to search`,
     count: (n: number) => (n === 1 ? '1 model' : `${n} models`),
   },
+  squad: {
+    title: 'Which model they use',
+    description: 'The same for all the monsters. Changes save automatically.',
+    label: { main: 'Main model', fallback: 'If it doesn’t answer, use' },
+    text: {
+      main: 'What the monsters use first.',
+      fallback: 'Used when the main model doesn’t answer or has run out of requests.',
+    },
+    accountOf: { main: 'Account of the main model', fallback: 'Account of the fallback model' },
+    modelOf: { main: 'Main model', fallback: 'Fallback model' },
+    notConnected: (label: string) => `${label} (not connected)`,
+    addFallback: 'Add a fallback',
+    removeFallback: 'Remove the fallback',
+    more: (n: number) =>
+      n === 1
+        ? 'One more alternative is kept after these.'
+        : `${n} more alternatives are kept after these.`,
+    inAdvanced: 'Change in Advanced',
+    different: 'Different for some monsters',
+    automatic: 'Chosen for each request by Monsters, from your Claude plan.',
+    noModels: (label: string) => `Couldn’t load the models of ${label}. Try again in a moment.`,
+  },
   providers: {
+    account: (label: string) => `${label} account`,
     about: {
       openrouter: 'Many models with a single key, some of them free.',
       anthropic: 'Claude models, with your API key.',
@@ -76,11 +99,11 @@ const en = {
       turningOn: 'Turning on…',
       button: 'Also use paid models',
     },
-    base: { light: 'Light', medium: 'Medium', strong: 'Strong' },
+    base: { light: 'Quick', medium: 'Balanced', strong: 'Thorough' },
     autoLine: {
       usually: (name: string) => `Usually ${name}`,
-      simple: (name: string) => `simple → ${name}`,
-      hard: (name: string) => `hard → ${name}`,
+      simple: (name: string) => `quick → ${name}`,
+      hard: (name: string) => `thorough → ${name}`,
       withEffort: (name: string, effort: string) => `${name} (${effort.toLowerCase()} effort)`,
     },
     chain: {
@@ -92,19 +115,22 @@ const en = {
       saving: 'Saving…',
       automatic: 'Automatic',
       automaticText:
-        'For every request and task, the expert model (TypeSafe) chooses between Sonnet (medium effort) and Opus (high effort) from your Claude plan; with the Light base it uses Haiku.',
+        'For each request, Monsters picks Sonnet or Opus from your Claude plan; Haiku when the base is Quick.',
       automaticLabel: (who: string) => `Automatic model choice for ${who}`,
       teamAuto:
-        'Each monster starts from its own base: your lead and the monsters that work on the computer start from Strong, the others from Medium. Change it with “Choose for each monster”.',
+        'Each monster starts from its own base: your lead and the monsters that work on the computer start from Thorough, the others from Balanced. Change it with “Choose for each monster”.',
       baseWord: 'Base',
       baseOf: (who: string) => `Base of ${who}`,
-      withoutExpert:
-        'Without the expert model (Squad → Monsters’ decisions) the base stays. If Opus reaches the plan’s limit, the same request moves to Sonnet.',
-      serviceOf: (i: number, who: string) => `Service ${i} of ${who}`,
+      needsExpert: 'Needs the expert model.',
+      expertOff: 'Turned off in Monsters’ decisions.',
+      needsExpertText: 'Without it, Automatic keeps its base.',
+      expertLink: 'Open Monsters’ decisions',
+      limitFallback: 'If Opus reaches the plan’s limit, the same request moves to Sonnet.',
+      accountOf: (i: number, who: string) => `Account ${i} of ${who}`,
       notConnected: (label: string) => `${label} (not connected)`,
       modelOf: (i: number, who: string) => `Model ${i} of ${who}`,
-      tierLight: 'For simple requests',
-      tierStrong: 'For hard requests',
+      tierLight: 'For quick requests',
+      tierStrong: 'For thorough requests',
       moveUp: (i: number, who: string) => `Move model ${i} of ${who} up`,
       remove: (i: number, who: string) => `Remove model ${i} of ${who}`,
       addAlternative: 'Add an alternative',
@@ -115,8 +141,8 @@ const en = {
       different: 'The monsters use different models',
       same: 'Same for everyone',
       each: 'Choose for each monster',
-      titleEach: 'Each monster’s model',
-      titleAll: 'The monsters’ model',
+      advancedHint:
+        'A model for each monster, alternatives in order, Quick / Balanced / Thorough, Automatic.',
       description:
         'The first one is used: if it doesn’t answer or runs out of requests, the monster moves on to the next. Changes save automatically.',
     },
@@ -132,14 +158,13 @@ const en = {
       turnOn: 'Turn on paid models',
     },
     disconnected: (label: string) => `${label} disconnected.`,
-    keyRemoved: (label: string) => `${label} key removed.`,
     disconnect: 'Disconnect',
     disconnectQuestion: (label: string) => `Disconnect ${label}?`,
     disconnectConfirm: 'Yes, disconnect',
     freeOnly: 'Free only',
     alsoPaid: 'Also paid',
     keyActive: (name: string | undefined, env: string | undefined) =>
-      `Key active${name ? ` (“${name}”)` : ''}${env !== undefined ? `, from the ${env} variable` : ''}.`,
+      `Key active${name ? ` (“${name}”)` : ''}${env !== undefined ? ', set outside the app' : ''}.`,
     close: 'Close',
     change: 'Change',
     key: 'Key',
@@ -156,9 +181,12 @@ const en = {
     openrouterNone: 'No OpenRouter key (optional if you already have another model).',
     thinkWith: 'What the monsters think with',
     noModel: 'No model connected',
-    noModelText: 'Without a model the monsters can’t think: connect one below.',
-    connectAnother: 'Connect another model',
+    noModelText: 'Without a model the monsters can’t think: add one below.',
+    addModel: 'Add a model',
     subscriptionsText: 'The monsters use your plan, in the ways OpenAI and Anthropic allow.',
+    accounts: 'Accounts',
+    moreTitle: 'Other accounts and local models',
+    moreText: 'Anthropic, OpenAI, Google, Mistral, Groq, Codex, Ollama, LM Studio.',
     keysOrLocal: 'With a key or on your computer',
   },
 };
@@ -180,7 +208,33 @@ const it: typeof en = {
     partial: (shown, total) => `${shown} di ${total} · scrivi per cercare`,
     count: (n) => (n === 1 ? '1 modello' : `${n} modelli`),
   },
+  squad: {
+    title: 'Quale modello usano',
+    description: 'Lo stesso per tutti i mostri. Ogni cambio si salva da solo.',
+    label: { main: 'Modello principale', fallback: 'Se non risponde, usa' },
+    text: {
+      main: 'Quello che i mostri usano per primo.',
+      fallback: 'Si usa quando il modello principale non risponde o ha finito le richieste.',
+    },
+    accountOf: {
+      main: 'Account del modello principale',
+      fallback: 'Account del modello di riserva',
+    },
+    modelOf: { main: 'Modello principale', fallback: 'Modello di riserva' },
+    notConnected: (label) => `${label} (non collegato)`,
+    addFallback: 'Aggiungi un modello di riserva',
+    removeFallback: 'Togli il modello di riserva',
+    more: (n) =>
+      n === 1
+        ? 'Dopo questi resta un’altra alternativa.'
+        : `Dopo questi restano altre ${n} alternative.`,
+    inAdvanced: 'Cambia in Avanzate',
+    different: 'Diverso per alcuni mostri',
+    automatic: 'Lo sceglie Monsters a ogni richiesta, tra quelli del tuo piano Claude.',
+    noModels: (label) => `Non riesco a caricare i modelli di ${label}. Riprova tra un attimo.`,
+  },
   providers: {
+    account: (label) => `account ${label}`,
     about: {
       openrouter: 'Tanti modelli con una chiave sola, anche gratis.',
       anthropic: 'I modelli Claude, con la tua chiave API.',
@@ -233,11 +287,11 @@ const it: typeof en = {
       turningOn: 'Attivo…',
       button: 'Usa anche modelli a pagamento',
     },
-    base: { light: 'Leggera', medium: 'Media', strong: 'Forte' },
+    base: { light: 'Veloce', medium: 'Bilanciato', strong: 'Accurato' },
     autoLine: {
       usually: (name) => `Di solito ${name}`,
-      simple: (name) => `semplici → ${name}`,
-      hard: (name) => `difficili → ${name}`,
+      simple: (name) => `veloce → ${name}`,
+      hard: (name) => `accurato → ${name}`,
       withEffort: (name, effort) => `${name} (impegno ${effort})`,
     },
     chain: {
@@ -249,19 +303,22 @@ const it: typeof en = {
       saving: 'Salvo…',
       automatic: 'Automatica',
       automaticText:
-        'A ogni richiesta e a ogni incarico il modello esperto (TypeSafe) sceglie tra Sonnet (impegno Medio) e Opus (impegno Alto) del piano Claude; Haiku con la base Leggera.',
+        'A ogni richiesta Monsters sceglie Sonnet o Opus del tuo piano Claude; Haiku se la base è Veloce.',
       automaticLabel: (who) => `Scelta automatica del modello per ${who}`,
       teamAuto:
-        'Ogni mostro parte dalla sua base: il tuo capo e chi lavora sul computer da Forte, gli altri da Media. La cambi con “Scegli per ogni mostro”.',
+        'Ogni mostro parte dalla sua base: il tuo capo e chi lavora sul computer da Accurato, gli altri da Bilanciato. La cambi con “Scegli per ogni mostro”.',
       baseWord: 'Base',
       baseOf: (who) => `Base di ${who}`,
-      withoutExpert:
-        'Senza il modello esperto (Squadra → Decisioni dei mostri) resta la base. Se Opus arriva al limite del piano, la stessa richiesta passa a Sonnet.',
-      serviceOf: (i, who) => `Servizio ${i} di ${who}`,
+      needsExpert: 'Serve il modello esperto.',
+      expertOff: 'Spento in Decisioni dei mostri.',
+      needsExpertText: 'Senza, Automatica resta sulla sua base.',
+      expertLink: 'Apri Decisioni dei mostri',
+      limitFallback: 'Se Opus arriva al limite del piano, la stessa richiesta passa a Sonnet.',
+      accountOf: (i, who) => `Account ${i} di ${who}`,
       notConnected: (label) => `${label} (non collegato)`,
       modelOf: (i, who) => `Modello ${i} di ${who}`,
-      tierLight: 'Per le richieste semplici',
-      tierStrong: 'Per le richieste difficili',
+      tierLight: 'Per le richieste veloci',
+      tierStrong: 'Per le richieste accurate',
       moveUp: (i, who) => `Sposta su il modello ${i} di ${who}`,
       remove: (i, who) => `Togli il modello ${i} di ${who}`,
       addAlternative: 'Aggiungi un’alternativa',
@@ -272,8 +329,8 @@ const it: typeof en = {
       different: 'I mostri usano modelli diversi',
       same: 'Uguale per tutti',
       each: 'Scegli per ogni mostro',
-      titleEach: 'Il modello di ogni mostro',
-      titleAll: 'Il modello dei mostri',
+      advancedHint:
+        'Un modello per ogni mostro, alternative in ordine, Veloce / Bilanciato / Accurato, Automatica.',
       description:
         'Il primo è quello preferito: se non risponde o ha finito le richieste, il mostro passa al successivo. Ogni cambio si salva da solo.',
     },
@@ -289,14 +346,13 @@ const it: typeof en = {
       turnOn: 'Attiva i modelli a pagamento',
     },
     disconnected: (label) => `${label} scollegato.`,
-    keyRemoved: (label) => `Chiave di ${label} tolta.`,
     disconnect: 'Scollega',
     disconnectQuestion: (label) => `Scollego ${label}?`,
     disconnectConfirm: 'Sì, scollega',
     freeOnly: 'Solo gratuiti',
     alsoPaid: 'Anche a pagamento',
     keyActive: (name, env) =>
-      `Chiave attiva${name ? ` (“${name}”)` : ''}${env !== undefined ? `, dalla variabile ${env}` : ''}.`,
+      `Chiave attiva${name ? ` (“${name}”)` : ''}${env !== undefined ? ', impostata fuori dall’app' : ''}.`,
     close: 'Chiudi',
     change: 'Cambia',
     key: 'Chiave',
@@ -314,9 +370,12 @@ const it: typeof en = {
     openrouterNone: 'Nessuna chiave OpenRouter (facoltativa se hai già un altro modello).',
     thinkWith: 'Con cosa pensano i mostri',
     noModel: 'Nessun modello collegato',
-    noModelText: 'Senza un modello i mostri non possono pensare: collegane uno qui sotto.',
-    connectAnother: 'Collega un altro modello',
+    noModelText: 'Senza un modello i mostri non possono pensare: aggiungine uno qui sotto.',
+    addModel: 'Aggiungi un modello',
     subscriptionsText: 'I mostri usano il tuo piano, nei modi che OpenAI e Anthropic permettono.',
+    accounts: 'Account',
+    moreTitle: 'Altri account e modelli sul computer',
+    moreText: 'Anthropic, OpenAI, Google, Mistral, Groq, Codex, Ollama, LM Studio.',
     keysOrLocal: 'Con una chiave o sul tuo computer',
   },
 };

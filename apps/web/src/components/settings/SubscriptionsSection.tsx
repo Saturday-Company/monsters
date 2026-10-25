@@ -9,6 +9,7 @@ import { Button, buttonVariants } from '../ui/button.tsx';
 import { useLayer } from '../ui/layers.ts';
 import { PlanLimitsBlock } from '../usage/PlanLimitsBlock.tsx';
 import { serviceLabel } from './data.ts';
+import { Details } from './mcp-parts.tsx';
 import { ConfirmButton, RowBody, ServiceRow } from './parts.tsx';
 import { subscriptionsStrings } from './subscriptions.strings.ts';
 
@@ -18,7 +19,7 @@ import { subscriptionsStrings } from './subscriptions.strings.ts';
  * the monsters think with" once on, or of the list to connect.
  * - ChatGPT: OpenAI's required elements (UI/UX guidelines of Sign in with
  *   ChatGPT): "Continue with ChatGPT", the first-use modal, "Manage usage".
- * - Claude subscription (the Claude Agent harness): plain text label, no logo,
+ * - Claude plan (the Claude Agent harness): plain text label, no logo,
  *   no login button: the login is done by the user in a terminal with Claude Code.
  * - Codex: the same ChatGPT sign-in.
  */
@@ -283,12 +284,14 @@ export function ChatGPTAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: 
               </>
             )}
           </p>
-          <p>
-            {t.chatgpt.tunnel}
-            <code className="font-mono text-ink">
-              {t.chatgpt.sshCommand(c.callbackPort ?? 1455)}
-            </code>
-          </p>
+          <Details>
+            <p>
+              {t.chatgpt.tunnel}
+              <code className="font-mono text-ink">
+                {t.chatgpt.sshCommand(c.callbackPort ?? 1455)}
+              </code>
+            </p>
+          </Details>
         </RowBody>
       )}
     </ServiceRow>
@@ -332,7 +335,7 @@ function ClaudeTerminalHint() {
   );
 }
 
-/** Claude subscription, turned on: ready, or what is missing (the login is the user's, in a terminal). */
+/** Claude plan, turned on: ready, or what is missing (the login is the user's, in a terminal). */
 export function ClaudeConnected({ s, refresh }: { s: SubscriptionsResponse; refresh: Refresh }) {
   const t = subscriptionsStrings().claude;
   const { busy, act } = useAct(refresh);
@@ -397,7 +400,7 @@ export function ClaudeConnected({ s, refresh }: { s: SubscriptionsResponse; refr
   );
 }
 
-/** Claude subscription, off: what it is, and the one button (no logo, no login of ours). */
+/** Claude plan, off: what it is, and the one button (no logo, no login of ours). */
 export function ClaudeAdd({ s, refresh }: { s: SubscriptionsResponse; refresh: Refresh }) {
   const t = subscriptionsStrings().claude;
   const { busy, act } = useAct(refresh);

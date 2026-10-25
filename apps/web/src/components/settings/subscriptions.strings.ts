@@ -1,7 +1,7 @@
 import { defineStrings } from '../../lib/i18n.ts';
 
 /*
- * Settings → Models → subscriptions (D-153). The ChatGPT texts marked "OpenAI" are the wording
+ * Settings → Models → plans (D-153). The ChatGPT texts marked "OpenAI" are the wording
  * its sign-in guidelines ask for: the same in every language.
  */
 
@@ -37,31 +37,31 @@ const en = {
     finish: 'Finish signing in, in your browser.',
     updates: 'This page updates by itself when you’re done.',
     reopen: 'Reopen the sign-in page',
-    tunnel: 'Is Monsters running on another computer? First open the tunnel from yours: ',
+    tunnel: 'Using Monsters from another computer? First open the tunnel from yours: ',
     sshCommand: (port: number) => `ssh -L ${port}:127.0.0.1:${port} user@computer`,
   },
   claude: {
     terminalTitle: 'Open a terminal and run',
-    terminalMid: ', then sign in with your subscription (',
+    terminalMid: ', then sign in with your plan (',
     terminalAfter:
       '). Monsters never sees your credentials: when you’re done, press “Check again”.',
     ready: (version: string | undefined) =>
-      `Ready: the monsters you choose work with Claude Code and your subscription${
+      `Ready: the monsters you choose work with Claude Code and your plan${
         version ? ` (version ${version})` : ''
       }.`,
     apiKey:
-      'Claude Code would use an API key: you’d pay as you go, not with the subscription. Run claude and sign in with your plan.',
+      'Claude Code would use an API key: you’d pay as you go, not with your plan. Run claude and sign in with your plan.',
     other: 'Claude Code uses another sign-in method that you set up.',
     notFound: 'I can’t find Claude Code anymore: reinstall it, or disconnect and connect again.',
     installing: 'Installing Anthropic’s component: it takes a few minutes…',
     missingLogin: 'Claude Code sign-in is missing.',
     checkAgain: 'Check again',
     disconnect: 'Disconnect',
-    disconnectQuestion: 'Disconnect the Claude subscription?',
+    disconnectQuestion: 'Disconnect the Claude plan?',
     disconnectConfirm: 'Yes, disconnect',
     addInstall: (name: string, version: string, license: string) =>
-      `It uses Claude Code with your subscription. I can’t find it on this computer: you can install it yourself, or Monsters installs Anthropic’s official component (${name} ${version}, ${license} license).`,
-    add: 'It uses Claude Code on the computer where Monsters runs, with your subscription. You do the sign-in yourself, in the terminal.',
+      `It uses Claude Code with your plan. I can’t find it on this computer: you can install it yourself, or Monsters installs Anthropic’s official component (${name} ${version}, ${license} license).`,
+    add: 'It uses Claude Code on the computer where Monsters runs, with your plan. You do the sign-in yourself, in the terminal.',
     installingButton: 'Installing…',
     installAndConnect: 'Install and connect',
     connect: 'Connect',
@@ -103,31 +103,31 @@ const it: typeof en = {
     finish: 'Completa l’accesso nel browser.',
     updates: 'Questa pagina si aggiorna da sola quando hai finito.',
     reopen: 'Riapri la pagina di accesso',
-    tunnel: 'Monsters gira su un altro computer? Prima apri il tunnel dal tuo: ',
+    tunnel: 'Usi Monsters da un altro computer? Prima apri il tunnel dal tuo: ',
     sshCommand: (port) => `ssh -L ${port}:127.0.0.1:${port} utente@computer`,
   },
   claude: {
     terminalTitle: 'Apri un terminale ed esegui',
-    terminalMid: ', poi accedi con il tuo abbonamento (',
+    terminalMid: ', poi accedi con il tuo piano (',
     terminalAfter:
       '). Monsters non vede mai le tue credenziali: quando hai finito, premi «Ricontrolla».',
     ready: (version) =>
-      `Pronto: i mostri che scegli lavorano con Claude Code e il tuo abbonamento${
+      `Pronto: i mostri che scegli lavorano con Claude Code e il tuo piano${
         version ? ` (versione ${version})` : ''
       }.`,
     apiKey:
-      'Claude Code userebbe una chiave API: pagheresti a consumo, non con l’abbonamento. Esegui claude e accedi con il tuo piano.',
+      'Claude Code userebbe una chiave API: pagheresti a consumo, non con il tuo piano. Esegui claude e accedi con il tuo piano.',
     other: 'Claude Code usa un altro metodo di accesso che hai impostato tu.',
     notFound: 'Non trovo più Claude Code: reinstallalo, oppure scollega e collega di nuovo.',
     installing: 'Installo il componente di Anthropic, ci vuole qualche minuto…',
     missingLogin: 'Manca l’accesso a Claude Code.',
     checkAgain: 'Ricontrolla',
     disconnect: 'Scollega',
-    disconnectQuestion: 'Scollego l’abbonamento Claude?',
+    disconnectQuestion: 'Scollego il piano Claude?',
     disconnectConfirm: 'Sì, scollega',
     addInstall: (name, version, license) =>
-      `Usa Claude Code col tuo abbonamento. Non lo trovo su questo computer: puoi installarlo tu, oppure Monsters installa il componente ufficiale di Anthropic (${name} ${version}, licenza ${license}).`,
-    add: 'Usa Claude Code sul computer dove gira Monsters, col tuo abbonamento. L’accesso lo fai tu, nel terminale.',
+      `Usa Claude Code col tuo piano. Non lo trovo su questo computer: puoi installarlo tu, oppure Monsters installa il componente ufficiale di Anthropic (${name} ${version}, licenza ${license}).`,
+    add: 'Usa Claude Code sul computer dove gira Monsters, col tuo piano. L’accesso lo fai tu, nel terminale.',
     installingButton: 'Installo…',
     installAndConnect: 'Installa e collega',
     connect: 'Collega',
