@@ -56,6 +56,8 @@ export interface Notice {
   ms?: number;
   /** News from the core (a cap, a tool, an automation), not the answer to what the user just did. */
   fromEvent?: boolean;
+  /** What the news is about ("spend"): `clearNotices` takes it away once it is no longer true. */
+  topic?: string;
 }
 
 export interface AppState {
@@ -413,6 +415,7 @@ export function ingest(batch: readonly LogEvent[], opts: IngestOptions = {}): vo
       },
       ms: 10_000,
       fromEvent: true,
+      topic: 'spend',
     });
   }
   // Tools of another program changed (D-070): they wait in "Da rivedere" (the decision is
@@ -558,7 +561,7 @@ function applyStatus(st: StatusResponse): void {
 export function notify(
   text: string,
   tone: Notice['tone'] = 'info',
-  extra: Pick<Notice, 'action' | 'ms' | 'fromEvent'> = {},
+  extra: Pick<Notice, 'action' | 'ms' | 'fromEvent' | 'topic'> = {},
 ): void {
   const { notice, noticeQueue } = useApp.getState();
   const line = pushNotice(
@@ -566,6 +569,18 @@ export function notify(
     { id: ++noticeSeq, text, tone, ...extra },
   );
   useApp.setState({ notice: line.notice, noticeQueue: line.queue });
+}
+
+/** Takes away the news about `topic`, on screen or waiting: it is no longer true (a cap raised). */
+export function clearNotices(topic: string): void {
+  const { notice, noticeQueue } = useApp.getState();
+  const queue = noticeQueue.filter((n) => n.topic !== topic);
+  if (notice?.topic === topic) {
+    const [next, ...rest] = queue;
+    useApp.setState({ notice: next ?? null, noticeQueue: rest });
+  } else {
+    useApp.setState({ noticeQueue: queue });
+  }
 }
 
 export function dismissNotice(id: number): void {

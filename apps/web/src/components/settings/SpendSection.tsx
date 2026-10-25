@@ -9,7 +9,7 @@ import {
 } from '@monsters/shared';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { domId, parseAmount } from '../../lib/utils.ts';
-import { errorText, getApi, notify } from '../../store/app.ts';
+import { clearNotices, errorText, getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Input } from '../ui/field.tsx';
 import {
@@ -364,6 +364,8 @@ export function SpendSection() {
   const save = async (update: SpendUpdate, said: string) => {
     const next = await getApi().setSpend(update);
     setView(next);
+    // A new cap makes the "cap reached" news old.
+    clearNotices('spend');
     notify(said, 'success');
   };
 

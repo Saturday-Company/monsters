@@ -5676,3 +5676,53 @@ digit runs (C-19).
   new `connectionsOff` names must be known connections (400 otherwise), unknown stored names are warned and ignored.
 - On Codex the wrap-up note counts as read only if a later request follows it, so a complete answer on the request
   that reached the limit stays `completed`; long results are cut to the smallest window of the chain.
+
+### D-178 · "To review" and "What's new" on every page; a sidebar that leaves room to the chats
+**Status:** done · 25/10/2026
+**Context:** the review of 25/10 (U2-28, V-7, V-9) found the "To review" and "What's new" keys only in the chat
+rail, so drafts and paused tools were invisible from Settings, Notes, Files, Activity and Automations; the sidebar's
+footer took ~250 px, leaving the chats room for four monsters at 900 px; on a phone Stop was a hatched square with no
+word.
+**Choices:**
+- Both keys live once in the shell's top rail, on every route. On a route without a side column "To review" opens a
+  sheet. "What's new" is a readable plain key until there is something unseen, orange only then; below 1100 px the
+  quiet key is not drawn, on a phone inside a page not even the orange one (the palette always opens it).
+- Below 960 px of height the sidebar footer becomes a 3+2 grid of small keys with full names, below 760 px a row of
+  icons whose name stays in the accessible label and the tooltip with the shortcut.
+- Phone: Stop always shows its word, the status is a light with the number (words from 540 px), Back is an arrow only
+  below 440 px. The status clock uses the chat's time formatter (12 h in English, 24 h in Italian).
+- Lazy views show a quiet dashed counter and "Loading…" after 250 ms; the unreachable screen retries by itself with
+  a backoff from 2 to 30 s while the tab is visible.
+
+### D-179 · Files get a trash; discarded drafts wait 10 s; one failed-load component with a retry
+**Status:** done · 25/10/2026
+**Context:** deleting a file and discarding a draft could not be undone (U2-32); ten Settings modules and several
+lists said "I can't read X. Try again in a moment." with no action (U2-25, U2-27); Activity rows waiting for a choice
+had only "Details" (V-8).
+**Choices:**
+- `DELETE /api/files/:id` sets `trashed_at` (files migration 3): the file disappears from every read, its bytes stay
+  30 s so `POST /api/files/:id/restore` brings it back, then a timer purges it and a start sweeps the trash. The UI
+  shows Undo for 10 s. File names stay reserved meanwhile, so a restore cannot clash.
+- A discarded draft is hidden at once and the DELETE is sent after 10 s unless Undo is pressed (deferred, not
+  reversed, because a discard is destructive across four kinds of draft). If the tab closes inside the 10 s the draft
+  is still there next time.
+- `LoadFailed` with `useRetry` (`settings/parts.tsx`) in a neutral voice ("Couldn't load the limits." + "Try again")
+  for every Settings module, project notes and connections, the Files list and chat attachments.
+- Activity rows of a paused MCP tool or a waiting draft get "Review" (Settings or the "To review" sheet). No inline
+  Accept: accepting a changed tool without reading the change would defeat the pause.
+
+### D-180 · One layer stack for overlays; notices in a queue
+**Status:** done · 25/10/2026
+**Context:** each overlay listened to Escape, so one press closed several (W-16); nothing trapped or gave back the
+focus (W-17); notices with an action vanished before a keyboard user could reach them, and one timed slot erased
+unread errors and spend-cap warnings (W-18).
+**Choices:**
+- `ui/layers.ts`: Escape closes only the top layer; a modal layer keeps Tab inside, puts the focus in on open and
+  back on the opener on close. No `inert` and no `showModal()`: the top bar and the notice bar stay outside the trap
+  and Ctrl/⌘+. still reaches Stop from inside a dialog (ARCHITECTURE §8). The side sheets are non-modal (focus in and
+  back, layered Escape, no trap).
+- `store/notice-queue.ts`: news from the core waits its turn and stays until used, an answer to what the user just did
+  goes first; a notice with an action stays at least 30 s, the timer pauses on hover and focus, Ctrl/⌘+Shift+.
+  focuses it (also a palette command), Escape dismisses it and the focus goes back.
+- In-place confirmations focus Cancel and take Escape; one window-level handler gives arrows, Home and End to every
+  `role="radio"` group. The context counter says "12 tok" when the model window is unknown.

@@ -50,6 +50,7 @@ const TOKEN_OPEN: Record<string, string> = {
   // Files and pages: the user's own uploads; pages without scripts.
   'POST /api/files': 'an upload (the scripts of a page are owner-only)',
   'DELETE /api/files/:id': 'a file to the trash, restorable',
+  'POST /api/files/:id/restore': 'the undo of a delete: brings a trashed file back, nothing new',
   // Things that take power away or only propose: the user confirms in person.
   'POST /api/drafts/:kind/:id/discard': 'leaves a draft aside',
   'POST /api/team/proposals/:id/discard': 'leaves a proposal aside',
