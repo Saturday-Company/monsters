@@ -19,7 +19,7 @@ const en = {
   webPermissionOff: () =>
     `the web permission is off: the user turns it on in ${settingsPath('ilWeb')}`,
   webOffInProject: (project: string) =>
-    `web search is off in the project “${project}”: it is turned on in the project page, ${PROJECT_TABS.collegamenti} tab`,
+    `web search is off in the project “${project}”: it is turned on in the project page, ${PROJECT_TABS.impostazioni} tab`,
   webNotInRun: (others: readonly string[]) =>
     others.length
       ? `it is not among the tools of this job (not because the user said no: the permission is on), ${formatList(others)} ${others.length === 1 ? 'has' : 'have'} it`
@@ -33,11 +33,11 @@ const en = {
   browserNeedsWeb: 'the browser needs the web permission, which is off',
   browserNotResponding: 'the browser is not responding now',
   browserNotGivenProject: (project: string) =>
-    `the browser is on but not given to you: it is given on the ${projectPagePath(project, 'collegamenti')}`,
+    `the browser is on but not given to you: it is given on the ${projectPagePath(project, 'impostazioni')}`,
   browserNotGiven: () =>
     `the browser is on but not given to you: the user gives it in ${settingsPath('collegamenti')}`,
   serviceOnlyProject: (name: string, project: string, ask: string) =>
-    `${name} is connected to the user’s account but not to this project: it is given on the ${projectPagePath(project, 'collegamenti')}${ask}`,
+    `${name} is connected to the user’s account but not to this project: it is given on the ${projectPagePath(project, 'impostazioni')}${ask}`,
   serviceNotResponding: (label: string) =>
     `${label} is not responding now (sign-in expired or an error): it is reconnected in ${settingsPath('collegamenti')}`,
   serverOff: (label: string) => `${label} is off in ${settingsPath('altriProgrammi')}`,
@@ -155,7 +155,7 @@ const it: typeof en = {
   webPermissionOff: () =>
     'il permesso «Il web» è spento: lo accende l’utente in Impostazioni → Permessi',
   webOffInProject: (project) =>
-    `la ricerca sul web è spenta nel progetto «${project}»: si accende nella pagina del progetto, scheda Collegamenti`,
+    `la ricerca sul web è spenta nel progetto «${project}»: si accende nella pagina del progetto, scheda Impostazioni`,
   webNotInRun: (others) => {
     // The Italian list: "A, B e C".
     const list =
@@ -176,11 +176,11 @@ const it: typeof en = {
   browserNeedsWeb: 'il browser vuole il permesso del web, che è spento',
   browserNotResponding: 'il browser non risponde ora',
   browserNotGivenProject: (project) =>
-    `il browser è acceso ma non è dato a te: si dà nella pagina del progetto «${project}», scheda Collegamenti`,
+    `il browser è acceso ma non è dato a te: si dà nella pagina del progetto «${project}», scheda Impostazioni`,
   browserNotGiven: () =>
     'il browser è acceso ma non è dato a te: lo dà l’utente in Impostazioni → App e Telegram',
   serviceOnlyProject: (name, project, ask) =>
-    `${name} è collegato all’account dell’utente ma non a questo progetto: si dà nella pagina del progetto «${project}», scheda Collegamenti${ask}`,
+    `${name} è collegato all’account dell’utente ma non a questo progetto: si dà nella pagina del progetto «${project}», scheda Impostazioni${ask}`,
   serviceNotResponding: (label) =>
     `${label} non risponde ora (accesso scaduto o un errore): si ricollega in Impostazioni → App e Telegram`,
   serverOff: (label) => `${label} è spento in Impostazioni → App e Telegram → App`,

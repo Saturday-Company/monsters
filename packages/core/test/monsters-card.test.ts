@@ -192,14 +192,14 @@ describe('the Monsters card', () => {
       webElsewhere: [],
     });
     expect(project).toContain(
-      'web (la ricerca sul web è spenta per il progetto «Progetto Social»: la accende l’utente nella pagina del progetto «Progetto Social», scheda Collegamenti)',
+      'web (la ricerca sul web è spenta per il progetto «Progetto Social»: la accende l’utente nella pagina del progetto «Progetto Social», scheda Impostazioni)',
     );
     expect(project).toContain(
-      'servizi collegati (nessuno è acceso per questo progetto: li accende l’utente nella pagina del progetto «Progetto Social», scheda Collegamenti)',
+      'servizi collegati (nessuno è acceso per questo progetto: li accende l’utente nella pagina del progetto «Progetto Social», scheda Impostazioni)',
     );
-    // A project's monster: its squad, services and cap are on the project's page (§2.1).
+    // A project's monster: its squad, apps and cap are on the project's page (§2.1).
     expect(project).toContain(
-      'Per il progetto «Progetto Social» la pagina del progetto: schede Squadra, Collegamenti (servizi e ricerca sul web) e Spesa (tetto di spesa).',
+      'Per il progetto «Progetto Social» la pagina del progetto: schede Squadra e Impostazioni (cartella, app e ricerca sul web, tetto di spesa).',
     );
     for (const card of [off, asks, project]) {
       const line = card.split('\n').find((l) => l.startsWith('Non hai: '))!;

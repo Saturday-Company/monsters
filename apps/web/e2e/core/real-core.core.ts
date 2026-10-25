@@ -422,6 +422,10 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     await page.getByTestId('project-name').fill('Newsletter');
     await page
       .getByTestId('project-form')
+      .getByRole('button', { name: /More options/ })
+      .click();
+    await page
+      .getByTestId('project-form')
       .getByRole('radiogroup', { name: 'The project’s folder' })
       .getByRole('radio', { name: 'A new one' })
       .click();
@@ -442,7 +446,7 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
 
     await page.getByRole('tab', { name: 'Squad' }).click();
     await expect(page.getByTestId('project-member')).toHaveCount(2);
-    await page.getByRole('tab', { name: 'Folder' }).click();
+    await page.getByRole('tab', { name: 'Settings' }).click();
     await expect(page.getByTestId('project-folder-path')).toHaveText(folder);
     const stop = page.getByTestId('project-stop');
     await stop.click();

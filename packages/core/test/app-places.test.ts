@@ -92,11 +92,11 @@ describe('the places of the app in the texts (D-133)', () => {
     );
     expect(settingsPath('ilWeb')).toBe('Impostazioni → Permessi → Il web');
     expect(settingsPath('abbonamenti')).toBe('Impostazioni → Modelli → Piani che hai già');
-    expect(projectPagePath('Saturday', 'spesa')).toBe(
-      'pagina del progetto «Saturday», scheda Spesa',
+    expect(projectPagePath('Saturday', 'impostazioni')).toBe(
+      'pagina del progetto «Saturday», scheda Impostazioni',
     );
     // A project's cap is raised on its page, the others in Modelli (§2.3 of the review).
-    expect(spendCapPath('Saturday')).toBe('pagina del progetto «Saturday», scheda Spesa');
+    expect(spendCapPath('Saturday')).toBe('pagina del progetto «Saturday», scheda Impostazioni');
     expect(spendCapPath()).toBe('Impostazioni → Modelli → Tetto di spesa');
 
     setAppLang('en');
@@ -107,8 +107,10 @@ describe('the places of the app in the texts (D-133)', () => {
     );
     expect(settingsPath('ilWeb')).toBe('Settings → Permissions → The web');
     expect(settingsPath('abbonamenti')).toBe('Settings → Models → Plans you already have');
-    expect(projectPagePath('Saturday', 'spesa')).toBe('“Saturday” project page, Spending tab');
-    expect(spendCapPath('Saturday')).toBe('“Saturday” project page, Spending tab');
+    expect(projectPagePath('Saturday', 'impostazioni')).toBe(
+      '“Saturday” project page, Settings tab',
+    );
+    expect(spendCapPath('Saturday')).toBe('“Saturday” project page, Settings tab');
     expect(spendCapPath()).toBe('Settings → Models → Spending cap');
   });
 });

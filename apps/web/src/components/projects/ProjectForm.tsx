@@ -5,7 +5,7 @@ import {
   type ProjectCreateRequest,
   type ProjectView,
 } from '@monsters/shared';
-import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { describeError } from '../../lib/api.ts';
 import {
   freeCopyName,
@@ -16,26 +16,29 @@ import {
   projectNameProblem,
 } from '../../lib/projects.ts';
 import { openPage, projectPath } from '../../lib/router.ts';
-import { domId } from '../../lib/utils.ts';
+import { cn, domId } from '../../lib/utils.ts';
 import { getApi, notify, refreshAgents } from '../../store/app.ts';
 import { useAgents } from '../../store/hooks.ts';
 import { putProject, refreshProjects, useProjects } from '../../store/projects.ts';
 import { MonsterKey } from '../automations/AutomationForm.tsx';
 import { nameProblem } from '../settings/data.ts';
-import { Group, Row } from '../settings/parts.tsx';
+import { DisclosureRow, Group, Row } from '../settings/parts.tsx';
 import { Button } from '../ui/button.tsx';
 import { Segmented, Switch } from '../ui/controls.tsx';
 import { Field, Input, Label } from '../ui/field.tsx';
 import { SquadChart } from './SquadChart.tsx';
 import { FolderPickButton, useCanPickFolder } from './FolderPicker.tsx';
+import { Details } from './Details.tsx';
 import { formStrings } from './form.strings.ts';
 
 /*
- * A new project from the app (D-097, D-100; docs/design.md, "Progetti"): its
- * name, its folder (none, one that exists, or a new one the core creates),
- * its lead (a new monster or a copy of one, with a memory of its own) and the
- * first monsters copied from the other squads. New monsters made to measure
- * come after, from its Squadra (the same flow as Impostazioni → Squadra).
+ * A new project from the app (D-097, D-100; docs/design.md, "Progetti"): the
+ * name is all it asks. Behind "More options", closed, the rest with the
+ * defaults of always: its folder (none, one that exists, or a new one the core
+ * creates), its lead (a new monster, named by the core when left empty, or a
+ * copy of one with a memory of its own), the first monsters copied from the
+ * other squads and the apps of the team it must not use. New monsters made to
+ * measure come after, from its Squadra (the same flow as Impostazioni → Squadra).
  */
 
 type FolderChoice = 'none' | 'existing' | 'new';
@@ -103,6 +106,8 @@ export function ProjectForm() {
   const [copies, setCopies] = useState<string[]>([]);
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
+  /** "More options": it opens by itself when what is behind it has a problem to show. */
+  const [more, setMore] = useState(false);
   const canPick = useCanPickFolder();
   const links = useTeamLinks();
   /** Connections turned off for this project (`kind:id`): the team's are all on by default. */
@@ -140,6 +145,7 @@ export function ProjectForm() {
     ev.preventDefault();
     const e = check();
     setErrors(e);
+    if (e.folder || e.lead) setMore(true);
     if (Object.keys(e).length > 0) return;
     const body: ProjectCreateRequest = {
       name: name.replace(/\s+/g, ' ').trim(),
@@ -226,171 +232,181 @@ export function ProjectForm() {
         </div>
       </Group>
 
-      <Group title={s.folder.title} description={s.folder.description}>
-        <div className="grid gap-4 px-4 pt-1 pb-4">
-          <Segmented<FolderChoice>
-            value={folder}
-            onChange={setFolder}
-            label={s.folder.label}
-            size="sm"
-            options={[
-              { value: 'none', label: s.folder.none },
-              { value: 'existing', label: s.folder.existing },
-              { value: 'new', label: s.folder.new },
-            ]}
-          />
-          {folder === 'none' ? (
-            <p className="text-footnote text-ink-muted">{s.folder.noneHint}</p>
-          ) : (
-            <Field
-              id={`${ids}-path`}
-              label={s.folder.path}
-              error={errors.folder}
-              hint={folder === 'new' ? s.folder.newHint(canPick) : s.folder.existingHint}
-            >
-              <div className="flex gap-2">
-                <Input
-                  id={`${ids}-path`}
-                  value={shownPath}
-                  onChange={(e) => {
-                    setPath(e.target.value);
-                    setPathTyped(true);
-                  }}
-                  placeholder={s.folder.placeholder}
-                  spellCheck={false}
-                  autoCapitalize="off"
-                  aria-invalid={errors.folder ? true : undefined}
-                  data-testid="project-path"
+      {/* The same choices as always, with the same defaults, one closed row away. */}
+      <div data-advanced data-testid="project-form-more">
+        <Group>
+          <DisclosureRow
+            as="div"
+            label={s.more.title}
+            description={s.more.description}
+            open={more}
+            onOpenChange={setMore}
+          >
+            <div className="grid">
+              <Block title={s.folder.title} description={s.folder.description} seam={false}>
+                <Details>{s.folder.details}</Details>
+                <Segmented<FolderChoice>
+                  value={folder}
+                  onChange={setFolder}
+                  label={s.folder.label}
+                  size="sm"
+                  options={[
+                    { value: 'none', label: s.folder.none },
+                    { value: 'existing', label: s.folder.existing },
+                    { value: 'new', label: s.folder.new },
+                  ]}
                 />
-                {canPick && (
-                  <FolderPickButton
-                    testId="project-path-pick"
-                    onPicked={(picked) => {
-                      setPath(folder === 'new' ? newFolderIn(picked, name) : picked);
-                      setPathTyped(true);
-                    }}
-                  />
+                {folder === 'none' ? (
+                  <p className="text-footnote text-ink-muted">{s.folder.noneHint}</p>
+                ) : (
+                  <Field
+                    id={`${ids}-path`}
+                    label={s.folder.path}
+                    error={errors.folder}
+                    hint={folder === 'new' ? s.folder.newHint(canPick) : s.folder.existingHint}
+                  >
+                    <div className="flex gap-2">
+                      <Input
+                        id={`${ids}-path`}
+                        value={shownPath}
+                        onChange={(e) => {
+                          setPath(e.target.value);
+                          setPathTyped(true);
+                        }}
+                        placeholder={s.folder.placeholder}
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        aria-invalid={errors.folder ? true : undefined}
+                        data-testid="project-path"
+                      />
+                      {canPick && (
+                        <FolderPickButton
+                          testId="project-path-pick"
+                          onPicked={(picked) => {
+                            setPath(folder === 'new' ? newFolderIn(picked, name) : picked);
+                            setPathTyped(true);
+                          }}
+                        />
+                      )}
+                    </div>
+                  </Field>
                 )}
-              </div>
-            </Field>
-          )}
-        </div>
-      </Group>
+              </Block>
 
-      <Group title={s.lead.title} description={s.lead.description}>
-        <div className="grid gap-4 px-4 pt-1 pb-4">
-          <Segmented<LeadChoice>
-            value={lead}
-            onChange={setLead}
-            label={s.lead.label}
-            size="sm"
-            options={[
-              { value: 'new', label: s.lead.new },
-              { value: 'copy', label: s.lead.copy },
-            ]}
-          />
-          {lead === 'new' ? (
-            <Field
-              id={`${ids}-lead`}
-              label={s.lead.name}
-              hint={s.lead.nameHint}
-              error={errors.lead}
-            >
-              <Input
-                id={`${ids}-lead`}
-                value={leadName}
-                maxLength={24}
-                onChange={(e) => setLeadName(e.target.value)}
-                placeholder={s.lead.placeholder}
-                aria-invalid={errors.lead ? true : undefined}
-                data-testid="project-lead-name"
-              />
-            </Field>
-          ) : (
-            <div className="grid gap-2">
-              <Label id={`${ids}-from`}>{s.lead.from}</Label>
-              <div
-                role="radiogroup"
-                aria-labelledby={`${ids}-from`}
-                className="flex flex-wrap gap-2.5 pb-1"
-              >
-                {agents.map((a) => (
-                  <MonsterKey
-                    key={a.id}
-                    agent={a}
-                    role="radio"
-                    pressed={leadFrom === a.id}
-                    onClick={() => setLeadFrom(a.id)}
-                  />
-                ))}
-              </div>
-              {errors.lead && (
-                <p className="text-footnote text-stop-ink" role="alert">
-                  {errors.lead}
-                </p>
+              <Block title={s.lead.title} description={s.lead.description}>
+                <Segmented<LeadChoice>
+                  value={lead}
+                  onChange={setLead}
+                  label={s.lead.label}
+                  size="sm"
+                  options={[
+                    { value: 'new', label: s.lead.new },
+                    { value: 'copy', label: s.lead.copy },
+                  ]}
+                />
+                {lead === 'new' ? (
+                  <Field
+                    id={`${ids}-lead`}
+                    label={s.lead.name}
+                    hint={s.lead.nameHint}
+                    error={errors.lead}
+                  >
+                    <Input
+                      id={`${ids}-lead`}
+                      value={leadName}
+                      maxLength={24}
+                      onChange={(e) => setLeadName(e.target.value)}
+                      placeholder={s.lead.placeholder}
+                      aria-invalid={errors.lead ? true : undefined}
+                      data-testid="project-lead-name"
+                    />
+                  </Field>
+                ) : (
+                  <div className="grid gap-2">
+                    <Label id={`${ids}-from`}>{s.lead.from}</Label>
+                    <div
+                      role="radiogroup"
+                      aria-labelledby={`${ids}-from`}
+                      className="flex flex-wrap gap-2.5 pb-1"
+                    >
+                      {agents.map((a) => (
+                        <MonsterKey
+                          key={a.id}
+                          agent={a}
+                          role="radio"
+                          pressed={leadFrom === a.id}
+                          onClick={() => setLeadFrom(a.id)}
+                        />
+                      ))}
+                    </div>
+                    {errors.lead && (
+                      <p className="text-footnote text-stop-ink" role="alert">
+                        {errors.lead}
+                      </p>
+                    )}
+                    {leadFrom && (
+                      <p className="text-footnote text-ink-muted">
+                        {s.lead.willBeCalled(freeCopyName(names))}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </Block>
+
+              {sources.length > 0 && (
+                <Block title={s.first.title} description={s.first.description}>
+                  <div
+                    role="group"
+                    aria-label={s.first.label}
+                    className="flex flex-wrap gap-2.5 pb-1"
+                    data-testid="project-copies"
+                  >
+                    {sources.map((a) => (
+                      <MonsterKey
+                        key={a.id}
+                        agent={a}
+                        role="checkbox"
+                        pressed={copies.includes(a.id)}
+                        onClick={() => toggleCopy(a.id)}
+                      />
+                    ))}
+                  </div>
+                </Block>
               )}
-              {leadFrom && (
-                <p className="text-footnote text-ink-muted">
-                  {s.lead.willBeCalled(freeCopyName(names))}
-                </p>
+
+              {links && links.length > 0 && (
+                <div data-testid="project-form-links">
+                  <Block title={s.links.title} description={s.links.description} />
+                  <ul>
+                    {links.map((l) => {
+                      const key = `${l.kind}:${l.id}`;
+                      return (
+                        <Row
+                          key={key}
+                          as="li"
+                          testId="project-form-link"
+                          label={l.label}
+                          description={l.kind === 'claude' ? s.links.viaClaude : s.links.team}
+                        >
+                          <Switch
+                            checked={!linksOff.includes(key)}
+                            onCheckedChange={(on) =>
+                              setLinksOff((off) =>
+                                on ? off.filter((x) => x !== key) : [...off, key],
+                              )
+                            }
+                            label={s.links.switch(l.label)}
+                          />
+                        </Row>
+                      );
+                    })}
+                  </ul>
+                </div>
               )}
             </div>
-          )}
-        </div>
-      </Group>
-
-      {sources.length > 0 && (
-        <Group title={s.first.title} description={s.first.description}>
-          <div className="grid gap-2 px-4 pt-1 pb-4">
-            <div
-              role="group"
-              aria-label={s.first.label}
-              className="flex flex-wrap gap-2.5 pb-1"
-              data-testid="project-copies"
-            >
-              {sources.map((a) => (
-                <MonsterKey
-                  key={a.id}
-                  agent={a}
-                  role="checkbox"
-                  pressed={copies.includes(a.id)}
-                  onClick={() => toggleCopy(a.id)}
-                />
-              ))}
-            </div>
-          </div>
+          </DisclosureRow>
         </Group>
-      )}
-
-      {links && links.length > 0 && (
-        <Group
-          title={s.links.title}
-          as="ul"
-          testId="project-form-links"
-          description={s.links.description}
-        >
-          {links.map((l) => {
-            const key = `${l.kind}:${l.id}`;
-            return (
-              <Row
-                key={key}
-                as="li"
-                testId="project-form-link"
-                label={l.label}
-                description={l.kind === 'claude' ? s.links.viaClaude : s.links.team}
-              >
-                <Switch
-                  checked={!linksOff.includes(key)}
-                  onCheckedChange={(on) =>
-                    setLinksOff((off) => (on ? off.filter((x) => x !== key) : [...off, key]))
-                  }
-                  label={s.links.switch(l.label)}
-                />
-              </Row>
-            );
-          })}
-        </Group>
-      )}
+      </div>
 
       {errors.form && (
         <p className="px-1 text-body text-stop-ink" role="alert" data-testid="project-form-error">
@@ -411,5 +427,29 @@ export function ProjectForm() {
         </Button>
       </div>
     </form>
+  );
+}
+
+/** One part of "More options": a small title, what it is for, then its controls. */
+function Block({
+  title,
+  description,
+  seam = true,
+  children,
+}: {
+  title: string;
+  description: string;
+  /** A line above it (the first part sits right under the row's own). */
+  seam?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <div className={cn('grid gap-3 px-4 py-3.5', seam && 'set-seam-t')}>
+      <div className="grid gap-0.5">
+        <h3 className="label text-ink-muted">{title}</h3>
+        <p className="max-w-[62ch] text-footnote leading-snug text-ink-muted">{description}</p>
+      </div>
+      {children}
+    </div>
   );
 }

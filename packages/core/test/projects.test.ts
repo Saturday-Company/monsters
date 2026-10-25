@@ -144,6 +144,25 @@ describe('projects: data, lead and names', () => {
     );
   });
 
+  it('a project made with the name only: a lead named by the core, no folder, web on, nothing turned off (C5)', async () => {
+    const t = await startTestHub({ titan: [] });
+    // What the app sends when only the name is filled in; the full form stays accepted (above).
+    const project = await t.json<ProjectView>('POST', '/api/projects', { name: 'Taccuino' });
+    expect(project).toMatchObject({
+      id: 'taccuino',
+      status: 'active',
+      vaultArea: 'Progetti/Taccuino',
+      webSearch: true,
+      connectionsOff: { mcp: [], claude: [] },
+    });
+    expect(project.folder).toBeUndefined();
+    expect(project.lead).toBeTruthy();
+    expect(project.members).toEqual([expect.objectContaining({ id: project.lead, isLead: true })]);
+    // The name is the core's, free among all the squads.
+    const names = t.core.hub.team.members().map((a) => a.config.name.toLowerCase());
+    expect(new Set(names).size).toBe(names.length);
+  });
+
   it('copies a monster with a unique name and a memory of its own; names are unique across squads', async () => {
     const { t } = await withProject({}, { lang: 'it' });
     const team = t.core.hub.team;
@@ -1228,7 +1247,7 @@ describe('projects: the section and the lines the monsters read, in both familie
 
   it('Italian family: the words the models have always read', () => {
     inLang('it');
-    const where = 'nella pagina del progetto «Saturday», scheda Collegamenti';
+    const where = 'nella pagina del progetto «Saturday», scheda Impostazioni';
     expect(accessLines(project, { notHere: ['Shopify', 'Gmail'], asker: { self: true } })).toEqual([
       `Shopify e Gmail sono collegati all’account dell’utente, ma l’utente li ha spenti per questo progetto: qui i loro strumenti mancano. Non dire che non sono collegati. Se servono al lavoro, chiedili all’utente con \`access_request\` (un tocco: «Sì, concedi»), oppure lui li accende ${where}.`,
     ]);
@@ -1251,7 +1270,7 @@ describe('projects: the section and the lines the monsters read, in both familie
 
   it('English family: the twin, with the English labels of the app', () => {
     inLang('en');
-    const where = 'in the “Saturday” project page, Connections tab';
+    const where = 'in the “Saturday” project page, Settings tab';
     expect(accessLines(project, { notHere: ['Shopify', 'Gmail'], asker: { self: true } })).toEqual([
       `Shopify and Gmail are connected to the user’s account, but the user turned them off for this project: their tools are missing here. Don’t say they are not connected. If the work needs them, ask the user with \`access_request\` (one tap: “Yes, grant”), or they turn them on ${where}.`,
     ]);

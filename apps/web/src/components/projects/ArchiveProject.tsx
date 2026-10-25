@@ -7,7 +7,7 @@ import { ConfirmButton, Group, Row } from '../settings/parts.tsx';
 import { projectsStrings } from './projects.strings.ts';
 
 /**
- * "Archive the project" (D-100), at the foot of the Folder tab: the squad
+ * "Archive the project" (D-100), at the foot of the project's Settings: the squad
  * tab is for who works in the project, not for taking it away. Archived, never
  * deleted: its monsters go with it and stop working.
  */

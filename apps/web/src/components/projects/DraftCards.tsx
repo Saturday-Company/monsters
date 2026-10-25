@@ -379,7 +379,7 @@ function DraftCard({ d, primary }: { d: DraftView; primary: boolean }) {
             className="text-large leading-6 font-semibold break-words text-ink"
             data-testid="draft-title"
           >
-            {d.title}
+            {d.kind === 'docs' ? s.docsTitle(d.title) : d.title}
           </p>
           <p
             className={cn(

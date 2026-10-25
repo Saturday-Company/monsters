@@ -14,7 +14,13 @@ import {
   squadsOf,
   type SquadMember,
 } from '../src/lib/projects.ts';
-import { projectPath, projectTabOf, routeOf } from '../src/lib/router.ts';
+import {
+  PROJECT_TABS,
+  projectPartOf,
+  projectPath,
+  projectTabOf,
+  routeOf,
+} from '../src/lib/router.ts';
 import { MockCore } from '../src/lib/mock/core.ts';
 import { monsterFor } from '../src/lib/monsters.ts';
 
@@ -209,8 +215,30 @@ describe('the page of a project in the address', () => {
     expect(projectPath('social')).toBe('#/progetto?id=social');
     expect(projectPath('social', 'spesa')).toBe('#/progetto?id=social&sezione=spesa');
     expect(projectPath(null)).toBe('#/progetto?vista=nuovo');
-    expect(projectTabOf('cartella')).toBe('cartella');
+    expect(projectTabOf('note')).toBe('note');
+    expect(projectTabOf('impostazioni')).toBe('impostazioni');
     expect(projectTabOf('altro')).toBe('chat');
+    expect(projectTabOf(null)).toBe('chat');
+  });
+
+  it('keeps the old tabs working: they open Settings, at their part', () => {
+    expect(PROJECT_TABS).toEqual(['chat', 'squadra', 'note', 'automazioni', 'impostazioni']);
+    for (const [old, part] of [
+      ['cartella', 'cartella'],
+      ['collegamenti', 'collegamenti'],
+      ['spesa', 'spesa'],
+      ['archivio', 'archivio'],
+    ] as const) {
+      expect(projectTabOf(old)).toBe('impostazioni');
+      expect(projectPartOf(old)).toBe(part);
+      // A link built with the old name still lands on the part.
+      expect(projectPath('social', old)).toBe(`#/progetto?id=social&sezione=${old}`);
+    }
+    // A tab has no part, and a name that is not an alias is not looked up in the prototype.
+    expect(projectPartOf('squadra')).toBeNull();
+    expect(projectPartOf('impostazioni')).toBeNull();
+    expect(projectPartOf('constructor')).toBeNull();
+    expect(projectTabOf('constructor')).toBe('chat');
   });
 });
 

@@ -54,19 +54,21 @@ describe('the places of the app', () => {
     expect(settingsPath('ilWeb')).toBe('Settings → Permissions → The web');
     expect(SETTINGS_TABS.squadra).toBe('Squad');
     expect(SETTINGS_SECTIONS.tettoDiSpesa.label).toBe('Spending cap');
-    expect(PROJECT_TABS.spesa).toBe('Spending');
-    expect(projectPagePath('Saturday', 'spesa')).toBe('“Saturday” project page, Spending tab');
-    expect(spendCapPath(true)).toBe('Spending tab of the project page');
+    expect(PROJECT_TABS.impostazioni).toBe('Settings');
+    expect(projectPagePath('Saturday', 'impostazioni')).toBe(
+      '“Saturday” project page, Settings tab',
+    );
+    expect(spendCapPath(true)).toBe('Settings tab of the project page');
     expect(spendCapPath()).toBe('Settings → Models → Spending cap');
 
     setAppLang('it');
     expect(settingsLabel()).toBe('Impostazioni');
     expect(settingsPath('altriProgrammi')).toBe('Impostazioni → App e Telegram → App');
     expect(SETTINGS_TABS.squadra).toBe('Squadra');
-    expect(projectPagePath('Saturday', 'spesa')).toBe(
-      'pagina del progetto «Saturday», scheda Spesa',
+    expect(projectPagePath('Saturday', 'impostazioni')).toBe(
+      'pagina del progetto «Saturday», scheda Impostazioni',
     );
-    expect(spendCapPath(true)).toBe('scheda Spesa della pagina del progetto');
+    expect(spendCapPath(true)).toBe('scheda Impostazioni della pagina del progetto');
     expect(spendCapPath()).toBe('Impostazioni → Modelli → Tetto di spesa');
   });
 

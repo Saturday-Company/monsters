@@ -296,7 +296,7 @@ describe('the Monsters card and the harness section, in English', () => {
     expect(
       monstersCard({ toolNames: ['vault_search'], webOff: 'project', project: 'Saturday' }),
     ).toContain(
-      'web (web search is off for the project “Saturday”: the user turns it on from the “Saturday” project page, Connections tab)',
+      'web (web search is off for the project “Saturday”: the user turns it on from the “Saturday” project page, Settings tab)',
     );
     expect(monstersCard({ toolNames: ['vault_search'], unlinked: ['Gmail', 'Canva'] })).toContain(
       'Gmail and Canva are not responding now (sign-in expired or an error): their tools are missing. If you need them, ask the user to reconnect them in Settings → Apps and Telegram → Apps.',

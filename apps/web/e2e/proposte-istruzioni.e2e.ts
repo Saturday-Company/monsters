@@ -19,7 +19,9 @@ test('Proposte per le istruzioni: the diff in Da rivedere, Applica; a stale one 
   const cards = page.locator('[data-testid="draft-card"][data-kind="docs"]');
   await expect(cards).toHaveCount(2);
 
-  const iapetus = cards.filter({ hasText: 'Instructions of Saturday Social (CLAUDE.md)' });
+  const iapetus = cards
+    .filter({ hasText: 'Instructions of Saturday Social' })
+    .filter({ hasText: 'CLAUDE.md' });
   await expect(iapetus).toContainText('Iapetus proposes a change to the instructions');
   await expect(iapetus).toContainText('/home/andrea/Projects/social-saturday');
   const diff = iapetus.getByTestId('docs-diff');
@@ -28,7 +30,9 @@ test('Proposte per le istruzioni: the diff in Da rivedere, Applica; a stale one 
   await expect(iapetus.getByTestId('docs-tainted')).toHaveCount(0);
   await expect(iapetus.getByTestId('draft-edit')).toHaveCount(0);
 
-  const calypso = cards.filter({ hasText: 'Instructions of Saturday Social (AGENTS.md)' });
+  const calypso = cards
+    .filter({ hasText: 'Instructions of Saturday Social' })
+    .filter({ hasText: 'AGENTS.md' });
   await expect(calypso.getByTestId('docs-tainted')).toContainText(
     'Proposed after reading third-party text (web page: a social media agency’s blog)',
   );
@@ -41,13 +45,11 @@ test('Proposte per le istruzioni: the diff in Da rivedere, Applica; a stale one 
   }
 
   await iapetus.getByTestId('draft-confirm').click();
-  await expect(
-    page.getByText('I updated the instructions: Saturday Social (CLAUDE.md).'),
-  ).toBeVisible();
+  await expect(page.getByText('I updated the instructions: Saturday Social.')).toBeVisible();
   await expect(cards).toHaveCount(1);
 });
 
-test('Proposte per le istruzioni: on the project page, under Cartella, and left aside', async ({
+test('Proposte per le istruzioni: on the project page, in its Settings, and left aside', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -71,7 +73,7 @@ test('Proposte per le istruzioni: on the project page, under Cartella, and left 
   await calypso.getByTestId('draft-discard').click();
   await expect(
     page.getByText(
-      'I left the proposal alone: the instructions stay as they were (Saturday Social (AGENTS.md)).',
+      'I left the proposal alone: the instructions stay as they were (Saturday Social).',
     ),
   ).toBeVisible();
   await expect(list.getByTestId('draft-card')).toHaveCount(1);

@@ -156,7 +156,7 @@ function docForPrompt(d: { file: string; text: string }): string {
 /** The lines of `ProjectAccessNotes`, in the app's words. */
 export function accessLines(project: Project, notes: ProjectAccessNotes): string[] {
   const p = projectPrompts();
-  const where = p.where(projectPagePath(project.name, 'collegamenti'));
+  const where = p.where(projectPagePath(project.name, 'impostazioni'));
   const grant = accessStrings().grant;
   const ask = (thing: AccessThing) =>
     'self' in notes.asker

@@ -635,8 +635,9 @@ that monster; Esc, ✕ or `⌘J` close the pane.
 
 ## Projects (D-097, D-098, D-100)
 - **Page** `#/progetto?id=…` (rail title: the project's name). Below the rail a row of joined keys: **Chat · Squad ·
-  Notes · Folder · Connections · Automations · Spending** (on the phone it scrolls sideways, the chosen tab stays in
-  view). A column up to 920 px for the tabs that are not the chat.
+  Notes · Automations · Settings** (on the phone it scrolls sideways, the chosen tab stays in view). A column up to
+  920 px for the tabs that are not the chat. The old tab names (`sezione=cartella`, `collegamenti`, `spesa`,
+  `archivio`) open Settings scrolled to their part.
 - **Chat**: the lead's chat as it is at home (monitor, bubbles, field), with in the rail the project's name, "Stop
   project" and "To review". `@Name` reaches the project's monsters (in the @ menu they come first).
 - **Stop project**: a ghost key in the rail with the open hand and the `.label` ("STOP" on the phone). First touch:
@@ -645,20 +646,24 @@ that monster; Esc, ✕ or `⌘J` close the pane.
 - **Squad**: a module with a 52 row per monster (the 52×46 screen in its state, name 16 semibold, "LEAD" in
   `--signal-ink` for the lead, the role), "Write" and "Remove" (confirmation in the row; the lead can't be removed). At
   the bottom "Copy a monster" (the monsters of the other squads, each with "Copy": below the row the proposed name,
-  "Rhea · Saturday", in a field, and "Copy into the project") and "New monster" (the Settings → Squad form). Then the
-  "ARCHIVE THE PROJECT" module.
+  "Rhea · Saturday", in a field, and "Copy into the project") and "New monster" (the Settings → Squad form).
 - **Notes**: the notes of the `Progetti/<name>/` area as rows (title, the path inside the area in Martian Mono, how long
-  ago), which open Notes. **Folder**: the path on a small screen with "Copy", "Change folder" (An existing one / A new
-  one) and "Remove the folder"; if the folder no longer exists it says so. **Connections**: the web search lever, then a
-  lever per server or service given to the whole squad; those of a single monster, in words. **Automations**: its
+  ago), which open Notes. **Automations**: its
   automations as in the section, "New automation" (already in the project's squad) and "All automations".
-  **Spending**: "PROJECT CAP" (Today, This month with the 10-segment screen, the two fields), the squad's cap in words
-  below, "PER MONSTER" with the fields of the monsters with paid models.
-- **New project** (`#/progetto?vista=nuovo`, from the sidebar row): modules "THE PROJECT" (name, where the notes will
-  go), "FOLDER" (None / An existing one / A new one; the new one follows the name in `~/Monsters Progetti/<name>`),
-  "PROJECT LEAD" (A new one with an optional name / Copy a monster: the monsters as keys with their screen, and the
-  name it will have), "FIRST MONSTERS" (keys to light up). "Create the project" is orange when there is a name; then
-  the lead's chat opens.
+  **Settings**: one page that scrolls, in modules. "PROJECT FOLDER": the path on a small screen with "Copy", "Change
+  folder" (An existing one / A new one) and "Remove the folder" (none: "No folder" and "Choose a folder"; the rest of
+  the description, with the instructions file names, under Details); if the folder no longer exists it says so.
+  "WEB SEARCH": the lever, a link to Settings → Permissions, and "CAN'T SEARCH THE WEB · N" with the monsters that
+  cannot (the project's lever off, their own permission off, or both), each with "Allow". "APPS": a lever per app given
+  to all monsters; those of a single monster, in words. "PROJECT CAP" (Today, This month with the 10-segment screen,
+  the two fields), the cap for all monsters in words below, "PER MONSTER" with the fields of the monsters with paid
+  models. "ARCHIVE THE PROJECT" at the foot.
+- **New project** (`#/progetto?vista=nuovo`, from the sidebar row): the module "THE PROJECT" (name, where the notes
+  will go) and a closed row "More options" (it opens by itself when something behind it needs fixing). Behind it:
+  "FOLDER" (None / An existing one / A new one; the new one follows the name in `~/Monsters Progetti/<name>`),
+  "PROJECT LEAD" (A new one with an optional name, else a free one / Copy a monster: the monsters as keys with their
+  screen, and the name it will have), "FIRST MONSTERS" (keys to light up), "APPS" (a lever per app given to all
+  monsters, all on). "Create the project" is orange when there is a name; then the lead's chat opens.
 - **Draft** (proposed by the god): the page "Draft: <name>" with the orange-outlined module ("Draft: confirm", who
   proposed it, the squad it will be on a small screen 52 tall, the plan, Discard and Confirm), then the modules that
   can be changed beforehand. **Archived**: a module with the dim light, "ARCHIVED ON …", where the notes and folder are,
@@ -668,11 +673,11 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   its name will give it, D-102), the title, a summary line; for a project the plan in `.label` + text rows: Lead,
   Monsters, Folder, Afterwards) and the keys Confirm (orange only in the first), Edit, Discard.
 - **Instructions proposal** (D-113): the same card ("IAPETUS PROPOSES A CHANGE TO THE INSTRUCTIONS", the monster on its
-  screen, "CLAUDE.md of <project>", the summary with the reason), then the File `.label` row (name and folder in
+  screen, "Instructions of <project>", the summary with the reason), then the "INSTRUCTIONS FILE" `.label` row (name and folder in
   Martian Mono), the notices with the triangle in `--signal-ink` (text from third parties; file changed after the
   proposal), "WHAT CHANGES · +N −M" and the difference on the small screen of the notes' diffs (removed and added rows
   colored, "· line N ·" between the pieces, at most 360 tall and it scrolls by itself). Keys **Apply** (orange only in
-  the first card, dim when the file has changed) and **Leave it**; no Edit. The same cards in the project's Folder tab,
+  the first card, dim when the file has changed) and **Leave it**; no Edit. The same cards in the project's Settings, under the folder,
   below "PROPOSALS FOR THE INSTRUCTIONS · N".
 
 ## Sign-in and first start
