@@ -30,8 +30,11 @@ export async function connectOpenRouter(page: Page, key = 'sk-or-v1-prova-prova'
   await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'questions');
 }
 
-/** The three screens of "Su di te" before the permissions: names, work, rules and tone. */
-export async function answerQuestions(
+/**
+ * The names screen, the only question of the express first start: yours, and the lead's
+ * (already "Titan"). Ends on the squad screen.
+ */
+export async function answerNames(
   page: Page,
   opts: { user?: string; orchestrator?: string; shot?: (name: string) => Promise<void> } = {},
 ): Promise<void> {
@@ -39,22 +42,38 @@ export async function answerQuestions(
   await page.getByRole('textbox', { name: 'Your name' }).fill(opts.user ?? 'Giulio');
   if (opts.orchestrator)
     await page.getByRole('textbox', { name: 'Your lead’s name' }).fill(opts.orchestrator);
-  await opts.shot?.('domanda-nomi');
+  await opts.shot?.('nomi');
   await next(page);
+  await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'team');
+}
 
-  await question(page, 'lavoro');
-  await page.getByRole('button', { name: 'Social media and content' }).click();
-  await page.getByLabel('In your own words (if you like)').fill('I follow three restaurants');
-  await page.getByRole('button', { name: 'Online research' }).click();
-  await page.getByRole('button', { name: 'Planning content' }).click();
-  await opts.shot?.('domanda-lavoro');
-  await next(page);
+/**
+ * Records every screen the first start shows (`data-step` of the module) and every click of the
+ * user from now on, in the page: `startedAt` is read back with `walked`.
+ */
+export async function watchWalk(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const w = window as unknown as { __walk: { steps: string[]; clicks: number } };
+    const root = document.querySelector('[data-testid="onboarding"]');
+    w.__walk = { steps: root ? [root.getAttribute('data-step') ?? ''] : [], clicks: 0 };
+    document.addEventListener(
+      'click',
+      (e) => {
+        if (e.isTrusted) w.__walk.clicks++;
+      },
+      true,
+    );
+    new MutationObserver(() => {
+      const el = document.querySelector('[data-testid="onboarding"]');
+      const step = el?.getAttribute('data-step');
+      if (step && w.__walk.steps.at(-1) !== step) w.__walk.steps.push(step);
+    }).observe(document.body, { subtree: true, childList: true, attributes: true });
+  });
+}
 
-  await question(page, 'regole');
-  // Publish, contact, spend and delete are always asked: a fact, not chips (audit 2.8).
-  await expect(page.getByTestId('ask-always-fixed')).toContainText('we always ask you first');
-  await expect(page.getByRole('button', { name: 'Publish', exact: true })).toHaveCount(0);
-  await page.getByRole('radio', { name: 'Direct' }).click();
-  await opts.shot?.('domanda-regole');
-  await next(page);
+/** The screens seen and the clicks made since `watchWalk`. */
+export async function walked(page: Page): Promise<{ steps: string[]; clicks: number }> {
+  return page.evaluate(
+    () => (window as unknown as { __walk: { steps: string[]; clicks: number } }).__walk,
+  );
 }

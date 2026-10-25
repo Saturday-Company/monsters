@@ -1,6 +1,6 @@
 import { MOCK_SETUP_CODE } from '../src/lib/mock/constants.ts';
 import { expect, test } from './fixtures.ts';
-import { answerQuestions, createAccount } from './onboarding-helpers.ts';
+import { answerNames, createAccount } from './onboarding-helpers.ts';
 
 /*
  * Sign-in and first start after the UX audit (section 2) on the mock core:
@@ -54,7 +54,7 @@ test('one connected model is enough, whatever card is open (2.2, 2.16)', async (
   await expect(page.getByText('Your first monster')).toBeVisible();
   await page.getByRole('textbox', { name: 'Your name' }).fill('Giulio');
   await page.getByRole('button', { name: /^Next/ }).click();
-  await expect(page.locator('[data-question="lavoro"]')).toBeVisible();
+  await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'team');
   await expect(page.getByText('Titan · your lead')).toBeVisible();
 });
 
@@ -76,9 +76,8 @@ test('a key of another provider is recognised and used (2.5)', async ({ page }) 
   await expect(page.getByTestId('guide-says')).toContainText('Anthropic');
   await page.getByTestId('access-continue').click();
   await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'questions');
-  await answerQuestions(page);
-  await page.getByRole('button', { name: /Looks good, continue/ }).click();
-  await page.getByRole('button', { name: /Confirm the squad/ }).click();
+  await answerNames(page);
+  await page.getByRole('button', { name: 'Looks good' }).click();
   await page.getByRole('button', { name: /^Message / }).click();
   await expect(page.getByRole('heading', { name: 'Titan', level: 1 })).toBeVisible();
   // The team moved to the Anthropic key: a model is connected.
@@ -96,38 +95,19 @@ test('"Lo faccio dopo" leaves the model step to do (2.3)', async ({ page }) => {
   await expect(first).toContainText('to do');
 });
 
-test.describe('who writes software', () => {
-  test.use({ locale: 'de-DE' });
-
-  test('chips of the work, language of the system, terminal on for everybody (2.7, 2.9, 2.11, 2.12)', async ({
-    page,
-  }) => {
-    // German browser: the app speaks only English and Italian, so it falls back to English (D-153).
-    await page.goto('/?mock=1');
-    await createAccount(page, MOCK_SETUP_CODE);
-    await page.getByRole('button', { name: 'I’ll do it later' }).click();
-    await page.getByRole('textbox', { name: 'Your name' }).fill('Giulio');
-    await page.getByRole('button', { name: /^Next/ }).click();
-    await expect(page.locator('[data-question="lavoro"]')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Fixing bugs' })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Software development' }).click();
-    await expect(page.getByRole('button', { name: 'Fixing bugs' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Understanding new code' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Planning content' })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Writing tests' }).click();
-    await page.getByRole('button', { name: /^Next/ }).click();
-    await expect(page.locator('[data-question="regole"]')).toBeVisible();
-    await expect(page.getByTestId('guide-says')).toContainText('Two more things');
-    await expect(page.getByRole('radio', { name: 'Deutsch' })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
-    await page.getByRole('button', { name: /^Next/ }).click();
-    await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'permissions');
-    await expect(page.getByRole('switch', { name: 'Terminal' })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
-    await expect(page.getByText('without administrator rights')).toBeVisible();
-  });
+test('the permissions are not a screen: one honest sentence on the squad (2.9, D-159, C1)', async ({
+  page,
+}) => {
+  await page.goto('/?mock=1');
+  await createAccount(page, MOCK_SETUP_CODE);
+  await page.getByRole('button', { name: 'I’ll do it later' }).click();
+  await page.getByRole('textbox', { name: 'Your name' }).fill('Giulio');
+  await page.getByRole('button', { name: /^Next/ }).click();
+  // No question about the work, and no switches: they start as the notes, the web and run
+  // commands on, and the squad says so with the place to change it.
+  await expect(page.locator('[data-question="lavoro"]')).toHaveCount(0);
+  await expect(page.getByRole('switch')).toHaveCount(0);
+  await expect(page.getByTestId('permissions-note')).toHaveText(
+    'They can write in your notes, search the web and run commands on this computer. You can change that in Settings → Permissions.',
+  );
 });

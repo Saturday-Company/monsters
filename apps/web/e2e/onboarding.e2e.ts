@@ -1,24 +1,28 @@
 import { MOCK_SETUP_CODE } from '../src/lib/mock/constants.ts';
 import { expect, test } from './fixtures.ts';
-import { answerQuestions, connectOpenRouter, createAccount } from './onboarding-helpers.ts';
+import {
+  answerNames,
+  connectOpenRouter,
+  createAccount,
+  watchWalk,
+  walked,
+} from './onboarding-helpers.ts';
 
-/* First start against the mock core (`?mock=1`). The real core is in onboarding-core.e2e.ts. */
+/*
+ * First start against the mock core (`?mock=1`), the express path: model, your name, the
+ * squad, the birth. The real core is in e2e-core/onboarding.e2e.ts.
+ */
 
-test('first start: model, about you, team, birth', async ({ page }) => {
+test('first start: model, name, squad, birth', async ({ page }) => {
   // The longest flow of the suite (every step, with the guide's animations).
   test.setTimeout(60_000);
   await page.goto('/?mock=1');
   await createAccount(page, MOCK_SETUP_CODE);
   await expect(page).toHaveURL(/#\/benvenuto$/);
   await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'key');
-  // Four steps, the first one current.
+  // Three steps, the first one current: no "About you" or "What they can do" any more.
   const progress = page.getByRole('navigation', { name: 'Progress' });
-  await expect(progress.getByRole('listitem')).toHaveText([
-    /Model/,
-    /About you/,
-    /What they can do/,
-    /Squad/,
-  ]);
+  await expect(progress.getByRole('listitem')).toHaveText([/Model/, /Your name/, /Squad/]);
 
   // Three ways to a model; nothing goes on until one is connected.
   const ways = page.getByRole('radiogroup', { name: 'How I reach a model' });
@@ -36,82 +40,82 @@ test('first start: model, about you, team, birth', async ({ page }) => {
   await connectOpenRouter(page);
   await expect(progress.getByRole('listitem').first()).toHaveAttribute('data-done', 'yes');
 
-  await answerQuestions(page, { orchestrator: 'Atlas' });
-  // The starting agent comments the last answer, then the permissions: a step of their own.
-  await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'permissions');
-  await expect(progress.getByRole('listitem').nth(2)).toHaveAttribute('aria-current', 'step');
-  // The counter of "About you" stays with its three screens: the permissions are a step of
-  // their own (D-066).
+  // From here to the first chat: the screens seen and the clicks made.
+  await watchWalk(page);
+  // One screen asks for the names: two text fields, the lead's already filled in.
   await expect(page.getByTestId('screen-progress')).toHaveCount(0);
-  await page.getByRole('switch', { name: 'The web' }).click();
-  await page.getByRole('switch', { name: 'The web' }).click();
-  // Only the three switches (terminal on by default); folders, browser and MCP tools
-  // are set up in the settings, nothing is announced as coming.
-  const perms = page.getByRole('list', { name: 'The monsters’ permissions' });
-  await expect(perms.getByRole('switch')).toHaveCount(3);
-  await expect(page.getByText('Coming soon')).toHaveCount(0);
-  await expect(page.getByTestId('guide-says').locator('..').locator('..')).toContainText(
-    'in the settings',
-  );
-  await expect(page.getByRole('switch', { name: 'Terminal' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  await page.getByRole('button', { name: /Looks good, continue/ }).click();
-  await expect(page.getByTestId('guide-says')).toContainText('put the squad together');
+  await expect(page.getByRole('textbox')).toHaveCount(2);
+  await expect(page.getByRole('textbox', { name: 'Your lead’s name' })).toHaveValue('Titan');
+  await expect(page.getByText('Your first monster')).toBeVisible();
+  await answerNames(page, { orchestrator: 'Atlas' });
+  await expect(progress.getByRole('listitem').nth(1)).toHaveAttribute('data-done', 'yes');
+  await expect(progress.getByRole('listitem').nth(2)).toHaveAttribute('aria-current', 'step');
 
+  // The squad comes with no wait in between (no forced reply of the guide), and says honestly
+  // what they may do from the start and where to change it.
   const members = page.getByTestId('member');
-  await expect(members).toHaveCount(3);
+  await expect(members).toHaveCount(2);
   await expect(page.getByTestId('guide-says')).toContainText('Here’s the squad');
+  await expect(page.getByTestId('permissions-note')).toHaveText(
+    'They can write in your notes, search the web and run commands on this computer. You can change that in Settings → Permissions.',
+  );
+  // "Looks good" is the one main key; the rest is secondary.
+  await expect(page.getByRole('button', { name: 'Looks good' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
+  // The four ways to change a card are one tap away: closed until "Edit".
+  await expect(page.getByTestId('member-keys')).toHaveCount(0);
 
-  // A new look for Tethys, a new name, Dione out and back in, then out again.
-  const tethys = page.locator('[data-member="tethys"]');
-  const before = await tethys.locator('svg').first().innerHTML();
-  await page.getByRole('button', { name: 'Another look for Tethys' }).click();
-  await expect.poll(() => tethys.locator('svg').first().innerHTML()).not.toBe(before);
-  await page.getByRole('button', { name: 'Rename Tethys' }).click();
-  await page.getByLabel('New name for Tethys').fill('Calendar');
+  // A new look for Rhea, a new name, Dione out and back in, then out again.
+  const rhea = page.locator('[data-member="rhea"]');
+  await page.getByRole('button', { name: 'Edit Rhea' }).click();
+  const before = await rhea.locator('svg').first().innerHTML();
+  await page.getByRole('button', { name: 'Another look for Rhea' }).click();
+  await expect.poll(() => rhea.locator('svg').first().innerHTML()).not.toBe(before);
+  await page.getByRole('button', { name: 'Rename Rhea' }).click();
+  await page.getByLabel('New name for Rhea').fill('Calendar');
   await page.getByRole('button', { name: 'Save the name' }).click();
-  await expect(tethys.getByRole('heading', { name: 'Calendar' })).toBeVisible();
-  await expect(tethys.getByTestId('member-saved')).toBeVisible();
-  // The card says what the monster does in plain words; duties (written for the
-  // model) and folder are under "Personalizza", editable: a glob or a reserved
+  await expect(rhea.getByRole('heading', { name: 'Calendar' })).toBeVisible();
+  await expect(rhea.getByTestId('member-saved')).toBeVisible();
+  // The card says what the monster does in plain words; the list of what it does (written
+  // for the model) and the folder are under "What it does", editable: a glob or a reserved
   // folder is refused (audit 2.10).
-  await expect(tethys.getByTestId('member-area')).toContainText('in the notes folder “Calendar”');
-  await expect(tethys).not.toContainText('vault');
-  await expect(tethys).not.toContainText('You see the work through');
-  await page.getByRole('button', { name: 'Customize Calendar' }).click();
+  await expect(rhea.getByTestId('member-area')).toContainText('in the notes folder “Research”');
+  await expect(rhea).not.toContainText('vault');
+  await expect(rhea).not.toContainText('You see the work through');
+  await page.getByRole('button', { name: 'Change what Calendar does' }).click();
   const area = page.getByLabel('Calendar’s folder in the notes');
   await area.fill('**');
-  await page.getByRole('button', { name: 'Save Calendar’s tasks and folder' }).click();
-  await expect(tethys.getByRole('alert')).toContainText('no * ?');
+  await page.getByRole('button', { name: 'Save what Calendar does and its folder' }).click();
+  await expect(rhea.getByRole('alert')).toContainText('no * ?');
   await area.fill('Agents/Atlas');
-  await page.getByRole('button', { name: 'Save Calendar’s tasks and folder' }).click();
-  await expect(tethys.getByRole('alert')).toContainText('reserved');
+  await page.getByRole('button', { name: 'Save what Calendar does and its folder' }).click();
+  await expect(rhea.getByRole('alert')).toContainText('reserved');
   await area.fill(' Projects/Editorial plan/ ');
   await page
-    .getByLabel('Calendar’s tasks (one per line)')
+    .getByLabel('What Calendar does (one per line)')
     .fill('One plan a week.\n- You remember the deadlines.');
-  await page.getByRole('button', { name: 'Save Calendar’s tasks and folder' }).click();
-  await expect(tethys.getByTestId('member-area')).toContainText('“Editorial plan”');
-  await page.getByRole('button', { name: 'Customize Calendar' }).click();
-  await expect(page.getByLabel('Calendar’s tasks (one per line)')).toHaveValue(
+  await page.getByRole('button', { name: 'Save what Calendar does and its folder' }).click();
+  await expect(rhea.getByTestId('member-area')).toContainText('“Editorial plan”');
+  await page.getByRole('button', { name: 'Change what Calendar does' }).click();
+  await expect(page.getByLabel('What Calendar does (one per line)')).toHaveValue(
     'One plan a week.\nYou remember the deadlines.',
   );
   await expect(page.getByLabel('Calendar’s folder in the notes')).toHaveValue(
     'Projects/Editorial plan',
   );
   await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('button', { name: 'Edit Dione' }).click();
   await page.getByRole('button', { name: 'Remove Dione from the squad' }).click();
-  await expect(members).toHaveCount(2);
+  await expect(members).toHaveCount(1);
   // The focus does not fall on the page: it is on “Put back”, ready to undo.
   await expect(page.getByRole('button', { name: 'Put Dione back on the squad' })).toBeFocused();
   await page.getByRole('button', { name: 'Put Dione back on the squad' }).click();
-  await expect(members).toHaveCount(3);
-  await page.getByRole('button', { name: 'Remove Dione from the squad' }).click();
   await expect(members).toHaveCount(2);
+  await page.getByRole('button', { name: 'Edit Dione' }).click();
+  await page.getByRole('button', { name: 'Remove Dione from the squad' }).click();
+  await expect(members).toHaveCount(1);
 
-  await page.getByRole('button', { name: /Confirm the squad/ }).click();
+  await page.getByRole('button', { name: 'Looks good' }).click();
   await expect(page.getByTestId('birth')).toBeVisible();
   await expect(page.getByTestId('welcome')).toContainText('Hi Giulio! I’m Atlas');
   await page.getByRole('button', { name: 'Message Atlas' }).click();
@@ -135,10 +139,77 @@ test('first start: model, about you, team, birth', async ({ page }) => {
   await expect(page.getByRole('combobox', { name: 'Message' })).toBeFocused();
 });
 
-test('the Claude subscription: Claude Code on the computer of Monsters', async ({ page }) => {
+test('the express path: three screens, three clicks, two text fields', async ({ page }) => {
+  test.setTimeout(60_000);
   await page.goto('/?mock=1');
   await createAccount(page, MOCK_SETUP_CODE);
-  await page.getByRole('radio', { name: /Claude subscription/ }).click();
+  await connectOpenRouter(page);
+  await watchWalk(page);
+
+  // Names (1 click), the squad as it arrives (1), the birth (1). Nothing waits in between.
+  const started = Date.now();
+  await answerNames(page);
+  await expect(page.getByTestId('member')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Looks good' }).click();
+  await expect(page.getByTestId('welcome')).toBeVisible();
+  await page.getByRole('button', { name: /^Message / }).click();
+  await expect(page.getByRole('heading', { name: 'Titan', level: 1 })).toBeVisible();
+  // The old path held the guide for 0.95 s on each of three screens and 0.8 s on the fourth:
+  // the whole walk now takes less than one of those pauses and a half.
+  expect(Date.now() - started).toBeLessThan(6000);
+
+  const walk = await walked(page);
+  // Names, squad, birth: the questions about work, hand-offs, rules and the permissions are gone.
+  expect(walk.steps).toEqual(['questions', 'team', 'done']);
+  expect(walk.clicks).toBe(3);
+});
+
+test('Back from the squad keeps the proposal, and a changed name makes a new one', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await page.goto('/?mock=1');
+  await createAccount(page, MOCK_SETUP_CODE);
+  await connectOpenRouter(page);
+  await answerNames(page, { orchestrator: 'Atlas' });
+  const members = page.getByTestId('member');
+  await expect(members).toHaveCount(2);
+  // A look the user chose is part of the proposal: it survives Back and Next with the same names.
+  await page.getByRole('button', { name: 'Edit Rhea' }).click();
+  const rhea = page.locator('[data-member="rhea"]');
+  const before = await rhea.locator('svg').first().innerHTML();
+  await page.getByRole('button', { name: 'Another look for Rhea' }).click();
+  await expect.poll(() => rhea.locator('svg').first().innerHTML()).not.toBe(before);
+  // The ids of the SVG patterns change with every mount: the dots are what counts.
+  const dots = async () =>
+    (await page.locator('[data-member="rhea"]').locator('svg').first().innerHTML()).replace(
+      /m_[\w-]*-off/g,
+      'id',
+    );
+  const chosen = await dots();
+
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'questions');
+  // The names are as they were left.
+  await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('Giulio');
+  await expect(page.getByRole('textbox', { name: 'Your lead’s name' })).toHaveValue('Atlas');
+  await page.getByRole('button', { name: /^Next/ }).click();
+  await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'team');
+  await expect(members).toHaveCount(2);
+  expect(await dots()).toBe(chosen);
+
+  // Another name for the lead: the squad is proposed again, for it.
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('textbox', { name: 'Your lead’s name' }).fill('Pan');
+  await page.getByRole('button', { name: /^Next/ }).click();
+  await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'team');
+  await expect(page.getByText('Your lead: Pan')).toBeVisible();
+});
+
+test('the Claude plan: Claude Code on the computer of Monsters', async ({ page }) => {
+  await page.goto('/?mock=1');
+  await createAccount(page, MOCK_SETUP_CODE);
+  await page.getByRole('radio', { name: /Claude plan/ }).click();
   const panel = page.getByTestId('access-panel');
   // The core may run elsewhere (desktop app over SSH): the copy says where.
   await expect(panel).toContainText('on the computer where Monsters runs');
@@ -150,7 +221,7 @@ test('the Claude subscription: Claude Code on the computer of Monsters', async (
     await panel.getByRole('button', { name: 'Check again' }).click({ timeout: 1000 });
     await expect(page.getByTestId('access-connected')).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 10_000 });
-  await expect(page.getByTestId('access-connected')).toContainText('subscription');
+  await expect(page.getByTestId('access-connected')).toContainText('plan');
   await expect(page.getByTestId('way-claude-agent')).toHaveAttribute('data-ready', 'yes');
   await page.getByTestId('access-continue').click();
   await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'questions');
@@ -176,9 +247,8 @@ test('without a model the home page says so', async ({ page }) => {
   await page.goto('/?mock=1');
   await createAccount(page, MOCK_SETUP_CODE);
   await page.getByRole('button', { name: 'I’ll do it later' }).click();
-  await answerQuestions(page);
-  await page.getByRole('button', { name: /Looks good, continue/ }).click();
-  await page.getByRole('button', { name: /Confirm the squad/ }).click();
+  await answerNames(page);
+  await page.getByRole('button', { name: 'Looks good' }).click();
   await page.getByRole('button', { name: /^Message / }).click();
   // The greeting is honest, and carries the way out; the field and the state agree.
   const greeting = page.getByTestId('agent-bubble').first();
@@ -199,7 +269,7 @@ test('the key can wait, and the chats send back to the onboarding', async ({ pag
   await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'questions');
   await page.getByLabel('Your name').fill('Giulio');
   await page.getByRole('button', { name: /^Next/ }).click();
-  await expect(page.locator('[data-question="lavoro"]')).toBeVisible();
+  await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'team');
   // Going to the chats before finishing brings the user back here.
   await page.goto('/?mock=1#/');
   await expect(page.getByTestId('onboarding')).toBeVisible();
