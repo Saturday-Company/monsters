@@ -10,8 +10,8 @@ const en = {
     stayInRest: ': the project’s monsters write there, everyone can read them.',
     all: 'All notes',
     what: 'the notes',
-    capped:
-      'This list may be missing some notes: the vault is large. Open All notes to search the rest.',
+    capped: (n: number) =>
+      `Showing the newest ${n} notes of this project. Open All notes to search the rest.`,
     empty: 'No notes yet: when the lead or its monsters write one, it shows up here.',
   },
   folder: {
@@ -129,8 +129,8 @@ const it: typeof en = {
     stayInRest: ': i mostri del progetto scrivono lì, tutti le possono leggere.',
     all: 'Tutte le note',
     what: 'le note',
-    capped:
-      'Nell’elenco potrebbero mancare delle note: l’archivio è grande. Apri Tutte le note per cercare nel resto.',
+    capped: (n) =>
+      `Mostro le ${n} note più recenti di questo progetto. Apri Tutte le note per cercare nel resto.`,
     empty: 'Ancora nessuna nota: quando il capo o i suoi mostri ne scrivono una, compare qui.',
   },
   folder: {

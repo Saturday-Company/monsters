@@ -17,6 +17,7 @@ import { Button } from '../ui/button.tsx';
 import { Segmented } from '../ui/controls.tsx';
 import { EmptyScreen } from '../ui/EmptyScreen.tsx';
 import { FileThumb } from './FileChip.tsx';
+import { afterRefresh, FILES_PAGE, nextPageQuery, withPage } from './file-pages.ts';
 import { filesStrings } from './files.strings.ts';
 
 /*
@@ -38,12 +39,10 @@ function queryOf(filter: Filter, q: string): FileListQuery {
     ...(filter === 'documents' ? { kind: 'documents' as const } : {}),
     ...(filter === 'monsters' ? { source: 'monsters' as const } : {}),
     ...(q.trim() ? { q: q.trim() } : {}),
-    limit: LIST_LIMIT,
+    limit: FILES_PAGE,
   };
 }
 
-/** How many files the list asks for; a full list says it is cut (W-37). */
-const LIST_LIMIT = 300;
 /** How long the delete key stays armed ("AGAIN"), as Stop. */
 const ARMED_MS = 5000;
 /** How long "Undo" stays on a deleted file (the core keeps it a little longer, U2-32). */
@@ -211,7 +210,14 @@ export default function FilesView() {
   const s = filesStrings();
   const [filter, setFilter] = useState<Filter>('all');
   const [q, setQ] = useState('');
-  const [files, setFiles] = useState<FileMeta[] | null>(null);
+  /** The files shown, for the query they answer, and whether older ones may be on the core (W-37). */
+  const [shown, setShown] = useState<{
+    query: FileListQuery;
+    files: FileMeta[];
+    more: boolean;
+  } | null>(null);
+  const files = shown?.files ?? null;
+  const [loadingMore, setLoadingMore] = useState(false);
   const [failed, setFailed] = useState(false);
   const [attempt, retry] = useRetry(() => setFailed(false));
   const phone = useMediaQuery('(max-width: 767px)');
@@ -228,7 +234,17 @@ export default function FilesView() {
           .then((list) => {
             if (!live) return;
             useFiles.getState().put(list);
-            setFiles(list);
+            // The list read again (a file event) keeps the older pages the user asked for.
+            setShown((prev) => {
+              const same = prev?.query === query ? prev : null;
+              return {
+                query,
+                files: afterRefresh(list, same?.files ?? null),
+                more:
+                  list.length >= FILES_PAGE &&
+                  (!same || same.files.length <= FILES_PAGE || same.more),
+              };
+            });
             setFailed(false);
           })
           .catch(() => live && setFailed(true));
@@ -240,6 +256,25 @@ export default function FilesView() {
       clearTimeout(t);
     };
   }, [query, fileEvents, attempt]);
+
+  /** The next page, below the files shown. */
+  const showMore = async () => {
+    if (!shown || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await getApi().files(nextPageQuery(shown.query, shown.files));
+      useFiles.getState().put(page);
+      setShown((p) =>
+        p?.query === shown.query
+          ? { ...p, files: withPage(p.files, page), more: page.length >= FILES_PAGE }
+          : p,
+      );
+    } catch (err) {
+      notify(describeError(err), 'error');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const filtered = filter !== 'all' || q.trim() !== '';
   // Nothing to filter, nothing to search: the bar waits until there is a file (or a filter on).
@@ -322,15 +357,26 @@ export default function FilesView() {
               <FileTile
                 key={f.id}
                 meta={f}
-                onDeleted={(id) => setFiles((list) => list?.filter((x) => x.id !== id) ?? null)}
+                onDeleted={(id) =>
+                  setShown((p) => p && { ...p, files: p.files.filter((x) => x.id !== id) })
+                }
               />
             ))}
           </ul>
         )}
-        {!failed && files !== null && files.length >= LIST_LIMIT && (
-          <p className="label mt-4 text-ink-muted" data-testid="files-capped">
-            {s.capped(LIST_LIMIT)}
-          </p>
+        {!failed && shown?.more && files && (
+          <div className="mt-4 flex flex-wrap items-center gap-3" data-testid="files-capped">
+            <p className="label text-ink-muted">{s.shown(files.length)}</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={loadingMore}
+              onClick={() => void showMore()}
+              data-testid="files-more"
+            >
+              {s.showMore}
+            </Button>
+          </div>
         )}
       </div>
     </section>

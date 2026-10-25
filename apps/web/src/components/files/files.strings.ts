@@ -21,7 +21,8 @@ const en = {
       ? 'Try another filter, or search for another name.'
       : 'Attach images and documents from the chat with the paperclip, paste them or drag them in. The monsters’ screenshots and pages end up here too.',
   attach: 'Attach a file in a chat',
-  capped: (n: number) => `The first ${n} files: search or filter to find the others.`,
+  shown: (n: number) => `Showing the newest ${n} files.`,
+  showMore: 'Show more',
   failed: 'the files',
   title: 'Files',
   which: 'Which files',
@@ -62,7 +63,8 @@ const it: typeof en = {
       ? 'Prova un altro filtro, o cerca un altro nome.'
       : 'Allega immagini e documenti dalla chat con la graffetta, incollali o trascinali. Qui finiscono anche gli screenshot e le pagine dei mostri.',
   attach: 'Allega un file in una chat',
-  capped: (n) => `I primi ${n} file: cerca o filtra per trovare gli altri.`,
+  shown: (n) => `Mostro i ${n} file più recenti.`,
+  showMore: 'Mostra altri',
   failed: 'i file',
   title: 'File',
   which: 'Quali file',
