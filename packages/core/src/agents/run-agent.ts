@@ -683,11 +683,14 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     ...(options.extraTools ?? []).filter((t) => !names.has(t.name) && names.add(t.name)),
   ];
   // Long results out of the context, old ones masked (C.2): `result_read` reads them again.
-  // Pieces of a long result as big as the model's window allows; its note names the filters (D-163).
-  const first = agent.config.models[0];
+  // Pieces of a long result as big as the window allows; its note names the filters (D-163).
+  // The smallest window of the chain: after a fallback to a smaller model the pieces still fit (C-16).
+  const windows = agent.config.models
+    .map((m) => options.contextWindow?.(m))
+    .filter((w): w is number => typeof w === 'number' && w > 0);
   const runContext = new RunContext(
     {
-      ...contextLimitsFor(first ? options.contextWindow?.(first) : undefined),
+      ...contextLimitsFor(windows.length > 0 ? Math.min(...windows) : undefined),
       ...options.contextLimits,
     },
     filtersOf(ownTools),
@@ -863,6 +866,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
   // caps (`limits.plan`, D-171), not the pay-per-use ones (C-5). `planRun` is the chain's first
   // link, for the agent's token cap; each request is counted by the provider that served it.
   const onPlan = (provider: string) => providerSpec(provider)?.subscription === true;
+  const first = agent.config.models[0];
   const planRun = first ? onPlan(first.provider) : false;
   const maxTokens = agentTokenLimit(agent.config, budget?.limits, planRun);
   let totalIn = 0;
