@@ -91,7 +91,7 @@ test('answering a question with options', async ({ page }) => {
   await expect(card.getByRole('button')).toHaveCount(3);
   await expect(page.getByRole('combobox', { name: 'Message' })).toHaveAttribute(
     'placeholder',
-    'Message Titan, or press A, B or C',
+    'Message Titan, or type A, B or C and press Enter',
   );
   await expect(page.getByTestId('chat-status')).toContainText('Waiting for your answer');
 

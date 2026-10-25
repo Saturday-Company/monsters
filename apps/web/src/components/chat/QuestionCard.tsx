@@ -10,7 +10,15 @@ import {
   useState,
   type FormEvent,
 } from 'react';
-import { answerQuestion, askAgain, errorText, notify, useApp } from '../../store/app.ts';
+import {
+  answerQuestion,
+  askAgain,
+  chooseOption,
+  errorText,
+  notify,
+  undoChoice,
+  useApp,
+} from '../../store/app.ts';
 import { runOwners } from '../../store/derive.ts';
 import { useAgent, useMediaQuery } from '../../store/hooks.ts';
 import { cn, domId } from '../../lib/utils.ts';
@@ -28,26 +36,37 @@ export const KEYPAD_LETTERS = ['A', 'B', 'C', 'D'] as const;
 const PRESS_MS = 120;
 
 /**
- * The question the composer answers: its keypad takes the letters typed with
- * the composer empty (one keypad at a time, the oldest open question).
+ * The question the composer answers: its keypad takes the letters typed outside
+ * the text fields (one keypad at a time, the oldest open question).
  */
 export const ActiveKeypad = createContext<string | null>(null);
 
 /**
  * Whether a key press may play the keypad: no modifier, and the focus is not in
- * a field with something in it (the empty composer is fine: its letters would
- * be the first of a free answer, which the keypad answers better).
+ * a text field. Not even the empty composer, which has the focus by default: a
+ * sentence starting with "Can…" or "Do…" answered the question and the text was
+ * gone (V-1). There a letter alone and Enter picks the option (`keypadPick`).
  */
 export function keypadAccepts(
   e: Pick<KeyboardEvent, 'metaKey' | 'ctrlKey' | 'altKey' | 'repeat' | 'defaultPrevented'>,
-  active: { tagName: string; id?: string; value?: string; isContentEditable?: boolean } | null,
+  active: { tagName: string; isContentEditable?: boolean } | null,
 ): boolean {
   if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || e.defaultPrevented) return false;
   if (!active) return true;
   if (active.isContentEditable) return false;
   const tag = active.tagName.toUpperCase();
-  if (tag === 'TEXTAREA') return active.id === 'composer-input' && !active.value;
-  return tag !== 'INPUT' && tag !== 'SELECT';
+  return tag !== 'TEXTAREA' && tag !== 'INPUT' && tag !== 'SELECT';
+}
+
+/**
+ * The option a text sent from the composer picks: a letter of the keypad alone ("b", " C "),
+ * within the options. Null for anything else, which is an answer in words.
+ */
+export function keypadPick(text: string, options: number): number | null {
+  const m = /^\s*([a-d])\s*$/i.exec(text);
+  if (!m) return null;
+  const i = KEYPAD_LETTERS.indexOf(m[1]!.toUpperCase() as (typeof KEYPAD_LETTERS)[number]);
+  return i >= 0 && i < Math.min(options, KEYPAD_LETTERS.length) ? i : null;
 }
 
 /** "A, B or C": the letters of a keypad of `n` options, in words. */
@@ -120,9 +139,11 @@ function Expired({ q }: { q: Question }) {
 /**
  * A question from a monster as a keypad (docs/design.md, "Domanda con
  * opzioni"): the options are full-width keys with their letter, the
- * recommended one with the orange lamp. With the composer empty, the letter on
- * the keyboard presses the key (it sinks, it clicks if the sounds are on).
- * Words of one's own go in the composer below, which answers the open
+ * recommended one with the orange lamp. Outside the text fields the letter on
+ * the keyboard presses the key (it sinks, it clicks if the sounds are on); in
+ * the composer a letter alone and Enter does the same. A key picked with the
+ * keyboard waits a moment with "Undo" before it leaves (V-1); a click goes at
+ * once. Words of one's own go in the composer below, which answers the open
  * question: one field, not two. An open question (no options) is the
  * question only.
  */
@@ -156,13 +177,17 @@ function QuestionBody({ q, answerField }: { q: Question; answerField: boolean })
   const [error, setError] = useState<string | null>(null);
   const [words, setWords] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const undoKey = useRef<HTMLButtonElement>(null);
   const uid = domId(useId());
   const open = q.status === 'open';
   const freeOnly = q.options.length === 0;
   const chosen = q.answer?.optionId
     ? q.options.find((o) => o.id === q.answer?.optionId)?.label
     : q.answer?.text;
-  const locked = busy !== null || pressed !== null || halted;
+  // Picked with a letter of the keyboard: it leaves in a moment, unless undone (V-1).
+  const choice = useApp((s) => s.choices[q.id]);
+  const picked = choice ? q.options.find((o) => o.id === choice) : undefined;
+  const locked = busy !== null || pressed !== null || halted || choice !== undefined;
 
   const send = async (optionId: string) => {
     setBusy(optionId);
@@ -212,13 +237,31 @@ function QuestionBody({ q, answerField }: { q: Question; answerField: boolean })
       if (i < 0 || i >= options.length) return;
       if (!keypadAccepts(e, document.activeElement)) return;
       e.preventDefault();
-      press(options[i]!.id);
+      // The key sinks and clicks; the answer waits for the undo window.
+      setPressed(options[i]!.id);
+      playSound('click');
+      timer.current = setTimeout(() => {
+        setPressed(null);
+        chooseOption(q.id, options[i]!.id);
+      }, PRESS_MS);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // `press` only reads state that is in the dependencies
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, open, options, locked]);
+  }, [active, open, options, locked, q.id]);
+
+  // Esc takes back an option picked with the keyboard while it waits (from the composer too).
+  useEffect(() => {
+    if (!choice) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (undoChoice(q.id)) e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    // Picked from outside the fields: the focus goes to "Undo", one key away.
+    const at = document.activeElement;
+    if (!at || at === document.body) undoKey.current?.focus({ preventScroll: true });
+    return () => window.removeEventListener('keydown', onKey);
+  }, [choice, q.id]);
 
   return (
     <article
@@ -266,12 +309,16 @@ function QuestionBody({ q, answerField }: { q: Question; answerField: boolean })
                       disabled={locked}
                       onClick={() => press(o.id)}
                       data-recommended={rec ? 'true' : undefined}
-                      data-pressed={pressed === o.id ? 'true' : undefined}
+                      data-pressed={pressed === o.id || choice === o.id ? 'true' : undefined}
                       aria-keyshortcuts={active && letter ? letter : undefined}
                       className={cn(
                         'key keypad-key flex w-full items-center gap-3.5 px-3.5 py-2.5 text-left text-ink',
                         // the pressed key stays solid while the answer leaves
-                        locked && pressed !== o.id && busy !== o.id && 'opacity-60',
+                        locked &&
+                          pressed !== o.id &&
+                          busy !== o.id &&
+                          choice !== o.id &&
+                          'opacity-60',
                       )}
                     >
                       {letter && <KeyCap>{letter}</KeyCap>}
@@ -298,7 +345,40 @@ function QuestionBody({ q, answerField }: { q: Question; answerField: boolean })
               })}
             </ul>
           )}
-          <p className={cn('px-1 text-footnote text-ink-muted', !freeOnly && 'pt-1')}>
+          {/* Always there, so screen readers hear the pick and how to take it back. */}
+          <p role="status" className="sr-only">
+            {picked ? s.chosenSr(plainText(picked.label)) : ''}
+          </p>
+          {picked && (
+            <p
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 pt-1 text-footnote text-ink-muted"
+              data-testid="answer-undo"
+            >
+              <span>
+                {s.chosenBefore}
+                <strong className="font-semibold text-ink">{plainText(picked.label)}</strong>
+              </span>
+              <span aria-hidden>·</span>
+              <button
+                ref={undoKey}
+                type="button"
+                onClick={() => undoChoice(q.id)}
+                aria-keyshortcuts="Escape"
+                aria-label={s.undoAnswer}
+                className="inline-flex items-center gap-1.5 rounded-[6px] font-medium text-signal-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
+              >
+                {s.undo}
+                {keyboard && <KeyCap>{s.escKey}</KeyCap>}
+              </button>
+            </p>
+          )}
+          <p
+            className={cn(
+              'px-1 text-footnote text-ink-muted',
+              !freeOnly && 'pt-1',
+              picked && 'hidden',
+            )}
+          >
             {/* Parked (D-078): the monster ended its turn, the answer starts it again. */}
             {q.parked && !halted && (
               <span className="light-on block" data-testid="question-parked">

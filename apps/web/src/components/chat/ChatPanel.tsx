@@ -21,7 +21,16 @@ import {
   type DragEvent,
   type ReactNode,
 } from 'react';
-import { sendMessage, notify, errorText, dropHeld, retryRun, useApp } from '../../store/app.ts';
+import {
+  chatHistoryOf,
+  dropHeld,
+  errorText,
+  loadChatOlder,
+  notify,
+  retryRun,
+  sendMessage,
+  useApp,
+} from '../../store/app.ts';
 import {
   automationBusyText,
   automationWork,
@@ -407,6 +416,26 @@ function EarlierToggle({
   );
 }
 
+/** At the top of a chat with more history on the core: one page more (scrolling up does it too). */
+function OlderKey({ loading, onLoad }: { loading: boolean; onLoad: () => void }) {
+  const s = chatStrings().panel;
+  return (
+    <div className="flex justify-center px-4 pt-4">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onLoad}
+        disabled={loading}
+        data-testid="older-messages"
+        className="h-9 gap-1.5 px-3 text-footnote font-medium"
+      >
+        <ClockCounterClockwise size={17} aria-hidden />
+        {loading ? s.loadingEarlier : s.olderMessages}
+      </Button>
+    </div>
+  );
+}
+
 interface Shown {
   item: ChatItem;
   /** An open question of a previous conversation, shown in the current one. */
@@ -512,7 +541,7 @@ function DaySeparator({ ts }: { ts: number }) {
  * the server's copy of a message you sent does not come in twice: your message
  * rises when you send it (pending), its echo takes its place without moving.
  */
-function rises(item: ChatItem, present: ReadonlySet<string>): boolean {
+function rises(item: ChatItem, present: Pick<ReadonlySet<string>, 'has'>): boolean {
   if (present.has(item.id)) return false;
   return item.kind !== 'user' || item.pending === true;
 }
@@ -530,7 +559,7 @@ function Rows({
   shown: Shown[];
   chat: string;
   /** The ids on screen when the chat opened. */
-  present: ReadonlySet<string>;
+  present: Pick<ReadonlySet<string>, 'has'>;
   actionFor: (id: string) => ReactNode;
   instrFor: (item: ChatItem) => string | null;
   /** Whether the buttons of a drawn block in this message can be pressed now. */
@@ -836,6 +865,15 @@ export function ChatPanel({
   const dragDepth = useRef(0);
   // ChatsView keys the panel by chat: these are the rows that were there when it opened.
   const [present] = useState(() => new Set(thread.map((i) => i.id)));
+  /** Rows older than this came with a page of history: they were there already, they do not rise. */
+  const quietBefore = useRef('');
+  const still = useMemo(
+    () => ({ has: (id: string) => present.has(id) || id < quietBefore.current }),
+    [present],
+  );
+  // The chat's own history (W-1): what is older than the pages of the whole hub.
+  const olderLeft = useApp((s) => chatHistoryOf(s, agentId).hasOlder);
+  const loadingOlder = useApp((s) => chatHistoryOf(s, agentId).loading);
   const closedAt = useMemo(() => questionsClosedAt(events), [events]);
   const stats = useMemo(() => runStatsIndex(events), [events]);
   const owners = useMemo(() => runOwners(events), [events]);
@@ -891,6 +929,7 @@ export function ChatPanel({
         id: openQuestion.id,
         from: nameOf(openQuestion.from),
         options: openQuestion.options.length,
+        picks: openQuestion.options,
         blocking: openQuestion.blocking,
       }
     : null;
@@ -921,24 +960,72 @@ export function ChatPanel({
     setEarlierOpenFor(showEarlier ? null : (view.boundary?.id ?? null));
   };
 
+  // Older messages are worth loading where they would show: not behind folded conversations.
+  const canLoadOlder = olderLeft && (!view.boundary || showEarlier);
+  const loadEarlier = useCallback(
+    (how: { keepPlace: boolean; loud: boolean }) => {
+      if (chatHistoryOf(useApp.getState(), agentId).loading) return;
+      const el = scroller.current;
+      // The page comes in above: what the user is looking at stays in place.
+      if (el && how.keepPlace && !pinned.current)
+        fromBottom.current = el.scrollHeight - el.scrollTop;
+      // Everything the page brings is older than the newest event known now.
+      const newest = useApp.getState().events.at(-1)?.id ?? '';
+      if (newest > quietBefore.current) quietBefore.current = newest;
+      loadChatOlder(agentId).catch((err: unknown) => {
+        fromBottom.current = null;
+        if (how.loud) notify(errorText(err), 'error');
+      });
+    },
+    [agentId],
+  );
+
+  // A chat whose history the pages of the whole hub do not hold loads its own when it opens.
+  useEffect(() => {
+    const s = useApp.getState();
+    if (s.chats[agentId] || !chatHistoryOf(s, agentId).hasOlder) return;
+    loadEarlier({ keepPlace: false, loud: false });
+  }, [agentId, loadEarlier]);
+
+  const firstId = thread[0]?.id ?? '';
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el || fromBottom.current === null) return;
     el.scrollTop = el.scrollHeight - fromBottom.current;
-    fromBottom.current = null;
-  }, [showEarlier]);
+    // Kept until the page is in: the older rows may come a render before the end of the load.
+    if (!loadingOlder) fromBottom.current = null;
+  }, [showEarlier, firstId, loadingOlder]);
 
   const last = thread.at(-1);
+  // Not the length: a page of older history above is not news at the bottom.
   const lastKey = last
-    ? `${thread.length}:${last.id}:${(last as { text?: string }).text?.length ?? 0}:${working}`
+    ? `${last.id}:${(last as { text?: string }).text?.length ?? 0}:${working}`
     : `${working}`;
+  // The user's own message just sent: it comes into view even when scrolled up (W-21).
+  const ownSend = last?.kind === 'user' && last.pending === true ? last.id : null;
 
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
+    // (the scroll to the bottom then takes the "New messages" key away)
+    if (ownSend) pinned.current = true;
     if (pinned.current) el.scrollTop = el.scrollHeight;
     else setShowJump(true);
-  }, [lastKey]);
+  }, [lastKey, ownSend]);
+
+  // Whatever grows after the first layout (a card, a picture, the bar above the composer) keeps
+  // a chat that sits at the bottom at the very bottom (V-2).
+  const content = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scroller.current;
+    const inner = content.current;
+    if (!el || !inner || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      if (pinned.current) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, []);
 
   // A new conversation starts in sight (the greeting from its top), with nothing "new" to jump to.
   const boundaryId = view.boundary?.id;
@@ -961,6 +1048,18 @@ export function ChatPanel({
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Scrolled up to the top: the earlier messages come by themselves (the key above says so too).
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || !canLoadOlder) return;
+    const onScroll = () => {
+      if (el.scrollTop < 160 && el.scrollHeight > el.clientHeight)
+        loadEarlier({ keepPlace: true, loud: false });
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [canLoadOlder, loadEarlier]);
 
   // Whether the card of the open question is on screen (else the bar above the composer).
   const questionId = openQuestion?.id ?? null;
@@ -1166,7 +1265,19 @@ export function ChatPanel({
         />
         <ActiveKeypad.Provider value={waitingForYou ? (openQuestion?.id ?? null) : null}>
           <div className="mx-auto flex min-h-full w-full max-w-[824px] flex-col px-4 sm:px-8">
-            <div className="flex flex-1 flex-col" aria-live="polite" aria-relevant="additions">
+            <div
+              ref={content}
+              className="flex flex-1 flex-col"
+              aria-live="polite"
+              aria-relevant="additions"
+              aria-busy={loadingOlder || undefined}
+            >
+              {canLoadOlder && (thread.length > 0 || !loadingOlder) && (
+                <OlderKey
+                  loading={loadingOlder}
+                  onLoad={() => loadEarlier({ keepPlace: true, loud: true })}
+                />
+              )}
               {view.boundary && view.earlier.length > 0 && (
                 <EarlierToggle
                   open={showEarlier}
@@ -1192,6 +1303,15 @@ export function ChatPanel({
                       ? t.freshLead(agent.name)
                       : t.freshMember(agent.name)}
                 </p>
+              ) : fresh && thread.length === 0 && loadingOlder ? (
+                // Its history is on the way: not the greeting of a chat that never spoke.
+                <p
+                  className="flex flex-1 items-center justify-center py-10 text-center text-body text-ink-muted"
+                  data-testid="chat-history-loading"
+                  role="status"
+                >
+                  {t.loadingEarlier}
+                </p>
               ) : fresh ? (
                 <Greeting agent={agent} noModel={noModel}>
                   {noModel ? (
@@ -1206,7 +1326,7 @@ export function ChatPanel({
                 <Rows
                   shown={shown}
                   chat={agent.id}
-                  present={present}
+                  present={still}
                   actionFor={actionFor}
                   instrFor={instrFor}
                   replyFor={replyFor}

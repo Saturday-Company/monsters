@@ -351,8 +351,11 @@ changes.
   the failed job, or the task it had started with) and "Behind the scenes" on that job.
 - **Question with options** = **keypad**: a `--raised` card, the question in 16 semibold, the options as full-width
   keys with the letter tile (A, B, C…) on the left; the recommended one has the orange light on the right and
-  "RECOMMENDED". With the writing field empty, pressing the letter on the keyboard presses that key (you see it sink,
-  a click if sounds are on). Only the question the writing field answers (the oldest open one) takes the letters, and
+  "RECOMMENDED". With the focus outside every text field, pressing the letter on the keyboard presses that key (you
+  see it sink, a click if sounds are on); in the writing field, which has the focus, a letter alone and Enter does the
+  same, so a sentence that starts with "C" stays a sentence. A key picked with the keyboard shows "Sent: …" with
+  "Undo" (Esc) for 3 seconds before it leaves; a click goes at once. Only the question the writing field answers (the
+  oldest open one) takes the letters, and
   the letters hint appears only with a real keyboard (not on a touch screen). The free answer stays in the writing
   field.
 - **Question closed without an answer**: never the "done" check. A light (red if Stop closed it, dim otherwise) and
