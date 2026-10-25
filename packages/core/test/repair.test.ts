@@ -59,6 +59,66 @@ describe('tool call repair (AG-17)', () => {
     expect(matchToolName('anteiku_task_inventa', mcp)).toBeUndefined();
   });
 
+  it('never crosses servers, never stretches a name onto a longer tool (C-1)', () => {
+    const tools = [
+      'vault_read',
+      'ask_user',
+      'mcp__slack__send_message',
+      'mcp__slack__list_channels',
+      'mcp__crm__bulk_delete_contacts',
+      'mcp__crm__list_contacts',
+      'mcp__crm__delete_contact',
+      'mcp__anteiku__anteiku_task_crea',
+      'mcp__anteiku__anteiku_clienti_crea',
+      'mcp__anteiku__anteiku_clienti_elenca',
+      'mcp__saturday-notion__notion_create_page',
+      'mcp__saturday-notion__notion-search',
+      'mcp__docs__gdocs_read',
+      'mcp__docs__gdocs_write',
+      'mcp__docs__gdocs_list',
+    ];
+    const cases: [string, string | undefined][] = [
+      // Another server named: its tools or nothing.
+      ['mcp__gmail__send_message', undefined],
+      ['mcp__notion__create_page', undefined],
+      ['mcp__gmail__vault_read', undefined],
+      ['mcp__slack__send_message', 'mcp__slack__send_message'],
+      ['mcp__Slack__sendMessage', 'mcp__slack__send_message'],
+      ['mcp__slack__send-message', 'mcp__slack__send_message'],
+      // The harnesses' name for Monsters' own tools.
+      ['mcp__monsters__vault_read', 'vault_read'],
+      ['mcp__monsters__AskUser', 'ask_user'],
+      ['functions.mcp__slack__send_message', 'mcp__slack__send_message'],
+      // No server: the whole tool name, in any spelling.
+      ['send_message', 'mcp__slack__send_message'],
+      ['SendMessage', 'mcp__slack__send_message'],
+      ['delete_contact', 'mcp__crm__delete_contact'],
+      ['notion_search', 'mcp__saturday-notion__notion-search'],
+      // A longer tool that only ends with the name is another tool.
+      ['delete_contacts', undefined],
+      ['mcp__crm__delete_contacts', undefined],
+      ['contacts', undefined],
+      // The server's namespace head left out: its name, a word of it, or a head all its tools share.
+      ['task_crea', 'mcp__anteiku__anteiku_task_crea'],
+      ['mcp__anteiku__task_crea', 'mcp__anteiku__anteiku_task_crea'],
+      ['mcp__anteiku__clienti-elenca', 'mcp__anteiku__anteiku_clienti_elenca'],
+      ['create_page', 'mcp__saturday-notion__notion_create_page'],
+      ['mcp__saturday-notion__create_page', 'mcp__saturday-notion__notion_create_page'],
+      ['mcp__docs__read', undefined],
+      ['mcp__slack__task_crea', undefined],
+      ['', undefined],
+    ];
+    for (const [asked, want] of cases)
+      expect([asked, matchToolName(asked, tools)]).toEqual([asked, want]);
+    // A head shared by a server's tools is a namespace only with three tools or more.
+    expect(
+      matchToolName('delete_contacts', ['mcp__crm__bulk_delete_contacts', 'mcp__crm__bulk_tag']),
+    ).toBeUndefined();
+    expect(
+      matchToolName('read_doc', ['mcp__g__gd_read_doc', 'mcp__g__gd_list', 'mcp__g__gd_write_doc']),
+    ).toBe('mcp__g__gd_read_doc');
+  });
+
   it('repairs the JSON free models write, or gives up', () => {
     expect(repairJson('{"a": 1}')).toBe('{"a": 1}');
     expect(JSON.parse(repairJson('```json\n{"a": 1}\n```')!)).toEqual({ a: 1 });
