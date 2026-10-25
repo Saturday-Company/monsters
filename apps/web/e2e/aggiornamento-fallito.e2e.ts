@@ -17,7 +17,7 @@ test('Models: a refresh that fails keeps the key being typed and offers to try a
   const anthropic = page.getByTestId('providers').getByTestId('provider-row-anthropic');
   await anthropic.getByRole('button', { name: 'Add the key' }).click();
   const key = anthropic.getByLabel('Anthropic key');
-  await key.fill('sk-ant-api03-half-typed');
+  await key.fill('sk-ant-test-half-typed');
 
   // The page comes back into view: the plans are read again, and the core says no.
   await page.evaluate(() => {
@@ -28,7 +28,7 @@ test('Models: a refresh that fails keeps the key being typed and offers to try a
   });
   const stale = page.getByTestId('models-stale');
   await expect(stale).toContainText('I couldn’t refresh the models');
-  await expect(key).toHaveValue('sk-ant-api03-half-typed');
+  await expect(key).toHaveValue('sk-ant-test-half-typed');
 
   // Try again, with the core back: the line goes and the key is still there.
   await page.evaluate(() =>
@@ -36,13 +36,14 @@ test('Models: a refresh that fails keeps the key being typed and offers to try a
   );
   await stale.getByRole('button', { name: 'Try again' }).click();
   await expect(stale).toHaveCount(0);
-  await expect(key).toHaveValue('sk-ant-api03-half-typed');
+  await expect(key).toHaveValue('sk-ant-test-half-typed');
 });
 
 test('Models: the first load that fails shows the failed state, with a way to try again', async ({
   page,
 }) => {
   await page.goto('/?mock=demo#/note');
+  await expect(page.getByTestId('vault-view')).toBeVisible();
   await page.evaluate(() => {
     (window as unknown as { __monstersMock: Mock }).__monstersMock.failRequests(
       'GET /api/providers',
