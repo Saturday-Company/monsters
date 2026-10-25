@@ -474,10 +474,15 @@ const DRAFTED =
   /^(email|emails|mail|mails|message|messages|text|sms|dm|reply|replies|comment|comments|post|posts|tweet|tweets|response|order|orders)$/;
 /**
  * The bin, a delete by another name (review of 25/10, C-3): "sposta_nel_cestino",
- * "move_to_recycle_bin". Not with a verb that brings something back from it.
+ * "move_to_recycle_bin". Not with a verb that brings something back from it, and `bin` only after
+ * "to", "into" or "empty": JSONBin's `create_bin` makes a record.
  */
-const BIN_NOUN = /^(cestino|bin|recycle|wastebasket|garbage|spazzatura)$/;
+const BIN_NOUN = /^(cestino|recycle|wastebasket|spazzatura)$/;
+const INTO_BIN = /^(to|into|in|empty)$/;
 const RESTORE = /^(restore|recover|untrash|undelete|ripristina|recupera)$/;
+const intoBin = (w: readonly string[]) =>
+  !w.some((x) => RESTORE.test(x)) &&
+  w.some((x, i) => BIN_NOUN.test(x) || (x === 'bin' && INTO_BIN.test(w[i - 1] ?? '')));
 /**
  * Words of a tool that only reads ("notion-get-comments", "gmail_read_message").
  * Not `apri`/`open`: WitDesk's `ticket_apri` opens a ticket, a write (review of 16/10).
@@ -812,7 +817,7 @@ function actionCall(
   }
   if (verb) return { category: verb.category, certain: true, summary, args };
   // Into the bin: deleted, though the verb only moves ("sposta_nel_cestino", "move_to_bin").
-  if (w.some((x) => BIN_NOUN.test(x)) && !w.some((x) => RESTORE.test(x))) {
+  if (intoBin(w)) {
     return { category: 'delete', certain: true, summary, args };
   }
   // A payment started ("avvia_pagamento"), not recorded ("registra_pagamento").

@@ -649,6 +649,9 @@ describe('outbound actions: who can see or change something (D-073)', () => {
       ['discard_changes', 'delete'],
       ['empty_trash', 'delete'],
       ['restore_from_bin', 'instinct'],
+      ['empty_bin', 'delete'],
+      ['create_bin', 'pass'],
+      ['update_bin', 'pass'],
       ['elenca_cestino', 'pass'],
       // Drafts: a message drafted is not sent; a verb that sends still sends.
       ['create_email_draft', 'pass'],
