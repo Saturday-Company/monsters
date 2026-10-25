@@ -7,7 +7,7 @@ import type {
   TeamView,
 } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
-import { MOCK_DEMO_USER, MockCore } from '../src/lib/mock/core.ts';
+import { MOCK_DEMO_USER, MOCK_SETUP_CODE, MockCore } from '../src/lib/mock/core.ts';
 
 /** The mock core answers the Settings → Squadra API like the real one. */
 describe('mock core: team, profile, password', () => {
@@ -45,6 +45,43 @@ describe('mock core: team, profile, password', () => {
     expect(call('POST', '/api/team/archived/dione/restore', {}).status).toBe(200);
     const actions = c.events.filter((e) => e.type === 'team_change').map((e) => e.data.action);
     expect(actions).toEqual(['rename', 'look', 'archive', 'restore']);
+  });
+
+  it('keeps the work and the hand-offs of the "Tell me more" card, empty when skipped', () => {
+    // A fresh install has not told the monsters yet: the card comes; the demo has.
+    const demo = core();
+    expect(demo.call<ProfileView>('GET', '/api/profile').body).toMatchObject({
+      work: { options: [], text: '' },
+    });
+    const fresh = new MockCore({ mode: 'fresh', speed: 0.01 });
+    fresh.handle('POST', '/api/setup', {
+      email: 'giulio@esempio.it',
+      password: 'una-password-lunga',
+      setupCode: MOCK_SETUP_CODE,
+    });
+    const view = () => fresh.handle('GET', '/api/profile', undefined).body as ProfileView;
+    expect(view()).toMatchObject({ work: null, delegate: null });
+    expect(view().options.work.map((o) => o.id)).toContain('sviluppo');
+    expect(view().options.delegate.map((o) => o.id)).toContain('ricerche');
+
+    const bad = fresh.handle('PUT', '/api/profile', {
+      work: { options: ['astronauta'], text: '' },
+    });
+    expect(bad.status).toBe(400);
+    expect(view().work).toBeNull();
+    const saved = fresh.handle('PUT', '/api/profile', {
+      work: { options: ['social'], text: 'Seguo tre clienti' },
+      delegate: { options: ['ricerche'], text: '' },
+    });
+    expect(saved.status).toBe(200);
+    expect(view()).toMatchObject({
+      work: { options: ['social'], text: 'Seguo tre clienti' },
+      delegate: { options: ['ricerche'], text: '' },
+    });
+    expect(fresh.events.at(-1)).toMatchObject({
+      type: 'team_change',
+      data: { action: 'profile', fields: ['work', 'delegate'] },
+    });
   });
 
   it('drafts and adds a monster; profile and password', () => {
