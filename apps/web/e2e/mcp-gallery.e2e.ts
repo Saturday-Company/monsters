@@ -1,26 +1,36 @@
 import { expect, expectNoSideScroll, holdMock, releaseMock, test } from './fixtures.ts';
 
 /*
- * Settings → Collegamenti → App e servizi (D-063), on the mock core: the gallery
- * of services, a sign-in in the browser (the mock comes back by itself), a
- * token pasted once, a service that is not connectable yet, the phone width.
+ * Settings → Apps and Telegram → Apps (D-063), on the mock core: the gallery
+ * of apps (a search and the first six, wave C), a sign-in in the browser (the mock comes
+ * back by itself), a token pasted once, an app that is not connectable yet, the phone width.
  * `MCP_SHOTS=<dir>` also writes screenshots at 1440 and 390 px, light and dark.
  */
 
 const URL = '/?mock=demo#/impostazioni?sezione=collegamenti';
 const SHOTS = process.env['MCP_SHOTS'];
 
-test('gallery: services as keys, connected first, all of them on request', async ({ page }) => {
+test('gallery: the first six as keys, connected first, all of them on request', async ({
+  page,
+}) => {
   await page.goto(URL);
   const gallery = page.getByTestId('mcp-gallery');
-  await expect(gallery.getByRole('heading', { name: 'Apps and services' })).toBeVisible();
-  // The keys of the grid; the browser and "Add a custom app" are rows of the same group below it.
-  const keys = gallery.getByRole('list', { name: 'Apps and services' }).getByRole('listitem');
-  await expect(keys).toHaveCount(8);
-  // The demo's GitHub is connected: first.
+  await expect(gallery.getByRole('heading', { name: 'Apps', exact: true })).toBeVisible();
+  // The keys of the grid; the browser and the Advanced row are rows of the same group below it.
+  const keys = gallery.getByRole('list', { name: 'Apps' }).getByRole('listitem');
+  await expect(keys).toHaveCount(6);
+  // The demo's GitHub is connected: first. By common use after it: Notion, Linear.
   await expect(keys.first()).toContainText('GitHub');
   await expect(keys.first()).toContainText('Connected');
+  await expect(keys.nth(1)).toContainText('Notion');
+  await expect(keys.nth(2)).toContainText('Linear');
+  // What is still to connect says one word, "Connect"; what is connected, "Connected".
+  await expect(keys.nth(1).getByTestId('gallery-state')).toHaveText('Connect');
+  // Saturday's own apps are in the list, not among the first six.
+  await expect(gallery.getByTestId('gallery-anteiku')).toHaveCount(0);
   await gallery.getByRole('button', { name: /Show all/ }).click();
+  await expect(gallery.getByTestId('gallery-anteiku')).toBeVisible();
+  await expect(gallery.getByTestId('gallery-witdesk')).toBeVisible();
   expect(await keys.count()).toBeGreaterThanOrEqual(20);
   // Not connectable yet: last, with the reason in the panel and no "Collega".
   await expect(keys.last()).toContainText('Soon');
@@ -68,13 +78,69 @@ test('gallery: sign in to Notion in the browser, test, disconnect', async ({ pag
   await expect(page.getByText('You removed the app “notion”').first()).toBeVisible();
 });
 
+test('gallery: a search finds any app, the not-yet ones too, and says when nothing matches', async ({
+  page,
+}) => {
+  await page.goto(URL);
+  const gallery = page.getByTestId('mcp-gallery');
+  const search = gallery.getByRole('searchbox', { name: 'Search apps' });
+  const keys = gallery.getByRole('list', { name: 'Apps' }).getByRole('listitem');
+  // By name, without accents or case; the "Show all" button gives way to the results.
+  await search.fill('SLACK');
+  await expect(keys).toHaveCount(1);
+  await expect(keys.first()).toContainText('Soon');
+  await expect(gallery.getByRole('button', { name: /Show all/ })).toHaveCount(0);
+  // By what it does or its category, with several words.
+  await search.fill('issues github');
+  await expect(keys).toHaveCount(1);
+  await expect(keys.first()).toContainText('GitHub');
+  await search.fill('payments');
+  await expect(keys.first()).toContainText('Stripe');
+  // Nothing: a line that says where an unlisted app goes.
+  await search.fill('zzzz');
+  await expect(keys).toHaveCount(0);
+  await expect(gallery.getByTestId('gallery-no-match')).toContainText('No app matches “zzzz”');
+  await expect(gallery.getByTestId('gallery-no-match')).toContainText(
+    'Advanced: add an app by address',
+  );
+  // Emptied, the first six are back.
+  await search.fill('');
+  await expect(keys).toHaveCount(6);
+  await expect(gallery.getByRole('button', { name: /Show all/ })).toBeVisible();
+});
+
+test('gallery: the jargon waits for Advanced (U2-7, U2-24)', async ({ page }) => {
+  await page.goto(URL);
+  const gallery = page.getByTestId('mcp-gallery');
+  await expect(gallery).not.toContainText('MCP server');
+  await expect(gallery).not.toContainText('OAuth');
+  // The custom form is one closed Advanced row; "MCP" appears only there.
+  const advanced = gallery.getByTestId('mcp-add-advanced');
+  await expect(advanced).toHaveAttribute('data-advanced', 'true');
+  await expect(page.getByTestId('mcp-add-form')).toHaveCount(0);
+  await advanced.getByRole('button', { name: /Advanced: add an app by address/ }).click();
+  await expect(page.getByTestId('mcp-add-form')).toBeVisible();
+  // A connected app's panel says "Signed in. Your login stays on this computer.", without OAuth.
+  await gallery.getByTestId('gallery-notion').click();
+  const panel = page.getByTestId('gallery-panel-notion');
+  const popup = page.waitForEvent('popup');
+  await panel.getByRole('button', { name: 'Connect' }).click();
+  await (await popup).close();
+  await expect(panel.getByTestId('gallery-state')).toHaveText('Connected');
+  await panel.getByRole('button', { name: 'Details' }).click();
+  await expect(panel.getByTestId('mcp-details')).toContainText(
+    'Signed in. Your login stays on this computer.',
+  );
+  await expect(panel).not.toContainText('OAuth');
+});
+
 test('gallery: Anteiku asks the company first, then the sign-in (D-075)', async ({ page }) => {
   await page.goto(URL);
   const gallery = page.getByTestId('mcp-gallery');
-  // Saturday's products come first among the services to connect.
-  const keys = gallery.getByRole('listitem');
-  await expect(keys.nth(1)).toContainText('Anteiku');
-  await expect(keys.nth(2)).toContainText('WitDesk');
+  // Saturday's products are not among the first six: the search finds them (D-081, wave C).
+  await expect(gallery.getByTestId('gallery-anteiku')).toHaveCount(0);
+  await gallery.getByTestId('gallery-search').fill('anteiku');
+  await expect(gallery.getByRole('list', { name: 'Apps' }).getByRole('listitem')).toHaveCount(1);
   await gallery.getByTestId('gallery-anteiku').click();
   const panel = page.getByTestId('gallery-panel-anteiku');
   await expect(panel.getByLabel('Your company')).toBeVisible();
@@ -112,6 +178,7 @@ test('gallery: Anteiku asks the company first, then the sign-in (D-075)', async 
   await expect(gallery.getByTestId('gallery-anteiku')).toContainText('Connected');
 
   // WitDesk: the admin must turn the connectors on first.
+  await gallery.getByTestId('gallery-search').fill('witdesk');
   await gallery.getByTestId('gallery-witdesk').click();
   const witdesk = page.getByTestId('gallery-panel-witdesk');
   await expect(witdesk).toContainText('Banco → Impostazioni → Collegamenti');
@@ -127,7 +194,7 @@ test('gallery: Anteiku asks the company first, then the sign-in (D-075)', async 
 test('gallery: Stripe with a key pasted once, used only by Dione', async ({ page }) => {
   await page.goto(URL);
   const gallery = page.getByTestId('mcp-gallery');
-  // Past the first eight keys since Anteiku and WitDesk lead (D-075).
+  // Past the first six keys.
   await gallery.getByRole('button', { name: /Show all/ }).click();
   await gallery.getByTestId('gallery-stripe').click();
   const panel = page.getByTestId('gallery-panel-stripe');
@@ -217,11 +284,16 @@ test('gallery: with the Claude plan, Figma and Slack connect through Claude (D-0
   const gallery = page.getByTestId('mcp-gallery');
   await gallery.getByRole('button', { name: /Show all/ }).click();
   const figmaKey = gallery.getByTestId('gallery-figma');
-  await expect(figmaKey).toContainText('Connect through Claude');
-  await expect(gallery.getByTestId('gallery-claude-design')).toContainText(
+  // On the card it is one word, whatever the way; the panel says "through Claude".
+  await expect(figmaKey.getByTestId('gallery-state')).toHaveText('Connect');
+  await expect(figmaKey.getByTestId('gallery-state')).toHaveAttribute('data-state', 'claude');
+  await expect(
+    gallery.getByTestId('gallery-claude-design').getByTestId('gallery-state'),
+  ).toHaveText('Connect');
+  await figmaKey.click();
+  await expect(page.getByTestId('gallery-panel-figma').getByTestId('gallery-state')).toHaveText(
     'Connect through Claude',
   );
-  await figmaKey.click();
   const panel = page.getByTestId('gallery-panel-figma');
   const body = panel.getByTestId('claude-connect');
   await expect(body).toContainText('the monsters that work with Claude use it');

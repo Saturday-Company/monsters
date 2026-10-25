@@ -384,7 +384,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
       .events(sent.runId)
       .find((e) => e.type === 'tool_result' && e.data.tool === 'access_request');
     expect(result?.data).toMatchObject({ ok: false });
-    expect(JSON.stringify(result?.data)).toContain('Impostazioni → Collegamenti');
+    expect(JSON.stringify(result?.data)).toContain('Impostazioni → App e Telegram');
     expect(JSON.stringify(result?.data)).toContain('Collega tramite Claude');
   });
 
@@ -566,7 +566,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     const text = JSON.stringify(result?.data);
     expect(text).toContain('already');
     expect(text).toContain('Anteiku is yours already, but it is not responding now');
-    expect(text).toContain('Impostazioni → Collegamenti');
+    expect(text).toContain('Impostazioni → App e Telegram');
     expect(text).toContain('No card was shown');
   });
 

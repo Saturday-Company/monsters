@@ -172,32 +172,32 @@ const it: typeof en = {
     'in questa chat di Telegram scrivono altre persone: terminale e file sono chiusi',
   terminalNotInRun: 'non sono tra gli strumenti di questo lavoro (non per un no dell’utente)',
   browserOff: () =>
-    'il browser di Monsters è spento: lo accende l’utente in Impostazioni → Collegamenti → App e servizi',
+    'il browser di Monsters è spento: lo accende l’utente in Impostazioni → App e Telegram → App',
   browserNeedsWeb: 'il browser vuole il permesso del web, che è spento',
   browserNotResponding: 'il browser non risponde ora',
   browserNotGivenProject: (project) =>
     `il browser è acceso ma non è dato a te: si dà nella pagina del progetto «${project}», scheda Collegamenti`,
   browserNotGiven: () =>
-    'il browser è acceso ma non è dato a te: lo dà l’utente in Impostazioni → Collegamenti',
+    'il browser è acceso ma non è dato a te: lo dà l’utente in Impostazioni → App e Telegram',
   serviceOnlyProject: (name, project, ask) =>
     `${name} è collegato all’account dell’utente ma non a questo progetto: si dà nella pagina del progetto «${project}», scheda Collegamenti${ask}`,
   serviceNotResponding: (label) =>
-    `${label} non risponde ora (accesso scaduto o un errore): si ricollega in Impostazioni → Collegamenti`,
-  serverOff: (label) => `${label} è spento in Impostazioni → Collegamenti → App e servizi`,
+    `${label} non risponde ora (accesso scaduto o un errore): si ricollega in Impostazioni → App e Telegram`,
+  serverOff: (label) => `${label} è spento in Impostazioni → App e Telegram → App`,
   servicePaused: (label) =>
-    `${label} è dato a te, ma i suoi strumenti sono in pausa finché l’utente non li accetta (nuovi o cambiati da quando li ha accettati): li accetta in Impostazioni → Collegamenti → App e servizi (${label})`,
+    `${label} è dato a te, ma i suoi strumenti sono in pausa finché l’utente non li accetta (nuovi o cambiati da quando li ha accettati): li accetta in Impostazioni → App e Telegram → App (${label})`,
   serviceCut: (label) =>
     `${label} è dato a te, ma i suoi strumenti non sono entrati in questo lavoro (troppi strumenti dalle app che hai)`,
   serviceNotListed: (label) =>
-    `${label} è dato a te, ma nessuno dei suoi strumenti è in questo lavoro (l’utente sceglie quali suoi strumenti hanno i mostri in Impostazioni → Collegamenti → App e servizi (${label}))`,
+    `${label} è dato a te, ma nessuno dei suoi strumenti è in questo lavoro (l’utente sceglie quali suoi strumenti hanno i mostri in Impostazioni → App e Telegram → App (${label}))`,
   serviceNotGiven: (label) =>
-    `${label} è collegato all’account dell’utente ma non è dato a te: lo dà l’utente in Impostazioni → Collegamenti`,
+    `${label} è collegato all’account dell’utente ma non è dato a te: lo dà l’utente in Impostazioni → App e Telegram`,
   viaClaudeReconnect: (name) =>
-    `${name} (tramite Claude) va ricollegato: Impostazioni → Collegamenti`,
+    `${name} (tramite Claude) va ricollegato: Impostazioni → App e Telegram`,
   viaClaudeOnlyClaude: (name) =>
     `${name} è collegato tramite Claude: arriva solo ai mostri che lavorano con Claude`,
   serviceNotConnected: (name) =>
-    `${name} non è collegato all’account: lo collega l’utente in Impostazioni → Collegamenti`,
+    `${name} non è collegato all’account: lo collega l’utente in Impostazioni → App e Telegram`,
   capWeb: 'il web',
   capTerminal: 'terminale e file',
   capBrowser: 'il browser di Monsters',
@@ -256,30 +256,30 @@ const it: typeof en = {
   granted: (summary) =>
     `Fatto: Monsters ha concesso ${summary}. Vale dal prossimo lavoro di chi lo usa: delega di nuovo (tu lo hai dal tuo prossimo turno).`,
   browserNotSetUp: (user) =>
-    `Tell ${user} to turn it on in Impostazioni → Collegamenti → App e servizi → Browser (with "Mostra la finestra del browser" to sign in to sites). You cannot ask it here.`,
+    `Tell ${user} to turn it on in Impostazioni → App e Telegram → App → Browser (with "Mostra la finestra del browser" to sign in to sites). You cannot ask it here.`,
   browserIsOff: () =>
-    'Tell the user to turn it on in Impostazioni → Collegamenti → App e servizi → Browser.',
+    'Tell the user to turn it on in Impostazioni → App e Telegram → App → Browser.',
   serviceReaches: (label) =>
-    `${label} reaches the monsters of the personal squad already when it is given to the whole team: if its tools are missing, it is not signed in (Impostazioni → Collegamenti).`,
+    `${label} reaches the monsters of the personal squad already when it is given to the whole team: if its tools are missing, it is not signed in (Impostazioni → App e Telegram).`,
   serviceYours: (label, prefix, paused) =>
     `${label} is yours already: its tools are yours in this job (\`${prefix}…\`, call them by name or find them with \`tools_search\`). No card was shown to the user: go on with the work.` +
     (paused.length > 0
-      ? ` Paused until the user accepts them, so not in this job: ${paused.join(', ')} (Impostazioni → Collegamenti → App e servizi (${label})).`
+      ? ` Paused until the user accepts them, so not in this job: ${paused.join(', ')} (Impostazioni → App e Telegram → App (${label})).`
       : ''),
   serviceNotHeld: (label, why) =>
     why === 'unlinked'
-      ? `${label} is yours already, but it is not responding now (sign-in expired or an error): tell the user to reconnect it in Impostazioni → Collegamenti. No card was shown.`
+      ? `${label} is yours already, but it is not responding now (sign-in expired or an error): tell the user to reconnect it in Impostazioni → App e Telegram. No card was shown.`
       : why === 'paused'
-        ? `${label} is given to you, but none of its tools is in this job: they are paused until the user accepts them (new or changed since they were accepted). Tell the user to accept them in Impostazioni → Collegamenti → App e servizi (${label}); they come with your next job. No card was shown.`
+        ? `${label} is given to you, but none of its tools is in this job: they are paused until the user accepts them (new or changed since they were accepted). Tell the user to accept them in Impostazioni → App e Telegram → App (${label}); they come with your next job. No card was shown.`
         : why === 'cut'
-          ? `${label} is given to you, but its tools did not fit in this job (too many tools from the apps given to you): tell the user, who can give you fewer apps or fewer of their tools in Impostazioni → Collegamenti → App e servizi (${label}). No card was shown.`
-          : `${label} is given to you, but none of its tools is in this job (the user chooses which of its tools the monsters get, in Impostazioni → Collegamenti → App e servizi (${label})): tell the user which one you need. No card was shown.`,
+          ? `${label} is given to you, but its tools did not fit in this job (too many tools from the apps given to you): tell the user, who can give you fewer apps or fewer of their tools in Impostazioni → App e Telegram → App (${label}). No card was shown.`
+          : `${label} is given to you, but none of its tools is in this job (the user chooses which of its tools the monsters get, in Impostazioni → App e Telegram → App (${label})): tell the user which one you need. No card was shown.`,
   serviceOnAlready: (label, project, viaClaude) =>
-    `${label} is on for «${project}» already. If its tools are missing, the user signs in again in Impostazioni → Collegamenti${viaClaude ? ' (and only monsters working with Claude get it)' : ''}.`,
+    `${label} is on for «${project}» already. If its tools are missing, the user signs in again in Impostazioni → App e Telegram${viaClaude ? ' (and only monsters working with Claude get it)' : ''}.`,
   onlyUserChanges: (where, user) => `Only the user changes who uses it, in ${where}: tell ${user}.`,
   viaClaudeLabel: 'tramite Claude',
   notConnectedHint: (name, user, viaClaude, connected) =>
-    `Do not ask it: tell ${user} to connect ${name} in Impostazioni → Collegamenti` +
+    `Do not ask it: tell ${user} to connect ${name} in Impostazioni → App e Telegram` +
     `${viaClaude ? ' ("Collega tramite Claude", with the Claude subscription)' : ''}; then you can ask it for the project. ` +
     `Connected now: ${connected}.`,
   browserOwnAccess: 'Ask with {"access": "browser"}.',

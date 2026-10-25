@@ -40,8 +40,8 @@ describe('plurals', () => {
     expect(mcpStrings().parts.works(undefined, 1)).toBe('Works: 1 tool.');
     expect(mcpStrings().parts.works('Notion', 3)).toBe('Works (Notion): 3 tools.');
     expect(mcpStrings().gallery.toolsReady(1)).toBe('1 tool ready for the monsters.');
-    expect(mcpStrings().servers.kind(true, 2)).toBe('Web service · 2 tools');
-    expect(mcpStrings().servers.kind(false, undefined)).toBe('App on this computer');
+    expect(mcpStrings().servers.kind(true, 2)).toBe('On the web · 2 tools');
+    expect(mcpStrings().servers.kind(false, undefined)).toBe('On this computer');
     expect(teamStrings().members.dutiesLine(1, 'Research', true)).toBe(
       '1 thing it does · writes in Research/ · does web research',
     );
@@ -140,10 +140,10 @@ describe('paid search', () => {
     usdPer1000: { parallel: 1, exa: 7 },
   };
   it('says why it is off, in both languages', () => {
-    expect(paidSearchText(ws)).toMatch(/^Needs an OpenRouter key with credit/);
+    expect(paidSearchText(ws)).toMatch(/^Needs an OpenRouter account with credit/);
     expect(paidSearchText({ ...ws, reason: undefined })).toMatch(/^Off: free search/);
     setAppLang('it');
-    expect(paidSearchText(ws)).toMatch(/^Serve una chiave OpenRouter con credito/);
+    expect(paidSearchText(ws)).toMatch(/^Serve un account OpenRouter con credito/);
     expect(paidSearchText({ ...ws, reason: undefined })).toMatch(/^Spenta: ricerca gratuita/);
   });
 });

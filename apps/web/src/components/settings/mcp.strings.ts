@@ -1,7 +1,7 @@
 import { defineStrings } from '../../lib/i18n.ts';
 import { toNameIt } from '../../lib/utils.strings.ts';
 
-/* Settings → Connections → other apps (MCP): servers, gallery, Claude connections (D-153). */
+/* Settings → Apps and Telegram → Apps (MCP): gallery, browser, apps added by address, Claude connections (D-153). */
 
 const en = {
   parts: {
@@ -86,7 +86,7 @@ const en = {
     connectedVia: (name: string) => `${name} connected through Claude.`,
     removed: (name: string) => `${name} disconnected from Monsters.`,
     intro:
-      'It connects through your Claude subscription: the monsters that work with Claude use it. You sign in on Claude; Monsters never sees passwords or tokens.',
+      'It connects through your Claude plan: the monsters that work with Claude use it. You sign in on Claude; Monsters never sees passwords or tokens.',
     checking: 'Checking…',
     connect: 'Connect',
     checkAgain: 'Check again',
@@ -94,7 +94,7 @@ const en = {
     disconnectQuestion: (name: string) =>
       `Disconnect ${name} from Monsters? It stays connected to your Claude account.`,
     disconnectConfirm: 'Yes, disconnect',
-    through: 'Through Claude Code and your Claude subscription.',
+    through: 'Through Claude Code and your Claude plan.',
     docs: (name: string) => `${name} documentation`,
   },
   secret: {
@@ -122,9 +122,12 @@ const en = {
       showWindowLabel: 'Show the browser window',
       profileIn: 'Profile in ',
       downloads: 'The first time, the browser downloads on its own.',
+      noWebBefore:
+        'Monsters marked “no web” can’t use it: the web is a permission of each monster, in ',
+      noWebAfter: '.',
     },
     kind: (http: boolean, tools: number | undefined) =>
-      `${http ? 'Web service' : 'App on this computer'}${
+      `${http ? 'On the web' : 'On this computer'}${
         tools !== undefined ? ` · ${tools === 1 ? '1 tool' : `${tools} tools`}` : ''
       }`,
     on: 'On',
@@ -147,8 +150,8 @@ const en = {
       name: 'Name',
       nameHint: 'Short, to recognize it: for example github or calendar.',
       where: 'Where it is',
-      local: 'App on this computer',
-      web: 'Web service',
+      local: 'On this computer',
+      web: 'On the web',
       command: 'Command',
       commandHint: 'Copy it from the app’s instructions, for example npx -y package-name.',
       address: 'Address',
@@ -159,9 +162,9 @@ const en = {
       adding: 'Adding…',
       submit: 'Add',
       added: (name: string) => `App “${name}” added. Press “Test” to see its tools.`,
-      button: 'Add a custom app',
+      button: 'Advanced: add an app by address',
       buttonHint:
-        'Any app that isn’t in the list, on this computer or on the web (an “MCP server”).',
+        'For an app that isn’t in the list and speaks the “MCP” standard, on this computer or on the web.',
     },
     what: 'your apps',
   },
@@ -187,7 +190,7 @@ const en = {
     disconnected: (name: string) => `${name} disconnected.`,
     close: 'Close',
     soonAdd:
-      'If you already have the app’s address and key (an “MCP server”), you can add it with “Add a custom app”.',
+      'If you already have the app’s address and key, you can add it under “Advanced: add an app by address”.',
     howToConnect: 'How to connect it',
     yourCompany: 'Your company',
     address: 'Address:',
@@ -215,11 +218,16 @@ const en = {
     disconnectQuestion: (name: string) => `Disconnect ${name}?`,
     disconnectConfirm: 'Yes, disconnect',
     valueHidden: (names: string) => `${names} (value hidden)`,
-    oauthTokens: 'Signed in with OAuth: the tokens stay on this computer.',
+    oauthTokens: 'Signed in. Your login stays on this computer.',
     docs: (name: string) => `${name} documentation`,
-    title: 'Apps and services',
+    title: 'Apps',
     description:
-      'Connect the services you use and the monsters can read and use them. Every use is logged in Activity, and Stop halts them at once.',
+      'Connect the apps you use and the monsters can read and use them. Every use is logged in Activity, and Stop halts them at once.',
+    searchLabel: 'Search apps',
+    searchPlaceholder: 'Search apps',
+    connectCard: 'Connect',
+    noMatch: (query: string) => `No app matches “${query}”.`,
+    noMatchAdd: 'If you know its address, add it under “Advanced: add an app by address”.',
     showAll: (n: number) => `Show all (${n})`,
   },
 };
@@ -264,7 +272,7 @@ const it: typeof en = {
         ? `ha ${firstIsNew ? 'uno strumento nuovo' : 'cambiato uno strumento'}: i mostri non lo usano finché non lo accetti.`
         : `ha ${n} strumenti nuovi o cambiati: i mostri non li usano finché non li accetti.`,
     warning:
-      'Una descrizione cambiata è il modo in cui un programma può dare ordini nuovi ai mostri: leggila prima di accettare.',
+      'Una descrizione cambiata è il modo in cui un’app può dare ordini nuovi ai mostri: leggila prima di accettare.',
     disconnect: 'Scollega',
     removeQuestion: (label) => `Togliere ${label}?`,
     disconnected: (label) => `${label} scollegato.`,
@@ -272,7 +280,7 @@ const it: typeof en = {
     accepted: (n) => (n === 1 ? 'Strumento accettato.' : 'Strumenti accettati.'),
     title: 'Strumenti in pausa',
     cardDescription:
-      'Sono cambiati da quando li hai collegati. Gli altri strumenti degli stessi programmi funzionano come prima.',
+      'Sono cambiati da quando li hai collegati. Gli altri strumenti delle stesse app funzionano come prima.',
   },
   claude: {
     state: {
@@ -307,7 +315,7 @@ const it: typeof en = {
     connectedVia: (name) => `${name} collegato tramite Claude.`,
     removed: (name) => `${name} scollegato da Monsters.`,
     intro:
-      'Si collega tramite il tuo abbonamento Claude: lo usano i mostri che lavorano con Claude. L’accesso lo fai su Claude, Monsters non vede password né token.',
+      'Si collega tramite il tuo piano Claude: lo usano i mostri che lavorano con Claude. L’accesso lo fai su Claude, Monsters non vede password né token.',
     checking: 'Controllo…',
     connect: 'Collega',
     checkAgain: 'Ricontrolla',
@@ -315,7 +323,7 @@ const it: typeof en = {
     disconnectQuestion: (name) =>
       `Scollego ${name} da Monsters? Resta collegato al tuo account Claude.`,
     disconnectConfirm: 'Sì, scollega',
-    through: 'Tramite Claude Code e il tuo abbonamento Claude.',
+    through: 'Tramite Claude Code e il tuo piano Claude.',
     docs: (name) => `Documentazione di ${name}`,
   },
   secret: {
@@ -343,9 +351,12 @@ const it: typeof en = {
       showWindowLabel: 'Mostra la finestra del browser',
       profileIn: 'Profilo in ',
       downloads: 'La prima volta il browser si scarica da solo.',
+      noWebBefore:
+        'I mostri “senza web” non possono usarlo: il web è un permesso di ogni mostro, in ',
+      noWebAfter: '.',
     },
     kind: (http, tools) =>
-      `${http ? 'Servizio sul web' : 'Programma sul computer'}${
+      `${http ? 'Sul web' : 'Sul computer'}${
         tools !== undefined ? ` · ${tools === 1 ? '1 strumento' : `${tools} strumenti`}` : ''
       }`,
     on: 'Acceso',
@@ -358,19 +369,19 @@ const it: typeof en = {
     removeConfirm: 'Sì, togli',
     hidden: (names) => `${names} (valori nascosti)`,
     nameIs: (name) => `Nome: ${name}`,
-    removed: 'Programma tolto.',
+    removed: 'App tolta.',
     add: {
-      title: 'Nuovo programma',
+      title: 'Nuova app',
       nameInvalid:
         'Lettere minuscole, cifre e trattini (al massimo 24), iniziando con una lettera.',
-      nameTaken: 'C’è già un programma con questo nome.',
+      nameTaken: 'C’è già un’app con questo nome.',
       commandMissing: 'Scrivi il comando.',
       urlInvalid: 'Scrivi l’indirizzo completo, per esempio https://esempio.it/mcp.',
       name: 'Nome',
       nameHint: 'Breve, per riconoscerlo: per esempio github o calendario.',
       where: 'Dove sta',
-      local: 'Programma sul computer',
-      web: 'Servizio sul web',
+      local: 'Sul computer',
+      web: 'Sul web',
       command: 'Comando',
       commandHint: 'Quello che trovi nelle sue istruzioni, per esempio npx -y nome-del-pacchetto.',
       address: 'Indirizzo',
@@ -381,12 +392,12 @@ const it: typeof en = {
         'Una per riga. Restano su questo computer e dopo il salvataggio non le mostriamo più.',
       adding: 'Aggiungo…',
       submit: 'Aggiungi',
-      added: (name) => `Programma “${name}” aggiunto. Premi “Prova” per vedere i suoi strumenti.`,
-      button: 'Aggiungi un programma personalizzato',
+      added: (name) => `App “${name}” aggiunta. Premi “Prova” per vedere i suoi strumenti.`,
+      button: 'Avanzate: aggiungi un’app per indirizzo',
       buttonHint:
-        'Qualunque programma che non è in elenco, sul computer o sul web (un “server MCP”).',
+        'Per un’app che non è in elenco e parla lo standard “MCP”, sul computer o sul web.',
     },
-    what: 'i tuoi programmi',
+    what: 'le tue app',
   },
   gallery: {
     state: {
@@ -410,7 +421,7 @@ const it: typeof en = {
     disconnected: (name) => `${name} scollegato.`,
     close: 'Chiudi',
     soonAdd:
-      'Se hai già l’indirizzo e la chiave del programma (un “server MCP”), puoi aggiungerlo da “Aggiungi un programma personalizzato”.',
+      'Se hai già l’indirizzo e la chiave dell’app, puoi aggiungerla da “Avanzate: aggiungi un’app per indirizzo”.',
     howToConnect: 'Come collegarlo',
     yourCompany: 'La tua azienda',
     address: 'Indirizzo:',
@@ -439,12 +450,18 @@ const it: typeof en = {
     disconnectQuestion: (name) => `Scollego ${name}?`,
     disconnectConfirm: 'Sì, scollega',
     valueHidden: (names) => `${names} (valore nascosto)`,
-    oauthTokens: 'Accesso con OAuth: i token restano su questo computer.',
+    oauthTokens: 'Accesso fatto. Il tuo accesso resta su questo computer.',
     docs: (name) => `Documentazione di ${name}`,
-    title: 'App e servizi',
+    title: 'App',
     description:
-      'Collega i servizi che usi e i mostri potranno leggerli e usarli. Ogni uso finisce in Attività e “Ferma” li ferma subito.',
-    showAll: (n) => `Mostra tutti (${n})`,
+      'Collega le app che usi e i mostri potranno leggerle e usarle. Ogni uso finisce in Attività e “Ferma” li ferma subito.',
+    searchLabel: 'Cerca tra le app',
+    searchPlaceholder: 'Cerca tra le app',
+    connectCard: 'Collega',
+    noMatch: (query) => `Nessuna app corrisponde a “${query}”.`,
+    noMatchAdd:
+      'Se conosci il suo indirizzo, aggiungila da “Avanzate: aggiungi un’app per indirizzo”.',
+    showAll: (n) => `Mostra tutte (${n})`,
   },
 };
 

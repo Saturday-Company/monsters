@@ -11,10 +11,12 @@ import { PaidSearchRow } from './PaidSearchSection.tsx';
 import { searchStrings } from './search.strings.ts';
 
 /*
- * Settings → Connections → Web search, one group with two rows: without a key the
+ * Settings → Apps and Telegram → Web search, one group with two rows: without a key the
  * monsters search with DuckDuckGo (Wikipedia as a fallback), a Brave Search
  * key searches the whole web; the paid search on OpenRouter (D-071) is the
- * second row (PaidSearchRow).
+ * second row (PaidSearchRow). The engine is chosen here; whether a monster may search the web at
+ * all is its permission, in Permissions (C8), and the paid-models switch is Models': where this
+ * group depends on them it says so in a line with the link.
  */
 export function WebSearchSection({
   settings,

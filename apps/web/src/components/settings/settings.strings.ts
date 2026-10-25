@@ -11,7 +11,7 @@ const en = {
       modelli: 'What the monsters think with: keys and subscriptions, and each one’s model.',
       permessi: 'What the monsters can do on their own, and what they always ask you first.',
       collegamenti:
-        'How you reach the monsters from outside and what they can use besides the notes: Telegram, apps and services, web search.',
+        'Use the monsters from your phone, connect the apps they can use and choose how they search the web.',
       generale: 'Look and feel, your sign-in and where the notes and keys are kept.',
     },
   },
@@ -38,7 +38,7 @@ const it: typeof en = {
       modelli: 'Con cosa pensano i mostri: chiavi e abbonamenti, e il modello di ognuno.',
       permessi: 'Cosa possono fare i mostri da soli, e cosa ti chiedono sempre prima.',
       collegamenti:
-        'Come raggiungi i mostri da fuori e cosa possono usare oltre alle note: Telegram, app e servizi, la ricerca sul web.',
+        'Usa i mostri dal telefono, collega le app che possono usare e scegli come cercano sul web.',
       generale: 'Aspetto, il tuo accesso e dove stanno le note e le chiavi.',
     },
   },

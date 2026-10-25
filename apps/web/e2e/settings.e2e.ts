@@ -9,7 +9,7 @@ test('settings open on Squadra, and a link opens another tab', async ({ page }) 
     'Squad',
     'Models',
     'Permissions',
-    'Connections',
+    'Apps and Telegram',
     'General',
   ]);
   const squadra = page.getByRole('tab', { name: 'Squad' });
@@ -50,11 +50,13 @@ test('settings open on Squadra, and a link opens another tab', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Monsters’ decisions' })).toBeInViewport();
 
   await page.goto('/?mock=demo#/impostazioni?sezione=collegamenti');
-  const links = page.getByRole('tabpanel', { name: 'Connections' });
-  await expect(links).toHaveAccessibleDescription(/Telegram, apps and services, web search/);
+  const links = page.getByRole('tabpanel', { name: 'Apps and Telegram' });
+  await expect(links).toHaveAccessibleDescription(
+    /Use the monsters from your phone, connect the apps/,
+  );
   await expect(links.getByRole('heading', { name: 'Telegram' })).toBeVisible();
   await expect(links.getByRole('heading', { name: 'Web search' })).toBeVisible();
-  await expect(links.getByRole('heading', { name: 'Apps and services' })).toBeVisible();
+  await expect(links.getByRole('heading', { name: 'Apps' })).toBeVisible();
 
   // An unknown tab falls back on the first one.
   await page.goto('/?mock=demo#/impostazioni?sezione=boh');
@@ -63,7 +65,7 @@ test('settings open on Squadra, and a link opens another tab', async ({ page }) 
 
 test('the old tab names and parts open the tab that holds them now', async ({ page }) => {
   await page.goto('/?mock=demo#/impostazioni?sezione=telegram');
-  await expect(page.getByRole('tab', { name: 'Connections' })).toHaveAttribute(
+  await expect(page.getByRole('tab', { name: 'Apps and Telegram' })).toHaveAttribute(
     'aria-selected',
     'true',
   );
@@ -170,12 +172,12 @@ test.describe('narrow screen', () => {
     await page.goto('/?mock=demo#/impostazioni?sezione=generale');
     const generale = page.getByRole('tab', { name: 'General' });
     await expect(generale).toHaveAttribute('aria-selected', 'true');
-    for (const name of ['Squad', 'Models', 'Permissions', 'Connections', 'General']) {
+    for (const name of ['Squad', 'Models', 'Permissions', 'Apps and Telegram', 'General']) {
       await expect(page.getByRole('tab', { name })).toBeInViewport({ ratio: 1 });
     }
     // No sideways scroll of the page itself.
     await expectNoSideScroll(page);
-    await page.getByRole('tab', { name: 'Connections' }).click();
+    await page.getByRole('tab', { name: 'Apps and Telegram' }).click();
     await expect(page.getByRole('heading', { name: 'Telegram' })).toBeVisible();
   });
 });

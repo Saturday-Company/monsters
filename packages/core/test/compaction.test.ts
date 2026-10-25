@@ -131,7 +131,7 @@ describe('ConversationCompactor', () => {
       maxTurns: () => 12,
       summarize: () =>
         Promise.resolve({
-          text: '## Decisioni (dell’utente e dell’assistente)\n- Canva non è collegato. L’utente può collegarlo da Impostazioni → Collegamenti.\n- Nova non ha il permesso di ricerca web.\n- Il post esce il 20/10 senza tag.',
+          text: '## Decisioni (dell’utente e dell’assistente)\n- Canva non è collegato. L’utente può collegarlo da Impostazioni → App e Telegram.\n- Nova non ha il permesso di ricerca web.\n- Il post esce il 20/10 senza tag.',
         }),
     });
     expect(await c.prepare(prep)).toBe('turns');

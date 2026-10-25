@@ -96,7 +96,7 @@ export const ProjectFolderPathSchema = z.string().trim().min(1).max(1000);
  * project's monsters.
  */
 export const ProjectConnectionsSchema = z.object({
-  /** Names of the MCP servers (Impostazioni → Collegamenti). */
+  /** Names of the MCP servers (Impostazioni → App e Telegram). */
   mcp: z.array(z.string().min(1).max(64)).max(100).default([]),
   /** Ids of the services reached through Claude (D-069). */
   claude: z.array(z.string().min(1).max(64)).max(50).default([]),

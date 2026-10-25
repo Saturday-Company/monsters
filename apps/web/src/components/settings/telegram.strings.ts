@@ -1,6 +1,6 @@
 import { defineStrings } from '../../lib/i18n.ts';
 
-/* Settings → Connections → Telegram: the main bot and the bots dedicated to a monster (D-153). */
+/* Settings → Apps and Telegram → Telegram: your bot in three steps, and the group bots (advanced) (D-153). */
 
 const en = {
   /** The commands of the bots (the core understands both languages' names; the app shows its own). */
@@ -26,10 +26,10 @@ const en = {
   },
   botConnected: (username: string | undefined) =>
     `Bot ${username ? `@${username} ` : ''}connected.`,
-  step1: { before: 'On Telegram, open ', mid: ' and type ', after: '.' },
-  step2: 'Pick a name: BotFather gives you a code (the token).',
-  step3: 'Paste it here: Monsters checks with Telegram that it works.',
-  tokenLabel: 'Bot code (token)',
+  step1: { before: 'On Telegram, open ', mid: ' and type ', after: ', then pick a name.' },
+  step2: 'BotFather gives you a code: paste it below. Monsters checks with Telegram that it works.',
+  step3: 'Then send the bot the message that appears here, from your phone: that connects you.',
+  tokenLabel: 'Bot code (from BotFather)',
   tokenHint: 'It stays on this computer, protected: only Monsters reads it. It isn’t shown again.',
   checking: 'Checking…',
   connectBot: 'Connect the bot',
@@ -63,19 +63,22 @@ const en = {
   paired: (name: string) =>
     `Account connected: ${name}. They can command the monsters from Telegram.`,
   section: {
-    descriptionBefore:
-      'Talk to the monsters from your phone, answer their questions and stop them with ',
-    descriptionAfter: '. The bot is yours: only the accounts you connect here can command it.',
+    title: 'Use the monsters from your phone',
+    descriptionBefore: 'Write to them, answer their questions and stop them with ',
+    descriptionAfter: '.',
+    threeSteps: ' Three steps and you’re set.',
     fromPhone: 'From your phone: ',
     fromEnv: ' The bot code comes from the TELEGRAM_BOT_TOKEN variable.',
-    bot: 'Bot',
+    details: 'Details',
+    bot: 'Your bot',
     connect: 'Connect a bot',
     disconnect: 'Disconnect the bot',
     disconnectQuestion: 'Disconnect the bot?',
     disconnectConfirm: 'Yes, disconnect',
     disconnected: 'Bot disconnected.',
     usersTitle: 'Who can command the monsters',
-    usersFooter: 'Other messages to the bot are ignored and end up in Activity.',
+    usersFooter:
+      'The bot is yours: only these accounts can command it. Other messages are ignored and end up in Activity.',
     what: 'the Telegram settings',
     stale:
       'Couldn’t refresh Telegram. What you see may be out of date; what you’re typing is safe.',
@@ -104,10 +107,9 @@ const en = {
       `All of ${monster}’s tools for people you admit to @${u}`,
     toolsOnState: (monster: string, words: string | null) =>
       `On: people you admit use everything ${monster} can do, with your permissions${words ? `, including ${words}` : ''}.`,
-    toolsOffState: (reduced: string) =>
-      `Off: anyone who isn’t you works with fewer tools (${reduced}).`,
-    toolsConfirm: (monster: string, words: string | null) =>
-      `People you admit will be able to use ${words ?? 'all the tools'} of ${monster} as if they were you, and read all the notes except the private ones. Turn it on?`,
+    toolsOffState: 'Off: people you admit work with fewer tools.',
+    toolsConfirm: (monster: string, words: string | null, reduced: string) =>
+      `People you admit will be able to use ${words ?? 'all the tools'} of ${monster} as if they were you, and read all the notes except the private ones. Today they work with fewer tools (${reduced}). Turn it on?`,
     toolsYes: 'Yes, turn on',
     chooseMonster: 'Choose the monster that answers from this bot.',
     limitInvalid: (max: number) =>
@@ -183,13 +185,14 @@ const en = {
       ' in the group, or to the bot in private: you find them here to approve. Messages from people who aren’t admitted are ignored and end up in Activity.',
     personAdded: 'Person added.',
     today: (today: number, limit: number) => `Messages today: ${today} of ${limit}`,
-    title: 'Bots dedicated to a monster',
+    title: 'Group bots (advanced)',
+    rowHint: (n: number) => (n === 1 ? '1 bot' : `${n} bots`),
     description:
       'A bot of its own for a monster, to put in a Telegram group: whoever you admit here talks to it with @name, replying to its messages or with a command. Each bot has its own token.',
     footer:
       'The things you decide (the brake on an action, drafts of monsters, projects and automations, spending over the cap) are never approved in the group: they reach you in private on the main bot and in the app. In the group, only your own words count as yours, and anyone who isn’t you works with fewer tools until you turn them back on for that bot. From the group: ',
     addButton: 'Add a bot for a monster',
-    addHint: 'A bot of its own, for example for the squad’s Telegram group.',
+    addHint: 'A bot of its own for a monster, to put in a Telegram group.',
     howGroupsWork: 'How groups work',
   },
 };
@@ -216,10 +219,11 @@ const it: typeof en = {
     error: 'Fermo: serve il tuo intervento.',
   },
   botConnected: (username) => `Bot ${username ? `@${username} ` : ''}collegato.`,
-  step1: { before: 'Su Telegram apri ', mid: ' e scrivi ', after: '.' },
-  step2: 'Scegli un nome: BotFather ti dà un codice (il token).',
-  step3: 'Incollalo qui: Monsters controlla con Telegram che funzioni.',
-  tokenLabel: 'Codice del bot (token)',
+  step1: { before: 'Su Telegram apri ', mid: ' e scrivi ', after: ', poi scegli un nome.' },
+  step2:
+    'BotFather ti dà un codice: incollalo qui sotto. Monsters controlla con Telegram che funzioni.',
+  step3: 'Poi manda al bot il messaggio che compare qui, dal telefono: così ti colleghi.',
+  tokenLabel: 'Codice del bot (da BotFather)',
   tokenHint: 'Resta su questo computer, protetto: lo legge solo Monsters. Non lo mostriamo più.',
   checking: 'Controllo…',
   connectBot: 'Collega il bot',
@@ -249,18 +253,22 @@ const it: typeof en = {
   },
   paired: (name) => `Account collegato: ${name}. Può comandare i mostri da Telegram.`,
   section: {
-    descriptionBefore: 'Parla con i mostri dal telefono, rispondi alle loro domande e fermali con ',
-    descriptionAfter: '. Il bot è tuo: solo gli account che colleghi qui possono comandarlo.',
+    title: 'Usa i mostri dal telefono',
+    descriptionBefore: 'Scrivi loro, rispondi alle loro domande e fermali con ',
+    descriptionAfter: '.',
+    threeSteps: ' Bastano tre passi.',
     fromPhone: 'Dal telefono: ',
     fromEnv: ' Il codice del bot arriva dalla variabile TELEGRAM_BOT_TOKEN.',
-    bot: 'Bot',
+    details: 'Dettagli',
+    bot: 'Il tuo bot',
     connect: 'Collega un bot',
     disconnect: 'Scollega il bot',
     disconnectQuestion: 'Scollego il bot?',
     disconnectConfirm: 'Sì, scollega',
     disconnected: 'Bot scollegato.',
     usersTitle: 'Chi può comandare i mostri',
-    usersFooter: 'Gli altri messaggi al bot vengono ignorati e finiscono in Attività.',
+    usersFooter:
+      'Il bot è tuo: lo comandano solo questi account. Gli altri messaggi vengono ignorati e finiscono in Attività.',
     what: 'le impostazioni di Telegram',
     stale:
       'Impossibile aggiornare Telegram. Quello che vedi potrebbe essere vecchio; quello che stai scrivendo è al sicuro.',
@@ -279,7 +287,7 @@ const it: typeof en = {
     riskTerminal: 'il Terminale',
     riskApps: 'altri programmi collegati',
     reducedTools:
-      'niente terminale né modifiche ai file, gli altri programmi solo con il tuo ok, nel vault solo l’area del progetto, quella del mostro e Inbox; una risposta che ripete note o chiavi resta a te',
+      'niente terminale né modifiche ai file, gli altri programmi solo con il tuo ok, nelle note solo l’area del progetto, quella del mostro e Inbox; una risposta che ripete note o chiavi resta a te',
     riskNote: (name, words) =>
       `${name} ha ${words}, che agiscono a nome tuo. Chi ammetti in questo bot non li usa finché non li riaccendi, sotto “Strumenti per gli altri”.`,
     toolsTitle: 'Strumenti per gli altri',
@@ -288,9 +296,9 @@ const it: typeof en = {
     toolsLabel: (monster, u) => `Tutti gli strumenti di ${monster} per chi ammetti in @${u}`,
     toolsOnState: (monster, words) =>
       `Acceso: chi ammetti usa tutto quello che ${monster} può fare, con i tuoi permessi${words ? `, anche ${words}` : ''}.`,
-    toolsOffState: (reduced) => `Spento: chi non sei tu lavora con meno strumenti (${reduced}).`,
-    toolsConfirm: (monster, words) =>
-      `Chi ammetti potrà usare ${words ?? 'tutti gli strumenti'} di ${monster} come se fossi tu, e leggere tutto il vault tranne le note private. Accendo?`,
+    toolsOffState: 'Spento: chi ammetti lavora con meno strumenti.',
+    toolsConfirm: (monster, words, reduced) =>
+      `Chi ammetti potrà usare ${words ?? 'tutti gli strumenti'} di ${monster} come se fossi tu, e leggere tutte le note tranne le private. Oggi lavora con meno strumenti (${reduced}). Accendo?`,
     toolsYes: 'Sì, accendi',
     chooseMonster: 'Scegli il mostro che risponde da questo bot.',
     limitInvalid: (max) => `Il limite è un numero intero tra 1 e ${max}, o niente.`,
@@ -363,13 +371,14 @@ const it: typeof en = {
       ' nel gruppo, o al bot in privato: li trovi qui da approvare. I messaggi di chi non è ammesso vengono ignorati e finiscono in Attività.',
     personAdded: 'Persona aggiunta.',
     today: (today, limit) => `Messaggi di oggi: ${today} su ${limit}`,
-    title: 'Bot dedicati a un mostro',
+    title: 'Bot per i gruppi (avanzato)',
+    rowHint: (n) => (n === 1 ? '1 bot' : `${n} bot`),
     description:
       'Un bot tutto suo per un mostro, da mettere in un gruppo di Telegram: chi ammetti qui gli parla con @nome, rispondendo ai suoi messaggi o con un comando. Ogni bot ha il suo token.',
     footer:
       'Le cose che decidi tu (il freno su un’azione, le bozze di mostri, progetti e automazioni, la spesa oltre il tetto) non si approvano mai nel gruppo: arrivano a te in privato sul bot principale e nell’app. Nel gruppo, solo le parole tue contano come tue, e chi non sei tu lavora con meno strumenti finché non li riaccendi per quel bot. Dal gruppo: ',
     addButton: 'Aggiungi un bot per un mostro',
-    addHint: 'Un bot tutto suo, per esempio per il gruppo Telegram della squadra.',
+    addHint: 'Un bot tutto suo per un mostro, da mettere in un gruppo di Telegram.',
     howGroupsWork: 'Come funzionano i gruppi',
   },
 };

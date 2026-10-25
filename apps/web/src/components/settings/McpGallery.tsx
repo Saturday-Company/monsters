@@ -7,6 +7,7 @@ import {
   MagnifyingGlass,
   PaintBrush,
   Plugs,
+  Plus,
   X,
   type Icon,
 } from '@phosphor-icons/react';
@@ -56,6 +57,7 @@ import {
   useSavedAgents,
   useTest,
 } from './mcp-parts.tsx';
+import { matchesApp } from './mcp-search.ts';
 import { OAuthPaste } from './McpOAuthPaste.tsx';
 import { mcpStrings } from './mcp.strings.ts';
 import { partsStrings } from './parts.strings.ts';
@@ -63,12 +65,13 @@ import { SecretChange } from './McpSecretChange.tsx';
 import { ConfirmButton, FormField, Group } from './parts.tsx';
 
 /*
- * Settings → Connections → Apps and services (D-063): the services of
- * `MCP_CATALOG` as keys with their mark on a small screen, the name, one
- * sentence and the state. A key opens a panel that asks only what is needed
- * (nothing, a sign-in in the browser, or a token with the link to create it),
- * then "Test" and who uses it. Servers added here are normal MCP servers of
- * the core, tagged with `catalog`.
+ * Settings → Apps and Telegram → Apps (D-063): the apps of `MCP_CATALOG` as
+ * keys with their mark on a small screen, the name, one sentence and one
+ * "Connect". A search box and the first six (by common use, wave C); the rest
+ * through the search or "Show all". A key opens a panel that asks only what is
+ * needed (nothing, a sign-in in the browser, or a token with the link to create
+ * it), then "Test" and who uses it. Servers added here are normal MCP servers
+ * of the core, tagged with `catalog`.
  */
 
 /** Generic marks for services simple-icons does not carry. */
@@ -81,8 +84,8 @@ export const GENERIC_ICONS: Record<string, Icon> = {
   monday: Kanban,
 };
 
-/** Keys shown before "Show all". */
-const FIRST = 8;
+/** Keys shown before "Show all" (and the ones already connected). */
+const FIRST = 6;
 
 export type GalleryState =
   'soon' | 'claude' | 'off' | 'login' | 'signin' | 'waiting' | 'connected' | 'error';
@@ -186,7 +189,24 @@ export function BrandScreen({ icon, size = 44 }: { icon: string; size?: number }
   );
 }
 
-function StateLabel({ state }: { state: GalleryState }) {
+/**
+ * The state of a service. On a card (`card`), whatever still has to be connected says one word,
+ * "Connect": the way (sign-in, token, Claude) is the panel's business.
+ */
+function StateLabel({ state, card = false }: { state: GalleryState; card?: boolean }) {
+  const s = mcpStrings().gallery;
+  if (card && (state === 'off' || state === 'login' || state === 'claude')) {
+    return (
+      <span
+        className="label inline-flex items-center gap-1 text-signal-ink"
+        data-testid="gallery-state"
+        data-state={state}
+      >
+        <Plus size={11} weight="bold" aria-hidden />
+        {s.connectCard}
+      </span>
+    );
+  }
   const tone =
     state === 'connected'
       ? 'ok'
@@ -206,9 +226,10 @@ function StateLabel({ state }: { state: GalleryState }) {
             : 'text-ink-muted',
       )}
       data-testid="gallery-state"
+      data-state={state}
     >
       {tone && <span aria-hidden className="led" data-tone={tone} />}
-      {mcpStrings().gallery.state[state]}
+      {s.state[state]}
     </span>
   );
 }
@@ -709,6 +730,7 @@ export function McpGallery({
   const s = mcpStrings().gallery;
   const [open, setOpen] = useState<string | null>(null);
   const [all, setAll] = useState(false);
+  const [query, setQuery] = useState('');
   const [claude, setClaude] = useState<ClaudeConnectionsResponse | null>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
   // Services through Claude (D-069): the choice at once, then how they stand (asked to Claude Code).
@@ -746,7 +768,13 @@ export function McpGallery({
     const server = serverOf(entry, data.servers);
     return { entry, state: via ? claudeGalleryState(via) : galleryState(entry, server), i };
   }).sort((a, b) => order[a.state] - order[b.state] || a.i - b.i);
-  const shown = all ? entries : entries.filter((e, i) => i < FIRST || order[e.state] === 0);
+  const searching = query.trim() !== '';
+  // A search looks in every app, "Soon" ones too; without one, the first six and what is connected.
+  const shown = searching
+    ? entries.filter((e) => matchesApp(e.entry, query))
+    : all
+      ? entries
+      : entries.filter((e, i) => i < FIRST || order[e.state] === 0);
   const current = MCP_CATALOG.find((e) => e.id === open);
   const close = useCallback(() => {
     setOpen(null);
@@ -761,6 +789,33 @@ export function McpGallery({
       description={s.description}
     >
       <div className="grid gap-3 p-3 sm:p-4">
+        <label className="relative block">
+          <span className="sr-only">{s.searchLabel}</span>
+          <MagnifyingGlass
+            size={15}
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-muted"
+          />
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={s.searchPlaceholder}
+            autoComplete="off"
+            spellCheck={false}
+            data-testid="gallery-search"
+            className="h-10 pl-9.5"
+          />
+        </label>
+        {searching && shown.length === 0 && (
+          <p
+            className="text-footnote leading-snug text-ink-muted"
+            role="status"
+            data-testid="gallery-no-match"
+          >
+            {s.noMatch(query.trim())} {s.noMatchAdd}
+          </p>
+        )}
         <ul
           className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,264px),1fr))] gap-2.5"
           aria-label={s.title}
@@ -787,14 +842,14 @@ export function McpGallery({
                     {entry.description}
                   </span>
                   <span className="mt-1">
-                    <StateLabel state={state} />
+                    <StateLabel state={state} card />
                   </span>
                 </span>
               </button>
             </li>
           ))}
         </ul>
-        {!all && entries.length > shown.length && (
+        {!searching && !all && entries.length > shown.length && (
           <Button
             variant="secondary"
             size="sm"

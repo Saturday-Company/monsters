@@ -6,7 +6,7 @@ import { mcpStrings } from './mcp.strings.ts';
 import { ConfirmButton, Group, RowBody } from './parts.tsx';
 
 /*
- * Tools of another program that are new or changed since you accepted them
+ * Tools of an app that are new or changed since you accepted them
  * (D-070, research 07 §5.9): the monsters do not get them until "Accept".
  * The card says what changed, the old description beside the new one, and
  * offers "Accept" or "Disconnect" (the app goes away).
@@ -112,7 +112,7 @@ function ServerChanges({
   );
 }
 
-/** The card above the other programs, only when something waits. */
+/** The card above the rest of the tab, only when something waits. */
 export function McpPausedCard({
   data,
   onData,

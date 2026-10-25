@@ -5,8 +5,10 @@ import {
   type McpServerView,
   type McpServersResponse,
   SETTINGS_SECTIONS,
+  SETTINGS_TABS,
 } from '@monsters/shared';
 import { useEffect, useId, useState, type FormEvent } from 'react';
+import { settingsPath } from '../../lib/router.ts';
 import { cn, domId } from '../../lib/utils.ts';
 import { getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
@@ -40,9 +42,10 @@ import {
 } from './parts.tsx';
 
 /*
- * Settings → Connections → Apps and services (MCP, M2.5): servers the monsters can use, who
+ * Settings → Apps and Telegram → Apps (MCP, M2.5): the gallery, the apps added by address, who
  * may use each one, a test that lists its tools, and the browser preset
- * (Playwright with a profile of its own), off until the user turns it on.
+ * (Playwright with a profile of its own), off until the user turns it on. Adding an app by its
+ * address is one closed "Advanced" row (wave C, U2-7).
  */
 
 /** Splits a command line like a shell would for plain words and quotes. */
@@ -148,6 +151,19 @@ function BrowserRow({
               )
             }
           />
+          {data.agents.some((a) => !a.isOrchestrator && !a.web) && (
+            // The web is each monster's permission (C8): here only a line that says so, with the way there.
+            <p className="text-footnote text-ink-muted" data-testid="mcp-browser-web-note">
+              {s.browser.noWebBefore}
+              <a
+                href={settingsPath('permessi')}
+                className="font-medium text-ink underline underline-offset-2"
+              >
+                {SETTINGS_TABS.permessi}
+              </a>
+              {s.browser.noWebAfter}
+            </p>
+          )}
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-footnote font-medium text-ink">{s.browser.showWindow}</p>
@@ -476,8 +492,8 @@ export function useMcpServers() {
 export type McpServers = ReturnType<typeof useMcpServers>;
 
 /**
- * Apps and services, one group (D-063, M2.5): the gallery of services, then the
- * browser, the apps added by hand and "Add a custom app" as its last rows.
+ * Apps, one group (D-063, M2.5): the gallery, then the browser, the apps added by address and
+ * the closed "Advanced: add an app by address" as its last row.
  */
 export function McpServersSection({ mcp }: { mcp: McpServers }) {
   const s = mcpStrings().servers;
@@ -514,32 +530,26 @@ export function McpServersSection({ mcp }: { mcp: McpServers }) {
                 reload={reload}
               />
             ))}
-            <li>
-              {adding ? (
-                <AddServerForm
-                  agents={data.agents}
-                  taken={data.servers.map((x) => x.name)}
-                  onCancel={() => setAdding(false)}
-                  onDone={(d, name) => {
-                    setData(d);
-                    setAdding(false);
-                    notify(s.add.added(name), 'success');
-                  }}
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setAdding(true)}
-                  className="row-key flex min-h-[52px] w-full items-center gap-2.5 px-4 py-2 text-left [&_svg]:text-signal-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
-                >
-                  <Plus size={18} aria-hidden />
-                  <span className="grid min-w-0">
-                    <span className="text-body font-medium text-ink">{s.add.button}</span>
-                    <span className="text-footnote text-ink-muted">{s.add.buttonHint}</span>
-                  </span>
-                </button>
-              )}
-            </li>
+            <DisclosureRow
+              advanced
+              testId="mcp-add-advanced"
+              open={adding}
+              onOpenChange={setAdding}
+              leading={<Plus size={20} aria-hidden className="text-ink-muted" />}
+              label={s.add.button}
+              description={s.add.buttonHint}
+            >
+              <AddServerForm
+                agents={data.agents}
+                taken={data.servers.map((x) => x.name)}
+                onCancel={() => setAdding(false)}
+                onDone={(d, name) => {
+                  setData(d);
+                  setAdding(false);
+                  notify(s.add.added(name), 'success');
+                }}
+              />
+            </DisclosureRow>
           </ul>
         </McpGallery>
       )}

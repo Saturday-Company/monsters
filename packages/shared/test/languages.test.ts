@@ -49,7 +49,7 @@ afterEach(() => setAppLang('en'));
 describe('the places of the app', () => {
   it('are named in the language in use, with the same ids', () => {
     expect(settingsLabel()).toBe('Settings');
-    expect(settingsPath('altriProgrammi')).toBe('Settings → Connections → Apps and services');
+    expect(settingsPath('altriProgrammi')).toBe('Settings → Apps and Telegram → Apps');
     expect(settingsPath('abbonamenti')).toBe('Settings → Models → Plans you already have');
     expect(settingsPath('ilWeb')).toBe('Settings → Permissions → The web');
     expect(SETTINGS_TABS.squadra).toBe('Squad');
@@ -61,7 +61,7 @@ describe('the places of the app', () => {
 
     setAppLang('it');
     expect(settingsLabel()).toBe('Impostazioni');
-    expect(settingsPath('altriProgrammi')).toBe('Impostazioni → Collegamenti → App e servizi');
+    expect(settingsPath('altriProgrammi')).toBe('Impostazioni → App e Telegram → App');
     expect(SETTINGS_TABS.squadra).toBe('Squadra');
     expect(projectPagePath('Saturday', 'spesa')).toBe(
       'pagina del progetto «Saturday», scheda Spesa',

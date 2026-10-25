@@ -1032,13 +1032,13 @@ describe('telegram: delivery', () => {
         action: 'needs_signin',
         transport: 'http',
         message:
-          'Notion chiede di nuovo l’accesso: premi «Collega» in Impostazioni → Collegamenti.',
+          'Notion chiede di nuovo l’accesso: premi «Collega» in Impostazioni → App e Telegram.',
       },
     });
     const told = await tg.waitMessage(
       (m) => m.chat_id === GIULIO.id && m.text.includes('Notion chiede di nuovo l’accesso'),
     );
-    expect(told.text).toContain('Impostazioni → Collegamenti');
+    expect(told.text).toContain('Impostazioni → App e Telegram');
   });
 
   it('notifications held by the quiet hours survive a restart', async () => {

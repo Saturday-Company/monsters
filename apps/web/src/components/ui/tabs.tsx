@@ -126,7 +126,7 @@ export function Tabs<T extends string>({
             tab(
               item,
               i,
-              'min-w-0 flex-auto px-1 text-caption @min-[440px]:text-footnote @min-[680px]:flex-none @min-[680px]:px-4 @min-[680px]:text-body',
+              'min-w-0 flex-auto px-1 text-caption leading-tight whitespace-normal @min-[440px]:text-footnote @min-[680px]:flex-none @min-[680px]:px-4 @min-[680px]:text-body @min-[680px]:whitespace-nowrap',
             ),
           )}
         </div>

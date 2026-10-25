@@ -39,7 +39,7 @@ import {
 } from './parts.tsx';
 
 /*
- * Settings → Connections → Telegram, second kind of entry (D-107): bots
+ * Settings → Apps and Telegram → Telegram, second kind of entry (D-107): bots
  * dedicated to one monster, each with its own token, to put in a group of
  * Telegram. Who may talk to it: the paired accounts (the user, always) and the
  * people approved here; which chats: private ones with them and the groups
@@ -133,8 +133,9 @@ function RiskNote({ name, risk, testId }: { name: string; risk: ToolRisk; testId
 }
 
 /**
- * "Strumenti per gli altri" (D-114): the people of the bot's chats who are not the user work
- * with fewer tools; turned on bot by bot, after a clear warning.
+ * "Tools for others" (D-114): the people of the bot's chats who are not the user work with
+ * fewer tools; turned on bot by bot. The row says the state in a line; what changes and what it
+ * puts at stake is said once, in the confirm (wave C, U2-4).
  */
 function ToolsForOthers({
   bot,
@@ -169,9 +170,7 @@ function ToolsForOthers({
           onCheckedChange={(on) => (on ? ask() : set(false))}
         />
         <span className="min-w-[min(100%,240px)] flex-1 text-footnote leading-snug text-ink-muted">
-          {bot.fullTools
-            ? s.toolsOnState(monster, risk ? riskWords(risk) : null)
-            : s.toolsOffState(s.reducedTools)}
+          {bot.fullTools ? s.toolsOnState(monster, risk ? riskWords(risk) : null) : s.toolsOffState}
         </span>
       </span>
       {asking && (
@@ -182,7 +181,7 @@ function ToolsForOthers({
           onKeyDown={onKeyDown}
         >
           <span className="text-footnote text-stop-ink">
-            {s.toolsConfirm(monster, risk ? riskWords(risk) : null)}
+            {s.toolsConfirm(monster, risk ? riskWords(risk) : null, s.reducedTools)}
           </span>
           <Button
             variant="dangerSoft"
@@ -693,9 +692,6 @@ function BotEntry({
           {changing && (
             <ChangeToken bot={bot} busy={busy} act={act} onClose={() => setChanging(false)} />
           )}
-          {risk && !bot.fullTools && (
-            <RiskNote name={monsterName} risk={risk} testId="telegram-bot-risk" />
-          )}
           <div className="grid gap-1">
             <h4 className="label text-ink-muted">{b.groups}</h4>
             {bot.chats.length === 0 ? (
@@ -772,6 +768,37 @@ function BotEntry({
   );
 }
 
+/**
+ * A short help that opens in place (native `details`): the long explanations of Telegram live in
+ * one of these, so the first layer keeps to what a person does.
+ */
+export function HelpDetails({
+  summary,
+  children,
+  testId,
+}: {
+  summary: string;
+  children: ReactNode;
+  testId?: string;
+}) {
+  return (
+    <details className="group" data-testid={testId}>
+      <summary className="cursor-pointer list-none font-medium text-ink-muted select-none hover:text-ink [&::-webkit-details-marker]:hidden">
+        <span aria-hidden className="mr-1 inline-block turn group-open:rotate-90">
+          ›
+        </span>
+        {summary}
+      </summary>
+      <div className="mt-2 grid gap-2">{children}</div>
+    </details>
+  );
+}
+
+/**
+ * The bots dedicated to one monster, for Telegram groups: one closed "Advanced" row of the
+ * Telegram group (wave C, U2-4). A group or a person waiting for approval opens it, also when it
+ * arrives while the page is open, and its count shows on the closed row.
+ */
 export function TelegramBotsSection({
   view,
   setView,
@@ -806,65 +833,86 @@ export function TelegramBotsSection({
     }
   };
 
-  // No dedicated bot yet: one row, and the long explanation only once the user starts adding.
-  const none = view.bots.length === 0;
-  const collapsed = none && !adding;
+  const pending = view.bots.reduce(
+    (n, bot) =>
+      n +
+      bot.chats.filter((c) => c.status === 'pending').length +
+      bot.people.filter((p) => p.status === 'pending').length,
+    0,
+  );
+  const [open, setOpen] = useState(pending > 0);
+  const seen = useRef(pending);
+  useEffect(() => {
+    if (pending > seen.current) setOpen(true);
+    seen.current = pending;
+  }, [pending]);
 
   return (
-    <Group
-      title={collapsed ? undefined : b.title}
-      label={b.title}
-      level={3}
-      as="ul"
-      testId="telegram-bots"
-      description={collapsed ? undefined : b.description}
-      footer={
-        collapsed ? undefined : (
-          <details className="group" data-testid="telegram-groups-help">
-            <summary className="cursor-pointer list-none font-medium text-ink-muted select-none hover:text-ink [&::-webkit-details-marker]:hidden">
-              <span aria-hidden className="mr-1 inline-block turn group-open:rotate-90">
-                ›
-              </span>
-              {b.howGroupsWork}
-            </summary>
-            <p className="mt-2">
+    <Group label={b.title} level={3} as="ul" testId="telegram-bots">
+      <DisclosureRow
+        advanced
+        open={open}
+        onOpenChange={setOpen}
+        testId="telegram-bots-advanced"
+        leading={<Robot size={20} aria-hidden className="text-ink-muted" />}
+        label={b.title}
+        description={view.bots.length === 0 ? b.addHint : b.rowHint(view.bots.length)}
+        trailing={
+          pending > 0 ? (
+            <span
+              className="label rounded-[5px] px-1.5 py-px text-signal-ink shadow-[inset_0_0_0_1px_var(--seam)]"
+              data-testid="telegram-bots-pending"
+            >
+              {b.toApproveCount(pending)}
+            </span>
+          ) : undefined
+        }
+      >
+        <RowBody>
+          <HelpDetails summary={b.howGroupsWork} testId="telegram-groups-help">
+            <p>{b.description}</p>
+            <p>
               {b.footer}
               <CommandList commands={telegramStrings().commands.group} />.
             </p>
-          </details>
-        )
-      }
-    >
-      {view.bots.map((b) => (
-        <BotEntry key={b.id} bot={b} risk={view.toolRisks?.[b.agent]} busy={busy} act={act} />
-      ))}
-      <li>
-        {adding ? (
-          <AddBotForm
-            known={view.bots.map((b) => b.id)}
-            risks={view.toolRisks ?? {}}
-            errorOf={errorOf}
-            onSaved={(v) => {
-              setAdding(false);
-              setView(v);
-            }}
-            onCancel={() => setAdding(false)}
-          />
-        ) : (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setAdding(true)}
-            className="row-key flex min-h-[52px] w-full items-center gap-2.5 px-4 py-2 text-left [&_svg]:text-signal-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
-          >
-            <Plus size={18} aria-hidden />
-            <span className="grid min-w-0">
-              <span className="text-body font-medium text-ink">{b.addButton}</span>
-              {collapsed && <span className="text-footnote text-ink-muted">{b.addHint}</span>}
-            </span>
-          </button>
-        )}
-      </li>
+          </HelpDetails>
+        </RowBody>
+        <ul className="set-rows set-seam-t">
+          {view.bots.map((bot) => (
+            <BotEntry
+              key={bot.id}
+              bot={bot}
+              risk={view.toolRisks?.[bot.agent]}
+              busy={busy}
+              act={act}
+            />
+          ))}
+          <li>
+            {adding ? (
+              <AddBotForm
+                known={view.bots.map((x) => x.id)}
+                risks={view.toolRisks ?? {}}
+                errorOf={errorOf}
+                onSaved={(v) => {
+                  setAdding(false);
+                  setView(v);
+                }}
+                onCancel={() => setAdding(false)}
+              />
+            ) : (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setAdding(true)}
+                className="row-key flex min-h-[52px] w-full items-center gap-2.5 px-4 py-2 text-left [&_svg]:text-signal-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
+              >
+                <Plus size={18} aria-hidden />
+                <span className="text-body font-medium text-ink">{b.addButton}</span>
+              </button>
+            )}
+          </li>
+        </ul>
+      </DisclosureRow>
     </Group>
   );
 }

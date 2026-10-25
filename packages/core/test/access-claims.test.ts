@@ -196,7 +196,7 @@ describe('judgeAccessClaims', () => {
     expect(unbacked('Nova non ha il permesso di ricerca web.', off)).toEqual([]);
     expect(unbacked('Nessun mostro può accedere al web.', off)).toEqual([]);
     expect(
-      unbacked('Notion non è collegato: lo colleghi da Impostazioni → Collegamenti.', ALL_ON),
+      unbacked('Notion non è collegato: lo colleghi da Impostazioni → App e Telegram.', ALL_ON),
     ).toEqual([]);
     // The words of the core (D-127) repeated by a monster without the web: true.
     expect(
@@ -389,7 +389,7 @@ describe('memory and summaries (D-141)', () => {
   it('the summary of 19/10 loses its lines about accesses, not the decisions of the user', () => {
     const summary = [
       '## Decisioni (dell’utente e dell’assistente)',
-      '- Canva non è collegato. L’utente può collegarlo da Impostazioni → Collegamenti.',
+      '- Canva non è collegato. L’utente può collegarlo da Impostazioni → App e Telegram.',
       '- Nova non ha il permesso di ricerca web.',
       '- L’utente ha deciso di pubblicare la storia del 20/10 senza tag.',
       '## Fatti dati dall’utente (preferenze, nomi, numeri)',

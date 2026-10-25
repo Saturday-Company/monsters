@@ -69,7 +69,7 @@ const en = {
     settings: string,
     tabs: { squad: string; models: string; permissions: string; connections: string },
   ) =>
-    `Only the user, in ${settings}: ${tabs.squad} (create, change and archive monsters; who the user is to you), ${tabs.models} (models and spending; you don’t see it), ${tabs.permissions}, ${tabs.connections} (services, Telegram).`,
+    `Only the user, in ${settings}: ${tabs.squad} (create, change and archive monsters; who the user is to you), ${tabs.models} (models and spending; you don’t see it), ${tabs.permissions}, ${tabs.connections}.`,
   onlyUserProject: (
     project: string,
     tabs: { squad: string; connections: string; spending: string },
@@ -148,7 +148,7 @@ const it: typeof en = {
   noPublish:
     'Senza uno strumento apposta non pubblichi, non invii mail o messaggi, non paghi: prepari bozze.',
   onlyUser: (settings, tabs) =>
-    `Solo l’utente, in ${settings}: ${tabs.squad} (creare, cambiare e archiviare mostri; chi è lui per voi), ${tabs.models} (modelli e spesa; tu non la vedi), ${tabs.permissions}, ${tabs.connections} (servizi, Telegram).`,
+    `Solo l’utente, in ${settings}: ${tabs.squad} (creare, cambiare e archiviare mostri; chi è lui per voi), ${tabs.models} (modelli e spesa; tu non la vedi), ${tabs.permissions}, ${tabs.connections}.`,
   onlyUserProject: (project, tabs) =>
     ` Per il progetto «${project}» la pagina del progetto: schede ${tabs.squad}, ${tabs.connections} (servizi e ricerca sul web) e ${tabs.spending} (tetto di spesa).`,
   sidebar:
