@@ -163,7 +163,7 @@ const en = {
       buttonHint:
         'Any app that isn’t in the list, on this computer or on the web (an “MCP server”).',
     },
-    failed: 'I can’t read your apps right now.',
+    what: 'your apps',
   },
   gallery: {
     state: {
@@ -386,7 +386,7 @@ const it: typeof en = {
       buttonHint:
         'Qualunque programma che non è in elenco, sul computer o sul web (un “server MCP”).',
     },
-    failed: 'Non riesco a leggere i tuoi programmi adesso.',
+    what: 'i tuoi programmi',
   },
   gallery: {
     state: {

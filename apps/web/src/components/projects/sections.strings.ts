@@ -9,6 +9,9 @@ const en = {
     stayIn: 'They live in',
     stayInRest: ': the project’s monsters write there, everyone can read them.',
     all: 'All notes',
+    what: 'the notes',
+    capped:
+      'This list may be missing some notes: the vault is large. Open All notes to search the rest.',
     empty: 'No notes yet: when the lead or its monsters write one, it shows up here.',
   },
   folder: {
@@ -59,8 +62,7 @@ const en = {
       'Every connection given to the whole squad reaches the project’s monsters, also the ones you connect later: they use it when the work needs it. Turn off here what this project must not use. One given to a monster by name reaches it anyway.',
     more: 'Connect other apps in Settings → Connections',
     none: 'No app connected, for now.',
-    failed: 'I can’t read the connections right now.',
-    retry: 'Try again',
+    what: 'the connections',
     team: 'Given to the whole squad',
     off: 'Off in Settings',
     viaClaude: 'Through your Claude subscription, for the monsters that work with Claude',
@@ -74,7 +76,7 @@ const en = {
       'The project has no automations yet: work the squad does on its own, at a set time, with the lead handing tasks to its monsters.',
   },
   spend: {
-    failed: 'I can’t read the project’s spending right now. Try again in a moment.',
+    what: 'the project’s spending',
     projectSaved: 'Project cap saved.',
     agentSaved: (name: string) => `${name}’s cap saved.`,
     perDay: (amount: string) => `${amount} a day`,
@@ -111,6 +113,9 @@ const it: typeof en = {
     stayIn: 'Stanno in',
     stayInRest: ': i mostri del progetto scrivono lì, tutti le possono leggere.',
     all: 'Tutte le note',
+    what: 'le note',
+    capped:
+      'Nell’elenco potrebbero mancare delle note: l’archivio è grande. Apri Tutte le note per cercare nel resto.',
     empty: 'Ancora nessuna nota: quando il capo o i suoi mostri ne scrivono una, compare qui.',
   },
   folder: {
@@ -162,8 +167,7 @@ const it: typeof en = {
       'Ogni collegamento dato a tutta la squadra arriva ai mostri del progetto, anche quelli che colleghi dopo: lo usano quando il lavoro lo chiede. Spegni qui quello che questo progetto non deve usare. Uno dato a un mostro per nome gli arriva comunque.',
     more: 'Collega altri programmi in Impostazioni → Collegamenti',
     none: 'Nessun programma collegato, per ora.',
-    failed: 'Non riesco a leggere i collegamenti adesso.',
-    retry: 'Riprova',
+    what: 'i collegamenti',
     team: 'Dato a tutta la squadra',
     off: 'Spento in Impostazioni',
     viaClaude: 'Tramite l’abbonamento Claude, per chi lavora con Claude',
@@ -177,7 +181,7 @@ const it: typeof en = {
       'Il progetto non ha ancora automazioni: un lavoro che la squadra fa da sola, a un’ora fissa, con il capo che passa i compiti ai suoi mostri.',
   },
   spend: {
-    failed: 'Non riesco a leggere la spesa del progetto adesso. Riprova tra poco.',
+    what: 'la spesa del progetto',
     projectSaved: 'Tetto del progetto salvato.',
     agentSaved: (name) => `Tetto di ${name} salvato.`,
     perDay: (amount) => `${amount} al giorno`,

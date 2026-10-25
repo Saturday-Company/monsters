@@ -35,7 +35,7 @@ const en = {
     projectLead: 'project lead',
     openSquadOf: (label: string) => `Open ${label}’s squad`,
     openProject: 'Open the project',
-    failed: 'I can’t read the squad right now. Try again in a moment.',
+    what: 'the squad',
     squad: 'The squad',
     squadFull: (max: number) =>
       `The squad is full: at most ${max} monsters besides the lead. To add one, remove another first.`,
@@ -144,7 +144,7 @@ const en = {
     steps: (avg: string) => `${avg} steps on average`,
     checkedOf: (verified: number, checked: number) =>
       `${verified} of ${checked} checked really finished`,
-    failed: 'I can’t read the monsters’ scorecard right now. Try again in a moment.',
+    what: 'the monsters’ scorecard',
     footerOff:
       'The scorecard is read-only: “Learn which model works best” is off in the monsters’ decisions.',
     footerNone: (min: number) =>
@@ -193,7 +193,7 @@ const it: typeof en = {
     projectLead: 'capo del progetto',
     openSquadOf: (label) => `Apri la squadra di ${label}`,
     openProject: 'Apri il progetto',
-    failed: 'Non riesco a leggere la squadra adesso. Riprova tra poco.',
+    what: 'la squadra',
     squad: 'La squadra',
     squadFull: (max) =>
       `La squadra è al completo: al massimo ${max} mostri oltre al capo. Per aggiungerne uno, prima togline un altro.`,
@@ -297,7 +297,7 @@ const it: typeof en = {
     perJob: (cost) => `${cost} a lavoro riuscito`,
     steps: (avg) => `${avg} passi in media`,
     checkedOf: (verified, checked) => `${verified} su ${checked} controllati finiti davvero`,
-    failed: 'Non riesco a leggere la pagella dei mostri adesso. Riprova tra poco.',
+    what: 'la pagella dei mostri',
     footerOff:
       'La pagella resta solo da leggere: «Impara quale modello lavora meglio» è spento in Decisioni dei mostri.',
     footerNone: (min) =>

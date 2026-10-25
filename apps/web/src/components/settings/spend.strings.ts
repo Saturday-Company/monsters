@@ -23,7 +23,7 @@ const en = {
     day: 'Per day (€)',
     month: 'Per month (€)',
   },
-  failed: 'I can’t read the spending cap right now. Try again in a moment.',
+  what: 'the spending cap',
   freeRequests: (n: string, count: number) =>
     count === 1 ? `${n} request to free models` : `${n} requests to free models`,
   subscriptionRequests: (label: string, n: string, count: number) =>
@@ -70,7 +70,7 @@ const it: typeof en = {
     day: 'Al giorno (€)',
     month: 'Al mese (€)',
   },
-  failed: 'Non riesco a leggere il tetto di spesa adesso. Riprova tra poco.',
+  what: 'il tetto di spesa',
   freeRequests: (n, count) =>
     count === 1 ? `${n} richiesta a modelli gratuiti` : `${n} richieste a modelli gratuiti`,
   subscriptionRequests: (label, n, count) =>

@@ -5,7 +5,7 @@ import { settingsPath } from '../../lib/router.ts';
 import { getApi, notify } from '../../store/app.ts';
 import { Switch } from '../ui/controls.tsx';
 import { plainly, teamError } from './data.ts';
-import { Group, Row, TextSetting } from './parts.tsx';
+import { Group, LoadFailed, Row, TextSetting } from './parts.tsx';
 import { settingsStrings } from './settings.strings.ts';
 
 /*
@@ -39,12 +39,11 @@ export function AskAlwaysSection() {
     notify(done, 'success');
   };
 
-  if (failed)
-    return (
-      <p className="px-1 text-footnote text-ink-muted" role="status">
-        {s.failed}
-      </p>
-    );
+  const retry = () => {
+    setFailed(false);
+    load();
+  };
+  if (failed) return <LoadFailed what={s.what} onRetry={retry} />;
   if (!profile) return null;
 
   const extras = profile.askAlways.extras;

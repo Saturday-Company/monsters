@@ -27,7 +27,7 @@ test('Models: a refresh that fails keeps the key being typed and offers to try a
     document.dispatchEvent(new Event('visibilitychange'));
   });
   const stale = page.getByTestId('models-stale');
-  await expect(stale).toContainText('I couldn’t refresh the models');
+  await expect(stale).toContainText('Couldn’t refresh the models');
   await expect(key).toHaveValue('sk-ant-test-half-typed');
 
   // Try again, with the core back: the line goes and the key is still there.
@@ -50,7 +50,7 @@ test('Models: the first load that fails shows the failed state, with a way to tr
     );
   });
   await page.evaluate(() => (window.location.hash = '#/impostazioni?sezione=modelli'));
-  await expect(page.getByText('I can’t read the models right now')).toBeVisible();
+  await expect(page.getByText('Couldn’t load the models')).toBeVisible();
   await page.evaluate(() =>
     (window as unknown as { __monstersMock: Mock }).__monstersMock.clearFailures(),
   );
@@ -82,7 +82,7 @@ test('Telegram: a refresh that fails keeps the token form and what is typed in i
     });
   });
   const stale = page.getByTestId('telegram-stale');
-  await expect(stale).toContainText('I couldn’t refresh Telegram');
+  await expect(stale).toContainText('Couldn’t refresh Telegram');
   await expect(token).toHaveValue('123456789:AAHhalfpasted');
   await stale.getByRole('button', { name: 'Try again' }).click();
   await expect(stale).toHaveCount(0);

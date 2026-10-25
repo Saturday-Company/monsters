@@ -11,6 +11,8 @@ const en = {
   changeWhat: (what: string) => `Change ${what}`,
   changeLabel: (label: string) => `Change: ${label}`,
   retry: 'Try again',
+  /** `what` reads after the verb, with its article: "the limits". */
+  loadFailed: (what: string) => `Couldn’t load ${what}.`,
 };
 
 const it: typeof en = {
@@ -21,6 +23,7 @@ const it: typeof en = {
   changeWhat: (what) => `Cambia ${what}`,
   changeLabel: (label) => `Cambia: ${label}`,
   retry: 'Riprova',
+  loadFailed: (what) => `Impossibile caricare ${what}.`,
 };
 
 export const partsStrings = defineStrings({ en, it });

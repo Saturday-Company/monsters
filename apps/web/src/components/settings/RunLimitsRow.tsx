@@ -13,7 +13,7 @@ import { Button } from '../ui/button.tsx';
 import { Input } from '../ui/field.tsx';
 import { limitsStrings } from './limits.strings.ts';
 import { useSettingsTarget } from './settings-target.ts';
-import { DisclosureRow, FormField, RowBody } from './parts.tsx';
+import { DisclosureRow, FormField, LoadFailed, RowBody, useRetry } from './parts.tsx';
 
 /*
  * Settings → Models → Spending cap → Limits of each job (D-064): the steps, tokens, cost and
@@ -233,6 +233,7 @@ export function RunLimitsRow() {
   }
   const [view, setView] = useState<RunLimitsView | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, retry] = useRetry(() => setFailed(false));
   useEffect(() => {
     if (!open) return;
     let alive = true;
@@ -243,7 +244,7 @@ export function RunLimitsRow() {
     return () => {
       alive = false;
     };
-  }, [open]);
+  }, [open, attempt]);
 
   return (
     <div id="settings-limiti" className="scroll-mt-4" data-testid="limits-row">
@@ -261,9 +262,7 @@ export function RunLimitsRow() {
       >
         {failed ? (
           <RowBody>
-            <p className="text-footnote text-ink-muted" role="status">
-              {s.failed}
-            </p>
+            <LoadFailed what={s.what} onRetry={retry} />
           </RowBody>
         ) : view ? (
           <LimitsForm initial={view} />
