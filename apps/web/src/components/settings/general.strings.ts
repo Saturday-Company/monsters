@@ -16,10 +16,15 @@ const en = {
     soundsHint:
       'Small clicks for the keys and the lever, and a chime when a monster asks you something.',
     details: 'Show technical details',
-    detailsHint: 'Under the monsters’ replies: tools used, time, cost and model.',
+    detailsHint:
+      'Adds a line under each reply and run with the tools used, time, cost, model and tokens.',
+  },
+  more: {
+    title: 'Advanced',
+    hint: 'Sounds, technical details, the notes folder and where the keys are kept.',
   },
   language: {
-    label: 'Language',
+    label: 'App language',
     hint: 'Used by the app, its messages and Telegram. The monsters write in the language set in their profile.',
     failed: 'I couldn’t change the language. Try again.',
   },
@@ -56,7 +61,6 @@ const en = {
     password: 'Password',
   },
   notes: {
-    title: 'Notes',
     footer: 'An ordinary folder of Markdown files: you can open it with Obsidian too.',
     folder: 'Notes folder',
     copyLabel: 'Copy the path of the notes folder',
@@ -71,12 +75,24 @@ const en = {
       `In protected files, readable only by your user account, not in the keychain. ${why}`.trim(),
     why: {
       keychain: '',
-      forced: 'Chosen with MONSTERS_SECRETS=file.',
+      forced: 'It was set outside the app.',
       unavailable: 'The keychain isn’t available on this computer.',
       timeout: 'The keychain didn’t answer in time: maybe it’s locked.',
       error: 'The keychain gave an invalid key.',
       'missing-key':
-        'The keychain doesn’t have the key to this folder. The encrypted keys stay where they are and I won’t replace them on my own. Save them again; if the key is truly lost, run this in a terminal: monsters secrets reset.',
+        'The keychain doesn’t have the key to this folder. The encrypted keys stay where they are and I won’t replace them on my own. Save them again.',
+    },
+    /** The names and commands behind a reason, only inside the "Details" drawer. */
+    details: 'Details',
+    detail: {
+      keychain: '',
+      forced:
+        'The start-up setting MONSTERS_SECRETS=file keeps the keys in files instead of the keychain.',
+      unavailable: '',
+      timeout: '',
+      error: '',
+      'missing-key':
+        'If the key is lost for good, run this in your computer’s terminal: monsters secrets reset',
     },
     unreadable: (names: string) => `Not readable now: ${names}.`,
     saveAgain: 'Save them again.',
@@ -101,10 +117,15 @@ const it: typeof en = {
     soundsHint:
       'Piccoli clic dei tasti e della leva, e un segnale quando un mostro ti chiede qualcosa.',
     details: 'Mostra i dettagli tecnici',
-    detailsHint: 'Sotto le risposte dei mostri: strumenti usati, tempo, costo e modello.',
+    detailsHint:
+      'Aggiunge sotto ogni risposta e lavoro una riga con strumenti usati, tempo, costo, modello e token.',
+  },
+  more: {
+    title: 'Avanzate',
+    hint: 'Suoni, dettagli tecnici, cartella delle note e dove stanno le chiavi.',
   },
   language: {
-    label: 'Lingua',
+    label: 'Lingua dell’app',
     hint: 'Dell’app, dei messaggi e di Telegram. I mostri scrivono nella lingua del loro profilo.',
     failed: 'Non sono riuscito a cambiare la lingua. Riprova.',
   },
@@ -141,7 +162,6 @@ const it: typeof en = {
     password: 'Password',
   },
   notes: {
-    title: 'Note',
     footer: 'Una cartella normale di file Markdown: la puoi aprire anche con Obsidian.',
     folder: 'Cartella delle note',
     copyLabel: 'Copia il percorso della cartella delle note',
@@ -156,12 +176,23 @@ const it: typeof en = {
       `In file protetti, leggibili solo dal tuo utente, non nel portachiavi. ${why}`.trim(),
     why: {
       keychain: '',
-      forced: 'Scelto con MONSTERS_SECRETS=file.',
+      forced: 'È stato deciso fuori dall’app.',
       unavailable: 'Su questo computer il portachiavi non è disponibile.',
       timeout: 'Il portachiavi non ha risposto in tempo: forse è bloccato.',
       error: 'Il portachiavi ha dato una chiave non valida.',
       'missing-key':
-        'Il portachiavi non ha la chiave di questa cartella: le chiavi cifrate restano dove sono e non le sostituisco da solo. Salvale di nuovo; se la chiave è persa davvero, da terminale: monsters secrets reset.',
+        'Il portachiavi non ha la chiave di questa cartella: le chiavi cifrate restano dove sono e non le sostituisco da solo. Salvale di nuovo.',
+    },
+    details: 'Dettagli',
+    detail: {
+      keychain: '',
+      forced:
+        'L’impostazione di avvio MONSTERS_SECRETS=file tiene le chiavi in file invece che nel portachiavi.',
+      unavailable: '',
+      timeout: '',
+      error: '',
+      'missing-key':
+        'Se la chiave è persa davvero, dal terminale del computer: monsters secrets reset',
     },
     unreadable: (names) => `Non leggibili adesso: ${names}.`,
     saveAgain: 'Salvale di nuovo.',

@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import type * as AppStore from '../src/store/app.ts';
-import { expect, test } from './fixtures.ts';
+import { expect, showTechnicalDetails, test } from './fixtures.ts';
 
 /*
  * The chats (home): one chat per monster on the left, the open one on the
@@ -260,6 +260,8 @@ test('"Riduci movimento" stops the idle animations of the monsters, and is remem
 test('the monitor of the monster, the instrumentation line and "Dietro le quinte" on that turn', async ({
   page,
 }) => {
+  // The line under the turn is a technical detail: off by default (D-181).
+  await showTechnicalDetails(page);
   await page.goto('/?mock=demo');
   const monitor = page.getByTestId('chat-monitor');
   await expect(monitor).toContainText('Titan');

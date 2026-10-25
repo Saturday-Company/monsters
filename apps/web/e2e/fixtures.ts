@@ -19,6 +19,26 @@ export const test = base.extend<{ consoleErrors: string[] }>({
 export { expect };
 
 /**
+ * Turns the technical details on (Settings → General → Advanced) before the page loads: the
+ * line under the replies, the receipts' models and the tokens of a run, which are off by
+ * default (D-181). It keeps the other stored preferences; the version is that of
+ * `PREFS_VERSION` in `store/prefs.ts`, so the one-time reset does not undo it.
+ */
+export async function showTechnicalDetails(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('monsters-prefs') ?? '{}') as object;
+      localStorage.setItem(
+        'monsters-prefs',
+        JSON.stringify({ ...stored, showDetails: true, version: 2 }),
+      );
+    } catch {
+      // no storage: the details stay off and the test says so
+    }
+  });
+}
+
+/**
  * The language of the screenshots written into `docs/schermate/` (`en` by default, `it` with
  * `E2E_LOCALE=it-IT`): it ends the file name (`novita-dark-1440-en.png`), so the README and the
  * Italian README each point to their own.
@@ -76,4 +96,25 @@ export async function expectNoSideScroll(page: Page, width?: number): Promise<vo
       ),
     )
     .toBeLessThanOrEqual(0);
+}
+
+/** Turns the technical details on or off in the page that is open now (the store, as the Settings switch does). */
+export async function setTechnicalDetails(page: Page, on: boolean): Promise<void> {
+  await page.evaluate(
+    async ([src, value]) => {
+      const { setPrefs } = (await import(/* @vite-ignore */ src as string)) as {
+        setPrefs: (p: { showDetails: boolean }) => void;
+      };
+      setPrefs({ showDetails: value as boolean });
+    },
+    ['/src/store/prefs.ts', on],
+  );
+}
+
+/** Opens the "Advanced" drawer of Settings → General (sounds, technical details, notes folder, keys). */
+export async function openGeneralAdvanced(page: Page): Promise<void> {
+  const drawer = page.getByTestId('general-advanced');
+  const toggle = drawer.getByRole('button', { name: /^Advanced/ });
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
 }

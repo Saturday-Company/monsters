@@ -18,7 +18,7 @@ import { vaultPath } from '../../lib/router.ts';
 import { folderOf, foldersOf } from '../../lib/vault-markdown.ts';
 import { cn, domId } from '../../lib/utils.ts';
 import { KeyCap } from '../ui/button.tsx';
-import { Chip, Segmented, Switch } from '../ui/controls.tsx';
+import { Chip, Switch } from '../ui/controls.tsx';
 import { vaultApi, vaultError } from './api.ts';
 import { cleanSnippet, isAgentNote, listDate, previewText, PrivateMark } from './shared.tsx';
 import { vaultStrings } from './vault.strings.ts';
@@ -312,7 +312,7 @@ export function NoteList({
             <input
               type="search"
               value={filters.query}
-              onChange={(e) => set({ query: e.target.value })}
+              onChange={(e) => set({ query: e.target.value, mode: 'hybrid' })}
               placeholder={s.searchPlaceholder}
               title={overview?.semanticReason}
               data-testid="vault-search"
@@ -321,7 +321,7 @@ export function NoteList({
             {filters.query && (
               <button
                 type="button"
-                onClick={() => set({ query: '' })}
+                onClick={() => set({ query: '', mode: 'hybrid' })}
                 aria-label={s.clearSearch}
                 className="absolute top-1/2 right-1.5 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-[7px] text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-signal-ink"
               >
@@ -394,22 +394,6 @@ export function NoteList({
                 ))}
               </div>
             )}
-            {semantic && (
-              <div className="flex flex-col gap-1.5">
-                <span className="label text-ink-faint">{s.searchMode}</span>
-                <Segmented
-                  value={filters.mode === 'text' ? 'text' : 'hybrid'}
-                  onChange={(v) => set({ mode: v })}
-                  label={s.searchType}
-                  size="sm"
-                  fill
-                  options={[
-                    { value: 'hybrid', label: s.similar },
-                    { value: 'text', label: s.exact },
-                  ]}
-                />
-              </div>
-            )}
             <div className="seam-t -mx-3.5 flex items-center justify-between gap-3 px-3.5 pt-3.5">
               <span id={`${id}-agents`} className="text-footnote text-ink">
                 {s.showAgents}
@@ -461,9 +445,25 @@ export function NoteList({
                 : search.error
                   ? search.error
                   : search.hits?.length === 0
-                    ? s.none
+                    ? semantic && filters.mode === 'text'
+                      ? s.noneExact
+                      : s.none
                     : vaultStrings().noteCount(search.hits?.length ?? 0)}
             </p>
+            {/* Search finds similar notes too; the exact words are the second try, not a setting (U2-15). */}
+            {semantic &&
+              filters.mode === 'hybrid' &&
+              search.hits?.length === 0 &&
+              !search.searching && (
+                <button
+                  type="button"
+                  onClick={() => set({ mode: 'text' })}
+                  data-testid="vault-try-exact"
+                  className="mx-3 mb-1 rounded px-1 text-footnote font-medium text-signal-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-signal-ink"
+                >
+                  {s.tryExact}
+                </button>
+              )}
             <ul className="flex flex-col gap-px" data-testid="vault-results">
               {search.hits?.map((h) => {
                 const n = byPath.get(h.path);

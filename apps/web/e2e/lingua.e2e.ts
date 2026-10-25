@@ -159,7 +159,8 @@ test.describe('the main screens in Italian, at 1024 px', () => {
     await expect(page.getByTestId('vault-view')).toBeVisible();
     await page.getByTestId('vault-filters-toggle').click();
     const filters = page.getByTestId('vault-filters');
-    await expect(filters.getByRole('radiogroup', { name: 'Tipo di ricerca' })).toBeVisible();
+    // One search box: the exact words are offered after a search with no result, not in the filters.
+    await expect(filters.getByRole('radiogroup')).toHaveCount(0);
     await expect(filters.getByRole('group', { name: 'Filtra per tag' })).toBeVisible();
     await expect(page.getByRole('switch', { name: 'Mostra le note dei mostri' })).toBeVisible();
     await expectNoSideScroll(page);

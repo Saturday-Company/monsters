@@ -436,8 +436,8 @@ test('the filters panel keeps every control inside its card, even with long tags
   await openVault(page);
   await page.getByTestId('vault-filters-toggle').click();
   const card = page.getByTestId('vault-filters');
-  const mode = card.getByRole('radiogroup', { name: 'Type of search' });
-  await expect(mode).toBeVisible();
+  // One search box: no "type of search" in the filters (U2-15).
+  await expect(card.getByRole('radiogroup')).toHaveCount(0);
   const tags = card.getByRole('group', { name: 'Filter by tag' });
   await tags.evaluate((g) => {
     const chip = g.firstElementChild!.cloneNode(true) as HTMLElement;
@@ -445,9 +445,40 @@ test('the filters panel keeps every control inside its card, even with long tags
     g.appendChild(chip);
   });
   const box = (await card.boundingBox())!;
-  for (const t of [mode, card.getByTestId('vault-folder'), tags.getByRole('button').last()]) {
+  for (const t of [card.getByTestId('vault-folder'), tags.getByRole('button').last()]) {
     const b = (await t.boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(box.x);
     expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width);
   }
+});
+
+test('one search box: the exact words are offered only after a search with no result', async ({
+  page,
+}) => {
+  await openVault(page);
+  const search = page.getByTestId('vault-search');
+  // Nothing about the type of search before or while looking.
+  await expect(page.getByText('Exact words')).toHaveCount(0);
+  await expect(page.getByTestId('vault-try-exact')).toHaveCount(0);
+  await search.fill('tram');
+  await expect(
+    page.getByTestId('vault-results').getByTestId('vault-note-link').first(),
+  ).toBeVisible();
+  await expect(page.getByTestId('vault-try-exact')).toHaveCount(0);
+
+  // No result: the second try appears, once.
+  await search.fill('qzxwv');
+  await expect(page.getByTestId('vault-list').getByRole('status')).toHaveText('No notes found.');
+  const retry = page.getByTestId('vault-try-exact');
+  await expect(retry).toHaveText('Try exact words');
+  await retry.click();
+  await expect(page.getByTestId('vault-list').getByRole('status')).toHaveText(
+    'No notes with these exact words.',
+  );
+  await expect(retry).toHaveCount(0);
+
+  // A new search is the ordinary one again.
+  await search.fill('qzxwvv');
+  await expect(page.getByTestId('vault-list').getByRole('status')).toHaveText('No notes found.');
+  await expect(retry).toBeVisible();
 });

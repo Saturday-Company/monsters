@@ -8,28 +8,33 @@ import {
   type UsageModel,
   type UsageSummary,
 } from '@monsters/shared';
-import { ArrowRight, X } from '@phosphor-icons/react';
-import type { CSSProperties, ReactNode } from 'react';
+import { ArrowRight, CaretDown, X } from '@phosphor-icons/react';
+import { useId, useState, type CSSProperties, type ReactNode } from 'react';
 import { openPage, SPEND_CAP_PATH } from '../../lib/router.ts';
-import { formatTime, formatUsd } from '../../lib/utils.ts';
+import { cn, domId, formatTime, formatUsd } from '../../lib/utils.ts';
 import { formatDuration, modelShort } from '../../store/derive.ts';
 import { useAgent, useLive } from '../../store/hooks.ts';
+import { usePrefs } from '../../store/prefs.ts';
 import { expressionFor, Monster } from '../monster/Monster.tsx';
 import { fitDots } from '../monster/MonsterScreen.tsx';
 import { Meter } from '../ui/Meter.tsx';
 import { ContextBar } from './ContextKey.tsx';
-import { PlanLimitsBlock } from './PlanLimitsBlock.tsx';
-import { contextAmount, formatCount, formatTokens, partHint, partName } from './model.ts';
+import { PlanLimitsBlock, useNow } from './PlanLimitsBlock.tsx';
+import { liveWindow, windowNote } from './plan-limits-format.ts';
+import { formatCount, formatTokens, partHint, partName, percentText } from './model.ts';
 import { useAgentUsage } from './state.ts';
 import { usageStrings } from './usage.strings.ts';
 import './usage.css';
 
 /*
  * Consumi of a monster (docs/design.md, "Consumi"; D-075): a screen of the
- * instrument, like "Dietro le quinte". On top the context of its latest step,
- * a big bar of lineette with the legend in the same order and the tokens of
- * each part, the window and the compaction mark; then what this conversation
- * consumed; at the bottom today and this month against the spending caps.
+ * instrument, like "Dietro le quinte". On top one sentence in words (how much
+ * of the model's memory this conversation uses, what it cost, or the plan's
+ * usage) with the bar of lineette under it; then the plan's windows and today
+ * and this month against the spending caps. With the technical details on
+ * (Settings → General) a "Details" drawer holds the breakdown: the parts of
+ * the context with their tokens, the window and the compaction mark, and what
+ * the conversation consumed in tokens, cache and calls (D-181).
  * Self-contained: the Consumi tab of the right-hand pane mounts it.
  */
 
@@ -118,6 +123,78 @@ function SummaryNote({ summary }: { summary: UsageSummary }) {
   );
 }
 
+/** "less than €0.01", "€0.02", or "free": what the conversation cost, for the sentence. */
+function costClause(session: AgentUsageView['session']): string | null {
+  const s = usageStrings().panel.sentence;
+  if (session.runs === 0 && session.calls === 0) return null;
+  if (session.free && !session.costUsd) return s.costFree;
+  if (session.costUsd === null) return null;
+  if (session.costUsd === 0) return s.costFree;
+  const eur = session.costEur ?? 0;
+  return s.cost(eur > 0 && eur < 0.005 ? s.lessThanCent : formatEur(eur));
+}
+
+/**
+ * The first line, in words: how much of the model's memory this conversation uses and what it
+ * cost; on a plan, that it runs on the plan and how much of it is used (U2-10).
+ */
+function sentenceOf(
+  view: AgentUsageView,
+  now: number,
+  plan: 'claude' | 'chatgpt' | null,
+): { first: string; plan: string | null } {
+  const s = usageStrings().panel.sentence;
+  const { context, subscription } = view;
+  if (!context) return { first: usageStrings().panel.noStep, plan: null };
+  const known = context.window !== null && !(context.measuredWith && !context.window);
+  const pct = percentText(context.total, context.window);
+  const clause = subscription ? null : costClause(view.session);
+  const first = known && pct ? s.memory(pct, clause) : s.memoryUnknown(clause);
+  if (!subscription) return { first, plan: null };
+  const name = plan === 'chatgpt' ? 'ChatGPT' : 'Claude';
+  const windows = (view.planLimits?.windows ?? []).map((w) => liveWindow(w, now));
+  const top = windows.reduce<(typeof windows)[number] | null>(
+    (best, w) => (best === null || w.usedPercent > best.usedPercent ? w : best),
+    null,
+  );
+  return {
+    first: `${first} ${s.onPlan(name)}`,
+    plan: top ? s.planUsed(name, top.label, top.usedPercent, windowNote(top, now)) : null,
+  };
+}
+
+/** The sentence and the bar: the whole first layer of "This conversation". */
+function SummaryScreen({ view, provider }: { view: AgentUsageView; provider: string | undefined }) {
+  const s = usageStrings().panel;
+  const now = useNow();
+  const { context } = view;
+  const said = sentenceOf(view, now, view.planLimits?.plan ?? planOf(provider));
+  const near =
+    context !== null &&
+    context.window !== null &&
+    context.total / context.window >= context.threshold;
+  return (
+    <Section title={s.sessionTitle} testId="usage-summary-screen">
+      <p className="text-body leading-6 text-screen-ink" data-testid="usage-sentence">
+        {said.first}
+      </p>
+      {said.plan && (
+        <p className="text-body leading-6 text-screen-ink" data-testid="usage-plan-sentence">
+          {said.plan}
+        </p>
+      )}
+      <ContextBar context={context} count={BIG_SEGMENTS} size="lg" />
+      {near && (
+        <p className="text-footnote leading-5 text-screen-signal" data-testid="usage-near">
+          {s.sentence.near}
+        </p>
+      )}
+      {view.archivedBefore != null && <ArchivedNote before={view.archivedBefore} />}
+    </Section>
+  );
+}
+
+/** Context in numbers (technical details): the window, the compaction mark and the parts. */
 function ContextScreen({
   context,
   subscription,
@@ -129,48 +206,34 @@ function ContextScreen({
 }) {
   const s = usageStrings().panel;
   if (!context) {
-    return (
+    return summary ? (
       <Section title={s.contextTitle} testId="usage-context">
-        <p className="text-footnote leading-[22px] text-screen-muted">{s.noStep}</p>
-        <ContextBar context={null} count={BIG_SEGMENTS} size="lg" />
-        {summary && <SummaryNote summary={summary} />}
+        <SummaryNote summary={summary} />
       </Section>
-    );
+    ) : null;
   }
-  const near = context.window !== null && context.total / context.window >= context.threshold;
   const model = modelShort(context.model) ?? context.model;
   return (
     <Section title={s.contextTitle} testId="usage-context">
-      <div className="flex flex-wrap items-end gap-x-5 gap-y-1">
-        <p
-          className={`dots text-hero leading-[44px] ${near ? 'text-screen-signal' : 'text-[var(--lit)]'}`}
-          data-testid="usage-percent"
-        >
-          {contextAmount(context)}
+      <div className="grid min-w-0 gap-0.5">
+        <p className="text-footnote leading-5 text-screen-ink tabular-nums">
+          {s.tokensOf(
+            formatCount(context.total),
+            context.window ? formatCount(context.window) : null,
+          )}
         </p>
-        <div className="grid min-w-0 gap-0.5 pb-0.5">
-          <p className="text-footnote leading-5 text-screen-ink tabular-nums">
-            {s.tokensOf(
-              formatCount(context.total),
-              context.window ? formatCount(context.window) : null,
-            )}
-          </p>
-          <p className="label truncate text-screen-muted">
-            {model}
-            {context.window ? '' : s.windowUnknown}
-          </p>
-        </div>
+        <p className="label truncate text-screen-muted">
+          {model}
+          {context.window ? '' : s.windowUnknown}
+        </p>
       </div>
-      <div className="grid gap-1.5">
-        <ContextBar context={context} count={BIG_SEGMENTS} size="lg" />
-        {context.window !== null && (
-          <p className="label flex justify-between text-screen-muted" aria-hidden>
-            <span>0</span>
-            <span>{s.compactsHere(Math.round(context.threshold * 100))}</span>
-            <span>{formatTokens(context.window)}</span>
-          </p>
-        )}
-      </div>
+      {context.window !== null && (
+        <p className="label flex justify-between text-screen-muted" aria-hidden>
+          <span>0</span>
+          <span>{s.compactsHere(Math.round(context.threshold * 100))}</span>
+          <span>{formatTokens(context.window)}</span>
+        </p>
+      )}
       <ul className="grid gap-2" aria-label={s.partsLabel} data-testid="usage-legend">
         {context.parts.map((p) => (
           <li
@@ -245,7 +308,7 @@ function SessionScreen({ view }: { view: AgentUsageView }) {
   const sub = view.subscription;
   if (s.runs === 0 && s.calls === 0) {
     return (
-      <Section title={t.sessionTitle} testId="usage-session">
+      <Section title={t.sessionDetailsTitle} testId="usage-session">
         <p className="text-footnote leading-[22px] text-screen-muted">{t.sessionEmpty}</p>
       </Section>
     );
@@ -254,7 +317,7 @@ function SessionScreen({ view }: { view: AgentUsageView }) {
   // Each question to Jev is a decision and a call; the rules alone only decide.
   const instinct = Math.max(s.instinct.questions, s.instinct.calls);
   return (
-    <Section title={t.sessionTitle} testId="usage-session">
+    <Section title={t.sessionDetailsTitle} testId="usage-session">
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
         <Stat
           label={t.tokensIn}
@@ -319,7 +382,6 @@ function SessionScreen({ view }: { view: AgentUsageView }) {
           </dd>
         </div>
       </dl>
-      {view.archivedBefore != null && <ArchivedNote before={view.archivedBefore} />}
     </Section>
   );
 }
@@ -424,6 +486,34 @@ function SpendScreen({ view, name }: { view: AgentUsageView; name: string }) {
 }
 
 /**
+ * "Details" (technical details on): the breakdown behind the sentence. Closed, so the panel stays
+ * short for the people who turned the details on once and look at it rarely.
+ */
+function DetailsDrawer({ children }: { children: ReactNode }) {
+  const s = usageStrings().panel;
+  const [open, setOpen] = useState(false);
+  const panelId = domId(useId());
+  return (
+    <div data-testid="usage-details" data-open={open ? 'true' : 'false'}>
+      <div className="ctx-sheet-rule px-5 py-2">
+        <button
+          type="button"
+          className="screen-key -ml-3 justify-start"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen((o) => !o)}
+          data-testid="usage-details-toggle"
+        >
+          <span className="label">{s.details}</span>
+          <CaretDown size={14} weight="bold" aria-hidden className={cn(open && 'rotate-180')} />
+        </button>
+      </div>
+      {open && <div id={panelId}>{children}</div>}
+    </div>
+  );
+}
+
+/**
  * The panel before the numbers arrive (docs/design.md: a wait is lineette, not
  * only a sentence): the four sections with their names, an unlit bar and the
  * meter running, so the screen keeps its shape when the numbers come in.
@@ -436,8 +526,7 @@ function UsageSkeleton() {
         {s.loading}
       </p>
       {[
-        [s.contextTitle, 'usage-context'],
-        [s.sessionTitle, 'usage-session'],
+        [s.sessionTitle, 'usage-summary-screen'],
         [s.spendTitle, 'usage-spend'],
       ].map(([title, testId]) => (
         <Section key={testId} title={title!} testId={`${testId}-loading`}>
@@ -457,6 +546,7 @@ export function UsagePanel({ agentId, onClose }: { agentId: string; onClose?: ()
   const agent = useAgent(agentId);
   const live = useLive(agentId);
   const { view, error } = useAgentUsage(agentId, true);
+  const details = usePrefs((p) => p.showDetails);
   if (!agent) return null;
   const lit = dotPalette(agent.genome).lit;
   return (
@@ -507,14 +597,19 @@ export function UsagePanel({ agentId, onClose }: { agentId: string; onClose?: ()
         {!view && !error && <UsageSkeleton />}
         {view && (
           <>
-            <ContextScreen
-              context={view.context}
-              subscription={view.subscription}
-              summary={view.summary ?? null}
-            />
-            <SessionScreen view={view} />
+            <SummaryScreen view={view} provider={agent.models?.[0]?.provider} />
             <PlanScreen view={view} provider={agent.models?.[0]?.provider} />
             <SpendScreen view={view} name={agent.name} />
+            {details && (
+              <DetailsDrawer>
+                <ContextScreen
+                  context={view.context}
+                  subscription={view.subscription}
+                  summary={view.summary ?? null}
+                />
+                <SessionScreen view={view} />
+              </DetailsDrawer>
+            )}
           </>
         )}
       </div>
