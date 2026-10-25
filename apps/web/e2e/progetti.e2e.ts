@@ -175,7 +175,7 @@ test('Progetti: a new project from the sidebar, with its lead and a copied monst
   await page.getByTestId('project-copy-save').click();
   await expect(page.getByTestId('project-member')).toHaveCount(3);
   const dione = page.getByTestId('project-member').filter({ hasText: given });
-  await dione.getByRole('button', { expanded: false }).first().click();
+  await dione.getByRole('button', { name: /^Edit / }).click();
   await dione.getByRole('button', { name: 'Remove' }).click();
   await dione.getByRole('button', { name: 'Yes, remove' }).click();
   await expect(page.getByTestId('project-member')).toHaveCount(2);
@@ -334,24 +334,23 @@ test('Progetti: a project’s monster is renamed, changes look and role from its
   await expect(members.getByTestId('project-member')).toHaveCount(3);
   const open = async (id: string) => {
     const row = page.locator(`[data-testid="project-member"]`).filter({ has: page.getByText(id) });
-    await row.getByRole('button', { expanded: false }).first().click();
+    await row.getByRole('button', { name: /^Edit / }).click();
     return row;
   };
 
   // Rename: names are unique across every squad (Rhea is in the personal one).
   let row = await open('Calypso');
-  await row.getByRole('button', { name: 'Change Calypso’s name' }).click();
-  await row.getByLabel('Calypso’s name').fill('rhea');
+  await row.getByLabel('Name', { exact: true }).fill('rhea');
   await row.getByRole('button', { name: 'Save' }).click();
-  await expect(row.getByRole('alert')).toContainText('There’s already a monster');
-  await row.getByLabel('Calypso’s name').fill('Telesto');
+  await expect(row.getByText('There’s already a monster')).toBeVisible();
+  await row.getByLabel('Name', { exact: true }).fill('Telesto');
   await row.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Calypso is now called Telesto.')).toBeVisible();
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Telesto,/ })).toBeVisible();
 
   // Role and what it does.
   row = page.getByTestId('project-member').filter({ hasText: 'Telesto' });
-  await row.getByRole('button', { name: 'Edit' }).click();
+  await row.getByRole('button', { name: 'Edit Telesto' }).click();
   const form = row.getByTestId('team-role-form-calypso');
   await form.getByLabel('Role, in one line').fill('Prepares the images for the posts');
   await form
@@ -363,30 +362,33 @@ test('Progetti: a project’s monster is renamed, changes look and role from its
   await expect(row).toContainText('Prepares the images for the posts');
 
   // A new look, still in the project; the chat and "Togli" stay.
+  await row.getByRole('button', { name: 'Edit Telesto' }).click();
   await row.getByRole('button', { name: 'Change look' }).click();
   const looks = row.getByTestId('team-looks-calypso');
   await expect(looks.getByRole('radio')).toHaveCount(4);
   await looks.getByRole('radio', { name: 'New look 1 for Telesto' }).click();
   await expect(page.getByText('Telesto has a new look.')).toBeVisible();
   await expect(row.getByRole('button', { name: 'Message Telesto' })).toBeVisible();
+  await row.getByRole('button', { name: 'Edit Telesto' }).click();
   await expect(row.getByRole('button', { name: 'Remove' })).toBeVisible();
+  await row.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByTestId('project-member')).toHaveCount(3);
 
   // The lead: name and look, no role to edit and no "Togli".
   const lead = members.getByTestId('project-member').first();
-  await lead.getByRole('button', { expanded: false }).first().click();
+  await lead.getByRole('button', { name: 'Edit Iapetus' }).click();
   await expect(lead).toContainText('its role can’t be changed');
-  await expect(lead.getByRole('button', { name: 'Edit' })).toHaveCount(0);
+  await expect(lead.getByLabel('Role, in one line')).toHaveCount(0);
   await expect(lead.getByRole('button', { name: 'Remove' })).toHaveCount(0);
-  await lead.getByRole('button', { name: 'Change Iapetus’s name' }).click();
-  await lead.getByLabel('Iapetus’s name').fill('Telesto');
+  await lead.getByLabel('Name', { exact: true }).fill('Telesto');
   await lead.getByRole('button', { name: 'Save' }).click();
-  await expect(lead.getByRole('alert')).toContainText('There’s already a monster');
-  await lead.getByLabel('Iapetus’s name').fill('Crio');
+  await expect(lead.getByText('There’s already a monster')).toBeVisible();
+  await lead.getByLabel('Name', { exact: true }).fill('Crio');
   await lead.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Iapetus is now called Crio.')).toBeVisible();
   await expect(page.getByTestId('project-members')).toContainText('Crio');
   await expect(page.getByTestId('project-members')).toContainText('Lead');
+  await lead.getByRole('button', { name: 'Edit Crio' }).click();
   await lead.getByRole('button', { name: 'Change look' }).click();
   await lead.getByRole('radio', { name: 'New look 1 for Crio' }).click();
   await expect(page.getByText('Crio has a new look.')).toBeVisible();
@@ -405,8 +407,9 @@ for (const theme of ['light', 'dark'] as const) {
     test('Squadra del progetto, una riga aperta', async ({ page }) => {
       await page.goto('/?mock=demo#/progetto?id=social-di-saturday&sezione=squadra');
       const row = page.getByTestId('project-member').nth(1);
-      await row.getByRole('button', { expanded: false }).first().click();
-      await expect(row.getByRole('button', { name: 'Change look' })).toBeVisible();
+      await row.getByRole('button', { name: /^Edit / }).click();
+      await row.getByRole('button', { name: 'Change look' }).click();
+      await expect(row.getByTestId(/^team-looks-/)).toBeVisible();
       await closeNotice(page);
       await page.screenshot({
         path: `${OUT}progetto-squadra-${theme}-1440-${SHOT_LANG}.png`,
