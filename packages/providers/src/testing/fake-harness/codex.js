@@ -1,7 +1,9 @@
 // A fake `codex app-server` for the tests: JSON-RPC lines without the
 // `jsonrpc` field, as documented. Fake options come first:
 //   node codex.mjs --fake-record=<file> --fake-scenario=<tool|loop|hang|noinit|usage_limit|longcmd|netcmd|mcpfail|limit> app-server …
-// `--fake-wrap=obey|ignore`: what the `limit` scenario does after the core's note (D-170).
+// `--fake-wrap=obey|ignore|done`: what the `limit` scenario does after the core's note (D-170);
+// `done`: the request that reaches the limit already ends with a complete answer, the note comes
+// (and is answered) before the turn completes, and the model makes no further request.
 // `--fake-answer=<text>`: the last message of the `tool` scenario (default «Fatto: <prompt>»).
 // `--fake-limits=off` leaves out the plan limits notification (D-111).
 // `longcmd`: a command that runs silent for `--fake-cmd-ms` (default 600), then prints a line.
@@ -241,6 +243,20 @@ async function limitTurn(mcpName) {
       },
     });
   };
+  if (fake.wrap === 'done') {
+    notify('item/completed', {
+      threadId: thread,
+      turnId: turn,
+      item: { type: 'agentMessage', id: 'a1', text: 'Risposta completa: 2 lune trovate.' },
+    });
+    tokenUsage(200, 100);
+    record({ kind: 'note', note: await nextNote(2000) });
+    notify('turn/completed', {
+      threadId: thread,
+      turn: { id: turn, status: 'completed', items: [], error: null },
+    });
+    return;
+  }
   await mcpCall('m1', 'lune');
   tokenUsage(200, 100);
   const note = await nextNote(2000);

@@ -85,6 +85,8 @@ const en = {
       'It will stop running. Past runs stay in Activity; the notes and files it made stay where they are.',
     cancel: 'Cancel',
     runsTitle: (n: number) => `Runs${n > 0 ? ` · ${n}` : ''}`,
+    runsFailed: 'I can’t read the runs right now.',
+    retry: 'Try again',
     noRuns: (firstAt: string | null) =>
       `No runs yet.${firstAt ? ` The first one starts ${firstAt}.` : ''}`,
     goal: 'Goal',
@@ -260,6 +262,8 @@ const it: typeof en = {
       'Non girerà più. I giri passati restano in Attività, le note e i file che ha fatto restano dove sono.',
     cancel: 'Annulla',
     runsTitle: (n) => `Giri${n > 0 ? ` · ${n}` : ''}`,
+    runsFailed: 'Non riesco a leggere i giri adesso.',
+    retry: 'Riprova',
     noRuns: (firstAt) => `Ancora nessun giro.${firstAt ? ` Il primo parte ${firstAt}.` : ''}`,
     goal: 'Obiettivo',
   },

@@ -4,7 +4,7 @@ import { useId, useMemo, useState, type ReactNode } from 'react';
 import { noteKey, noteName } from '../../lib/markdown.ts';
 import { PATHS, useHashParam, vaultPath } from '../../lib/router.ts';
 import { cn, domId, formatDay } from '../../lib/utils.ts';
-import { errorText, loadOlder, notify, useApp } from '../../store/app.ts';
+import { errorText, HISTORY_PAGE, loadOlder, notify, useApp } from '../../store/app.ts';
 import { withoutRepeatedStops, type EventCategory } from '../../store/derive.ts';
 import { useAgents, useMediaQuery } from '../../store/hooks.ts';
 import { ToolbarContent, ToolbarTitle } from '../shell/Toolbar.tsx';
@@ -157,6 +157,9 @@ function Picker({
   );
 }
 
+/** Events drawn at first; each page of older ones loaded adds its own (W-8). */
+const LOG_CAP = 600;
+
 /**
  * Activity (`#/log`): what the monsters and you did, newest first. A segment
  * says what is shown: "Important" (what had an effect: notes, files, commands,
@@ -181,13 +184,17 @@ export function LogView() {
   const note = useHashParam('nota');
   const key = note ? noteKey(note) : null;
 
-  const filtered = useMemo(() => {
+  const matching = useMemo(() => {
     const filter = { who: who || null, types, all, since: periodStart(period, now), note: key };
     return withoutRepeatedStops(events)
       .filter((e) => matchesActivity(e, filter))
-      .reverse()
-      .slice(0, 600);
+      .reverse();
   }, [events, who, types, all, period, now, key]);
+  // The newest ones are drawn; each page of older events loaded grows the cap, or the list would
+  // stay as it was and "Load older" would look broken (W-8).
+  const [cap, setCap] = useState(LOG_CAP);
+  const filtered = useMemo(() => matching.slice(0, cap), [matching, cap]);
+  const hidden = matching.length - filtered.length;
 
   const groups = useMemo(() => {
     const out: { day: string; items: LogEvent[] }[] = [];
@@ -217,9 +224,15 @@ export function LogView() {
   };
 
   const loadMore = async () => {
+    // Events already loaded but past the cap come first; the core is asked when none is left.
+    if (hidden > 0) {
+      setCap((c) => c + HISTORY_PAGE);
+      return;
+    }
     setLoading(true);
     try {
-      await loadOlder();
+      const n = await loadOlder();
+      setCap((c) => c + n);
     } catch (err) {
       notify(errorText(err), 'error');
     } finally {
@@ -398,7 +411,7 @@ export function LogView() {
             </section>
           ))
         )}
-        {hasOlder && (
+        {(hasOlder || hidden > 0) && (
           <div className="flex justify-center pt-4">
             <Button
               variant="secondary"
@@ -410,7 +423,7 @@ export function LogView() {
             </Button>
           </div>
         )}
-        {!hasOlder && groups.length > 0 && <ArchiveNote />}
+        {!hasOlder && hidden === 0 && groups.length > 0 && <ArchiveNote />}
       </div>
     </section>
   );

@@ -362,21 +362,31 @@ export function ProjectLinks({
   const [mcp, setMcp] = useState<McpServersResponse | null>(null);
   const [claude, setClaude] = useState<ClaudeConnectionsResponse | null>(null);
   const [busy, setBusy] = useState(false);
+  /** A read failed (W-35): the list is not complete, the section says so and offers a retry. */
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let alive = true;
     const api = getApi();
+    const lost = () => {
+      if (alive) setFailed(true);
+    };
     api
       .mcpServers()
       .then((r) => alive && setMcp(r))
-      .catch(() => {});
+      .catch(lost);
     api
       .claudeConnections()
       .then((r) => alive && setClaude(r))
-      .catch(() => {});
+      .catch(lost);
     return () => {
       alive = false;
     };
-  }, []);
+  }, [attempt]);
+  const retry = () => {
+    setFailed(false);
+    setAttempt((n) => n + 1);
+  };
   const members = new Set(p.members.map((m) => m.id));
   const nameOf = (id: string) => agents.find((a) => a.id === id)?.name ?? id;
 
@@ -430,14 +440,30 @@ export function ProjectLinks({
           </a>
         }
       >
-        {mcp === null && claude === null && (
+        {failed && (
+          <li>
+            <RowBody>
+              <div
+                role="alert"
+                data-testid="project-links-error"
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 text-body text-stop-ink"
+              >
+                <span>{s.failed}</span>
+                <Button size="sm" variant="secondary" onClick={retry}>
+                  {s.retry}
+                </Button>
+              </div>
+            </RowBody>
+          </li>
+        )}
+        {!failed && mcp === null && claude === null && (
           <li>
             <RowBody>
               <p className="label text-ink-muted">{sectionsStrings().loading}</p>
             </RowBody>
           </li>
         )}
-        {mcp !== null && team.length + own.length + services.length === 0 && (
+        {!failed && mcp !== null && team.length + own.length + services.length === 0 && (
           <li>
             <RowBody>
               <p className="text-body text-ink-muted">{s.none}</p>

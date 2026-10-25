@@ -49,7 +49,7 @@ function agentFor(models = [{ provider: 'fake', model: 'a' }]): AgentDefinition 
       role: 'ricerche',
       color: '#4f8df7',
       models,
-      tools: ['leggi'],
+      tools: ['leggi', 'grande'],
       limits: { maxSteps: 12, maxOutputTokens: 1000 },
     }),
     instructions: '# Rhea',
@@ -314,5 +314,46 @@ describe('the guard in a run', () => {
     expect(result.text).toBe('dal modello b');
     expect(errors(s.log, 'context_rescue')).toHaveLength(0);
     expect(errors(s.log, 'provider_fallback')).toHaveLength(1);
+  });
+});
+
+describe('pieces of a long result follow the smallest window of the chain (C-16)', () => {
+  const grande: MonstersTool = defineTool({
+    name: 'grande',
+    description: 'Una pagina lunga.',
+    inputSchema: z.object({}),
+    readOnly: true,
+    execute: () => Promise.resolve('z'.repeat(20_000)),
+  });
+  const run = async (windows: Record<string, number>) => {
+    const s = setup({
+      a: [
+        { kind: 'tool-calls', calls: [{ name: 'grande', input: {}, id: 'g1' }] },
+        { kind: 'text', text: 'Fatto.' },
+      ],
+    });
+    const result = await runAgent({
+      agent: agentFor([
+        { provider: 'fake', model: 'a' },
+        { provider: 'fake', model: 'b' },
+      ]),
+      task: 'Leggi la pagina.',
+      tools: [grande],
+      signal: new AbortController().signal,
+      log: s.log,
+      runId: 'run-w',
+      providers: s.providers,
+      contextWindow: (ref) => windows[ref.model],
+    });
+    expect(result.status).toBe('completed');
+    return promptOf(s.provider.callsTo('a').at(-1)!);
+  };
+
+  it('a 1M model falling back to a 32k one keeps the small pieces', async () => {
+    expect(await run({ a: 1_000_000, b: 32_768 })).not.toContain('z'.repeat(20_000));
+  });
+
+  it('with big windows all along the page comes whole', async () => {
+    expect(await run({ a: 1_000_000, b: 1_000_000 })).toContain('z'.repeat(20_000));
   });
 });

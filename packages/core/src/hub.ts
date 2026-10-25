@@ -66,7 +66,7 @@ import {
   type VaultWarning,
   type VcsKind,
 } from '@monsters/vault';
-import { DEFAULT_FREE_CHAIN, isDefaultChain, replaceRetired } from './agents/archetypes.ts';
+import { DEFAULT_FREE_CHAIN, isDefaultChain } from './agents/archetypes.ts';
 import { automationRunOf } from './automations/run-index.ts';
 import { AutomationService, type AutomationServiceOptions } from './automations/service.ts';
 import { AUTOMATIONS_DIR } from './automations/store.ts';
@@ -641,10 +641,8 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
   });
   await team.load();
   // A model gone upstream: its successor in every chain, the tiers kept (D-165).
-  for (const a of team.list()) {
-    const next = replaceRetired(a.config.models);
-    if (next && a.dir) await team.setModels(a.config.id, next, a.config.autoModels);
-  }
+  // Best effort: a file that cannot be written does not stop the start (it keeps the new chain in memory).
+  for (const a of team.list()) await team.replaceRetiredModels(a);
   const bootstrapTeam = () =>
     team.bootstrap({
       user: settings.userName,

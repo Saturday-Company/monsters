@@ -24,6 +24,7 @@ const en = {
   skippedAsleep: (when: string) =>
     `The computer was asleep (or Monsters was stopped) for the run of ${when}: too much time has passed, so the run was skipped.`,
   halted: 'Monsters is stopped: the run didn’t start.',
+  closing: 'Monsters is closing: the run didn’t start. Try again in a moment.',
   haltedResume: 'Monsters is stopped: the run didn’t resume.',
   killed: 'Monsters was stopped',
   leadGone: (lead: string) => `${lead} is no longer in the squad.`,
@@ -68,6 +69,7 @@ const it: typeof en = {
   skippedAsleep: (when) =>
     `Il computer dormiva (o Monsters era fermo) (giro di ${when}): è passato troppo tempo, il giro è saltato.`,
   halted: 'Monsters è fermo: il giro non è partito.',
+  closing: 'Monsters si sta chiudendo: il giro non è partito. Riprova tra un attimo.',
   haltedResume: 'Monsters è fermo: il giro non è ripreso.',
   killed: 'Monsters è stato fermato',
   leadGone: (lead) => `${lead} non è più nella squadra.`,

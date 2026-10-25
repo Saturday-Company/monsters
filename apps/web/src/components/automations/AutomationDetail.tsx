@@ -291,10 +291,15 @@ function GiroRow({ a, run }: { a: AutomationView; run: AutomationRunSummary }) {
 export function AutomationDetail({
   a,
   runs,
+  runsError,
+  onRetryRuns,
   onChanged,
 }: {
   a: AutomationView;
   runs: AutomationRunSummary[] | null;
+  /** Why the runs could not be read (nothing loaded yet): shown with a retry (W-12). */
+  runsError?: string | null;
+  onRetryRuns?: () => void;
   onChanged: (a: AutomationView) => void;
 }) {
   const s = automationsStrings().detail;
@@ -434,7 +439,20 @@ export function AutomationDetail({
         <h2 id="giri-title" className="label px-1 text-ink-muted">
           {s.runsTitle(runs?.length ?? 0)}
         </h2>
-        {runs === null ? (
+        {runs === null && runsError ? (
+          <div
+            role="alert"
+            data-testid="automation-giri-error"
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 text-body text-stop-ink"
+          >
+            <span>{s.runsFailed}</span>
+            {onRetryRuns && (
+              <Button size="sm" variant="secondary" onClick={onRetryRuns}>
+                {s.retry}
+              </Button>
+            )}
+          </div>
+        ) : runs === null ? (
           <p className="label px-1 text-ink-muted" aria-busy="true">
             {automationsStrings().loading}
           </p>

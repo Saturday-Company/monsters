@@ -29,9 +29,11 @@ import { z } from 'zod';
 import {
   ALL_VAULT_TOOLS,
   VAULT_READ_TOOLS,
+  RETIRED_MODELS,
   WEB_TOOLS,
   dioneBlueprint,
   orchestratorBlueprint,
+  replaceRetired,
   rheaBlueprint,
   type ArchetypeOptions,
 } from '../agents/archetypes.ts';
@@ -224,8 +226,8 @@ export interface BootstrapOptions {
 interface Runtime {
   /** Active work items (runs and delegations) of the agent. */
   work: Set<string>;
-  /** Open blocking questions asked by the agent. */
-  waiting: Set<string>;
+  /** Open blocking questions asked by the agent: by id, the run that asked (C-6). */
+  waiting: Map<string, string | undefined>;
   /** Parked questions of the agent (D-078): it waits for the user with no run; by id, the question. */
   parked: Map<string, string>;
   /** State when nothing is active. */
@@ -743,6 +745,45 @@ export class TeamService {
   }
 
   /**
+   * A model gone upstream is replaced by its successor in the chain of every agent (D-165),
+   * the tiers kept. Best effort: when `agent.yaml` cannot be written (read-only file, full disk,
+   * a file locked by a sync tool) the chain is replaced in memory only, the run uses the new
+   * model and the next start tries again; the core starts either way. One line in Activity
+   * per replaced agent. Returns whether the chain changed.
+   */
+  async replaceRetiredModels(def: AgentDefinition): Promise<boolean> {
+    const next = replaceRetired(def.config.models);
+    if (!next) return false;
+    const was = def.config.models.find((m) => RETIRED_MODELS[`${m.provider}/${m.model}`])!;
+    const from = `${was.provider}/${was.model}`;
+    const successor = RETIRED_MODELS[from]!;
+    const to = `${successor.provider}/${successor.model}`;
+    const name = def.config.name;
+    const code = 'retired_model';
+    try {
+      if (!def.dir) throw new Error('no folder');
+      await this.setModels(def.config.id, next, def.config.autoModels);
+      this.#log.append({
+        agent: 'system',
+        type: 'error',
+        data: { code, message: teamStrings().retiredModelReplaced(name, from, to) },
+      });
+    } catch (err) {
+      def.config = { ...def.config, models: next };
+      this.#applyPolicy();
+      this.#log.append({
+        agent: 'system',
+        type: 'error',
+        data: {
+          code,
+          message: teamStrings().retiredModelNotSaved(name, from, to, (err as Error).message),
+        },
+      });
+    }
+    return true;
+  }
+
+  /**
    * Vault permissions derived from the team (orchestrator id, areas, extra
    * globs). A project's monsters also write in the project's area, and its
    * lead deletes and moves there too (D-097); none of them is privileged: they
@@ -1048,7 +1089,7 @@ export class TeamService {
   #rt(id: string): Runtime {
     let rt = this.#runtime.get(id);
     if (!rt) {
-      rt = { work: new Set(), waiting: new Set(), parked: new Map(), rest: 'idle' };
+      rt = { work: new Set(), waiting: new Map(), parked: new Map(), rest: 'idle' };
       this.#runtime.set(id, rt);
     }
     return rt;
@@ -1147,7 +1188,11 @@ export class TeamService {
           rt.activity = clip(e.data.goal ?? teamStrings().atWork);
           return;
         }
-        rt.waiting.clear();
+        // Only the questions of the run that ended: a monster may have two jobs at once (D-157)
+        // and the other one is still waiting for its answer (C-6).
+        for (const [id, runId] of rt.waiting) {
+          if (runId === undefined || runId === change.runId) rt.waiting.delete(id);
+        }
         rt.confusedSince = undefined;
         this.#closeWork(rt, change.key, change.status);
         // A run takes the tasks given within it along (D-157): its scope killed their
@@ -1200,7 +1245,7 @@ export class TeamService {
         this.#asked.set(e.data.questionId, e.data.question);
         if (!e.data.blocking) return;
         const rt = this.#rt(e.agent);
-        rt.waiting.add(e.data.questionId);
+        rt.waiting.set(e.data.questionId, e.runId ?? undefined);
         rt.confusedSince = undefined;
         rt.activity = clip(teamStrings().waitingAnswer(e.data.question));
         return;

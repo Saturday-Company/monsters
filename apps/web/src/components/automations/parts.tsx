@@ -44,6 +44,8 @@ export interface Loaded<T> {
   error: string | null;
   /** Puts what an action returned, without a round trip. */
   set: (value: T) => void;
+  /** Asks again (the retry after an error). */
+  retry: () => void;
 }
 
 /**
@@ -53,6 +55,7 @@ export interface Loaded<T> {
 export function useLoaded<T>(load: () => Promise<T>, key: string): Loaded<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const fn = useRef(load);
   useEffect(() => {
     fn.current = load;
@@ -69,8 +72,16 @@ export function useLoaded<T>(load: () => Promise<T>, key: string): Loaded<T> {
     return () => {
       live = false;
     };
-  }, [key]);
-  return { data, error, set: setData };
+  }, [key, attempt]);
+  return {
+    data,
+    error,
+    set: setData,
+    retry: () => {
+      setError(null);
+      setAttempt((n) => n + 1);
+    },
+  };
 }
 
 /** The light and the word of a run's state ("Fatto", "Aspetta una risposta"…). */

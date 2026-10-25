@@ -101,7 +101,7 @@ function fakeClaude(record: string, wrap: 'obey' | 'ignore' | 'hang' = 'obey'): 
   });
 }
 
-function fakeCodex(record: string, wrap: 'obey' | 'ignore' = 'obey'): HarnessProvider {
+function fakeCodex(record: string, wrap: 'obey' | 'ignore' | 'done' = 'obey'): HarnessProvider {
   return new CodexHarness({
     binary: () => ({
       command: process.execPath,
@@ -362,6 +362,19 @@ describe('the wrap-up at a limit on Codex (D-170)', () => {
         .map((r) => r.data.cause ?? 'ok'),
     ).toEqual(['ok', 'limit']);
     expect(errors().map((e) => e.data.code)).toEqual(['run_limit']);
+  });
+
+  it('a complete answer on the request that reaches the limit stays completed (C-12)', async () => {
+    inLang('en');
+    const record = join(home, 'codex.jsonl');
+    const result = await runHarnessAgent(
+      options(fakeCodex(record, 'done'), { agent: agentDef('codex'), budget: oneStep() }),
+    );
+    // The note went in (answered before the turn ended), but no request followed it.
+    expect(recorded(record).some((r) => r.kind === 'note' && r.note)).toBe(true);
+    expect(result.status).toBe('completed');
+    expect(result.text).toBe('Risposta completa: 2 lune trovate.');
+    expect(errors().map((e) => e.data.code)).toEqual([]);
   });
 
   it('a model that keeps calling tools is interrupted after the bound', async () => {

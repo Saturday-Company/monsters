@@ -12,7 +12,7 @@ const en = {
     apiHint: 'OpenRouter and direct keys.',
     plan: 'Subscriptions',
     planHint:
-      'Claude Code and Codex. Every request counts as a step, and the first read of a context counts as tokens.',
+      'Claude Code, Codex and the ChatGPT plan. Every request counts as a step, and the first read of a context counts as tokens.',
   },
   fields: {
     steps: 'Steps per job',
@@ -40,7 +40,7 @@ const it: typeof en = {
     apiHint: 'OpenRouter e chiavi dirette.',
     plan: 'Abbonamenti',
     planHint:
-      'Claude Code e Codex. Ogni richiesta conta come un passo, e la prima lettura di un contesto conta come token.',
+      'Claude Code, Codex e il piano ChatGPT. Ogni richiesta conta come un passo, e la prima lettura di un contesto conta come token.',
   },
   fields: {
     steps: 'Passi per lavoro',

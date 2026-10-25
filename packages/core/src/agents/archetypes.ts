@@ -31,16 +31,32 @@ export const RETIRED_MODELS: Readonly<Record<string, ModelRef>> = {
   },
 };
 
-/** The chain with its retired models replaced (each link keeps its tier), or null when none is. */
-export function replaceRetired<T extends ModelRef>(models: readonly T[]): T[] | null {
+/**
+ * The chain with its retired models replaced (each link keeps its tier), or null when none is.
+ * When two links collapse into one, the stronger tier is kept (`[old(light), new(strong)]`
+ * stays strong).
+ */
+export function replaceRetired<T extends ModelRef & { tier?: 'light' | 'strong' | undefined }>(
+  models: readonly T[],
+): T[] | null {
   if (!models.some((m) => RETIRED_MODELS[`${m.provider}/${m.model}`])) return null;
   const out: T[] = [];
   for (const m of models) {
     const next = RETIRED_MODELS[`${m.provider}/${m.model}`];
     const link = next ? { ...m, provider: next.provider, model: next.model } : m;
-    if (!out.some((x) => x.provider === link.provider && x.model === link.model)) out.push(link);
+    const same = out.findIndex((x) => x.provider === link.provider && x.model === link.model);
+    if (same < 0) out.push(link);
+    else if (link.tier === 'strong' && out[same]!.tier !== 'strong') {
+      out[same] = { ...out[same]!, tier: 'strong' };
+    }
   }
   return out;
+}
+
+/** The successor of a retired model, or the model itself (a model chosen by hand, a draft). */
+export function replaceRetiredRef<T extends ModelRef>(ref: T): T {
+  const next = RETIRED_MODELS[`${ref.provider}/${ref.model}`];
+  return next ? { ...ref, provider: next.provider, model: next.model } : ref;
 }
 
 /**

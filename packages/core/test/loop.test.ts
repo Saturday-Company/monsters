@@ -612,3 +612,59 @@ describe('provider usage (AG-09, AG-20)', () => {
     expect(usage?.data).toMatchObject({ inputTokens: 1000, cachedInputTokens: 900 });
   });
 });
+
+describe('the ChatGPT plan is a subscription for the caps (C-5)', () => {
+  function chatgptEnv(models: Record<string, FakeScript>) {
+    const services = createCoreServices({ home: tempHome() });
+    opened.push(services);
+    const provider = new FakeProvider({ id: 'chatgpt', models });
+    return {
+      ...services,
+      provider,
+      providers: new ProviderRegistry().register(provider),
+      session: {},
+    };
+  }
+  const onChatgpt = () =>
+    agent({ models: [{ provider: 'chatgpt', model: 'a' }], limits: { maxSteps: 20 } });
+
+  it('its requests count against the plan’s caps, not the pay-per-use ones', async () => {
+    const env = chatgptEnv({
+      a: [
+        fake.toolCall('lookup', { q: 'rea' }),
+        fake.toolCall('lookup', { q: 'teti' }),
+        fake.text('Rapporto: Rea e Teti.'),
+      ],
+    });
+    const budget = new RunBudget(RunLimitsSchema.parse({ plan: { maxRunSteps: 2 } }));
+    const { result } = await run(env, { agent: onChatgpt(), budget });
+    expect(budget.usage).toMatchObject({ steps: 0, tokens: 0, planSteps: 3 });
+    expect(budget.usage.planTokens).toBeGreaterThan(0);
+    expect(result).toMatchObject({
+      status: 'run_limit',
+      limit: { kind: 'steps', value: 2, plan: true },
+    });
+  });
+
+  it('a delegated monster on the plan is held to the plan’s token cap', async () => {
+    const big = {
+      inputTokens: { total: 1500, noCache: 1500, cacheRead: undefined, cacheWrite: undefined },
+      outputTokens: { total: 7, text: 7, reasoning: undefined },
+    };
+    const env = chatgptEnv({
+      a: [
+        { kind: 'tool-calls', calls: [{ name: 'lookup', input: { q: 'rea' } }], usage: big },
+        fake.text('Rapporto.'),
+      ],
+    });
+    const limits = RunLimitsSchema.parse({
+      maxSubagentTokens: 1_000_000,
+      plan: { maxSubagentTokens: 1000 },
+    });
+    const { result } = await run(env, { agent: onChatgpt(), budget: new RunBudget(limits) });
+    expect(result).toMatchObject({
+      status: 'token_limit',
+      limit: { kind: 'agent_tokens', value: 1000, plan: true },
+    });
+  });
+});

@@ -575,6 +575,44 @@ describe('automations in the core', () => {
     expect(t.events().filter(isType('automation_run_finished'))).toEqual([done]);
   });
 
+  it('"Run now" during the closing does not end the cut giro: it goes on at the next start (C-7)', async () => {
+    const home = tempHome();
+    const first = await hub(() => fake.text('mai', { gate: never }), { home });
+    await first.t.json('POST', '/api/automations', draft());
+    first.time.advance(MIN);
+    const started = await first.t.waitEvent(isType('automation_run_started'));
+    await first.t.waitEvent(
+      isType('run', (e) => e.runId === started.runId && e.data.status === 'started'),
+    );
+    // The closing has logged the abort of the run and waits for it: in that window a click on
+    // "Run now" and a read of the automation must leave the giro alone.
+    const closing = first.t.core.runs.shutdown();
+    expect(() => first.t.core.hub.automations.runNow('post-della-settimana', 'ui')).toThrow(
+      /closing|chiude/,
+    );
+    first.t.core.hub.automations.list();
+    await closing;
+    expect(first.t.events().filter(isType('automation_run_finished'))).toEqual([]);
+    await first.t.core.close();
+
+    const { t } = await hub(
+      (call) =>
+        /Monsters si è chiuso|Monsters was closed/.test(promptText(call.options.prompt))
+          ? fake.text('Ripreso: post pronti.')
+          : fake.text('Ciao.'),
+      { home, start: START + 10 * MIN },
+    );
+    const again = await t.waitEvent(
+      isType(
+        'automation_run_started',
+        (e) => e.data.giro === started.runId && e.runId !== started.runId,
+      ),
+    );
+    expect(again.data).toMatchObject({ continues: started.runId });
+    const done = await t.waitEvent(isType('automation_run_finished'));
+    expect(done.data).toMatchObject({ giro: started.runId, status: 'completed' });
+  });
+
   it('an answer to an older giro waits for the open one, and a paused automation does not go on (B4)', async () => {
     const { t, time } = await hub(
       (call) => {
