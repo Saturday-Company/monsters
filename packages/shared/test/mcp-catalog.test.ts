@@ -116,8 +116,20 @@ describe('MCP catalog', () => {
     expect(design.soon).toBeTruthy();
   });
 
-  it('Saturday products come first, with an address per company (D-075)', () => {
-    expect(MCP_CATALOG.slice(0, 2).map((e) => e.id)).toEqual(['anteiku', 'witdesk']);
+  it('the gallery goes by common use: the well-known apps first, Saturday’s products after the first six', () => {
+    const ids = MCP_CATALOG.map((e) => e.id);
+    expect(ids.slice(0, 4)).toEqual(['github', 'notion', 'linear', 'google']);
+    // The first six cards of the gallery are the first six that can be connected: none is Saturday's.
+    const firstSix = MCP_CATALOG.filter((e) => !e.soon)
+      .slice(0, 6)
+      .map((e) => e.id);
+    expect(firstSix).not.toContain('anteiku');
+    expect(firstSix).not.toContain('witdesk');
+    // Present all the same, and next to each other.
+    expect(ids.indexOf('witdesk')).toBe(ids.indexOf('anteiku') + 1);
+  });
+
+  it('Saturday products have an address per company (D-075)', () => {
     const anteiku = MCP_CATALOG.find((e) => e.id === 'anteiku')!;
     expect(needsTenant(anteiku)).toBe(true);
     expect(anteiku.url).toBeUndefined();

@@ -1,18 +1,19 @@
 import { expect, test } from './fixtures.ts';
 
 /*
- * Settings → Collegamenti → Apps and services (MCP, M2.5), on the mock core: add a
- * program, test it (its tools), choose who uses it, remove it; turn the
- * browser on. Addresses and commands stay under "Dettagli".
+ * Settings → Apps and Telegram → Apps (MCP, M2.5), on the mock core: add an app by
+ * its address (a closed Advanced row, wave C), test it (its tools), choose who uses it,
+ * remove it; turn the browser on. Addresses and commands stay under "Details".
  * `MCP_SHOTS=<dir>` also writes screenshots in light and dark.
  */
 
 test('settings: add an MCP server, test it, choose the monsters, remove it', async ({ page }) => {
   await page.goto('/?mock=demo#/impostazioni?sezione=collegamenti');
   const section = page.getByTestId('mcp-settings');
-  await expect(section.getByRole('heading', { name: 'Apps and services' })).toBeVisible();
-  await expect(section).toContainText('MCP');
-  // The demo has GitHub already, from the gallery (D-063): not in the list of other programs.
+  await expect(section.getByRole('heading', { name: 'Apps', exact: true })).toBeVisible();
+  // "MCP" is for the Advanced row only (U2-7): the hint of the row says what the standard is.
+  await expect(section.getByTestId('mcp-add-advanced')).toContainText('MCP');
+  // The demo has GitHub already, from the gallery (D-063): not in the list of added apps.
   await expect(section.getByTestId('gallery-github')).toContainText('Connected');
   await expect(section.getByTestId('mcp-server-github')).toHaveCount(0);
   // The browser is off.
@@ -21,7 +22,7 @@ test('settings: add an MCP server, test it, choose the monsters, remove it', asy
     'false',
   );
 
-  await section.getByRole('button', { name: 'Add a custom app' }).click();
+  await section.getByRole('button', { name: /Advanced: add an app by address/ }).click();
   const form = section.getByTestId('mcp-add-form');
   // Checked in the page first.
   await form.getByLabel('Name').fill('Note Vecchie');
@@ -43,8 +44,8 @@ test('settings: add an MCP server, test it, choose the monsters, remove it', asy
   await expect(page.getByText('App “calendario” added.')).toBeVisible();
 
   const card = section.getByTestId('mcp-server-calendario');
-  await expect(card).toContainText('App on this computer');
-  // The command is a detail: not in the row, under "Dettagli" once open.
+  await expect(card).toContainText('On this computer');
+  // The command is a detail: not in the row, under "Details" once open.
   await expect(card).not.toContainText('npx -y');
   await card.getByRole('button', { expanded: false }).click();
   await expect(card.getByTestId('mcp-details')).toHaveCount(0);
@@ -81,7 +82,7 @@ test('settings: add an MCP server, test it, choose the monsters, remove it', asy
 test('settings: a server that does not start says why', async ({ page }) => {
   await page.goto('/?mock=demo#/impostazioni?sezione=collegamenti');
   const section = page.getByTestId('mcp-settings');
-  await section.getByRole('button', { name: 'Add a custom app' }).click();
+  await section.getByRole('button', { name: /Advanced: add an app by address/ }).click();
   const form = section.getByTestId('mcp-add-form');
   await form.getByLabel('Name').fill('rotto');
   await form.getByLabel('Command').fill('program-that-does-not-exist');
@@ -98,6 +99,12 @@ test('settings: turn the browser on for the monsters with the web', async ({ pag
   await browser.getByRole('switch', { name: 'Browser', exact: true }).click();
   await expect(page.getByText('Browser turned on.')).toBeVisible();
   await expect(browser.getByTestId('mcp-status')).toHaveText('Ready');
+  // The web is each monster's permission: a monster without it is marked, and a line says where.
+  await expect(browser.getByRole('button', { name: /no web/ }).first()).toBeDisabled();
+  await expect(browser.getByTestId('mcp-browser-web-note').getByRole('link')).toHaveAttribute(
+    'href',
+    '#/impostazioni?sezione=permessi',
+  );
   await browser.getByRole('button', { name: 'Details' }).click();
   await expect(browser.getByTestId('mcp-details')).toContainText('@playwright/mcp@');
   await expect(browser.getByTestId('mcp-details')).toContainText('/browser/profile');
@@ -135,7 +142,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.waitForTimeout(300);
       await page.screenshot({ path: `${SHOTS}/mcp-${theme}.png`, animations: 'disabled' });
 
-      await section.getByRole('button', { name: 'Add a custom app' }).click();
+      await section.getByRole('button', { name: /Advanced: add an app by address/ }).click();
       const form = section.getByTestId('mcp-add-form');
       await form.getByLabel('Name').fill('calendario');
       await form.getByLabel('Command').fill('npx -y @esempio/mcp-calendario');

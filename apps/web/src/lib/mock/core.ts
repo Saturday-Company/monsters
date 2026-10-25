@@ -207,6 +207,7 @@ export class MockCore {
     agents: () => this.agents,
     log: (event) => this.append(event),
     claude: () => this.providers.claudeReady,
+    web: (id) => this.permissions.webOf(id),
   });
   /** Spending caps (D-070): created with the mode (the demo has spent a little). */
   private spend!: MockSpend;

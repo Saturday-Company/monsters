@@ -101,6 +101,11 @@ export class MockPermissions {
     return out;
   }
 
+  /** Whether a monster may use the web (the browser and the search follow it). */
+  webOf(id: string): boolean {
+    return (this.own.get(id) ?? this.defaults).web;
+  }
+
   handle(method: string, path: string, body: unknown): RawResponse | null {
     if (path !== '/api/permissions') return null;
     if (method === 'GET') return { status: 200, body: this.view() };

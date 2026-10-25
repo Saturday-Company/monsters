@@ -52,7 +52,7 @@ const MODULES: { name: string; hash: string; match: string; said: string; shown:
     hash: '#/impostazioni?sezione=collegamenti',
     match: 'GET /api/mcp-servers',
     said: 'Couldn’t load your apps.',
-    shown: 'Add a custom app',
+    shown: 'Advanced: add an app by address',
   },
   {
     name: 'the squad',
