@@ -60,7 +60,7 @@ const en = {
     title: 'Apps and services',
     description:
       'Every connection given to the whole squad reaches the project’s monsters, also the ones you connect later: they use it when the work needs it. Turn off here what this project must not use. One given to a monster by name reaches it anyway.',
-    more: 'Connect other apps in Settings → Connections',
+    more: 'Connect other apps in Settings → Apps and Telegram',
     none: 'No app connected, for now.',
     what: 'the connections',
     team: 'Given to the whole squad',
@@ -165,7 +165,7 @@ const it: typeof en = {
     title: 'Programmi e servizi',
     description:
       'Ogni collegamento dato a tutta la squadra arriva ai mostri del progetto, anche quelli che colleghi dopo: lo usano quando il lavoro lo chiede. Spegni qui quello che questo progetto non deve usare. Uno dato a un mostro per nome gli arriva comunque.',
-    more: 'Collega altri programmi in Impostazioni → Collegamenti',
+    more: 'Collega altri programmi in Impostazioni → App e Telegram',
     none: 'Nessun programma collegato, per ora.',
     what: 'i collegamenti',
     team: 'Dato a tutta la squadra',

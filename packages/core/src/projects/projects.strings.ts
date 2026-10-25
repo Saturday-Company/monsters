@@ -33,7 +33,7 @@ const en = {
   folderMissingOrNew: (path: string) =>
     `The folder ${path} doesn’t exist: pick one that does, or “new” for a new one.`,
   connectionUnknown: (name: string, have: string) =>
-    `connections: “${name}” isn’t connected (connected: ${have}). Connect it from Settings → Connections.`,
+    `connections: “${name}” isn’t connected (connected: ${have}). Connect it from Settings → Apps and Telegram.`,
   none: 'none',
   connectionsReset: (project: string, allowed: string) =>
     `${project}: the old list of allowed connections (${allowed}) no longer applies. The project now reaches every connection given to the whole squad: turn off the ones it doesn’t need in its Connections tab.`,
@@ -156,7 +156,7 @@ const it: typeof en = {
   folderMissingOrNew: (path) =>
     `La cartella ${path} non esiste: scegline una che c’è, o "new" per una nuova.`,
   connectionUnknown: (name, have) =>
-    `connections: "${name}" non è collegato (collegati: ${have}). Si collega da Impostazioni → Collegamenti.`,
+    `connections: "${name}" non è collegato (collegati: ${have}). Si collega da Impostazioni → App e Telegram.`,
   none: 'nessuno',
   connectionsReset: (project, allowed) =>
     `${project}: la vecchia lista dei collegamenti consentiti (${allowed}) non vale più. Ora il progetto raggiunge tutti i collegamenti dati a tutta la squadra: spegni quelli che non gli servono nella scheda Collegamenti.`,

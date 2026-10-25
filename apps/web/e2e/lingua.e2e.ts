@@ -174,12 +174,12 @@ test.describe('the main screens in Italian, at 1024 px', () => {
       'Squadra',
       'Modelli',
       'Permessi',
-      'Collegamenti',
+      'App e Telegram',
       'Generale',
     ]);
     await expectNoSideScroll(page);
     await expectInsideCard(card(page));
-    for (const tab of ['Permessi', 'Collegamenti', 'Generale']) {
+    for (const tab of ['Permessi', 'App e Telegram', 'Generale']) {
       await tabs.getByRole('tab', { name: tab }).click();
       await expect(page.getByRole('tabpanel', { name: tab })).toBeVisible();
       await expectNoSideScroll(page);

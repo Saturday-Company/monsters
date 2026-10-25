@@ -56,7 +56,7 @@ export type AccessStep =
   | { do: 'project_web'; project: string }
   /** A connection of the whole team chosen for the project (scheda Collegamenti). */
   | { do: 'project_link'; project: string; via: 'mcp' | 'claude'; id: string }
-  /** A server given to one monster by name (the browser, Impostazioni → Collegamenti). */
+  /** A server given to one monster by name (the browser, Impostazioni → App e Telegram). */
   | { do: 'server_agent'; server: string; agent: string };
 
 /** What a request stores with its question. */

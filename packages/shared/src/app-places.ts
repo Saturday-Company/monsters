@@ -5,8 +5,8 @@ import { LANGS } from './i18n.ts';
 /*
  * The names of the app's places, word for word as the UI shows them (D-133).
  * The UI renders its tabs and section titles from these constants, and the
- * texts of the core that send the user somewhere ("Settings → Connections →
- * Apps and services", "the project page, Spending tab") are built from them, in the
+ * texts of the core that send the user somewhere ("Settings → Apps and Telegram →
+ * Apps", "the project page, Spending tab") are built from them, in the
  * language of the app (D-153): a renamed tab cannot leave a monster pointing at
  * a screen that does not exist (review of 19/10: «External tools»,
  * «Permessi → Altri programmi»).
@@ -164,8 +164,8 @@ export const PROJECT_TABS = {
 export type ProjectTabId = keyof typeof PROJECT_TABS;
 
 /**
- * "Settings → Connections", or "Settings → Connections → Apps and services" (Italian: "Impostazioni →
- * Collegamenti"); a section inside a drawer names it too ("Settings → Squad → Advanced →
+ * "Settings → Apps and Telegram", or "Settings → Apps and Telegram → Apps" (Italian: "Impostazioni →
+ * App e Telegram"); a section inside a drawer names it too ("Settings → Squad → Advanced →
  * Monsters’ decisions"). A text puts "in" before it, in both languages.
  */
 export function settingsPath(
@@ -224,6 +224,9 @@ export function findSettingsPlaces(text: string): { index: number; text: string;
   // Tabs of earlier versions of the app: their route still leads somewhere.
   // i18n-ignore: names of screens of the first Italian app, matched in old texts
   byName.set('Aspetto', 'aspetto').set('Account', 'account');
+  // The tab "Connections" was renamed "Apps and Telegram" (wave C): old texts still say its name.
+  // i18n-ignore: the previous names of a tab, matched in old texts
+  byName.set('Connections', 'collegamenti').set('Collegamenti', 'collegamenti');
   const pattern = new RegExp(
     `(?:${[...settings].map(escapeRegex).join('|')}) → (${[...byName.keys()].map(escapeRegex).join('|')})(${[...limits].map(escapeRegex).join('|')})?`,
     'g',

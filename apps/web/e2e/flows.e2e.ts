@@ -459,7 +459,7 @@ test('settings: theme, OpenRouter and Brave keys', async ({ page }) => {
   await expect(page.getByText('Key saved.')).toBeVisible();
   await expect(openrouter.getByTestId('key-status')).toContainText('Monsters (mock)');
 
-  await page.getByRole('tab', { name: 'Connections' }).click();
+  await page.getByRole('tab', { name: 'Apps and Telegram' }).click();
   await expect(page.getByTestId('brave-key-status')).toHaveAttribute('data-set', 'no');
   await page.getByRole('button', { name: 'Add the Brave key' }).click();
   await page.getByLabel('Brave Search key').fill('BSA0123456789abcdef');

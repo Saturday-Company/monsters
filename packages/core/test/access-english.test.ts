@@ -253,7 +253,7 @@ describe('the reasons an access is missing, in English', () => {
     );
     const gallery = state.services.find((s) => s.aliases?.includes('Gmail'))!;
     expect(gallery.why).toBe(
-      `${gallery.name} is not connected to the account: the user connects it in Settings → Connections`,
+      `${gallery.name} is not connected to the account: the user connects it in Settings → Apps and Telegram`,
     );
   });
 
@@ -281,7 +281,7 @@ describe('the reasons an access is missing, in English', () => {
       { agent: nova, runId: 'r', toolNames: ['vault_read'] },
     );
     expect(browser.browser?.why).toBe(
-      'the Monsters browser is off: the user turns it on in Settings → Connections → Apps and services',
+      'the Monsters browser is off: the user turns it on in Settings → Apps and Telegram → Apps',
     );
     const lead = monster('lea', 'Lea', ['vault_read'], 'lead');
     const noAsk = accessState(deps(), {
@@ -370,7 +370,7 @@ describe('access_request in English', () => {
       'Done: Monsters has granted Canva to the project “Saturday”. It applies from the next job of whoever uses it',
     );
     expect(results[1]).toContain(
-      'tell Giulio to connect Figma in Settings → Connections (“Connect through Claude”, with the Claude subscription)',
+      'tell Giulio to connect Figma in Settings → Apps and Telegram (“Connect through Claude”, with the Claude subscription)',
     );
   });
 });

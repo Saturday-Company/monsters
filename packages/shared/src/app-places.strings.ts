@@ -7,7 +7,7 @@ const en = {
     squadra: 'Squad',
     modelli: 'Models',
     permessi: 'Permissions',
-    collegamenti: 'Connections',
+    collegamenti: 'Apps and Telegram',
     generale: 'General',
   },
   sections: {
@@ -20,7 +20,7 @@ const en = {
     terminale: 'Terminal',
     telegram: 'Telegram',
     ricercaWeb: 'Web search',
-    altriProgrammi: 'Apps and services',
+    altriProgrammi: 'Apps',
   },
   projectTabs: {
     chat: 'Chat',
@@ -43,7 +43,7 @@ const it: typeof en = {
     squadra: 'Squadra',
     modelli: 'Modelli',
     permessi: 'Permessi',
-    collegamenti: 'Collegamenti',
+    collegamenti: 'App e Telegram',
     generale: 'Generale',
   },
   sections: {
@@ -56,7 +56,7 @@ const it: typeof en = {
     terminale: 'Terminale',
     telegram: 'Telegram',
     ricercaWeb: 'Ricerca sul web',
-    altriProgrammi: 'App e servizi',
+    altriProgrammi: 'App',
   },
   projectTabs: {
     chat: 'Chat',
