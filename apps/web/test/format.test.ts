@@ -89,18 +89,58 @@ describe('cost in the details of the log', () => {
 
 describe('parseAmount and the spending caps (collaudo of 17/10)', () => {
   afterEach(() => setAppLang('en'));
-  it('a dot is a decimal point unless it groups thousands', () => {
+  it('in English "," groups thousands and "." is the decimal point (W-3)', () => {
+    expect(parseAmount('1,000')).toBe(1000); // it was 1
+    expect(parseAmount('2,000')).toBe(2000);
+    expect(parseAmount('200,000')).toBe(200000);
+    expect(parseAmount('1,000,000')).toBe(1000000);
+    expect(parseAmount('1,000.50')).toBe(1000.5);
     expect(parseAmount('0.43')).toBe(0.43); // it was 43
-    expect(parseAmount('0,43')).toBe(0.43);
     expect(parseAmount('12.5')).toBe(12.5);
-    expect(parseAmount('12,5 €')).toBe(12.5);
-    expect(parseAmount('1.000')).toBe(1000);
-    expect(parseAmount('1.000,50')).toBe(1000.5);
+    expect(parseAmount('12,5 €')).toBe(12.5); // a comma that cannot be a group
+    expect(parseAmount('$ 1000')).toBeUndefined();
+    expect(parseAmount('1000 $')).toBe(1000);
     expect(parseAmount('10')).toBe(10);
     expect(parseAmount('  ')).toBeNull();
-    expect(parseAmount('dieci')).toBeUndefined();
-    expect(parseAmount('1,2,3')).toBeUndefined();
-    expect(parseAmount('-1')).toBeUndefined();
+  });
+
+  it('in Italian "." groups thousands and "," is the decimal mark', () => {
+    expect(parseAmount('1.000', 'it')).toBe(1000);
+    expect(parseAmount('200.000', 'it')).toBe(200000);
+    expect(parseAmount('1.000.000', 'it')).toBe(1000000);
+    expect(parseAmount('1.000,50', 'it')).toBe(1000.5);
+    expect(parseAmount('0,43', 'it')).toBe(0.43);
+    expect(parseAmount('12,5', 'it')).toBe(12.5);
+    expect(parseAmount('12.5', 'it')).toBe(12.5);
+    setAppLang('it');
+    expect(parseAmount('1.000')).toBe(1000); // the language of the app is the default
+  });
+
+  it('refuses what it cannot read for sure, instead of truncating or guessing', () => {
+    // A thousand or one? In English "1.000" is a decimal that looks like a group.
+    expect(parseAmount('1.000')).toBeUndefined();
+    expect(parseAmount('1,000', 'it')).toBeUndefined();
+    expect(parseAmount('2.500')).toBeUndefined();
+    // Not a decimal that looks like a group: a leading zero or a longer integer part.
+    expect(parseAmount('0.500')).toBe(0.5);
+    expect(parseAmount('1234.567')).toBe(1234.567);
+    for (const bad of [
+      '1,2,3',
+      '1,00,000',
+      '1,0000,000',
+      '1.2.3',
+      '1,000.5.0',
+      '1.5,5',
+      '12.',
+      ',5',
+      '-1',
+      'dieci',
+      '1e3',
+    ]) {
+      expect(parseAmount(bad), bad).toBeUndefined();
+      expect(parseAmount(bad, 'it'), bad).toBeUndefined();
+    }
+    expect(parseAmount('1,000,5')).toBeUndefined();
   });
 
   it('a cap below 0,50 € is refused, not multiplied by a hundred', () => {

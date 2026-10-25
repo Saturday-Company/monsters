@@ -231,24 +231,29 @@ function AddBotForm({
   const [token, setToken] = useState('');
   const [agent, setAgent] = useState('');
   const [limit, setLimit] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  // One slot per field, so a missing monster or a bad limit is not written under the token.
+  const [errors, setErrors] = useState<{
+    token?: string;
+    agent?: string;
+    limit?: string;
+    form?: string;
+  }>({});
   const [saving, setSaving] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setErrors({});
     const pasted = extractTelegramToken(token);
-    if (!pasted) {
-      setError(telegramTokenShapeMessage());
-      return;
-    }
-    if (!agent) {
-      setError(b.chooseMonster);
-      return;
-    }
+    // The field keeps digits only, so there is no separator to read.
     const n = limit.trim() ? Number(limit) : undefined;
+    const found: typeof errors = {};
+    if (!pasted) found.token = telegramTokenShapeMessage();
+    if (!agent) found.agent = b.chooseMonster;
     if (n !== undefined && (!Number.isInteger(n) || n < 1 || n > TELEGRAM_BOT_DAILY_MAX)) {
-      setError(b.limitInvalid(TELEGRAM_BOT_DAILY_MAX));
+      found.limit = b.limitInvalid(TELEGRAM_BOT_DAILY_MAX);
+    }
+    if (!pasted || Object.keys(found).length > 0) {
+      setErrors(found);
       return;
     }
     setSaving(true);
@@ -264,7 +269,7 @@ function AddBotForm({
       onSaved(view);
       notify(b.addedTo(added?.bot.username, label(agent).split(' · ')[0]!), 'success');
     } catch (err) {
-      setError(errorOf(err));
+      setErrors({ form: errorOf(err) });
     } finally {
       setSaving(false);
     }
@@ -302,7 +307,7 @@ function AddBotForm({
             {b.form.step4.after}
           </li>
         </ol>
-        <FormField id={`${ids}-token`} label={s.tokenLabel} error={error} hint={s.tokenHint}>
+        <FormField id={`${ids}-token`} label={s.tokenLabel} error={errors.token} hint={s.tokenHint}>
           <Input
             id={`${ids}-token`}
             type="password"
@@ -314,16 +319,22 @@ function AddBotForm({
             onChange={(e) => setToken(e.target.value)}
             onPaste={pasteTelegramToken(setToken)}
             className={fieldOnGroup}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? `${ids}-token-error` : `${ids}-token-hint`}
+            aria-invalid={errors.token ? true : undefined}
+            aria-describedby={errors.token ? `${ids}-token-error` : `${ids}-token-hint`}
           />
         </FormField>
-        <FormField id={`${ids}-agent`} label={b.form.agent} hint={b.form.agentHint}>
+        <FormField
+          id={`${ids}-agent`}
+          label={b.form.agent}
+          hint={b.form.agentHint}
+          error={errors.agent}
+        >
           <select
             id={`${ids}-agent`}
             value={agent}
             onChange={(e) => setAgent(e.target.value)}
             className={`${selectClass} w-full sm:w-[340px]`}
+            aria-invalid={errors.agent ? true : undefined}
             data-testid="telegram-bot-agent"
           >
             <option value="" disabled>
@@ -343,7 +354,12 @@ function AddBotForm({
             testId="telegram-bot-risk-new"
           />
         )}
-        <FormField id={`${ids}-limit`} label={b.form.limit} hint={b.form.limitHint}>
+        <FormField
+          id={`${ids}-limit`}
+          label={b.form.limit}
+          hint={b.form.limitHint}
+          error={errors.limit}
+        >
           <Input
             id={`${ids}-limit`}
             inputMode="numeric"
@@ -351,8 +367,14 @@ function AddBotForm({
             value={limit}
             onChange={(e) => setLimit(e.target.value.replace(/[^\d]/g, ''))}
             className={`${fieldOnGroup} w-36 tabular-nums`}
+            aria-invalid={errors.limit ? true : undefined}
           />
         </FormField>
+        {errors.form && (
+          <p className="text-footnote text-stop-ink" role="alert" data-testid="telegram-bot-error">
+            {errors.form}
+          </p>
+        )}
         <div className="flex gap-2">
           <Button type="submit" size="sm" disabled={saving || !token.trim()}>
             {saving ? s.checking : s.connectBot}

@@ -70,7 +70,7 @@ const FIELDS = [...API_FIELDS, ...PLAN_FIELDS];
 const valueOf = (v: RunLimitsValues, f: Field): number =>
   f.group === 'plan' ? v.plan[f.name as PlanName] : v[f.name];
 
-// No grouping: the field is read back by `parseAmount`, where a "." may be a thousands mark.
+// No grouping: a plain number is read back the same in both languages.
 const asText = (n: number) => formatNumber(n, { maximumFractionDigits: 2, useGrouping: false });
 
 type Texts = Record<string, string>;

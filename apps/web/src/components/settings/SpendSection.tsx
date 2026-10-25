@@ -209,13 +209,16 @@ export function estimatedNotice(labels: readonly string[], whose?: string): stri
   return spendStrings().estimated(names, whose);
 }
 
-/** "12,5" or "12.5" → 12.5; empty → null (no cap); not a number or below 0,50 → undefined. */
+/**
+ * An amount in euros typed in the language of the app ("12.5" in English, "12,5" in Italian; see
+ * `parseAmount`); empty → null (no cap); not a number, ambiguous or below 0.50 → undefined.
+ */
 export function parseEur(text: string): number | null | undefined {
   const n = parseAmount(text);
   return n === null ? null : n !== undefined && n >= 0.5 ? n : undefined;
 }
 
-// No grouping: the field is read back by `parseAmount`, where a "," or a "." may be a decimal mark.
+// No grouping: a plain number is read back the same in both languages.
 const eurText = (v: number | null | undefined) =>
   v == null ? '' : formatNumber(v, { maximumFractionDigits: 2, useGrouping: false });
 
@@ -240,6 +243,7 @@ export function CapsForm({
   const [day, setDay] = useState(eurText(daily));
   const [month, setMonth] = useState(eurText(monthly));
   const [error, setError] = useState<string | null>(null);
+  const [badField, setBadField] = useState<'day' | 'month' | null>(null);
   const [busy, setBusy] = useState(false);
   // New caps from the core (saved here or elsewhere): the fields follow.
   const [shown, setShown] = useState({ daily, monthly });
@@ -255,9 +259,11 @@ export function CapsForm({
     const d = parseEur(day);
     const m = parseEur(month);
     if (d === undefined || m === undefined) {
+      setBadField(d === undefined ? 'day' : 'month');
       setError(s.form.invalid);
       return;
     }
+    setBadField(null);
     setError(null);
     setBusy(true);
     try {
@@ -279,7 +285,7 @@ export function CapsForm({
             inputMode="decimal"
             value={day}
             onChange={(e) => setDay(e.target.value)}
-            aria-invalid={error ? true : undefined}
+            aria-invalid={badField === 'day' ? true : undefined}
             data-testid={`${testId}-day`}
           />
         </FormField>
@@ -289,7 +295,7 @@ export function CapsForm({
             inputMode="decimal"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            aria-invalid={error ? true : undefined}
+            aria-invalid={badField === 'month' ? true : undefined}
             data-testid={`${testId}-month`}
           />
         </FormField>
