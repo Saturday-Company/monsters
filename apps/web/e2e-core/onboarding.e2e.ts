@@ -93,7 +93,7 @@ test('first start against the real core', async ({ page }) => {
   // text, since `hasText` ignores case and the welcome says "I’m here" too.
   const bubbles = page.getByTestId('agent-bubble');
   await expect(bubbles).toHaveCount(1);
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('hello');
   await input.press('Enter');
   const reply = bubbles.filter({ hasText: 'Hi Giulio! I’m here, tell me.' });
