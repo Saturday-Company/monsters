@@ -97,9 +97,18 @@ export interface AccessRequestsOptions {
   permissions: {
     update(req: PermissionsUpdateRequest, by: Channel): Promise<unknown>;
   };
-  /** The project's settings (`ProjectService.update`). */
+  /** The project's settings (`ProjectService.update`, `allowConnection`). */
   projects: () =>
-    { update(id: string, req: ProjectUpdateRequest, by: Channel): Promise<unknown> } | undefined;
+    | {
+        update(id: string, req: ProjectUpdateRequest, by: Channel): Promise<unknown>;
+        allowConnection(
+          id: string,
+          via: 'mcp' | 'claude',
+          service: string,
+          by: Channel,
+        ): Promise<unknown>;
+      }
+    | undefined;
   /** The MCP servers (`McpManager`). */
   mcp: {
     view(): McpServersResponse;
@@ -303,14 +312,9 @@ export class AccessRequests {
           if (!this.#teamWide(step.via, step.id)) {
             throw new Error(accessStrings().stepLinkNotTeamWide);
           }
-          // The user turned it off for the project (D-164): on again.
-          const off = p.connectionsOff[step.via];
-          if (!off.includes(step.id)) break;
-          await this.#projects().update(
-            p.id,
-            { connectionsOff: { [step.via]: off.filter((x) => x !== step.id) } },
-            by,
-          );
+          // The user turned it off for the project (D-164): on again. The list is read inside the
+          // project's queue, not here (C-10).
+          await this.#projects().allowConnection(p.id, step.via, step.id, by);
           break;
         }
         case 'server_agent': {

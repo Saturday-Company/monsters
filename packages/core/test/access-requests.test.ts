@@ -281,6 +281,29 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
     expect(seen).toContain('Fatto: Monsters ha concesso Canva');
   });
 
+  it('turning a service on reads the list in its turn: a change queued before it is not overwritten (C-10)', async () => {
+    const t = await startTestHub({});
+    t.core.state.set('claude.connections', [
+      { id: 'canva', agents: ['*'] },
+      { id: 'figma', agents: ['*'] },
+    ]);
+    await project(t, { connectionsOff: { claude: ['canva'] } });
+    const projects = t.core.hub.projects;
+    // The Connections tab turns Figma off at the very moment the user taps "Yes, grant" for Canva.
+    const toggle = projects.update(
+      'saturday',
+      { connectionsOff: { claude: ['canva', 'figma'] } },
+      'ui',
+    );
+    const grant = projects.allowConnection('saturday', 'claude', 'canva', 'ui');
+    await Promise.all([toggle, grant]);
+    expect(t.core.hub.team.project('saturday')!.connectionsOff.claude).toEqual(['figma']);
+    // Already on: nothing changes, no event.
+    const before = t.events().filter((e) => e.type === 'project_change').length;
+    await projects.allowConnection('saturday', 'claude', 'canva', 'ui');
+    expect(t.events().filter((e) => e.type === 'project_change').length).toBe(before);
+  });
+
   it('only the user in person answers it: never the CLI token', async () => {
     const t = await startTestHub(
       {
