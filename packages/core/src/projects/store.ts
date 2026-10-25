@@ -21,9 +21,18 @@ export interface ProjectFileError {
   message: string;
 }
 
+/** A project file that still has the allow-list `connections` of before D-164 (dropped, C-8). */
+export interface LegacyConnections {
+  id: string;
+  name: string;
+  /** What the old list allowed: names of MCP servers and ids of services through Claude. */
+  allowed: string[];
+}
+
 export class ProjectStore {
   readonly dir: string;
   readonly #items = new Map<string, Project>();
+  #legacy: LegacyConnections[] = [];
 
   constructor(dir: string) {
     this.dir = dir;
@@ -32,6 +41,7 @@ export class ProjectStore {
   /** Reads every project again. Returns the files that could not be used. */
   load(): ProjectFileError[] {
     this.#items.clear();
+    this.#legacy = [];
     const errors: ProjectFileError[] = [];
     let names: string[];
     try {
@@ -53,7 +63,8 @@ export class ProjectStore {
         continue;
       }
       try {
-        const parsed = ProjectSchema.safeParse(parseYaml(text));
+        const raw: unknown = parseYaml(text);
+        const parsed = ProjectSchema.safeParse(raw);
         if (!parsed.success) {
           const why = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
           errors.push({ file, message: why.join('; ') });
@@ -64,11 +75,23 @@ export class ProjectStore {
           continue;
         }
         this.#items.set(parsed.data.id, parsed.data);
+        const old = legacyAllowList(raw);
+        if (old) this.#legacy.push({ id: parsed.data.id, name: parsed.data.name, allowed: old });
       } catch (err) {
         errors.push({ file, message: (err as Error).message });
       }
     }
     return errors;
+  }
+
+  /**
+   * The projects whose file still has the old `connections` allow-list, found by the last
+   * `load`; read once (the next save drops the key, D-164).
+   */
+  takeLegacyConnections(): LegacyConnections[] {
+    const out = this.#legacy;
+    this.#legacy = [];
+    return out;
   }
 
   /** Every project, oldest first. */
@@ -96,6 +119,17 @@ export class ProjectStore {
     this.#items.set(valid.id, valid);
     return valid;
   }
+}
+
+/** The names in the `connections` allow-list of a file of before D-164, or null when it has none. */
+function legacyAllowList(raw: unknown): string[] | null {
+  if (typeof raw !== 'object' || raw === null || !('connections' in raw)) return null;
+  const c = (raw as { connections: unknown }).connections;
+  if (typeof c !== 'object' || c === null) return [];
+  const names = Object.values(c).flatMap((v) =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [],
+  );
+  return [...new Set(names)];
 }
 
 function existsDir(path: string): boolean {

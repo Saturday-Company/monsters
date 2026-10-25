@@ -766,6 +766,12 @@ describe('projects: routing and project_send', () => {
   });
 });
 
+/** The `error` lines of the log with this code (the typed events of the log). */
+const errorLines = (log: EventLog, code: string) =>
+  log
+    .query({ type: 'error' })
+    .filter((e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === code);
+
 describe('projects: connections', () => {
   it('`*` reaches every monster, but in a project that turned it off (D-164)', async () => {
     const { t } = await withProject({});
@@ -795,6 +801,74 @@ describe('projects: connections', () => {
     await t.json('PUT', '/api/mcp-servers/browser', { agents: ['rhea-saturday'] });
     expect(mcp.allowed('rhea-saturday', 'browser')).toBe(true);
     expect(mcp.allowed('rhea', 'browser')).toBe(false);
+  });
+
+  it('only names of connections the account has can be turned off (C-9)', async () => {
+    const { t } = await withProject({});
+    await t.json('PUT', '/api/mcp-servers/browser', { preset: 'browser', agents: ['*'] });
+    // The label instead of the name, a name nobody has, a service id in `mcp`: refused.
+    for (const bad of [{ mcp: ['Gmail'] }, { mcp: ['figma'] }, { claude: ['nope'] }]) {
+      const res = await t.api('PATCH', '/api/projects/saturday', { connectionsOff: bad });
+      expect(res.status).toBe(400);
+    }
+    const res = await t.api('POST', '/api/projects', {
+      name: 'Altro',
+      lead: { name: 'Mira' },
+      connectionsOff: { mcp: ['ghost'] },
+    });
+    expect(res.status).toBe(400);
+    expect(t.core.hub.team.project('saturday')!.connectionsOff).toEqual({ mcp: [], claude: [] });
+    await t.json('PATCH', '/api/projects/saturday', { connectionsOff: { mcp: ['browser'] } });
+    // A name stored before (a server removed since) is tolerated when the list is saved again.
+    t.core.hub.team.projectStore.save({
+      ...t.core.hub.team.project('saturday')!,
+      connectionsOff: { mcp: ['browser', 'ghost'], claude: [] },
+    });
+    await t.json('PATCH', '/api/projects/saturday', {
+      connectionsOff: { mcp: ['browser', 'ghost'] },
+    });
+    await t.core.close();
+  });
+
+  it('a name turned off that matches nothing is reported at the start, and has no effect (C-9)', async () => {
+    const { t } = await withProject({});
+    t.core.hub.team.projectStore.save({
+      ...t.core.hub.team.project('saturday')!,
+      connectionsOff: { mcp: ['ghost'], claude: [] },
+    });
+    await t.core.close();
+    const again = await startTestHub({}, { withoutTeam: true, home: t.home });
+    const lines = errorLines(again.core.log, 'project_connections_stale');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.data.message).toContain('ghost');
+    await again.core.close();
+  });
+
+  it('the allow-list of before D-164 is dropped with one line saying what it held (C-8)', async () => {
+    const { t } = await withProject({});
+    await t.core.close();
+    const file = join(t.home, 'projects', 'saturday', 'project.yaml');
+    const text = readFileSync(file, 'utf8').replace(
+      /connectionsOff:[\s\S]*?(?=\n\S)/,
+      'connections:\n  mcp:\n    - gmail\n  claude:\n    - figma',
+    );
+    expect(text).toContain('connections:');
+    writeFileSync(file, text);
+    const again = await startTestHub({}, { withoutTeam: true, home: t.home });
+    const reset = () => errorLines(again.core.log, 'project_connections_reset');
+    expect(reset()).toHaveLength(1);
+    expect(reset()[0]!.data.message).toContain('Saturday');
+    expect(reset()[0]!.data.message).toContain('gmail, figma');
+    expect(again.core.hub.team.project('saturday')!.connectionsOff).toEqual({
+      mcp: [],
+      claude: [],
+    });
+    // Saved without the old key: the next start says nothing more.
+    expect(readFileSync(file, 'utf8')).not.toMatch(/^connections:/m);
+    await again.core.close();
+    const third = await startTestHub({}, { withoutTeam: true, home: t.home });
+    expect(errorLines(third.core.log, 'project_connections_reset')).toHaveLength(1);
+    await third.core.close();
   });
 
   it('the services through Claude follow the same rule', () => {

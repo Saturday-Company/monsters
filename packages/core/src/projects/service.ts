@@ -17,6 +17,7 @@ import {
   type Channel,
   type LogEvent,
   type Project,
+  type ProjectConnections,
   type ProjectCreateRequest,
   type ProjectLeadPlan,
   type ProjectMemberRequest,
@@ -230,6 +231,7 @@ export class ProjectService {
         // A folder that cannot be read: nothing reaches the prompt either.
       }
     }
+    this.#noteConnections();
     const since = this.#now() - RESTART_LOOKBACK_MS;
     const reported = new Set(
       log
@@ -330,6 +332,73 @@ export class ProjectService {
       demoted = true;
     }
     return demoted;
+  }
+
+  /**
+   * What the connections of the projects say at the start. A project of before D-164 had an
+   * allow-list (`connections`): it is dropped, so the user is told once what it said and the
+   * file is saved without it (C-8). A name turned off that matches no connection is not applied
+   * (it matches nothing) and is reported (C-9).
+   */
+  #noteConnections(): void {
+    const { log, team } = this.#o;
+    const strings = projectStrings();
+    for (const old of team.projectStore.takeLegacyConnections()) {
+      const p = team.projectStore.get(old.id);
+      if (!p) continue;
+      log.append({
+        agent: 'system',
+        type: 'error',
+        data: {
+          code: 'project_connections_reset',
+          message: strings.connectionsReset(old.name, old.allowed.join(', ') || strings.none),
+        },
+      });
+      try {
+        team.projectStore.save(p);
+      } catch {
+        // Not saved now: the next save drops it, and the line comes again at the next start.
+      }
+    }
+    const have = this.#o.connections?.();
+    if (!have) return;
+    const ids = new Set(have.claude.map((c) => c.id));
+    for (const p of team.projects()) {
+      const stale = [
+        ...p.connectionsOff.mcp.filter((n) => !have.mcp.includes(n)),
+        ...p.connectionsOff.claude.filter((n) => !ids.has(n)),
+      ];
+      if (stale.length === 0) continue;
+      log.append({
+        agent: 'system',
+        type: 'error',
+        data: {
+          code: 'project_connections_stale',
+          message: strings.connectionsStale(p.name, stale.join(', ')),
+        },
+      });
+    }
+  }
+
+  /**
+   * The names the user turns off must be connections of the account (C-9): a label instead of
+   * the id, a service id in `mcp`, would be accepted and match nothing. Names already stored
+   * stay tolerated (a server removed since), only the new ones are checked.
+   */
+  #checkOff(off: Partial<ProjectConnections> | undefined, stored?: ProjectConnections): void {
+    const have = this.#o.connections?.();
+    if (!off || !have) return;
+    const known = { mcp: have.mcp, claude: have.claude.map((c) => c.id) };
+    for (const kind of ['mcp', 'claude'] as const) {
+      for (const name of off[kind] ?? []) {
+        if (known[kind].includes(name) || stored?.[kind].includes(name)) continue;
+        const all = [...have.mcp, ...have.claude.map((c) => c.name)];
+        throw new ProjectError(
+          'invalid_request',
+          projectStrings().connectionUnknown(name, all.join(', ') || projectStrings().none),
+        );
+      }
+    }
   }
 
   #track(s: PendingSend): void {
@@ -560,6 +629,7 @@ export class ProjectService {
       req.vaultArea ??
       AgentAreaSchema.parse(`${projectsVaultFolder(this.#o.vault.layout)}/${req.name}`);
     this.#checkArea(area);
+    this.#checkOff(req.connectionsOff);
     const folder = req.folder ? await this.#folder(req.folder) : undefined;
     const store = team.projectStore;
     const now = this.#now();
@@ -628,6 +698,7 @@ export class ProjectService {
     const current = this.#active(id);
     if (u.name !== undefined) this.#checkName(u.name, current.id);
     if (u.vaultArea !== undefined) this.#checkArea(u.vaultArea, current.id);
+    this.#checkOff(u.connectionsOff, current.connectionsOff);
     if (u.lead !== undefined && current.status !== 'draft') {
       throw new ProjectError('invalid_request', projectStrings().leadFixed);
     }
