@@ -29,13 +29,19 @@ import {
   RowBody,
 } from './parts.tsx';
 import { telegramStrings } from './telegram.strings.ts';
-import { CommandList, pasteTelegramToken, TelegramBotsSection } from './TelegramBotsSection.tsx';
+import {
+  CommandList,
+  HelpDetails,
+  pasteTelegramToken,
+  TelegramBotsSection,
+} from './TelegramBotsSection.tsx';
 
 /*
- * Settings → Connections → Telegram (M2.6): the bot token (verified with Telegram, never
- * shown again), the accounts allowed to command the monsters (added only with
- * a one-time code), and which notifications arrive, with a quiet night.
- * Below, the bots dedicated to one monster (D-107), independent of this one.
+ * Settings → Apps and Telegram → Telegram (M2.6): "use the monsters from your phone", in three
+ * steps (BotFather, the bot code, a one-time message from the phone) and a status; the bot code
+ * is verified with Telegram and never shown again, the accounts allowed to command the monsters
+ * are added only with that code, and which notifications arrive comes with a quiet night. Last,
+ * the group bots (D-107), a closed Advanced row independent of this bot.
  */
 
 /** The message of the core when it has a specific one, the generic one otherwise. */
@@ -441,17 +447,20 @@ export function TelegramSection() {
         level={3}
         description={
           <>
-            {s.section.descriptionBefore}
+            {s.section.title}. {s.section.descriptionBefore}
             <code className="text-ink">{s.commands.phone[0]}</code>
             {s.section.descriptionAfter}
+            {connected ? '' : s.section.threeSteps}
           </>
         }
         footer={
           connected ? (
-            <>
-              {s.section.fromPhone}
-              <CommandList commands={s.commands.phone} />.{fromEnv ? s.section.fromEnv : ''}
-            </>
+            <HelpDetails summary={s.section.details} testId="telegram-help">
+              <p>
+                {s.section.fromPhone}
+                <CommandList commands={s.commands.phone} />.{fromEnv ? s.section.fromEnv : ''}
+              </p>
+            </HelpDetails>
           ) : undefined
         }
       >

@@ -2,7 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
 
 /*
- * Settings → Telegram (M2.6), on the mock core: the token checked before it is
+ * Settings → Apps and Telegram → Telegram (M2.6), on the mock core: the token checked before it is
  * saved, an account added with a one-time code (the mock pairs "Giulio" a
  * moment after the code appears), removed, and the quiet night.
  * `TELEGRAM_SHOTS=<dir>` also writes screenshots in light and dark.
@@ -144,6 +144,37 @@ test('settings: a pairing code can be cancelled', async ({ page }) => {
   await section.getByRole('button', { name: 'Cancel' }).click();
   await expect(section.getByTestId('telegram-pairing')).toHaveCount(0);
   await expect(section.getByRole('button', { name: 'Connect an account' })).toBeVisible();
+});
+
+test('settings: use the monsters from your phone, in three steps; the rest waits in Details (U2-4)', async ({
+  page,
+}) => {
+  const section = await openTelegram(page);
+  await expect(section).toContainText('Use the monsters from your phone');
+  await expect(section).toContainText('Three steps and you’re set.');
+  await openTokenForm(section);
+  // Three steps: BotFather, the code, the message from the phone.
+  const steps = section.locator('ol > li');
+  await expect(steps).toHaveCount(3);
+  await expect(steps.nth(0)).toContainText('@BotFather');
+  await expect(steps.nth(0)).toContainText('/newbot');
+  await expect(steps.nth(1)).toContainText('paste it below');
+  await expect(steps.nth(2)).toContainText('send the bot the message');
+  await expect(section).not.toContainText('TELEGRAM_BOT_TOKEN');
+
+  // Connected: the commands and the environment variable are in Details, closed.
+  const fresh = await openTelegram(page, { disconnected: false });
+  await expect(fresh).not.toContainText('/resume');
+  await expect(fresh).not.toContainText('TELEGRAM_BOT_TOKEN');
+  await fresh.getByText('Details').click();
+  await expect(fresh.getByTestId('telegram-help')).toContainText('/resume');
+  // The group bots are one closed Advanced row, after the notifications.
+  const row = fresh.getByTestId('telegram-bots-advanced');
+  await expect(row).toHaveAttribute('data-advanced', 'true');
+  await expect(row.getByRole('button', { name: /Group bots \(advanced\)/ })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
 });
 
 const SHOTS = process.env['TELEGRAM_SHOTS'];

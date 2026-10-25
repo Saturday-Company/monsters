@@ -2,8 +2,8 @@ import type { Locator, Page } from '@playwright/test';
 import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /*
- * Bots dedicated to one monster (D-107) in Settings → Collegamenti → Telegram,
- * on the mock core: a bot added with its token and its monster (the list shows
+ * Bots dedicated to one monster (D-107), the "Group bots (advanced)" row of Settings → Apps and
+ * Telegram → Telegram (wave C), on the mock core: a bot added with its token and its monster (the list shows
  * each monster with its project, never the God), its @username, the group it
  * was added to and Livio's `/join` approved, then the bot removed. In the
  * monster's chat a message from the group is Livio's, "da Telegram · Saturday
@@ -45,10 +45,22 @@ async function openBot(bot: Locator) {
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
 }
 
+/** The "Group bots (advanced)" row: closed until asked for, unless a request waits in it. */
+function advancedRow(bots: Locator) {
+  return bots.getByTestId('telegram-bots-advanced');
+}
+
+async function openAdvanced(bots: Locator) {
+  const toggle = advancedRow(bots).getByRole('button', { name: /^Group bots \(advanced\)/ });
+  if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+}
+
 async function openBots(page: Page) {
   await page.goto('/?mock=demo#/impostazioni?sezione=collegamenti');
   const bots = page.getByTestId('telegram-bots');
-  await expect(bots.getByRole('heading', { name: 'Bots dedicated to a monster' })).toBeVisible();
+  await expect(advancedRow(bots)).toHaveAttribute('data-advanced', 'true');
+  await openAdvanced(bots);
   return bots;
 }
 
@@ -75,13 +87,15 @@ test.describe('dedicated bots, desktop light', () => {
     expect(options.some((o) => o.startsWith('Titan'))).toBe(false);
 
     // A refused token, then the right one.
-    await form.getByLabel('Bot code (token)').fill('7212345677:AAH000000wrongTokenForTheMock_ab');
+    await form
+      .getByLabel('Bot code (from BotFather)')
+      .fill('7212345677:AAH000000wrongTokenForTheMock_ab');
     await select.selectOption({ label: 'Pandora · Saturday Social' });
     await form.getByLabel('Messages per day (optional)').fill('150');
     await shot(page, '01-aggiungi-bot-chiaro', form);
     await form.getByRole('button', { name: 'Connect the bot' }).click();
     await expect(form.getByRole('alert')).toContainText('Telegram doesn’t recognize');
-    await form.getByLabel('Bot code (token)').fill(TOKEN);
+    await form.getByLabel('Bot code (from BotFather)').fill(TOKEN);
     await form.getByRole('button', { name: 'Connect the bot' }).click();
     await expect(page.getByText('Bot @PandoraSaturdayBot connected to Pandora.')).toBeVisible();
 
@@ -94,7 +108,7 @@ test.describe('dedicated bots, desktop light', () => {
 
     // The same token again: already in use.
     await bots.getByRole('button', { name: 'Add a bot for a monster' }).click();
-    await form.getByLabel('Bot code (token)').fill(TOKEN);
+    await form.getByLabel('Bot code (from BotFather)').fill(TOKEN);
     await form
       .getByLabel('The monster that answers')
       .selectOption({ label: 'Rhea · Personal squad' });
@@ -134,35 +148,42 @@ test.describe('dedicated bots, desktop light', () => {
     await expect(bots.getByTestId('telegram-bot')).toHaveCount(1);
   });
 
-  test('the long explanations wait: groups behind a disclosure, adding only once you start', async ({
+  test('the group bots are one closed Advanced row; the long explanations wait behind "How groups work"', async ({
     page,
   }) => {
     await page.emulateMedia({ colorScheme: 'light' });
-    const bots = await openBots(page);
+    await page.goto('/?mock=demo#/impostazioni?sezione=collegamenti');
+    const bots = page.getByTestId('telegram-bots');
+    // Closed: one row with its name and what is in it; no bot, no form, no explanation.
+    const row = advancedRow(bots);
+    await expect(row).toContainText('Group bots (advanced)');
+    await expect(row).toContainText('1 bot');
+    await expect(bots.getByTestId('telegram-bot')).toHaveCount(0);
+    await expect(bots.getByRole('button', { name: 'Add a bot for a monster' })).toHaveCount(0);
+    await expect(page.getByText('How groups work')).toHaveCount(0);
+
+    await openAdvanced(bots);
     // What is never approved in groups: behind "How groups work", closed.
     const never = bots.getByText(/are never approved in the group/);
     await expect(never).toBeHidden();
     await bots.getByText('How groups work').click();
     await expect(never).toBeVisible();
 
-    // Without a dedicated bot: one row, no title, no long text.
+    // Without a dedicated bot: the row says what it is for, and there is the way to add one.
     await openBot(bots.getByTestId('telegram-bot'));
     await bots.getByRole('button', { name: 'Remove bot' }).click();
     await bots.getByRole('button', { name: 'Yes, remove' }).click();
     await expect(bots.getByTestId('telegram-bot')).toHaveCount(0);
     await expect(bots.getByRole('heading')).toHaveCount(0);
-    await expect(bots.getByText('How groups work')).toHaveCount(0);
-    await expect(bots.getByText(/A bot of its own for a monster/)).toHaveCount(0);
+    await expect(row).toContainText('A bot of its own for a monster, to put in a Telegram group.');
     const add = bots.getByRole('button', { name: 'Add a bot for a monster' });
     await expect(add).toBeVisible();
 
-    // Starting to add brings the explanation and the form.
+    // Starting to add brings the form.
     await add.click();
-    await expect(bots.getByRole('heading', { name: 'Bots dedicated to a monster' })).toBeVisible();
-    await expect(bots.getByText(/A bot of its own for a monster/)).toBeVisible();
     await expect(bots.getByTestId('telegram-bot-form')).toBeVisible();
     await bots.getByRole('button', { name: 'Cancel' }).click();
-    await expect(bots.getByRole('heading')).toHaveCount(0);
+    await expect(bots.getByTestId('telegram-bot-form')).toHaveCount(0);
   });
 
   test('a bot is one closed row; a request waiting for approval shows its count and opens the row', async ({
@@ -190,7 +211,7 @@ test.describe('dedicated bots, desktop light', () => {
     // with the count on the row.
     await bots.getByRole('button', { name: 'Add a bot for a monster' }).click();
     const form = bots.getByTestId('telegram-bot-form');
-    await form.getByLabel('Bot code (token)').fill(TOKEN);
+    await form.getByLabel('Bot code (from BotFather)').fill(TOKEN);
     await form
       .getByLabel('The monster that answers')
       .selectOption({ label: 'Pandora · Saturday Social' });
@@ -205,6 +226,27 @@ test.describe('dedicated bots, desktop light', () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   });
 
+  test('a request that arrives while the Advanced row is closed opens it and shows its count', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    const bots = await openBots(page);
+    await bots.getByRole('button', { name: 'Add a bot for a monster' }).click();
+    const form = bots.getByTestId('telegram-bot-form');
+    await form.getByLabel('Bot code (from BotFather)').fill(TOKEN);
+    await form
+      .getByLabel('The monster that answers')
+      .selectOption({ label: 'Pandora · Saturday Social' });
+    await form.getByRole('button', { name: 'Connect the bot' }).click();
+    await expect(page.getByText('Bot @PandoraSaturdayBot connected to Pandora.')).toBeVisible();
+    // Close the row before the group and the /join arrive: they open it by themselves.
+    const toggle = advancedRow(bots).getByRole('button', { name: /^Group bots \(advanced\)/ });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true', { timeout: 8000 });
+    await expect(bots.getByTestId('telegram-bots-pending')).toHaveText('2 to approve');
+  });
+
   test('the people of a bot work with fewer tools; on again bot by bot, after a warning (D-114)', async ({
     page,
   }) => {
@@ -212,23 +254,24 @@ test.describe('dedicated bots, desktop light', () => {
     const bots = await openBots(page);
     const bot = bots.getByTestId('telegram-bot').first();
     await openBot(bot);
-    // Calypso works with other programs: the entry says what the people of the group cannot do.
-    await expect(bot.getByTestId('telegram-bot-risk')).toContainText('Calypso has connected apps');
+    // The entry says the state in a line; the explanation is the confirm's (U2-4).
+    await expect(bot.getByTestId('telegram-bot-risk')).toHaveCount(0);
     const tools = bot.getByTestId('telegram-bot-tools');
     const lever = tools.getByRole('switch');
     await expect(lever).toHaveAttribute('aria-checked', 'false');
-    await expect(tools).toContainText('no terminal or file changes');
+    await expect(tools).toContainText('Off: people you admit work with fewer tools.');
+    await expect(tools).not.toContainText('no terminal or file changes');
     await lever.click();
-    // Not on at the first press: a clear warning first.
-    await expect(tools.getByTestId('telegram-bot-tools-confirm')).toContainText(
-      'as if they were you',
-    );
+    // Not on at the first press: a clear warning first, with what they cannot do today.
+    const confirm = tools.getByTestId('telegram-bot-tools-confirm');
+    await expect(confirm).toContainText('as if they were you');
+    await expect(confirm).toContainText('connected apps');
+    await expect(confirm).toContainText('no terminal or file changes');
     await expect(lever).toHaveAttribute('aria-checked', 'false');
     await shot(page, '07-strumenti-per-gli-altri-chiaro', bot);
     await tools.getByRole('button', { name: 'Yes, turn on' }).click();
     await expect(lever).toHaveAttribute('aria-checked', 'true');
     await expect(tools).toContainText('On: people you admit use everything Calypso can do');
-    await expect(bot.getByTestId('telegram-bot-risk')).toHaveCount(0);
     // Off again at once.
     await lever.click();
     await expect(lever).toHaveAttribute('aria-checked', 'false');
@@ -254,6 +297,7 @@ test.describe('dedicated bots, desktop light', () => {
     await section.getByRole('button', { name: 'Connect the bot' }).click();
     await section.getByRole('button', { name: 'Connect an account' }).click();
     await expect(page.getByText('Account connected: Giulio.')).toBeVisible({ timeout: 8000 });
+    await openAdvanced(section.getByTestId('telegram-bots'));
     const bot = section.getByTestId('telegram-bot');
     await openBot(bot);
     const owner = bot.locator('[data-testid="telegram-bot-person"][data-owner="true"]');
@@ -263,7 +307,9 @@ test.describe('dedicated bots, desktop light', () => {
     const bots = section.getByTestId('telegram-bots');
     await bots.getByRole('button', { name: 'Add a bot for a monster' }).click();
     const form = bots.getByTestId('telegram-bot-form');
-    await form.getByLabel('Bot code (token)').fill('123456789:AAHdemoTokenForTheMockCore_abcdefgh');
+    await form
+      .getByLabel('Bot code (from BotFather)')
+      .fill('123456789:AAHdemoTokenForTheMockCore_abcdefgh');
     await form
       .getByLabel('The monster that answers')
       .selectOption({ label: 'Rhea · Personal squad' });
@@ -295,7 +341,7 @@ test.describe('dedicated bots, phone dark', () => {
     const bots = await openBots(page);
     await bots.getByRole('button', { name: 'Add a bot for a monster' }).click();
     const form = bots.getByTestId('telegram-bot-form');
-    await form.getByLabel('Bot code (token)').fill(TOKEN);
+    await form.getByLabel('Bot code (from BotFather)').fill(TOKEN);
     await form
       .getByLabel('The monster that answers')
       .selectOption({ label: 'Rhea · Personal squad' });
