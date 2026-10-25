@@ -1,4 +1,6 @@
 import { useSyncExternalStore } from 'react';
+// First to listen to `hashchange`, before any component: see the file.
+import './navigation-guard.ts';
 
 /*
  * Hash routes: the core serves a single static page, so `#/log` works without

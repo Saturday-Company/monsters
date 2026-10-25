@@ -8,7 +8,7 @@ import {
   type TelegramView,
   SETTINGS_SECTIONS,
 } from '@monsters/shared';
-import { useCallback, useEffect, useId, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ApiError, describeError } from '../../lib/api.ts';
 import { formatDate } from '@monsters/shared';
 import { domId } from '../../lib/utils.ts';
@@ -23,6 +23,7 @@ import {
   fieldOnGroup,
   FormField,
   Group,
+  LoadNotice,
   Row,
   RowBody,
 } from './parts.tsx';
@@ -58,21 +59,33 @@ function errorOf(err: unknown): string {
   return describeError(err);
 }
 
-function useTelegram(): [TelegramView | null, (v: TelegramView) => void, () => void] {
+function useTelegram(): {
+  view: TelegramView | null;
+  setView: (v: TelegramView) => void;
+  reload: () => void;
+  /** The last read failed (the view, if there is one, is the one before it). */
+  failed: boolean;
+} {
   const [view, setView] = useState<TelegramView | null>(null);
+  const [failed, setFailed] = useState(false);
   const [version, setVersion] = useState(0);
   useEffect(() => {
     let alive = true;
     getApi()
       .telegram()
-      .then((v) => alive && setView(v))
-      .catch(() => alive && setView(null));
+      .then((v) => {
+        if (!alive) return;
+        setView(v);
+        setFailed(false);
+      })
+      // A failed read leaves what is on screen where it is: the forms may hold a token being pasted.
+      .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
     };
   }, [version]);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
-  return [view, setView, reload];
+  return { view, setView, reload, failed };
 }
 
 function remaining(ms: number): string {
@@ -233,15 +246,30 @@ function TimeInput({
   onChange: (v: string) => void;
 }) {
   const id = domId(useId());
+  /**
+   * What is being typed; null while the field just shows the saved time. A time input reports
+   * every partial value on the way to "01:30", and each would be a request that comes back
+   * with the old time: the draft stays until the field is left or Enter is pressed (W-14).
+   */
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft !== null && /^\d{2}:\d{2}$/.test(draft) && draft !== value) onChange(draft);
+    setDraft(null);
+  };
   return (
     <label htmlFor={id} className="flex items-center gap-2 text-footnote text-ink-muted">
       {label}
       <Input
         id={id}
         type="time"
-        value={value}
-        onChange={(e) => {
-          if (/^\d{2}:\d{2}$/.test(e.target.value)) onChange(e.target.value);
+        value={draft ?? value}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          }
         }}
         className={`h-9 w-[7.5rem] px-3 text-body ${fieldOnGroup}`}
       />
@@ -313,7 +341,7 @@ function Notifications({
 
 export function TelegramSection() {
   const s = telegramStrings();
-  const [view, setView, reload] = useTelegram();
+  const { view, setView, reload, failed } = useTelegram();
   const [pairing, setPairing] = useState<TelegramPairing | null>(null);
   const [busy, setBusy] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -355,6 +383,9 @@ export function TelegramSection() {
     // `view` changes at every poll: only a new code restarts the timer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairing]);
+
+  // Preferences are sent one after the other, so an old answer never lands on a newer one (W-14).
+  const prefsQueue = useRef<Promise<void>>(Promise.resolve());
 
   const act = async (job: () => Promise<TelegramView | void>, done?: string) => {
     setBusy(true);
@@ -398,6 +429,13 @@ export function TelegramSection() {
 
   return (
     <div className="grid gap-5" data-testid="telegram-settings">
+      {failed && (
+        <LoadNotice
+          text={view ? s.section.stale : s.section.failed}
+          onRetry={reload}
+          testId="telegram-stale"
+        />
+      )}
       <Group
         title={SETTINGS_SECTIONS.telegram.label}
         level={3}
@@ -523,7 +561,11 @@ export function TelegramSection() {
 
           <Notifications
             prefs={view.prefs}
-            onChange={(update) => void act(() => getApi().setTelegramPrefs(update))}
+            onChange={(update) => {
+              prefsQueue.current = prefsQueue.current.then(() =>
+                act(() => getApi().setTelegramPrefs(update)),
+              );
+            }}
           />
         </>
       )}

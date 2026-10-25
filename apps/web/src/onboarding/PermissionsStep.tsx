@@ -35,13 +35,9 @@ export function terminalText(): string {
   return onboardingStrings().permissions.terminal;
 }
 
-/** @deprecated Italian only: use `terminalText()`, which follows the app language. */
-export const TERMINAL_TEXT =
-  'Eseguire comandi e installare programmi nella propria cartella, senza permessi di amministratore. I comandi possono leggere e cambiare i file del tuo account.'; // i18n-ignore: kept until the last caller moves to terminalText()
-
 /*
  * What the agents may do (M2.5, D-033), last screen of "Su di te": only the
- * three switches, with sensible defaults (terminal off). Folders of the
+ * three switches, all on to start (D-159). Folders of the
  * computer, the browser and the MCP tools are set up later in the settings
  * (D-053), so the first start stays short.
  */

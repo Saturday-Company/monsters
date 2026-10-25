@@ -106,6 +106,8 @@ export function InstinctSection() {
   const [saving, setSaving] = useState(false);
   const [busyUse, setBusyUse] = useState<string | null>(null);
   const field = useRef<HTMLInputElement>(null);
+  // The answers of the switches are whole views: one request at a time, so an old one never lands last.
+  const usesQueue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     let alive = true;
@@ -183,15 +185,17 @@ export function InstinctSection() {
     }
   };
 
-  const onUse = async (use: InstinctUseView, on: boolean) => {
-    setBusyUse(use.id);
-    try {
-      setView(await getApi().setInstinct({ uses: { [use.id]: on ? onMode(use) : 'off' } }));
-    } catch (err) {
-      notify(errorText(err), 'error');
-    } finally {
-      setBusyUse(null);
-    }
+  const onUse = (use: InstinctUseView, on: boolean) => {
+    usesQueue.current = usesQueue.current.then(async () => {
+      setBusyUse(use.id);
+      try {
+        setView(await getApi().setInstinct({ uses: { [use.id]: on ? onMode(use) : 'off' } }));
+      } catch (err) {
+        notify(errorText(err), 'error');
+      } finally {
+        setBusyUse(null);
+      }
+    });
   };
 
   const showForm = engine === 'jev' && (!view.jev.keySet || changingKey);
@@ -315,7 +319,7 @@ export function InstinctSection() {
               use={u}
               view={view}
               busy={busyUse === u.id}
-              onChange={(use, v) => void onUse(use, v)}
+              onChange={(use, v) => onUse(use, v)}
             />
           ))}
         </ul>

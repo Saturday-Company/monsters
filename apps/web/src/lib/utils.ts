@@ -4,6 +4,7 @@ import {
   formatDate,
   formatNumber,
   timeOptions,
+  type Lang,
 } from '@monsters/shared';
 import { clsx, type ClassValue } from 'clsx';
 import { extendTailwindMerge } from 'tailwind-merge';
@@ -184,16 +185,47 @@ export function folderKey(path: string, home?: string): string {
 }
 
 /**
- * An amount typed in a field, in the Italian way or not: "12,5" and "12.5" are
- * 12.5, "1.000" and "1.000,50" are thousands. Before the collaudo of 17/10 every
- * dot was a thousands separator and "0.43" became 43 € without a word.
+ * A number typed in a field, read by the language of the app: English groups
+ * thousands with "," and has "." for decimals ("1,000" is 1000, "12.5" is 12.5);
+ * Italian is the other way round ("1.000" is 1000, "12,5" is 12.5). Plain digits
+ * always work, and so does a separator that can only be one thing: "12,5" in
+ * English is 12.5 (a group is always three digits), "1,000.50" and "1.000,50"
+ * are 1000.5 whatever the language. What cannot be read for sure is refused, not
+ * guessed: "1.000" in English (a thousand or one?), "1,2,3", "1,00,000".
  * Empty → null; anything else that is not a number → undefined.
  */
-export function parseAmount(text: string): number | null | undefined {
-  let t = text.trim().replace(/\s*€$/, '').replace(/\s/g, '');
+export function parseAmount(text: string, lang: Lang = appLang()): number | null | undefined {
+  const t = text
+    .trim()
+    .replace(/\s*[€$]$/, '')
+    .replace(/\s/g, '');
   if (t === '') return null;
-  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
-  else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
-  if (!/^\d+(\.\d+)?$/.test(t)) return undefined;
-  return Number(t);
+  if (!/^\d[\d.,]*$/.test(t)) return undefined;
+  const marks = [...t].filter((c) => c === '.' || c === ',');
+  if (marks.length === 0) return Number(t);
+  const grouped = (digits: string) => /^[1-9]\d{0,2}(?:[.,]\d{3})+$/.test(digits);
+  const mark = marks[marks.length - 1]!;
+  const last = t.lastIndexOf(mark);
+  const head = t.slice(0, last);
+  const tail = t.slice(last + 1);
+  if (!/^\d+$/.test(tail)) return undefined;
+  const kinds = new Set(marks);
+  // One kind of mark, more than once: grouping ("1,000,000"); a decimal mark never repeats.
+  if (kinds.size === 1 && marks.length > 1) {
+    return grouped(t) ? Number(t.replaceAll(mark, '')) : undefined;
+  }
+  // Both kinds: the last one is the decimal mark, once, and the other one groups the rest.
+  if (kinds.size === 2) {
+    const other = mark === '.' ? ',' : '.';
+    if (head.includes(mark) || !(/^\d+$/.test(head.replaceAll(other, '')) && grouped(head))) {
+      return undefined;
+    }
+    return Number(head.replaceAll(other, '') + '.' + tail);
+  }
+  // One mark, once. Three digits after it may be a group: the app's own group mark says so, the
+  // other one is a decimal mark that looks like a group, so it is not guessed.
+  if (last === 0) return undefined;
+  const looksLikeGroup = tail.length === 3 && /^[1-9]\d{0,2}$/.test(head);
+  if (looksLikeGroup) return mark === (lang === 'it' ? ',' : '.') ? undefined : Number(head + tail);
+  return Number(head + '.' + tail);
 }

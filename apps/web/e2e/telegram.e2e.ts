@@ -118,6 +118,25 @@ test('settings: connect the bot, pair an account, quiet night, remove', async ({
   ).toBeVisible();
 });
 
+test('settings: quiet hours save when the field is left, not on every keystroke (W-14)', async ({
+  page,
+}) => {
+  const section = await connect(page);
+  const notifications = section.getByTestId('telegram-notifications');
+  await notifications.getByRole('button', { name: /Notifications/ }).click();
+  await section.getByRole('switch', { name: 'Quiet at night' }).click();
+  const until = section.getByLabel('until', { exact: true });
+  await expect(until).toHaveValue('08:00');
+  await until.fill('03:15');
+  // Typed and not left: it is still on screen, and the saved hours have not moved.
+  await page.waitForTimeout(500);
+  await expect(until).toHaveValue('03:15');
+  await expect(notifications).toContainText('quiet at night 22:00–08:00');
+  await until.press('Enter');
+  await expect(notifications).toContainText('quiet at night 22:00–03:15');
+  await expect(until).toHaveValue('03:15');
+});
+
 test('settings: a pairing code can be cancelled', async ({ page }) => {
   const section = await connect(page);
   await section.getByRole('button', { name: 'Connect an account' }).click();

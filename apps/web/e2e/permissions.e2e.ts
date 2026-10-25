@@ -21,6 +21,9 @@ test('settings: change what a monster may do, saved at once and logged', async (
   // Everything is on by default (D-159): the terminal too, with its warning.
   await expect(rhea.getByTestId('permissions-summary')).toHaveText('Notes, web, terminal');
   await expect(rhea.getByTestId('shell-warning')).toBeVisible();
+  // The explanation of the terminal is in the language of the app (it was Italian).
+  await expect(rhea).toContainText('Run commands and install programs in their own folder');
+  await expect(rhea).not.toContainText('Eseguire comandi');
 
   // Terminal off: while it is saved (the mock holds the reply until the test
   // has looked) the switches are disabled, keyboard included, and the summary

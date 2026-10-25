@@ -40,10 +40,14 @@ test('the Claude models are a select with what each one is, and "Altro…"', asy
   await model.selectOption({ label: 'Other…' });
   const other = rhea.getByTestId('model-other');
   await expect(other).toBeFocused();
+  // Half a name is not saved, however long the pause (W-19): only Enter or leaving the field.
+  await other.fill('claude-opus-');
+  await page.waitForTimeout(1200);
+  await expect(page.getByText('Rhea’s models saved.')).toHaveCount(0);
   await other.fill('claude-opus-5-5');
   await expect(model).toHaveValue('__other__');
-  // Saved by itself a moment after the last change.
-  await page.waitForTimeout(1200);
+  await other.press('Enter');
+  await expect(page.getByText('Rhea’s models saved.')).toBeVisible();
   await expect(rhea.getByText('Saving…')).toHaveCount(0);
   await page.evaluate(() => (window.location.hash = '#/'));
   await page.evaluate(() => (window.location.hash = '#/impostazioni?sezione=modelli'));
@@ -137,5 +141,32 @@ test('the receipt says which model worked and why', async ({ page }) => {
   await expect(receipt).toHaveAttribute('data-open', 'true');
   await expect(receipt.getByTestId('receipt-model').first()).toHaveText(
     'Titan · Hard → llama 3.3 70b',
+  );
+});
+
+test('"Same for everyone" with one monster refused: what was saved shows, and the refused one is named', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/impostazioni?sezione=modelli');
+  const team = page.getByTestId('team-chain');
+  await expect(team).toBeVisible();
+  await page.evaluate(() =>
+    (
+      window as unknown as { __monstersMock: { failRequests: (m: string) => void } }
+    ).__monstersMock.failRequests('PUT /api/agents/rhea/models'),
+  );
+  const field = team.getByLabel('Model 1 of all the monsters', { exact: true });
+  await field.fill('gpt-oss');
+  await field.press('Enter');
+  // The others took it; Rhea did not, and the page says so by showing one chain each.
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'but not for Rhea' }).first(),
+  ).toBeVisible();
+  await expect(page.getByTestId('team-chain')).toHaveCount(0);
+  await expect(page.getByTestId('agent-chain-dione').getByTestId('model-id')).toHaveText(
+    'openai/gpt-oss-120b:free',
+  );
+  await expect(page.getByTestId('agent-chain-rhea').getByTestId('model-id')).toHaveText(
+    'openrouter/free',
   );
 });
