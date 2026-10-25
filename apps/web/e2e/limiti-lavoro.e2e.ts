@@ -40,7 +40,7 @@ test('the row is closed, under the spending cap, and opens to the fields with th
   await expect(form.getByTestId('limits-plan-steps')).toHaveValue('400');
   await expect(form.getByTestId('limits-plan-tokens')).toHaveValue('5000000');
   await expect(form.getByTestId('limits-plan-agent-tokens')).toHaveValue('1500000');
-  await expect(form.getByTestId('limits-plan')).toContainText('Claude Code and Codex');
+  await expect(form.getByTestId('limits-plan')).toContainText('Claude Code, Codex and the ChatGPT plan');
   await expect(page.getByTestId('limits-save')).toBeDisabled();
   await expect(page.getByTestId('limits-reset')).toBeDisabled();
   await expectNoSideScroll(page);

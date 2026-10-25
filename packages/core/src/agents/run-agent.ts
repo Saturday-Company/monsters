@@ -9,6 +9,7 @@ import {
   estimateTokens,
   formatModelRef,
   isStreamStart,
+  providerSpec,
   StreamInterruptedError,
   subscriptionErrorOf,
   type ContextRescue,
@@ -858,7 +859,12 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
   if (deferral) session.setToolFilter((name) => deferral.sends(name));
 
   const limits = agent.config.limits;
-  const maxTokens = agentTokenLimit(agent.config, budget?.limits);
+  // The ChatGPT plan is a subscription like the harnesses: its requests count against the plan's
+  // caps (`limits.plan`, D-171), not the pay-per-use ones (C-5). `planRun` is the chain's first
+  // link, for the agent's token cap; each request is counted by the provider that served it.
+  const onPlan = (provider: string) => providerSpec(provider)?.subscription === true;
+  const planRun = first ? onPlan(first.provider) : false;
+  const maxTokens = agentTokenLimit(agent.config, budget?.limits, planRun);
   let totalIn = 0;
   let totalOut = 0;
   /** What the token limits count (`limitTokens`): cache reads left out. */
@@ -1000,7 +1006,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     totalIn += inputTokens;
     totalOut += outputTokens;
     counted += inputTokens + outputTokens;
-    budget?.addUsage(inputTokens + outputTokens, priced ?? 0);
+    budget?.addUsage(inputTokens + outputTokens, priced ?? 0, onPlan(p.ref.provider));
     log.append({
       agent: agentId,
       runId,
@@ -1324,7 +1330,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
                 ? estimateCostUsd(part.usage, options.price?.({ provider, model }))
                 : undefined;
             const costUsd = reported ?? estimatedCost;
-            budget?.addStep(fresh, costUsd ?? 0);
+            budget?.addStep(fresh, costUsd ?? 0, onPlan(provider));
             lastFinish = part.finishReason;
             if (stepText.trim()) {
               if (isEcho(stepText, asked)) echoed = true;
@@ -1624,7 +1630,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     // Which cap it was, as data: the UI words it (the message below is for the log).
     if (status === 'max_steps') stoppedBy = { kind: 'agent_steps', value: limits.maxSteps };
     else if (status === 'token_limit')
-      stoppedBy = agentTokenLimitReason(agent.config, maxTokens ?? 0);
+      stoppedBy = agentTokenLimitReason(agent.config, maxTokens ?? 0, planRun);
     else {
       const hit = runLimit === null ? budget?.exhaustedBy(agentId) : undefined;
       runLimit ??= hit?.message ?? null;
@@ -1648,7 +1654,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
               : runAgentStrings().extraSteps(agent.config.name)
             : status === 'run_limit'
               ? runAgentStrings().stops(agent.config.name, runLimit ?? runAgentStrings().taskLimit)
-              : runAgentStrings().tokenLimit(agent.config.name, maxTokens ?? 0)) +
+              : runAgentStrings().tokenLimit(agent.config.name, maxTokens ?? 0, planRun)) +
           (forced !== null && answer() ? runAgentStrings().reportAtLastStep : ''),
         ...(stoppedBy ? { limit: stoppedBy } : {}),
       },
