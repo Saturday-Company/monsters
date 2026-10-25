@@ -4,7 +4,7 @@ import { defineStrings } from '../../lib/i18n.ts';
 
 const en = {
   services: {
-    claudeAgent: 'Claude subscription',
+    claudeAgent: 'Claude plan',
     codex: 'Codex (for coding)',
   },
   errors: {
@@ -18,7 +18,7 @@ const en = {
 
 const it: typeof en = {
   services: {
-    claudeAgent: 'Abbonamento Claude',
+    claudeAgent: 'Piano Claude',
     codex: 'Codex (per programmare)',
   },
   errors: {

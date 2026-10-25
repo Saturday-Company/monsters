@@ -82,15 +82,27 @@ test('the old tab names and parts open the tab that holds them now', async ({ pa
   await expect(page.getByRole('switch', { name: 'Reduce motion' })).toBeVisible();
 });
 
-test('one model for the whole team, or one per monster', async ({ page }) => {
+test('one model for the whole squad up front, one per monster in Advanced', async ({ page }) => {
   await page.goto('/?mock=demo#/impostazioni?sezione=modelli');
+  // Everybody uses the same model in the demo: "Main model" says it in words, no chain in sight.
+  const squad = page.getByTestId('squad-models');
+  await expect(squad.getByLabel('Main model', { exact: true })).toHaveValue(
+    'Free, picked by OpenRouter',
+  );
+  await expect(squad.getByTestId('model-id')).toHaveText('openrouter/free');
+  await expect(squad.getByRole('button', { name: 'Add a fallback' })).toBeVisible();
+  await expect(page.getByTestId('team-chain')).toHaveCount(0);
+  await expect(
+    page.getByTestId('chains-advanced-toggle').locator(':scope > button'),
+  ).toHaveAttribute('aria-expanded', 'false');
+
+  // Advanced: the chain of the whole squad, then one per monster.
+  await page.getByTestId('chains-advanced-toggle').locator(':scope > button').click();
   const chains = page.getByTestId('chains');
-  // Everybody uses the same model in the demo: one editor, in words.
   await expect(chains.getByTestId('team-chain')).toBeVisible();
   await expect(chains.getByLabel('Model 1 of all the monsters', { exact: true })).toHaveValue(
     'Free, picked by OpenRouter',
   );
-  await expect(chains.getByTestId('model-id').first()).toHaveText('openrouter/free');
   // A single model is not a chain: nothing to move or take away.
   await expect(chains.getByRole('button', { name: /^Move model/ })).toBeHidden();
   await chains.getByTestId('chains-per-monster').click();
@@ -143,7 +155,6 @@ test('a half-typed key survives a look at another tab', async ({ page }) => {
   const openrouter = page.getByTestId('provider-row-openrouter');
   // The new key only after "Cambia chiave".
   await expect(page.getByLabel('New key')).toHaveCount(0);
-  await openrouter.getByRole('button', { name: 'Change', exact: true }).click();
   await openrouter.getByRole('button', { name: 'Change key' }).click();
   await page.getByLabel('New key').fill('sk-or-v1-mezza');
   await page.getByRole('tab', { name: 'General' }).click();

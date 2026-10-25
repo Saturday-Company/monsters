@@ -12,7 +12,7 @@ const en = {
   },
   sections: {
     avanzate: 'Advanced',
-    abbonamenti: 'A subscription you already have',
+    abbonamenti: 'Plans you already have',
     tettoDiSpesa: 'Spending cap',
     limiti: 'Safety net',
     teLoChiedonoSempre: 'They always ask you',
@@ -48,7 +48,7 @@ const it: typeof en = {
   },
   sections: {
     avanzate: 'Avanzate',
-    abbonamenti: 'Un abbonamento che hai già',
+    abbonamenti: 'Piani che hai già',
     tettoDiSpesa: 'Tetto di spesa',
     limiti: 'Rete di sicurezza',
     teLoChiedonoSempre: 'Te lo chiedono sempre',

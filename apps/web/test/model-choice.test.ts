@@ -94,12 +94,12 @@ describe('model picker', () => {
 describe('"Automatica"', () => {
   it('says each base in one line', () => {
     expect(autoLine('medium')).toBe(
-      'Di solito Sonnet (impegno Medio) · difficili → Opus (impegno Alto)',
+      'Di solito Sonnet (impegno Medio) · accurato → Opus (impegno Alto)',
     );
     expect(autoLine('strong')).toBe(
-      'Di solito Opus (impegno Alto) · semplici → Sonnet (impegno Medio)',
+      'Di solito Opus (impegno Alto) · veloce → Sonnet (impegno Medio)',
     );
-    expect(autoLine('light')).toBe('Di solito Haiku · difficili → Sonnet (impegno Medio)');
+    expect(autoLine('light')).toBe('Di solito Haiku · accurato → Sonnet (impegno Medio)');
   });
 
   it('starts from the base of the archetype unless the monster has one', () => {

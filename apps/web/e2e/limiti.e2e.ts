@@ -12,7 +12,7 @@ const SHOTS = process.env['LIMITI_SHOTS'];
 
 async function connectClaude(page: Page) {
   await page.goto('/?mock=demo#/impostazioni?sezione=modelli');
-  await page.getByRole('button', { name: 'Connect another model' }).click();
+  await page.getByRole('button', { name: 'Add a model' }).click();
   await page.getByTestId('subscription-claude').getByRole('button', { name: 'Connect' }).click();
   const card = page.getByTestId('models-connected').getByTestId('subscription-claude');
   await card.getByRole('button', { name: 'Check again' }).click();
@@ -65,7 +65,7 @@ test('ChatGPT plan: the two windows named by their length, the week warns at 81%
   page,
 }) => {
   await page.goto('/?mock=demo#/impostazioni?sezione=modelli');
-  await page.getByRole('button', { name: 'Connect another model' }).click();
+  await page.getByRole('button', { name: 'Add a model' }).click();
   const popup = page.waitForEvent('popup');
   await page
     .getByTestId('subscription-chatgpt')

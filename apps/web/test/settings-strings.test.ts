@@ -94,12 +94,12 @@ describe('sentences with the thing that changed', () => {
   });
 
   it('the name of a service, in the language of the app', () => {
-    expect(serviceLabel('claude-agent')).toBe('Claude subscription');
+    expect(serviceLabel('claude-agent')).toBe('Claude plan');
     expect(serviceLabel('codex')).toBe('Codex (for coding)');
     expect(serviceLabel('chatgpt')).toBe('ChatGPT');
     expect(serviceLabel('other', 'Other one')).toBe('Other one');
     setAppLang('it');
-    expect(serviceLabel('claude-agent')).toBe('Abbonamento Claude');
+    expect(serviceLabel('claude-agent')).toBe('Piano Claude');
     expect(serviceLabel('codex')).toBe('Codex (per programmare)');
   });
 

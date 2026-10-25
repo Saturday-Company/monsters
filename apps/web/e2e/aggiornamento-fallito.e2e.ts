@@ -13,7 +13,9 @@ test('Models: a refresh that fails keeps the key being typed and offers to try a
 }) => {
   await page.goto('/?mock=demo#/impostazioni?sezione=modelli');
   const connected = page.getByTestId('models-connected');
-  await connected.getByRole('button', { name: 'Connect another model' }).click();
+  await connected.getByRole('button', { name: 'Add a model' }).click();
+  // The accounts with a key of their own wait in a closed drawer under the plans.
+  await page.getByTestId('models-add-more').getByRole('button').first().click();
   const anthropic = page.getByTestId('providers').getByTestId('provider-row-anthropic');
   await anthropic.getByRole('button', { name: 'Add the key' }).click();
   const key = anthropic.getByLabel('Anthropic key');

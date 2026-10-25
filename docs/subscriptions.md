@@ -4,8 +4,8 @@ If you already have ChatGPT Plus or Pro, or a Claude subscription, the monsters 
 only in the ways OpenAI and Anthropic allow for open-source apps that run on your computer (D-005, D-035). You don't
 need them to get started: free OpenRouter is enough.
 
-Everything is done from **Settings → Models → A subscription you already have** (Impostazioni → Modelli in Italian).
-Then, in **Each monster's model**, you choose which monster uses what.
+Everything is done from **Settings → Models → Plans you already have** (Impostazioni → Modelli in Italian).
+Then, under **Which model they use**, you choose the main model and a fallback for the whole squad; **Advanced** has a model for each monster.
 
 ## ChatGPT (Plus and Pro)
 

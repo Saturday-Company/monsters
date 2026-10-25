@@ -448,7 +448,6 @@ test('settings: theme, OpenRouter and Brave keys', async ({ page }) => {
 
   await page.getByRole('tab', { name: 'Models' }).click();
   const openrouter = page.getByTestId('provider-row-openrouter');
-  await openrouter.getByRole('button', { name: 'Change', exact: true }).click();
   await openrouter.getByRole('button', { name: 'Change key' }).click();
   const key = page.getByLabel('New key');
   await key.fill('wrong-key');
