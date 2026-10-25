@@ -1,7 +1,13 @@
 import {
+  formatEur,
   formatNumber,
+  matchRunLimitsPreset,
   RUN_LIMIT_BOUNDS,
+  RUN_LIMIT_PRESETS,
+  runLimitsUpdateFor,
   SETTINGS_SECTIONS,
+  USD_TO_EUR_DEFAULT,
+  type RunLimitPreset,
   type RunLimitsUpdate,
   type RunLimitsValues,
   type RunLimitsView,
@@ -10,16 +16,21 @@ import { useEffect, useId, useState, type FormEvent } from 'react';
 import { domId, parseAmount } from '../../lib/utils.ts';
 import { errorText, getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
+import { Segmented } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { limitsStrings } from './limits.strings.ts';
 import { useSettingsTarget } from './settings-target.ts';
 import { DisclosureRow, FormField, LoadFailed, RowBody, useRetry } from './parts.tsx';
 
 /*
- * Settings → Models → Spending cap → Limits of each job (D-064): the steps, tokens, cost and
- * delegations that stop a job that runs away, for the models paid per use and, apart, for the
- * subscriptions. A closed row under the cap (D-167: no section of its own); it reads the core
- * only when opened. Saved at once, used by the jobs that start from now on.
+ * Settings → Models → Spending cap → Safety net (D-064, C2): what stops a job that runs away. Opened,
+ * three keys (Careful / Normal / Generous, or "Custom" when the values match none) set the limits at
+ * once; the steps, tokens, cost and delegations one by one sit in the Advanced drawer "Exact limits",
+ * for the models paid per use and, apart, for the plans. A closed row under the cap (D-167: no
+ * section of its own); it reads the core only when opened. Used by the jobs that start from now on.
+ *
+ * The core keeps the cost of a job in dollars, as the providers bill it. The settings show euros,
+ * at the rate the spending cap uses (`SpendView.usdToEur`), and convert back when saving.
  */
 
 type ApiName =
@@ -73,54 +84,107 @@ const valueOf = (v: RunLimitsValues, f: Field): number =>
 // No grouping: a plain number is read back the same in both languages.
 const asText = (n: number) => formatNumber(n, { maximumFractionDigits: 2, useGrouping: false });
 
-type Texts = Record<string, string>;
-const textsOf = (v: RunLimitsValues): Texts =>
-  Object.fromEntries(FIELDS.map((f) => [f.id, asText(valueOf(v, f))]));
+/** A cost in dollars (the core's) as the text of its field in euros, to the cent. */
+const eurTextOf = (usd: number, rate: number) => asText(Math.round(usd * rate * 100) / 100);
 
-/** The fields whose text differs from `view.limits`, as an update; or the first one that is not valid. */
+type Texts = Record<string, string>;
+const textsOf = (v: RunLimitsValues, rate: number): Texts =>
+  Object.fromEntries(
+    FIELDS.map((f) => [
+      f.id,
+      f.kind === 'costUsd' ? eurTextOf(v.maxRunCostUsd, rate) : asText(valueOf(v, f)),
+    ]),
+  );
+
+/** The bounds of a field as shown: the cost's in euros, rounded inwards to the cent. */
+function boundsShown(f: Field, rate: number): { min: number; max: number } {
+  const { min, max } = RUN_LIMIT_BOUNDS[f.kind];
+  if (f.kind !== 'costUsd') return { min, max };
+  return { min: Math.ceil(min * rate * 100) / 100, max: Math.floor(max * rate * 100) / 100 };
+}
+
+/**
+ * The fields whose text differs from what `view.limits` shows, as an update; or the first one that
+ * is not valid. The cost is typed in euros and sent in dollars.
+ */
 function updateFrom(
   texts: Texts,
   view: RunLimitsView,
+  rate: number,
 ): { update: RunLimitsUpdate } | { invalid: Field } {
   const update: RunLimitsUpdate = {};
+  const shown = textsOf(view.limits, rate);
   for (const f of FIELDS) {
     const n = parseAmount(texts[f.id] ?? '');
     const { min, max } = RUN_LIMIT_BOUNDS[f.kind];
-    const whole = f.kind !== 'costUsd';
-    if (n == null || n < min || n > max || (whole && !Number.isInteger(n))) return { invalid: f };
-    if (n === valueOf(view.limits, f)) continue;
-    if (f.group === 'plan') update.plan = { ...update.plan, [f.name]: n };
-    else (update as Record<string, number>)[f.name] = n;
+    const isCost = f.kind === 'costUsd';
+    // The text of the cost as the core's figure shows it is not a change (the euro rounds).
+    if (texts[f.id] === shown[f.id]) continue;
+    const value = n == null ? n : isCost ? Math.round((n / rate) * 10_000) / 10_000 : n;
+    if (
+      value == null ||
+      value < min - 1e-9 ||
+      value > max + 1e-9 ||
+      (!isCost && !Number.isInteger(value))
+    )
+      return { invalid: f };
+    const clamped = Math.min(max, Math.max(min, value));
+    if (clamped === valueOf(view.limits, f)) continue;
+    if (f.group === 'plan') update.plan = { ...update.plan, [f.name]: clamped };
+    else (update as Record<string, number>)[f.name] = clamped;
   }
   return { update };
 }
 
-function LimitsForm({ initial }: { initial: RunLimitsView }) {
+function LimitsForm({
+  initial,
+  rate,
+  exactOpen,
+}: {
+  initial: RunLimitsView;
+  rate: number;
+  exactOpen: boolean;
+}) {
   const s = limitsStrings();
   const id = domId(useId());
   const [view, setView] = useState(initial);
-  const [texts, setTexts] = useState<Texts>(() => textsOf(initial.limits));
+  const [texts, setTexts] = useState<Texts>(() => textsOf(initial.limits, rate));
   const [error, setError] = useState<string | null>(null);
   const [invalidId, setInvalidId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [exact, setExact] = useState(exactOpen);
 
-  const shown = textsOf(view.limits);
+  const shown = textsOf(view.limits, rate);
   const changed = FIELDS.some((f) => texts[f.id] !== shown[f.id]);
   const atDefaults = FIELDS.every((f) => valueOf(view.limits, f) === valueOf(view.defaults, f));
+  const preset = matchRunLimitsPreset(view.limits, view.defaults);
 
   const apply = (next: RunLimitsView) => {
     setView(next);
-    setTexts(textsOf(next.limits));
+    setTexts(textsOf(next.limits, rate));
     setError(null);
     setInvalidId(null);
   };
 
+  const choose = async (next: RunLimitPreset) => {
+    if (busy || next === preset) return;
+    setBusy(true);
+    try {
+      apply(await getApi().setRunLimits(runLimitsUpdateFor(next, view.limits, view.defaults)));
+      notify(s.presetSaved(s.presets[next]), 'success');
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    const parsed = updateFrom(texts, view);
+    const parsed = updateFrom(texts, view, rate);
     if ('invalid' in parsed) {
       const f = parsed.invalid;
-      const { min, max } = RUN_LIMIT_BOUNDS[f.kind];
+      const { min, max } = boundsShown(f, rate);
       setInvalidId(f.id);
       setError(s.invalid(s.fields[f.label], formatNumber(min), formatNumber(max)));
       return;
@@ -166,7 +230,9 @@ function LimitsForm({ initial }: { initial: RunLimitsView }) {
             id={`${id}-${f.id}`}
             label={s.fields[f.label]}
             hint={s.defaultIs(
-              formatNumber(valueOf(view.defaults, f), { maximumFractionDigits: 2 }),
+              f.kind === 'costUsd'
+                ? eurTextOf(view.defaults.maxRunCostUsd, rate)
+                : formatNumber(valueOf(view.defaults, f), { maximumFractionDigits: 2 }),
             )}
           >
             <Input
@@ -183,63 +249,127 @@ function LimitsForm({ initial }: { initial: RunLimitsView }) {
     </fieldset>
   );
 
+  const eur = formatEur(view.limits.maxRunCostUsd * rate);
   return (
-    <RowBody>
-      <form onSubmit={(e) => void save(e)} className="grid gap-4" data-testid="limits-form">
+    <>
+      <RowBody>
         <p className="max-w-[62ch] text-footnote leading-snug text-ink-muted">{s.intro}</p>
-        {group('api', s.groups.api, s.groups.apiHint, API_FIELDS)}
-        {group('plan', s.groups.plan, s.groups.planHint, PLAN_FIELDS)}
-        {error && (
+        <div className="grid gap-2" data-testid="limits-presets">
+          <Segmented<RunLimitPreset>
+            value={preset === 'custom' ? null : preset}
+            onChange={(p) => void choose(p)}
+            options={RUN_LIMIT_PRESETS.map((value) => ({ value, label: s.presets[value] }))}
+            label={s.presetsLabel}
+            size="sm"
+            className="w-full max-w-[420px] [&>button]:flex-1"
+            fill
+          />
+          <p
+            className="text-footnote leading-snug text-ink-muted"
+            data-testid="limits-preset-hint"
+            data-preset={preset}
+          >
+            {preset === 'custom' ? (
+              <>
+                <span className="label mr-1.5 text-ink" data-testid="limits-custom">
+                  {s.custom}
+                </span>
+                {s.presetHint.custom}
+              </>
+            ) : (
+              s.presetHint[preset](eur)
+            )}{' '}
+            {s.plansKeep}
+          </p>
+        </div>
+      </RowBody>
+      <div className="seam-t">
+        <DisclosureRow
+          as="div"
+          advanced
+          label={s.exact}
+          description={s.exactHint}
+          open={exact}
+          onOpenChange={setExact}
+          testId="limits-exact"
+        >
+          <RowBody>
+            <form onSubmit={(e) => void save(e)} className="grid gap-4" data-testid="limits-form">
+              {group('api', s.groups.api, s.groups.apiHint, API_FIELDS)}
+              {group('plan', s.groups.plan, s.groups.planHint, PLAN_FIELDS)}
+              {error && (
+                <p className="text-footnote text-stop-ink" role="alert" data-testid="limits-error">
+                  {error}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy || (atDefaults && !changed)}
+                  onClick={() => void restore()}
+                  data-testid="limits-reset"
+                >
+                  {s.restore}
+                </Button>
+                <Button
+                  type="submit"
+                  variant={changed ? 'primary' : 'secondary'}
+                  size="sm"
+                  disabled={busy || !changed}
+                  data-testid="limits-save"
+                >
+                  {s.save}
+                </Button>
+              </div>
+            </form>
+          </RowBody>
+        </DisclosureRow>
+      </div>
+      {!exact && error && (
+        <RowBody>
           <p className="text-footnote text-stop-ink" role="alert" data-testid="limits-error">
             {error}
           </p>
-        )}
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            disabled={busy || (atDefaults && !changed)}
-            onClick={() => void restore()}
-            data-testid="limits-reset"
-          >
-            {s.restore}
-          </Button>
-          <Button
-            type="submit"
-            variant={changed ? 'primary' : 'secondary'}
-            size="sm"
-            disabled={busy || !changed}
-            data-testid="limits-save"
-          >
-            {s.save}
-          </Button>
-        </div>
-      </form>
-    </RowBody>
+        </RowBody>
+      )}
+    </>
   );
 }
 
-/** The closed row under the spending cap; it reads the limits when opened. */
+/** The closed row under the spending cap; it reads the limits (and the rate of the cap) when opened. */
 export function RunLimitsRow() {
   const s = limitsStrings();
   const target = useSettingsTarget();
   const [open, setOpen] = useState(false);
+  // A link to it (`?sezione=limiti`, from the line of a job that stopped at a limit) opens the row
+  // and its exact limits: the job may have stopped at steps or tokens, which are only there.
+  const [linked, setLinked] = useState(false);
   const [seen, setSeen] = useState<string | null>(null);
-  // A link to it (`?sezione=limiti`, from the line of a job that stopped at a limit) opens it.
   if (target !== seen) {
     setSeen(target);
-    if (target === 'limiti') setOpen(true);
+    if (target === 'limiti') {
+      setOpen(true);
+      setLinked(true);
+    }
   }
-  const [view, setView] = useState<RunLimitsView | null>(null);
+  const [loaded, setLoaded] = useState<{ view: RunLimitsView; rate: number } | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, retry] = useRetry(() => setFailed(false));
   useEffect(() => {
     if (!open) return;
     let alive = true;
-    getApi()
-      .runLimits()
-      .then((v) => alive && (setView(v), setFailed(false)))
+    const api = getApi();
+    Promise.all([
+      api.runLimits(),
+      // The rate of the spending cap; the default one if the cap cannot be read.
+      api.spend().then(
+        (v) => v.usdToEur,
+        () => USD_TO_EUR_DEFAULT,
+      ),
+    ])
+      .then(([view, rate]) => alive && (setLoaded({ view, rate }), setFailed(false)))
       .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
@@ -256,7 +386,10 @@ export function RunLimitsRow() {
         onOpenChange={(o) => {
           setOpen(o);
           // Read again when it opens: the form keeps its own copy while it is open.
-          if (!o) setView(null);
+          if (!o) {
+            setLoaded(null);
+            setLinked(false);
+          }
         }}
         testId="limits-toggle"
       >
@@ -264,8 +397,8 @@ export function RunLimitsRow() {
           <RowBody>
             <LoadFailed what={s.what} onRetry={retry} />
           </RowBody>
-        ) : view ? (
-          <LimitsForm initial={view} />
+        ) : loaded ? (
+          <LimitsForm initial={loaded.view} rate={loaded.rate} exactOpen={linked} />
         ) : null}
       </DisclosureRow>
     </div>

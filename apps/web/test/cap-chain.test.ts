@@ -9,7 +9,7 @@ const link = (
   who?: string,
 ): CapLink => ({
   id,
-  label: { monster: 'Monster', project: 'Project', team: 'Whole squad' }[id],
+  label: { monster: 'Monster', project: 'Project', team: 'All monsters' }[id],
   who,
   period,
   meter: capEur === null ? null : { spentEur: 0, capEur, ratio: 0 },
@@ -21,7 +21,7 @@ describe('caps higher than the one that holds them', () => {
   it('says so for a monster above the team', () => {
     expect(
       capWarnings([link('monster', 9, 'oggi', 'Rhea'), link('project', null), link('team', 3)]),
-    ).toEqual(['Monster (Rhea): higher than the squad’s cap, which kicks in first.']);
+    ).toEqual(['Monster (Rhea): higher than the cap for all monsters, which kicks in first.']);
   });
 
   it('says it in Italian with the right article', () => {
@@ -29,7 +29,7 @@ describe('caps higher than the one that holds them', () => {
     const it = (outer: 'project' | 'team') =>
       capWarnings([link('monster', 9, 'oggi', 'Rhea'), link(outer, 3)]);
     expect(it('team')).toEqual([
-      'Monster (Rhea): più alto del tetto della squadra: scatta prima quello.',
+      'Monster (Rhea): più alto del tetto di tutti i mostri: scatta prima quello.',
     ]);
     expect(it('project')).toEqual([
       'Monster (Rhea): più alto del tetto del progetto: scatta prima quello.',

@@ -138,7 +138,7 @@ export function capWarnings(links: readonly CapLink[]): string[] {
 }
 
 /**
- * "Monster ≤ Project ≤ Whole squad" (U-13): the three caps in the order they
+ * "Monster ≤ Project ≤ All monsters" (U-13): the three caps in the order they
  * hold, on a small screen, the one closest to its threshold lit. At the top of
  * every view of Spending, so the caps are said once, here.
  */
@@ -459,6 +459,7 @@ export function SpendSection() {
       {paid.length > 0 && (
         <DisclosureRow
           as="div"
+          advanced
           label={s.perMonster}
           description={s.perMonsterText}
           testId="spend-agents"

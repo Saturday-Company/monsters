@@ -17,8 +17,8 @@ import {
 afterEach(() => setAppLang('en'));
 
 const names = makeNameOf({});
-const WHERE_EN = 'Settings → Models → Spending cap → Limits of each job';
-const WHERE_IT = 'Impostazioni → Modelli → Tetto di spesa → Limiti di ogni lavoro';
+const WHERE_EN = 'Settings → Models → Spending cap → Safety net';
+const WHERE_IT = 'Impostazioni → Modelli → Tetto di spesa → Rete di sicurezza';
 
 function both<T>(fn: () => T): [T, T] {
   setAppLang('en');
@@ -66,7 +66,7 @@ describe('which limit stopped a job', () => {
       const places = findSettingsPlaces(sentence);
       expect(places).toHaveLength(1);
       expect(places[0]).toMatchObject({ tab: 'limiti' });
-      expect(places[0]!.text).toMatch(/(Limits of each job|Limiti di ogni lavoro)$/);
+      expect(places[0]!.text).toMatch(/(Safety net|Rete di sicurezza)$/);
     }
     // A plain tab is still the tab.
     expect(findSettingsPlaces('Impostazioni → Modelli')[0]).toMatchObject({ tab: 'modelli' });

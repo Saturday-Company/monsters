@@ -96,10 +96,10 @@ for (const m of MODULES) {
   });
 }
 
-test('Settings: the spending limits of a job say so too, inside their row', async ({ page }) => {
+test('Settings: the safety net of a job says so too, inside its row', async ({ page }) => {
   await openFailing(page, '#/impostazioni?sezione=limiti', 'GET /api/settings/limits');
   const row = page.getByTestId('limits-row');
-  await expect(row.getByTestId('load-failed')).toContainText('Couldn’t load the limits.');
+  await expect(row.getByTestId('load-failed')).toContainText('Couldn’t load the safety net.');
   await mend(page);
   await row.getByRole('button', { name: 'Try again' }).click();
   await expect(row.getByTestId('load-failed')).toHaveCount(0);
