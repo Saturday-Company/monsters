@@ -172,7 +172,12 @@ export const GodBar = forwardRef<HTMLAnchorElement, GodBarProps>(function GodBar
         data-motion={motion}
         data-waiting={question ? 'true' : undefined}
         // It starts with the name and the state, as every chat row; then what the house does.
-        aria-label={s.aria(name, squads, line, label.text)}
+        aria-label={s.aria(
+          name,
+          squads,
+          line === s.leadsAll || line === s.leadsSquad ? '' : line,
+          label.text,
+        )}
         title={s.open(god.name, shortcut?.shown ?? null)}
         className="god-bar screen screen-lines px-3 pt-2.5 pb-2"
         style={{ '--lit': lit } as CSSProperties}

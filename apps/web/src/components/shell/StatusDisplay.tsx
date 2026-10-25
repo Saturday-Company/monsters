@@ -3,6 +3,7 @@ import { openChat, openPage, PATHS } from '../../lib/router.ts';
 import { cn } from '../../lib/utils.ts';
 import { useApp } from '../../store/app.ts';
 import { useConnection, waitsForUser } from '../../store/hooks.ts';
+import { timeParts, type TimeParts } from '../../lib/utils.ts';
 import { useChats } from '../chat/useChats.ts';
 import { Meter } from '../ui/Meter.tsx';
 import { shellStrings } from './shell.strings.ts';
@@ -97,11 +98,11 @@ export function displayState(input: {
 }
 
 /**
- * "17:42", updated on the minute. It is an instrument readout (the segment clock of the display), so it
- * stays 24 h in every language, unlike the times in the text, which follow `timeOptions()`.
+ * The time on the segment clock, updated on the minute and written as the chat writes it
+ * (`timeOptions()`: "8:27 PM" in English, "20:27" in Italian), so the screen and the messages agree.
  */
-function useClock(): string {
-  const [now, setNow] = useState(() => new Date());
+function useClock(): TimeParts {
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | undefined;
     // Wakes up just after the next minute starts, then again a minute later.
@@ -109,7 +110,7 @@ function useClock(): string {
       const d = new Date();
       t = setTimeout(
         () => {
-          setNow(new Date());
+          setNow(Date.now());
           arm();
         },
         60_000 - (d.getSeconds() * 1000 + d.getMilliseconds()) + 20,
@@ -118,9 +119,7 @@ function useClock(): string {
     arm();
     return () => clearTimeout(t);
   }, []);
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
+  return timeParts(now);
 }
 
 export function StatusDisplay({ size }: { size: 'full' | 'compact' | 'dot' }) {
@@ -164,13 +163,13 @@ export function StatusDisplay({ size }: { size: 'full' | 'compact' | 'dot' }) {
       onClick={() => (target ? openChat(target) : openPage(PATHS.log))}
       data-testid="status-display"
       data-state={state.kind}
-      aria-label={t.label(spoken, clock, target !== null)}
+      aria-label={t.label(spoken, clock.text, target !== null)}
       title={target ? t.goToQuestion : t.openActivity}
       className={cn(
         'screen flex h-8 shrink-0 items-center gap-2.5 rounded-[8px] text-left select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink',
-        size === 'full' && '@container w-[clamp(240px,24vw,340px)] pr-2 pl-3',
+        size === 'full' && '@container w-[clamp(240px,22vw,340px)] pr-2 pl-3',
         size === 'compact' && 'px-3',
-        size === 'dot' && 'w-8 justify-center',
+        size === 'dot' && 'min-w-8 justify-center px-2',
       )}
     >
       <span
@@ -190,6 +189,18 @@ export function StatusDisplay({ size }: { size: 'full' | 'compact' | 'dot' }) {
           {size === 'compact' ? state.short : state.text}
         </span>
       )}
+      {size === 'dot' && state.count !== null && (
+        // A phone has no room for the words: the light and how many; the words are the name of the key.
+        <span
+          aria-hidden
+          className={cn(
+            'label -ml-0.5',
+            state.tone === 'stop' ? 'text-screen-stop' : 'text-screen-ink',
+          )}
+        >
+          {state.count}
+        </span>
+      )}
       {size === 'full' && (state.kind === 'working' || state.alsoWorking > 0) && (
         // The words first: on a narrow display the meter gives way.
         <Meter active color="var(--ok)" className="shrink-0 @max-[300px]:hidden" />
@@ -198,17 +209,19 @@ export function StatusDisplay({ size }: { size: 'full' | 'compact' | 'dot' }) {
         <Meter active color="var(--signal)" className="shrink-0 @max-[300px]:hidden" />
       )}
       {size === 'full' && (
-        <span
-          aria-hidden
-          className="relative shrink-0 text-title3 leading-none dots tracking-[0.04em]"
-        >
-          {/* The unlit dots of the clock, like a real display. */}
-          <span className="text-screen-off">88:88</span>
-          <span className="absolute inset-0 text-screen-ink">
-            {clock.slice(0, 2)}
-            <span className="clock-colon">:</span>
-            {clock.slice(3)}
+        <span aria-hidden className="flex shrink-0 items-end gap-1.5">
+          <span className="relative text-title3 leading-none dots tracking-[0.04em]">
+            {/* The unlit dots of the clock, like a real display. */}
+            <span className="text-screen-off">88:88</span>
+            <span className="absolute inset-0 text-screen-ink">
+              {/* A one-digit hour keeps its place on the right of the first cell. */}
+              {clock.hour.length < 2 && <span className="invisible">8</span>}
+              {clock.hour}
+              <span className="clock-colon">:</span>
+              {clock.minute}
+            </span>
           </span>
+          {clock.period && <span className="label pb-px text-screen-ink">{clock.period}</span>}
         </span>
       )}
     </button>

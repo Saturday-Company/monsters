@@ -48,27 +48,31 @@ function shortcut(key: string): { shown: string; aria: string } {
 }
 
 /**
- * A section as a square key for the compact foot (windows under 860 px tall): the icon with its
- * name under it in `.label`, short enough for five of them in a row. The full name is the
- * accessible name and the tooltip.
+ * A section as a small key for the compact foot (windows under 960 px tall): the icon with its name
+ * under it, in a grid of three, so the squads keep their room. On a very short window (`bare`) the
+ * five of them sit in one row with the icon only; the name is still the accessible name and the
+ * tooltip, with the shortcut.
  */
 function NavTile({
   href,
   icon,
   label,
-  short,
   current,
   keys,
   waiting = 0,
+  bare = false,
+  span,
   testId,
 }: {
   href: string;
   icon: ReactNode;
   label: string;
-  short: string;
   current: boolean;
   keys?: string;
   waiting?: number;
+  bare?: boolean;
+  /** Columns of the six-column grid this key takes (2 in the first row of three, 3 in the second). */
+  span: 2 | 3;
   testId?: string;
 }) {
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
@@ -90,25 +94,28 @@ function NavTile({
       title={sc ? `${label} (${sc.shown})` : label}
       data-testid={testId}
       className={cn(
-        'relative flex h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-[12px] text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink',
+        'relative flex min-w-0 flex-col items-center justify-center gap-px rounded-[10px] text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink',
+        bare ? 'col-span-1 h-10' : cn('h-[46px]', span === 2 ? 'col-span-2' : 'col-span-3'),
         current ? 'bg-panel shadow-[inset_0_0_0_1.5px_var(--ink)]' : 'row-key',
       )}
     >
       <span className={current ? 'text-ink' : 'text-ink-muted'}>{icon}</span>
-      <span
-        aria-hidden
-        className={cn(
-          'label max-w-full truncate tracking-normal',
-          current ? 'text-ink' : 'text-ink-muted',
-        )}
-      >
-        {short}
-      </span>
+      {!bare && (
+        <span
+          aria-hidden
+          className={cn(
+            'max-w-full truncate px-1 text-micro leading-4 font-medium',
+            current ? 'text-ink' : 'text-ink-muted',
+          )}
+        >
+          {label}
+        </span>
+      )}
       {waiting > 0 && (
         <span
           aria-hidden
           data-testid="nav-waiting"
-          className="absolute top-1.5 right-2 led"
+          className={cn('absolute led', bare ? 'top-1.5 right-2.5' : 'top-1.5 right-3')}
           data-tone="signal"
           data-blink=""
         />
@@ -227,8 +234,10 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
   const orch = useOrchestrator();
   const param = useHashParam('chat');
   const events = useApp((s) => s.events);
-  // A short window: the foot is a row of square keys, so the squads keep their room.
-  const short = useMediaQuery('(max-height: 859px)');
+  // A short window: the foot is a grid of small keys, so the squads keep their room (V-7); a very
+  // short one, a row of icons.
+  const short = useMediaQuery('(max-height: 959px)');
+  const bare = useMediaQuery('(max-height: 759px)');
   const waitingGiri = useMemo(() => automationWork(events).waiting, [events]);
 
   const projects = useProjects();
@@ -318,49 +327,54 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
         {short ? (
           <nav
             aria-label={t.sections}
-            className="-mx-1.5 grid grid-cols-5 gap-0.5"
+            className={cn('grid gap-0.5', bare ? 'grid-cols-5' : 'grid-cols-6')}
             data-testid="sidebar-tiles"
           >
             <NavTile
               href={PATHS.automations}
-              icon={<ClockCountdown size={22} aria-hidden />}
+              icon={<ClockCountdown size={20} aria-hidden />}
               label={t.nav.automations.label}
-              short={t.nav.automations.short}
               current={route === 'automations'}
               keys="2"
               waiting={waitingGiri}
+              bare={bare}
+              span={2}
             />
             <NavTile
               href={PATHS.vault}
-              icon={<Notebook size={22} aria-hidden />}
+              icon={<Notebook size={20} aria-hidden />}
               label={t.nav.notes.label}
-              short={t.nav.notes.short}
               current={route === 'vault'}
               keys="3"
+              bare={bare}
+              span={2}
             />
             <NavTile
               href={PATHS.files}
-              icon={<Files size={22} aria-hidden />}
+              icon={<Files size={20} aria-hidden />}
               label={t.nav.files.label}
-              short={t.nav.files.short}
               current={route === 'files'}
               keys="4"
+              bare={bare}
+              span={2}
             />
             <NavTile
               href={PATHS.log}
-              icon={<ListBullets size={22} aria-hidden />}
+              icon={<ListBullets size={20} aria-hidden />}
               label={t.nav.log.label}
-              short={t.nav.log.short}
               current={route === 'log'}
               keys="5"
+              bare={bare}
+              span={3}
             />
             <NavTile
               href={PATHS.settings}
-              icon={<GearSix size={22} aria-hidden />}
+              icon={<GearSix size={20} aria-hidden />}
               label={t.nav.settings.label}
-              short={t.nav.settings.short}
               current={route === 'settings'}
               keys=","
+              bare={bare}
+              span={3}
             />
           </nav>
         ) : (

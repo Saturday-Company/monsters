@@ -31,8 +31,9 @@ const en = {
   },
   asksLabel: (question: string) => `asks you: ${question}`,
   unreadLabel: (n: number) => `${n} unread`,
+  /** `line` is empty when it only repeats the role ("Leading the squad"): it is said once. */
   aria: (name: string, squads: number, line: string, label: string) =>
-    `${name}. Leading ${squads === 1 ? 'the squad' : `the ${squads} squads`}: ${line}. ${label}`,
+    `${name}. Leading ${squads === 1 ? 'the squad' : `the ${squads} squads`}${line ? `: ${line}` : ''}. ${label}`,
   open: (name: string, shortcut: string | null) =>
     `Open ${name}’s chat${shortcut ? ` (${shortcut})` : ''}`,
 };
@@ -66,7 +67,7 @@ const it: typeof en = {
   asksLabel: (question) => `ti chiede: ${question}`,
   unreadLabel: (n) => `${n} da leggere`,
   aria: (name, squads, line, label) =>
-    `${name}. A capo ${squads === 1 ? 'della squadra' : `delle ${squads} squadre`}: ${line}. ${label}`,
+    `${name}. A capo ${squads === 1 ? 'della squadra' : `delle ${squads} squadre`}${line ? `: ${line}` : ''}. ${label}`,
   open: (name, shortcut) => `Apri la chat di ${name}${shortcut ? ` (${shortcut})` : ''}`,
 };
 

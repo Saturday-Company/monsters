@@ -17,6 +17,7 @@ import {
   squadCount,
   type GodStateInput,
 } from '../src/components/god/god.ts';
+import { godStrings } from '../src/components/god/god.strings.ts';
 import { monsterFor } from '../src/lib/monsters.ts';
 import { ASKED_ACTIVITY, CONFUSED_TEXT, capitalize, type LiveState } from '../src/store/derive.ts';
 
@@ -255,5 +256,23 @@ describe('god bar: colours of every squad', () => {
     expect(cols[0]![1]).not.toBeNull();
     expect(cols[BAND_COLS]!.every((c) => c === null)).toBe(true);
     expect(marqueeColumns([])).toEqual([]);
+  });
+});
+
+describe('the accessible name of the bar', () => {
+  afterEach(() => setAppLang('en'));
+
+  it('says the role once when the line only repeats it (V-5)', () => {
+    const s = godStrings();
+    expect(s.aria('Titan', 1, '', '4 monsters with Titan')).toBe(
+      'Titan. Leading the squad. 4 monsters with Titan',
+    );
+    expect(s.aria('Titan', 2, '', 'x')).toBe('Titan. Leading the 2 squads. x');
+    // A line that says something else still follows.
+    expect(s.aria('Titan', 1, 'Waiting for you', '1 question')).toBe(
+      'Titan. Leading the squad: Waiting for you. 1 question',
+    );
+    setAppLang('it');
+    expect(godStrings().aria('Titan', 1, '', 'x')).toBe('Titan. A capo della squadra. x');
   });
 });

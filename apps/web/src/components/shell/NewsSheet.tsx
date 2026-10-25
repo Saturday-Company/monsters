@@ -15,14 +15,25 @@ import { shellStrings } from './shell.strings.ts';
  * use is newer than the last one whose news were opened (per browser).
  */
 
-/** The key of the rail: opens the sheet; a light says the news of this version were not looked at. */
-export function NewsKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' }) {
+/**
+ * The key of the rail: opens the sheet. While the version in use has news that were not looked at it
+ * is the TV news bug, "NEWS" on a block of signal orange with its light; otherwise it is a quiet key
+ * with the same word, like its neighbours (never a greyed block that reads as disabled). With
+ * `hideQuiet` (a narrow rail) the quiet key is not drawn: the palette still opens the sheet.
+ */
+export function NewsKey({
+  layout,
+  hideQuiet = false,
+}: {
+  layout: 'inline' | 'stacked' | 'icon';
+  hideQuiet?: boolean;
+}) {
   const open = useApp((s) => s.newsOpen);
   const version = useApp((s) => s.version);
   const seen = useNews((s) => s.seen);
   const fresh = hasNews(version, seen);
   const s = shellStrings().news;
-  // A TV news bug ("NEWS" on a solid block) instead of an icon and a name: it says what it is.
+  if (hideQuiet && !fresh && !open) return null;
   return (
     <button
       type="button"
@@ -30,23 +41,27 @@ export function NewsKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' }) {
       title={s.title}
       aria-pressed={open}
       data-testid="news-toggle"
+      data-fresh={fresh ? '' : undefined}
       onClick={() => setNewsOpen(!open)}
       className={cn(
         'key-ghost relative inline-flex shrink-0 items-center justify-center rounded-[9px] select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink',
-        layout === 'stacked' ? 'h-11 min-w-11 px-1.5' : 'h-9 px-2',
+        layout === 'stacked' ? 'h-11 min-w-11 px-1.5' : 'h-9 px-2.5',
         open && 'well hover:bg-well',
       )}
     >
-      <span
-        aria-hidden
-        // Signal orange is the one action colour: the bug wears it only while there is something new.
-        className={cn(
-          'inline-flex h-[18px] items-center rounded-[3px] px-1.5 font-sans text-micro leading-none font-extrabold tracking-[0.08em] italic',
-          fresh ? 'bg-signal text-on-signal' : 'bg-ink/10 text-ink-muted',
-        )}
-      >
-        NEWS
-      </span>
+      {fresh ? (
+        <span
+          aria-hidden
+          // Signal orange is the one action colour: the bug wears it only while there is something new.
+          className="inline-flex h-[18px] items-center rounded-[3px] bg-signal px-1.5 font-sans text-micro leading-none font-extrabold tracking-[0.08em] text-on-signal italic"
+        >
+          NEWS
+        </span>
+      ) : (
+        <span aria-hidden className="label text-ink-muted">
+          NEWS
+        </span>
+      )}
       {fresh && (
         <span
           aria-hidden

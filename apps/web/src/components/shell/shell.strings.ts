@@ -118,11 +118,11 @@ const en = {
     waitingOne: 'one run is waiting for an answer',
     waitingMany: (n: number) => `${n} runs are waiting for an answer`,
     nav: {
-      automations: { label: 'Automations', short: 'Auto' },
-      notes: { label: 'Notes', short: 'Notes' },
-      files: { label: 'Files', short: 'Files' },
-      log: { label: 'Activity', short: 'Activity' },
-      settings: { label: 'Settings', short: 'Settings' },
+      automations: { label: 'Automations' },
+      notes: { label: 'Notes' },
+      files: { label: 'Files' },
+      log: { label: 'Activity' },
+      settings: { label: 'Settings' },
     },
   },
   computer: {
@@ -289,11 +289,11 @@ const it: typeof en = {
     waitingOne: 'un giro aspetta una risposta',
     waitingMany: (n) => `${n} giri aspettano una risposta`,
     nav: {
-      automations: { label: 'Automazioni', short: 'Auto' },
-      notes: { label: 'Note', short: 'Note' },
-      files: { label: 'File', short: 'File' },
-      log: { label: 'Attività', short: 'Attiv.' },
-      settings: { label: 'Impostazioni', short: 'Impost.' },
+      automations: { label: 'Automazioni' },
+      notes: { label: 'Note' },
+      files: { label: 'File' },
+      log: { label: 'Attività' },
+      settings: { label: 'Impostazioni' },
     },
   },
   computer: {

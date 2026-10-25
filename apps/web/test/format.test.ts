@@ -16,6 +16,7 @@ import {
   formatShortDay,
   formatUsd,
   parseAmount,
+  timeParts,
 } from '../src/lib/utils.ts';
 
 /** Runs the tests inside in Italian, then back to English (the default). */
@@ -254,5 +255,31 @@ describe('eurFirst', () => {
       expect(eurFirst(1.09)).toBe('0,9 € (1,1 $)');
       expect(eurFirst(10, undefined, 0)).toBe('9 € (10 $)');
     });
+  });
+});
+
+describe('timeParts, the clock of the status display', () => {
+  // 17:27 UTC, whatever the zone: the parts agree with `formatTime` in each language.
+  const ts = Date.UTC(2026, 9, 25, 17, 27);
+  afterEach(() => setAppLang('en'));
+
+  it('splits a 12-hour time the way the chat writes it', () => {
+    setAppLang('en');
+    const t = timeParts(ts);
+    expect(t.text).toBe(formatTime(ts));
+    expect(t.period).toMatch(/^(AM|PM)$/);
+    expect(t.minute).toBe('27');
+    expect(Number(t.hour)).toBeGreaterThanOrEqual(1);
+    expect(Number(t.hour)).toBeLessThanOrEqual(12);
+    expect(t.text.replace(/\s/g, ' ')).toBe(`${t.hour}:${t.minute} ${t.period}`);
+  });
+
+  it('keeps 24 hours with two digits in Italian, without a period', () => {
+    setAppLang('it');
+    const t = timeParts(ts);
+    expect(t.text).toBe(formatTime(ts));
+    expect(t.period).toBeNull();
+    expect(t.hour).toMatch(/^\d{2}$/);
+    expect(`${t.hour}:${t.minute}`).toBe(t.text);
   });
 });

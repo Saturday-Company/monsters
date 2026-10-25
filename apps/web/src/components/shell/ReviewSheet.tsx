@@ -6,6 +6,14 @@ import { setPrefs, usePrefs } from '../../store/prefs.ts';
 import { useDrafts } from '../../store/projects.ts';
 import { markSeen, seenOf, useReads } from '../../store/reads.ts';
 import { cn } from '../../lib/utils.ts';
+import {
+  hashParam,
+  projectTabOf,
+  routeOf,
+  useHashParam,
+  useRoute,
+  type Route,
+} from '../../lib/router.ts';
 import { hideDock, usePreview } from '../../store/preview.ts';
 import { pausedToolEvents } from '../log/activity.ts';
 import { REVIEW_WITH_DOCK_FROM } from '../dock/layout.ts';
@@ -28,6 +36,19 @@ const REVIEW = '__review';
 export const REVIEW_COLUMN_QUERY = '(min-width: 1280px)';
 /** Wide enough for the column and the right-hand pane together (components/dock/layout.ts). */
 const WITH_DOCK_QUERY = `(min-width: ${REVIEW_WITH_DOCK_FROM}px)`;
+
+/**
+ * Whether the page of this route has a place for the column: the chat of the home, or the chat
+ * tab of a project (D-100). Anywhere else (Notes, Settings…) "To review" is a sheet.
+ */
+export function reviewColumnPage(
+  route: Route,
+  project: string | null,
+  tab: string | null,
+): boolean {
+  if (route === 'home') return true;
+  return route === 'project' && !!project && projectTabOf(tab) === 'chat';
+}
 
 /**
  * Whether the column is on screen: wide window and the preference on, and the
@@ -63,25 +84,28 @@ function useMarkReviewed(on: boolean) {
 
 /** Opens "Da rivedere" the way this window can show it (the palette, the rail). */
 export function showReview(): void {
-  if (window.matchMedia(REVIEW_COLUMN_QUERY).matches && window.location.hash.startsWith('#/')) {
+  const hash = window.location.hash;
+  if (
+    window.matchMedia(REVIEW_COLUMN_QUERY).matches &&
+    hash.startsWith('#/') &&
+    reviewColumnPage(routeOf(hash), hashParam(hash, 'id'), hashParam(hash, 'sezione'))
+  ) {
     // The column sits next to a chat: the home's, or a project's (D-100).
-    const hash = window.location.hash;
-    const home =
-      !/^#\/(log|note|file|automazioni|impostazioni|benvenuto|progetto)/.test(hash) ||
-      (/^#\/progetto\?id=/.test(hash) && !/[?&]sezione=/.test(hash));
-    if (home) {
-      setPrefs({ activityPanel: true });
-      if (!window.matchMedia(WITH_DOCK_QUERY).matches) hideDock();
-      return;
-    }
+    setPrefs({ activityPanel: true });
+    if (!window.matchMedia(WITH_DOCK_QUERY).matches) hideDock();
+    return;
   }
   setReviewOpen(true);
 }
 
 /** The key of the rail: the column on wide windows, the sheet elsewhere; the number of what waits. */
 export function ReviewKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' }) {
-  const column = useMediaQuery(REVIEW_COLUMN_QUERY);
-  const shown = useReviewColumn();
+  const route = useRoute();
+  const project = useHashParam('id');
+  const tab = useHashParam('sezione');
+  // The key is in the rail of every page: the column is only there on the pages that have a place for it.
+  const column = useMediaQuery(REVIEW_COLUMN_QUERY) && reviewColumnPage(route, project, tab);
+  const shown = useReviewColumn() && column;
   const sheetOn = useApp((s) => s.reviewOpen);
   const count = useReviewCount();
   const s = shellStrings().review;
