@@ -59,6 +59,7 @@ import {
   WEB_AGENT_MAX_STEPS,
   WEB_TOOLS,
   dioneBlueprint,
+  replaceRetiredRef,
   rheaBlueprint,
 } from '../agents/archetypes.ts';
 import {
@@ -1368,6 +1369,8 @@ export class TeamManager {
       await rm(join(team.dir, id, ARCHIVED_JSON), { force: true });
       await this.#reload();
       const def = this.#agent(id);
+      // It was away while a model went upstream (D-165): its chain gets the successor now.
+      await team.replaceRetiredModels(def);
       // The user, the capo and the language may have changed while it was away.
       const p = this.#profile();
       const orchestrator =
@@ -1823,7 +1826,8 @@ export class TeamManager {
     if (slash <= 0 || slash === text.length - 1) {
       throw new TeamError('invalid_request', teamManagerStrings().badModelRef(text, configured));
     }
-    const ref = { provider: text.slice(0, slash), model: text.slice(slash + 1) };
+    // A model gone upstream (D-165): a draft written before it was retired gets its successor.
+    const ref = replaceRetiredRef({ provider: text.slice(0, slash), model: text.slice(slash + 1) });
     if (!this.#d.providers.has(ref.provider)) {
       throw new TeamError(
         'invalid_request',

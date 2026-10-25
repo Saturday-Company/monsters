@@ -41,6 +41,10 @@ const en = {
   backToWork: 'back to work',
   // --- errors in Activity
   agentNotUpdated: (name: string, message: string) => `${name}: AGENTS.md not updated (${message})`,
+  retiredModelReplaced: (name: string, from: string, to: string) =>
+    `${name}: ${from} is no longer available, ${to} takes its place`,
+  retiredModelNotSaved: (name: string, from: string, to: string, message: string) =>
+    `${name}: ${from} is no longer available; ${to} is used for now, but agent.yaml could not be saved (${message})`,
   memoryUnreadable: (name: string, message: string) => `${name}’s memory can’t be read: ${message}`,
   memoryNotCreated: (name: string, message: string) =>
     `${name}’s memory wasn’t created: ${message}`,
@@ -131,6 +135,10 @@ const it: typeof en = {
   waitingAnswer: (question) => `aspetta una risposta: ${question}`,
   backToWork: 'riprende il lavoro',
   agentNotUpdated: (name, message) => `${name}: AGENTS.md non aggiornato (${message})`,
+  retiredModelReplaced: (name, from, to) =>
+    `${name}: ${from} non è più disponibile, al suo posto c’è ${to}`,
+  retiredModelNotSaved: (name, from, to, message) =>
+    `${name}: ${from} non è più disponibile; per ora si usa ${to}, ma agent.yaml non si è potuto salvare (${message})`,
   memoryUnreadable: (name, message) => `memoria di ${name} non leggibile: ${message}`,
   memoryNotCreated: (name, message) => `memoria di ${name} non creata: ${message}`,
   memoryNotUpdated: (name, message) => `memoria di ${name} non aggiornata: ${message}`,

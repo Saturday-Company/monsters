@@ -29,9 +29,11 @@ import { z } from 'zod';
 import {
   ALL_VAULT_TOOLS,
   VAULT_READ_TOOLS,
+  RETIRED_MODELS,
   WEB_TOOLS,
   dioneBlueprint,
   orchestratorBlueprint,
+  replaceRetired,
   rheaBlueprint,
   type ArchetypeOptions,
 } from '../agents/archetypes.ts';
@@ -740,6 +742,45 @@ export class TeamService {
     // Free models get fewer system tools: the toolset follows the new chain.
     this.#applyPolicy();
     return def;
+  }
+
+  /**
+   * A model gone upstream is replaced by its successor in the chain of every agent (D-165),
+   * the tiers kept. Best effort: when `agent.yaml` cannot be written (read-only file, full disk,
+   * a file locked by a sync tool) the chain is replaced in memory only, the run uses the new
+   * model and the next start tries again; the core starts either way. One line in Activity
+   * per replaced agent. Returns whether the chain changed.
+   */
+  async replaceRetiredModels(def: AgentDefinition): Promise<boolean> {
+    const next = replaceRetired(def.config.models);
+    if (!next) return false;
+    const was = def.config.models.find((m) => RETIRED_MODELS[`${m.provider}/${m.model}`])!;
+    const from = `${was.provider}/${was.model}`;
+    const successor = RETIRED_MODELS[from]!;
+    const to = `${successor.provider}/${successor.model}`;
+    const name = def.config.name;
+    const code = 'retired_model';
+    try {
+      if (!def.dir) throw new Error('no folder');
+      await this.setModels(def.config.id, next, def.config.autoModels);
+      this.#log.append({
+        agent: 'system',
+        type: 'error',
+        data: { code, message: teamStrings().retiredModelReplaced(name, from, to) },
+      });
+    } catch (err) {
+      def.config = { ...def.config, models: next };
+      this.#applyPolicy();
+      this.#log.append({
+        agent: 'system',
+        type: 'error',
+        data: {
+          code,
+          message: teamStrings().retiredModelNotSaved(name, from, to, (err as Error).message),
+        },
+      });
+    }
+    return true;
   }
 
   /**
