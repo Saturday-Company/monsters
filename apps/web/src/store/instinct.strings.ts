@@ -48,9 +48,9 @@ const en = {
         effort ? ` · ${effort}` : ''
       }`,
     tierSimple: (who: string, kind: Kind) =>
-      `${kind === 'subtask' ? 'Simple task' : 'Simple request'}: ${who} uses the light model`,
+      `${kind === 'subtask' ? 'Simple task' : 'Simple request'}: ${who} uses the quick model`,
     tierHard: (who: string, kind: Kind) =>
-      `${kind === 'subtask' ? 'Hard task' : 'Hard request'}: ${who} uses the strongest model`,
+      `${kind === 'subtask' ? 'Hard task' : 'Hard request'}: ${who} uses the thorough model`,
     noWeb: (who: string) => `For this request ${who} works without the web`,
     retry: (who: string) => `${who} hadn’t finished the job: I asked for it to be completed`,
     doubtWhy: (who: string, why: string) => `${who}’s work is in doubt: ${why}`,
@@ -143,9 +143,9 @@ const it: typeof en = {
         effort ? ` · ${effort}` : ''
       }`,
     tierSimple: (who, kind) =>
-      `${kind === 'subtask' ? 'Incarico' : 'Richiesta'} semplice: ${who} usa il modello leggero`,
+      `${kind === 'subtask' ? 'Incarico' : 'Richiesta'} semplice: ${who} usa il modello veloce`,
     tierHard: (who, kind) =>
-      `${kind === 'subtask' ? 'Incarico' : 'Richiesta'} difficile: ${who} usa il modello più forte`,
+      `${kind === 'subtask' ? 'Incarico' : 'Richiesta'} difficile: ${who} usa il modello accurato`,
     noWeb: (who) => `Per questa richiesta ${who} lavora senza il web`,
     retry: (who) => `${who} non aveva finito il lavoro: ho chiesto di completarlo`,
     doubtWhy: (who, why) => `Il lavoro di ${who} è in dubbio: ${why}`,

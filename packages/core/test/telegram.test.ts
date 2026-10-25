@@ -161,7 +161,7 @@ describe('telegram: token and connection', () => {
     expect(none.status).toBe(400);
     const shape = (await none.json()) as { error: string; message: string };
     expect(shape.error).toBe('invalid_token');
-    expect(shape.message).toContain('That doesn’t look like a Telegram token');
+    expect(shape.message).toContain('That doesn’t look like a Telegram bot code');
     expect(tg.calls.some((c) => c.method === 'getMe')).toBe(false);
 
     const view = await t.json<TelegramView>('PUT', '/api/telegram/token', {
@@ -1013,11 +1013,11 @@ describe('telegram: delivery', () => {
       });
     spend(10); // 8,60 € of 10 €
     await tg.waitMessage(
-      (m) => m.chat_id === GIULIO.id && m.text.includes('that’s 86% of the squad’s cap'),
+      (m) => m.chat_id === GIULIO.id && m.text.includes('that’s 86% of all monsters’ cap'),
     );
     spend(2);
     const stop = await tg.waitMessage(
-      (m) => m.chat_id === GIULIO.id && m.text.includes('Reached the squad’s cap for today'),
+      (m) => m.chat_id === GIULIO.id && m.text.includes('Reached all monsters’ cap for today'),
     );
     expect(stop.text).toContain('Settings → Models → Spending cap');
   });
@@ -1293,11 +1293,11 @@ describe('telegram: drafts of the monsters (D-098)', () => {
       '🧩 <b>Sofia</b>',
       'Role: testi dei post',
       '1. scrivi i testi dei post',
-      'Tools: notes, no terminal or files',
+      'Tools: notes, no commands or file changes',
       'Model: like Tethys',
-      'Connections: all the squad’s',
+      'Apps: all of them',
       'Web search: yes',
-      'Spending cap: the squad’s',
+      'Spending cap: all monsters’',
     ])
       expect(card.text).toContain(field);
     const buttons = card.reply_markup!.inline_keyboard!.flat();
@@ -1396,8 +1396,8 @@ describe('telegram: the draft card shows what becomes real (D-103)', () => {
       'Participants: Rhea',
       'Notices: app yes, Telegram yes',
       'Alla fine scrivi tre righe.',
-      'Squad lead: Titan',
-      'Limits per run: each job’s own',
+      'Lead: Titan',
+      'Limits per automation run: each job’s own',
     ])
       expect(card.text).toContain(field);
     expect(card.reply_markup!.inline_keyboard!.flat().map((b) => b.text)).toEqual([
@@ -1897,7 +1897,7 @@ describe('telegram: the app’s language (D-153)', () => {
       'Partecipano: Rhea',
       'Avvisi: app sì, Telegram sì',
       'Capo: Titan',
-      'Limiti per giro: quelli di ogni lavoro',
+      'Limiti per giro dell’automazione: quelli di ogni lavoro',
       'Conferma la crea così com’è',
     ])
       expect(card.text).toContain(field);

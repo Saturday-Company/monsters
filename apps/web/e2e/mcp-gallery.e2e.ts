@@ -156,8 +156,8 @@ test('gallery: Anteiku asks the company first, then the sign-in (D-075)', async 
   await panel.getByTestId('gallery-tenant').fill('acme');
   await expect(panel.getByTestId('gallery-tenant-url')).toHaveText('https://acme.anteiku.it/mcp');
   // The token way links to the company's own page.
-  await panel.getByRole('radio', { name: 'Personal token' }).click();
-  await expect(panel.getByRole('link', { name: 'Create the token' })).toHaveAttribute(
+  await panel.getByRole('radio', { name: 'Personal key' }).click();
+  await expect(panel.getByRole('link', { name: 'Create the key' })).toHaveAttribute(
     'href',
     'https://acme.anteiku.it/sistema/connessioni',
   );
@@ -200,11 +200,11 @@ test('gallery: Stripe with a key pasted once, used only by Dione', async ({ page
   const panel = page.getByTestId('gallery-panel-stripe');
   // Two ways: the sign-in first, the key on request.
   await panel.getByRole('radio', { name: 'Key for agents' }).click();
-  const create = panel.getByRole('link', { name: 'Create the token' });
+  const create = panel.getByRole('link', { name: 'Create the key' });
   await expect(create).toHaveAttribute('href', 'https://dashboard.stripe.com/apikeys');
   await expect(create).toHaveAttribute('target', '_blank');
   await panel.getByRole('button', { name: 'Connect' }).click();
-  await expect(panel.getByRole('alert')).toContainText('Paste the token you created');
+  await expect(panel.getByRole('alert')).toContainText('Paste the key you created');
 
   for (const name of ['Titan', 'Rhea', 'Enceladus', 'Mimas']) {
     await panel.getByRole('button', { name, exact: true }).click();
@@ -296,7 +296,7 @@ test('gallery: with the Claude plan, Figma and Slack connect through Claude (D-0
   );
   const panel = page.getByTestId('gallery-panel-figma');
   const body = panel.getByTestId('claude-connect');
-  await expect(body).toContainText('the monsters that work with Claude use it');
+  await expect(body).toContainText('for the monsters that work with Claude');
   await expect(body.getByRole('link', { name: 'Open Claude’s connectors' })).toHaveAttribute(
     'href',
     'https://claude.ai/settings/connectors',

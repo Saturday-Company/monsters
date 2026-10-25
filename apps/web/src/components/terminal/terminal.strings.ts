@@ -14,7 +14,7 @@ const en = {
   stoppedMidway: 'stopped midway',
   failed: 'failed',
   done: 'done',
-  stoppedByStop: 'Stopped by the kill switch',
+  stoppedByStop: 'Stopped with Stop',
   tool: 'tool:',
   dataSent: 'Data sent',
   result: 'Result',
@@ -50,10 +50,10 @@ const en = {
   decision: 'decision',
   receipt: 'receipt',
   run: {
-    started: 'work started',
-    completed: 'work done',
-    failed: 'work failed',
-    aborted: 'work stopped',
+    started: 'job started',
+    completed: 'job finished',
+    failed: 'job failed',
+    aborted: 'job stopped',
   },
   usage: (model: string, tokens: string, count: number, took: string | null) =>
     `${model} · ${tokens} ${count === 1 ? 'token' : 'tokens'}${took ? ` · ${took}` : ''}`,
@@ -72,14 +72,14 @@ const it: typeof en = {
     all: 'Tutto',
     thoughts: 'Pensieri',
     tools: 'Strumenti',
-    delegations: 'Compiti',
+    delegations: 'Incarichi',
     errors: 'Errori',
   },
   running: 'in corso…',
   stoppedMidway: 'fermato a metà',
   failed: 'non riuscito',
   done: 'fatto',
-  stoppedByStop: 'Fermato dallo stop',
+  stoppedByStop: 'Fermato con Stop',
   tool: 'strumento:',
   dataSent: 'Dati inviati',
   result: 'Risultato',
@@ -102,7 +102,7 @@ const it: typeof en = {
     if (dir === 'out') {
       const verb =
         status === 'started'
-          ? 'compito a'
+          ? 'incarico a'
           : status === 'completed'
             ? 'finito da'
             : status === 'failed'
@@ -112,7 +112,7 @@ const it: typeof en = {
     }
     const verb =
       status === 'started'
-        ? 'compito da'
+        ? 'incarico da'
         : status === 'completed'
           ? 'consegnato a'
           : status === 'failed'
@@ -124,7 +124,7 @@ const it: typeof en = {
   decision: 'decisione',
   receipt: 'ricevuta',
   run: {
-    started: 'inizio lavoro',
+    started: 'lavoro iniziato',
     completed: 'lavoro finito',
     failed: 'lavoro non riuscito',
     aborted: 'lavoro fermato',

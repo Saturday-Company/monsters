@@ -60,12 +60,12 @@ and on the right (`4747:…:4747`, or the one of `monsters start --port`): the c
 own origin and refuses the others. The sign-in is the usual one.
 
 ### From the desktop app
-With the desktop app you don't need to open the tunnel by hand: add the PC as a connection and the app uses your `ssh`
+With the desktop app you don't need to open the tunnel by hand: add the PC as a computer and the app uses your `ssh`
 to connect to the Monsters running there (D-044, D-047).
 
 0. At first start the app asks **Where do your monsters work?**: "On another computer of mine" opens the form below
    directly, and the Monsters of this computer doesn't start.
-1. **Connections…** (Monsters menu, tray icon or button on the status pages) → **Add a computer**: the computer
+1. **Computers…** (Monsters menu, tray icon or button on the status pages) → **Add a computer**: the computer
    (address, Tailscale name or an alias from `~/.ssh/config`, also `user@computer`) and, if you want, a name ("Home
    PC"; empty = the address). User, port, key, Monsters port and data folder are under **Advanced options**, with the
    values `ssh` would use already written in grey: usually you don't need them. **Try** opens and closes the
@@ -76,7 +76,7 @@ to connect to the Monsters running there (D-044, D-047).
    `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` and press **I trust it, connect** only if they match. The app
    remembers it in its own `known_hosts` (it reads your `~/.ssh/known_hosts` and never touches it); if one day the key
    changes, it won't connect and tells you so.
-3. With **Sign in without a password** (on by default in new connections) the app signs in by itself: it reads the PC's
+3. With **Sign in without a password** (on by default in new computers) the app signs in by itself: it reads the PC's
    command-line token over SSH and uses it once to open the session for you. Whoever has your SSH key can already
    command Monsters there, so it grants no new access; turn it off if you'd rather the app didn't touch that token,
    and then you sign in with the email and password of that PC's Monsters (once). If that Monsters has never been
@@ -126,7 +126,7 @@ Host my-desktop
 1. On the PC the core has to be running (`monsters start`, or the desktop app open on "This computer" and left there).
 2. From the Mac, in a terminal, `ssh my-desktop true` must answer without asking for a password (the key is in the
    agent or has no passphrase).
-3. In the app on the Mac: **Connections…** → **Add a computer**, computer `my-desktop` (the alias: user, address and
+3. In the app on the Mac: **Computers…** → **Add a computer**, computer `my-desktop` (the alias: user, address and
    key come from `~/.ssh/config`), name "My PC", the rest empty → **Try**, then **Save and connect**.
 4. Compare the fingerprint with the one printed by the PC (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`),
    confirm, sign in with the PC's Monsters account.
@@ -147,7 +147,7 @@ The PC's SSH server allows tunnels (`AllowTcpForwarding` is at its default value
 
 ### Connecting the bot
 1. On Telegram open [@BotFather](https://t.me/BotFather), type `/newbot`, pick a name: it gives you a token.
-2. In Monsters, **Settings → Connections → Telegram** (Impostazioni → Collegamenti → Telegram), paste the token:
+2. In Monsters, **Settings → Apps and Telegram → Telegram** (Impostazioni → App e Telegram → Telegram), paste the token:
    Monsters checks it with Telegram and saves it in `~/.monsters/secrets/` (encrypted with the system keychain, or a
    600 file where there is none). Alternatively you can use the `TELEGRAM_BOT_TOKEN` variable. The token no longer
    appears in the UI, in API answers or in the log.
@@ -182,7 +182,7 @@ group: everyone you admit talks to it. Each bot has its own token and its own mo
    otherwise Telegram gives the error "another program is using this token".
 2. Still with BotFather: `/setprivacy`, choose the bot, **Enable**. In groups the bot only receives the messages that
    mention it, the replies to its messages and the commands.
-3. In Monsters, **Settings → Connections → Telegram → Bots dedicated to a monster**: paste the token and choose the
+3. In Monsters, **Settings → Apps and Telegram → Telegram → Group bots (advanced)**: paste the token and choose the
    monster (name and project). The god can't: it talks from the main bot. Optional: a limit on messages per day.
 4. Add the bot to the group. The group shows up in Monsters "to approve" (the main bot tells you too): **Approve**.
    Whoever wants to talk to the monster types `/join` in the group (or to the bot in private): you approve them on

@@ -46,13 +46,13 @@ const en = {
     `New conversation${withName ? ` with ${withName}` : ''}: earlier messages stay in the log, but the monsters no longer see them.`,
 
   // --- status ---
-  statusHalted: '<b>Stopped</b> (kill switch): /resume to start them again.',
+  statusHalted: '<b>Stopped</b>: /resume to start them again.',
   statusRunning: '<b>Running.</b>',
   statusNoWork: 'No work in progress.',
   statusWorkDefault: 'work',
   statusQuestions: (n: number) => `Questions waiting: ${n}.`,
   statusProjects: '<b>Projects</b>',
-  statusNoLead: 'no squad lead',
+  statusNoLead: 'no lead',
   statusLeadDefault: 'working',
   statusLeadFree: (name: string) => `${name} is free`,
   statusToReport: (n: number) => ` (${n} to report)`,
@@ -150,20 +150,20 @@ const en = {
   // --- state shown in the settings ---
   crashed: 'Telegram stopped because of an error: restarting by itself.',
   slowDown: 'Telegram asks to slow down: I’ll try again as soon as it lets me.',
-  tokenRefused: 'Telegram refused the token: paste a new one.',
-  botBusy: 'Another program is using this bot (or it has a webhook): Monsters will try again.',
+  tokenRefused: 'Telegram refused the bot code: paste a new one.',
+  botBusy: 'Another app is using this bot (or it has a webhook): Monsters will try again.',
   notResponding: 'Telegram isn’t responding: trying again by myself.',
 
   // --- errors of the API ---
   botOfAMonster: (username: string) =>
     `@${username} is already a monster’s bot: create a new bot with BotFather for you.`,
   tokenFromEnv: (variable: string) =>
-    `The token comes from the ${variable} variable: remove it from there and restart Monsters.`,
-  connectBotFirst: 'Connect the bot with its token first.',
+    `The bot code comes from the ${variable} variable: remove it from there and restart Monsters.`,
+  connectBotFirst: 'Connect the bot with its code first.',
   accountNotConnected: 'This account isn’t one of the connected ones.',
 
   // --- token check (net.ts) ---
-  tokenUnknown: 'Telegram doesn’t recognize this token.',
+  tokenUnknown: 'Telegram doesn’t recognize this bot code.',
   telegramError: (code: number) => `Telegram answered with an error (${code}): try again shortly.`,
 };
 
@@ -199,7 +199,7 @@ const it: typeof en = {
   newConversation: (withName) =>
     `Nuova conversazione${withName ? ` con ${withName}` : ''}: i messaggi di prima restano nel log, ma i mostri non li vedono più.`,
 
-  statusHalted: '<b>Fermi</b> (kill switch): /riprendi per farli ripartire.',
+  statusHalted: '<b>Fermi</b>: /riprendi per farli ripartire.',
   statusRunning: '<b>Attivi.</b>',
   statusNoWork: 'Nessun lavoro in corso.',
   statusWorkDefault: 'lavoro',
@@ -295,18 +295,18 @@ const it: typeof en = {
 
   crashed: 'Telegram si è fermato per un errore: riparto da solo.',
   slowDown: 'Telegram chiede di rallentare: riprovo appena me lo permette.',
-  tokenRefused: 'Telegram ha rifiutato il token: incollane uno nuovo.',
-  botBusy: 'Un altro programma sta usando questo bot (o ha un webhook): Monsters riprova.',
+  tokenRefused: 'Telegram ha rifiutato il codice del bot: incollane uno nuovo.',
+  botBusy: 'Un’altra app sta usando questo bot (o ha un webhook): Monsters riprova.',
   notResponding: 'Telegram non risponde: riprovo da solo.',
 
   botOfAMonster: (username) =>
     `@${username} è già il bot di un mostro: crea un bot nuovo con BotFather per te.`,
   tokenFromEnv: (variable) =>
-    `Il token arriva dalla variabile ${variable}: toglila da lì e riavvia Monsters.`,
-  connectBotFirst: 'Collega prima il bot con il suo token.',
+    `Il codice del bot arriva dalla variabile ${variable}: toglila da lì e riavvia Monsters.`,
+  connectBotFirst: 'Collega prima il bot con il suo codice.',
   accountNotConnected: 'Questo account non è tra quelli collegati.',
 
-  tokenUnknown: 'Telegram non riconosce questo token.',
+  tokenUnknown: 'Telegram non riconosce questo codice del bot.',
   telegramError: (code) => `Telegram ha risposto con un errore (${code}): riprova tra poco.`,
 };
 

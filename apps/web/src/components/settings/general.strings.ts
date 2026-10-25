@@ -33,7 +33,7 @@ const en = {
     footer: 'This applies to the app on this computer, even when it’s showing another computer.',
     openAtLogin: 'Open at login',
     openAtLoginHint:
-      'When you sign in to your computer, Monsters starts by itself with no window: its icon stays in the tray and the monsters keep working even if you never open it.',
+      'When you sign in to your computer, Monsters starts with no window: its icon stays in the tray and the monsters keep working.',
     refused: 'The system didn’t let me change it. Try again.',
   },
   password: {
@@ -134,7 +134,7 @@ const it: typeof en = {
     footer: 'Vale per l’app di questo computer, anche quando mostra un altro computer.',
     openAtLogin: 'Apri all’accesso',
     openAtLoginHint:
-      'Quando entri nel computer Monsters si apre da solo, senza finestra: resta l’icona vicino all’orologio e i mostri lavorano anche se non lo apri tu.',
+      'Quando entri nel computer Monsters parte senza finestra: resta l’icona vicino all’orologio e i mostri lavorano.',
     refused: 'Il sistema non mi ha lasciato cambiarlo. Riprova.',
   },
   password: {

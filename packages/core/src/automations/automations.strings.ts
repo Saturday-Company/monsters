@@ -20,7 +20,7 @@ const en = {
   notInProject: (name: string, project: string) => `${name} isn’t part of the project ${project}.`,
   // why a run did not start or ended
   skippedAtStart: (when: string) =>
-    `The computer was off (or the core closed) for the run of ${when}: too much time has passed, so the run was skipped.`,
+    `The computer was off (or Monsters was closed) for the run of ${when}: too much time has passed, so the run was skipped.`,
   skippedAsleep: (when: string) =>
     `The computer was asleep (or Monsters was stopped) for the run of ${when}: too much time has passed, so the run was skipped.`,
   halted: 'Monsters is stopped: the run didn’t start.',
@@ -65,7 +65,7 @@ const it: typeof en = {
   noMonster: (id) => `Nella squadra non c’è un mostro "${id}".`,
   notInProject: (name, project) => `${name} non fa parte del progetto ${project}.`,
   skippedAtStart: (when) =>
-    `Il computer era spento (o il core chiuso) (giro di ${when}): è passato troppo tempo, il giro è saltato.`,
+    `Il computer era spento (o Monsters chiuso) (giro di ${when}): è passato troppo tempo, il giro è saltato.`,
   skippedAsleep: (when) =>
     `Il computer dormiva (o Monsters era fermo) (giro di ${when}): è passato troppo tempo, il giro è saltato.`,
   halted: 'Monsters è fermo: il giro non è partito.',

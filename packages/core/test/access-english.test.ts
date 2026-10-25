@@ -272,7 +272,7 @@ describe('the reasons an access is missing, in English', () => {
       toolNames: ['vault_read'],
     });
     expect(telegram.terminal.why).toBe(
-      'other people write in this Telegram chat: the terminal and files are closed',
+      'other people write in this Telegram chat: commands and files are closed',
     );
     const browser = accessState(
       deps({
@@ -297,7 +297,7 @@ describe('the reasons an access is missing, in English', () => {
       toolNames: ['vault_read'],
       harness: 'claude-agent',
     });
-    expect(sub.services.find((s) => s.name === 'Canva')?.why).toContain('(ask your squad lead)');
+    expect(sub.services.find((s) => s.name === 'Canva')?.why).toContain('(ask your lead)');
   });
 
   it('the note after a change of accesses is English, and a language change is not a change', () => {
@@ -314,7 +314,7 @@ describe('the reasons an access is missing, in English', () => {
     // What an Italian app saved is the same access.
     expect(accessChangeNote(['il web'], before)).toBeNull();
     expect(accessChangeNote(['il web', 'terminale e file'], ['web access'])).toContain(
-      'you no longer have terminal and files',
+      'you no longer have commands and files',
     );
     setAppLang('it');
     expect(accessChangeNote(['web access'], ['il web'])).toBeNull();
@@ -370,7 +370,7 @@ describe('access_request in English', () => {
       'Done: Monsters has granted Canva to the project “Saturday”. It applies from the next job of whoever uses it',
     );
     expect(results[1]).toContain(
-      'tell Giulio to connect Figma in Settings → Apps and Telegram (“Connect through Claude”, with the Claude subscription)',
+      'tell Giulio to connect Figma in Settings → Apps and Telegram (“Connect through Claude”, with the Claude plan)',
     );
   });
 });

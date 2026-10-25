@@ -149,7 +149,7 @@ It is an agent like the others, with the name the user chose, plus three tools:
 - `access_request({access: web|service|browser, monster?, service?, project?, why})` (project leads too, D-130):
   asks the user for an access a squad monster is missing. It is a question in the questions store (app and Telegram,
   parked like an `ask_user`) with “Yes, grant” and “No”, which only the user in person can answer; on yes the core
-  applies the change (Permissions, the project's Connections, browser) and writes `access_grant` in Activity.
+  applies the change (Permissions, the project's Settings tab, browser) and writes `access_grant` in Activity.
 Any request not addressed to a specific agent comes to it. It does simple requests itself: delegating costs tokens
 (multi-agent uses many times more of them) and should be done only when it pays off.
 

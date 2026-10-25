@@ -75,7 +75,7 @@ const en = {
       case 'user':
         return `The user stopped ${name}.`;
       case 'kill_switch':
-        return `The user pressed the kill switch: every monster stopped, ${name} too.`;
+        return `The user pressed Stop: every monster stopped, ${name} too.`;
       case 'shutdown':
         return `Monsters was closing, so ${name} stopped.`;
       case 'run_limit':

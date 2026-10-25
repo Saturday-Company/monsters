@@ -15,7 +15,7 @@ const en = {
   // --- why an access is missing (`access-state.ts`)
   /** After "…is on but not given to you": a monster that can ask for it, or must tell its lead. */
   askHow: (canAsk: boolean, lead: boolean): string =>
-    canAsk ? ' (you can ask for it with `access_request`)' : lead ? '' : ' (ask your squad lead)',
+    canAsk ? ' (you can ask for it with `access_request`)' : lead ? '' : ' (ask your lead)',
   webPermissionOff: () =>
     `the web permission is off: the user turns it on in ${settingsPath('ilWeb')}`,
   webOffInProject: (project: string) =>
@@ -25,8 +25,8 @@ const en = {
       ? `it is not among the tools of this job (not because the user said no: the permission is on), ${formatList(others)} ${others.length === 1 ? 'has' : 'have'} it`
       : 'it is not among the tools of this job (not because the user said no: the permission is on)',
   terminalPermissionOff: () =>
-    `the terminal permission is off: the user turns it on in ${settingsPath('terminale')}`,
-  terminalOthersAsk: 'other people write in this Telegram chat: the terminal and files are closed',
+    `the Run commands permission is off: the user turns it on in ${settingsPath('terminale')}`,
+  terminalOthersAsk: 'other people write in this Telegram chat: commands and files are closed',
   terminalNotInRun: 'they are not among the tools of this job (not because the user said no)',
   browserOff: () =>
     `the Monsters browser is off: the user turns it on in ${settingsPath('altriProgrammi')}`,
@@ -58,7 +58,7 @@ const en = {
     `${name} is not connected to the account: the user connects it in ${settingsPath('collegamenti')}`,
   // --- the accesses of a monster as a fingerprint and the note of its change (D-141)
   capWeb: 'web access',
-  capTerminal: 'terminal and files',
+  capTerminal: 'commands and files',
   capBrowser: 'the Monsters browser',
   accessChanged: (gained: readonly string[], lost: readonly string[]) => {
     const parts = [
@@ -74,7 +74,7 @@ const en = {
   youHaveIt: 'you have it in this job',
   youHaveThem: 'you have them in this job',
   whatWeb: 'web access',
-  whatTerminal: 'terminal and files',
+  whatTerminal: 'commands and files',
   whatBrowser: 'the Monsters browser',
   noUserNo:
     'There is no “no” from the user in the log of this job: they have not refused or denied anything.',
@@ -101,9 +101,9 @@ const en = {
     'turn: once granted, the monster has it from its next job (delegate again).',
   toolDescription: (grant: string, deny: string) =>
     'Ask the user for an access that a monster of your squad lacks, with one tap: the web for a monster, ' +
-    'a service already connected to the account (given to the whole team) for your project, or the browser ' +
+    'an app already connected to the account (given to all monsters) for your project, or the browser ' +
     `of Monsters. The user sees a card with "${grant}" and "${deny}"; you never grant anything yourself. ` +
-    'Use it when the work needs it, instead of explaining the settings. A service not connected to the ' +
+    'Use it when the work needs it, instead of explaining the settings. An app not connected to the ' +
     'account cannot be asked: the result says where the user connects it. Example: ' +
     '{"access": "service", "service": "Canva", "why": "To read the club’s graphics for the posts"}',
   theUser: 'the user',
@@ -122,7 +122,7 @@ const en = {
   browserIsOff: () =>
     `Tell the user to turn it on in ${settingsPath('altriProgrammi', 'Browser')}.`,
   serviceReaches: (label: string) =>
-    `${label} reaches the monsters of the personal squad already when it is given to the whole team: if its tools are missing, it is not signed in (${settingsPath('collegamenti')}).`,
+    `${label} reaches the monsters of the personal squad already when it is given to all monsters: if its tools are missing, it is not signed in (${settingsPath('collegamenti')}).`,
   serviceYours: (label: string, prefix: string, paused: readonly string[]) =>
     `${label} is yours already: its tools are yours in this job (\`${prefix}…\`, call them by name or find them with \`tools_search\`). No card was shown to the user: go on with the work.` +
     (paused.length > 0
@@ -144,7 +144,7 @@ const en = {
   viaClaudeLabel: 'through Claude',
   notConnectedHint: (name: string, user: string, viaClaude: boolean, connected: string) =>
     `Do not ask it: tell ${user} to connect ${name} in ${settingsPath('collegamenti')}` +
-    `${viaClaude ? ' (“Connect through Claude”, with the Claude subscription)' : ''}; then you can ask it for the project. ` +
+    `${viaClaude ? ' (“Connect through Claude”, with the Claude plan)' : ''}; then you can ask it for the project. ` +
     `Connected now: ${connected}.`,
   browserOwnAccess: 'Ask with {"access": "browser"}.',
 };
@@ -167,9 +167,9 @@ const it: typeof en = {
       : 'non è tra gli strumenti di questo lavoro (non per un no dell’utente: il permesso è acceso)';
   },
   terminalPermissionOff: () =>
-    'il permesso «Terminale e cartelle» è spento: lo accende l’utente in Impostazioni → Permessi',
+    'il permesso «Eseguire comandi» è spento: lo accende l’utente in Impostazioni → Permessi',
   terminalOthersAsk:
-    'in questa chat di Telegram scrivono altre persone: terminale e file sono chiusi',
+    'in questa chat di Telegram scrivono altre persone: comandi e file sono chiusi',
   terminalNotInRun: 'non sono tra gli strumenti di questo lavoro (non per un no dell’utente)',
   browserOff: () =>
     'il browser di Monsters è spento: lo accende l’utente in Impostazioni → App e Telegram → App',
@@ -199,7 +199,7 @@ const it: typeof en = {
   serviceNotConnected: (name) =>
     `${name} non è collegato all’account: lo collega l’utente in Impostazioni → App e Telegram`,
   capWeb: 'il web',
-  capTerminal: 'terminale e file',
+  capTerminal: 'comandi e file',
   capBrowser: 'il browser di Monsters',
   accessChanged: (gained, lost) => {
     const list = (items: readonly string[]) =>
@@ -216,7 +216,7 @@ const it: typeof en = {
   youHaveIt: 'ce l’hai in questo lavoro',
   youHaveThem: 'ce li hai in questo lavoro',
   whatWeb: 'il web',
-  whatTerminal: 'terminale e file',
+  whatTerminal: 'comandi e file',
   whatBrowser: 'il browser di Monsters',
   noUserNo:
     'Nel registro di questo lavoro non c’è nessun no dell’utente: non ha rifiutato né negato niente.',
@@ -241,9 +241,9 @@ const it: typeof en = {
     'turn: once granted, the monster has it from its next job (delegate again).',
   toolDescription: (grant, deny) =>
     'Ask the user for an access that a monster of your squad lacks, with one tap: the web for a monster, ' +
-    'a service already connected to the account (given to the whole team) for your project, or the browser ' +
+    'an app already connected to the account (given to all monsters) for your project, or the browser ' +
     `of Monsters. The user sees a card with "${grant}" and "${deny}"; you never grant anything yourself. ` +
-    'Use it when the work needs it, instead of explaining the settings. A service not connected to the ' +
+    'Use it when the work needs it, instead of explaining the settings. An app not connected to the ' +
     'account cannot be asked: the result says where the user connects it. Example: ' +
     '{"access": "service", "service": "Canva", "why": "Leggere le grafiche del club per i post"}',
   theUser: 'l’utente',
@@ -260,7 +260,7 @@ const it: typeof en = {
   browserIsOff: () =>
     'Tell the user to turn it on in Impostazioni → App e Telegram → App → Browser.',
   serviceReaches: (label) =>
-    `${label} reaches the monsters of the personal squad already when it is given to the whole team: if its tools are missing, it is not signed in (Impostazioni → App e Telegram).`,
+    `${label} reaches the monsters of the personal squad already when it is given to all monsters: if its tools are missing, it is not signed in (Impostazioni → App e Telegram).`,
   serviceYours: (label, prefix, paused) =>
     `${label} is yours already: its tools are yours in this job (\`${prefix}…\`, call them by name or find them with \`tools_search\`). No card was shown to the user: go on with the work.` +
     (paused.length > 0
@@ -280,7 +280,7 @@ const it: typeof en = {
   viaClaudeLabel: 'tramite Claude',
   notConnectedHint: (name, user, viaClaude, connected) =>
     `Do not ask it: tell ${user} to connect ${name} in Impostazioni → App e Telegram` +
-    `${viaClaude ? ' ("Collega tramite Claude", with the Claude subscription)' : ''}; then you can ask it for the project. ` +
+    `${viaClaude ? ' ("Collega tramite Claude", with the Claude plan)' : ''}; then you can ask it for the project. ` +
     `Connected now: ${connected}.`,
   browserOwnAccess: 'Ask with {"access": "browser"}.',
 };

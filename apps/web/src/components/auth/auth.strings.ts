@@ -57,9 +57,9 @@ const en = {
   owner: {
     title: 'Confirm it’s you',
     owner:
-      'Only you can decide this. The app signed in by itself with the terminal token, which a monster with the Terminal can read too: to approve, grant permissions or change Telegram, your password is needed.',
+      'Only you can decide this. The app signed in by itself with the computer’s own access key, which a monster that can run commands can read too: to approve, grant permissions or change Telegram, your password is needed.',
     recent:
-      'Giving a monster the Terminal, pairing Telegram or turning on tools for others needs your password from the last few minutes: type it again.',
+      'Letting a monster run commands, pairing Telegram or turning on tools for others needs your password from the last few minutes: type it again.',
     password: 'Password',
     cancel: 'Cancel',
     checking: 'Checking…',
@@ -134,9 +134,9 @@ const it: typeof en = {
   owner: {
     title: 'Conferma che sei tu',
     owner:
-      'Questa la decidi solo tu. L’app è entrata da sola con il token del terminale, che anche un mostro con il Terminale può leggere: per approvare, dare permessi o cambiare Telegram serve la tua password.',
+      'Questa la decidi solo tu. L’app è entrata da sola con la chiave d’accesso del computer, che anche un mostro che può eseguire comandi può leggere: per approvare, dare permessi o cambiare Telegram serve la tua password.',
     recent:
-      'Dare il Terminale a un mostro, abbinare Telegram o accendere gli strumenti per gli altri vuole la tua password degli ultimi minuti: scrivila di nuovo.',
+      'Far eseguire comandi a un mostro, abbinare Telegram o accendere gli strumenti per gli altri vuole la tua password degli ultimi minuti: scrivila di nuovo.',
     password: 'Password',
     cancel: 'Annulla',
     checking: 'Controllo…',

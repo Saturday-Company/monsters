@@ -346,7 +346,7 @@ describe('the spending caps with direct keys (D-114) and the projects (F-B13)', 
         estimated: true,
       },
     });
-    expect(m.stopReason('leda')).toMatch(/tetto di spesa della squadra/);
+    expect(m.stopReason('leda')).toMatch(/tetto di spesa di tutti i mostri/);
     m.close();
   });
 

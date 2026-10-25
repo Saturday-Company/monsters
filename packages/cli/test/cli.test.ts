@@ -156,7 +156,7 @@ describe('automations list in both languages (D-153)', () => {
     expect(await cmdAutomations([], request, io)).toBe(0);
     expect(io.lines).toEqual([
       'a1  Daily digest (active)',
-      '  every day at 8:00 · lead: titan · next: - · last run: waiting for the squad lead to be free',
+      '  every day at 8:00 · lead: titan · next: - · last run: waiting for the lead to be free',
     ]);
   });
 

@@ -137,7 +137,7 @@ describe('events in words, in both languages', () => {
       say('titan', 'delegation', { from: 'titan', to: 'atlas', status: 'started', goal: 'Cerca' }),
     ).toEqual([
       'Titan handed Atlas a task: “Cerca”',
-      'Titan ha passato un compito ad Atlas: “Cerca”',
+      'Titan ha passato un incarico ad Atlas: “Cerca”',
     ]);
     expect(say('titan', 'tool_result', { callId: 'c', tool: 'web_search', ok: true })).toEqual([
       'Titan finished searching the web',
@@ -205,7 +205,7 @@ describe('events in words, in both languages', () => {
       channel({ action: 'disconnected', reason: 'conflict', bot: true, name: 'Mario' }),
     ).toEqual([
       'The bot Mario is in use by another app (or has a webhook): Monsters will retry',
-      'Il bot Mario è usato da un altro programma (o ha un webhook): Monsters riprova',
+      'Il bot Mario è usato da un’altra app (o ha un webhook): Monsters riprova',
     ]);
     expect(channel({ action: 'disconnected' })).toEqual([
       'Telegram isn’t responding: Monsters will retry',
@@ -317,7 +317,7 @@ describe('the live activity follows the language', () => {
 
   it('says the mood in neutral words', () => {
     expect(both(() => moodText('working'))).toEqual(['working', 'al lavoro']);
-    expect(both(() => moodText('stopped'))).toEqual(['paused', 'in pausa']);
+    expect(both(() => moodText('stopped'))).toEqual(['stopped', 'fermo']);
   });
 });
 
@@ -378,12 +378,12 @@ describe('the chat in both languages', () => {
     const done = [task('completed'), task('completed'), task('completed')];
     expect(both(() => delegationGroupLabel(done))).toEqual([
       '3 tasks completed',
-      '3 compiti completati',
+      '3 incarichi completati',
     ]);
     const mixed = [task('completed'), task('started'), task('failed'), task('failed')];
     expect(both(() => delegationGroupLabel(mixed))).toEqual([
       '4 tasks: 1 completed, 1 in progress, and 2 stopped',
-      '4 compiti: 1 completato, 1 in corso e 2 fermati',
+      '4 incarichi: 1 completato, 1 in corso e 2 fermati',
     ]);
   });
 
@@ -535,8 +535,8 @@ describe('the instinct and the receipt in both languages', () => {
       'Rhea: hard task → claude opus 5.5',
     );
     expect(instinct('tier', { level: 'hard' })).toEqual([
-      'Hard request: Rhea uses the strongest model',
-      'Richiesta difficile: Rhea usa il modello più forte',
+      'Hard request: Rhea uses the thorough model',
+      'Richiesta difficile: Rhea usa il modello accurato',
     ]);
     expect(
       instinct('outbound_refused', {

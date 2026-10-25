@@ -304,7 +304,7 @@ describe('tools_search: the deferred tools of a run', () => {
     const card = monstersCard({
       toolNames: ['vault_search', TOOL_SEARCH, 'mcp__anteiku__search'],
     });
-    expect(card).toContain('servizi collegati, già tuoi (mai chiedere all’utente accessi');
+    expect(card).toContain('app collegate, già tue (mai chiedere all’utente accessi');
     expect(card).toContain('es. `mcp__anteiku__search`');
     expect(card).toContain('\n  - anteiku (`mcp__anteiku__…`): search\n');
     expect(card).not.toContain('molti strumenti');

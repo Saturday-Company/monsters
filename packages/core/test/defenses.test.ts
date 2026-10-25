@@ -1043,12 +1043,12 @@ describe('spending caps', () => {
     expect(m.stopReason('rhea')).toBeNull();
     usage(s, 'rhea', 4); // 10.3 €
     expect(spendEvents(s).map((e) => e.data.action)).toEqual(['warning', 'stopped']);
-    expect(spendEvents(s)[1]!.data.message).toMatch(/Reached the squad’s cap for today \(€10\)/);
+    expect(spendEvents(s)[1]!.data.message).toMatch(/Reached all monsters’ cap for today \(€10\)/);
     // The reason is read by the user and the monster, in the language of the moment.
-    expect(m.stopReason('rhea')).toContain('reached the squad’s spending cap for today');
+    expect(m.stopReason('rhea')).toContain('reached all monsters’ spending cap for today');
     inLang('it');
     expect(m.stopReason('rhea')).toContain(
-      `tetto di spesa della squadra ${SPEND_PERIOD_WORDS.day}`,
+      `tetto di spesa di tutti i mostri ${SPEND_PERIOD_WORDS.day}`,
     );
     expect(m.stopReason('titan')).not.toBeNull();
     // A monster on free models or a subscription never stops.
@@ -1181,7 +1181,7 @@ describe('spending caps', () => {
       .events(sent.runId)
       .find((e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'spend_cap');
     expect(error?.data.message).toMatch(/^Titan (stops|si ferma): /);
-    expect(error?.data.message).toMatch(/raggiunto il tetto di spesa della squadra/);
+    expect(error?.data.message).toMatch(/raggiunto il tetto di spesa di tutti i mostri/);
     expect(t.provider.callsTo('titan')).toHaveLength(0);
     const view = await t.json<{ status: string; day: { spentEur: number } }>(
       'GET',

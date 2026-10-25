@@ -253,7 +253,9 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
       'Can I give Canva to the project “Saturday”? Leggere le grafiche del club',
     );
     expect(q.options.map((o) => o.label)).toEqual(['Yes, grant', 'No']);
-    expect(q.options[0]!.description).toContain('“Saturday” → Connections: Canva turned on');
+    expect(q.options[0]!.description).toContain(
+      '“Saturday” project page, Settings tab: Canva turned on',
+    );
     setAppLang('it');
     // Leda gains it herself: the request is parked at once and her run ends (D-163); the tap
     // starts her next run, with Canva among its tools and the note of the grant.

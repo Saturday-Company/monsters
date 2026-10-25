@@ -40,7 +40,7 @@ describe('hub prompts', () => {
     const p = hubPrompts();
     const card = accessStrings();
     expect(p.transcriptsClosed).toMatch(/^The Claude Code session transcripts/);
-    expect(p.yourLead).toBe('your squad lead');
+    expect(p.yourLead).toBe('your lead');
     // The private folder of the vault, whatever its layout (D-154).
     expect(p.privateInChat('Private')).toBe(
       'The private notes (Private/) aren’t accessible while you talk in a Telegram chat.',

@@ -215,7 +215,7 @@ describe('the model in the receipt and the instrumentation', () => {
         },
         nameOf,
       ),
-    ).toBe('Richiesta semplice: Rhea usa il modello leggero');
+    ).toBe('Richiesta semplice: Rhea usa il modello veloce');
     // A delegation with the level of its own subtask (D-109).
     expect(
       instinctSentence(

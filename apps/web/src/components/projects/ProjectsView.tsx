@@ -44,7 +44,8 @@ import '../settings/settings.css';
  * archived project its "Ripristina"; `?view=new` is the form of a new one.
  */
 
-const TABS: { value: ProjectTab; label: string }[] = [
+/** Built at render, not at module load: the labels follow a language switch (W-28). */
+const projectTabs = (): { value: ProjectTab; label: string }[] => [
   { value: 'chat', label: PROJECT_TABS.chat },
   { value: 'squadra', label: PROJECT_TABS.squadra },
   { value: 'note', label: PROJECT_TABS.note },
@@ -238,7 +239,7 @@ function ProjectPage({ p, tab, part }: { p: ProjectView; tab: ProjectTab; part: 
       <header className="seam-b flex shrink-0 flex-wrap items-center justify-center gap-x-4 gap-y-2 px-4 pt-3 pb-3 sm:px-6">
         <Tabs
           base="project"
-          items={TABS}
+          items={projectTabs()}
           value={tab}
           onChange={(t) => replaceHash(projectPath(p.id, t))}
           label={viewStrings().sectionsOf(p.name)}

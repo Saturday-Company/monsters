@@ -15,6 +15,7 @@ import {
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { domId, parseAmount } from '../../lib/utils.ts';
 import { errorText, getApi, notify } from '../../store/app.ts';
+import { setUsdToEur } from '../../store/derive.ts';
 import { Button } from '../ui/button.tsx';
 import { Segmented } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
@@ -369,7 +370,12 @@ export function RunLimitsRow() {
         () => USD_TO_EUR_DEFAULT,
       ),
     ])
-      .then(([view, rate]) => alive && (setLoaded({ view, rate }), setFailed(false)))
+      .then(([view, rate]) => {
+        setUsdToEur(rate);
+        if (!alive) return;
+        setLoaded({ view, rate });
+        setFailed(false);
+      })
       .catch(() => alive && setFailed(true));
     return () => {
       alive = false;

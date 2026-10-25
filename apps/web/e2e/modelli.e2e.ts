@@ -194,7 +194,7 @@ test('"Automatic": for the whole team each monster on its base, then one per mon
   const team = page.getByTestId('team-chain');
   await team.getByRole('switch', { name: 'Automatic model choice for all the monsters' }).click();
   await expect(team.getByTestId('auto-team')).toContainText(
-    'Each monster starts from its own base',
+    'Your lead and the monsters that work on the computer start from Thorough',
   );
   await expect(page.getByText('Squad models saved.')).toBeVisible();
   // Up front it is not a model to pick: it says it is chosen for each request.

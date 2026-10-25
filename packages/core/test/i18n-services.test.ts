@@ -65,7 +65,7 @@ describe('the core services speak the app’s language', () => {
     expect(mcpStrings().toolsPaused('Notes', 3, 'new', 'add')).toContain('3 new or changed tools');
     expect(serverStrings().archiveTooSoon(1)).toContain('1 minute.');
     expect(hubStrings().movedToPlan(['Dione'], false, 'Claude')).toBe(
-      'Now Dione works with your Claude subscription. You can change it in Settings → Models.',
+      'Now Dione works with your Claude plan. You can change it in Settings → Models.',
     );
     setAppLang('it');
     expect(draft(1)).toContain('un’automazione');

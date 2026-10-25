@@ -60,7 +60,7 @@ test('settings: connect the bot, pair an account, quiet night, remove', async ({
   const field = section.getByLabel('Bot code');
   await field.fill('ciao');
   await section.getByRole('button', { name: 'Connect the bot' }).click();
-  await expect(section.getByRole('alert')).toContainText('doesn’t look like a Telegram token');
+  await expect(section.getByRole('alert')).toContainText('doesn’t look like a Telegram bot code');
   await field.fill('123456789:AAH000000wrongTokenForTheMock_abcdefgh');
   await section.getByRole('button', { name: 'Connect the bot' }).click();
   await expect(section.getByRole('alert')).toContainText('Telegram doesn’t recognize');

@@ -80,7 +80,7 @@ const en = {
     tier: {
       label: 'Uses the cheaper model for simple things',
       description:
-        'If a monster has a light model and a strong one, simple requests go to the light one and hard ones to the strong one; every task the lead hands to a monster gets its own level. It never uses paid models if you’ve turned them off.',
+        'If a monster has a quick model and a thorough one, simple requests go to the quick one and hard ones to the thorough one; every task the lead hands to a monster gets its own level. It never uses paid models if you’ve turned them off.',
       sends:
         'Your request (in the same question as “Hands the job to the right monster”) and, for each task, the text the lead writes to the monster.',
     },
@@ -150,14 +150,14 @@ const it: typeof en = {
       description:
         'Dopo ogni lavoro confronta quello che il mostro dice con le note che ha salvato davvero: se manca qualcosa gli chiede di completarlo.',
       sends:
-        'Il compito, «finito quando» e i vincoli, il rapporto del mostro e i nomi delle note toccate (non il loro contenuto).',
+        'L’incarico, «finito quando» e i vincoli, il rapporto del mostro e i nomi delle note toccate (non il loro contenuto).',
     },
     stuck: {
       label: 'Ferma chi gira a vuoto',
       description:
         'Se un mostro ripete le stesse azioni senza andare avanti gli chiede di cambiare strada, e se insiste passa a un altro modello. Non lo ferma mai da solo.',
       sends:
-        'Il compito e gli ultimi passi in una riga ciascuno (strumento, argomenti brevi, esito).',
+        'L’incarico e gli ultimi passi in una riga ciascuno (strumento, argomenti brevi, esito).',
     },
     final_question: {
       label: 'Le domande diventano schede',
@@ -186,7 +186,7 @@ const it: typeof en = {
     tier: {
       label: 'Usa il modello più economico per le cose semplici',
       description:
-        'Se un mostro ha un modello leggero e uno potente, le richieste semplici vanno al leggero e quelle difficili al potente; ogni incarico che il capo passa a un mostro ha il suo livello. Non usa mai modelli a pagamento se li hai spenti.',
+        'Se un mostro ha un modello veloce e uno accurato, le richieste semplici vanno al veloce e quelle difficili all’accurato; ogni incarico che il capo passa a un mostro ha il suo livello. Non usa mai modelli a pagamento se li hai spenti.',
       sends:
         'La tua richiesta (nella stessa domanda di «Passa il lavoro al mostro giusto») e, per ogni incarico, il testo che il capo scrive al mostro.',
     },
@@ -199,16 +199,16 @@ const it: typeof en = {
     outbound: {
       label: 'Ti chiede prima delle azioni che escono dal computer',
       description:
-        'Prima di pubblicare, scrivere ad altri, spendere o cancellare per sempre con altri programmi, il browser o il terminale, e prima di mandare pezzi delle tue note a un sito mai visto, il mostro si ferma e te lo chiede (solo per le cose in «Chiedi sempre»). Queste regole valgono sempre; se le decisioni dei mostri sono accese, guardano anche i casi dubbi.',
+        'Prima di pubblicare, scrivere ad altri, spendere o cancellare per sempre con altre app, il browser o i comandi, e prima di mandare pezzi delle tue note a un sito mai visto, il mostro si ferma e te lo chiede (solo per le cose in «Chiedi sempre»). Queste regole valgono sempre; se le decisioni dei mostri sono accese, guardano anche i casi dubbi.',
       sends:
         'Il nome dello strumento, la sua descrizione e gli argomenti della chiamata (accorciati).',
     },
     injection: {
       label: 'Segnala i testi che danno ordini ai mostri',
       description:
-        'Nelle pagine web e nei testi di altri programmi cerca frasi rivolte ai mostri: le segnala, o le toglie quando è sicuro. Le tue note non le controlla.',
+        'Nelle pagine web e nei testi di altre app cerca frasi rivolte ai mostri: le segnala, o le toglie quando è sicuro. Le tue note non le controlla.',
       sends:
-        'Il testo delle pagine web e dei risultati di altri programmi che i mostri leggono. Mai le tue note.',
+        'Il testo delle pagine web e dei risultati di altre app che i mostri leggono. Mai le tue note.',
     },
     memory: {
       label: 'Ricorda solo quello che serve',

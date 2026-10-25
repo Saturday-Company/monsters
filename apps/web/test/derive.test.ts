@@ -218,7 +218,7 @@ describe('one chat per monster', () => {
     const nameOf = makeNameOf({});
     expect(previewText(dione[0]!, nameOf)).toBe('Tu: Una bio?');
     expect(previewText(chatThread(items, 'rhea', scope)[0]!, nameOf)).toBe(
-      'Compito per Rhea: Cerca spunti',
+      'Incarico per Rhea: Cerca spunti',
     );
   });
 });
@@ -701,7 +701,7 @@ describe('describeEvent and undo', () => {
       'Il lavoro di Rhea si è fermato',
       'Il lavoro di Bruno non è andato a buon fine',
       'Il lavoro di Bruno si è fermato',
-      'Il compito di Rhea per Bruno non è andato a buon fine',
+      'L’incarico di Rhea per Bruno non è andato a buon fine',
       'Bruno ha lasciato a metà la delega',
     ]);
     for (const t of texts) expect(t).not.toMatch(/stopped|global|interrott[oa]\b|riuscit[oa]/);
@@ -1027,9 +1027,9 @@ describe('events among monsters in the chat', () => {
         d('3', 'completed'),
         d('4', 'completed'),
       ]),
-    ).toBe('4 compiti completati');
+    ).toBe('4 incarichi completati');
     expect(delegationGroupLabel([d('1', 'started'), d('2', 'started'), d('3', 'started')])).toBe(
-      '3 compiti passati alla squadra',
+      '3 incarichi passati alla squadra',
     );
     expect(
       delegationGroupLabel([
@@ -1038,7 +1038,7 @@ describe('events among monsters in the chat', () => {
         d('3', 'started'),
         d('4', 'failed'),
       ]),
-    ).toBe('4 compiti: 1 completato, 2 in corso e 1 fermato');
+    ).toBe('4 incarichi: 1 completato, 2 in corso e 1 fermato');
   });
 
   it('folds the lines of the instinct among the tasks into the same line', () => {
@@ -1519,7 +1519,7 @@ describe('Telegram events in words', () => {
       reason: 'conflict',
     });
     expect(text).toContain('@rhea_saturday_bot');
-    expect(text).toContain('un altro programma');
+    expect(text).toContain('un’altra app');
     expect(text).not.toContain('serve il tuo intervento');
     expect(channel({ action: 'disconnected', reason: 'error' })).toBe(
       'Telegram si è fermato: serve il tuo intervento',

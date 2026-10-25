@@ -22,7 +22,7 @@ describe('plurals and agreements of the chat', () => {
     expect(s.receipt.injections(2)).toBe('2 texts with orders for the monsters removed');
     expect(s.panel.roleLead(1)).toBe('your lead · coordinates 1 monster');
     expect(shellStrings().review.count(2)).toBe('To review: 2 things');
-    expect(shellStrings().sidebar.waitingMany(2)).toBe('2 runs are waiting for an answer');
+    expect(shellStrings().sidebar.waitingMany(2)).toBe('2 jobs are waiting for an answer');
   });
 
   it('count in Italian', () => {
@@ -38,10 +38,10 @@ describe('plurals and agreements of the chat', () => {
     expect(s.receipt.injections(2)).toBe('2 testi con ordini ai mostri tolti');
     expect(s.panel.roleLead(3)).toBe('il tuo capo · coordina 3 mostri');
     expect(s.events.handedSentence('Rhea', 'Atlas', '«x»')).toBe(
-      'Rhea ha passato un compito ad Atlas: «x»',
+      'Rhea ha passato un incarico ad Atlas: «x»',
     );
     expect(s.events.handedSentence('Rhea', 'Dione', '«x»')).toBe(
-      'Rhea ha passato un compito a Dione: «x»',
+      'Rhea ha passato un incarico a Dione: «x»',
     );
     expect(shellStrings().review.count(1)).toBe('Da rivedere: 1 cosa');
     expect(shellStrings().palette.youTo('Atlas')).toBe('Tu, ad Atlas');

@@ -209,7 +209,7 @@ const it: typeof en = {
     new: 'Nuova automazione',
     all: 'Tutte le automazioni',
     empty:
-      'Il progetto non ha ancora automazioni: un lavoro che la squadra fa da sola, a un’ora fissa, con il capo che passa i compiti ai suoi mostri.',
+      'Il progetto non ha ancora automazioni: un lavoro che la squadra fa da sola, a un’ora fissa, con il capo che passa gli incarichi ai mostri.',
   },
   spend: {
     what: 'la spesa del progetto',

@@ -260,13 +260,13 @@ test.describe('dedicated bots, desktop light', () => {
     const lever = tools.getByRole('switch');
     await expect(lever).toHaveAttribute('aria-checked', 'false');
     await expect(tools).toContainText('Off: people you admit work with fewer tools.');
-    await expect(tools).not.toContainText('no terminal or file changes');
+    await expect(tools).not.toContainText('no commands or file changes');
     await lever.click();
     // Not on at the first press: a clear warning first, with what they cannot do today.
     const confirm = tools.getByTestId('telegram-bot-tools-confirm');
     await expect(confirm).toContainText('as if they were you');
     await expect(confirm).toContainText('connected apps');
-    await expect(confirm).toContainText('no terminal or file changes');
+    await expect(confirm).toContainText('no commands or file changes');
     await expect(lever).toHaveAttribute('aria-checked', 'false');
     await shot(page, '07-strumenti-per-gli-altri-chiaro', bot);
     await tools.getByRole('button', { name: 'Yes, turn on' }).click();

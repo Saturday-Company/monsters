@@ -339,7 +339,7 @@ describe('the spending cap reason', () => {
   it('follows the language', () => {
     const t = teamSpendStrings();
     expect(t.capReached(t.squadCap, 'for today', '€10')).toBe(
-      'reached the squad’s spending cap for today (€10)',
+      'reached all monsters’ spending cap for today (€10)',
     );
     expect(t.capReached(t.agentCap('Rhea'), 'for today', '€1')).toBe(
       'reached Rhea’s spending cap for today (€1)',
@@ -350,7 +350,7 @@ describe('the spending cap reason', () => {
     setAppLang('it');
     const it = teamSpendStrings();
     expect(it.capReached(it.squadCap, 'di oggi', '10 €')).toBe(
-      'raggiunto il tetto di spesa della squadra di oggi (10 €)',
+      'raggiunto il tetto di spesa di tutti i mostri di oggi (10 €)',
     );
     expect(it.capReached(it.agentCap('Rhea'), 'di oggi', '1 €')).toBe(
       'raggiunto il tetto di spesa di Rhea di oggi (1 €)',

@@ -19,8 +19,8 @@ const en = {
   browser:
     'browser: you use real sites in the Monsters browser, with the sign-ins the user made there (e.g. Instagram): you read and prepare; before Publish, Share, Send or Pay Monsters asks the user',
   terminalHere: (codex: boolean) =>
-    `terminal and files: in this job’s folder${codex ? ' (a command that needs the network asks Monsters first: `sandbox_permissions: "require_escalated"`)' : ''}`,
-  terminalGranted: 'terminal and files: only in the folders granted (`shell`, `fs_*`)',
+    `commands and files: in this job’s folder${codex ? ' (a command that needs the network asks Monsters first: `sandbox_permissions: "require_escalated"`)' : ''}`,
+  terminalGranted: 'commands and files: only in the folders granted (`shell`, `fs_*`)',
   artifact: 'HTML pages for the user, among their Files (`artifact_create`)',
   uiDraw:
     'drawn data: a table, key numbers, a chart, a comparison or steps, in a ```ui block inside your reply (manual: `ui_guide`)',
@@ -28,17 +28,17 @@ const en = {
   askUser: 'questions to the user (`ask_user`)',
   projectPropose:
     'you propose a new project as a draft (`project_propose`: new monsters, with names never used; you copy an existing monster only if the user asks)',
-  projectSend: 'you hand work to a project’s squad lead (`project_send`, `project_status`)',
+  projectSend: 'you hand work to a project’s lead (`project_send`, `project_status`)',
   projects: (parts: readonly string[], load: string) => `projects: ${parts.join('; ')}${load}`,
   automation: (load: string) =>
     `jobs that repeat on a schedule: you propose an automation as a draft (\`automation_propose\`)${load}`,
   docs: (load: string) =>
     `CLAUDE.md and AGENTS.md in the project’s folder: you don’t write them, you propose the new text (\`project_docs_propose\`), the user applies it${load}`,
   access: (grant: string) =>
-    `accesses the squad is missing (the web for a monster, a service already connected to the account, the browser): you ask the user for them with \`access_request\`, and the user taps “${grant}”`,
+    `accesses the squad is missing (the web for a monster, an app already connected to the account, the browser): you ask the user for them with \`access_request\`, and the user taps “${grant}”`,
   teamMonster: 'new monsters: you propose a draft (`team_propose_monster`), the user creates it',
   services: (names: string) =>
-    `connected services, already yours (never ask the user for access, keys or addresses for them): ${names}`,
+    `connected apps, already yours (never ask the user for access, keys or addresses for them): ${names}`,
   catalog: (example: string) =>
     `. Call their tools by the full name, e.g. \`${example}\`: one not loaded yet loads and runs at its first call; \`tools_search\` tells what they do and their parameters`,
   // Codex (D-163): its tool list cannot change in a session, so the waiting tools are called through
@@ -48,9 +48,9 @@ const en = {
   catalogLine: (label: string, prefix: string, names: string) =>
     `  - ${label} (\`${prefix}…\`): ${names}`,
   noServicesProject: (path: string) =>
-    `connected services (none is on for this project: the user turns them on from the ${path})`,
+    `connected apps (none is on for this project: the user turns them on from the ${path})`,
   noServices: (path: string) =>
-    `connected services (none is given to you: the user connects them and gives them to you in ${path})`,
+    `connected apps (none is given to you: the user connects them and gives them to you in ${path})`,
   loadable: (names: string) => `also, to load with \`tools_search\` when needed: ${names}`,
   head: '## Monsters',
   intro:
@@ -101,8 +101,8 @@ const it: typeof en = {
   browser:
     'browser: usi siti veri nel browser di Monsters, con gli accessi che l’utente ci ha fatto (es. Instagram): leggi e prepari; prima di Pubblica, Condividi, Invia o Paga Monsters chiede all’utente',
   terminalHere: (codex) =>
-    `terminale e file: nella cartella di questo lavoro${codex ? ' (un comando che ha bisogno della rete chiede prima a Monsters: `sandbox_permissions: "require_escalated"`)' : ''}`,
-  terminalGranted: 'terminale e file: solo nelle cartelle concesse (`shell`, `fs_*`)',
+    `comandi e file: nella cartella di questo lavoro${codex ? ' (un comando che ha bisogno della rete chiede prima a Monsters: `sandbox_permissions: "require_escalated"`)' : ''}`,
+  terminalGranted: 'comandi e file: solo nelle cartelle concesse (`shell`, `fs_*`)',
   artifact: 'pagine HTML per l’utente, tra i suoi File (`artifact_create`)',
   uiDraw:
     'dati disegnati: una tabella, numeri chiave, un grafico, un confronto o dei passi, in un blocco ```ui dentro la risposta (manuale: `ui_guide`)',
@@ -117,19 +117,19 @@ const it: typeof en = {
   docs: (load) =>
     `CLAUDE.md e AGENTS.md della cartella del progetto: non li scrivi, proponi il testo nuovo (\`project_docs_propose\`), l’utente lo applica${load}`,
   access: (grant) =>
-    `accessi che mancano alla squadra (il web a un mostro, un servizio già collegato all’account, il browser): li chiedi all’utente con \`access_request\`, lui tocca «${grant}»`,
+    `accessi che mancano alla squadra (il web a un mostro, un’app già collegata all’account, il browser): li chiedi all’utente con \`access_request\`, lui tocca «${grant}»`,
   teamMonster: 'nuovi mostri: proponi una bozza (`team_propose_monster`), l’utente la crea',
   services: (names) =>
-    `servizi collegati, già tuoi (mai chiedere all’utente accessi, chiavi o indirizzi per questi): ${names}`,
+    `app collegate, già tue (mai chiedere all’utente accessi, chiavi o indirizzi per questi): ${names}`,
   catalog: (example) =>
     `. Chiama i loro strumenti col nome completo, es. \`${example}\`: uno non ancora caricato si carica e si esegue alla prima chiamata; \`tools_search\` dice cosa fanno e i loro parametri`,
   catalogCall: (example) =>
     `. Questi strumenti non sono nella tua lista: chiamali con \`tools_call\` ({"name": "${example}", "arguments": {…}}), col nome completo come scritto qui; \`tools_search\` dice cosa fanno e dà i loro parametri (non carica nulla); i pochi già nella tua lista li chiami per nome`,
   catalogLine: (label, prefix, names) => `  - ${label} (\`${prefix}…\`): ${names}`,
   noServicesProject: (path) =>
-    `servizi collegati (nessuno è acceso per questo progetto: li accende l’utente nella ${path})`,
+    `app collegate (nessuna è accesa per questo progetto: le accende l’utente nella ${path})`,
   noServices: (path) =>
-    `servizi collegati (nessuno è dato a te: li collega e li dà l’utente in ${path})`,
+    `app collegate (nessuna è data a te: le collega e le dà l’utente in ${path})`,
   loadable: (names) => `anche, da caricare con \`tools_search\` quando servono: ${names}`,
   head: '## Monsters',
   intro:

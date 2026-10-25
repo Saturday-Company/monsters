@@ -22,7 +22,7 @@ const en = {
 
   claudeMissing: 'Claude Code isn’t installed.',
   claudeMissingRun: (settings: string) =>
-    `Claude Code isn’t installed: install it, or connect your Claude subscription in ${settings}.`,
+    `Claude Code isn’t installed: install it, or connect your Claude plan in ${settings}.`,
   /** The reason of a connector check that said nothing. */
   noAnswer: 'no answer',
   claudeClosed: (code: string | number | null, tail: string) =>
@@ -78,7 +78,7 @@ const it: typeof en = {
 
   claudeMissing: 'Claude Code non è installato.',
   claudeMissingRun: (settings) =>
-    `Claude Code non è installato: installalo, o collega l’abbonamento Claude in ${settings}.`,
+    `Claude Code non è installato: installalo, o collega il piano Claude in ${settings}.`,
   noAnswer: 'nessuna risposta',
   claudeClosed: (code, tail) =>
     `Claude Code si è chiuso senza risultato (${code ?? 'segnale'})${tail ? `: ${tail}` : ''}`,

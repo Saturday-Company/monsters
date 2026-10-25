@@ -190,7 +190,7 @@ test('overlay of the system buttons: 52 px, colours from the system and from the
     }));
     expect(header).toEqual({ height: 52, region: 'drag' });
     await expect(conn.locator('article[data-choice="local"]')).toBeVisible();
-    await windowShot(app, 'Connessioni · Monsters', 'connessioni-chiara.png');
+    await windowShot(app, 'Computer · Monsters', 'connessioni-chiara.png');
   } finally {
     await quit(app);
   }
@@ -220,7 +220,7 @@ test('status page: system colours, and it cannot set the overlay', async () => {
     const conn = app.windows().find((p) => p !== page)!;
     await conn.emulateMedia({ colorScheme: 'dark' });
     await expect(conn.locator('article[data-choice="local"]')).toBeVisible();
-    await windowShot(app, 'Connessioni · Monsters', 'connessioni-scura.png');
+    await windowShot(app, 'Computer · Monsters', 'connessioni-scura.png');
   } finally {
     await quit(app);
   }
@@ -281,7 +281,7 @@ test('the theme of the Settings: the app pages follow it, also after a restart (
     const conn = app.windows().find((p) => p !== page)!;
     await expect(conn.locator('article[data-choice="local"]')).toBeVisible();
     expect(await pageChassis(conn)).toBe(DARK.rgb);
-    expect((await appTheme(app, 'Connessioni · Monsters')).background).toBe(DARK.hex);
+    expect((await appTheme(app, 'Computer · Monsters')).background).toBe(DARK.hex);
     expect((await appTheme(app, 'Monsters')).source).toBe('dark');
     expect(storedTheme(userData)).toBe('dark');
   } finally {

@@ -9,7 +9,7 @@ const en = {
   // confirmation and password
   confirmRequired: 'This needs your password again: confirm it’s you.',
   ownerRequired:
-    'Only you can decide this: from the app with your password, or from your Telegram. The terminal token isn’t enough.',
+    'Only you can decide this: from the app with your password, or from your Telegram. The computer’s own access isn’t enough.',
   secretRequired: 'This tab doesn’t have the session key: sign in again.',
   confirmFromApp: 'You confirm from the app, with your password.',
   wrongPassword: 'The password isn’t right.',
@@ -56,14 +56,14 @@ const en = {
   // the page shown when the UI build is missing
   noUiTitle: 'Monsters: the interface is missing',
   noUiHeading: 'Monsters is running, but the interface is missing',
-  noUiBody: (dir: string) => `The core can’t find the web UI build in <code>${dir}</code>.`,
+  noUiBody: (dir: string) => `Monsters can’t find the web UI build in <code>${dir}</code>.`,
   noUiHow: 'Build it from the project folder, then reload this page:',
 };
 
 const it: typeof en = {
   confirmRequired: 'Per questa serve di nuovo la tua password: conferma che sei tu.',
   ownerRequired:
-    'Questa la decidi solo tu: dall’app con la tua password, o dal tuo Telegram. Il token del terminale non basta.',
+    'Questa la decidi solo tu: dall’app con la tua password, o dal tuo Telegram. L’accesso del computer da solo non basta.',
   secretRequired: 'Questa scheda non ha la chiave della sessione: accedi di nuovo.',
   confirmFromApp: 'Si conferma dall’app, con la tua password.',
   wrongPassword: 'La password non è giusta.',
@@ -103,7 +103,7 @@ const it: typeof en = {
     'Non è l’indirizzo della pagina di ritorno: copialo dalla barra del browser dopo l’accesso.',
   noUiTitle: "Monsters: manca l'interfaccia",
   noUiHeading: "Monsters è acceso, ma manca l'interfaccia",
-  noUiBody: (dir) => `Il core non trova la build della UI web in <code>${dir}</code>.`,
+  noUiBody: (dir) => `Monsters non trova la build della UI web in <code>${dir}</code>.`,
   noUiHow: 'Lanciala dalla cartella del progetto, poi ricarica questa pagina:',
 };
 

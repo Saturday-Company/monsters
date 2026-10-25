@@ -92,11 +92,11 @@ const en = {
   },
   bots: {
     personalSquad: 'Personal squad',
-    riskTerminalAndApps: 'the Terminal and connected apps',
-    riskTerminal: 'the Terminal',
+    riskTerminalAndApps: 'commands and connected apps',
+    riskTerminal: 'commands',
     riskApps: 'connected apps',
     reducedTools:
-      'no terminal or file changes, other apps only with your OK, in the notes only the project’s area, the monster’s own and Inbox; a reply that repeats notes or keys stays with you',
+      'no commands or file changes, other apps only with your OK, in the notes only the project’s area, the monster’s own and Inbox; a reply that repeats notes or keys stays with you',
     riskNote: (name: string, words: string) =>
       `${name} has ${words}, which act on your behalf. People you admit to this bot don’t use them until you turn them back on, under “Tools for others”.`,
     toolsTitle: 'Tools for others',
@@ -120,7 +120,7 @@ const en = {
       step1: {
         before: 'On Telegram, open ',
         mid: ', type ',
-        after: ' and give it a name: it gives you the token.',
+        after: ' and give it a name: it gives you the bot code.',
       },
       step2: {
         before: 'Still with BotFather: ',
@@ -129,7 +129,7 @@ const en = {
           '. In groups the bot only receives messages that mention it, replies to its messages and commands.',
       },
       step3:
-        'A token can only be used by one app at a time. If the bot is already used by another app (for example another assistant active in the group), create a new bot or stop that app first.',
+        'A bot code can only be used by one app at a time. If the bot is already used by another app (for example another assistant active in the group), create a new bot or stop that app first.',
       step4: {
         before:
           'Add the bot to the group: it shows up below and you approve it. Whoever wants to talk to it types ',
@@ -157,17 +157,17 @@ const en = {
     idInvalid: 'The Telegram ID is a number, like 123456789.',
     addById: 'Add with the Telegram ID',
     add: 'Add',
-    tokenChanged: (u: string) => `@${u} token changed: groups and people stay.`,
-    newToken: (u: string) => `New token for @${u}`,
+    tokenChanged: (u: string) => `@${u} bot code changed: groups and people stay.`,
+    newToken: (u: string) => `New bot code for @${u}`,
     newTokenHint:
       'It must be the same bot’s (BotFather changed it with /revoke). Approved groups and people stay.',
     saveRestart: 'Save and restart',
     toApproveCount: (n: number) => (n === 1 ? '1 to approve' : `${n} to approve`),
-    changeToken: 'Change the token',
+    changeToken: 'Change the bot code',
     removeBot: 'Remove bot',
     removeQuestion: (u: string) => `Remove @${u}?`,
     removeConfirm: 'Yes, remove',
-    removedBot: (u: string) => `@${u} no longer answers: Monsters has deleted the token.`,
+    removedBot: (u: string) => `@${u} no longer answers: Monsters has deleted the bot code.`,
     groups: 'Groups',
     noGroups: (u: string) =>
       `No groups yet: add @${u} to the group on Telegram, then approve it here. In groups you haven’t approved the bot doesn’t answer.`,
@@ -188,7 +188,7 @@ const en = {
     title: 'Group bots (advanced)',
     rowHint: (n: number) => (n === 1 ? '1 bot' : `${n} bots`),
     description:
-      'A bot of its own for a monster, to put in a Telegram group: whoever you admit here talks to it with @name, replying to its messages or with a command. Each bot has its own token.',
+      'A bot of its own for a monster, to put in a Telegram group: whoever you admit here talks to it with @name, replying to its messages or with a command. Each bot has its own code.',
     footer:
       'The things you decide (the brake on an action, drafts of monsters, projects and automations, spending over the cap) are never approved in the group: they reach you in private on the main bot and in the app. In the group, only your own words count as yours, and anyone who isn’t you works with fewer tools until you turn them back on for that bot. From the group: ',
     addButton: 'Add a bot for a monster',
@@ -207,7 +207,7 @@ const it: typeof en = {
     connecting: 'Mi collego a Telegram…',
     online: 'Collegato: ti ascolta.',
     retrying: 'Telegram non risponde: riprovo da solo.',
-    conflict: 'Un altro programma usa questo bot: fermalo, o creane uno nuovo.',
+    conflict: 'Un’altra app usa questo bot: fermalo, o creane uno nuovo.',
     error: 'Fermo: serve il tuo intervento.',
   },
   botStatus: {
@@ -215,7 +215,7 @@ const it: typeof en = {
     connecting: 'Mi collego a Telegram…',
     online: 'Collegato.',
     retrying: 'Telegram non risponde: riprovo da solo.',
-    conflict: 'Un altro programma usa questo bot: fermalo, o creane uno nuovo.',
+    conflict: 'Un’altra app usa questo bot: fermalo, o creane uno nuovo.',
     error: 'Fermo: serve il tuo intervento.',
   },
   botConnected: (username) => `Bot ${username ? `@${username} ` : ''}collegato.`,
@@ -283,11 +283,11 @@ const it: typeof en = {
   },
   bots: {
     personalSquad: 'Squadra personale',
-    riskTerminalAndApps: 'il Terminale e altri programmi collegati',
-    riskTerminal: 'il Terminale',
-    riskApps: 'altri programmi collegati',
+    riskTerminalAndApps: 'i comandi e le app collegate',
+    riskTerminal: 'i comandi',
+    riskApps: 'le app collegate',
     reducedTools:
-      'niente terminale né modifiche ai file, gli altri programmi solo con il tuo ok, nelle note solo l’area del progetto, quella del mostro e Inbox; una risposta che ripete note o chiavi resta a te',
+      'niente comandi né modifiche ai file, le altre app solo con il tuo ok, nelle note solo l’area del progetto, quella del mostro e Inbox; una risposta che ripete note o chiavi resta a te',
     riskNote: (name, words) =>
       `${name} ha ${words}, che agiscono a nome tuo. Chi ammetti in questo bot non li usa finché non li riaccendi, sotto “Strumenti per gli altri”.`,
     toolsTitle: 'Strumenti per gli altri',
@@ -307,7 +307,7 @@ const it: typeof en = {
       step1: {
         before: 'Su Telegram apri ',
         mid: ', scrivi ',
-        after: ' e dagli un nome: ti dà il token.',
+        after: ' e dagli un nome: ti dà il codice del bot.',
       },
       step2: {
         before: 'Sempre a BotFather: ',
@@ -316,7 +316,7 @@ const it: typeof en = {
           '. Nei gruppi il bot riceve solo i messaggi che lo nominano, le risposte ai suoi messaggi e i comandi.',
       },
       step3:
-        'Un token lo usa un programma alla volta. Se oggi il bot è di un altro programma (per esempio un altro assistente già attivo nel gruppo), crea un bot nuovo o ferma prima quel programma.',
+        'Un codice del bot lo usa un’app alla volta. Se oggi il bot è di un’altra app (per esempio un altro assistente già attivo nel gruppo), crea un bot nuovo o ferma prima quel programma.',
       step4: {
         before:
           'Aggiungi il bot al gruppo: compare qui sotto e lo approvi. Chi vuole parlargli scrive ',
@@ -343,17 +343,17 @@ const it: typeof en = {
     idInvalid: 'L’ID di Telegram è un numero, come 123456789.',
     addById: 'Aggiungi con l’ID di Telegram',
     add: 'Aggiungi',
-    tokenChanged: (u) => `Token di @${u} cambiato: gruppi e persone restano.`,
-    newToken: (u) => `Nuovo token di @${u}`,
+    tokenChanged: (u) => `Codice del bot di @${u} cambiato: gruppi e persone restano.`,
+    newToken: (u) => `Nuovo codice del bot di @${u}`,
     newTokenHint:
       'Deve essere dello stesso bot (lo ha cambiato BotFather con /revoke). Gruppi e persone approvati restano.',
     saveRestart: 'Salva e riavvia',
     toApproveCount: (n) => (n === 1 ? '1 da approvare' : `${n} da approvare`),
-    changeToken: 'Cambia il token',
+    changeToken: 'Cambia il codice del bot',
     removeBot: 'Rimuovi bot',
     removeQuestion: (u) => `Tolgo @${u}?`,
     removeConfirm: 'Sì, togli',
-    removedBot: (u) => `@${u} non risponde più: il token è cancellato da Monsters.`,
+    removedBot: (u) => `@${u} non risponde più: il codice del bot è cancellato da Monsters.`,
     groups: 'Gruppi',
     noGroups: (u) =>
       `Nessun gruppo ancora: aggiungi @${u} al gruppo su Telegram, poi approvalo qui. Nei gruppi non approvati il bot non risponde.`,
@@ -374,7 +374,7 @@ const it: typeof en = {
     title: 'Bot per i gruppi (avanzato)',
     rowHint: (n) => (n === 1 ? '1 bot' : `${n} bot`),
     description:
-      'Un bot tutto suo per un mostro, da mettere in un gruppo di Telegram: chi ammetti qui gli parla con @nome, rispondendo ai suoi messaggi o con un comando. Ogni bot ha il suo token.',
+      'Un bot tutto suo per un mostro, da mettere in un gruppo di Telegram: chi ammetti qui gli parla con @nome, rispondendo ai suoi messaggi o con un comando. Ogni bot ha il suo codice.',
     footer:
       'Le cose che decidi tu (il freno su un’azione, le bozze di mostri, progetti e automazioni, la spesa oltre il tetto) non si approvano mai nel gruppo: arrivano a te in privato sul bot principale e nell’app. Nel gruppo, solo le parole tue contano come tue, e chi non sei tu lavora con meno strumenti finché non li riaccendi per quel bot. Dal gruppo: ',
     addButton: 'Aggiungi un bot per un mostro',

@@ -44,7 +44,7 @@ const en = {
   retiredModelReplaced: (name: string, from: string, to: string) =>
     `${name}: ${from} is no longer available, ${to} takes its place`,
   retiredModelNotSaved: (name: string, from: string, to: string, message: string) =>
-    `${name}: ${from} is no longer available; ${to} is used for now, but agent.yaml could not be saved (${message})`,
+    `${name}: ${from} is no longer available; ${to} is used for now, but its settings could not be saved (${message})`,
   memoryUnreadable: (name: string, message: string) => `${name}’s memory can’t be read: ${message}`,
   memoryNotCreated: (name: string, message: string) =>
     `${name}’s memory wasn’t created: ${message}`,
@@ -90,12 +90,12 @@ const en = {
   // --- the limits of a task
   // `plan`: the cap of the requests served by a subscription (Claude Code, Codex), apart from the API's.
   runSteps: (n: number, plan = false) =>
-    `this task used all its ${n} model steps${plan ? ' on the subscription' : ''}`,
+    `this job used all its ${n} model steps${plan ? ' on the plan' : ''}`,
   runTokens: (n: number, plan = false) =>
-    `this task used all its ${n} tokens${plan ? ' on the subscription' : ''}`,
-  runCost: (usd: number) => `this task spent its ${usdText(usd)} $ limit`,
+    `this job used all its ${n} tokens${plan ? ' on the plan' : ''}`,
+  runCost: (usd: number) => `this job spent its ${usdText(usd)} $ limit`,
   runTreeCost: (usd: number) =>
-    `this task spent its ${usdText(usd)} $ limit (with the work sent to projects)`,
+    `this job spent its ${usdText(usd)} $ limit (with the work sent to projects)`,
   // --- names used when nobody gave one
   userName: 'User',
   ownerName: 'the user',
@@ -138,7 +138,7 @@ const it: typeof en = {
   retiredModelReplaced: (name, from, to) =>
     `${name}: ${from} non è più disponibile, al suo posto c’è ${to}`,
   retiredModelNotSaved: (name, from, to, message) =>
-    `${name}: ${from} non è più disponibile; per ora si usa ${to}, ma agent.yaml non si è potuto salvare (${message})`,
+    `${name}: ${from} non è più disponibile; per ora si usa ${to}, ma le sue impostazioni non si sono potute salvare (${message})`,
   memoryUnreadable: (name, message) => `memoria di ${name} non leggibile: ${message}`,
   memoryNotCreated: (name, message) => `memoria di ${name} non creata: ${message}`,
   memoryNotUpdated: (name, message) => `memoria di ${name} non aggiornata: ${message}`,
@@ -176,12 +176,12 @@ const it: typeof en = {
   memorySkipped: (name, n) =>
     `Non ho aggiunto alla memoria di ${name} ${n === 1 ? 'una riga che serviva solo a questo lavoro' : `${n} righe che servivano solo a questo lavoro`}.`,
   runSteps: (n, plan = false) =>
-    `questo compito ha usato tutti i suoi ${n} passi del modello${plan ? ' sull’abbonamento' : ''}`,
+    `questo lavoro ha usato tutti i suoi ${n} passi del modello${plan ? ' sul piano' : ''}`,
   runTokens: (n, plan = false) =>
-    `questo compito ha usato tutti i suoi ${n} token${plan ? ' sull’abbonamento' : ''}`,
-  runCost: (usd) => `questo compito ha speso il suo limite di ${usdText(usd, 'it')} $`,
+    `questo lavoro ha usato tutti i suoi ${n} token${plan ? ' sul piano' : ''}`,
+  runCost: (usd) => `questo lavoro ha speso il suo limite di ${usdText(usd, 'it')} $`,
   runTreeCost: (usd) =>
-    `questo compito ha speso il suo limite di ${usdText(usd, 'it')} $ (con il lavoro mandato ai progetti)`,
+    `questo lavoro ha speso il suo limite di ${usdText(usd, 'it')} $ (con il lavoro mandato ai progetti)`,
   userName: 'Utente',
   ownerName: 'l’utente',
   monsterName: 'Mostro',

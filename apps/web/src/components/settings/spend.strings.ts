@@ -76,7 +76,7 @@ const it: typeof en = {
   subscriptionRequests: (label, n, count) =>
     count === 1 ? `${label}: ${n} richiesta` : `${label}: ${n} richieste`,
   description:
-    'Quanto possono spendere i mostri con i modelli a pagamento. Al tetto quei lavori si fermano finché non lo alzi; piani e modelli gratuiti non contano.',
+    'Quanto possono spendere i mostri con i modelli a pagamento. Al tetto quei lavori si fermano; piani e modelli gratuiti non contano.',
   notCounted: (list) => `Questo mese, fuori dal conto: ${list}. `,
   rate: (rate) => `I fornitori fatturano in dollari: conto a un cambio fisso, 1 $ = ${rate} €.`,
   links: { monster: 'Mostro', project: 'Progetto', team: 'Tutti i mostri' },

@@ -1,4 +1,4 @@
-import { formatList, pick } from '@monsters/shared';
+import { formatList, pick, projectPagePath, settingsPath } from '@monsters/shared';
 
 /*
  * What the person reads about the accesses of the monsters (D-153): the card of an access
@@ -18,16 +18,17 @@ const en = {
   summaryBrowserMonsters: (names: readonly string[], project: string | undefined) =>
     `the Monsters browser to ${formatList(names)}${project ? ` (project “${project}”)` : ''}`,
   changeAgentWeb: (monster: string) => `Permissions: web access for ${monster}`,
-  changeProjectWeb: (project: string) => `“${project}” → Connections: web search turned on`,
+  changeProjectWeb: (project: string) =>
+    `${projectPagePath(project, 'impostazioni')}: web search turned on`,
   changeProjectLink: (project: string, label: string) =>
-    `“${project}” → Connections: ${label} turned on`,
+    `${projectPagePath(project, 'impostazioni')}: ${label} turned on`,
   changeServerAgent: (server: string, monster: string, browser: boolean) =>
-    `Connections → ${browser ? 'Browser' : server}: ${monster} can use it too`,
+    `${settingsPath('collegamenti', browser ? 'Browser' : server)}: ${monster} can use it too`,
   changesTail: (parts: readonly string[]) =>
     `${parts.join('; ')}. You can turn it off any time from the same place.`,
   stepMonsterGone: 'the monster is gone',
   stepProjectGone: 'the project is gone',
-  stepLinkNotTeamWide: 'the connection is no longer given to the whole squad',
+  stepLinkNotTeamWide: 'the app is no longer given to all monsters',
   stepServerGone: (server: string) => `${server} is no longer connected`,
   stepProjectsNotReady: 'projects aren’t ready',
   claimCorrected: (monster: string) =>
@@ -48,14 +49,16 @@ const it: typeof en = {
   summaryBrowserMonsters: (names, project) =>
     `il browser di Monsters a ${formatList(names)}${project ? ` (progetto «${project}»)` : ''}`,
   changeAgentWeb: (monster) => `Permessi: il web per ${monster}`,
-  changeProjectWeb: (project) => `«${project}» → Collegamenti: ricerca sul web accesa`,
-  changeProjectLink: (project, label) => `«${project}» → Collegamenti: ${label} acceso`,
+  changeProjectWeb: (project) =>
+    `${projectPagePath(project, 'impostazioni')}: ricerca sul web accesa`,
+  changeProjectLink: (project, label) =>
+    `${projectPagePath(project, 'impostazioni')}: ${label} acceso`,
   changeServerAgent: (server, monster, browser) =>
-    `Collegamenti → ${browser ? 'Browser' : server}: lo usa anche ${monster}`,
+    `${settingsPath('collegamenti', browser ? 'Browser' : server)}: lo usa anche ${monster}`,
   changesTail: (parts) => `${parts.join('; ')}. Lo togli quando vuoi dallo stesso posto.`,
   stepMonsterGone: 'il mostro non c’è più',
   stepProjectGone: 'il progetto non c’è più',
-  stepLinkNotTeamWide: 'il collegamento non è più dato a tutta la squadra',
+  stepLinkNotTeamWide: 'l’app non è più data a tutti i mostri',
   stepServerGone: (server) => `${server} non è più collegato`,
   stepProjectsNotReady: 'i progetti non sono pronti',
   claimCorrected: (monster) =>

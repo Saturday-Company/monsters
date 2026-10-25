@@ -18,7 +18,7 @@ const en = {
   rules: 'Rules',
   aboutYou: 'About you',
   tools: (web: boolean) =>
-    `Tools: ${web ? 'notes and web (searches and reads pages)' : 'notes'}, no terminal or files`,
+    `Tools: ${web ? 'notes and web (searches and reads pages)' : 'notes'}, no commands or file changes`,
   notes: (area: string) => `Notes: reads all, writes in ${area}/ and Inbox/`,
   model: 'Model',
   like: (name: string) => `like ${name}`,
@@ -28,11 +28,11 @@ const en = {
   taint: (source: string, applying: boolean) =>
     `⚠️ Proposed after reading third-party text (${source}): check carefully before ${applying ? 'applying' : 'confirming'}.`,
   project: 'Project',
-  theLead: 'the squad lead',
+  theLead: 'the project lead',
   goal: 'Goal',
   why: 'Why',
   lead: (name: string, copyOf: string | null, model: string) =>
-    `👑 Squad lead: <b>${name}</b>${copyOf ? `, copy of ${copyOf}` : ''} · model ${model}`,
+    `👑 Project lead: <b>${name}</b>${copyOf ? `, copy of ${copyOf}` : ''} · model ${model}`,
   folder: (folder: string, created: boolean) =>
     `Folder: <code>${folder}</code>${created ? ' (new, created on confirmation)' : ''}`,
   noFolder: 'Folder: none (each monster in its own)',
@@ -43,13 +43,12 @@ const en = {
   },
   projectNotes: (area: string) => `Project notes: ${area}/`,
   /** `off`: the ones the user turned off for the project (D-164), or null. */
-  connections: (off: string | null) =>
-    off ? `Connections: all the squad’s but ${off}` : 'Connections: all the squad’s',
+  connections: (off: string | null) => (off ? `Apps: all but ${off}` : 'Apps: all of them'),
   webSearch: (on: string) => `Web search: ${on}`,
   perDay: (n: number) => `€${n} a day`,
   perMonth: (n: number) => `€${n} a month`,
   spendCap: (caps: string) => `Spending cap: ${caps}`,
-  squadCap: 'the squad’s',
+  squadCap: 'all monsters’',
   automationDraft: (name: string, schedule: string) =>
     `⏰ <b>${name}</b> (draft, to confirm later): ${schedule}`,
   goalIndented: (objective: string) => `  Goal: ${objective}`,
@@ -69,7 +68,7 @@ const en = {
     '<i>They stay marked “from third-party text”: the work that reads them has its defenses on.</i>',
   when: (schedule: string) => `When: ${schedule}`,
   leadLine: (lead: string, project: string | null) =>
-    `Squad lead: ${lead}${project ? ` · project ${project}` : ''}`,
+    `Lead: ${lead}${project ? ` · project ${project}` : ''}`,
   participants: (list: string) => `Participants: ${list}`,
   goalLine: (objective: string) => `Goal: ${objective}`,
   resultsLine: (folder: string) => `Results in: ${folder}/`,
@@ -77,7 +76,7 @@ const en = {
   steps: (n: number) => `${n} steps`,
   tokens: (n: number) => `${n} tokens`,
   euros: (n: number) => `€${n}`,
-  limitsPerRun: (limits: string) => `Limits per run: ${limits}`,
+  limitsPerRun: (limits: string) => `Limits per automation run: ${limits}`,
   eachJobsOwn: 'each job’s own',
 };
 
@@ -90,7 +89,7 @@ const it: typeof en = {
   rules: 'Regole',
   aboutYou: 'Su di te',
   tools: (web) =>
-    `Strumenti: ${web ? 'note e web (cerca e legge pagine)' : 'note'}, niente terminale né file`,
+    `Strumenti: ${web ? 'note e web (cerca e legge pagine)' : 'note'}, niente comandi né modifiche ai file`,
   notes: (area) => `Note: legge tutte, scrive in ${area}/ e Inbox/`,
   model: 'Modello',
   like: (name) => `come ${name}`,
@@ -114,15 +113,12 @@ const it: typeof en = {
     return `⚠️ È una cartella che c’è già, fuori da ${projectsDir()}: la conferma è nell’app.`;
   },
   projectNotes: (area) => `Note del progetto: ${area}/`,
-  connections: (off) =>
-    off
-      ? `Collegamenti: tutti quelli della squadra tranne ${off}`
-      : 'Collegamenti: tutti quelli della squadra',
+  connections: (off) => (off ? `App: tutte tranne ${off}` : 'App: tutte'),
   webSearch: (on) => `Ricerca web: ${on}`,
   perDay: (n) => `${n} € al giorno`,
   perMonth: (n) => `${n} € al mese`,
   spendCap: (caps) => `Tetto di spesa: ${caps}`,
-  squadCap: 'quello della squadra',
+  squadCap: 'quello di tutti i mostri',
   automationDraft: (name, schedule) => `⏰ <b>${name}</b> (bozza da confermare dopo): ${schedule}`,
   goalIndented: (objective) => `  Obiettivo: ${objective}`,
   participantsIndented: (list) => `  Partecipano: ${list}`,
@@ -147,7 +143,7 @@ const it: typeof en = {
   steps: (n) => `${n} passi`,
   tokens: (n) => `${n} token`,
   euros: (n) => `${n} €`,
-  limitsPerRun: (limits) => `Limiti per giro: ${limits}`,
+  limitsPerRun: (limits) => `Limiti per giro dell’automazione: ${limits}`,
   eachJobsOwn: 'quelli di ogni lavoro',
 };
 

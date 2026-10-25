@@ -140,6 +140,39 @@ test('Settings → General → Language: English ↔ Italian in place, the page 
   await expect(page).toHaveURL(/#\/settings\?section=general$/);
 });
 
+test('a project page: its tabs follow a language switch made after the app loaded (W-28)', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/progetto?id=social-di-saturday');
+  const tabs = page.getByRole('tablist', { name: 'Saturday Social sections' });
+  await expect(tabs.getByRole('tab')).toHaveText([
+    'Chat',
+    'Squad',
+    'Notes',
+    'Automations',
+    'Settings',
+  ]);
+  // Not a reload: the page goes to Settings, switches to Italian and comes back to the project.
+  await page.evaluate(() => {
+    location.hash = '#/impostazioni?sezione=generale';
+  });
+  await page
+    .getByRole('radiogroup', { name: 'Language' })
+    .getByRole('radio', { name: 'Italiano' })
+    .click();
+  await expect(page.getByRole('radiogroup', { name: 'Lingua' })).toBeVisible();
+  await page.evaluate(() => {
+    location.hash = '#/progetto?id=social-di-saturday';
+  });
+  await expect(page.getByRole('tab', { name: 'Squadra' })).toBeVisible();
+  await expect(
+    page
+      .getByRole('tablist')
+      .filter({ has: page.getByRole('tab', { name: 'Squadra' }) })
+      .getByRole('tab'),
+  ).toHaveText(['Chat', 'Squadra', 'Note', 'Automazioni', 'Impostazioni']);
+});
+
 test.describe('the main screens in Italian, at 1024 px', () => {
   test.use({ viewport: { width: 1024, height: 768 } });
 

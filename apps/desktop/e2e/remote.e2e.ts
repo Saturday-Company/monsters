@@ -201,7 +201,7 @@ function screen(name: string): void {
 
 async function openConnections(app: ElectronApplication): Promise<Page> {
   await clickMenu(app, 'monsters-connections');
-  return windowWhere(app, async (p) => (await p.title()) === 'Connessioni · Monsters');
+  return windowWhere(app, async (p) => (await p.title()) === 'Computer · Monsters');
 }
 
 async function fill(page: Page, label: string, value: string): Promise<Locator> {
@@ -450,7 +450,7 @@ test('a key the computer refuses: clear message, "Correggi la connessione", then
   await shot(failed, 'remoto-chiave-rifiutata.png');
   // "Correggi la connessione": the form of this profile, on the user field.
   await failed.getByRole('button', { name: 'Correggi la connessione' }).click();
-  const fix = await windowWhere(app, async (p) => (await p.title()) === 'Connessioni · Monsters');
+  const fix = await windowWhere(app, async (p) => (await p.title()) === 'Computer · Monsters');
   await expect(fix.locator('#form-title')).toHaveText(`Modifica ${PROFILE}`);
   await expect(fix.getByLabel('Utente', { exact: true })).toBeFocused();
   await expect(fix.getByLabel('Utente', { exact: true })).toHaveClass(/highlight/);

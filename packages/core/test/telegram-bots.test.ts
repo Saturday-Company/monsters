@@ -869,7 +869,7 @@ describe('dedicated bots: several at once', () => {
     expect(view.bots.find((b) => b.agent === 'rhea')?.status).toBe('online');
     expect(view.bots.find((b) => b.agent === 'dione')).toMatchObject({
       status: 'error',
-      error: expect.stringContaining('refused the token') as unknown,
+      error: expect.stringContaining('refused the bot code') as unknown,
     });
   });
 
@@ -880,7 +880,7 @@ describe('dedicated bots: several at once', () => {
     expect(down.data).toMatchObject({ reason: 'conflict', name: '@rhea_saturday_bot' });
     const view = await t.json<TelegramView>('GET', '/api/telegram');
     expect(view.bots[0]!.status).toBe('conflict');
-    expect(view.bots[0]!.error ?? '').toContain('Another program is using this token');
+    expect(view.bots[0]!.error ?? '').toContain('Another app is using this bot code');
     await t.waitEvent(isChannel('connected', (e) => e.data.bot === RHEA && e.id > down.id));
     // Five failed tries, one event: not one per minute.
     expect(t.events().filter(isChannel('disconnected', (e) => e.data.bot === RHEA))).toHaveLength(

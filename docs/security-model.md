@@ -29,7 +29,7 @@ describes the perimeter, the threat model and the risks we have accepted.
   `~/.monsters/process-groups.json`: if the core crashes, on the next start it terminates the groups left behind, after
   checking that they are still its own (processes' start time). On Windows the child processes of a crashed core are
   not cleaned up yet.
-- **The terminal is worth as much as your account.** An agent with the "Terminal" permission (`shell`, off by default)
+- **The terminal is worth as much as your account.** An agent with the "Run commands" permission (`shell`, off by default)
   runs commands as your system user: it can read and write outside the granted folders too, including `~/.monsters`
   (keys, CLI token, `settings.json`, database) and the vault without going through git. It is the perimeter you choose
   by granting it, per agent, and the UI says so in plain words. Mitigations: the commands' environment doesn't contain
@@ -111,7 +111,7 @@ describes the perimeter, the threat model and the risks we have accepted.
   disk (cookies and `sessionStorage` saved to restore tabs) has both, as it had the cookie; and the sessions opened
   before this version were closed (you sign back in once).
 - **Recent confirmation for the most sensitive actions** (residual risk of M1). A session confirmed with the password
-  stays yours for 7 days, but giving the Terminal to a monster, pairing a Telegram account or changing the main bot, and
+  stays yours for 7 days, but letting a monster run commands, pairing a Telegram account or changing the main bot, and
   turning on “Tools for others” of a dedicated bot want the password typed in that session in the last 15 minutes
   (server side, `confirmed_at`); otherwise the core answers `confirm_required` and the UI asks for the password
   (“Confirm it’s you”, `POST /api/auth/confirm`, in the same session). Changing the password already asks for the
@@ -119,7 +119,7 @@ describes the perimeter, the threat model and the risks we have accepted.
   disk, new at every start) always counts as recent: the local mode experience doesn't change. It lasts as long as the
   core that opened it: when the core restarts the app's sessions close and the app asks for a new one by itself, so a
   copy of its cookie doesn't stay “recent” for a week. Restoring from the archive a monster (or a project with its
-  monsters) that had the Terminal asks for the same confirmation as granting it.
+  monsters) that could run commands asks for the same confirmation as granting it.
 - **Attaching to the local core.** The desktop app and the CLI send the CLI token only to a core that proves to be the
   one of the data folder (HMAC with the `proofKey` of `server.json`, like the tunnel); a core without a `proofKey` is
   not attached to. The app's IPC recognizes the core's page from the frame's origin, not from the URL.
@@ -128,7 +128,7 @@ describes the perimeter, the threat model and the risks we have accepted.
 - **Writing a file can be worth as much as the terminal.** Some files make the computer run commands later: `.git`
   folders (hooks, `core.fsmonitor` in `config`), `.husky`, shell profiles (`.bashrc`, `.profile`, `.zshrc`…), `.envrc`,
   `.npmrc`, `.yarnrc.yml`, `.vimrc`, `.ssh/`, `.vscode/`, autostart (`~/.config/autostart`, `~/Library/LaunchAgents`,
-  Windows' Startup folder, PowerShell profiles). An agent **without** the “Terminal” permission can't write them or move
+  Windows' Startup folder, PowerShell profiles). An agent **without** the “Run commands” permission can't write them or move
   files or folders into them with `fs_write`/`fs_move`, in any granted folder; with the terminal the block would make
   no sense and there isn't one. The list is not exhaustive (a program can read configurations anywhere): granting
   write access to a folder that contains projects or configuration files remains a choice to make with care, and the UI
@@ -261,7 +261,7 @@ describes the perimeter, the threat model and the risks we have accepted.
   from third parties): a key, a private note, repeated memory or a stretch of at least 120 consecutive characters equal
   to a note don't go out; the notes of the bot's project area don't count (they are the group's material). The chat
   receives one line about it, you a notice with “Send anyway” (on Telegram and in Activity), except for a key. The full
-  tools are turned back on bot by bot (Settings → Connections → Telegram → “Tools for others”), with a warning;
+  tools are turned back on bot by bot (Settings → Apps and Telegram → Telegram → “Tools for others”), with a warning;
   `Privato/` and the profile stay closed anyway. It is a rule, not a boundary: a summary in one's own words or a split
   reply is not recognized.
 
@@ -274,16 +274,16 @@ describes the perimeter, the threat model and the risks we have accepted.
 - Vulnerabilities of AI providers or of the external services connected.
 
 ## Accepted risk: passwordless `sudo` (D-119)
-If the user that runs core and monsters has passwordless `sudo`, a monster with the Terminal (or Claude Code/Codex with
+If the user that runs core and monsters has passwordless `sudo`, a monster that can run commands (or Claude Code/Codex with
 their system tools) can do anything as root: read the data of Monsters and of other users, change the system, install
 programs. Monsters' defenses (protected folders, brake, outgoing data) remain a boundary for the monsters without the
-Terminal and a brake for those that have it. On a normal installation the user doesn't have passwordless `sudo` and this
-risk doesn't exist: if they do, granting the Terminal is equivalent to granting root.
+Run commands and a brake for those that have it. On a normal installation the user doesn't have passwordless `sudo` and this
+risk doesn't exist: if they do, allowing commands is equivalent to granting root.
 
 ## Accepted risk: the update key's passphrase in the keychain (D-126)
 To publish releases without anyone at the terminal, whoever publishes can keep the update signing key's passphrase in the
 session's keychain (for example with `MONSTERS_UPDATE_SIGNING_PASSPHRASE_CMD` that reads it from there). Whoever controls
-that user (even a monster with the Terminal) can then sign an update that the apps install. The signature remains a full
+that user (even a monster that can run commands) can then sign an update that the apps install. The signature remains a full
 defense against a compromised update server (storage, CDN, Worker), no longer against a compromised publishing machine.
 To go back to the previous state: remove the passphrase from the keychain and publish by typing it at the terminal; if
 the machine were compromised, generate a new key (`update-signing-key.ts generate`) and go through the signing bridge

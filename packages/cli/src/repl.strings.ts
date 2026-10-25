@@ -39,7 +39,7 @@ The Italian names work too: /risposta, /riprendi, /nuova, /stato, /aiuto, /esci.
   stayStopped: 'Ok: they stay stopped.',
   chooseNumber: (n: number) => `! choose a number from 1 to ${n}`,
   stopped: (aborted: number, killed: number) =>
-    `■ Stopped. Runs aborted: ${aborted}, processes killed: ${killed}. Nothing runs until /resume.`,
+    `■ Stopped. Jobs stopped: ${aborted}, processes closed: ${killed}. Nothing runs until /resume.`,
   noQuestion: '! no question is waiting for an answer',
   writeAnswer: '! write the answer after /answer',
   unknownCommand: (name: string) => `! unknown command /${name}: /help for the list`,
@@ -48,7 +48,7 @@ The Italian names work too: /risposta, /riprendi, /nuova, /stato, /aiuto, /esci.
   answerSent: (who: string) => `(answer sent to ${who})`,
   addedTo: (who: string) => `(added to the current work of ${who})`,
   isWorking: (who: string) => `(${who} is working…)`,
-  connectionLost: 'Connection to the core lost: is Monsters still running?',
+  connectionLost: 'Connection to Monsters lost: is it still running?',
 };
 
 const it: typeof en = {
@@ -83,7 +83,7 @@ Funzionano anche i nomi inglesi: /answer, /resume, /new, /status, /help, /quit.`
   stayStopped: 'Ok: restano fermi.',
   chooseNumber: (n) => `! scegli un numero da 1 a ${n}`,
   stopped: (aborted, killed) =>
-    `■ Fermati. Giri interrotti: ${aborted}, processi terminati: ${killed}. Non gira niente finché non scrivi /riprendi.`,
+    `■ Fermati. Lavori interrotti: ${aborted}, processi chiusi: ${killed}. Non gira niente finché non scrivi /riprendi.`,
   noQuestion: '! nessuna domanda aspetta una risposta',
   writeAnswer: '! scrivi la risposta dopo /risposta',
   unknownCommand: (name) => `! comando sconosciuto /${name}: /aiuto per l’elenco`,
@@ -92,7 +92,7 @@ Funzionano anche i nomi inglesi: /answer, /resume, /new, /status, /help, /quit.`
   answerSent: (who) => `(risposta inviata a ${who})`,
   addedTo: (who) => `(aggiunto al lavoro in corso di ${who})`,
   isWorking: (who) => `(${who} sta lavorando…)`,
-  connectionLost: 'Connessione al core persa: Monsters è ancora acceso?',
+  connectionLost: 'Connessione a Monsters persa: è ancora acceso?',
 };
 
 export const replStrings = () => pick({ en, it });

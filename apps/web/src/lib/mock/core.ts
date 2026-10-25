@@ -1672,8 +1672,8 @@ export class MockCore {
       const why =
         this.spend.stopReason('rhea') ??
         tr(
-          'the squad’s spending cap for today was reached',
-          'raggiunto il tetto di spesa della squadra di oggi',
+          'all monsters’ spending cap for today was reached',
+          'raggiunto il tetto di spesa di tutti i mostri di oggi',
         );
       this.append({
         agent: orch,

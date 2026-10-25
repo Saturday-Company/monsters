@@ -981,7 +981,7 @@ describe('projects: spending, third level', () => {
     expect(m.stopReason('leda')).toBeNull();
     // The team's cap still holds over the project's monsters.
     usage(s, 'titan', 8);
-    expect(m.stopReason('leda')).toMatch(/della squadra/);
+    expect(m.stopReason('leda')).toMatch(/di tutti i mostri/);
     m.close();
     s.db.close();
   });

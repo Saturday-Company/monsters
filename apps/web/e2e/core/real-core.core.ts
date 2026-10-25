@@ -281,7 +281,7 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     // Writing stays possible: the message leaves when the monsters resume (D-060).
     await expect(input).toBeEnabled();
     await expect(input).toHaveAttribute('placeholder', /Resume/);
-    await expect(page.getByRole('link', { name: /^Titan, paused/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Titan, stopped/ })).toBeVisible();
 
     // "Riprendi e continua": the core starts the poem again, the chat says so in a
     // status line and not as a message typed again (D-072).

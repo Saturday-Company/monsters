@@ -70,6 +70,9 @@ const en = {
       `Events older than ${days} days that take up the most space (usage, tool results, streamed text) are archived in`,
     outro: (first: string) => `, one file per month since ${first}. From the terminal:`,
     command: 'monsters log read --month YYYY-MM',
+    /** The first layer: no folder, no command (they show when technical details are on). */
+    short: (days: number, first: string) =>
+      `Bulky events older than ${days} days are archived, one file per month since ${first}.`,
   },
 
   /* --------------------------------------------------------------- panel */
@@ -192,7 +195,7 @@ const en = {
       permissions: 'Permissions',
       notes: 'Notes',
       web: 'Web',
-      terminal: 'Terminal',
+      terminal: 'Run commands',
       folders: 'Folders',
       computerMessage: 'Message from the computer',
       whereFrom: 'Where from',
@@ -226,7 +229,7 @@ const en = {
     } as Record<string, string>,
     parked: {
       harness:
-        'the monster works with a subscription: it closes its turn and starts again from your answer',
+        'the monster works with a plan: it closes its turn and starts again from your answer',
       timeout: 'after 10 minutes the monster closed its turn: it starts again from your answer',
       restart: 'Monsters was restarted: the question stays open',
       other: 'the work ended with the question still open',
@@ -264,7 +267,7 @@ const it: typeof en = {
     other: {
       messages: 'Messaggi',
       runs: 'Lavori dei mostri',
-      delegations: 'Compiti passati',
+      delegations: 'Incarichi passati',
       tools: 'Strumenti',
       instinct: 'Decisioni dei mostri',
       system: 'Sistema',
@@ -275,7 +278,7 @@ const it: typeof en = {
       errors: 'Errori',
       messages: 'Messaggi',
       runs: 'Lavori',
-      delegations: 'Compiti',
+      delegations: 'Incarichi',
       tools: 'Strumenti',
       instinct: 'Decisioni dei mostri',
       system: 'Sistema',
@@ -319,6 +322,8 @@ const it: typeof en = {
       `Gli eventi più vecchi di ${days} giorni che pesano di più (consumi, risultati degli strumenti, testo in arrivo) sono archiviati in`,
     outro: (first) => `, un file al mese dal ${first}. Dal terminale:`,
     command: 'monsters log read --month AAAA-MM',
+    short: (days, first) =>
+      `Gli eventi pesanti più vecchi di ${days} giorni sono archiviati, un file al mese dal ${first}.`,
   },
 
   panel: {
@@ -391,7 +396,7 @@ const it: typeof en = {
     seconds: (n) => `${n} s`,
     label: {
       text: 'Testo',
-      task: 'Compito',
+      task: 'Incarico',
       why: 'Perché',
       doneWhen: 'Finito quando',
       notesToRead: 'Note da leggere',
@@ -439,7 +444,7 @@ const it: typeof en = {
       permissions: 'Permessi',
       notes: 'Note',
       web: 'Web',
-      terminal: 'Terminale',
+      terminal: 'Eseguire comandi',
       folders: 'Cartelle',
       computerMessage: 'Messaggio del computer',
       whereFrom: 'Da dove',
@@ -472,7 +477,7 @@ const it: typeof en = {
       run_ended: 'il lavoro è finito senza questa azione',
     },
     parked: {
-      harness: 'il mostro lavora con un abbonamento: chiude il turno e riparte dalla tua risposta',
+      harness: 'il mostro lavora con un piano: chiude il turno e riparte dalla tua risposta',
       timeout: 'dopo 10 minuti il mostro ha chiuso il turno: riparte dalla tua risposta',
       restart: 'Monsters è stato riavviato: la domanda resta aperta',
       other: 'il lavoro è finito con la domanda aperta',

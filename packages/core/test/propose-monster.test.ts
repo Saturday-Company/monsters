@@ -469,9 +469,9 @@ describe('team_propose_monster on a harness', () => {
     const instructions = tasks[0]!.instructions ?? '';
     expect(instructions).toContain('## Monsters');
     expect(instructions).toContain('nuovi mostri: proponi una bozza (`team_propose_monster`)');
-    expect(instructions).toContain('terminale e file: nella cartella di questo lavoro');
+    expect(instructions).toContain('comandi e file: nella cartella di questo lavoro');
     expect(instructions).toContain(
-      'già tuoi (mai chiedere all’utente accessi, chiavi o indirizzi per questi): Gmail',
+      'già tue (mai chiedere all’utente accessi, chiavi o indirizzi per questi): Gmail',
     );
     db.close();
   });

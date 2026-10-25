@@ -17,7 +17,7 @@ const en = {
   byType: (types: string) => `By type: ${types}`,
   vacuumDone: 'Database compacted (VACUUM): the free space went back to the disk.',
   vacuumSkipped:
-    'VACUUM not done: little space to recover, a monster is working, or the core is running (it does it itself, when the monsters are stopped).',
+    'VACUUM not done: little space to recover, a monster is working, or Monsters is running (it does it itself, when the monsters are stopped).',
   vacuumFailed:
     'Archive done, but the VACUUM failed (disk space, database busy): it will be tried again later.',
   backup: (path: string) =>
@@ -38,7 +38,7 @@ const en = {
   unknownLog: (sub: string) => `unknown command: log ${sub} (status, archive, read)`,
   // monsters automations
   runStates: {
-    waiting_lead: 'waiting for the squad lead to be free',
+    waiting_lead: 'waiting for the lead to be free',
     running: 'running',
     waiting_user: 'waiting for an answer',
     completed: 'done',
@@ -65,7 +65,7 @@ const it: typeof en = {
   byType: (types) => `Per tipo: ${types}`,
   vacuumDone: 'Database compattato (VACUUM): lo spazio libero è tornato al disco.',
   vacuumSkipped:
-    'VACUUM non fatto: poco spazio da recuperare, un mostro sta lavorando, o il core è acceso (lo fa lui, a mostri fermi).',
+    'VACUUM non fatto: poco spazio da recuperare, un mostro sta lavorando, o Monsters è acceso (lo fa lui, a mostri fermi).',
   vacuumFailed:
     'Archivio fatto, ma il VACUUM non è riuscito (spazio su disco, database occupato): si riprova più avanti.',
   backup: (path) =>

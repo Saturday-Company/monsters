@@ -119,7 +119,7 @@ export class MockSpend {
       subscriptions: [
         {
           provider: 'claude-agent',
-          label: tr('Claude subscription', 'Abbonamento Claude'),
+          label: tr('Claude plan', 'Piano Claude'),
           requests: 38,
           tokens: 68_000,
           cachedTokens: 344_000,
@@ -146,8 +146,8 @@ export class MockSpend {
         if (m.capEur !== null && m.spentEur >= m.capEur) {
           const name = who ? (this.agents().find((a) => a.id === who)?.name ?? who) : null;
           return tr(
-            `${name ? `${name}’s` : 'the squad’s'} spending cap ${period === 'day' ? 'for today' : 'for this month'} was reached`,
-            `raggiunto il tetto di spesa${name ? ` di ${name}` : ' della squadra'} ${period === 'day' ? 'di oggi' : 'di questo mese'}`,
+            `${name ? `${name}’s` : 'all monsters’'} spending cap ${period === 'day' ? 'for today' : 'for this month'} was reached`,
+            `raggiunto il tetto di spesa${name ? ` di ${name}` : ' di tutti i mostri'} ${period === 'day' ? 'di oggi' : 'di questo mese'}`,
           );
         }
       }

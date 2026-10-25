@@ -2,6 +2,7 @@ import {
   vaultLayout,
   appLang,
   CONFUSED_MIN_MS,
+  formatEur,
   formatNumber,
   onAppLang,
   WEB_SEARCH_USAGE_PROVIDER,
@@ -10,6 +11,7 @@ import {
   requestsOf,
   resumeText,
   settingsPath,
+  USD_TO_EUR_DEFAULT,
   type AgentState,
   type AgentSummary,
   type EventDataMap,
@@ -1673,6 +1675,17 @@ export function agentFileText(path: string, action: string): string | null {
 /** The statuses and error codes that mean a limit of a job or of a monster stopped it. */
 export const LIMIT_CODES: ReadonlySet<string> = new Set(['run_limit', 'token_limit', 'max_steps']);
 
+/**
+ * The rate of the spending cap: the Safety net is shown in euros, so a cost limit is too. The
+ * default one until the settings load the app's own (`setUsdToEur`).
+ */
+let usdToEur = USD_TO_EUR_DEFAULT;
+export function setUsdToEur(rate: number): void {
+  usdToEur = rate;
+}
+const limitEur = (usd: number | undefined) =>
+  formatEur(Math.round((usd ?? 0) * usdToEur * 100) / 100);
+
 /** The limit as the sentence's reason ("the job used all its 400 steps…"); `code` when the core sent none. */
 function limitWhy(code: string, limit: LimitReason | undefined): string {
   const w = deriveStrings().error.limit.why;
@@ -1684,9 +1697,9 @@ function limitWhy(code: string, limit: LimitReason | undefined): string {
     case 'tokens':
       return w.tokens(n(limit.value), plan);
     case 'cost':
-      return w.cost(formatNumber(limit.value ?? 0, { maximumFractionDigits: 2 }));
+      return w.cost(limitEur(limit.value));
     case 'tree_cost':
-      return w.treeCost(formatNumber(limit.value ?? 0, { maximumFractionDigits: 2 }));
+      return w.treeCost(limitEur(limit.value));
     case 'agent_tokens':
       return w.agentTokens(n(limit.value), plan);
     case 'agent_steps':

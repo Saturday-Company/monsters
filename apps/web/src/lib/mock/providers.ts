@@ -358,7 +358,7 @@ export class MockProviders {
     }
     const m = /^\/api\/subscriptions\/(claude-agent|codex)(\/activate)?$/.exec(path);
     if (!m) {
-      return fail(404, 'unknown_provider', tr('unknown subscription', 'abbonamento sconosciuto'));
+      return fail(404, 'unknown_provider', tr('unknown plan', 'piano sconosciuto'));
     }
     const id = m[1]!;
     if (method === 'POST' && m[2]) {

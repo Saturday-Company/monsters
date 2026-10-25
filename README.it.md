@@ -4,11 +4,11 @@
 
 **Hub agentico locale e agnostico sul provider: una squadra di piccoli agenti IA ("mostri") che lavora sul tuo computer.**
 
-Monsters ti dà un orchestratore e una squadra di agenti, ciascuno con la sua chat, il suo terminale, i suoi permessi e
+Monsters ti dà un orchestratore e una squadra di agenti, ciascuno con la sua chat, il suo «dietro le quinte», i suoi permessi e
 la sua catena di modelli. La conoscenza sta in un vault Markdown compatibile con Obsidian, dove ogni modifica è un commit
-git che puoi annullare, e tutto quello che fanno finisce nel log delle azioni. Un kill switch (**Ferma**) blocca tutto
+git che puoi annullare, e tutto quello che fanno finisce nel log delle azioni. Il tasto **Stop** blocca tutto
 subito. È un'app desktop per Linux, Windows e macOS, e i modelli li porti tu: OpenRouter, chiavi API, modelli locali o
-gli abbonamenti che già paghi.
+i piani che già paghi.
 
 Sito: <https://getmonsters.dev>
 
@@ -27,15 +27,15 @@ Sito: <https://getmonsters.dev>
 
 ## Cosa fa
 
-- **Una squadra di agenti.** Una chat e un terminale per ogni mostro; un orchestratore (il "Dio dei mostri") che propone
+- **Una squadra di agenti.** Una chat e un «dietro le quinte» per ogni mostro; un orchestratore (il "Dio dei mostri") che propone
   progetti interi e automazioni come bozze in **Da rivedere**: nulla esiste prima del tuo tocco su Conferma.
-- **Progetti e automazioni.** Squadre dedicate con capo, mostri propri, area del vault, cartella, collegamenti e tetto
+- **Progetti e automazioni.** Squadre dedicate con capo, mostri propri, area del vault, cartella, app e tetto
   di spesa; automazioni pianificate, per esempio "ogni domenica sera i post della settimana dopo".
 - **Qualsiasi modello.** OpenRouter (gratuito per cominciare), Anthropic, OpenAI, Google, Mistral e Groq con le tue
   chiavi, Ollama e LM Studio in locale. Ogni mostro ha la sua catena di modelli, con ripiego se uno non risponde.
-- **Gli abbonamenti che hai già.** Claude Agent (Claude Code sul tuo PC) e ChatGPT Plus/Pro, anche con Codex. Vedi
+- **I piani che hai già.** Claude Agent (Claude Code sul tuo PC) e ChatGPT Plus/Pro, anche con Codex. Vedi
   [`docs/subscriptions.md`](docs/subscriptions.md).
-- **Strumenti esterni.** Server MCP a tua scelta e un browser con un profilo separato dal tuo. Terminale e file sono
+- **App.** App MCP a tua scelta e un browser con un profilo separato dal tuo. Eseguire comandi e toccare i file sono
   spenti di default: li dai tu, mostro per mostro.
 - **Vault compatibile con Obsidian.** Markdown con frontmatter YAML e wikilink; elenco, grafo, ricerca per parole e per
   significato, note collegate, cronologia e cestino. Ogni modifica dei mostri è un commit git, annullabile dal log.
@@ -47,7 +47,7 @@ Sito: <https://getmonsters.dev>
 - **Da lontano.** Telegram dal telefono (anche con un bot dedicato per mostro), oppure la chat nel terminale via SSH
   (`monsters chat`); l'app desktop può anche collegarsi come client a un core che gira altrove, con un tunnel SSH. Vedi
   [`docs/remote.md`](docs/remote.md).
-- **Controllo.** Log di ogni azione, tetti di spesa al giorno e al mese (anche per progetto), kill switch **Ferma**,
+- **Controllo.** Log di ogni azione, tetti di spesa al giorno e al mese (anche per progetto), tasto **Stop**,
   segreti nel portachiavi del sistema.
 
 ## Scarica
@@ -96,7 +96,7 @@ inglese).
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): fasi e direzione
 - [`docs/security-model.md`](docs/security-model.md): modello di minaccia e difese
 - [`docs/remote.md`](docs/remote.md): Telegram e SSH
-- [`docs/subscriptions.md`](docs/subscriptions.md): usare gli abbonamenti Claude e ChatGPT
+- [`docs/subscriptions.md`](docs/subscriptions.md): usare i piani Claude e ChatGPT
 - [`docs/mcp-vault.md`](docs/mcp-vault.md): il vault come server MCP
 - [`docs/signing.md`](docs/signing.md): pacchetti, firma e aggiornamenti
 - [`docs/ci.md`](docs/ci.md): integrazione continua
