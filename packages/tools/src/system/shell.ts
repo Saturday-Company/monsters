@@ -215,7 +215,7 @@ export function createShellTool(options: ShellToolOptions): MonstersTool<ShellIn
       const elevated = elevationIn(input.command);
       if (elevated) {
         throw new ToolError('BLOCKED_BY_POLICY', `Monsters never runs commands with ${elevated}.`, {
-          hint: 'Install what you need in your folder (npm -g, uv tool, pipx, your own bin folder) or ask the user to run that command himself.',
+          hint: 'Install what you need in your folder (npm -g, uv tool, pipx, your own bin folder) or ask the user to run that command themselves.',
         });
       }
       if (!ctx.spawn) {

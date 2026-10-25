@@ -404,7 +404,7 @@ describe('fs tools', () => {
     ]) {
       const err = await toolError(call());
       expect(err.code).toBe('SETTING_OFF');
-      expect(err.hint).toContain('"Terminal"');
+      expect(err.hint).toContain('"Run commands"');
     }
     // A folder prepared elsewhere and moved into place is checked file by file.
     await run(s, 'fs_write', { path: 'pronto/autostart/x.desktop', content: 'x' });
@@ -492,7 +492,7 @@ describe('files of a repo that run commands (review of 18/10, B1 and M9)', () =>
       run(s, 'fs_write', { path: 'package.json', mode: 'overwrite', content: evil }),
     );
     expect(refused.code).toBe('SETTING_OFF');
-    expect(refused.hint).toContain('"Terminal"');
+    expect(refused.hint).toContain('"Run commands"');
     expect(readFileSync(pkg, 'utf8')).not.toContain('pretest');
     // The same through a move.
     writeFileSync(join(s.work, 'nuovo.json'), evil);

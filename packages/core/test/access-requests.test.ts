@@ -445,7 +445,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
       says: [
         'Anteiku is yours already',
         'Paused until the user accepts them, so not in this job: anteiku_task_crea',
-        'App e servizi (Anteiku)',
+        'App (Anteiku)',
       ],
       not: ['none of its tools'],
     },
@@ -461,7 +461,7 @@ describe('access_request: the capo asks, the user grants with one tap (D-130)', 
         vi.spyOn(t.core.hub.mcp, 'toolsFor').mockResolvedValue([]);
         vi.spyOn(t.core.hub.mcp, 'missingWhy').mockReturnValue('paused');
       },
-      says: ['they are paused until the user accepts them', 'App e servizi (Anteiku)'],
+      says: ['they are paused until the user accepts them', 'App (Anteiku)'],
       not: ['is yours already'],
     },
     {

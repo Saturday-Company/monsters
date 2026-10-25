@@ -299,7 +299,7 @@ export function createFsTools(options: FsToolsOptions): MonstersTool[] {
     if (reason) {
       throw denied(
         `${path} is ${reason}: changing it can make the computer run commands, which needs the terminal permission.`,
-        `Ask the user to turn on "${terminalName()}" for you in ${permissionsPlace()}, or to make this change himself.`,
+        `Ask the user to turn on "${terminalName()}" for you in ${permissionsPlace()}, or to make this change themselves.`,
         'SETTING_OFF',
       );
     }
@@ -775,7 +775,7 @@ export function createFsTools(options: FsToolsOptions): MonstersTool[] {
         if (why) {
           throw denied(
             `${to} would become ${why}: changing it can make the computer run commands, which needs the terminal permission.`,
-            `Ask the user to turn on "${terminalName()}" for you in ${permissionsPlace()}, or to make this change himself.`,
+            `Ask the user to turn on "${terminalName()}" for you in ${permissionsPlace()}, or to make this change themselves.`,
             'SETTING_OFF',
           );
         }
