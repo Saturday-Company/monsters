@@ -116,7 +116,15 @@ describe('instruction files of a project folder (D-103)', () => {
       'rm C\\LAUDE.md',
       'echo x > CLAU*',
     ]) {
-      expect(commandWritesInstructions(c), c).toBe(true);
+      // Lines of bash: on Windows the native terminal reads PowerShell, where `C\LAUDE.md` is a path.
+      expect(commandWritesInstructions(c, undefined, [], 'linux'), c).toBe(true);
+    }
+    for (const c of [
+      'Remove-Item .\\CLAUDE.md',
+      'Set-Content AGENTS.md x',
+      'Remove-Item -Recurse .\\.c*',
+    ]) {
+      expect(commandWritesInstructions(c, undefined, [], 'win32'), c).toBe(true);
     }
     for (const c of [
       'cat CLAUDE.md',
@@ -129,7 +137,7 @@ describe('instruction files of a project folder (D-103)', () => {
       'grep -n install CLAUDE.md',
       'cat CLAUDE.md | head; node -v',
     ]) {
-      expect(commandWritesInstructions(c), c).toBe(false);
+      expect(commandWritesInstructions(c, undefined, [], 'linux'), c).toBe(false);
     }
     // Run inside a configuration folder of the project (`cwd: ".claude"`): any write is one.
     const project = tempDir();
