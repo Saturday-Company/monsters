@@ -1,6 +1,6 @@
 import { defineStrings } from '../../lib/i18n.ts';
 
-/* Settings → Connections → Web search: one group, free search (Brave key) and paid search (D-153). */
+/* Settings → Apps and Telegram → Web search: one group, free search (Brave key) and paid search (D-153). */
 
 const en = {
   web: {
@@ -24,17 +24,18 @@ const en = {
   paid: {
     cost: (price: string) => `about ${price} per 1,000 searches`,
     active: (cost: string) =>
-      `On: more reliable results, ${cost} from your key’s credit. Free search takes over if it runs out.`,
-    noKey: 'Needs an OpenRouter key with credit. Free search until then.',
+      `On: more reliable results, ${cost} from your OpenRouter credit. Free search takes over if it runs out.`,
+    noKey: 'Needs an OpenRouter account with credit. Free search until then.',
     spendCap: 'Spending cap reached: free search until you raise it or the period ends.',
-    noCredit: 'The OpenRouter key has no credit: free search for now.',
-    keyRejected: (where: string) =>
-      `OpenRouter rejected the key: check it in ${where}. Free search for now.`,
+    noCredit: 'The OpenRouter account has no credit: free search for now.',
+    keyRejected: 'OpenRouter rejected the account’s key. Free search for now.',
     paused:
       'Paused because it returned no results: free search for now, it tries again on its own.',
     freeOnly: (cost: string) =>
-      `Off, like paid models. On it costs ${cost}; free search can stall after a few dozen searches.`,
+      `Off, because paid models are off. On it costs ${cost}; free search can stall after a few dozen searches.`,
     off: (cost: string) => `Off: free search. On it costs ${cost}.`,
+    modelsBefore: 'The OpenRouter account and paid models are set in ',
+    modelsAfter: '.',
     turnedOn: 'Paid search on, right away.',
     turnedOff: 'Free search again, right away.',
     title: 'Paid search',
@@ -67,16 +68,17 @@ const it: typeof en = {
   paid: {
     cost: (price) => `circa ${price} ogni 1.000 ricerche`,
     active: (cost) =>
-      `Accesa: risultati più affidabili, ${cost} dal credito della tua chiave. Se finisce, torna la ricerca gratuita.`,
-    noKey: 'Serve una chiave OpenRouter con credito. Intanto, ricerca gratuita.',
+      `Accesa: risultati più affidabili, ${cost} dal tuo credito OpenRouter. Se finisce, torna la ricerca gratuita.`,
+    noKey: 'Serve un account OpenRouter con credito. Intanto, ricerca gratuita.',
     spendCap: 'Tetto di spesa raggiunto: ricerca gratuita finché non lo alzi o finisce il periodo.',
-    noCredit: 'La chiave OpenRouter non ha credito: per ora ricerca gratuita.',
-    keyRejected: (where) =>
-      `OpenRouter ha rifiutato la chiave: controllala in ${where}. Per ora ricerca gratuita.`,
+    noCredit: 'L’account OpenRouter non ha credito: per ora ricerca gratuita.',
+    keyRejected: 'OpenRouter ha rifiutato la chiave dell’account. Per ora ricerca gratuita.',
     paused: 'In pausa perché non ha dato risultati: per ora ricerca gratuita, poi riprova da sola.',
     freeOnly: (cost) =>
-      `Spenta, come i modelli a pagamento. Accesa costa ${cost}; la ricerca gratuita può bloccarsi dopo qualche decina di ricerche.`,
+      `Spenta, perché i modelli a pagamento sono spenti. Accesa costa ${cost}; la ricerca gratuita può bloccarsi dopo qualche decina di ricerche.`,
     off: (cost) => `Spenta: ricerca gratuita. Accesa costa ${cost}.`,
+    modelsBefore: 'L’account OpenRouter e i modelli a pagamento si gestiscono in ',
+    modelsAfter: '.',
     turnedOn: 'Ricerca a pagamento accesa, da subito.',
     turnedOff: 'Di nuovo ricerca gratuita, da subito.',
     title: 'Ricerca a pagamento',

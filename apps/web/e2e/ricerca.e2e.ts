@@ -1,6 +1,6 @@
 import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
-/* Settings → Collegamenti → Web search, the paid search row (D-071): the paid search on OpenRouter. */
+/* Settings → Apps and Telegram → Web search, the paid search row (D-071): the paid search on OpenRouter. */
 
 test('paid search: off with free models, one lever on, the engine, and back off', async ({
   page,
@@ -16,6 +16,11 @@ test('paid search: off with free models, one lever on, the engine, and back off'
   await expect(page.getByTestId('paid-search-status')).toContainText('Off');
   await expect(page.getByTestId('paid-search-status')).toContainText('($1.1) per 1,000');
   await expect(group.getByRole('radiogroup')).toHaveCount(0);
+  // Paid models are Models' to switch (C8): here, the reason and a link, not a second switch.
+  await expect(page.getByTestId('paid-search-status')).toContainText('because paid models are off');
+  await expect(
+    row.getByTestId('paid-search-models').getByRole('link', { name: 'Models' }),
+  ).toHaveAttribute('href', '#/impostazioni?sezione=modelli');
 
   const lever = row.getByRole('switch', { name: 'Paid search' });
   await lever.click();

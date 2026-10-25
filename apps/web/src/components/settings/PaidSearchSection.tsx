@@ -6,17 +6,19 @@ import {
 } from '@monsters/shared';
 import { useState } from 'react';
 import { errorText, getApi, notify } from '../../store/app.ts';
+import { settingsPath } from '../../lib/router.ts';
 import { eurFirst } from '../../lib/utils.ts';
 import { Segmented, Switch } from '../ui/controls.tsx';
 import { Row, RowBody } from './parts.tsx';
 import { searchStrings } from './search.strings.ts';
 
 /*
- * Settings → Connections → Web search, the paid search row (D-071; one place, U-12): the paid
- * search on OpenRouter.
- * One lever: on, the monsters search through OpenRouter with the key's credit
+ * Settings → Apps and Telegram → Web search, the paid search row (D-071; one place, U-12): the
+ * paid search on OpenRouter.
+ * One lever: on, the monsters search through OpenRouter with the account's credit
  * (~1 $ every 1,000 searches); off, the free chain (DuckDuckGo, then
- * Wikipedia). Untouched, it follows "Also use paid models". With the
+ * Wikipedia). Untouched, it follows the paid-models switch of Models, whose home that is: where
+ * this row depends on it, it says so in a line with the link (C8). With the
  * lever on, the engine: Cheap (Parallel) or Precise (Exa).
  */
 
@@ -38,7 +40,7 @@ export function paidSearchText(ws: WebSearchSettings): string {
     case 'no_credit':
       return s.noCredit;
     case 'key_rejected':
-      return s.keyRejected(SETTINGS_TABS.modelli);
+      return s.keyRejected;
     case 'paused':
       return s.paused;
     case 'free_only':
@@ -69,6 +71,12 @@ export function PaidSearchRow({
   const freeOnly = settings.openrouterKey.freeOnly;
   const on = paidSearchOn(ws, freeOnly);
   const noKey = ws.reason === 'no_key';
+  // What depends on the OpenRouter account or on paid models is set in Models: a line, not a switch.
+  const inModels =
+    ws.reason === 'no_key' ||
+    ws.reason === 'no_credit' ||
+    ws.reason === 'key_rejected' ||
+    ws.reason === 'free_only';
 
   const apply = async (change: { mode?: 'on' | 'off'; engine?: PaidSearchEngineName }) => {
     setBusy(true);
@@ -94,7 +102,24 @@ export function PaidSearchRow({
     >
       <Row
         label={s.title}
-        description={<span data-testid="paid-search-status">{paidSearchText(ws)}</span>}
+        description={
+          <>
+            <span data-testid="paid-search-status">{paidSearchText(ws)}</span>
+            {inModels && (
+              <span data-testid="paid-search-models">
+                {' '}
+                {s.modelsBefore}
+                <a
+                  href={settingsPath('modelli')}
+                  className="font-medium text-ink underline underline-offset-2"
+                >
+                  {SETTINGS_TABS.modelli}
+                </a>
+                {s.modelsAfter}
+              </span>
+            )}
+          </>
+        }
       >
         <Switch
           words
