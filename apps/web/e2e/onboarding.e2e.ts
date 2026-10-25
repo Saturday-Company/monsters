@@ -18,7 +18,7 @@ test('first start: model, name, squad, birth', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto('/?mock=1');
   await createAccount(page, MOCK_SETUP_CODE);
-  await expect(page).toHaveURL(/#\/benvenuto$/);
+  await expect(page).toHaveURL(/#\/welcome$/);
   await expect(page.getByTestId('onboarding')).toHaveAttribute('data-step', 'key');
   // Three steps, the first one current: no "About you" or "What they can do" any more.
   const progress = page.getByRole('navigation', { name: 'Progress' });
@@ -259,7 +259,7 @@ test('without a model the home page says so', async ({ page }) => {
   await expect(input).toHaveAttribute('placeholder', 'Connect a model first');
   const notice = greeting.getByTestId('no-model');
   await notice.getByRole('link', { name: 'Connect a model' }).click();
-  await expect(page).toHaveURL(/#\/impostazioni\?sezione=modelli$/);
+  await expect(page).toHaveURL(/#\/settings\?section=models$/);
 });
 
 test('the key can wait, and the chats send back to the onboarding', async ({ page }) => {

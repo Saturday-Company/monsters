@@ -49,7 +49,7 @@ test('the preview on the monitor and the panel it opens', async ({ page }) => {
   await expect(sheet).not.toContainText(/tokens|cache/i);
   // The caps live in Settings → Modelli; on a wide window the pane stays beside them.
   await sheet.getByTestId('usage-caps-link').click();
-  await expect(page).toHaveURL(/impostazioni\?sezione=tetto/);
+  await expect(page).toHaveURL(/settings\?section=spend-cap/);
   await expect(sheet).toBeVisible();
 
   // Esc closes it; the terminal takes its place on the right.

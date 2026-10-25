@@ -125,7 +125,7 @@ test('Settings → General → Language: English ↔ Italian in place, the page 
   );
   await expect(sections('Sezioni').first()).toHaveAccessibleName('Automazioni');
   await expect(page.locator('html')).toHaveAttribute('lang', 'it');
-  await expect(page).toHaveURL(/#\/impostazioni\?sezione=generale$/);
+  await expect(page).toHaveURL(/#\/settings\?section=general$/);
   // The tree was mounted again (the marked sidebar is a new element); the page was not reloaded.
   await expect(page.locator('[data-e2e-old]')).toHaveCount(0);
   expect(await page.evaluate(() => (window as unknown as { __kept?: boolean }).__kept)).toBe(true);
@@ -135,7 +135,7 @@ test('Settings → General → Language: English ↔ Italian in place, the page 
   await expect(page.getByRole('radiogroup', { name: 'Language' })).toBeVisible();
   await expect(sections('Sections').first()).toHaveAccessibleName('Automations');
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await expect(page).toHaveURL(/#\/impostazioni\?sezione=generale$/);
+  await expect(page).toHaveURL(/#\/settings\?section=general$/);
 });
 
 test.describe('the main screens in Italian, at 1024 px', () => {

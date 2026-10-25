@@ -100,10 +100,11 @@ describe('note Markdown', () => {
 
   it('builds vault links in the hash route', () => {
     expect(vaultPath('Risorse/Lisbona, spunti.md')).toBe(
-      '#/note?nota=Risorse%2FLisbona%2C%20spunti.md',
+      '#/notes?note=Risorse%2FLisbona%2C%20spunti.md',
     );
-    expect(vaultPath(null, 'cestino')).toBe('#/note?vista=cestino');
-    expect(vaultPath(null)).toBe('#/note');
+    expect(vaultPath(null, 'cestino')).toBe('#/notes?view=trash');
+    expect(vaultPath(null, 'grafo')).toBe('#/notes?view=graph');
+    expect(vaultPath(null)).toBe('#/notes');
   });
 });
 

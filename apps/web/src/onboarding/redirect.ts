@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { navigate, type Route } from '../lib/router.ts';
+import { navigate, routeOf, type Route } from '../lib/router.ts';
 import type { Phase } from '../store/app.ts';
 import { onboardingApi } from './api.ts';
 
@@ -22,7 +22,7 @@ export function useOnboardingRedirect(phase: Phase, route: Route): void {
       .state()
       .then((s) => {
         if (s.status === 'done') done = true;
-        else if (alive && window.location.hash !== '#/benvenuto') navigate('welcome');
+        else if (alive && routeOf(window.location.hash) !== 'welcome') navigate('welcome');
       })
       .catch(() => {
         done = true;

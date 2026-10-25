@@ -928,7 +928,7 @@ export function ChatPanel({
   );
   const lastItem = shown.at(-1)?.item;
   // After the lead's first answer: first jobs to try and the "Tell me more about you" card.
-  const tellMe = useHashParam('profilo') === '1';
+  const tellMe = useHashParam('profile') === '1';
   // Counted over the whole chat, not the conversation: a new one does not bring the first jobs back.
   const userCount = thread.filter((it) => it.kind === 'user').length;
   const firstUser = current.findIndex((it) => it.kind === 'user');

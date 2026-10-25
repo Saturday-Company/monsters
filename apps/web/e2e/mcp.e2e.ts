@@ -103,7 +103,7 @@ test('settings: turn the browser on for the monsters with the web', async ({ pag
   await expect(browser.getByRole('button', { name: /no web/ }).first()).toBeDisabled();
   await expect(browser.getByTestId('mcp-browser-web-note').getByRole('link')).toHaveAttribute(
     'href',
-    '#/impostazioni?sezione=permessi',
+    '#/settings?section=permissions',
   );
   await browser.getByRole('button', { name: 'Details' }).click();
   await expect(browser.getByTestId('mcp-details')).toContainText('@playwright/mcp@');

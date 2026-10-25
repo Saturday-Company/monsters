@@ -243,7 +243,7 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
   const projects = useProjects();
   const { god, squads } = useMemo(() => squadsOf(agents, projects), [agents, projects]);
   const projectParam = useHashParam('id');
-  const newProject = useHashParam('vista') === 'nuovo';
+  const newProject = useHashParam('view') === 'nuovo';
 
   const chosen = agents.find((a) => a.id === param)?.id ?? null;
   // On a wide window the home shows the orchestrator's chat; the phone home is this list.

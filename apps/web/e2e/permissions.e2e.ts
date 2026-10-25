@@ -108,7 +108,7 @@ test('settings: where a project switches the web off, the row says so with a lin
     .getByTestId('permissions-web-override');
   await expect(link).toHaveText('Web: off in project Saturday Social');
   await link.click();
-  await expect(page).toHaveURL(/#\/progetto\?id=/);
+  await expect(page).toHaveURL(/#\/project\?id=/);
 });
 
 test('settings: change what a monster may do one by one, saved at once and logged', async ({

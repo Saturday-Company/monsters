@@ -79,7 +79,7 @@ test('Squadra lists every squad: the capo, the personal one, the projects', asyn
   await expect(project).toContainText('project lead');
   await expect(
     project.getByRole('link', { name: /Open Saturday Social’s squad/ }).first(),
-  ).toHaveAttribute('href', /progetto\?id=social-di-saturday&sezione=squadra/);
+  ).toHaveAttribute('href', /project\?id=social-di-saturday&section=squad/);
   await shot(page, 'squadra-light');
   await page.emulateMedia({ colorScheme: 'dark' });
   await shot(page, 'squadra-dark');

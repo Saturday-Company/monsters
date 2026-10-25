@@ -23,7 +23,7 @@ test('search, open a note, follow a wikilink and a backlink', async ({ page }) =
   await expect(results.getByRole('link', { name: /^Lisbon, weekend tips/ })).toBeVisible();
   await results.getByRole('link', { name: /^Tram 28/ }).click();
   await expect(title(page)).toHaveText('Tram 28');
-  await expect(page).toHaveURL(/#\/note\?nota=Resources%2FTram%2028\.md$/);
+  await expect(page).toHaveURL(/#\/notes\?note=Resources%2FTram%2028\.md$/);
 
   // Wikilink in the text.
   await page
@@ -69,7 +69,7 @@ test('a note named as a link (from the chat) opens, and the address becomes its 
 }) => {
   await openVault(page, '#/note?nota=Tram%2028');
   await expect(title(page)).toHaveText('Tram 28');
-  await expect(page).toHaveURL(/#\/note\?nota=Resources%2FTram%2028\.md$/);
+  await expect(page).toHaveURL(/#\/notes\?note=Resources%2FTram%2028\.md$/);
 });
 
 test('tags filter the list; private notes are marked', async ({ page }) => {
@@ -151,7 +151,7 @@ test('graph: a click on a node opens the note, keyboard too', async ({ page }) =
 test('trash: restore a note where it was', async ({ page }) => {
   await openVault(page);
   await page.getByTestId('vault-trash-link').click();
-  await expect(page).toHaveURL(/#\/note\?vista=cestino$/);
+  await expect(page).toHaveURL(/#\/notes\?view=trash$/);
   const item = page.getByTestId('vault-trash-item').filter({ hasText: 'Shopping list' });
   await expect(item).toContainText('Was in Resources');
   await expect(item).toContainText('deleted by Dione');
@@ -196,7 +196,7 @@ test('history: one action per version; undo and redo live in the note’s Attivi
 
   // Undo the change from the note's Attività; Rifai from the row; undo again.
   await page.getByTestId('vault-activity').click();
-  await expect(page).toHaveURL(/#\/log\?nota=Journal%2F2026-10-14\.md$/);
+  await expect(page).toHaveURL(/#\/log\?note=Journal%2F2026-10-14\.md$/);
   const row = page.getByTestId('event-row').filter({ hasText: 'edited the note 2026-10-14' });
   await row.getByTestId('undo').click();
   await expect(page.getByRole('status').filter({ hasText: 'Change undone' })).toBeVisible();
@@ -250,7 +250,7 @@ test('new note: title, an existing folder and text, as the user, never over anot
 }) => {
   await openVault(page);
   await page.getByTestId('vault-new').click();
-  await expect(page).toHaveURL(/#\/note\?vista=nuova$/);
+  await expect(page).toHaveURL(/#\/notes\?view=new$/);
   const form = page.getByTestId('vault-new-note');
   // The folders are the existing ones; Inbox first if there is one.
   const folder = form.getByTestId('vault-new-folder');
@@ -267,7 +267,7 @@ test('new note: title, an existing folder and text, as the user, never over anot
   await form.getByTestId('vault-new-text').fill('# Porto\n\nVino e [[Tram 28]].\n');
   await save.click();
   await expect(page.getByRole('status').filter({ hasText: 'Note created' })).toBeVisible();
-  await expect(page).toHaveURL(/#\/note\?nota=Resources%2FPorto\.md$/);
+  await expect(page).toHaveURL(/#\/notes\?note=Resources%2FPorto\.md$/);
   await expect(title(page)).toHaveText('Porto');
   await expect(
     page.getByTestId('vault-note-body').getByRole('link', { name: 'Tram 28' }),
@@ -290,7 +290,7 @@ test('new note: title, an existing folder and text, as the user, never over anot
   await expect(form.getByRole('alert')).toHaveText('There’s already a note with this name.');
   await expect(form.getByTestId('vault-new-text')).toHaveValue('Other text');
   await form.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page).toHaveURL(/#\/note$/);
+  await expect(page).toHaveURL(/#\/notes$/);
 
   // In Attività, as a change of the user (same page: the mock lives in memory).
   await page.evaluate(() => (window.location.hash = '#/log'));
@@ -309,7 +309,7 @@ test('new note in a new folder', async ({ page }) => {
   await form.getByTestId('vault-new-folder-name').fill('Trips');
   await expect(form).toContainText('To link another note, type [[');
   await save.click();
-  await expect(page).toHaveURL(/#\/note\?nota=Trips%2FLisbon%202027\.md$/);
+  await expect(page).toHaveURL(/#\/notes\?note=Trips%2FLisbon%202027\.md$/);
   await expect(title(page)).toHaveText('Lisbon 2027');
 });
 

@@ -138,7 +138,7 @@ test.describe('desktop', () => {
     await report.scrollIntoViewIfNeeded();
     await shot(page, 'chat-del-dio-rapporto-chiaro');
     await report.getByTestId('report-open').click();
-    await expect(page).toHaveURL(/#\/progetto\?id=social-di-saturday$/);
+    await expect(page).toHaveURL(/#\/project\?id=social-di-saturday$/);
     await expect(page.getByTestId('chat-panel')).toHaveAttribute('data-agent', 'iapetus');
   });
 

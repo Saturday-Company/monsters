@@ -149,10 +149,14 @@ describe('what the menu says', () => {
   });
 
   it('has a route of its own', () => {
+    expect(routeOf('#/automations')).toBe('automations');
     expect(routeOf('#/automazioni')).toBe('automations');
     expect(routeOf(automationPath('post', { giro: 'r1' }))).toBe('automations');
-    expect(automationPath('post', { giro: 'r1' })).toBe('#/automazioni?automazione=post&giro=r1');
-    expect(automationPath(null, { mode: 'nuova' })).toBe('#/automazioni?vista=nuova');
+    expect(automationPath('post', { giro: 'r1' })).toBe('#/automations?automation=post&run=r1');
+    expect(automationPath(null, { mode: 'nuova' })).toBe('#/automations?view=new');
+    expect(automationPath(null, { mode: 'modifica', project: 'orto' })).toBe(
+      '#/automations?view=edit&project=orto',
+    );
   });
 });
 

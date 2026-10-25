@@ -224,5 +224,5 @@ test('a project’s monsters are listed read-only, with a link to the project’
     .getByRole('link', { name: /Open Saturday Social’s squad/ })
     .first()
     .click();
-  await expect(page).toHaveURL(/[^#]#\/progetto\?id=social-di-saturday&sezione=squadra$/);
+  await expect(page).toHaveURL(/[^#]#\/project\?id=social-di-saturday&section=squad$/);
 });

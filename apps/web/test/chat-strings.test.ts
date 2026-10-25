@@ -69,8 +69,8 @@ describe('the places named in a text', () => {
   it('become links to the tab, whatever the language of the text', () => {
     const it = links('Aggiungi una chiave in Impostazioni → Modelli.');
     expect(it).toHaveLength(1);
-    expect(it[0]!.props.href).toContain('sezione=modelli');
+    expect(it[0]!.props.href).toContain('section=models');
     const en = links('Add a key in Settings → Models, or allow it in Settings → Permissions.');
-    expect(en.map((l) => l.props.href.split('sezione=')[1])).toEqual(['modelli', 'permessi']);
+    expect(en.map((l) => l.props.href.split('section=')[1])).toEqual(['models', 'permissions']);
   });
 });

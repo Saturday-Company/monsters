@@ -79,17 +79,17 @@ function panel(t: SettingsTab): ReactNode {
 }
 
 /**
- * Settings page (`#/impostazioni?sezione=…`), in tabs. A tab is mounted the
+ * Settings page (`#/settings?section=…`), in tabs. A tab is mounted the
  * first time it is opened and then kept (hidden), so a half-typed key or an
  * open form survives a look at another tab; each tab scrolls on its own. A part
- * or an old name in the link (`?sezione=istinto`, `?sezione=telegram`) opens the
+ * or an old name in the link (`?section=instinct`, `?section=telegram`) opens the
  * tab that holds it now, at that part; a closed drawer that holds it opens
  * (`SettingsTargetContext`).
  */
 export function SettingsView() {
   const s = settingsStrings().view;
   const TABS = tabs();
-  const param = useHashParam('sezione');
+  const param = useHashParam('section');
   const tab = settingsTabOf(param);
   const part = settingsPartOf(param);
   const [visited, setVisited] = useState<ReadonlySet<SettingsTab>>(() => new Set([tab]));

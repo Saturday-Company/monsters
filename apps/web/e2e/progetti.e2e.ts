@@ -73,7 +73,7 @@ test('Progetti: the squads in the sidebar, the page of a project and its tabs', 
 
   // The project's name opens its page, on the chat with the lead.
   await squad(page, 'social-di-saturday').getByTestId('squad-link').click();
-  await expect(page).toHaveURL(/#\/progetto\?id=social-di-saturday$/);
+  await expect(page).toHaveURL(/#\/project\?id=social-di-saturday$/);
   const toolbar = page.locator('[data-titlebar]');
   await expect(toolbar.getByRole('heading', { name: 'Saturday Social' })).toBeVisible();
   await expect(squad(page, 'social-di-saturday').getByTestId('squad-link')).toHaveAttribute(
@@ -93,7 +93,7 @@ test('Progetti: the squads in the sidebar, the page of a project and its tabs', 
   await shot(page, 'progetti-pagina-chat-chiaro');
 
   await tabs.getByRole('tab', { name: 'Squad' }).click();
-  await expect(page).toHaveURL(/sezione=squadra/);
+  await expect(page).toHaveURL(/section=squad/);
   const members = page.getByTestId('project-member');
   await expect(members).toHaveCount(3);
   await expect(members.first()).toContainText('IapetusLead');
@@ -108,7 +108,7 @@ test('Progetti: the squads in the sidebar, the page of a project and its tabs', 
   await expect(auto).toContainText('Weekly posts');
   // Settings: the folder, the apps, the spending and the archive, one page that scrolls.
   await tabs.getByRole('tab', { name: 'Settings' }).click();
-  await expect(page).toHaveURL(/sezione=impostazioni/);
+  await expect(page).toHaveURL(/section=settings/);
   await expect(page.getByTestId('project-folder-path')).toHaveText(
     '/home/andrea/Projects/social-saturday',
   );
@@ -147,7 +147,7 @@ test('Progetti: a project with the name only; folder, lead and apps stay behind 
 
   await page.getByTestId('project-name').fill('Taccuino');
   await page.getByTestId('project-create').click();
-  await expect(page).toHaveURL(/#\/progetto\?id=taccuino$/);
+  await expect(page).toHaveURL(/#\/project\?id=taccuino$/);
   // The lead has a name the core picked, and there is no folder: the defaults of always.
   const lead = squad(page, 'taccuino').getByTestId('chat-row');
   await expect(lead).toHaveCount(1);
@@ -174,7 +174,7 @@ test('Progetti: a new project from the sidebar, with its lead and a copied monst
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?mock=demo');
   await page.getByTestId('project-new').click();
-  await expect(page).toHaveURL(/#\/progetto\?vista=nuovo$/);
+  await expect(page).toHaveURL(/#\/project\?view=new$/);
   const form = page.getByTestId('project-form');
   // Nothing written: the form says what is missing.
   await page.getByTestId('project-create').click();
@@ -195,7 +195,7 @@ test('Progetti: a new project from the sidebar, with its lead and a copied monst
   await shot(page, 'progetti-nuovo-chiaro');
   await page.getByTestId('project-create').click();
 
-  await expect(page).toHaveURL(/#\/progetto\?id=newsletter$/);
+  await expect(page).toHaveURL(/#\/project\?id=newsletter$/);
   await expect(page.getByTestId('chat-panel')).toHaveAttribute('data-agent', 'atlas');
   const news = squad(page, 'newsletter');
   await expect(news.getByTestId('chat-row')).toHaveCount(2);
@@ -267,7 +267,7 @@ test('Progetti: a new project has the team’s connections on, the user turns of
   await figma.click();
   await expect(figma).toHaveAttribute('aria-checked', 'false');
   await page.getByTestId('project-create').click();
-  await expect(page).toHaveURL(/#\/progetto\?id=nebula$/);
+  await expect(page).toHaveURL(/#\/project\?id=nebula$/);
   await page.getByRole('tab', { name: 'Settings' }).click();
   const chosen = page.getByTestId('project-links');
   await expect(chosen.getByRole('switch', { name: 'Canva for the project' })).toHaveAttribute(
@@ -374,7 +374,7 @@ test('Progetti: the old tabs’ names (cartella, collegamenti, spesa) open Setti
       'true',
     );
     // The link becomes Settings’ own, and the part is in view (the column scrolled to it).
-    await expect(page).toHaveURL(/sezione=impostazioni$/);
+    await expect(page).toHaveURL(/section=settings$/);
     await expect(page.getByTestId(part)).toBeInViewport();
   }
 });
@@ -403,7 +403,7 @@ test('Progetti: Settings lists the monsters that cannot search the web, with why
   // The web permission of each monster lives in Settings → Permissions: a link there.
   await expect(web.getByRole('link', { name: 'Settings → Permissions' })).toHaveAttribute(
     'href',
-    '#/impostazioni?sezione=permessi',
+    '#/settings?section=permissions',
   );
   await blocked.getByRole('button', { name: 'Allow Calypso to search the web' }).click();
   await expect(page.getByText('Calypso can search the web now.')).toBeVisible();

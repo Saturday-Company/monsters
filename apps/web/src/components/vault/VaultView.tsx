@@ -91,10 +91,10 @@ function ToolButton({
   );
 }
 
-/** Notes page (`#/note`): the list and the search, the reader, the graph, the trash. */
+/** Notes page (`#/notes`): the list and the search, the reader, the graph, the trash. */
 export default function VaultView() {
-  const param = useHashParam('nota');
-  const vista = useHashParam('vista');
+  const param = useHashParam('note');
+  const vista = useHashParam('view');
   const tab: VaultTab =
     vista === 'grafo' || vista === 'cestino' || vista === 'nuova' ? vista : 'note';
   const s = vaultStrings().view;
@@ -137,7 +137,7 @@ export default function VaultView() {
 
   const resolve = useMemo(() => linkIndex(overview?.notes.map((n) => n.path) ?? []), [overview]);
   /*
-   * `?nota=` may name a note the way a link does ("Bozze dei post", from the
+   * `?note=` may name a note the way a link does ("Bozze dei post", from the
    * chat): once the list is there it becomes the path, in place.
    */
   const note = param ? (overview ? (resolve(param) ?? param) : param) : null;

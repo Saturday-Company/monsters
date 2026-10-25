@@ -217,7 +217,7 @@ test('"Automatic": for the whole team each monster on its base, then one per mon
   await expect(needs).toContainText('Needs the expert model');
   await expect(needs.getByTestId('auto-expert-link')).toHaveAttribute(
     'href',
-    '#/impostazioni?sezione=istinto',
+    '#/settings?section=instinct',
   );
 
   // Rhea on Quick: kept by the core, shown as "Automatic" again after a visit elsewhere.

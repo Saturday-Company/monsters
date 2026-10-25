@@ -4,37 +4,41 @@ import './navigation-guard.ts';
 
 /*
  * Hash routes: the core serves a single static page, so `#/log` works without
- * any server-side fallback, also through an SSH tunnel.
+ * any server-side fallback, also through an SSH tunnel. The names in the address are English
+ * (`#/settings?section=models`); the Italian ones of alpha.24 and before still lead to the same
+ * place. The table of names and aliases is `route-names.ts`.
  */
-export type Route =
-  'home' | 'automations' | 'project' | 'log' | 'vault' | 'files' | 'settings' | 'welcome';
+import {
+  canonicalHash,
+  hashOf,
+  hashParam,
+  ROUTE_PATHS,
+  routeOf,
+  valueIdOf,
+  type Route,
+} from './route-names.ts';
 
-const ROUTES: Record<string, Route> = {
-  '': 'home',
-  '/': 'home',
-  '/log': 'log',
-  '/automazioni': 'automations',
-  '/progetto': 'project',
-  '/note': 'vault',
-  '/file': 'files',
-  '/impostazioni': 'settings',
-  '/benvenuto': 'welcome',
-};
+export { canonicalHash, hashParam, routeOf };
+export type { Route };
 
-export const PATHS: Record<Route, string> = {
-  home: '#/',
-  automations: '#/automazioni',
-  project: '#/progetto',
-  log: '#/log',
-  vault: '#/note',
-  files: '#/file',
-  settings: '#/impostazioni',
-  welcome: '#/benvenuto',
-};
+export const PATHS: Record<Route, string> = Object.fromEntries(
+  Object.entries(ROUTE_PATHS).map(([route, path]) => [route, `#${path}`]),
+) as Record<Route, string>;
 
-export function routeOf(hash: string): Route {
-  const path = hash.replace(/^#/, '').split('?')[0] ?? '';
-  return ROUTES[path] ?? 'home';
+/**
+ * A link from before (`#/impostazioni?sezione=modelli`), opened in this window or typed into the
+ * address of a page already open, is rewritten the current way: the bar shows the English names.
+ * Nothing depends on it (the readers take both), and `replaceState` makes no event and no history entry.
+ */
+function writeCurrentNames(): void {
+  const now = canonicalHash(window.location.hash);
+  if (now !== window.location.hash) window.history.replaceState(window.history.state, '', now);
+}
+
+if (typeof window !== 'undefined') {
+  writeCurrentNames();
+  // After the guard of unsaved forms (it is imported first and may stop the event), before the components.
+  window.addEventListener('hashchange', writeCurrentNames);
 }
 
 function subscribe(cb: () => void) {
@@ -50,7 +54,7 @@ export function navigate(route: Route): void {
   window.location.hash = PATHS[route];
 }
 
-/** A note opened in the Note page (`#/note?nota=…`), by path or by name: where the chips of the chat lead. */
+/** A note opened in the Notes page (`#/notes?note=…`), by path or by name: where the chips of the chat lead. */
 export function notePath(target: string): string {
   return vaultPath(target);
 }
@@ -104,26 +108,25 @@ export function goHome(): void {
 /** Back to the list of chats (phone). */
 export const closeChat = goHome;
 
-/** Views of the Automazioni page besides the list and the detail of one. */
+/** Views of the Automations page besides the list and the detail of one. */
 export type AutomationsMode = 'nuova' | 'modifica';
 
 /**
- * A place in the Automazioni page (D-094): the list, one automation
- * (`?automazione=…`), one of its runs (`&giro=…`), the form (`?vista=nuova`,
- * `&vista=modifica`).
+ * A place in the Automations page (D-094): the list, one automation
+ * (`?automation=…`), one of its runs (`&run=…`), the form (`?view=new`,
+ * `&view=edit`).
  */
 export function automationPath(
   id?: string | null,
   options: { giro?: string | null; mode?: AutomationsMode | null; project?: string | null } = {},
 ): string {
-  const q = new URLSearchParams();
-  if (id) q.set('automazione', id);
-  if (options.giro) q.set('giro', options.giro);
-  if (options.mode) q.set('vista', options.mode);
-  // A new automation from a project's page starts in its squad (D-100).
-  if (options.project) q.set('progetto', options.project);
-  const s = q.toString();
-  return s ? `${PATHS.automations}?${s}` : PATHS.automations;
+  return hashOf('automations', {
+    automation: id,
+    run: options.giro,
+    view: options.mode,
+    // A new automation from a project's page starts in its squad (D-100).
+    project: options.project,
+  });
 }
 
 /** Tabs of a project's page (D-100), in order (the first is the default). */
@@ -150,45 +153,38 @@ function projectAliasOf(param: string | null): { tab: ProjectTab; part: string }
     : undefined;
 }
 
-/** The tab named by `?sezione=…` (or an old name of it); anything else is the chat. */
+/** The tab named by `?section=…` (or an old name of it); anything else is the chat. */
 export function projectTabOf(param: string | null): ProjectTab {
   return PROJECT_TABS.find((t) => t === param) ?? projectAliasOf(param)?.tab ?? PROJECT_TABS[0];
 }
 
-/** The part of Settings an old name points to (`?sezione=spesa` → `spesa`); a tab has no part. */
+/** The part of Settings an old name points to (`?section=spending` → `spesa`); a tab has no part. */
 export function projectPartOf(param: string | null): string | null {
   return projectAliasOf(param)?.part ?? null;
 }
 
 /**
- * A project's page (`#/progetto?id=…&sezione=squadra`, D-100), or the form of a
- * new one (`#/progetto?vista=nuovo`). An old tab name keeps working in links
+ * A project's page (`#/project?id=…&section=squad`, D-100), or the form of a
+ * new one (`#/project?view=new`). An old tab name keeps working in links
  * (`projectPath(id, 'spesa')`: Settings, at the spending).
  */
 export function projectPath(id?: string | null, tab?: ProjectPlace | null): string {
-  const q = new URLSearchParams();
-  if (id) q.set('id', id);
-  else q.set('vista', 'nuovo');
-  if (id && tab && tab !== PROJECT_TABS[0]) q.set('sezione', tab);
-  return `${PATHS.project}?${q.toString()}`;
+  return id
+    ? hashOf('project', { id, section: tab && tab !== PROJECT_TABS[0] ? tab : null })
+    : hashOf('project', { view: 'nuovo' });
 }
 
 /** Views of the vault page besides the note list. */
 export type VaultTab = 'note' | 'grafo' | 'cestino' | 'nuova';
 
-/** A note opened in the vault view (`#/note?nota=…`), optionally on another tab. */
+/** A note opened in the vault view (`#/notes?note=…`), optionally on another tab. */
 export function vaultPath(note?: string | null, tab?: VaultTab | null): string {
-  const q = new URLSearchParams();
-  if (note) q.set('nota', note);
-  if (tab && tab !== 'note') q.set('vista', tab);
-  const s = q.toString().replace(/\+/g, '%20');
-  return s ? `${PATHS.vault}?${s}` : PATHS.vault;
+  return hashOf('vault', { note, view: tab && tab !== 'note' ? tab : null }).replace(/\+/g, '%20');
 }
 
-/** A query parameter of the hash route (`#/log?nota=…`). */
-export function hashParam(hash: string, name: string): string | null {
-  const q = hash.replace(/^#/, '').split('?')[1];
-  return q ? new URLSearchParams(q).get(name) : null;
+/** The notes carrying a tag (`#/notes?tag=…`). */
+export function tagPath(tag: string): string {
+  return hashOf('vault', { tag });
 }
 
 export function useHashParam(name: string): string | null {
@@ -230,25 +226,24 @@ function aliasOf(param: string | null) {
   return param && Object.hasOwn(SETTINGS_ALIASES, param) ? SETTINGS_ALIASES[param] : undefined;
 }
 
-/** The settings tab named by `?sezione=…` (or an old name of it); anything else is the first tab. */
+/** The settings tab named by `?section=…` (or an old name of it); anything else is the first tab. */
 export function settingsTabOf(param: string | null): SettingsTab {
   return SETTINGS_TABS.find((t) => t === param) ?? aliasOf(param)?.tab ?? SETTINGS_TABS[0];
 }
 
-/** The part of a tab an old name points to (`?sezione=istinto` → `istinto`, a tab has no part). */
+/** The part of a tab an old name points to (`?section=instinct` → `istinto`, a tab has no part). */
 export function settingsPartOf(param: string | null): string | null {
   return aliasOf(param)?.part ?? null;
 }
 
 /**
- * Settings opened on one tab (`#/impostazioni?sezione=permessi`; a `SettingsTab`), or on a part of
- * one by its old name (`settingsPath('istinto')`, `'tetto'`, `'pausa'`: see `SETTINGS_ALIASES`): links from
- * elsewhere use it, never a hand-written `?sezione=`.
+ * Settings opened on one tab (`#/settings?section=permissions`; a `SettingsTab`), or on a part of
+ * one by its id (`settingsPath('istinto')`, `'tetto'`, `'pausa'`: see `SETTINGS_ALIASES`): links from
+ * elsewhere use it, never a hand-written `?section=`.
  */
 export function settingsPath(place?: string | null): string {
-  return place && place !== SETTINGS_TABS[0]
-    ? `${PATHS.settings}?sezione=${place}`
-    : PATHS.settings;
+  const id = place ? valueIdOf('settings', 'section', place) : null;
+  return hashOf('settings', { section: id && id !== SETTINGS_TABS[0] ? id : null });
 }
 
 /** Settings → Modelli → Tetto di spesa (D-070): "Alza il tetto" in the chat and the toasts. */

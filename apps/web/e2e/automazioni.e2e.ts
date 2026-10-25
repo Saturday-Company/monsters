@@ -53,7 +53,7 @@ test('Automazioni: from the sidebar, the list by squad, the detail and a giro', 
   await expect(links.first()).toHaveAccessibleName('Automations');
   await expect(links.nth(1)).toHaveAccessibleName('Notes');
   await links.first().click();
-  await expect(page).toHaveURL(/#\/automazioni$/);
+  await expect(page).toHaveURL(/#\/automations$/);
   const toolbar = page.locator('[data-titlebar]');
   await expect(toolbar.getByRole('heading', { name: 'Automations', level: 1 })).toBeVisible();
 
@@ -71,7 +71,7 @@ test('Automazioni: from the sidebar, the list by squad, the detail and a giro', 
   await shot(page, 'automazioni-elenco-chiaro');
 
   await row.getByRole('link').click();
-  await expect(page).toHaveURL(/#\/automazioni\?automazione=post-della-settimana$/);
+  await expect(page).toHaveURL(/#\/automations\?automation=post-della-settimana$/);
   const detail = page.getByTestId('automation-detail');
   await expect(detail.getByTestId('automation-name')).toHaveText('Weekly posts');
   await expect(detail.getByTestId('automation-objective')).toContainText(
@@ -98,7 +98,7 @@ test('Automazioni: from the sidebar, the list by squad, the detail and a giro', 
   await expect(giri.first()).toContainText(/4 steps · 16,480 tokens · free/i);
 
   await giri.first().getByRole('link').click();
-  await expect(page).toHaveURL(/&giro=run_auto_/);
+  await expect(page).toHaveURL(/&run=run_auto_/);
   const giro = page.getByTestId('giro-view');
   await expect(giro).toHaveAttribute('data-state', 'completed');
   await expect(giro.getByTestId('giro-objective')).toContainText('[Automation “Weekly posts”');
@@ -106,7 +106,7 @@ test('Automazioni: from the sidebar, the list by squad, the detail and a giro', 
   // The wikilink of the answer is a note chip (Markdown).
   await expect(giro.getByTestId('giro-final').getByTestId('note-chip')).toHaveCount(1);
   await expect(giro.getByTestId('giro-note')).toHaveCount(1);
-  await expect(giro.getByTestId('giro-note')).toHaveAttribute('href', /#\/note\?nota=Projects/);
+  await expect(giro.getByTestId('giro-note')).toHaveAttribute('href', /#\/notes\?note=Projects/);
   // Iapetus, Calypso (who worked for it) and Iapetus's answer.
   await expect(giro.getByTestId('giro-message')).toHaveCount(3);
   await expect(giro.getByTestId('giro-message').nth(1)).toContainText('Calypso · for the lead');
@@ -176,7 +176,7 @@ test('Automazioni: a new one with a preset, the advanced rule and its next giri'
   await shot(page, 'automazioni-nuova-chiaro');
   await page.getByTestId('form-save').click();
 
-  await expect(page).toHaveURL(/automazione=friday-summary$/);
+  await expect(page).toHaveURL(/automation=friday-summary$/);
   const detail = page.getByTestId('automation-detail');
   await expect(detail.getByTestId('automation-name')).toHaveText('Friday summary');
   await expect(detail.getByTestId('automation-monitor')).toContainText(
@@ -211,7 +211,7 @@ test('Automazioni: a new one with just the basics asks for nothing else', async 
   await page.getByTestId('form-name').fill('Quiet check');
   await page.getByTestId('form-objective').fill('Look for anything that needs me.');
   await page.getByTestId('form-save').click();
-  await expect(page).toHaveURL(/automazione=quiet-check$/);
+  await expect(page).toHaveURL(/automation=quiet-check$/);
   await expect(page.getByTestId('automation-detail')).toContainText(
     'The one of every job (Settings → Models).',
   );
@@ -349,7 +349,7 @@ test('Automazioni: a draft of a monster waits for "Conferma"; delete asks in the
   await expect(confirm).toHaveCount(0);
   await page.getByRole('button', { name: 'Delete' }).click();
   await confirm.getByRole('button', { name: 'Delete' }).click();
-  await expect(page).toHaveURL(/#\/automazioni$/);
+  await expect(page).toHaveURL(/#\/automations$/);
   await expect(page.getByTestId('automation-row')).toHaveCount(1);
 });
 
@@ -402,8 +402,8 @@ test('Automazioni: an open question of a giro is answered on its page (collaudo 
   await detail.getByTestId('automation-run-now').click();
   const giro = page.getByTestId('giro-view');
   await stepMockUntil(page, () => giro.isVisible());
-  await expect(page).toHaveURL(/&giro=/);
-  const runId = /giro=([^&]+)/.exec(page.url())![1]!;
+  await expect(page).toHaveURL(/&run=/);
+  const runId = /run=([^&]+)/.exec(page.url())![1]!;
   await page.evaluate((run) => {
     const mock = (
       window as unknown as {
