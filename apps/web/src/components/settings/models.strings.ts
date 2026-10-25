@@ -148,6 +148,8 @@ const en = {
     connect: 'Connect',
     addKey: 'Add the key',
     failed: 'I can’t read the models right now. Try again in a moment.',
+    stale:
+      'I couldn’t refresh the models. What you see may be out of date; what you’re typing is safe.',
     openrouterFirst: 'Many models with a single key, some of them free: the easiest way to start.',
     openrouterNone: 'No OpenRouter key (optional if you already have another model).',
     thinkWith: 'What the monsters think with',
@@ -301,6 +303,8 @@ const it: typeof en = {
     connect: 'Collega',
     addKey: 'Aggiungi la chiave',
     failed: 'Non riesco a leggere i modelli adesso. Riprova tra poco.',
+    stale:
+      'Non sono riuscito ad aggiornare i modelli. Quello che vedi potrebbe essere vecchio; quello che stai scrivendo è al sicuro.',
     openrouterFirst:
       'Tanti modelli con una chiave sola, anche gratis: il modo più semplice per cominciare.',
     openrouterNone: 'Nessuna chiave OpenRouter (facoltativa se hai già un altro modello).',

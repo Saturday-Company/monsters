@@ -315,6 +315,33 @@ export function FormField({
 export const fieldOnGroup = 'well';
 
 /**
+ * A read that failed, said where the content is: a line with "Try again". Kept above forms that
+ * stay mounted when a refresh fails after the first load, so what is being typed is not lost.
+ */
+export function LoadNotice({
+  text,
+  onRetry,
+  testId = 'load-notice',
+}: {
+  text: string;
+  onRetry: () => void;
+  testId?: string;
+}) {
+  return (
+    <div
+      role="status"
+      data-testid={testId}
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[10px] bg-stop-soft px-3.5 py-2.5 text-body text-stop-ink"
+    >
+      <span className="min-w-0 flex-1 basis-[16rem]">{text}</span>
+      <Button variant="secondary" size="sm" onClick={onRetry}>
+        {partsStrings().retry}
+      </Button>
+    </div>
+  );
+}
+
+/**
  * A button with a confirmation in place ("Disconnect"): the first press asks, the
  * second does it; "Cancel" goes back.
  */

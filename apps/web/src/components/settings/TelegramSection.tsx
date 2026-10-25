@@ -23,6 +23,7 @@ import {
   fieldOnGroup,
   FormField,
   Group,
+  LoadNotice,
   Row,
   RowBody,
 } from './parts.tsx';
@@ -58,21 +59,33 @@ function errorOf(err: unknown): string {
   return describeError(err);
 }
 
-function useTelegram(): [TelegramView | null, (v: TelegramView) => void, () => void] {
+function useTelegram(): {
+  view: TelegramView | null;
+  setView: (v: TelegramView) => void;
+  reload: () => void;
+  /** The last read failed (the view, if there is one, is the one before it). */
+  failed: boolean;
+} {
   const [view, setView] = useState<TelegramView | null>(null);
+  const [failed, setFailed] = useState(false);
   const [version, setVersion] = useState(0);
   useEffect(() => {
     let alive = true;
     getApi()
       .telegram()
-      .then((v) => alive && setView(v))
-      .catch(() => alive && setView(null));
+      .then((v) => {
+        if (!alive) return;
+        setView(v);
+        setFailed(false);
+      })
+      // A failed read leaves what is on screen where it is: the forms may hold a token being pasted.
+      .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
     };
   }, [version]);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
-  return [view, setView, reload];
+  return { view, setView, reload, failed };
 }
 
 function remaining(ms: number): string {
@@ -313,7 +326,7 @@ function Notifications({
 
 export function TelegramSection() {
   const s = telegramStrings();
-  const [view, setView, reload] = useTelegram();
+  const { view, setView, reload, failed } = useTelegram();
   const [pairing, setPairing] = useState<TelegramPairing | null>(null);
   const [busy, setBusy] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -398,6 +411,13 @@ export function TelegramSection() {
 
   return (
     <div className="grid gap-5" data-testid="telegram-settings">
+      {failed && (
+        <LoadNotice
+          text={view ? s.section.stale : s.section.failed}
+          onRetry={reload}
+          testId="telegram-stale"
+        />
+      )}
       <Group
         title={SETTINGS_SECTIONS.telegram.label}
         level={3}

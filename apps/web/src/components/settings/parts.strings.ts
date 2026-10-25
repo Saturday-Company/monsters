@@ -10,6 +10,7 @@ const en = {
   /** `what` reads after the verb: "your name". */
   changeWhat: (what: string) => `Change ${what}`,
   changeLabel: (label: string) => `Change: ${label}`,
+  retry: 'Try again',
 };
 
 const it: typeof en = {
@@ -19,6 +20,7 @@ const it: typeof en = {
   change: 'Cambia',
   changeWhat: (what) => `Cambia ${what}`,
   changeLabel: (label) => `Cambia: ${label}`,
+  retry: 'Riprova',
 };
 
 export const partsStrings = defineStrings({ en, it });

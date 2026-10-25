@@ -15,7 +15,7 @@ import { serviceLabel, useSettings } from './data.ts';
 import { SpendSection } from './SpendSection.tsx';
 import { modelsStrings } from './models.strings.ts';
 import { partsStrings } from './parts.strings.ts';
-import { ConfirmButton, Group, Row, RowBody, ServiceRow } from './parts.tsx';
+import { ConfirmButton, Group, LoadNotice, Row, RowBody, ServiceRow } from './parts.tsx';
 import {
   aboutOf,
   ChainsGroup,
@@ -340,14 +340,31 @@ export function ModelsTab() {
     );
   }, []);
 
-  if (failed || subs.failed) {
-    return (
-      <p className="px-1 text-footnote text-ink-muted" role="status">
-        {t.failed}
-      </p>
-    );
+  // Only a first load that fails replaces the tab. Once there is data, a failed refresh (the 30 s
+  // read, the poll of a sign-in, a busy core) keeps every form mounted, with what is being typed
+  // in it, and says so in a line with "Try again" (W-5).
+  const retry = () => {
+    reloadProviders();
+    subs.load();
+  };
+  if (!data || !subs.data) {
+    if (failed || subs.failed) {
+      return (
+        <div className="grid gap-3 px-1">
+          <p className="text-footnote text-ink-muted" role="status">
+            {t.failed}
+          </p>
+          <div>
+            <Button variant="secondary" size="sm" onClick={retry}>
+              {partsStrings().retry}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    return null;
   }
-  if (!data || !subs.data) return null;
+  const refreshFailed = failed || subs.failed;
   const s = subs.data;
   const refresh = (check?: boolean) => subs.load(check);
 
@@ -414,6 +431,7 @@ export function ModelsTab() {
 
   return (
     <>
+      {refreshFailed && <LoadNotice text={t.stale} onRetry={retry} testId="models-stale" />}
       <Group title={t.thinkWith} as="ul" testId="models-connected">
         {connected}
         {none && <Row as="li" label={t.noModel} description={t.noModelText} />}
