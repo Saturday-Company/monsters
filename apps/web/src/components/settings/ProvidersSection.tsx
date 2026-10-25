@@ -394,26 +394,45 @@ function ChainEditor({
       const ticket = ++saving.current;
       setError(null);
       const targets = team ?? [agent];
-      Promise.all(
+      // One request per monster, none waiting for the others: what the core accepted is applied
+      // even if another refused (W-20), and the refusal is said with the monsters' names.
+      void Promise.allSettled(
         targets.map((a) => {
           if (sent.auto === null) return getApi().setAgentModels(a.id, sent.links);
           // "Same for everyone" with Automatic: each monster on its own base (D-093).
           const b = team ? baseOf(a) : sent.auto;
           return getApi().setAgentModels(a.id, autoChain(b), { base: b });
         }),
-      )
-        .then((all) => {
-          if (ticket !== saving.current) return;
-          const saved = stateOf(all[0]!);
-          setBase(saved);
-          setSeen(saved);
-          setEdit((now) => (sameState(now, sent) ? saved : now));
-          for (const one of all) onSaved(one);
+      ).then((results) => {
+        if (ticket !== saving.current) return;
+        const saved = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+        const refused = targets.flatMap((a, i) => {
+          const r = results[i]!;
+          return r.status === 'rejected' ? [{ agent: a, reason: r.reason as unknown }] : [];
+        });
+        for (const one of saved) onSaved(one);
+        if (refused.length === 0) {
+          const now = stateOf(saved[0]!);
+          setBase(now);
+          setSeen(now);
+          setEdit((e) => (sameState(e, sent) ? now : e));
           notify(s.saved(team ? null : agent.name), 'success');
-          // The composer shows which plan an agent uses (M2.7).
-          void refreshAgents().catch(() => {});
-        })
-        .catch((err: unknown) => ticket === saving.current && setError(errorOf(err)));
+        } else if (saved.length === 0) {
+          setError(errorOf(refused[0]!.reason));
+        } else {
+          // Some saved and some not: the monsters now have different chains, so "same for
+          // everyone" gives way to one chain each, which is the truth.
+          const text = s.partial(
+            saved.length,
+            refused.map((r) => r.agent.name),
+            errorOf(refused[0]!.reason),
+          );
+          setError(text);
+          notify(text, 'error');
+        }
+        // The composer shows which plan an agent uses (M2.7).
+        if (saved.length > 0) void refreshAgents().catch(() => {});
+      });
     }, SAVE_AFTER_MS);
     return () => clearTimeout(t);
     // `edit` carries every change; the rest follows from it.

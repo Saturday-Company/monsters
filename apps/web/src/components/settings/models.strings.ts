@@ -108,6 +108,8 @@ const en = {
       moveUp: (i: number, who: string) => `Move model ${i} of ${who} up`,
       remove: (i: number, who: string) => `Remove model ${i} of ${who}`,
       addAlternative: 'Add an alternative',
+      partial: (saved: number, failed: string[], reason: string) =>
+        `Saved for ${saved} ${saved === 1 ? 'monster' : 'monsters'}, but not for ${failed.join(', ')}: ${reason.replace(/[.\s]+$/, '')}. Each monster now shows its own models.`,
     },
     group: {
       different: 'The monsters use different models',
@@ -263,6 +265,8 @@ const it: typeof en = {
       moveUp: (i, who) => `Sposta su il modello ${i} di ${who}`,
       remove: (i, who) => `Togli il modello ${i} di ${who}`,
       addAlternative: 'Aggiungi un’alternativa',
+      partial: (saved, failed, reason) =>
+        `Salvato per ${saved} ${saved === 1 ? 'mostro' : 'mostri'}, ma non per ${failed.join(', ')}: ${reason.replace(/[.\s]+$/, '')}. Ora ogni mostro mostra i suoi modelli.`,
     },
     group: {
       different: 'I mostri usano modelli diversi',

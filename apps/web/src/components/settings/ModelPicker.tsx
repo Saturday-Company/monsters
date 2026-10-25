@@ -83,6 +83,43 @@ export function typedModel(query: string, models: readonly ModelInfoView[]): str
   return /\s/.test(text) ? null : text;
 }
 
+/**
+ * A model id written by hand. The chain saves itself a moment after every change, so what is
+ * typed halfway ("anthropic/claude-") must not reach it: the draft stays here and the value
+ * is committed on Enter or when the field loses the focus (W-19).
+ */
+function CommitInput({
+  value,
+  onCommit,
+  ref,
+  ...props
+}: {
+  value: string;
+  onCommit: (value: string) => void;
+  ref?: React.Ref<HTMLInputElement>;
+} & Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange' | 'onBlur' | 'ref'>) {
+  /** What is being typed; null while the field just shows the saved value. */
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft !== null && draft !== value) onCommit(draft);
+    setDraft(null);
+  };
+  return (
+    <Input
+      {...props}
+      ref={ref}
+      value={draft ?? value}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        commit();
+      }}
+    />
+  );
+}
+
 export function ModelPicker({
   provider,
   value,
@@ -117,12 +154,12 @@ export function ModelPicker({
     // The list is loading or did not come: the name can still be written.
     return (
       <div>
-        <Input
+        <CommitInput
           aria-label={label}
           value={value}
           spellCheck={false}
           placeholder={list === 'loading' ? s.loading : s.modelName}
-          onChange={(e) => onChange(e.target.value)}
+          onCommit={onChange}
           className={cn(fieldOnGroup, 'h-10 text-body')}
         />
         {nameLine}
@@ -203,13 +240,13 @@ function SelectPicker({
         <option value={OTHER}>{s.other}</option>
       </select>
       {custom && (
-        <Input
+        <CommitInput
           ref={field}
           aria-label={s.nameOf(label)}
           value={value}
           spellCheck={false}
           placeholder={s.exactName}
-          onChange={(e) => onChange(e.target.value)}
+          onCommit={onChange}
           className={cn(fieldOnGroup, 'h-10 text-body')}
           data-testid="model-other"
         />

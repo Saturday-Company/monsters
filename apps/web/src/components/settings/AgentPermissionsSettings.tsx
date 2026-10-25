@@ -12,7 +12,7 @@ import { errorText, getApi, notify } from '../../store/app.ts';
 import { useAgents } from '../../store/hooks.ts';
 import { useProjects } from '../../store/projects.ts';
 import { Switch } from '../ui/controls.tsx';
-import { TERMINAL_TEXT } from '../../onboarding/PermissionsStep.tsx';
+import { terminalText } from '../../onboarding/PermissionsStep.tsx';
 import { FolderGrants } from './FolderGrants.tsx';
 import { AgentMark, DisclosureRow, Group, Row, RowBody } from './parts.tsx';
 import { permissionsStrings } from './permissions.strings.ts';
@@ -135,7 +135,7 @@ function AgentRow({
           <ToggleRow
             icon={TerminalWindow}
             title={SETTINGS_SECTIONS.terminale.label}
-            text={windows ? s.terminal.onWindows(TERMINAL_TEXT) : TERMINAL_TEXT}
+            text={windows ? s.terminal.onWindows(terminalText()) : terminalText()}
             checked={p.shell}
             onChange={toggle('shell')}
             disabled={saving}
