@@ -10,7 +10,7 @@ const en = {
   details: 'Details',
   actions: {
     local: 'Use this computer',
-    connections: 'Connections…',
+    connections: 'Computers…',
     'add-connection': 'Add a computer',
     fix: 'Fix the connection',
     'forget-key': 'Forget the old key',
@@ -80,7 +80,7 @@ const en = {
   },
   welcome: {
     title: 'Where do your monsters work?',
-    hint: 'You can change this any time in Connections.',
+    hint: 'You can change this any time in Computers.',
     local: 'On this computer',
     recommended: 'Recommended',
     localHint: 'Everything stays here. Fine for almost everyone.',
@@ -95,7 +95,7 @@ const it: typeof en = {
   details: 'Dettagli',
   actions: {
     local: 'Usa questo computer',
-    connections: 'Connessioni…',
+    connections: 'Computer…',
     'add-connection': 'Aggiungi un computer',
     fix: 'Correggi la connessione',
     'forget-key': 'Dimentica la vecchia chiave',
@@ -164,7 +164,7 @@ const it: typeof en = {
   },
   welcome: {
     title: 'Dove lavorano i tuoi mostri?',
-    hint: 'Puoi cambiarlo quando vuoi da Connessioni.',
+    hint: 'Puoi cambiarlo quando vuoi da Computer.',
     local: 'Su questo computer',
     recommended: 'Consigliato',
     localHint: 'Tutto resta qui. Va bene quasi sempre.',

@@ -20,7 +20,7 @@ const en = {
     'I can’t verify the key with OpenRouter. Check your connection and try again.',
   // subscriptions and models
   movedToPlan: (names: readonly string[], all: boolean, plan: string) =>
-    `Now ${all ? 'all the monsters work' : `${formatList(names)} ${names.length === 1 ? 'works' : 'work'}`} with your ${plan} subscription. You can change it in Settings → Models.`,
+    `Now ${all ? 'all the monsters work' : `${formatList(names)} ${names.length === 1 ? 'works' : 'work'}`} with your ${plan} plan. You can change it in Settings → Models.`,
   noModel: 'This monster has no model yet: connect one in Settings → Models.',
   // the spending cap
   spendStop: (name: string, capped: string, path: string, _inProject: boolean) =>
@@ -64,7 +64,7 @@ const it: typeof en = {
   openRouterUnverified:
     'Non riesco a verificare la chiave con OpenRouter. Controlla la connessione e riprova.',
   movedToPlan: (names, all, plan) =>
-    `Ora ${all ? 'tutti i mostri' : names.join(', ')} ${names.length === 1 ? 'lavora' : 'lavorano'} con il tuo abbonamento ${plan}. Lo cambi in Impostazioni → Modelli.`,
+    `Ora ${all ? 'tutti i mostri' : names.join(', ')} ${names.length === 1 ? 'lavora' : 'lavorano'} con il tuo piano ${plan}. Lo cambi in Impostazioni → Modelli.`,
   noModel: 'Questo mostro non ha ancora un modello: collegane uno in Impostazioni → Modelli.',
   spendStop: (name, capped, path, inProject) =>
     `${name} si ferma: ${capped}. Per farlo continuare alza il tetto ${inProject ? 'nella' : 'in'} ${path}.`,

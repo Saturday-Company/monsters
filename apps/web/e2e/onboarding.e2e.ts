@@ -256,9 +256,9 @@ test('without a model the home page says so', async ({ page }) => {
   await expect(page.getByTestId('chat-status')).toContainText('Waiting for a model');
   const input = page.getByRole('combobox', { name: 'Message' });
   await expect(input).toBeDisabled();
-  await expect(input).toHaveAttribute('placeholder', 'Connect a model first');
+  await expect(input).toHaveAttribute('placeholder', 'Add a model first');
   const notice = greeting.getByTestId('no-model');
-  await notice.getByRole('link', { name: 'Connect a model' }).click();
+  await notice.getByRole('link', { name: 'Add a model' }).click();
   await expect(page).toHaveURL(/#\/impostazioni\?sezione=modelli$/);
 });
 

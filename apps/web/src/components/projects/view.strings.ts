@@ -37,7 +37,7 @@ const en = {
     banner: 'Draft to confirm',
     bannerTitle: 'Draft: confirm',
     bannerText: (proposer: string | null) =>
-      `${proposer ? `${proposer} proposed it. ` : ''}Nothing exists yet: when you confirm, the lead, the monsters and the folder are all born together. Automations stay drafts to confirm separately.`,
+      `${proposer ? `${proposer} proposed it. ` : ''}Nothing exists yet: when you confirm, the lead, the monsters and the folder are created together. Automations stay drafts.`,
     why: (why: string) => `Why: ${why}`,
     discard: 'Discard',
     confirming: 'Confirming…',
@@ -89,7 +89,7 @@ const it: typeof en = {
     banner: 'Bozza da confermare',
     bannerTitle: 'Bozza: conferma',
     bannerText: (proposer) =>
-      `${proposer ? `L’ha proposta ${proposer}. ` : ''}Non c’è ancora niente: alla conferma nascono il capo, i mostri e la cartella, tutti insieme. Le automazioni restano bozze da confermare a parte.`,
+      `${proposer ? `L’ha proposta ${proposer}. ` : ''}Non c’è ancora niente: alla conferma nascono il capo, i mostri e la cartella. Le automazioni restano bozze.`,
     why: (why) => `Perché: ${why}`,
     discard: 'Scarta',
     confirming: 'Confermo…',

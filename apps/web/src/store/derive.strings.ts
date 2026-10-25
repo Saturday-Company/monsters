@@ -315,14 +315,14 @@ const en = {
       noReport: 'It wrote no report.',
       why: {
         steps: (n: string, plan: boolean) =>
-          `the job used all its ${n} ${plan ? 'steps on the subscription' : 'model steps'}`,
+          `the job used all its ${n} ${plan ? 'steps on the plan' : 'model steps'}`,
         tokens: (n: string, plan: boolean) =>
-          `the job used all its ${n} tokens${plan ? ' on the subscription' : ''}`,
-        cost: (usd: string) => `the job spent its ${usd} $ limit`,
-        treeCost: (usd: string) =>
-          `the job, with the work sent to projects, spent its ${usd} $ limit`,
+          `the job used all its ${n} tokens${plan ? ' on the plan' : ''}`,
+        cost: (eur: string) => `the job spent its ${eur} limit`,
+        treeCost: (eur: string) =>
+          `the job, with the work sent to projects, spent its ${eur} limit`,
         agentTokens: (n: string, plan: boolean) =>
-          `it used all its ${n} tokens for this task${plan ? ' on the subscription' : ''}`,
+          `it used all its ${n} tokens for this job${plan ? ' on the plan' : ''}`,
         agentSteps: (n: string) => `it used all its ${n} steps without finishing`,
         // Older events and kinds without a figure.
         runLimit: 'this job reached its limit',
@@ -379,8 +379,8 @@ const en = {
     userRemoved: (who: string) => `${who} can no longer control the monsters from Telegram`,
     tokenSet: (name: string | undefined) => `Telegram bot connected${name ? `: ${name}` : ''}`,
     tokenRemoved: 'Telegram bot disconnected',
-    tokenRefused: 'Telegram didn’t recognize the token you pasted',
-    tokenUnchecked: 'I couldn’t verify the Telegram token',
+    tokenRefused: 'Telegram didn’t recognize the bot code you pasted',
+    tokenUnchecked: 'I couldn’t verify the Telegram bot code',
     botAdded: (name: string | undefined) => `Dedicated bot connected${name ? `: ${name}` : ''}`,
     botRemoved: (name: string | undefined) => `Dedicated bot removed${name ? `: ${name}` : ''}`,
     botChanged: 'Dedicated bot changed',
@@ -478,7 +478,7 @@ const en = {
     teamAdd: (name: string) => `You added ${name} to the squad`,
     teamRename: (from: string | undefined, name: string) =>
       `You renamed ${from ?? 'a monster'}: now ${name}`,
-    teamEdit: (name: string) => `You changed ${name}’s role and tasks`,
+    teamEdit: (name: string) => `You changed ${name}’s role and what it does`,
     teamLook: (name: string) => `You changed ${name}’s look`,
     teamArchive: (name: string) => `You removed ${name} from the squad`,
     teamRestore: (name: string) => `You brought ${name} back to the squad`,
@@ -679,7 +679,7 @@ const it: typeof en = {
     fs_delete: 'lo spostamento di un file nel cestino',
   },
   browserAction: 'l’uso del browser',
-  mcpAction: 'l’uso di un altro programma',
+  mcpAction: 'l’uso di un’altra app',
   otherAction: 'un’operazione',
 
   toolLabel: {
@@ -716,7 +716,7 @@ const it: typeof en = {
     fs_delete: 'Spostamento di un file nel cestino',
   },
   browserLabel: 'Uso del browser',
-  mcpLabel: 'Uso di un altro programma',
+  mcpLabel: 'Uso di un’altra app',
   otherLabel: 'Operazione',
 
   toolShort: {
@@ -769,8 +769,8 @@ const it: typeof en = {
     telegramVia: (title) => (title ? `su Telegram · ${title}` : 'su Telegram · in privato'),
     previewYou: (text) => `Tu: ${text}`,
     delegationDone: (to, task) => `${to} ha finito «${task}»`,
-    delegationStarted: (to, task) => `Compito per ${to}: ${task}`,
-    delegationStopped: (to) => `Il compito di ${to} si è fermato`,
+    delegationStarted: (to, task) => `Incarico per ${to}: ${task}`,
+    delegationStopped: (to) => `L’incarico di ${to} si è fermato`,
     askedYou: (name) => `${name} ti ha fatto una domanda`,
     newConversation: 'Nuova conversazione',
     receipt: (summary) => `Ricevuta: ${summary}`,
@@ -790,12 +790,13 @@ const it: typeof en = {
 
   group: {
     events: (n) => `${n} ${n === 1 ? 'evento' : 'eventi'} tra i mostri`,
-    done: (n) => (n === 1 ? '1 compito completato' : `${n} compiti completati`),
-    open: (n) => (n === 1 ? '1 compito passato alla squadra' : `${n} compiti passati alla squadra`),
+    done: (n) => (n === 1 ? '1 incarico completato' : `${n} incarichi completati`),
+    open: (n) =>
+      n === 1 ? '1 incarico passato alla squadra' : `${n} incarichi passati alla squadra`,
     partDone: (n) => `${n} ${n === 1 ? 'completato' : 'completati'}`,
     partOpen: (n) => `${n} in corso`,
     partOther: (n) => `${n} ${n === 1 ? 'fermato' : 'fermati'}`,
-    mixed: (total, parts) => `${total} ${total === 1 ? 'compito' : 'compiti'}: ${parts}`,
+    mixed: (total, parts) => `${total} ${total === 1 ? 'incarico' : 'incarichi'}: ${parts}`,
   },
 
   list: (items) =>
@@ -884,14 +885,14 @@ const it: typeof en = {
       noReport: 'Non ha scritto nessun rapporto.',
       why: {
         steps: (n, plan) =>
-          `il lavoro ha usato tutti i suoi ${n} ${plan ? 'passi sull’abbonamento' : 'passi del modello'}`,
+          `il lavoro ha usato tutti i suoi ${n} ${plan ? 'passi sul piano' : 'passi del modello'}`,
         tokens: (n, plan) =>
-          `il lavoro ha usato tutti i suoi ${n} token${plan ? ' sull’abbonamento' : ''}`,
-        cost: (usd) => `il lavoro ha speso il suo limite di ${usd} $`,
-        treeCost: (usd) =>
-          `il lavoro, con quello mandato ai progetti, ha speso il suo limite di ${usd} $`,
+          `il lavoro ha usato tutti i suoi ${n} token${plan ? ' sul piano' : ''}`,
+        cost: (eur) => `il lavoro ha speso il suo limite di ${eur}`,
+        treeCost: (eur) =>
+          `il lavoro, con quello mandato ai progetti, ha speso il suo limite di ${eur}`,
         agentTokens: (n, plan) =>
-          `ha usato tutti i suoi ${n} token per questo compito${plan ? ' sull’abbonamento' : ''}`,
+          `ha usato tutti i suoi ${n} token per questo lavoro${plan ? ' sul piano' : ''}`,
         agentSteps: (n) => `ha usato tutti i suoi ${n} passi senza finire`,
         runLimit: 'questo lavoro ha raggiunto il suo limite',
         tokenLimit: 'ha raggiunto il suo limite di token',
@@ -921,7 +922,7 @@ const it: typeof en = {
     account: (id) => `l’account ${id}`,
     telegramConnected: (name) => `Telegram collegato${name ? ` (${name})` : ''}`,
     bot: (dedicated, name) => (dedicated ? `Il bot ${name ?? 'dedicato'}` : 'Telegram'),
-    conflict: (bot) => `${bot} è usato da un altro programma (o ha un webhook): Monsters riprova`,
+    conflict: (bot) => `${bot} è usato da un’altra app (o ha un webhook): Monsters riprova`,
     stoppedBot: (bot) => `${bot} si è fermato: serve il tuo intervento`,
     noAnswer: (bot) => `${bot} non risponde: Monsters riprova`,
     ignored: (who, reason) => `Messaggio su Telegram ignorato: ${who} (${reason})`,
@@ -943,8 +944,8 @@ const it: typeof en = {
     userRemoved: (who) => `${who} non può più comandare i mostri da Telegram`,
     tokenSet: (name) => `Bot Telegram collegato${name ? `: ${name}` : ''}`,
     tokenRemoved: 'Bot Telegram scollegato',
-    tokenRefused: 'Telegram non ha riconosciuto il token incollato',
-    tokenUnchecked: 'Non sono riuscito a verificare il token di Telegram',
+    tokenRefused: 'Telegram non ha riconosciuto il codice del bot incollato',
+    tokenUnchecked: 'Non sono riuscito a verificare il codice del bot di Telegram',
     botAdded: (name) => `Bot dedicato collegato${name ? `: ${name}` : ''}`,
     botRemoved: (name) => `Bot dedicato tolto${name ? `: ${name}` : ''}`,
     botChanged: 'Bot dedicato cambiato',
@@ -987,10 +988,10 @@ const it: typeof en = {
     stoppedWriting: (who) => `${who} si è fermato mentre scriveva`,
     didNotFinishWriting: (who) => `${who} non ha finito di scrivere`,
     replied: (who) => `${who} ha risposto`,
-    handedTask: (from, to, task) => `${from} ha passato un compito ${toNameIt(to)}: “${task}”`,
-    taskDone: (to, from) => `${to} ha finito il compito per ${from}`,
-    taskFailed: (to, from) => `Il compito di ${to} per ${from} non è andato a buon fine`,
-    taskStopped: (to, from) => `Il compito di ${to} per ${from} si è fermato`,
+    handedTask: (from, to, task) => `${from} ha passato un incarico ${toNameIt(to)}: “${task}”`,
+    taskDone: (to, from) => `${to} ha finito l’incarico per ${from}`,
+    taskFailed: (to, from) => `L’incarico di ${to} per ${from} non è andato a buon fine`,
+    taskStopped: (to, from) => `L’incarico di ${to} per ${from} si è fermato`,
     toolCall: (who, what) => `${who}: ${what}`,
     toolDone: (who, action) => `${who} ha finito ${action}`,
     toolHalf: (who, action) => `${who} ha lasciato a metà ${action}`,
@@ -1037,7 +1038,7 @@ const it: typeof en = {
     teamAdd: (name) => `Hai aggiunto ${name} alla squadra`,
     teamRename: (from, name) =>
       `Hai cambiato nome ${from ? toNameIt(from) : 'a un mostro'}: ora è ${name}`,
-    teamEdit: (name) => `Hai cambiato ruolo e compiti di ${name}`,
+    teamEdit: (name) => `Hai cambiato ruolo e cosa fa ${name}`,
     teamLook: (name) => `Hai cambiato l’aspetto di ${name}`,
     teamArchive: (name) => `Hai tolto ${name} dalla squadra`,
     teamRestore: (name) => `Hai riportato ${name} nella squadra`,
@@ -1050,7 +1051,7 @@ const it: typeof en = {
     memoryDiscarded: (who) => `La memoria di ${who} resta com’era`,
     memoryRemembers: (who, things) => `${who} si ricorda ${things}`,
     mcpBrowser: 'il browser',
-    mcpApp: (server) => `il programma “${server}”`,
+    mcpApp: (server) => `l’app “${server}”`,
     mcpBrowserOn: 'Hai attivato il browser',
     mcpAdded: (name) => `Hai aggiunto ${name}`,
     mcpChanged: (name) => `Hai cambiato ${name}`,

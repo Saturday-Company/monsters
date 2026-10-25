@@ -7,8 +7,8 @@ import { pick } from '@monsters/shared';
  */
 
 const en = {
-  windowTitle: 'Connections',
-  pageTitle: 'Connections · Monsters',
+  windowTitle: 'Computers',
+  pageTitle: 'Computers · Monsters',
   pickKeyTitle: 'Choose the private SSH key',
   /** The row of this computer in the list (also its name for the web UI's switcher). */
   localName: 'This computer',
@@ -83,8 +83,8 @@ const en = {
 };
 
 const it: typeof en = {
-  windowTitle: 'Connessioni',
-  pageTitle: 'Connessioni · Monsters',
+  windowTitle: 'Computer',
+  pageTitle: 'Computer · Monsters',
   pickKeyTitle: 'Scegli la chiave privata SSH',
   localName: 'Questo computer',
   localAddress: 'I mostri lavorano qui',

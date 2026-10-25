@@ -73,7 +73,7 @@ const en = {
   routeLead: 'lead',
   routeTeam: 'squad',
   routeLeadDescription:
-    'Your squad lead answers alone: a greeting, a quick question, a fact it already knows, a small edit or a short note',
+    'Your lead answers alone: a greeting, a quick question, a fact it already knows, a small edit or a short note',
   routeTeamDescription:
     'Two or more monsters are needed one after the other (for example first research and then a text)',
   tier: {

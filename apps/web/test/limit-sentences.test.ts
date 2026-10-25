@@ -11,7 +11,7 @@ import {
 /*
  * A job that stops at a limit says which one, in the person's language, and where to change it
  * (the core sends the cap as data in `limit`): "Franco stops here: the job used all its 400
- * steps on the subscription." Events without `limit` keep the old, generic text.
+ * steps on the plan." Events without `limit` keep the old, generic text.
  */
 
 afterEach(() => setAppLang('en'));
@@ -39,13 +39,13 @@ const run = (limit?: LimitReason, code = 'run_limit') =>
   );
 
 describe('which limit stopped a job', () => {
-  it('says the steps of the subscription and where to raise them', () => {
+  it('says the steps of the plan and where to raise them', () => {
     const [en, it] = both(() => run({ kind: 'steps', value: 400, plan: true }));
     expect(en).toBe(
-      `Franco stops here: the job used all its 400 steps on the subscription. You can raise the limit in ${WHERE_EN}.`,
+      `Franco stops here: the job used all its 400 steps on the plan. You can raise the limit in ${WHERE_EN}.`,
     );
     expect(it).toBe(
-      `Franco si ferma qui: il lavoro ha usato tutti i suoi 400 passi sull’abbonamento. Puoi alzare il limite in ${WHERE_IT}.`,
+      `Franco si ferma qui: il lavoro ha usato tutti i suoi 400 passi sul piano. Puoi alzare il limite in ${WHERE_IT}.`,
     );
   });
 
@@ -53,12 +53,12 @@ describe('which limit stopped a job', () => {
     expect(run({ kind: 'steps', value: 150 })).toContain('all its 150 model steps.');
     expect(run({ kind: 'tokens', value: 1_500_000 })).toContain('all its 1,500,000 tokens.');
     expect(run({ kind: 'tokens', value: 5_000_000, plan: true })).toContain(
-      'all its 5,000,000 tokens on the subscription.',
+      'all its 5,000,000 tokens on the plan.',
     );
-    expect(run({ kind: 'cost', value: 0.5 })).toContain('spent its 0.5 $ limit.');
+    expect(run({ kind: 'cost', value: 0.5 })).toContain('spent its €0.43 limit.');
     expect(run({ kind: 'tree_cost', value: 1.5 })).toContain('with the work sent to projects');
     const [, it] = both(() => run({ kind: 'cost', value: 0.5 }));
-    expect(it).toContain('ha speso il suo limite di 0,5 $.');
+    expect(it).toContain('ha speso il suo limite di 0,43 €.');
   });
 
   it('the place it names is a link to the row, in either language', () => {
@@ -75,11 +75,11 @@ describe('which limit stopped a job', () => {
   it('a monster’s own limits do not point to the settings of the jobs', () => {
     const tokens = run({ kind: 'agent_tokens', value: 400_000 }, 'token_limit');
     expect(tokens).toBe(
-      `Franco stops here: it used all its 400,000 tokens for this task. You can raise the limit in ${WHERE_EN}.`,
+      `Franco stops here: it used all its 400,000 tokens for this job. You can raise the limit in ${WHERE_EN}.`,
     );
     // Its own limit (agent.yaml) is not in those settings.
     const own = run({ kind: 'agent_tokens', value: 7000, own: true }, 'token_limit');
-    expect(own).toBe('Franco stops here: it used all its 7,000 tokens for this task.');
+    expect(own).toBe('Franco stops here: it used all its 7,000 tokens for this job.');
     const steps = run({ kind: 'agent_steps', value: 12 }, 'max_steps');
     expect(steps).toBe('Franco stops here: it used all its 12 steps without finishing.');
   });
@@ -90,13 +90,13 @@ describe('which limit stopped a job', () => {
         agent: 'franco',
         data: {
           code: 'run_limit',
-          message: 'Franco stops: the squad’s spending cap for today was reached.',
+          message: 'Franco stops: all monsters’ spending cap for today was reached.',
           limit: { kind: 'spend' },
         },
       },
       names,
     );
-    expect(sentence).toBe('Franco stops: the squad’s spending cap for today was reached');
+    expect(sentence).toBe('Franco stops: all monsters’ spending cap for today was reached');
     expect(limitStopSentence('Franco', 'run_limit', { kind: 'spend' })).toBeNull();
   });
 
@@ -124,10 +124,10 @@ describe('a delegation that stopped at a limit', () => {
   it('is worded in the person’s language, not with the core’s English for the model', () => {
     const [en, it] = both(() => delegationLimitSentence(failed, 'Franco'));
     expect(en).toBe(
-      `Franco stops here: the job used all its 400 steps on the subscription. You can raise the limit in ${WHERE_EN}. It wrote no report.`,
+      `Franco stops here: the job used all its 400 steps on the plan. You can raise the limit in ${WHERE_EN}. It wrote no report.`,
     );
     expect(it).toBe(
-      `Franco si ferma qui: il lavoro ha usato tutti i suoi 400 passi sull’abbonamento. Puoi alzare il limite in ${WHERE_IT}. Non ha scritto nessun rapporto.`,
+      `Franco si ferma qui: il lavoro ha usato tutti i suoi 400 passi sul piano. Puoi alzare il limite in ${WHERE_IT}. Non ha scritto nessun rapporto.`,
     );
   });
 
@@ -169,7 +169,7 @@ describe('a delegation that stopped at a limit', () => {
       },
     } as never);
     expect(fields.find((f) => f.value.includes('400 steps'))?.value).toContain(
-      'the job used all its 400 steps on the subscription',
+      'the job used all its 400 steps on the plan',
     );
     expect(JSON.stringify(fields)).not.toContain('without a report');
   });

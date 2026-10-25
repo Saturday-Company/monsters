@@ -8,10 +8,10 @@ import { pick } from '@monsters/shared';
  */
 
 const en = {
-  /** "reached the squad’s spending cap for today (€10)" */
+  /** "reached all monsters’ spending cap for today (€10)" */
   capReached: (whose: string, period: string, cap: string) =>
     `reached ${whose} spending cap ${period} (${cap})`,
-  squadCap: 'the squad’s',
+  squadCap: 'all monsters’',
   projectCap: (project: string) => `the “${project}” project’s`,
   agentCap: (name: string) => `${name}’s`,
   /** A project as the scope of a `spend` event ("the “X” project", then “’s cap”). */
@@ -20,7 +20,7 @@ const en = {
 
 const it: typeof en = {
   capReached: (whose, period, cap) => `raggiunto il tetto di spesa${whose} ${period} (${cap})`,
-  squadCap: ' della squadra',
+  squadCap: ' di tutti i mostri',
   projectCap: (project) => ` del progetto ${project}`,
   agentCap: (name) => ` di ${name}`,
   projectScope: (project) => `progetto ${project}`,

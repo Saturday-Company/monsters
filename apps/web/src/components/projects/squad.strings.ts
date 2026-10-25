@@ -14,7 +14,7 @@ const en = {
   removalDescription: 'Goes to the archive: its chat stays in Activity.',
   nameTaken: 'There’s already a monster with this name, in this squad or another one.',
   copied: (name: string, source: string) =>
-    `${name} is in the project: it has ${source}’s tasks and a memory of its own.`,
+    `${name} is in the project: it does what ${source} does, with a memory of its own.`,
   copyLabel: (name: string) => `Copy ${name} into the project`,
   copy: 'Copy',
   copyName: 'Name of the copy',
@@ -33,7 +33,7 @@ const en = {
 };
 const it: typeof en = {
   lead: 'Capo',
-  leadDuty: 'Coordina il progetto e passa i compiti agli altri.',
+  leadDuty: 'Coordina il progetto e passa gli incarichi agli altri.',
   message: 'Scrivi',
   messageLabel: (name) => `Scrivi a ${name}`,
   remove: 'Togli',
@@ -43,7 +43,7 @@ const it: typeof en = {
   removalDescription: 'Va nell’archivio: la sua chat resta in Attività.',
   nameTaken: 'C’è già un mostro con questo nome, in questa o in un’altra squadra.',
   copied: (name, source) =>
-    `${name} è nel progetto: ha i compiti di ${source} e una memoria tutta sua.`,
+    `${name} è nel progetto: fa quello che fa ${source}, con una memoria tutta sua.`,
   copyLabel: (name) => `Copia ${name} nel progetto`,
   copy: 'Copia',
   copyName: 'Nome della copia',

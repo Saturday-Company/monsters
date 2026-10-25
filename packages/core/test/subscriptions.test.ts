@@ -364,7 +364,7 @@ describe('Claude Agent', () => {
       .filter((e) => e.type === 'message' && e.data.role === 'system')
       .map((e) => (e as LogEvent<'message'>).data.text);
     expect(said).toContain(
-      'Now Dione works with your Claude subscription. You can change it in Settings → Models.',
+      'Now Dione works with your Claude plan. You can change it in Settings → Models.',
     );
     // Once per plan: a chain the user puts back later stays.
     await t.core.hub.team.setModels('dione', DEFAULT_FREE_CHAIN);
@@ -521,7 +521,7 @@ describe('Claude Agent', () => {
       .find((e) => e.type === 'error' && e.data.code === 'run_limit');
     expect(limit?.agent).toBe('titan');
     expect((limit?.data as { message?: string } | undefined)?.message).toContain(
-      'model steps on the subscription',
+      'model steps on the plan',
     );
     expect(limit?.data).toMatchObject({ limit: { kind: 'steps', value: 1, plan: true } });
   });

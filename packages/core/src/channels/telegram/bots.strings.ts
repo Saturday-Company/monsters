@@ -27,11 +27,11 @@ const en = {
 
   // --- state shown in the settings ---
   crashed: 'The bot stopped because of an error: restarting by itself.',
-  tokenRefused: 'Telegram refused the token: remove the bot and add it again with a new token.',
+  tokenRefused: 'Telegram refused the bot code: remove the bot and add it again with a new code.',
   tokenInUse:
-    'Another program is using this token (or it has a webhook): stop it, or create a new bot with BotFather. Monsters will try again.',
-  tokenOfAnotherBot: 'This token belongs to another bot: remove it and add it again.',
-  tokenMissing: 'This bot’s token is missing: remove it and add it again.',
+    'Another app is using this bot code (or it has a webhook): stop it, or create a new bot with BotFather. Monsters will try again.',
+  tokenOfAnotherBot: 'This bot code belongs to another bot: remove it and add it again.',
+  tokenMissing: 'This bot’s code is missing: remove it and add it again.',
 
   // --- notices to the user ---
   fullNote: (max: number) =>
@@ -102,16 +102,16 @@ const en = {
   noMonsterNamed: 'There’s no monster with that name.',
   talksOnMainBot: (name: string) =>
     `${name} talks to you through the main bot: pick another monster.`,
-  mainBotToken: 'This is the main bot’s token: create a new bot with BotFather for this monster.',
+  mainBotToken: 'This is the main bot’s code: create a new bot with BotFather for this monster.',
   mainBot: 'This is the main bot: create a new bot with BotFather for this monster.',
   alreadyAMonstersBot: (username: string) => `@${username} is already one of the monsters’ bots.`,
   mainBotTokenHere: (username: string) =>
-    `This is the main bot’s token: here I need the one for @${username}.`,
+    `This is the main bot’s code: here I need the one for @${username}.`,
   otherBot: (other: string, username: string) =>
-    `This token belongs to @${other}, another bot: I need the one for @${username}. For a different bot, use Remove and Add.`,
+    `This code belongs to @${other}, another bot: I need the one for @${username}. For a different bot, use Remove and Add.`,
   botGone: 'This bot no longer exists.',
   noSuchBot: 'There’s no such bot.',
-  tokenChanged: 'token changed',
+  tokenChanged: 'bot code changed',
   forMonster: (name: string) => `for ${name}`,
   fullTools: 'full tools for the others too',
   reducedTools: 'reduced tools for the others',
@@ -141,11 +141,12 @@ const it: typeof en = {
     ].join('\n'),
 
   crashed: 'Il bot si è fermato per un errore: riparto da solo.',
-  tokenRefused: 'Telegram ha rifiutato il token: rimuovi il bot e aggiungilo con un token nuovo.',
+  tokenRefused:
+    'Telegram ha rifiutato il codice del bot: rimuovi il bot e aggiungilo con un codice nuovo.',
   tokenInUse:
-    'Un altro programma usa questo token (o ha un webhook): fermalo, o crea un bot nuovo con BotFather. Monsters riprova.',
-  tokenOfAnotherBot: 'Il token è di un altro bot: rimuovilo e aggiungilo di nuovo.',
-  tokenMissing: 'Manca il token di questo bot: rimuovilo e aggiungilo di nuovo.',
+    'Un’altra app usa questo codice del bot (o ha un webhook): fermalo, o crea un bot nuovo con BotFather. Monsters riprova.',
+  tokenOfAnotherBot: 'Il codice è di un altro bot: rimuovilo e aggiungilo di nuovo.',
+  tokenMissing: 'Manca il codice di questo bot: rimuovilo e aggiungilo di nuovo.',
 
   fullNote: (max) =>
     ` Sono tante: ne tengo ${max} in attesa, le più vecchie lasciano il posto alle nuove.`,
@@ -210,16 +211,16 @@ const it: typeof en = {
   noMonsterNamed: 'Non c’è nessun mostro con questo nome.',
   talksOnMainBot: (name) => `${name} parla con te dal bot principale: scegli un altro mostro.`,
   mainBotToken:
-    'Questo è il token del bot principale: crea un bot nuovo con BotFather per questo mostro.',
+    'Questo è il codice del bot principale: crea un bot nuovo con BotFather per questo mostro.',
   mainBot: 'Questo è il bot principale: crea un bot nuovo con BotFather per questo mostro.',
   alreadyAMonstersBot: (username) => `@${username} c’è già tra i bot dei mostri.`,
   mainBotTokenHere: (username) =>
-    `Questo è il token del bot principale: qui serve quello di @${username}.`,
+    `Questo è il codice del bot principale: qui serve quello di @${username}.`,
   otherBot: (other, username) =>
-    `Questo token è di @${other}, un altro bot: serve quello di @${username}. Per un bot diverso usa Rimuovi e Aggiungi.`,
+    `Questo codice è di @${other}, un altro bot: serve quello di @${username}. Per un bot diverso usa Rimuovi e Aggiungi.`,
   botGone: 'Questo bot non c’è più.',
   noSuchBot: 'Questo bot non c’è.',
-  tokenChanged: 'token cambiato',
+  tokenChanged: 'codice del bot cambiato',
   forMonster: (name) => `per ${name}`,
   fullTools: 'strumenti completi anche per gli altri',
   reducedTools: 'strumenti ridotti per gli altri',

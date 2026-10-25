@@ -63,9 +63,7 @@ describe('composer', () => {
     expect(composerPlaceholder({ ...base, halted: true })).toBe(
       'Go ahead and write: the message goes out when you press Resume',
     );
-    expect(composerPlaceholder({ ...base, halted: true, noModel: true })).toBe(
-      'Connect a model first',
-    );
+    expect(composerPlaceholder({ ...base, halted: true, noModel: true })).toBe('Add a model first');
   });
 
   it('agrees with the name in Italian ("a" / "ad")', () => {
@@ -89,7 +87,7 @@ describe('composer', () => {
       'Scrivi: il messaggio parte quando premi Riprendi',
     );
     expect(composerPlaceholder({ ...base, halted: true, noModel: true })).toBe(
-      'Prima collega un modello',
+      'Prima aggiungi un modello',
     );
   });
 });

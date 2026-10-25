@@ -16,10 +16,10 @@ const en = {
   wrongPassword: 'The password isn’t right.',
   halted: 'The monsters are stopped. Press “Resume” to get them going again.',
   noProvider: 'There’s no model: add a key in Settings → Models and choose the monster’s model.',
-  providerNotConnected: 'This provider isn’t connected.',
+  providerNotConnected: 'This account isn’t connected.',
   invalidKey: 'OpenRouter doesn’t recognize this key. Check that you copied all of it.',
-  invalidToken: 'Telegram doesn’t recognize this token. Copy it again from @BotFather.',
-  noToken: 'Connect the bot with its token first.',
+  invalidToken: 'Telegram doesn’t recognize this bot code. Copy it again from @BotFather.',
+  noToken: 'Connect the bot with its code first.',
   botInUse:
     'This bot is already connected to Monsters: for another monster, create a new bot with @BotFather.',
   invalidAgent: 'Choose a monster from the squad: your lead already talks to the main bot.',
@@ -41,7 +41,7 @@ const en = {
   tooLong: (limit: string) =>
     `This text is too long: ${limit} characters at most. Shorten it or split it in two.`,
   payloadTooLarge: 'That is too much to send at once. Send less, or split it in parts.',
-  invalidResponse: 'The core answered in a way I don’t understand.',
+  invalidResponse: 'Monsters answered in a way I don’t understand.',
   fileTooLarge: 'The file is too large: 25 MB at most.',
   unsupportedType: 'This kind of file can’t be attached.',
   unknownFile: 'The file isn’t there anymore.',
@@ -72,10 +72,10 @@ const it: typeof en = {
   halted: 'I mostri sono fermi. Premi “Riprendi” per farli ripartire.',
   noProvider:
     'Manca un modello: aggiungi una chiave in Impostazioni → Modelli e scegli il modello del mostro.',
-  providerNotConnected: 'Questo provider non è collegato.',
+  providerNotConnected: 'Questo account non è collegato.',
   invalidKey: 'OpenRouter non riconosce questa chiave. Controlla di averla copiata tutta.',
-  invalidToken: 'Telegram non riconosce questo token. Copialo di nuovo da @BotFather.',
-  noToken: 'Collega prima il bot con il suo token.',
+  invalidToken: 'Telegram non riconosce questo codice del bot. Copialo di nuovo da @BotFather.',
+  noToken: 'Collega prima il bot con il suo codice.',
   botInUse:
     'Questo bot è già collegato a Monsters: per un altro mostro crea un bot nuovo con @BotFather.',
   invalidAgent: 'Scegli un mostro della squadra: il tuo capo parla già con il bot principale.',
@@ -97,7 +97,7 @@ const it: typeof en = {
   tooLong: (limit) =>
     `Il testo è troppo lungo: al massimo ${limit} caratteri. Accorcialo o dividilo in due.`,
   payloadTooLarge: 'È troppo da mandare in una volta. Manda meno, o dividilo in parti.',
-  invalidResponse: 'Il core ha risposto in un modo che non capisco.',
+  invalidResponse: 'Monsters ha risposto in un modo che non capisco.',
   fileTooLarge: 'Il file è troppo grande: al massimo 25 MB.',
   unsupportedType: 'Questo tipo di file non si può allegare.',
   unknownFile: 'Il file non c’è più.',

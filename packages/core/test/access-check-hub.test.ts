@@ -169,7 +169,7 @@ describe('memory and accesses (D-141)', () => {
     await t.runEnded(second.runId);
     const seen = promptText(t.provider.calls[1]!.options.prompt);
     expect(seen).toContain('[Accessi cambiati]');
-    expect(seen).toContain('non hai più il web');
+    expect(seen).toContain('non hai più comandi e file e il web');
     const third = await t.json<Sent>('POST', '/api/messages', { text: '@Rhea ciao' });
     await t.runEnded(third.runId);
     expect(promptText(t.provider.calls[2]!.options.prompt)).not.toContain('[Accessi cambiati]');

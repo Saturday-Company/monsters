@@ -47,7 +47,7 @@ const en = {
   },
   permissions: {
     terminal:
-      'Run commands and install programs in their own folder, without administrator rights. Commands can read and change the files of your account.',
+      'Run commands and install programs in their own folder, without admin rights. Commands can read and change your account’s files.',
     /** On the squad screen: what they may do from the start, and where to change it. */
     note: (where: string) =>
       `They can write in your notes, search the web and run commands on this computer. You can change that in ${where}.`,
@@ -96,7 +96,7 @@ const it: typeof en = {
   },
   permissions: {
     terminal:
-      'Eseguire comandi e installare programmi nella propria cartella, senza permessi di amministratore. I comandi possono leggere e cambiare i file del tuo account.',
+      'Eseguire comandi e installare programmi nella propria cartella, senza essere amministratore. I comandi possono leggere e cambiare i file del tuo account.',
     note: (where) =>
       `Possono scrivere nelle tue note, cercare sul web ed eseguire comandi su questo computer. Puoi cambiarlo in ${where}.`,
   },

@@ -36,9 +36,9 @@ const en = {
     `connections: “${name}” isn’t connected (connected: ${have}). Connect it from Settings → Apps and Telegram.`,
   none: 'none',
   connectionsReset: (project: string, allowed: string) =>
-    `${project}: the old list of allowed connections (${allowed}) no longer applies. The project now reaches every connection given to the whole squad: turn off the ones it doesn’t need in its Settings tab.`,
+    `${project}: the old list of allowed apps (${allowed}) no longer applies. The project now reaches every app given to all monsters: turn off the ones it doesn’t need in its Settings tab.`,
   connectionsStale: (project: string, names: string) =>
-    `${project}: turned off for the project but no longer a connection (removed or renamed): ${names}. They have no effect.`,
+    `${project}: turned off for the project but no longer an app (removed or renamed): ${names}. They have no effect.`,
   nameInvalid: 'not valid',
   unconfirmed: (name: string, id: string) =>
     `project “${name}” (${id}): active without the user’s confirmation, back to a draft to confirm`,
@@ -159,9 +159,9 @@ const it: typeof en = {
     `connections: "${name}" non è collegato (collegati: ${have}). Si collega da Impostazioni → App e Telegram.`,
   none: 'nessuno',
   connectionsReset: (project, allowed) =>
-    `${project}: la vecchia lista dei collegamenti consentiti (${allowed}) non vale più. Ora il progetto raggiunge tutti i collegamenti dati a tutta la squadra: spegni quelli che non gli servono nella scheda Impostazioni.`,
+    `${project}: la vecchia lista delle app consentite (${allowed}) non vale più. Ora il progetto raggiunge tutte le app date a tutti i mostri: spegni quelli che non gli servono nella scheda Impostazioni.`,
   connectionsStale: (project, names) =>
-    `${project}: spenti per il progetto ma non più collegamenti (tolti o rinominati): ${names}. Non hanno effetto.`,
+    `${project}: spenti per il progetto ma non più app (tolte o rinominate): ${names}. Non hanno effetto.`,
   nameInvalid: 'non va bene',
   unconfirmed: (name, id) =>
     `progetto «${name}» (${id}): attivo senza una conferma dell'utente, torna una bozza da confermare`,

@@ -118,7 +118,7 @@ const en = {
         'For each request, Monsters picks Sonnet or Opus from your Claude plan; Haiku when the base is Quick.',
       automaticLabel: (who: string) => `Automatic model choice for ${who}`,
       teamAuto:
-        'Each monster starts from its own base: your lead and the monsters that work on the computer start from Thorough, the others from Balanced. Change it with “Choose for each monster”.',
+        'Your lead and the monsters that work on the computer start from Thorough, the others from Balanced. Change it with “Choose for each monster”.',
       baseWord: 'Base',
       baseOf: (who: string) => `Base of ${who}`,
       needsExpert: 'Needs the expert model.',
@@ -306,7 +306,7 @@ const it: typeof en = {
         'A ogni richiesta Monsters sceglie Sonnet o Opus del tuo piano Claude; Haiku se la base è Veloce.',
       automaticLabel: (who) => `Scelta automatica del modello per ${who}`,
       teamAuto:
-        'Ogni mostro parte dalla sua base: il tuo capo e chi lavora sul computer da Accurato, gli altri da Bilanciato. La cambi con “Scegli per ogni mostro”.',
+        'Il tuo capo e chi lavora sul computer partono da Accurato, gli altri da Bilanciato. Lo cambi con “Scegli per ogni mostro”.',
       baseWord: 'Base',
       baseOf: (who) => `Base di ${who}`,
       needsExpert: 'Serve il modello esperto.',

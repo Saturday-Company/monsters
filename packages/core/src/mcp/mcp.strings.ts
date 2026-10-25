@@ -12,7 +12,7 @@ const en = {
   // sign-in and card errors
   signInNeeded: 'Sign-in needed: press “Connect” and confirm in the browser.',
   oauthUnreachable:
-    'The service can’t be reached: I can’t renew the sign-in (it stays valid). I’ll try again on the next call.',
+    'The app can’t be reached: I can’t renew the sign-in (it stays valid). I’ll try again on the next call.',
   headersRefused: 'The server refused the sign-in: check the headers (for example the token).',
   signInAskedAgain: (label: string, where: string) =>
     `${label} asks for the sign-in again: press “Connect” in ${where}.`,
@@ -40,7 +40,7 @@ const en = {
     'The name can only have lowercase letters, digits and hyphens (24 at most), and must start with a letter.',
   browserNameTaken: '“browser” is the name of Monsters’ browser: pick another one.',
   browserNameOnly: 'The browser only turns on with the name “browser”.',
-  oauthWebOnly: 'OAuth sign-in only works for services on the web.',
+  oauthWebOnly: 'OAuth sign-in only works for apps on the web.',
   commandMissing: 'Type the command that starts the server.',
   urlFull: 'Type the full address, for example https://example.com/mcp.',
   urlScheme: 'The address must start with https:// or http://.',
@@ -67,15 +67,15 @@ const en = {
     `I can’t connect to “${name}”: ${message}${tail ? ` (${tail})` : ''}`,
   // the sign-in's answers
   oauthPrepare: (detail: string) =>
-    `I couldn’t set up the sign-in: the service doesn’t accept sign-ins from other apps or isn’t answering (${detail}).`,
-  oauthUnsafePage: 'The service gave an unsafe sign-in page: I’m stopping.',
+    `I couldn’t set up the sign-in: the app doesn’t accept sign-ins from other apps or isn’t answering (${detail}).`,
+  oauthUnsafePage: 'The app gave an unsafe sign-in page: I’m stopping.',
   oauthExpired:
     'This sign-in is no longer valid (expired or already used): try again from Monsters.',
   oauthDenied: 'You refused the sign-in: nothing was connected.',
-  oauthRefused: (code: string) => `The service refused the sign-in (${code}).`,
-  oauthNoCode: 'The service didn’t send the sign-in code.',
+  oauthRefused: (code: string) => `The app refused the sign-in (${code}).`,
+  oauthNoCode: 'The app didn’t send the sign-in code.',
   oauthNotAccepted: (detail: string) =>
-    `The service didn’t accept the sign-in (${detail}): try again from Monsters.`,
+    `The app didn’t accept the sign-in (${detail}): try again from Monsters.`,
   // the input schema of a tool
   schemaNotObject: 'the arguments’ schema isn’t a JSON object',
   schemaNotJson: 'the arguments’ schema isn’t JSON',
@@ -100,7 +100,7 @@ const it: typeof en = {
   connectButton: 'Collega',
   signInNeeded: 'Serve l’accesso: premi “Collega” e conferma nel browser.',
   oauthUnreachable:
-    'Servizio non raggiungibile: non riesco a rinnovare l’accesso (l’accesso resta valido). Riprovo alla prossima chiamata.',
+    'App non raggiungibile: non riesco a rinnovare l’accesso (l’accesso resta valido). Riprovo alla prossima chiamata.',
   headersRefused:
     'Il server ha rifiutato l’accesso: controlla le intestazioni (per esempio il token).',
   signInAskedAgain: (label, where) =>
@@ -116,7 +116,7 @@ const it: typeof en = {
   toolsAccepted: (n, first, label, telegram) =>
     `Hai accettato ${n === 1 ? `«${first}»` : `${n} strumenti`} di ${label}${telegram ? ' (da Telegram)' : ''}.`,
   toolsLimited: (name, max, total) =>
-    `${name} riceve ${max} strumenti di altri programmi su ${total} (il massimo per il suo modello): gli altri restano fuori dai suoi lavori, e lui lo sa.`,
+    `${name} riceve ${max} strumenti di altre app su ${total} (il massimo per il suo modello): gli altri restano fuori dai suoi lavori, e lui lo sa.`,
   skippedUnsafe: 'esegue codice sul computer senza limiti: escluso dal browser di Monsters',
   skippedPaused: 'nuovo o cambiato: in pausa finché non lo accetti',
   unknownServer: (name) => `Non c’è nessun server “${name}”.`,
@@ -127,16 +127,16 @@ const it: typeof en = {
     'Il nome può avere solo lettere minuscole, cifre e trattini (al massimo 24), e deve iniziare con una lettera.',
   browserNameTaken: '“browser” è il nome del browser di Monsters: scegline un altro.',
   browserNameOnly: 'Il browser si attiva solo con il nome “browser”.',
-  oauthWebOnly: 'L’accesso con OAuth vale solo per i servizi sul web.',
+  oauthWebOnly: 'L’accesso con OAuth vale solo per le app sul web.',
   commandMissing: 'Scrivi il comando che avvia il server.',
   urlFull: 'Scrivi l’indirizzo completo, per esempio https://esempio.it/mcp.',
   urlScheme: 'L’indirizzo deve iniziare con https:// o http://.',
   urlCredentials: 'Metti nome utente e password nelle intestazioni, non nell’indirizzo.',
   missingValue: (kind, name) =>
     `Manca il valore di ${kind === 'variable' ? 'la variabile' : 'l’intestazione'} ${name}.`,
-  notOauth: 'Questo programma non usa l’accesso con OAuth.',
+  notOauth: 'Questa app non usa l’accesso con OAuth.',
   wentWrong: 'Qualcosa è andato storto: riprova.',
-  removedMeanwhile: 'Il programma è stato tolto nel frattempo.',
+  removedMeanwhile: 'L’app è stata tolta nel frattempo.',
   connected: (label) => `${label} è collegato.`,
   halted: 'I mostri sono fermi: premi “Riprendi” e riprova.',
   programMissingNeeds: (command, needs, url) =>
@@ -152,14 +152,14 @@ const it: typeof en = {
   cantConnect: (name, message, tail) =>
     `Non riesco a collegarmi a “${name}”: ${message}${tail ? ` (${tail})` : ''}`,
   oauthPrepare: (detail) =>
-    `Non riesco a preparare l’accesso: il servizio non accetta l’accesso da altre app o non risponde (${detail}).`,
-  oauthUnsafePage: 'Il servizio ha dato una pagina di accesso non sicura: mi fermo.',
+    `Non riesco a preparare l’accesso: l’app non accetta l’accesso da altre app o non risponde (${detail}).`,
+  oauthUnsafePage: 'L’app ha dato una pagina di accesso non sicura: mi fermo.',
   oauthExpired: 'Questo accesso non è più valido (scaduto o già usato): riprova da Monsters.',
   oauthDenied: 'Hai rifiutato l’accesso: niente di collegato.',
-  oauthRefused: (code) => `Il servizio ha rifiutato l’accesso (${code}).`,
-  oauthNoCode: 'Il servizio non ha mandato il codice di accesso.',
+  oauthRefused: (code) => `L’app ha rifiutato l’accesso (${code}).`,
+  oauthNoCode: 'L’app non ha mandato il codice di accesso.',
   oauthNotAccepted: (detail) =>
-    `Il servizio non ha accettato l’accesso (${detail}): riprova da Monsters.`,
+    `L’app non ha accettato l’accesso (${detail}): riprova da Monsters.`,
   schemaNotObject: 'lo schema degli argomenti non è un oggetto JSON',
   schemaNotJson: 'lo schema degli argomenti non è JSON',
   schemaTooLarge: 'lo schema degli argomenti è troppo grande',

@@ -46,10 +46,10 @@ const en = {
     text: 'Without it, it reads the notes but doesn’t change them. Every change can be undone.',
   },
   web: {
-    text: 'Search and read pages online, in all its work. In a project, the project’s own page can switch the web off; the browser follows this permission.',
+    text: 'Search and read pages online. A project can switch the web off for itself; the browser follows this permission.',
   },
   commands: {
-    text: 'Run commands and install programs in their own folder, without administrator rights. Commands can read and change the files of your account.',
+    text: 'Run commands and install programs in their own folder, without admin rights. Commands can read and change your account’s files.',
     onWindows: (text: string) => `${text} On Windows the commands are PowerShell.`,
     warning: (name: string) =>
       `With commands on, ${name} can do anything on the computer that you can, even outside the folders below. Every command is logged in Activity, and Stop interrupts it.`,
@@ -118,10 +118,10 @@ const it: typeof en = {
     text: 'Senza, legge le note ma non le cambia. Ogni modifica si può annullare.',
   },
   web: {
-    text: 'Cercare e leggere pagine online, in ogni suo lavoro. In un progetto la pagina del progetto può spegnere il web; il browser segue questo permesso.',
+    text: 'Cercare e leggere pagine online. Un progetto può spegnere il web per sé; il browser segue questo permesso.',
   },
   commands: {
-    text: 'Eseguire comandi e installare programmi nella propria cartella, senza permessi di amministratore. I comandi possono leggere e cambiare i file del tuo account.',
+    text: 'Eseguire comandi e installare programmi nella propria cartella, senza essere amministratore. I comandi possono leggere e cambiare i file del tuo account.',
     onWindows: (text) => `${text} Su Windows i comandi sono di PowerShell.`,
     warning: (name) =>
       `Con i comandi accesi ${name} può fare sul computer tutto quello che puoi fare tu, anche fuori dalle cartelle qui sotto. Ogni comando finisce in Attività e “Ferma” lo interrompe.`,

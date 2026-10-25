@@ -1,6 +1,6 @@
-# Using your subscriptions: ChatGPT, Codex and Claude Agent
+# Using your plans: ChatGPT, Codex and Claude Agent
 
-If you already have ChatGPT Plus or Pro, or a Claude subscription, the monsters can work with it. Monsters uses them
+If you already have ChatGPT Plus or Pro, or a Claude plan, the monsters can work with it. Monsters uses them
 only in the ways OpenAI and Anthropic allow for open-source apps that run on your computer (D-005, D-035). You don't
 need them to get started: free OpenRouter is enough.
 
@@ -52,7 +52,7 @@ and Monsters never uses `codex login`.
 
 Codex works in the monster's folder (`~/.monsters/workspaces/<monster>`) with its own settings in
 `~/.monsters/harness/codex-home`, separate from yours. The Monsters tools (notes, web, squad) reach it as an MCP
-server, with the monster's permissions. Without the terminal permission, Codex can only read. Monsters that can use
+server, with the monster's permissions. Without the Run commands permission, Codex can only read. Monsters that can use
 the web search with Codex's search, included in the plan. Codex's commands run in its sandbox without network; a
 command that needs it (`npm install`, `git push`, `curl`) asks to run outside the sandbox, and Monsters answers with
 the same checks it applies to Claude Code's terminal: its data folder stays closed, and the brake can hold a risky
@@ -60,7 +60,7 @@ command for your answer.
 
 ## Claude Agent
 
-Claude Agent uses **Claude Code installed on your PC and your subscription**. You sign in to Claude yourself, in the
+Claude Agent uses **Claude Code installed on your PC and your plan**. You sign in to Claude yourself, in the
 terminal: Monsters has no login button, doesn't ask for or store tokens and doesn't read Claude Code's files.
 
 1. On the Claude row, press **Connect**.
@@ -68,15 +68,15 @@ terminal: Monsters has no login button, doesn't ask for or store tokens and does
    - If you don't, you can press **Install and connect**: Monsters installs the official component
      `@anthropic-ai/claude-agent-sdk` 0.3.286 in `~/.monsters/harness/claude-agent`. It has a proprietary Anthropic
      license, which is why it isn't bundled with Monsters.
-2. If the settings tell you to, open a terminal, run `claude` and sign in with your subscription (`/login`). Then
+2. If the settings tell you to, open a terminal, run `claude` and sign in with your plan (`/login`). Then
    press **Check again**: Monsters asks Claude Code whether you're signed in (`claude auth status`).
 3. Choose Claude Agent as a monster's first model (`sonnet`, `opus` or `haiku`).
 
 Good to know:
 - Monsters removes `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` from the Claude Code process: with an API key you
-  would pay as you go instead of using the subscription. It also removes Monsters' own keys and settings.
+  would pay as you go instead of using the plan. It also removes Monsters' own keys and settings.
 - Claude Code works in the monster's folder, where Monsters writes `AGENTS.md` and a `CLAUDE.md` that imports it. The
-  Monsters tools reach it as an MCP server; it uses its own commands and files only if the monster has the terminal
+  Monsters tools reach it as an MCP server; it uses its own commands and files only if the monster has the Run commands
   permission.
 - Each turn starts a new Claude Code process (and Codex run). The text Monsters appends to the system prompt (the
   monster's rules, memory and profile) is the same from one turn to the next, so the plan's prompt cache reads it
@@ -94,8 +94,8 @@ Good to know:
 ### Services through Claude
 
 Slack, Gmail, Drive and Calendar, Figma, Canva, Asana, HubSpot, Vercel and Claude Design only accept approved apps:
-Claude is one. With the Claude subscription connected, in **Settings → Connections → Apps and services**
-(Impostazioni → Collegamenti → App e servizi) these services say **Connect through Claude**. The monsters that work
+Claude is one. With the Claude plan connected, in **Settings → Apps and Telegram → Apps**
+(Impostazioni → App e Telegram → App) these apps say **Connect through Claude**. The monsters that work
 with Claude use them.
 
 1. Connect the service to your Claude account, if you haven't already: on claude.ai, **Settings → Connectors** (the

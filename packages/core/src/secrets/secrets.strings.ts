@@ -8,7 +8,7 @@ const en = {
   keychainUnreachable: (why: string) => `the keychain can’t be reached: ${why}`,
   keychainTimeout: (seconds: number) => `the keychain didn’t answer within ${seconds} s`,
   keychainModule: (message: string) => `keychain module not available: ${message}`,
-  keychainAborted: 'waiting for the keychain was interrupted: the core is stopping',
+  keychainAborted: 'waiting for the keychain was interrupted: Monsters is stopping',
   badMode: (value: string) => `invalid MONSTERS_SECRETS: ${value} (auto, keychain or file)`,
   cantDecrypt: (name: string) =>
     `the secret ${name} can’t be decrypted (different key or damaged file)`,
@@ -26,7 +26,7 @@ const it: typeof en = {
   keychainUnreachable: (why) => `portachiavi non raggiungibile: ${why}`,
   keychainTimeout: (seconds) => `il portachiavi non ha risposto entro ${seconds} s`,
   keychainModule: (message) => `modulo del portachiavi non disponibile: ${message}`,
-  keychainAborted: 'attesa del portachiavi interrotta: il core si sta fermando',
+  keychainAborted: 'attesa del portachiavi interrotta: Monsters si sta fermando',
   badMode: (value) => `MONSTERS_SECRETS non valido: ${value} (auto, keychain o file)`,
   cantDecrypt: (name) =>
     `il segreto ${name} non si può decifrare (chiave diversa o file danneggiato)`,

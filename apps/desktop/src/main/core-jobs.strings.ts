@@ -6,16 +6,16 @@ import { pick } from '@monsters/shared';
  */
 
 const en = {
-  /** "On this computer there's a task running: if <condition> it will stop." */
+  /** "On this computer there's a job running: if <condition> it will stop." */
   running: (n: number, condition: string) =>
     n === 1
-      ? `On this computer there’s a task running: if ${condition} it will stop.`
-      : `On this computer there are ${n} tasks running: if ${condition} they will stop.`,
+      ? `On this computer there’s a job running: if ${condition} it will stop.`
+      : `On this computer there are ${n} jobs running: if ${condition} they will stop.`,
   leave: {
     unknownMessage: (name: string) => `Switch to “${name}”?`,
     condition: (name: string) => `you switch to “${name}”`,
     unknownDetail: (name: string) =>
-      `If you switch to “${name}”, Monsters on this computer stops and any tasks in progress are interrupted. You’ll find it as it was when you go back to “This computer”.`,
+      `If you switch to “${name}”, Monsters on this computer stops and any jobs in progress are interrupted. You’ll find it as it was when you go back to “This computer”.`,
     detail:
       'You’ll find them in Activity when you go back to “This computer”, but you’ll have to start them again.',
     go: 'Switch anyway',
@@ -27,9 +27,9 @@ const en = {
     quitCondition: 'you quit',
     updateCondition: 'you restart to update',
     updateDetail:
-      'Monsters restarts on its own with the new version; any interrupted tasks are in Activity. If you prefer, update later.',
+      'Monsters restarts on its own with the new version; any interrupted jobs are in Activity. If you prefer, update later.',
     unknownDetail:
-      'If you quit, Monsters on this computer stops and any tasks in progress are interrupted. To let it keep working, just close the window.',
+      'If you quit, Monsters on this computer stops and any jobs in progress are interrupted. To let it keep working, just close the window.',
     detail: 'To let the monsters keep working, just close the window: Monsters stays on.',
     quit: 'Quit',
     restart: 'Restart',

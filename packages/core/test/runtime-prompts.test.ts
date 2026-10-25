@@ -276,7 +276,7 @@ describe('the Monsters card and the harness section, in English', () => {
     // The button is quoted from the dictionary that shows it, never retyped.
     expect(card).toContain('and the user taps “Yes, grant”');
     expect(card).toContain(
-      'You don’t have: web (Pixel has it: delegate the search); connected services (none is given to you: the user connects them and gives them to you in Settings → Apps and Telegram → Apps).',
+      'You don’t have: web (Pixel has it: delegate the search); connected apps (none is given to you: the user connects them and gives them to you in Settings → Apps and Telegram → Apps).',
     );
     expect(card).toContain(
       'Only the user, in Settings: Squad (create, change and archive monsters; who the user is to you), Models (models and spending; you don’t see it), Permissions, Apps and Telegram.',

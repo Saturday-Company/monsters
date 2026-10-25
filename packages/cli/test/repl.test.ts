@@ -114,7 +114,7 @@ describe('monsters chat (interactive, for SSH)', () => {
     await until(() => c.runs.activeRuns().length === 1, 'running');
     const sent = Date.now();
     tty.type('/stop');
-    await until(() => tty.screen().includes('■ Stopped. Runs aborted: 1'), 'stop');
+    await until(() => tty.screen().includes('■ Stopped. Jobs stopped: 1'), 'stop');
     expect(Date.now() - sent).toBeLessThan(2000);
     expect(c.runs.halted).toBe(true);
     expect(c.runs.activeRuns()).toEqual([]);

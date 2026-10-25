@@ -124,7 +124,7 @@ const en = {
     user_declined: 'you said no',
     user_no_answer: 'no answer in time',
     setting_off: 'a setting is off',
-    not_linked: 'the service needs to be reconnected',
+    not_linked: 'the app needs to be reconnected',
     site_refused: 'the site refused, not a permission of yours',
     limit: 'a limit of the job',
   },
@@ -183,9 +183,9 @@ const it: typeof en = {
   yesDescription: 'Solo questa azione',
   noLabel: 'No, non farlo',
   noDescription: 'Il mostro va avanti senza',
-  programEffect: 'fare un’azione con un altro programma (cambia qualcosa fuori da Monsters)',
+  programEffect: 'fare un’azione con un’altra app (cambia qualcosa fuori da Monsters)',
   programRead:
-    'leggere o usare i tuoi dati in un altro programma (posta, documenti, calendari): quello che trova può finire nella risposta alla chat',
+    'leggere o usare i tuoi dati in un’altra app (posta, documenti, calendari): quello che trova può finire nella risposta alla chat',
   projectWriteMeaning:
     'cambiare file nella cartella di un progetto dopo aver letto testo di terzi (un file del progetto può far partire comandi al tuo prossimo test o commit)',
   projectWrite: (target) => `scrivere «${target}»`,
@@ -215,7 +215,7 @@ const it: typeof en = {
   fillForm: 'compilare un modulo nel browser',
   browserCode: 'eseguire nel browser del codice che manda dati fuori',
   useTool: (tool, server) => `usare «${tool}» di ${server}`,
-  otherProgram: 'un altro programma',
+  otherProgram: 'un’altra app',
   openFrom: {
     plain: 'aprire',
     terminal: 'aprire dal terminale',
@@ -279,7 +279,7 @@ const it: typeof en = {
     user_declined: 'hai detto no',
     user_no_answer: 'nessuna risposta in tempo',
     setting_off: 'un’impostazione è spenta',
-    not_linked: 'il servizio va ricollegato',
+    not_linked: 'l’app va ricollegata',
     site_refused: 'il sito ha rifiutato, non un tuo permesso',
     limit: 'un limite del lavoro',
   },

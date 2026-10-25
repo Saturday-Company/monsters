@@ -391,14 +391,14 @@ describe('work in progress before stopping the local core', () => {
   it('dialogs: the count, "Cancel" by default', () => {
     const leave = leaveLocalDialog('Home PC', 2);
     expect(leave.message).toBe(
-      'On this computer there are 2 tasks running: if you switch to “Home PC” they will stop.',
+      'On this computer there are 2 jobs running: if you switch to “Home PC” they will stop.',
     );
     expect(leave.buttons).toEqual(['Switch anyway', 'Cancel']);
     expect(leave.buttons[leave.defaultId]).toBe('Cancel');
     expect(leave.cancelId).toBe(leave.defaultId);
     expect(leaveLocalDialog('x', null).message).toBe('Switch to “x”?');
     expect(quitDialog(1).message).toBe(
-      'On this computer there’s a task running: if you quit it will stop.',
+      'On this computer there’s a job running: if you quit it will stop.',
     );
     expect(quitDialog(1, 'update').buttons[0]).toBe('Restart');
     const update = updateReadyDialog('0.2.0');

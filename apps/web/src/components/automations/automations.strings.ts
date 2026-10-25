@@ -19,7 +19,7 @@ const en = {
     resume: (name: string) => `Resume “${name}”`,
     emptyTitle: 'No automations yet',
     emptyText:
-      'An automation is a job the squad does on its own at a set time: for example the week’s posts, every Sunday evening, ready to read on Monday.',
+      'An automation is work the squad does on its own at a set time: for example the week’s posts, every Sunday evening, ready to read on Monday.',
     createFirst: 'Create the first one',
   },
   view: {
@@ -58,9 +58,9 @@ const en = {
     resultsTitle: 'Results and notices',
     notesFolder: 'Notes folder',
     notesFolderDefault: 'The lead decides, usually the folder of its notes.',
-    capPerRun: 'Cap per run',
+    capPerRun: 'Cap per automation run',
     capWith: (limits: string) =>
-      `${limits}. Euro limits apply to pay-as-you-go models; subscriptions are limited by steps and amount of work.`,
+      `${limits}. Euro limits apply to pay-as-you-go models; plans are limited by steps and amount of work.`,
     capDefault: 'The one of every job (Settings → Models).',
     noticesTitle: 'Notices at the end of a run',
     inApp: 'in the app',
@@ -199,7 +199,7 @@ const it: typeof en = {
     resume: (name) => `Riprendi «${name}»`,
     emptyTitle: 'Ancora nessuna automazione',
     emptyText:
-      'Un’automazione è un lavoro che la squadra fa da sola, a un’ora fissa: per esempio i post della settimana, ogni domenica sera, pronti da leggere il lunedì.',
+      'Un’automazione è un lavoro che la squadra fa da sola, a un’ora fissa: per esempio i post della settimana, pronti il lunedì.',
     createFirst: 'Crea la prima',
   },
   view: {
@@ -226,7 +226,7 @@ const it: typeof en = {
     nextRun: (when) => `prossimo giro ${when}`,
     crewTitle: 'Chi la fa',
     lead: 'Capo',
-    leadRole: 'Riceve l’obiettivo a ogni giro e passa i compiti agli altri.',
+    leadRole: 'Riceve l’obiettivo a ogni giro e passa gli incarichi agli altri.',
     gone: 'Non è più nella squadra.',
     whenTitle: 'Quando',
     timezone: (tz) => `Fuso orario: ${tz}`,
@@ -238,17 +238,16 @@ const it: typeof en = {
     resultsTitle: 'Risultati e avvisi',
     notesFolder: 'Cartella delle note',
     notesFolderDefault: 'Decide il capo, di solito la cartella delle sue note.',
-    capPerRun: 'Tetto per giro',
+    capPerRun: 'Tetto per giro dell’automazione',
     capWith: (limits) =>
-      `${limits}. Gli euro contano sui modelli a consumo; sugli abbonamenti contano i passi e la quantità di lavoro.`,
+      `${limits}. Gli euro contano sui modelli a consumo; sui piani contano i passi e la quantità di lavoro.`,
     capDefault: 'Quello di ogni lavoro (Impostazioni → Modelli).',
     noticesTitle: 'Avvisi a fine giro',
     inApp: 'nell’app',
     onTelegram: 'su Telegram',
     notified: (where) => `Ti avviso ${where}.`,
     noNotices: 'Nessun avviso.',
-    runAria: (when, _state, raw) =>
-      `Giro di ${when}: ${raw === 'completed' ? 'fatto' : raw}. Apri la conversazione`,
+    runAria: (when, state) => `Giro di ${when}: ${state}. Apri la conversazione`,
     leadFallback: 'il capo',
     started: (lead) => `Giro avviato: ${lead} ci lavora.`,
     queued: (lead) => `Il giro parte appena ${lead} finisce quello che sta facendo.`,
@@ -322,7 +321,7 @@ const it: typeof en = {
     moreOptions: 'Altre opzioni',
     moreOptionsHint: 'Chi partecipa, cartella delle note, avvisi e un tetto per giro.',
     squad: 'Squadra',
-    leadHint: 'Riceve l’obiettivo e passa i compiti agli altri.',
+    leadHint: 'Riceve l’obiettivo e passa gli incarichi agli altri.',
     takingPart: 'Partecipano',
     takingPartHint: 'Nessuno scelto: decide il capo chi aiuta.',
     whenTitle: 'Quando',

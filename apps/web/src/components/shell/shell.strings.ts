@@ -49,7 +49,7 @@ const en = {
       settings: { label: 'Settings' },
       models: { label: 'Settings › Models' },
       permissions: { label: 'Settings › Permissions' },
-      links: { label: 'Settings › Connections', detail: 'Telegram, apps and services, web search' },
+      links: { label: 'Settings › Apps and Telegram', detail: 'Telegram, apps, web search' },
       light: { label: 'Light theme' },
       dark: { label: 'Dark theme' },
       system: { label: 'Same theme as the computer' },
@@ -115,8 +115,8 @@ const en = {
     sections: 'Sections',
     sidebar: 'Sidebar',
     noSquad: 'The squad isn’t here yet.',
-    waitingOne: 'one run is waiting for an answer',
-    waitingMany: (n: number) => `${n} runs are waiting for an answer`,
+    waitingOne: 'one job is waiting for an answer',
+    waitingMany: (n: number) => `${n} jobs are waiting for an answer`,
     nav: {
       automations: { label: 'Automations' },
       notes: { label: 'Notes' },
@@ -157,7 +157,7 @@ const en = {
   },
   errors: {
     stillBroken:
-      'A part of Monsters still won’t load after reloading: check that the core is running and up to date.',
+      'A part of Monsters still won’t load after reloading: check that Monsters is running and up to date on that computer.',
     newVersion: 'There’s a new version of Monsters: reload the page to use it.',
     later: 'Later',
     reload: 'Reload',
@@ -165,7 +165,7 @@ const en = {
     titleChunk: 'There’s a new version of Monsters',
     titleBroken: 'Something broke here',
     textAgain:
-      'I already reloaded the page, but it still doesn’t work. Check that the core is running and up to date, then try again.',
+      'I already reloaded the page, but it still doesn’t work. Check that Monsters is running and up to date on that computer, then try again.',
     textChunk:
       'This part of the page didn’t load: it happens after an update. Reload the page to continue.',
     textBroken:
@@ -221,8 +221,8 @@ const it: typeof en = {
       models: { label: 'Impostazioni › Modelli' },
       permissions: { label: 'Impostazioni › Permessi' },
       links: {
-        label: 'Impostazioni › Collegamenti',
-        detail: 'Telegram, app e servizi, ricerca sul web',
+        label: 'Impostazioni › App e Telegram',
+        detail: 'Telegram, app, ricerca sul web',
       },
       light: { label: 'Tema chiaro' },
       dark: { label: 'Tema scuro' },
@@ -286,8 +286,8 @@ const it: typeof en = {
     sections: 'Sezioni',
     sidebar: 'Barra laterale',
     noSquad: 'La squadra non c’è ancora.',
-    waitingOne: 'un giro aspetta una risposta',
-    waitingMany: (n) => `${n} giri aspettano una risposta`,
+    waitingOne: 'un lavoro aspetta una risposta',
+    waitingMany: (n) => `${n} lavori aspettano una risposta`,
     nav: {
       automations: { label: 'Automazioni' },
       notes: { label: 'Note' },
@@ -328,7 +328,7 @@ const it: typeof en = {
   },
   errors: {
     stillBroken:
-      'Una parte di Monsters non si carica nemmeno dopo aver ricaricato: controlla che il core sia acceso e aggiornato.',
+      'Una parte di Monsters non si carica nemmeno dopo aver ricaricato: controlla che Monsters sia acceso e aggiornato su quel computer.',
     newVersion: 'C’è una versione nuova di Monsters: ricarica la pagina per usarla.',
     later: 'Più tardi',
     reload: 'Ricarica',
@@ -336,7 +336,7 @@ const it: typeof en = {
     titleChunk: 'C’è una versione nuova di Monsters',
     titleBroken: 'Qualcosa si è rotto qui',
     textAgain:
-      'Ho già ricaricato la pagina, ma non va ancora. Controlla che il core sia acceso e aggiornato, poi riprova.',
+      'Ho già ricaricato la pagina, ma non va ancora. Controlla che Monsters sia acceso e aggiornato su quel computer, poi riprova.',
     textChunk:
       'Questa parte della pagina non si è caricata: succede dopo un aggiornamento. Ricarica la pagina per continuare.',
     textBroken:

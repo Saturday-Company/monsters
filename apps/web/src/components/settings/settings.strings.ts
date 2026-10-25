@@ -8,7 +8,7 @@ const en = {
     tabsLabel: 'Settings sections',
     hints: {
       squadra: 'Who’s on your squad, and who you are to the monsters.',
-      modelli: 'What the monsters think with: keys and subscriptions, and each one’s model.',
+      modelli: 'What the monsters think with: keys and plans, and each one’s model.',
       permessi: 'What the monsters can do on their own, and what they always ask you first.',
       collegamenti:
         'Use the monsters from your phone, connect the apps they can use and choose how they search the web.',
@@ -35,7 +35,7 @@ const it: typeof en = {
     tabsLabel: 'Sezioni delle impostazioni',
     hints: {
       squadra: 'Chi c’è nella tua squadra, e chi sei tu per i mostri.',
-      modelli: 'Con cosa pensano i mostri: chiavi e abbonamenti, e il modello di ognuno.',
+      modelli: 'Con cosa pensano i mostri: chiavi e piani, e il modello di ognuno.',
       permessi: 'Cosa possono fare i mostri da soli, e cosa ti chiedono sempre prima.',
       collegamenti:
         'Usa i mostri dal telefono, collega le app che possono usare e scegli come cercano sul web.',

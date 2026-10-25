@@ -55,9 +55,9 @@ const en = {
   maxSteps: (name: string, n: number) => `${name} used all ${n} steps without finishing`,
   extraSteps: (name: string) => `${name} used the extra steps without finishing`,
   stops: (name: string, why: string) => `${name} stops: ${why}`,
-  taskLimit: 'task limit reached',
+  taskLimit: 'job limit reached',
   tokenLimit: (name: string, n: number, plan = false) =>
-    `${name} went over the limit of ${n} tokens${plan ? ' on the subscription' : ''}`,
+    `${name} went over the limit of ${n} tokens${plan ? ' on the plan' : ''}`,
   reportAtLastStep: ' (report written at the last step)',
   invisibleRemoved: (chars: number, source: string) =>
     `I removed ${chars} invisible characters from ${source}: they were hiding text.`,
@@ -153,9 +153,9 @@ const it: typeof en = {
   maxSteps: (name, n) => `${name} ha finito i ${n} passi senza concludere`,
   extraSteps: (name) => `${name} ha finito i passi in più senza concludere`,
   stops: (name, why) => `${name} si ferma: ${why}`,
-  taskLimit: 'limite del compito raggiunto',
+  taskLimit: 'limite del lavoro raggiunto',
   tokenLimit: (name, n, plan = false) =>
-    `${name} ha superato il limite di ${n} token${plan ? ' sull’abbonamento' : ''}`,
+    `${name} ha superato il limite di ${n} token${plan ? ' sul piano' : ''}`,
   reportAtLastStep: ' (rapporto scritto all’ultimo passo)',
   invisibleRemoved: (chars, source) =>
     `Ho tolto ${chars} caratteri invisibili da ${source}: nascondevano un testo.`,

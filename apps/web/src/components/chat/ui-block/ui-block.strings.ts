@@ -42,7 +42,7 @@ const en = {
     question: 'Answer the question first',
     working: 'Still working: wait for the reply',
     halted: 'The monsters are stopped: resume them first',
-    noModel: 'Connect a model first',
+    noModel: 'Add a model first',
     offline: 'Not connected: Monsters isn’t answering on the computer',
   },
 };
@@ -81,7 +81,7 @@ const it: typeof en = {
     question: 'Rispondi prima alla domanda',
     working: 'Sta ancora lavorando: aspetta la risposta',
     halted: 'I mostri sono fermi: falli ripartire prima',
-    noModel: 'Collega prima un modello',
+    noModel: 'Aggiungi prima un modello',
     offline: 'Non collegato: Monsters non risponde sul computer',
   },
 };

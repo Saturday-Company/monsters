@@ -25,15 +25,15 @@ test('gallery: "Cambia il token" replaces the token and keeps who uses it', asyn
 
   await panel.getByTestId('mcp-change-token').click();
   const form = panel.getByTestId('mcp-token-form');
-  await expect(form.getByRole('link', { name: 'Create the token' })).toHaveAttribute(
+  await expect(form.getByRole('link', { name: 'Create the key' })).toHaveAttribute(
     'href',
     /github\.com/,
   );
   await form.getByRole('button', { name: 'Save and test' }).click();
-  await expect(form.getByRole('alert')).toContainText('Paste the new token here');
-  await form.getByLabel(/token/i).fill('ghp_NUOVO_SEGRETO_5678');
+  await expect(form.getByRole('alert')).toContainText('Paste the new key here');
+  await form.getByLabel(/key/i).fill('ghp_NUOVO_SEGRETO_5678');
   await form.getByRole('button', { name: 'Save and test' }).click();
-  await expect(page.getByText('GitHub token changed.')).toBeVisible();
+  await expect(page.getByText('GitHub key changed.')).toBeVisible();
   await expect(panel.getByTestId('mcp-token-form')).toHaveCount(0);
   // Tried at once with the new token; still connected, same monsters.
   await expect(panel.getByTestId('mcp-tools')).toContainText('Works');
@@ -59,7 +59,7 @@ test('Apps: "Change the token" of an app added by address, with a secret', async
   await card.getByTestId('mcp-change-token').click();
   await card.getByLabel('New value for API_KEY').fill('segreto-NUOVO-456');
   await card.getByRole('button', { name: 'Save and test' }).click();
-  await expect(page.getByText('calendario token changed.')).toBeVisible();
+  await expect(page.getByText('calendario key changed.')).toBeVisible();
   await expect(card.getByTestId('mcp-tools')).toContainText('Works');
   await expect(dione).toHaveAttribute('aria-pressed', before ?? 'true');
   await card.getByRole('button', { name: 'Details' }).click();

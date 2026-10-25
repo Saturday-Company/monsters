@@ -44,10 +44,10 @@ describe('agreement by count', () => {
     const gi = deriveStrings().group;
     expect(gi.events(1)).toBe('1 evento tra i mostri');
     expect(gi.events(4)).toBe('4 eventi tra i mostri');
-    expect(gi.done(1)).toBe('1 compito completato');
-    expect(gi.done(4)).toBe('4 compiti completati');
-    expect(gi.open(1)).toBe('1 compito passato alla squadra');
-    expect(gi.open(2)).toBe('2 compiti passati alla squadra');
+    expect(gi.done(1)).toBe('1 incarico completato');
+    expect(gi.done(4)).toBe('4 incarichi completati');
+    expect(gi.open(1)).toBe('1 incarico passato alla squadra');
+    expect(gi.open(2)).toBe('2 incarichi passati alla squadra');
   });
 });
 

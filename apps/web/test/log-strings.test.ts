@@ -137,7 +137,7 @@ describe('events in words, in both languages', () => {
       say('titan', 'delegation', { from: 'titan', to: 'atlas', status: 'started', goal: 'Cerca' }),
     ).toEqual([
       'Titan handed Atlas a task: “Cerca”',
-      'Titan ha passato un compito ad Atlas: “Cerca”',
+      'Titan ha passato un incarico ad Atlas: “Cerca”',
     ]);
     expect(say('titan', 'tool_result', { callId: 'c', tool: 'web_search', ok: true })).toEqual([
       'Titan finished searching the web',
@@ -297,7 +297,7 @@ describe('the live activity follows the language', () => {
 
   it('says the mood in neutral words', () => {
     expect(both(() => moodText('working'))).toEqual(['working', 'al lavoro']);
-    expect(both(() => moodText('stopped'))).toEqual(['paused', 'in pausa']);
+    expect(both(() => moodText('stopped'))).toEqual(['stopped', 'fermo']);
   });
 });
 
@@ -358,12 +358,12 @@ describe('the chat in both languages', () => {
     const done = [task('completed'), task('completed'), task('completed')];
     expect(both(() => delegationGroupLabel(done))).toEqual([
       '3 tasks completed',
-      '3 compiti completati',
+      '3 incarichi completati',
     ]);
     const mixed = [task('completed'), task('started'), task('failed'), task('failed')];
     expect(both(() => delegationGroupLabel(mixed))).toEqual([
       '4 tasks: 1 completed, 1 in progress, and 2 stopped',
-      '4 compiti: 1 completato, 1 in corso e 2 fermati',
+      '4 incarichi: 1 completato, 1 in corso e 2 fermati',
     ]);
   });
 

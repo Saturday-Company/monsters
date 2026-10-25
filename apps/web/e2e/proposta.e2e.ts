@@ -34,15 +34,15 @@ test('the capo proposes a monster; "Crea" adds it and the card leads to its chat
   await expect(card).toContainText('Lyra');
   await expect(card).toContainText('keeps ideas in order');
   const details = card.getByTestId('proposal-details');
-  await expect(details).toContainText('NOTES');
+  await expect(details).toContainText('Notes');
   await expect(details).toContainText('writes in Idee/');
   await expect(details).toContainText('same as Titan');
   // Every rule that "Crea" writes in its AGENTS.md is on the card (D-079).
   await expect(card.getByTestId('proposal-duties').getByRole('listitem')).toHaveText([
     'One note per idea, with links to the nearby notes.',
   ]);
-  await expect(details).toContainText('no terminal or files');
-  await expect(details).toContainText('Services');
+  await expect(details).toContainText('no commands or file changes');
+  await expect(details).toContainText('Apps');
   // Not in the team before the tap.
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Lyra,/ })).toHaveCount(0);
   if (SHOTS) {

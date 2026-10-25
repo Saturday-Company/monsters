@@ -65,7 +65,7 @@ const en = {
     areaHint: 'A folder in the notes: it puts what it prepares there.',
     web: 'Does web research',
     webText:
-      'Research is its job: the lead hands it the searches and it gets more steps per job. Any monster with web permission can also search the web (see Permissions).',
+      'Research is its job: the lead hands it the searches and it gets more steps per job. Any monster with web permission can search too.',
     roleSaved: (name: string) => `What ${name} does is saved.`,
     overwrite: (name: string) =>
       `You edited ${name}’s instructions by hand: replace them? A copy stays saved.`,
@@ -213,7 +213,7 @@ const it: typeof en = {
     areaHint: 'Una cartella delle note: lì mette quello che prepara.',
     web: 'Fa ricerche sul web',
     webText:
-      'È il suo mestiere: il capo gli passa le ricerche e ha più passi per lavoro. Il web lo usa ogni mostro che ne ha il permesso, in Permessi.',
+      'È il suo mestiere: il capo gli passa le ricerche e ha più passi per lavoro. Cerca sul web anche ogni mostro che ha il permesso.',
     roleSaved: (name) => `Cosa fa ${name}: salvato.`,
     overwrite: (name) =>
       `Hai modificato a mano le istruzioni di ${name}: le sostituisco? Una copia resta salvata.`,
@@ -229,7 +229,7 @@ const it: typeof en = {
     close: 'Chiudi',
     lead: 'il tuo capo',
     leadShort: 'Capo',
-    coordinatesProject: 'Coordina il progetto e passa i compiti agli altri.',
+    coordinatesProject: 'Coordina il progetto e passa gli incarichi agli altri.',
     write: 'Scrivi',
     writeTo: (name) => `Scrivi a ${name}`,
     name: 'Nome',

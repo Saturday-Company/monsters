@@ -47,7 +47,7 @@ const en = {
 const it: typeof en = {
   rowHint: 'Una rete di sicurezza contro un lavoro che sfugge di mano.',
   intro:
-    'Un lavoro è una tua richiesta e tutti i mostri a cui passa il compito. Quando raggiunge il limite, i mostri riferiscono quello che hanno fatto fin lì.',
+    'Un lavoro è una tua richiesta e tutti i mostri a cui passa un incarico. Quando raggiunge il limite, i mostri riferiscono quello che hanno fatto fin lì.',
   what: 'la rete di sicurezza',
   presetsLabel: 'Quanto può fare un lavoro prima di fermarsi',
   presets: { careful: 'Prudente', normal: 'Normale', generous: 'Largo' },

@@ -36,7 +36,7 @@ async function shots(page: Page, name: string): Promise<void> {
 async function connectionsWindow(app: ElectronApplication, main: Page): Promise<Page> {
   await expect.poll(() => app.windows().length).toBe(2);
   const conn = app.windows().find((p) => p !== main)!;
-  await expect(conn).toHaveTitle('Connessioni · Monsters');
+  await expect(conn).toHaveTitle('Computer · Monsters');
   return conn;
 }
 
@@ -134,7 +134,7 @@ test('first start: the choice comes first, no core before it, then this computer
   }
 });
 
-test('the status pages of the local core: "Connessioni…" while starting', async () => {
+test('the status pages of the local core: "Computer…" while starting', async () => {
   const { app, page } = await launch(dirs.home, dirs.userData(2), {
     MONSTERS_DESKTOP_CORE: join(dirs.root, 'nessun-core.js'),
   });
@@ -143,9 +143,9 @@ test('the status pages of the local core: "Connessioni…" while starting', asyn
     await expect(missing).toBeVisible({ timeout: 30_000 });
     // From the sources: the developer's hint is there (never in a package).
     await expect(page.getByText(/pnpm build:core/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Connessioni…' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Computer…' })).toBeVisible();
     await shots(page, 'stato-manca');
-    await page.getByRole('button', { name: 'Connessioni…' }).click();
+    await page.getByRole('button', { name: 'Computer…' }).click();
     await connectionsWindow(app, page);
   } finally {
     await quit(app);

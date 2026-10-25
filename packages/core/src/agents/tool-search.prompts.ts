@@ -39,7 +39,7 @@ const en = {
   callUnknownHint:
     'Use tools_search with a few words to find the tool and its exact name, then call it with tools_call. It is not a no from the user.',
   callInstructions:
-    'The tools of connected services that are not listed here are reached with `tools_call` (their names are in the Monsters card, `tools_search` tells their parameters).',
+    'The tools of connected apps that are not listed here are reached with `tools_call` (their names are in the Monsters card, `tools_search` tells their parameters).',
   // The groups the card and the description name the waiting tools by.
   groups: {
     progetti: 'projects',
@@ -80,7 +80,7 @@ const it: typeof en = {
   callUnknownHint:
     'Usa tools_search con poche parole per trovare lo strumento e il suo nome esatto, poi chiamalo con tools_call. Non è un no dell’utente.',
   callInstructions:
-    'Gli strumenti dei servizi collegati che non sono elencati qui si chiamano con `tools_call` (i nomi sono nella scheda Monsters, `tools_search` dice i loro parametri).',
+    'Gli strumenti delle app collegate che non sono elencati qui si chiamano con `tools_call` (i nomi sono nella scheda Monsters, `tools_search` dice i loro parametri).',
   groups: {},
 };
 

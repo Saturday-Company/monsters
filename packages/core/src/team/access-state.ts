@@ -53,7 +53,8 @@ export interface RunAccessInput {
 /** What the fingerprint of the accesses called each built-in access in each family: data, not copy. */
 const BUILT_IN_CAPS: Record<'capWeb' | 'capTerminal' | 'capBrowser', readonly string[]> = {
   capWeb: ['il web', 'web access'], // i18n-ignore
-  capTerminal: ['terminale e file', 'terminal and files'], // i18n-ignore
+  // The first two are the names in use; the others are what an older version saved.
+  capTerminal: ['comandi e file', 'commands and files', 'terminale e file', 'terminal and files'], // i18n-ignore
   capBrowser: ['il browser di Monsters', 'the Monsters browser'], // i18n-ignore
 };
 

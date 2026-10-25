@@ -213,7 +213,7 @@ export class MockTelegram {
           return fail(
             409,
             'no_token',
-            tr('Connect the bot with its token first.', 'Collega prima il bot con il suo token.'),
+            tr('Connect the bot with its code first.', 'Collega prima il bot con il suo codice.'),
           );
         }
         let code = '';

@@ -5,7 +5,7 @@ import { defineStrings } from '../../lib/i18n.ts';
 const en = {
   loading: 'Loading…',
   properties: (n: number) => `Properties (${n})`,
-  yamlBroken: 'The properties can’t be read (invalid YAML): the note is read as text.',
+  yamlBroken: 'The note’s properties can’t be read: it is read as plain text.',
   marked: {
     owned: 'Done: the line is yours, without the mark.',
     title: 'Lines from third-party text',
@@ -108,7 +108,7 @@ const en = {
 const it: typeof en = {
   loading: 'Carico…',
   properties: (n) => `Proprietà (${n})`,
-  yamlBroken: 'Le proprietà non si leggono (YAML non valido): la nota è letta come testo.',
+  yamlBroken: 'Le proprietà della nota non si leggono: viene letta come testo semplice.',
   marked: {
     owned: 'Fatto: la riga è tua, senza segno.',
     title: 'Righe da testo di terzi',

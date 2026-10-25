@@ -43,7 +43,7 @@ const en = {
   configDenied: (settings: string) =>
     `The Claude Code and Codex configuration in your folder (.claude, .mcp.json, CLAUDE.md, AGENTS.md, .codex) is not written: the user changes your rules in ${settings}. For the CLAUDE.md or AGENTS.md of a project’s folder, propose the new text with \`project_docs_propose\`: the user applies it.`,
   // Where a result comes from (the envelope of external data and Activity)
-  sourcePlanSearch: (query: string) => `the subscription’s web search: ${query}`,
+  sourcePlanSearch: (query: string) => `the plan’s web search: ${query}`,
   sourceViaClaude: (server: string, tool: string) => `${server} (via Claude): ${tool}`,
 };
 
@@ -82,7 +82,7 @@ const it: typeof en = {
   configDenied: (settings) =>
     `La configurazione di Claude Code e Codex nella tua cartella (.claude, .mcp.json, CLAUDE.md, AGENTS.md, .codex) non si scrive: le tue regole le cambia l’utente in ${settings}. Per CLAUDE.md o AGENTS.md della cartella di un progetto proponi il testo nuovo con \`project_docs_propose\`: lo applica l’utente.`,
   // Where a result comes from (the envelope of external data and Activity)
-  sourcePlanSearch: (query: string) => `ricerca sul web dell'abbonamento: ${query}`,
+  sourcePlanSearch: (query: string) => `ricerca sul web del piano: ${query}`,
   sourceViaClaude: (server: string, tool: string) => `${server} (tramite Claude): ${tool}`,
 };
 

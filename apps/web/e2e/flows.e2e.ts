@@ -361,7 +361,7 @@ test('kill switch and resume', async ({ page }) => {
   await page.getByTestId('kill').click();
 
   await expect(page.getByTestId('halt-banner')).toContainText('The monsters are stopped');
-  await expect(page.getByRole('link', { name: /^Rhea, paused/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Rhea, stopped/ })).toBeVisible();
   // The field stays on: what is written waits for "Riprendi".
   const input = page.getByRole('combobox', { name: 'Message' });
   await expect(input).toBeEnabled();

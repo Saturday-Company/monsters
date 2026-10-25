@@ -32,7 +32,7 @@
 │ ● ● ●  monsters        │ View title  [view keys]                  ▐ ● 2 AT WORK · 1 QUESTION    17:42 ▌  STOP [▤] │ ← (— □ ✕ on Win/Linux)
 ├─ sidebar 300 ──────────┼─ content module (recessed panel, top-left corner radius 14) ─────────────────────────────┤
 │ [ SEARCH         ⌘K ]  │ ┌ monster monitor (black screen, 76 px) ─────────────────────────────────────────────┐ │
-│ PERSONAL SQUAD · 4     │ │ [monster]  TITAN   squad lead · coordinates 3 monsters    3 TOOLS · 4.1 S · FREE   │ │
+│ PERSONAL SQUAD · 4     │ │ [monster]  TITAN   Your lead  · coordinates 3 monsters    3 TOOLS · 4.1 S · FREE   │ │
 │ ▣ Titan   ● 1   17:41  │ └────────────────────────────────────────────────────────────────────────────────────┘ │
 │   Asks you something   │      messages …                                                                      │
 │ ▣ Rhea    ▮▮▯   now    │      [A] Photo of the dish     ● RECOMMENDED                                         │
@@ -73,7 +73,7 @@
   is all chassis.
 - The document keeps `data-chrome="inset" | "overlay"`; in the browser no space is reserved. Double click on the rail:
   maximize (the system does it).
-- Secondary windows (Connections, the status page) and `page-theme.ts`: the same parts as the UI (rail with monsters,
+- Secondary windows (Computers, the status page) and `page-theme.ts`: the same parts as the UI (rail with monsters,
   keys, fields, screens, lights, the device with the screws, Titan made of dots) and the same typefaces, which travel
   inside the `data:` pages (`page-fonts.ts`, Latin only, `font-src data:`; D-089). The status page is the sign-in
   device: a big screen while waiting, the monitor strip when there is a problem.
@@ -248,7 +248,7 @@ everything runs in `steps()`, only `transform`, `opacity` and `visibility` chang
   right (`⌘2`, `⌘3`, `⌘4`, `⌘5`, `⌘,`; D-096). Chosen: like the strip. On Automations, the orange light and the number
   of runs waiting for an answer.
 - **Computer selector** (desktop only): a row with the light (green ready, orange connecting, gray unreachable),
-  "THIS COMPUTER" or the connection's name in `.label`, and the little triangle. It opens Connections.
+  "THIS COMPUTER" or the computer's name in `.label`, and the little triangle. It opens Computers.
 
 ## The god's bar (D-101)
 - **Where**: at the top of the sidebar, above the search and the squads (margins 12, like the strips); on the phone at
@@ -440,7 +440,7 @@ changes.
   change is a light-on in three frames (120 ms). With "Reduce motion" it just appears and disappears. No blurs: a
   short solid shadow only for the sheet.
 
-## Behind the scenes (the monster's terminal)
+## Behind the scenes (a monster's live log)
 A tab of the right-hand pane that is a **large screen**: `--screen` background, static scan lines, Martian Mono 12.5
 text in `--screen-ink`, the tools' names in the monster's color, errors in light red, times in `--screen-muted`. At
 the top the small dot monster and the name in Doto. It opens from "Behind the scenes" and from the instrumentation
@@ -467,7 +467,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   the whole width) with below "0 · 75% · COMPACTS HERE · 64K", the legend (sample dash, name, what it is for, tokens and
   share); **This conversation** (tokens in/out, cache read and written, calls, duration, cost in $ and €, per model,
   web searches, instinct); **Today · this month** against the squad's cap (10 segments as in Models) and the "Spending
-  cap · Settings → Models" key. On a subscription, instead of money "included in the subscription" and a line that
+  cap · Settings → Models" key. On a plan, instead of money "included in your plan" and a line that
   says so. Values in Martian Mono 14, `.label` labels 11. It follows the chat you open; Esc or ✕ close the pane.
 - **Motion**: a dash that lights up (or changes part) does it in three frames (120 ms, `steps(3)`); with "Reduce
   motion" it just changes. Live data: the preview reads `provider_usage.context` from the stream, the pane rereads
@@ -484,7 +484,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
 - **Thresholds:** below 80% `--screen-ink` light; from 80% dashes and percentage in `--signal` with the words "running
   low"; from 95% in `--stop` with "almost at the limit", at 100% "limit reached". Color is never alone: the words, the
   percentage and the accessible name (`role="meter"`, "Session: 9% used") say the same.
-- **Where:** in Settings → Models below the "Claude subscription" row (when sign-in is ready) and below the ChatGPT one,
+- **Where:** in Settings → Models below the "Claude plan" row (when sign-in is ready) and below the ChatGPT one,
   with the `.label` title "PLAN USAGE"; in the Usage pane of a monster on the plan, as a "Plan usage · Claude" section
   between "This conversation" and "Today · this month" (without the screen in the middle: the tab is already a screen).
   A monster on a free or key-based model doesn't have the section.
@@ -512,7 +512,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   with the extension in light), below the name (or the page's title) in 15 semibold, "IMAGE · 240 KB", who made it
   ("From you", the monster on its little screen with "Rhea's screenshot" / "Dione's page") and the date. Download and
   Delete are 36 keys in the corner, lit on hover (always visible on a touch screen); Delete asks for confirmation like
-  Stop: first touch "AGAIN" (red border, 5 s), second touch deletes. Empty: a screen with the squad lead and two lines
+  Stop: first touch "AGAIN" (red border, 5 s), second touch deletes. Empty: a screen with the lead and two lines
   ("NO FILES YET" and how to add some).
 
 ## Notes, Activity, Settings
@@ -548,10 +548,10 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   Quick / Balanced / Thorough tiers and "Automatic"; a squad whose monsters differ says "Different for some monsters";
   the name reads in words, "Free, chosen by OpenRouter"),
   **Permissions** (first "They always ask you", then what each monster can use, at the bottom "Advanced"),
-  **Connections** (the roads to and from the outside: paused tools when one waits, Telegram, "Apps and services" with
+  **Apps and Telegram** (the roads to and from the outside: paused tools when one waits, Telegram, "Apps" with
   the gallery, the browser and "Add a custom app", and one "Web search" group: free search with the Brave key, then the
   "Paid search" lever and, when on, the Cheap / Precise segment with the cost per 1,000 searches, D-071, D-167),
-  **General** (Look and feel, "Account and security" with the keys' row, the notes folder). In Connections, below Telegram's main bot, the **"Bots dedicated to a monster"**
+  **General** (Look and feel, "Account and security" with the keys' row, the notes folder). In Apps and Telegram, below Telegram's main bot, the **"Group bots (advanced)"**
   group (D-107): one entry per bot (@username, the "N TO APPROVE" tile, monster · project or "Personal squad", the
   state light, "Remove bot"), with the groups (Approve / Reject, then Remove), "Who can talk to it" (your account with
   "you" and no key, the others Approve / Reject / Remove, "Add with the Telegram ID") and "Today's messages"; "Add a
@@ -588,16 +588,16 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   drawer "Exact limits" with the steps, tokens, cost (in euros) and delegations of one job, for paid-per-use models
   and, apart, for plans ("Restore the defaults"). At the cap a line says the paid jobs are
   stopped and "Raise the cap" (double, rounded to €5) restarts them. At the bottom, small, what doesn't count (free
-  models, subscriptions) and the fixed exchange rate. In the chat the 80% and the cap are lines between the seams
+  models, plans) and the fixed exchange rate. In the chat the 80% and the cap are lines between the seams
   (`--signal`, `--stop`), the stopped job has "Raise the cap" in place of "Try again"; also a notice at the bottom.
-- **Paused tools** (Connections tab, D-070): a module that is there only when needed, above "Apps and services": "GitHub
+- **Paused tools** (Apps and Telegram tab, D-070): a module that is there only when needed, above "Apps": "GitHub
   changed a tool: the monsters don't use it until you accept it", the tool's name in monospace with a tile
   ("DESCRIPTION CHANGED", "NEW", "ARGUMENTS CHANGED"), the previous description struck through and the current one on
   two small screens, a sentence on why to read it, then "Disconnect" (with confirmation) and "Accept".
-- **Apps and services** (Connections tab, D-063): every service is a key with its logo on a small black screen (the
+- **Apps** (Apps and Telegram tab, D-063): every app is a key with its logo on a small black screen (the
   logo's color as light, ≥ 3:1 on black; black logos take `--screen-ink`), the name, a sentence and the state in `.label`
   with the light. The pane asks only for what is needed and leaves the rail (Stop) uncovered. When connected with a
-  token, next to Test and Disconnect there is **"Change the token"** (D-072): it opens below a (password) field with
+  token, next to Test and Disconnect there is **"Change the key"** (D-072): it opens below a (password) field with
   "Create the token", "Save and test" and "Cancel"; only the token changes, then the test starts by itself. The same
   key is in "Apps and services" for the programs with hidden values (with several values, a segment to choose it). During a
   pending sign-in, below the pane "Return page won't open?" (a drawer like "Details") opens the "Address of the
@@ -642,7 +642,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   project" and "To review". `@Name` reaches the project's monsters (in the @ menu they come first).
 - **Stop project**: a ghost key in the rail with the open hand and the `.label` ("STOP" on the phone). First touch:
   "AGAIN" in `--stop-ink` with a red border for 5 s; second touch: it stops the work of the project's monsters (not of
-  the others, the kill switch stays up) and a notice says what ("1 job", "nobody was working").
+  the others, Stop stays up) and a notice says what ("1 job", "nobody was working").
 - **Squad**: a module with a 52 row per monster (the 52×46 screen in its state, name 16 semibold, "LEAD" in
   `--signal-ink` for the lead, the role), "Write" and "Remove" (confirmation in the row; the lead can't be removed). At
   the bottom "Copy a monster" (the monsters of the other squads, each with "Copy": below the row the proposed name,
@@ -684,7 +684,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
 - **Sign-in**: at the top (not centered: an error or a new pane grows downward, nothing jumps) a "device" (`.device`: a
   `--raised` cap with four screws in the corners): at the top the `.label` "SIGN-IN" (or "FIRST POWER-ON") and a light
   with the state word (waiting, checking, refused, awake; during the check the dashes run in place of the light); then
-  a big screen with the squad lead **asleep** and a line of light ("THE SQUAD IS ASLEEP"); below the title, the recessed
+  a big screen with the lead **asleep** and a line of light ("THE SQUAD IS ASLEEP"); below the title, the recessed
   fields and the "Sign in" key. The last email used is remembered (in this browser) and then the focus goes to the
   password. When sign-in succeeds the monster wakes up (happy, 600 ms, "task done" sound if sounds are on) and you go
   in (`login`/`setup` accept `beforeEnter`). A refused password or a missing field: the monster makes the error face for
@@ -704,9 +704,9 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   the actions at the bottom of the card behind one "Edit" key, each with its name under the icon (What it does, Name,
   Look, Remove). When the squad is
   born every monster **lights up dot by dot** on its screen (`DotReveal`: `dotGrid` + `dotPalette`, random order from
-  the seed, ~700 ms, one after the other, the squad lead first), with a "tick" for each monster and the "task done"
+  the seed, ~700 ms, one after the other, the lead first), with a "tick" for each monster and the "task done"
   sound at the last if sounds are on; "POWER-ON n/N" counts (with the dashes running, then the green light) and every
-  monster lit is "AWAKE". With "Reduce motion" the monsters are already lit. Then the squad lead says hello.
+  monster lit is "AWAKE". With "Reduce motion" the monsters are already lit. Then the lead says hello.
 
 ## Sounds (off by default)
 Synthesized with WebAudio, no files: key click (8 ms filtered noise), lever (two lower clicks), question light (two
@@ -731,38 +731,60 @@ already created change their look without migrations. Rules in numbers in the "D
 - In the terminal: `renderDotsText` prints the same monster with half blocks and 24-bit ANSI colors.
 
 ## Text glossary
-One word per concept, everywhere (UI, core messages, desktop app notifications):
-| Concept | Say | Don't say |
-|---|---|---|
-| Who coordinates | **squad lead** ("Your squad lead") | orchestrator, coordinator |
-| History of what happens | **Activity** | Log, Action log, record |
-| The user's memory | **notes** (Obsidian only for compatibility) | vault, second brain |
-| The stop | **Stop** / **Resume** | Kill, Halt, Stop everything |
-| Where Monsters runs | **computer** ("This computer", "Home PC") | PC, core, engine, server |
-| Anthropic subscription | **Claude subscription** (Claude Code in the details) | Claude Agent |
-| A monster's terminal | **Behind the scenes** (tooltip "terminal") | Terminal as a label |
-| The model that thinks | **model** | provider, LLM |
-| The squad's quick decisions (System 1) | **instinct** ("the squad's instinct"; "Instinct" module in Squad) | System 1, DecisionGate, gate, classifier |
-| The account of a job | **receipt** ("Undo the whole job") | report, log of the run |
-| The monsters' results per model | **report card** ("The monsters' report card") | scorecard, benchmark |
-| A use of the instinct that for now only takes notes | **on trial** | trial, beta, shadow |
-| A use that looks and writes what it would have done, changing nothing | **only notes** | shadow, shadow mode |
-| A checked and complete job | **really done** | verified |
-| A monster that repeats the same actions | **going in circles** / **changing course** | stuck, loop |
-| The actions that leave the computer, stopped to ask | **brake** (in Activity) | outbound, gate |
-| Undoing every note a job touched | **Undo the whole job** | undo run, rollback |
-| How much the monsters can spend | **spending cap** ("Raise the cap") | budget, cap, cost limit |
-| How much of the model's working memory the conversation takes up | **context** ("Context", "compacts here") | context window, token budget |
-| A monster's tokens, costs and cap | **usage** ("Titan's usage") | consumption, metrics |
-| A program's tools that changed and are held | **paused** ("Paused tools", "Accept") | rug pull, quarantine, pin |
-| The space on the right with preview, terminal and usage | **right-hand pane** ("Preview", "Behind the scenes", "Usage" tabs) | dock, inspector, right sidebar |
-| An HTML page made by a monster, closed | **page** "in a closed box" | artifact, sandbox, iframe |
-| A job the squad does by itself at a set time | **automation** ("New automation") | routine, job, cron |
-| A squad with its own lead, folder, notes and cap | **project** ("New project", "Stop project") | workspace, team |
-| Who leads a project | **lead** ("Project lead") | head, orchestrator |
-| What a monster proposes and waits for a tap | **draft** ("To confirm", "Confirm", "Discard") | pending proposal |
-| One time an automation runs | **run** ("Run now", "the runs") | execution |
-| Images and documents sent or created | **files**, **attachments** ("Attach a file", the "Files" section) | upload, asset |
+One word per concept, everywhere (UI, core messages, desktop app notifications, Telegram). The Italian column is what
+the app says in Italian. Wave D swept every dictionary to these words.
+| Concept | Say (English) | In Italian | Don't say |
+|---|---|---|---|
+| Who coordinates | **lead** ("Your lead", "Project lead") | capo («il tuo capo») | squad lead, orchestrator, coordinator |
+| History of what happens | **Activity** | Attività | Log, Action log, record |
+| The user's memory | **notes** (Obsidian only for compatibility) | note | vault, second brain |
+| The stop | **Stop** / **Resume** (never "kill switch" in the UI) | Stop / Riprendi | Kill, Halt, kill switch |
+| A stopped monster | **stopped** (its mood) | fermo | paused |
+| Where Monsters runs | **computer** ("This computer", "Home PC"); "Monsters" or "the app on that computer" | computer | PC, core, engine, server |
+| Settings window of the desktop app listing other computers | **Computers** | Computer | Connections |
+| Claude / ChatGPT subscriptions | **plan** ("Your Claude plan"); "subscription" only in legal text | piano | subscription, abbonamento |
+| A monster's live log pane | **Behind the scenes** (never "(terminal)") | Dietro le quinte | Terminal as a label |
+| "terminal" | only the operating system's terminal | terminale | the permission or the log pane |
+| Permission to run commands | **Run commands** | Eseguire comandi | Terminal |
+| The model that thinks | **model** | modello | LLM |
+| Adding a model provider | **Add a model** | Aggiungi un modello | Connect a model |
+| A model provider account | **account** ("OpenRouter account") | account | service, provider |
+| Third-party integrations (MCP) | **Apps** ("MCP" only in Advanced and tooltips) | App | services, programs, connections |
+| Settings tab with Telegram, apps and web search | **Apps and Telegram** | App e Telegram | Connections |
+| A project's tab with its folder, apps, spending and archive | **Settings** | Impostazioni | Connections, Folder, Spending |
+| Credential an app asks for | **key** ("Personal key"); "token" only in technical details | chiave | token (BotFather's token is the exception) |
+| Language of the app | **App language** | Lingua dell'app | Language |
+| Language the monsters write in | **Monsters' writing language** | Lingua in cui scrivono i mostri | Language |
+| Model tiers | **Quick / Balanced / Thorough** | Veloce / Bilanciato / Accurato | Light / Medium / Strong |
+| The monsters' quick decisions (System 1) | **Monsters' decisions** ("the instinct" in D-067 and the code) | Decisioni dei mostri | System 1, DecisionGate, gate, classifier |
+| The monsters' results per model | **scorecard** ("Monster scorecard") | pagella | benchmark |
+| A use of the decisions that for now only takes notes | **on trial** | in prova | trial, beta, shadow |
+| A use that looks and writes what it would have done, changing nothing | **only notes** | | shadow, shadow mode |
+| What a monster does on a request | **job** ("Limits of each job", "Job receipt", "job started") | lavoro | run, task, turn |
+| One time an automation runs | **run**, only for automations ("Cap per automation run", "Run now") | giro | execution, job |
+| A monster handing work to another | **task** ("Task from Titan to Rhea"), only for delegations | incarico | duty, job |
+| A monster's list of duties | **What it does** | Cosa fa | Tasks, Duties |
+| The account of a job | **receipt** ("Undo the whole job") | ricevuta | report, log of the run |
+| A checked and complete job | **really done** | | verified |
+| A monster that repeats the same actions | **going in circles** / **changing course** | | stuck, loop |
+| The actions that leave the computer, stopped to ask | **brake** (in Activity) | freno | outbound, gate |
+| Undoing every note a job touched | **Undo the whole job** | | undo run, rollback |
+| How much the monsters can spend | **spending cap** ("Raise the cap"); the top of the chain is **All monsters** | tetto di spesa; Tutti i mostri | budget, cost limit, whole squad |
+| The limits of a job | **Safety net** (in euros; the rate is in the spending cap) | Rete di sicurezza | limit in dollars |
+| How much of the model's working memory the conversation takes up | **context** ("Context", "compacts here") | contesto | context window, token budget |
+| A monster's tokens, costs and cap | **usage** ("Titan's usage") | consumi | consumption, metrics |
+| A program's tools that changed and are held | **paused** ("Paused tools", "Accept"), for tools only | in pausa | rug pull, quarantine, pin |
+| The space on the right with preview, behind the scenes and usage | **right-hand pane** ("Preview", "Behind the scenes", "Usage" tabs) | pannello a destra | dock, inspector, right sidebar |
+| An HTML page made by a monster, closed | **page** "in a closed box" | pagina | artifact, sandbox, iframe |
+| Work the squad does by itself at a set time | **automation** ("New automation") | automazione | routine, cron |
+| A squad with its own lead, folder, notes and cap | **project** ("New project", "Stop project") | progetto | workspace, team |
+| What a monster proposes and waits for a tap | **draft** ("To confirm", "Confirm", "Discard") | bozza | pending proposal |
+| Images and documents sent or created | **files**, **attachments** ("Attach a file", the "Files" section) | file, allegati | upload, asset |
+
+Technical words (tokens, MCP, OAuth, environment variable names, `CLAUDE.md`, commands such as
+`monsters log read --month`) live only in "Details" or "Advanced", or when the technical details are on. A description
+on the first layer is at most about 140 characters; the rest goes in a "Details" drawer. No capitals baked into a string:
+style with `.label`.
 
 "Jev" and "TypeSafe" appear only as the engine's name in the "Who decides" row and in the technical details (D-067).
 

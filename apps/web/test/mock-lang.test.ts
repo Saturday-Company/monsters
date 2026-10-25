@@ -82,11 +82,11 @@ describe('the mock in two languages', () => {
     // The demo's main bot is connected: take it out to see the answer of a bot without a token.
     call(core, 'DELETE', '/api/telegram/token');
     expect(call(core, 'POST', '/api/telegram/pairing').body).toMatchObject({
-      message: 'Connect the bot with its token first.',
+      message: 'Connect the bot with its code first.',
     });
     call(core, 'PUT', '/api/settings/language', { language: 'it' });
     expect(call(core, 'POST', '/api/telegram/pairing').body).toMatchObject({
-      message: 'Collega prima il bot con il suo token.',
+      message: 'Collega prima il bot con il suo codice.',
     });
     // What was seeded stays in the language the mock started with (until the page reloads).
     expect(texts(core.events)).toContain('Dione, can you write me a short bio for Instagram?');

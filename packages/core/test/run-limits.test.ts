@@ -159,9 +159,9 @@ describe('run limits', () => {
       b.addStep(10, 1.6);
       return b;
     };
-    expect(budget().exhausted()).toBe('this task spent its 1.5 $ limit');
+    expect(budget().exhausted()).toBe('this job spent its 1.5 $ limit');
     inLang('it');
-    expect(budget().exhausted()).toBe('questo compito ha speso il suo limite di 1,5 $');
+    expect(budget().exhausted()).toBe('questo lavoro ha speso il suo limite di 1,5 $');
   });
 
   it('a lead’s run keeps its steps and delegations; the cost has one limit for the tree (F-A6)', () => {
@@ -218,19 +218,19 @@ describe('run limits', () => {
     expect(budget.stepsLeft()).toBe(2);
     budget.addUsage(5000, 0, true);
     expect(budget.exhaustedBy()).toEqual({
-      message: 'this task used all its 9000 tokens on the subscription',
+      message: 'this job used all its 9000 tokens on the plan',
       limit: { kind: 'tokens', value: 9000, plan: true },
     });
     const steps = new RunBudget(RunLimitsSchema.parse({ plan: { maxRunSteps: 2 } }));
     steps.addStep(10, 0, true);
     steps.addStep(10, 0, true);
     expect(steps.exhaustedBy()).toEqual({
-      message: 'this task used all its 2 model steps on the subscription',
+      message: 'this job used all its 2 model steps on the plan',
       limit: { kind: 'steps', value: 2, plan: true },
     });
     inLang('it');
     expect(steps.exhausted()).toBe(
-      'questo compito ha usato tutti i suoi 2 passi del modello sull’abbonamento',
+      'questo lavoro ha usato tutti i suoi 2 passi del modello sul piano',
     );
   });
 
@@ -241,7 +241,7 @@ describe('run limits', () => {
     budget.addStep(10);
     budget.addStep(10);
     expect(budget.exhaustedBy()).toEqual({
-      message: 'this task used all its 2 model steps',
+      message: 'this job used all its 2 model steps',
       limit: { kind: 'steps', value: 2 },
     });
   });

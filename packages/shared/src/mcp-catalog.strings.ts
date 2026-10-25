@@ -1,7 +1,7 @@
 import { pick, type Lang } from './i18n.ts';
 
 /*
- * The words of the gallery of apps and services (D-063, D-153): categories, one line on what the
+ * The words of the gallery of apps (D-063, D-153): categories, one line on what the
  * monsters can do with each, the company field, the token's name and hint, notes and the reason
  * a service is "soon". Ids, addresses and commands are data and stay in `mcp-catalog.ts`.
  */
@@ -33,10 +33,10 @@ const en = {
   /** The default name of the company field. */
   tenantLabel: 'Your company',
   soonApproved:
-    'It only accepts apps approved one by one and has no token to paste. With your Claude subscription connected you use it through Claude.',
+    'It only accepts apps approved one by one and has no key to paste. With your Claude plan connected you use it through Claude.',
   /** `settings` is the place of the models in the settings ("Settings → Models"). */
   soonClaudeDesign: (settings: string) =>
-    `It connects only through Claude: you need your Claude subscription connected in ${settings}.`,
+    `It connects only through Claude: you need your Claude plan connected in ${settings}.`,
   /** Where to get the program that starts a server. */
   nodeDownload: 'https://nodejs.org/en/download',
   entries: {
@@ -45,7 +45,7 @@ const en = {
       tenantLabel: 'Your company',
       tenantHint: 'The name before .anteiku.it in the address you use (for Saturday: saturday).',
       token: {
-        label: 'Personal token',
+        label: 'Personal key',
         hint: 'In Sistema › Connessioni, after unlocking with your password: it starts with anteiku_pat_ and is shown only once.',
       },
       note: 'The monsters work like you, with your permissions; every change stays in Anteiku’s activity.',
@@ -55,7 +55,7 @@ const en = {
       tenantLabel: 'Your company',
       tenantHint: 'The name before .witdesk.it in the address you use.',
       token: {
-        label: 'Personal token',
+        label: 'Personal key',
         hint: 'In Preferenze › Connessioni: it starts with witdesk_pat_ and is shown only once.',
       },
       note: 'First your company’s administrator turns on “Connettori” in WitDesk (Banco → Impostazioni → Collegamenti).',
@@ -63,7 +63,7 @@ const en = {
     github: {
       description: 'Read and create issues and pull requests',
       token: {
-        label: 'Personal token',
+        label: 'Personal key',
         hint: 'Pick the repositories and give read and write access to Contents, Issues and Pull requests.',
       },
     },
@@ -96,8 +96,8 @@ const en = {
     cloudflare: {
       description: 'Manage Workers, DNS, R2 and the Cloudflare API',
       token: {
-        label: 'API token',
-        hint: 'Give the token only the permissions for the services you want used.',
+        label: 'API key',
+        hint: 'Give the key only the permissions for the apps you want used.',
       },
     },
     airtable: { description: 'Read and edit bases, tables and records' },
@@ -108,7 +108,7 @@ const en = {
     context7: { description: 'Up-to-date documentation for libraries and APIs' },
     huggingface: {
       description: 'Search models, datasets, Spaces and papers',
-      token: { label: 'Access token', hint: 'A read-only token is enough.' },
+      token: { label: 'Access key', hint: 'A read-only key is enough.' },
     },
     neon: { description: 'Manage Postgres databases and branches' },
     exa: {
@@ -136,7 +136,7 @@ const en = {
     google: {
       name: 'Gmail, Drive and Calendar',
       description: 'Read mail, files and events',
-      soon: 'Google’s servers are in preview and ask for a Google Cloud project of your own. With your Claude subscription connected you use them through Claude.',
+      soon: 'Google’s servers are in preview and ask for a Google Cloud project of your own. With your Claude plan connected you use them through Claude.',
     },
     figma: { description: 'Read designs and turn them into code' },
     canva: { description: 'Create, edit and export designs' },
@@ -160,9 +160,9 @@ const it: typeof en = {
   tenantChars: 'solo lettere minuscole, numeri e trattini',
   tenantLabel: 'La tua azienda',
   soonApproved:
-    'Accetta solo app approvate una per una e non ha un token da incollare. Con l’abbonamento Claude collegato lo usi tramite Claude.',
+    'Accetta solo app approvate una per una e non ha una chiave da incollare. Con il piano Claude collegato lo usi tramite Claude.',
   soonClaudeDesign: (settings) =>
-    `Si collega solo tramite Claude: serve l’abbonamento Claude collegato in ${settings}.`,
+    `Si collega solo tramite Claude: serve il piano Claude collegato in ${settings}.`,
   nodeDownload: 'https://nodejs.org/it/download',
   entries: {
     anteiku: {
@@ -170,7 +170,7 @@ const it: typeof en = {
       tenantLabel: 'La tua azienda',
       tenantHint: 'Il nome prima di .anteiku.it nell’indirizzo che usi (per Saturday: saturday).',
       token: {
-        label: 'Token personale',
+        label: 'Chiave personale',
         hint: 'In Sistema › Connessioni, dopo lo sblocco con la password: inizia con anteiku_pat_ e si vede una volta sola.',
       },
       note: 'I mostri lavorano come te, con i tuoi permessi; ogni modifica resta nelle attività di Anteiku.',
@@ -180,7 +180,7 @@ const it: typeof en = {
       tenantLabel: 'La tua azienda',
       tenantHint: 'Il nome prima di .witdesk.it nell’indirizzo che usi.',
       token: {
-        label: 'Token personale',
+        label: 'Chiave personale',
         hint: 'In Preferenze › Connessioni: inizia con witdesk_pat_ e si vede una volta sola.',
       },
       note: 'Prima l’amministratore dell’azienda accende «Connettori» in WitDesk (Banco → Impostazioni → Collegamenti).',
@@ -188,7 +188,7 @@ const it: typeof en = {
     github: {
       description: 'Leggi e crea issue e pull request',
       token: {
-        label: 'Token personale',
+        label: 'Chiave personale',
         hint: 'Scegli i repository e dai lettura e scrittura a Contents, Issues e Pull requests.',
       },
     },
@@ -218,8 +218,8 @@ const it: typeof en = {
     cloudflare: {
       description: 'Gestisci Workers, DNS, R2 e l’API Cloudflare',
       token: {
-        label: 'Token API',
-        hint: 'Dai al token solo i permessi sui servizi che vuoi far usare.',
+        label: 'Chiave API',
+        hint: 'Dai alla chiave solo i permessi sulle app che vuoi far usare.',
       },
     },
     airtable: { description: 'Leggi e modifica basi, tabelle e record' },
@@ -230,7 +230,7 @@ const it: typeof en = {
     context7: { description: 'Documentazione aggiornata di librerie e API' },
     huggingface: {
       description: 'Cerca modelli, dataset, Spaces e paper',
-      token: { label: 'Token di accesso', hint: 'Basta un token di sola lettura.' },
+      token: { label: 'Chiave di accesso', hint: 'Basta una chiave di sola lettura.' },
     },
     neon: { description: 'Gestisci database e branch Postgres' },
     exa: {
@@ -258,7 +258,7 @@ const it: typeof en = {
     google: {
       name: 'Gmail, Drive e Calendar',
       description: 'Leggi mail, file e appuntamenti',
-      soon: 'I server di Google sono in anteprima e chiedono un progetto Google Cloud tuo. Con l’abbonamento Claude collegato li usi tramite Claude.',
+      soon: 'I server di Google sono in anteprima e chiedono un progetto Google Cloud tuo. Con il piano Claude collegato li usi tramite Claude.',
     },
     figma: { description: 'Leggi i design e trasformali in codice' },
     canva: { description: 'Crea, modifica ed esporta design' },

@@ -30,7 +30,7 @@ const en = {
   chatgptIncomplete: (message: string) => `Signing in to ChatGPT didn’t complete (${message}).`,
   revokeUnconfirmed:
     'I couldn’t confirm the revocation with OpenAI: also disconnect Monsters in ChatGPT’s settings.',
-  unknownSubscription: (id: string) => `Unknown subscription: ${id}`,
+  unknownSubscription: (id: string) => `Unknown plan: ${id}`,
   codexNeedsChatgpt: 'Codex uses your ChatGPT sign-in: connect ChatGPT first.',
   programMissing: 'I can’t find the program: install it from here or on your computer.',
   installed: (spec: string, who: 'Codex' | 'Claude Agent') => `Installed ${spec} for ${who}.`,
@@ -70,7 +70,7 @@ const it: typeof en = {
   chatgptIncomplete: (message) => `Accesso a ChatGPT non completato (${message}).`,
   revokeUnconfirmed:
     'Non ho potuto confermare la revoca con OpenAI: scollega Monsters anche dalle impostazioni di ChatGPT.',
-  unknownSubscription: (id) => `abbonamento ${id} sconosciuto`,
+  unknownSubscription: (id) => `piano ${id} sconosciuto`,
   codexNeedsChatgpt: 'Codex usa il tuo accesso a ChatGPT: collega prima ChatGPT.',
   programMissing: 'Non trovo il programma: installalo da qui o sul tuo computer.',
   installed: (spec, who) => `Installato ${spec} per ${who}.`,

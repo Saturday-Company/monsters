@@ -88,7 +88,7 @@ test('first launch: account with the code from the app, onboarding, links to the
     process: 'undefined',
   });
 
-  // Where the window is connected, and "Connessioni…" from the web UI (audit UX 1.3).
+  // Where the window is connected, and "Computer…" from the web UI (audit UX 1.3).
   const target = await page.evaluate(() =>
     (
       window as unknown as { monstersDesktop: { target(): Promise<unknown> } }

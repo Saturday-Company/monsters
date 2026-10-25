@@ -18,7 +18,7 @@ test('Tetto di spesa: what was spent, the caps, a cap per monster', async ({ pag
   await expect(page.getByTestId('spend-month')).toContainText('€7.95');
   // What does not count is said apart, with the fixed exchange rate.
   await expect(page.getByTestId('spend-footer')).toContainText('requests to free models');
-  await expect(page.getByTestId('spend-footer')).toContainText('Claude subscription');
+  await expect(page.getByTestId('spend-footer')).toContainText('Claude plan');
   await expect(page.getByTestId('spend-footer')).toContainText('$1 = €0.86');
 
   // The team's cap: a new number, saved.
@@ -55,8 +55,8 @@ test('the cap reached: warning, stop and "Alza il tetto", then the work goes on'
   await composer.fill('Go ahead and spend on the supplier research');
   await composer.press('Enter');
   // 80%: a line in the chat (and a toast), then the stop with a clear sentence.
-  await expect(page.getByText(/that’s 86% of the squad’s cap for today/).first()).toBeVisible();
-  await expect(page.getByText(/Reached the squad’s cap for today \(€10\)/).first()).toBeVisible();
+  await expect(page.getByText(/that’s 86% of all monsters’ cap for today/).first()).toBeVisible();
+  await expect(page.getByText(/Reached all monsters’ cap for today \(€10\)/).first()).toBeVisible();
   const raise = page.getByTestId('raise-cap');
   await expect(raise).toBeVisible();
   await expect(page.getByTestId('error-actions')).not.toContainText('Try again');
@@ -72,7 +72,7 @@ test('the cap reached: warning, stop and "Alza il tetto", then the work goes on'
   // Attività: the warning and the stop are among the important things.
   await page.evaluate(() => (window.location.hash = '#/log'));
   await expect(
-    page.getByTestId('event-row').filter({ hasText: 'Reached the squad’s cap' }),
+    page.getByTestId('event-row').filter({ hasText: 'Reached all monsters’ cap' }),
   ).toHaveCount(1);
 });
 

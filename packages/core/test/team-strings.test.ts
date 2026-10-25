@@ -22,13 +22,13 @@ describe('the team dictionaries', () => {
     expect(permissionsStrings().isFile('/tmp/a')).toBe('/tmp/a is a file, not a folder.');
     expect(accessStrings().grant).toBe('Yes, grant');
     expect(decisionStrings().grayNoModel).toBe('gray area without a model: asking');
-    expect(runAgentStrings().taskLimit).toBe('task limit reached');
+    expect(runAgentStrings().taskLimit).toBe('job limit reached');
     setAppLang('it');
     expect(teamManagerStrings().unknownProject('x')).toBe('Non c’è un progetto "x".');
     expect(permissionsStrings().isFile('/tmp/a')).toBe('/tmp/a è un file, non una cartella.');
     expect(accessStrings().grant).toBe('Sì, concedi');
     expect(decisionStrings().grayNoModel).toBe('zona grigia senza modello: si chiede');
-    expect(runAgentStrings().taskLimit).toBe('limite del compito raggiunto');
+    expect(runAgentStrings().taskLimit).toBe('limite del lavoro raggiunto');
   });
 
   it('plurals and lists follow the language', () => {

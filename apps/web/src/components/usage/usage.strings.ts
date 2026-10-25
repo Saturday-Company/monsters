@@ -27,7 +27,7 @@ const en = {
     summary: 'the older messages, summarized',
     conversation: 'the earlier messages and its steps so far',
     tool_results: 'what the tools returned',
-    current: 'this turn’s message, with the task’s instructions',
+    current: 'this turn’s message, with the job’s instructions',
   } satisfies Record<ContextPart, string>,
 
   plan: {
@@ -167,7 +167,7 @@ const it: typeof en = {
     summary: 'i messaggi più vecchi, riassunti',
     conversation: 'i messaggi di prima e i suoi passi di adesso',
     tool_results: 'quello che gli strumenti hanno restituito',
-    current: 'il messaggio di questo turno, con le istruzioni del compito',
+    current: 'il messaggio di questo turno, con le istruzioni del lavoro',
   },
 
   plan: {
@@ -226,7 +226,7 @@ const it: typeof en = {
     fromCache: (n) => `+ ${n} dalla cache`,
     subscription: 'piano',
     archived: (day) =>
-      `Conto parziale: i consumi di questa conversazione prima del ${day} sono nell’archivio del registro e qui non contano. La spesa del mese resta intera.`,
+      `Conto parziale: i consumi prima del ${day} sono nell’archivio del registro e qui non contano. La spesa del mese resta intera.`,
     sessionTitle: 'Questa conversazione',
     sessionDetailsTitle: 'Token e chiamate',
     sessionEmpty: 'Ancora niente: nessun lavoro dall’ultima “Nuova conversazione”.',

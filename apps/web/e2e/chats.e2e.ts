@@ -276,7 +276,7 @@ test('the monitor of the monster, the instrumentation line and "Dietro le quinte
   await line.click();
   const term = page.getByTestId('agent-terminal');
   await expect(term.getByRole('heading', { name: 'Behind the scenes of Titan' })).toBeVisible();
-  await expect(term.locator('[data-focus]').first()).toContainText('work started');
+  await expect(term.locator('[data-focus]').first()).toContainText('job started');
   await page.keyboard.press('Escape');
   await expect(term).toHaveCount(0);
 

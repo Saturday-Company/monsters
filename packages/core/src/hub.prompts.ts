@@ -33,7 +33,7 @@ const en: typeof it = {
   desktopDataClosed: 'The data folder of the Monsters app (session and settings) isn’t accessible.',
   privateInChat: (folder) =>
     `The private notes (${folder}/) aren’t accessible while you talk in a Telegram chat.`,
-  yourLead: 'your squad lead',
+  yourLead: 'your lead',
   viaClaude: (name) => `${name} (through Claude)`,
   imageSaved: (name, id) =>
     `[image saved among the user’s Files as "${name}" (fileId ${id}, /api/files/${id}/content): the user sees it in the chat. It is not visible as text: don’t describe it beyond what you know.]`,

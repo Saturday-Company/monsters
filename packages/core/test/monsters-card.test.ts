@@ -42,7 +42,7 @@ describe('the Monsters card', () => {
       - squadra: deleghi agli altri mostri (\`delegate\`)
       - domande all’utente (\`ask_user\`)
       - nuovi mostri: proponi una bozza (\`team_propose_monster\`), l’utente la crea
-      Non hai: servizi collegati (nessuno è dato a te: li collega e li dà l’utente in Impostazioni → App e Telegram → App).
+      Non hai: app collegate (nessuna è data a te: le collega e le dà l’utente in Impostazioni → App e Telegram → App).
       Solo l’utente, in Impostazioni: Squadra (creare, cambiare e archiviare mostri; chi è lui per voi), Modelli (modelli e spesa; tu non la vedi), Permessi, App e Telegram. Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file."
     `);
   });
@@ -53,7 +53,7 @@ describe('the Monsters card', () => {
       '- web: pagine con `web_fetch`; un sito o un indirizzo che l’utente o il brief nominano lo leggi tu con `web_fetch`: mai chiedergli di incollarlo\n',
     );
     expect(capo).toContain(
-      'Non hai: ricerca sul web (ce l’ha Pixel: delega le ricerche); servizi collegati',
+      'Non hai: ricerca sul web (ce l’ha Pixel: delega le ricerche); app collegate',
     );
     // Nobody searches: no search to name, the pages stay.
     const alone = monstersCard({ toolNames: orchestrator, webElsewhere: [] });
@@ -69,10 +69,10 @@ describe('the Monsters card', () => {
 
   it('a monster without the web knows who has it, never that it is denied (D-127)', () => {
     const capo = monstersCard({ toolNames: capoNoWeb, webElsewhere: ['Pixel'] });
-    expect(capo).toContain('Non hai: web (ce l’ha Pixel: delega la ricerca); servizi collegati');
+    expect(capo).toContain('Non hai: web (ce l’ha Pixel: delega la ricerca); app collegate');
     const two = monstersCard({ toolNames: dione, webElsewhere: ['Pixel', 'Rhea', 'Pixel'] });
     // No `delegate`: no "delega" (D-132).
-    expect(two).toContain('Non hai: web (ce l’ha Pixel e Rhea); servizi collegati');
+    expect(two).toContain('Non hai: web (ce l’ha Pixel e Rhea); app collegate');
     // Nobody in the squad has it: no "delega" towards nobody.
     const none = monstersCard({ toolNames: capoNoWeb, webElsewhere: [] });
     expect(none).toContain('Non hai: web (nessuno nella squadra ce l’ha)');
@@ -102,7 +102,7 @@ describe('the Monsters card', () => {
       Puoi:
       - note: cerchi, leggi e scrivi (\`vault_*\`)
       - web: \`web_search\`, pagine con \`web_fetch\`; un sito o un indirizzo che l’utente o il brief nominano lo leggi tu con \`web_fetch\`: mai chiedergli di incollarlo
-      Non hai: servizi collegati (nessuno è dato a te: li collega e li dà l’utente in Impostazioni → App e Telegram → App).
+      Non hai: app collegate (nessuna è data a te: le collega e le dà l’utente in Impostazioni → App e Telegram → App).
       Senza uno strumento apposta non pubblichi, non invii mail o messaggi, non paghi: prepari bozze.
       Solo l’utente, in Impostazioni: Squadra (creare, cambiare e archiviare mostri; chi è lui per voi), Modelli (modelli e spesa; tu non la vedi), Permessi, App e Telegram. Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file."
     `);
@@ -114,7 +114,7 @@ describe('the Monsters card', () => {
       Sei in Monsters: mostri AI che lavorano per l’utente sul suo computer; lui li segue dall’app.
       Puoi:
       - note: cerchi, leggi e scrivi (\`vault_*\`)
-      Non hai: web; servizi collegati (nessuno è dato a te: li collega e li dà l’utente in Impostazioni → App e Telegram → App).
+      Non hai: web; app collegate (nessuna è data a te: le collega e le dà l’utente in Impostazioni → App e Telegram → App).
       Senza uno strumento apposta non pubblichi, non invii mail o messaggi, non paghi: prepari bozze.
       Solo l’utente, in Impostazioni: Squadra (creare, cambiare e archiviare mostri; chi è lui per voi), Modelli (modelli e spesa; tu non la vedi), Permessi, App e Telegram. Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file."
     `);
@@ -143,11 +143,11 @@ describe('the Monsters card', () => {
       - note: cerchi, leggi e scrivi (\`vault_*\`)
       - web: la tua ricerca web, pagine con \`web_fetch\`; un sito o un indirizzo che l’utente o il brief nominano lo leggi tu con \`web_fetch\`: mai chiedergli di incollarlo
       - browser: usi siti veri nel browser di Monsters, con gli accessi che l’utente ci ha fatto (es. Instagram): leggi e prepari; prima di Pubblica, Condividi, Invia o Paga Monsters chiede all’utente
-      - terminale e file: nella cartella di questo lavoro
+      - comandi e file: nella cartella di questo lavoro
       - squadra: deleghi agli altri mostri (\`delegate\`)
       - domande all’utente (\`ask_user\`)
       - nuovi mostri: proponi una bozza (\`team_propose_monster\`), l’utente la crea
-      - servizi collegati, già tuoi (mai chiedere all’utente accessi, chiavi o indirizzi per questi): notion, Gmail, Google Calendar
+      - app collegate, già tue (mai chiedere all’utente accessi, chiavi o indirizzi per questi): notion, Gmail, Google Calendar
       Solo l’utente, in Impostazioni: Squadra (creare, cambiare e archiviare mostri; chi è lui per voi), Modelli (modelli e spesa; tu non la vedi), Permessi, App e Telegram. Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file."
     `);
   });
@@ -157,9 +157,9 @@ describe('the Monsters card', () => {
       toolNames: [...ALL_VAULT_TOOLS, 'mcp__Anteiku_Prod__list_tasks', 'mcp__my-db__query'],
     });
     expect(card).toContain(
-      '- servizi collegati, già tuoi (mai chiedere all’utente accessi, chiavi o indirizzi per questi): Anteiku_Prod, my-db',
+      '- app collegate, già tue (mai chiedere all’utente accessi, chiavi o indirizzi per questi): Anteiku_Prod, my-db',
     );
-    expect(card).not.toContain('servizi collegati.');
+    expect(card).not.toContain('app collegate.');
   });
 
   it('names the services given to the monster that are not connected now (connettori 6)', () => {
@@ -195,7 +195,7 @@ describe('the Monsters card', () => {
       'web (la ricerca sul web è spenta per il progetto «Progetto Social»: la accende l’utente nella pagina del progetto «Progetto Social», scheda Impostazioni)',
     );
     expect(project).toContain(
-      'servizi collegati (nessuno è acceso per questo progetto: li accende l’utente nella pagina del progetto «Progetto Social», scheda Impostazioni)',
+      'app collegate (nessuna è accesa per questo progetto: le accende l’utente nella pagina del progetto «Progetto Social», scheda Impostazioni)',
     );
     // A project's monster: its squad, apps and cap are on the project's page (§2.1).
     expect(project).toContain(
@@ -255,7 +255,7 @@ describe('the Monsters card', () => {
     expect(monstersCard({ toolNames: tools })).toBe(
       monstersCard({ toolNames: [...tools].reverse() }),
     );
-    expect(monstersCard({ toolNames: tools })).toContain('già tuoi');
+    expect(monstersCard({ toolNames: tools })).toContain('già tue');
     expect(monstersCard({ toolNames: tools })).toContain('): anteiku, github');
     expect(monstersCard({ toolNames: tools })).not.toMatch(/\d{1,2}:\d\d|\d{4}-\d\d/);
   });
@@ -275,7 +275,7 @@ describe('the Monsters card', () => {
       labels,
     });
     // The label, not the server name; the services are the monster's own.
-    expect(shown).toContain('servizi collegati, già tuoi (mai chiedere all’utente accessi');
+    expect(shown).toContain('app collegate, già tue (mai chiedere all’utente accessi');
     expect(shown).toContain('): Anteiku, notion');
     expect(shown).not.toContain('per questi): anteiku');
     // One example full name of a tool that opens a service, then one sub-bullet per server.
@@ -287,7 +287,7 @@ describe('the Monsters card', () => {
     // The sub-bullets sit inside the list of what the monster can do.
     const lines = shown.split('\n');
     const at = lines.findIndex((l) => l.startsWith('  - Anteiku'));
-    expect(lines[at - 1]).toContain('servizi collegati');
+    expect(lines[at - 1]).toContain('app collegate');
     // Without the search the tools are all sent: no catalog (the old text is gone too).
     const plain = monstersCard({ toolNames: [...dione, ...names], mcpSearch: false, labels });
     expect(plain).toContain('): Anteiku, notion');
@@ -339,7 +339,7 @@ describe('the Monsters card', () => {
 
   it('a monster with the terminal knows it works only in the folders it was given', () => {
     expect(monstersCard({ toolNames: [...dione, 'shell', 'fs_read'] })).toContain(
-      'terminale e file: solo nelle cartelle concesse',
+      'comandi e file: solo nelle cartelle concesse',
     );
   });
 

@@ -231,7 +231,7 @@ describe('money and spending', () => {
     const d = { scopeName: null, period: 'day', spentEur: 8, capEur: 10 } as const;
     expect(SPEND_PERIOD_WORDS.day).toBe('for today');
     expect(spendSentence({ ...d, action: 'warning' })).toBe(
-      'Spent €8: that’s 80% of the squad’s cap for today (€10).',
+      'Spent €8: that’s 80% of all monsters’ cap for today (€10).',
     );
     expect(spendSentence({ ...d, action: 'stopped', scopeName: 'Rhea', period: 'month' })).toBe(
       'Reached Rhea’s cap for this month (€10): jobs with paid models stop until you raise the cap.',
@@ -239,7 +239,7 @@ describe('money and spending', () => {
     setAppLang('it');
     expect(SPEND_PERIOD_WORDS.day).toBe('di oggi');
     expect(spendSentence({ ...d, action: 'warning' })).toBe(
-      'Spesi 8 €: è l’80% del tetto della squadra di oggi (10 €).',
+      'Spesi 8 €: è l’80% del tetto di tutti i mostri di oggi (10 €).',
     );
     expect(spendSentence({ ...d, action: 'stopped', scopeName: 'Rhea', period: 'month' })).toBe(
       'Raggiunto il tetto di Rhea di questo mese (10 €): i lavori con modelli a pagamento si fermano finché non alzi il tetto.',
@@ -295,7 +295,7 @@ describe('small words', () => {
   it('efforts, models of the Claude plan, the Telegram token, Node', () => {
     expect(EFFORT_WORD.xhigh).toBe('Very high');
     expect(CLAUDE_PLAN_MODELS[2].description).toBe('the most capable');
-    expect(telegramTokenShapeMessage()).toMatch(/^That doesn’t look like a Telegram token/);
+    expect(telegramTokenShapeMessage()).toMatch(/^That doesn’t look like a Telegram bot code/);
     expect(nodeMissing()).toMatch(/^Node\.js not found: install Node\.js 20/);
     expect(npmMissing()).toMatch(/^npm not found/);
     const draft = { kind: 'docs', docs: { tainted: true } } as unknown as DraftView;
@@ -317,9 +317,9 @@ describe('the gallery of apps', () => {
     expect(entry('anteiku').tenantLabel).toBe('Your company');
     expect(entry('atlassian').name).toBe('Jira and Confluence');
     const token = entry('github').auth.find((a) => a.kind === 'token')!;
-    expect(token.kind === 'token' && token.label).toBe('Personal token');
+    expect(token.kind === 'token' && token.label).toBe('Personal key');
     expect(entry('claude-design').soon).toBe(
-      'It connects only through Claude: you need your Claude subscription connected in Settings → Models.',
+      'It connects only through Claude: you need your Claude plan connected in Settings → Models.',
     );
     expect(entry('slack').soon).toMatch(/^It only accepts apps approved one by one/);
     expect(STDIO_LAUNCHERS['npx']!.url).toBe('https://nodejs.org/en/download');
@@ -328,9 +328,9 @@ describe('the gallery of apps', () => {
     expect(MCP_CATEGORY_LABEL.lavoro).toBe('Lavoro e progetti');
     expect(entry('anteiku').description).toBe('Clienti, progetti, task, agenda e preventivi');
     expect(entry('atlassian').name).toBe('Jira e Confluence');
-    expect(token.kind === 'token' && token.label).toBe('Token personale');
+    expect(token.kind === 'token' && token.label).toBe('Chiave personale');
     expect(entry('claude-design').soon).toBe(
-      'Si collega solo tramite Claude: serve l’abbonamento Claude collegato in Impostazioni → Modelli.',
+      'Si collega solo tramite Claude: serve il piano Claude collegato in Impostazioni → Modelli.',
     );
     expect(STDIO_LAUNCHERS['npx']!.url).toBe('https://nodejs.org/it/download');
   });

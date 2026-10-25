@@ -47,7 +47,7 @@ describe('the app in Italian', () => {
       'Ferma tutto',
       'Riprendi',
       'Esci da Monsters',
-      'Connessioni…',
+      'Computer…',
     ]);
     expect([t.edit, t.view, t.window, t.closeWindow, t.thisComputer]).toEqual([
       'Modifica',
@@ -84,7 +84,7 @@ describe('the app in Italian', () => {
   it('the connections page: language, labels, texts of the script, hash of the script', () => {
     const html = connectionsPageHtml('frame');
     expect(html).toContain('<html lang="it"');
-    expect(html).toContain('<title>Connessioni · Monsters</title>');
+    expect(html).toContain('<title>Computer · Monsters</title>');
     expect(html).toContain('placeholder="192.168.1.20 o pc-casa.local"');
     expect(html).toContain('>Salva e collega</button>');
     expect(html).toContain('Entra senza password');
@@ -95,7 +95,7 @@ describe('the app in Italian', () => {
     const script = /<script>([\s\S]*?)<\/script>/.exec(html)?.[1] ?? '';
     const hash = createHash('sha256').update(script).digest('base64');
     expect(html).toContain(`script-src 'sha256-${hash}'`);
-    expect(connectionsStrings().windowTitle).toBe('Connessioni');
+    expect(connectionsStrings().windowTitle).toBe('Computer');
     setAppLang('en');
     const english = connectionsPageHtml('frame');
     expect(english).toContain('<html lang="en"');
