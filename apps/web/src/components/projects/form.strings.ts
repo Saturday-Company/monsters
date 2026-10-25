@@ -11,17 +11,22 @@ const en = {
   ready: (name: string) => `${name} is ready: message its lead from here.`,
   title: 'New project',
   intro:
-    'A project is a squad with its own lead, its own monsters, a notes folder, its own folder on the computer and its own spending cap. Your lead still oversees everyone.',
+    'A project is a squad of its own: a lead, its monsters, notes, a folder and a spending cap. Your lead still oversees everyone.',
   project: {
     title: 'The project',
     name: 'Name',
     placeholder: 'Social media',
     notesIn: 'Its notes will go in',
   },
+  more: {
+    title: 'More options',
+    description: 'Folder, lead, first monsters and apps.',
+  },
   folder: {
     title: 'Folder',
-    description:
-      'The folder on the computer where the project’s monsters work: their terminal, the files and Claude Code or Codex start from there. All the project’s monsters will be able to read and write here. Not your home folder or hidden folders.',
+    description: 'The computer folder where the project’s monsters work. Optional.',
+    details:
+      'Their commands, the files and the other assistants (Claude Code, Codex) start from there. All the project’s monsters will be able to read and write in it. Not your home folder or hidden folders.',
     label: 'The project’s folder',
     none: 'None',
     existing: 'An existing one',
@@ -36,7 +41,7 @@ const en = {
   lead: {
     title: 'Project lead',
     description:
-      'Coordinates the project’s monsters the way your lead does with your squad. A copy has the original’s role, look and models and a memory of its own.',
+      'Coordinates the project’s monsters. A copy has the original’s role, look and models and a memory of its own.',
     label: 'Who leads the project',
     new: 'A new one',
     copy: 'Copy a monster',
@@ -49,16 +54,15 @@ const en = {
   },
   first: {
     title: 'First monsters',
-    description:
-      'Copy the monsters you need into the project: the original stays where it is. You can add a new custom one later from the project’s Squad.',
+    description: 'Copy the monsters you need into the project: the originals stay where they are.',
     label: 'Monsters to copy',
   },
   links: {
-    title: 'Connections',
+    title: 'Apps',
     description:
-      'The apps and services given to the whole squad reach the project too. Turn off the ones it doesn’t need: you can turn them back on whenever you like from the project’s Connections tab.',
-    viaClaude: 'Through your Claude subscription, for the monsters that work with Claude',
-    team: 'Given to the whole squad',
+      'Apps given to all monsters reach the project too. Turn off what it doesn’t need: you can change it later in the project’s Settings.',
+    viaClaude: 'Through your Claude plan, for the monsters that work with Claude',
+    team: 'Given to all monsters',
     switch: (label: string) => `${label} for the project`,
   },
   cancel: 'Cancel',
@@ -73,17 +77,22 @@ const it: typeof en = {
   ready: (name) => `${name} è pronto: scrivi al suo capo da qui.`,
   title: 'Nuovo progetto',
   intro:
-    'Un progetto è una squadra con il suo capo, i suoi mostri, una cartella delle note, la sua cartella sul computer e un suo tetto di spesa. Il tuo capo resta sopra tutti.',
+    'Un progetto è una squadra a sé: un capo, i suoi mostri, le note, una cartella e un tetto di spesa. Il tuo capo resta sopra tutti.',
   project: {
     title: 'Il progetto',
     name: 'Nome',
     placeholder: 'Social di Saturday',
     notesIn: 'Le sue note andranno in',
   },
+  more: {
+    title: 'Altre opzioni',
+    description: 'Cartella, capo, primi mostri e app.',
+  },
   folder: {
     title: 'Cartella',
-    description:
-      'La cartella del computer dove lavorano i mostri del progetto: il loro terminale, i file e Claude Code o Codex partono da lì. Tutti i mostri del progetto potranno leggere e scrivere qui. Non la tua cartella personale né le cartelle nascoste.',
+    description: 'La cartella del computer dove lavorano i mostri del progetto. Facoltativa.',
+    details:
+      'I loro comandi, i file e gli altri assistenti (Claude Code, Codex) partono da lì. Tutti i mostri del progetto potranno leggere e scrivere qui. Non la tua cartella personale né le cartelle nascoste.',
     label: 'Cartella del progetto',
     none: 'Nessuna',
     existing: 'Una che c’è',
@@ -99,7 +108,7 @@ const it: typeof en = {
   lead: {
     title: 'Capo del progetto',
     description:
-      'Coordina i mostri del progetto come il tuo capo fa con la tua squadra. Una copia ha il ruolo, l’aspetto e i modelli dell’originale e una memoria tutta sua.',
+      'Coordina i mostri del progetto. Una copia ha il ruolo, l’aspetto e i modelli dell’originale e una memoria tutta sua.',
     label: 'Chi guida il progetto',
     new: 'Uno nuovo',
     copy: 'Copia un mostro',
@@ -112,16 +121,15 @@ const it: typeof en = {
   },
   first: {
     title: 'Primi mostri',
-    description:
-      'Copia nel progetto i mostri che ti servono: l’originale resta dov’è. Uno nuovo, su misura, lo aggiungi dopo dalla Squadra del progetto.',
+    description: 'Copia nel progetto i mostri che ti servono: gli originali restano dove sono.',
     label: 'Mostri da copiare',
   },
   links: {
-    title: 'Collegamenti',
+    title: 'App',
     description:
-      'I programmi e i servizi dati a tutta la squadra arrivano anche al progetto. Spegni quelli che non gli servono: li riaccendi quando vuoi dalla scheda Collegamenti del progetto.',
-    viaClaude: 'Tramite l’abbonamento Claude, per chi lavora con Claude',
-    team: 'Dato a tutta la squadra',
+      'Le app date a tutti i mostri arrivano anche al progetto. Spegni quelle che non gli servono: le cambi dopo, nelle Impostazioni del progetto.',
+    viaClaude: 'Tramite il tuo piano Claude, per chi lavora con Claude',
+    team: 'Data a tutti i mostri',
     switch: (label) => `${label} per il progetto`,
   },
   cancel: 'Annulla',
