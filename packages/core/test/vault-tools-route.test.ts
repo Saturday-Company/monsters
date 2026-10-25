@@ -88,7 +88,9 @@ describe('semantic search in the hub', () => {
     expect(overview.semantic).toBe('unavailable');
     expect(overview.semanticReason).toMatch(/isn’t available in this installation/);
 
-    const off = events().filter((e) => e.type === 'error' && e.agent === 'system');
+    // How this installation is, not a failure: a notice (the leftover of C-11).
+    expect(events().filter((e) => e.type === 'error' && e.agent === 'system')).toEqual([]);
+    const off = events().filter((e) => e.type === 'notice' && e.agent === 'system');
     expect(off.map((e) => e.data)).toEqual([
       {
         code: 'semantic_off',

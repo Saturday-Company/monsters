@@ -767,10 +767,15 @@ describe('projects: routing and project_send', () => {
 });
 
 /** The `error` lines of the log with this code (the typed events of the log). */
-const errorLines = (log: EventLog, code: string) =>
-  log
-    .query({ type: 'error' })
-    .filter((e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === code);
+/** What the start says of the connections: notices, never errors (the leftover of C-11). */
+const errorLines = (log: EventLog, code: string) => {
+  expect(log.query({ type: 'error' }).some((e) => e.type === 'error' && e.data.code === code)).toBe(
+    false,
+  );
+  return log
+    .query({ type: 'notice' })
+    .filter((e): e is LogEvent<'notice'> => e.type === 'notice' && e.data.code === code);
+};
 
 describe('projects: connections', () => {
   it('`*` reaches every monster, but in a project that turned it off (D-164)', async () => {

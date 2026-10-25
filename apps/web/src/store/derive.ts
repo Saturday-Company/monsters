@@ -482,7 +482,7 @@ export function applyLive(
       if (
         e.data.code === 'provider_fallback' ||
         e.data.code === 'search_fallback' ||
-        e.data.code === 'semantic_off'
+        NOTICE_CODES.has(e.data.code ?? '')
       )
         break;
       if (e.data.code === 'aborted' || isStopText(e.data.message)) set(e.agent, 'stopped');
@@ -1615,8 +1615,9 @@ export function categoryOf(e: LogEvent): EventCategory {
     case 'error':
       // A stop is part of a run's story, a fallback is the tools working around a problem.
       if (e.data.code === 'search_fallback' || e.data.code === 'provider_fallback') return 'tools';
-      // Semantic search not installed (D-046): how this installation is, not a failure.
-      if (e.data.code === 'semantic_off') return 'system';
+      // Semantic search not installed (D-046), and what an older core still logs as an error but
+      // is news (a `notice` now): how this installation is, not a failure.
+      if (NOTICE_CODES.has(e.data.code ?? '')) return 'system';
       return isQuietError(e) ? 'runs' : 'errors';
     case 'run':
       return 'runs';
@@ -1851,6 +1852,18 @@ export function lowerFirst(text: string): string {
   return common ? text.charAt(0).toLowerCase() + text.slice(1) : text;
 }
 
+/**
+ * Codes that a core before the `notice` event (the leftover of C-11) logged as `error` although
+ * nothing failed: read as notices, also from old logs and from an older core in client mode.
+ */
+const NOTICE_CODES = new Set([
+  'semantic_off',
+  'retired_model',
+  'project_connections_reset',
+  'project_connections_stale',
+  'mcp_tools_limited',
+]);
+
 /** True for `error` events that are not problems: a stop or an automatic fallback. */
 export function isQuietError(e: LogEvent): boolean {
   if (e.type !== 'error') return false;
@@ -1859,7 +1872,7 @@ export function isQuietError(e: LogEvent): boolean {
     code === 'aborted' ||
     code === 'search_fallback' ||
     code === 'provider_fallback' ||
-    code === 'semantic_off' ||
+    NOTICE_CODES.has(code ?? '') ||
     // Why one attempt at the team proposal failed: for a diagnosis, the user reads `onboarding`.
     code === 'onboarding_attempt' ||
     // The window kept in check (D-082): automatic, the run goes on.
@@ -2072,6 +2085,9 @@ export function describeEvent(e: LogEvent, nameOf: (id: string) => string): stri
       return s.usedModel(who, modelLabel(e.data.model));
     case 'error':
       return errorSentence(e, nameOf);
+    // Something Monsters did or found on its own (the leftover of C-11): its own sentence.
+    case 'notice':
+      return e.data.message;
     case 'kill':
       switch (e.data.scope) {
         case 'global':

@@ -83,6 +83,50 @@ test('"Load older" past 600 events makes the list longer, one page at a time (W-
   expect(seen).toBeGreaterThan(600);
 });
 
+test('news from Monsters is an information row, never among the errors (leftover of C-11)', async ({
+  page,
+}) => {
+  const now = Date.now();
+  const seed = [
+    {
+      id: ulidAt(now - 5000, 1),
+      ts: now - 5000,
+      agent: 'system',
+      runId: null,
+      parentId: null,
+      type: 'notice',
+      data: {
+        code: 'retired_model',
+        message: 'Rhea’s model is no longer available: replaced by nemotron-3-ultra',
+      },
+    },
+  ];
+  await page.addInitScript((events) => {
+    let mock: { events: { id: string }[] } | undefined;
+    Object.defineProperty(window, '__monstersMock', {
+      configurable: true,
+      get: () => mock,
+      set: (m: { events: { id: string }[] }) => {
+        mock = m;
+        m.events.push(...events);
+        m.events.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      },
+    });
+  }, seed);
+  await page.goto('/?mock=demo#/log');
+  // Shown by default, as a plain row: no red light.
+  const row = page.getByTestId('event-row').filter({ hasText: 'replaced by nemotron-3-ultra' });
+  await expect(row).toBeVisible();
+  await expect(row).toHaveAttribute('data-type', 'notice');
+  await expect(row.locator('[data-tone="stop"]')).toHaveCount(0);
+  // The errors filter leaves it out.
+  await page
+    .getByRole('group', { name: 'Filter by type' })
+    .getByRole('button', { name: 'Errors' })
+    .click();
+  await expect(row).toBeHidden();
+});
+
 test.describe('phone', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

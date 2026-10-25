@@ -1722,7 +1722,8 @@ export class McpManager {
         this.#limited.add(key);
         this.#o.log.append({
           agent: 'system',
-          type: 'error',
+          // The run goes on with the tools that fit, and the card says it: news, not a failure.
+          type: 'notice',
           data: {
             code: 'mcp_tools_limited',
             message: mcpStrings().toolsLimited(agent.config.name, max, tools.length),

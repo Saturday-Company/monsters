@@ -16,6 +16,7 @@ import {
   rootChange,
 } from '../src/components/log/ActivityPanel.tsx';
 import { trashedByUndo, trashedText } from '../src/components/vault/TrashView.tsx';
+import { categoryOf, describeEvent, isQuietError } from '../src/store/derive.ts';
 
 // The Italian copy is pinned in this file; the English one is in log-strings.test.ts.
 beforeAll(() => setAppLang('it'));
@@ -53,6 +54,41 @@ const change = (
       ...(extra.undoneActionId ? { undoneActionId: extra.undoneActionId } : {}),
     },
   });
+
+// The leftover of C-11: what Monsters did on its own and is not a failure is a `notice`, an
+// information row shown by default and never red; an older core logs the same codes as `error`,
+// and they read the same way (quiet, under "System").
+describe('notices: information rows, not errors', () => {
+  const nameOf = (id: string) => id;
+  it.each([
+    ['retired_model', 'Il modello di Rhea è stato sostituito'],
+    ['project_connections_reset', 'La vecchia lista del progetto è stata tolta'],
+    ['project_connections_stale', 'Un nome spento non è un collegamento'],
+    ['mcp_tools_limited', 'Titan vede 40 strumenti su 124'],
+    ['semantic_off', 'Ricerca semantica non installata'],
+  ])('%s', (code, message) => {
+    const notice = ev({ agent: 'system', type: 'notice', data: { code, message } });
+    expect(categoryOf(notice)).toBe('system');
+    expect(hasEffect(notice)).toBe(true);
+    expect(isQuietError(notice)).toBe(false);
+    expect(describeEvent(notice, nameOf)).toBe(message);
+    // The same line from an older core, as an error: quiet and under "System", not among errors.
+    const old = ev({ agent: 'system', type: 'error', data: { code, message } });
+    expect(categoryOf(old)).toBe('system');
+    expect(isQuietError(old)).toBe(true);
+    expect(hasEffect(old)).toBe(false);
+  });
+
+  it('a real failure stays an error', () => {
+    const failed = ev({
+      agent: 'system',
+      type: 'error',
+      data: { code: 'retired_model_unsaved', message: 'agent.yaml non salvato' },
+    });
+    expect(categoryOf(failed)).toBe('errors');
+    expect(hasEffect(failed)).toBe(true);
+  });
+});
 
 describe('what Attività shows by default', () => {
   const reply = ev({ agent: 'titan', type: 'message', data: { text: 'Fatto', role: 'agent' } });

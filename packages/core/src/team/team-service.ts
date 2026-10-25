@@ -759,14 +759,17 @@ export class TeamService {
     const successor = RETIRED_MODELS[from]!;
     const to = `${successor.provider}/${successor.model}`;
     const name = def.config.name;
-    const code = 'retired_model';
     try {
       if (!def.dir) throw new Error('no folder');
       await this.setModels(def.config.id, next, def.config.autoModels);
+      // Done and saved: news for the user, not a failure (a notice, the leftover of C-11).
       this.#log.append({
         agent: 'system',
-        type: 'error',
-        data: { code, message: teamStrings().retiredModelReplaced(name, from, to) },
+        type: 'notice',
+        data: {
+          code: 'retired_model',
+          message: teamStrings().retiredModelReplaced(name, from, to),
+        },
       });
     } catch (err) {
       def.config = { ...def.config, models: next };
@@ -775,7 +778,7 @@ export class TeamService {
         agent: 'system',
         type: 'error',
         data: {
-          code,
+          code: 'retired_model_unsaved',
           message: teamStrings().retiredModelNotSaved(name, from, to, (err as Error).message),
         },
       });

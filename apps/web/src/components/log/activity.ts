@@ -91,6 +91,9 @@ export function hasEffect(e: LogEvent): boolean {
       return categoryOf(e) === 'questions';
     case 'error':
       return !isQuietError(e) && categoryOf(e) === 'errors';
+    // News from Monsters itself (a retired model replaced, an old setting dropped): shown, not red.
+    case 'notice':
+      return true;
     // The instinct (D-068): texts that gave orders to the monsters, and the brake on the
     // actions that leave the computer, are effects; its other lines are under "Everything".
     // A draft waiting for the user (V-8): it is something to decide, not background noise. Its

@@ -691,16 +691,19 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
             onError: (err: Error) => {
               if (err.message === lastSemanticError) return;
               lastSemanticError = err.message;
+              // Not installed is how this installation is (a notice); a failed download is an error.
+              if (err instanceof SemanticUnavailableError) {
+                log.append({
+                  agent: 'system',
+                  type: 'notice',
+                  data: { code: 'semantic_off', message: err.message },
+                });
+                return;
+              }
               log.append({
                 agent: 'system',
                 type: 'error',
-                data: {
-                  code:
-                    err instanceof SemanticUnavailableError
-                      ? 'semantic_off'
-                      : 'semantic_unavailable',
-                  message: err.message,
-                },
+                data: { code: 'semantic_unavailable', message: err.message },
               });
             },
           },
