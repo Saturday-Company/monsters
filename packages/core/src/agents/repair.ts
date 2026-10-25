@@ -23,30 +23,64 @@ export function camelCase(name: string): string {
   return name.replace(/[_-]+([a-zA-Z0-9])/g, (_, c: string) => c.toUpperCase());
 }
 
-/** The tool a misspelt name means, or undefined when none matches for sure. */
+/** One spelling of a tool name: case, camelCase and separators do not count. */
+const spelling = (name: string): string =>
+  snakeCase(name.trim()).replace(/_+/g, '_').replace(/^_|_$/g, '');
+
+/** `mcp__<server>__<tool>`; server names have no underscore (`McpServerNameSchema`). */
+const MCP_NAME = /^mcp__([^_]+(?:_[^_]+)*)__(.+)$/i;
+
+/** Monsters' own tools, as harness-style models name them (`mcp__monsters__vault_read`). */
+const OWN_SERVER = 'monsters';
+
+/**
+ * The tool a misspelt name means, or undefined when none matches for sure (D-064, D-163).
+ *
+ * Only safe repairs: another case, other separators (`vault-read`, `VaultRead`), a
+ * `functions.` prefix, a missing `mcp__<server>__`, and a missing namespace head that the
+ * server puts before its tools (`task_crea` for `anteiku_task_crea`). A name that carries a
+ * server never lands on another server's tool (`mcp__gmail__send_message` is not Slack's
+ * `send_message`), and a name is never stretched onto a longer one that only ends so
+ * (`delete_contacts` is not `bulk_delete_contacts`): review of 25/10, C-1.
+ */
 export function matchToolName(name: string, names: readonly string[]): string | undefined {
   if (names.includes(name)) return name;
-  const candidates = [name, name.replace(/^(functions|tools|tool|default_api)[.:]/i, '')];
-  // `mcp__server__tool` from harness-style models.
-  const mcp = /^mcp__[^_]+(?:_[^_]+)*__(.+)$/.exec(name);
-  if (mcp?.[1]) candidates.push(mcp[1]);
-  for (const c of candidates) {
-    const key = snakeCase(c.trim());
-    const hit = names.find((n) => n.toLowerCase() === key);
-    if (hit) return hit;
+  const asked = name.trim().replace(/^(functions|tools|tool|default_api)[.:]/i, '');
+  if (names.includes(asked)) return asked;
+  const prefixed = MCP_NAME.exec(asked);
+  const server = prefixed ? spelling(prefixed[1]!) : undefined;
+  const key = spelling(prefixed ? prefixed[2]! : asked);
+  if (key === '') return undefined;
+
+  // Monsters' own tools: by their name alone, or under the `monsters` server of the harnesses.
+  if (server === undefined || server === OWN_SERVER) {
+    const own = names.filter((n) => !MCP_NAME.test(n) && spelling(n) === key);
+    if (own.length === 1) return own[0];
+    if (own.length > 1) return undefined;
   }
-  // An MCP tool without its `mcp__<server>__` (the card lists the names, D-163): `anteiku_task_crea`,
-  // or `task_crea` when one tool only ends so. Never a lone word (`crea`): many tools end so.
-  for (const c of candidates) {
-    const key = snakeCase(c.trim());
-    const tool = (n: string) => n.toLowerCase().replace(/^mcp__.+?__/, '');
-    const whole = names.filter((n) => n.startsWith('mcp__') && tool(n) === key);
-    if (whole.length === 1) return whole[0];
-    if (!key.includes('_')) continue;
-    const tail = names.filter((n) => n.startsWith('mcp__') && tool(n).endsWith(`_${key}`));
-    if (tail.length === 1) return tail[0];
-  }
-  return undefined;
+
+  const mcp = names.flatMap((n) => {
+    const m = MCP_NAME.exec(n);
+    return m ? [{ name: n, server: spelling(m[1]!), tool: spelling(m[2]!) }] : [];
+  });
+  // A named server is kept: its tools or nothing.
+  const scope = server === undefined ? mcp : mcp.filter((t) => t.server === server);
+  const whole = scope.filter((t) => t.tool === key);
+  if (whole.length === 1) return whole[0]!.name;
+  if (whole.length > 1) return undefined;
+
+  // The server's namespace head left out. Never a lone word (`crea`): many tools end so.
+  if (!key.includes('_')) return undefined;
+  const headed = scope.filter((t) => {
+    if (!t.tool.endsWith(`_${key}`)) return false;
+    const head = t.tool.slice(0, -key.length - 1);
+    if (head.includes('_')) return false;
+    if (head === t.server || t.server.split('_').includes(head)) return true;
+    // A head every tool of the server shares (three or more): its namespace, not a word.
+    const own = mcp.filter((o) => o.server === t.server);
+    return own.length >= 3 && own.every((o) => o.tool.startsWith(`${head}_`));
+  });
+  return headed.length === 1 ? headed[0]!.name : undefined;
 }
 
 /** Python and JavaScript literals outside strings, made JSON. */

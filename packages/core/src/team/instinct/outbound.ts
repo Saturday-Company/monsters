@@ -300,7 +300,7 @@ const VERBS: { category: OutboundCategory; re: RegExp }[] = [
   // Also what overwrites or empties (review of 16/10): what was there is gone all the same.
   {
     category: 'delete',
-    re: /^(delete|remove|trash|destroy|purge|erase|drop|wipe|unlink|clear|reset|overwrite|truncate|elimina|cancella|cestina|rimuovi|togli|distruggi|svuota|azzera|sovrascrivi|resetta)$/,
+    re: /^(delete|remove|trash|discard|expunge|nuke|destroy|purge|erase|drop|wipe|unlink|clear|reset|overwrite|truncate|elimina|cancella|cestina|rimuovi|togli|distruggi|svuota|azzera|sovrascrivi|resetta)$/,
   },
   {
     category: 'publish',
@@ -453,11 +453,36 @@ function describedCategory(description: string): OutboundCategory | undefined {
  * while "budget" in a description ("the name, budget or status of a
  * project") is only a field.
  */
-const SPEND_NOUN = /^(budget|budgets|bid|bids|spend|spending)$/;
-const SPEND_CHANGE = /^(update|set|change|edit|modify|increase|raise|adjust|create|add)$/;
+const SPEND_NOUN = /^(budget|budgets|bid|bids|spend|spending|payout|payouts|bonifico|bonifici)$/;
+const SPEND_CHANGE =
+  /^(update|set|change|edit|modify|increase|raise|adjust|create|add|issue|initiate|start|crea|aggiungi|aggiorna|modifica|imposta|avvia|effettua|disponi|emetti)$/;
+/**
+ * A payment started, not recorded (review of 25/10, C-3): "avvia_pagamento" pays, while
+ * Anteiku's `pagamenti_crea` and "registra_pagamento" only write it in the books.
+ */
+const START_PAYING = /^(avvia|inizia|effettua|esegui|disponi|start|initiate|execute|process)$/;
+const PAYING_NOUN = /^(pagamento|pagamenti)$/;
 
 /** Words that make an action a draft, not a sending ("create_draft", "save_draft"). */
 const DRAFT = /^(draft|drafts|preview|bozza|bozze)$/;
+/**
+ * In a name with a draft, words that are what is drafted, not a sending, once a verb of writing
+ * or the draft itself comes before them: "create_email_draft", "crea_bozza_email",
+ * "draft_reply" (review of 25/10, C-13). "email_draft" and "send_draft" still send.
+ */
+const DRAFTED =
+  /^(email|emails|mail|mails|message|messages|text|sms|dm|reply|replies|comment|comments|post|posts|tweet|tweets|response|order|orders)$/;
+/**
+ * The bin, a delete by another name (review of 25/10, C-3): "sposta_nel_cestino",
+ * "move_to_recycle_bin". Not with a verb that brings something back from it, and `bin` only after
+ * "to", "into" or "empty": JSONBin's `create_bin` makes a record.
+ */
+const BIN_NOUN = /^(cestino|recycle|wastebasket|spazzatura)$/;
+const INTO_BIN = /^(to|into|in|empty)$/;
+const RESTORE = /^(restore|recover|untrash|undelete|ripristina|recupera)$/;
+const intoBin = (w: readonly string[]) =>
+  !w.some((x) => RESTORE.test(x)) &&
+  w.some((x, i) => BIN_NOUN.test(x) || (x === 'bin' && INTO_BIN.test(w[i - 1] ?? '')));
 /**
  * Words of a tool that only reads ("notion-get-comments", "gmail_read_message").
  * Not `apri`/`open`: WitDesk's `ticket_apri` opens a ticket, a write (review of 16/10).
@@ -467,15 +492,34 @@ const READ =
 /**
  * Verbs of a plain write that stays in the service (D-163): creating, changing, moving, recording.
  * Not `open`/`close`/`approve`/`decide`/`mark`, whose effect depends on the service, nor words
- * that are nouns as often (`record`, `log`, `label`, `start`): the instinct.
+ * that are nouns as often (`record`, `log`, `label`): the instinct.
  */
 const WRITE =
-  /^(create|add|insert|update|upsert|edit|modify|patch|set|save|rename|move|duplicate|write|crea|aggiungi|aggiorna|modifica|imposta|salva|rinomina|sposta|copia|duplica|registra|scrivi|avvia|ferma|inizia)$/;
+  /^(create|add|insert|update|upsert|edit|modify|patch|set|save|rename|move|duplicate|write|crea|aggiungi|aggiorna|modifica|imposta|salva|rinomina|sposta|copia|duplica|registra|scrivi)$/;
+/**
+ * Starting or stopping, in English and Italian alike (review of 25/10, C-3): the effect depends on
+ * what starts ("avvia_campagna" sends), so only a timer, a meeting or a session of the user's own
+ * service is a plain write ("anteiku_timer_avvia", "anteiku_riunioni_inizia"); the rest, the
+ * instinct.
+ */
+const START = /^(start|stop|begin|pause|resume|avvia|inizia|ferma|pausa|riprendi)$/;
+const OWN_START_NOUN =
+  /^(timer|timers|stopwatch|cronometro|riunione|riunioni|meeting|meetings|session|sessions|sessione|sessioni)$/;
 /** An address of mail anywhere in the arguments. */
 const MAIL_IN_ARGS = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
 /** What others may see once made (a gist, a repository, a review, a post): the instinct. */
 const SEEN_NOUN =
   /^(gist|gists|repository|repositories|repo|repos|review|reviews|post|posts|story|stories|tweet|tweets|status|release|releases|site|website)$/;
+/**
+ * What goes out or moves money once made, though the verb only creates it (review of 25/10, C-3):
+ * a campaign or a mailing, a shipment, a subscription, an invoice, a way in for other programs (a
+ * webhook, an API key, a token). Never a plain write: the instinct.
+ */
+const OUTWARD_NOUN =
+  /^(campaign|campaigns|campagna|campagne|newsletter|newsletters|mailing|mailings|invio|invii|spedizione|spedizioni|shipment|shipments|subscription|subscriptions|abbonamento|abbonamenti|invoice|invoices|fattura|fatture|webhook|webhooks|apikey|apikeys|token|tokens)$/;
+/** "api_key", "access_key": a key in two words. */
+const OUTWARD_PAIR = (w: readonly string[]) =>
+  w.some((x, i) => /^(api|access|secret)$/.test(x) && /^(key|keys)$/.test(w[i + 1] ?? ''));
 /** "get_and_reset_counter", "fetch_then_delete": the verb after the conjunction decides. */
 const AND = /^(and|then|e|poi)$/;
 
@@ -717,7 +761,18 @@ function actionCall(
   // The first word that says what the tool does decides ("send_draft" sends,
   // "create_draft" does not, "get_comments" reads). A verb that sends counts
   // even when the server calls the tool read-only: it is the server's word.
-  let at = w.findIndex(leads);
+  // In a name with a draft, the message words after a verb of writing or the draft are what is
+  // drafted ("create_email_draft"); a verb that acts still decides ("draft_and_send_email").
+  const drafted = (x: string, i: number) =>
+    DRAFTED.test(x) && w.some((y, j) => j < i && (WRITE.test(y) || DRAFT.test(y)));
+  const hasDraft = w.some((x) => DRAFT.test(x));
+  let at = w.findIndex((x, i) => leads(x) && !(hasDraft && drafted(x, i)));
+  if (at !== -1 && DRAFT.test(w[at]!)) {
+    const acts = w.findIndex(
+      (x, i) => i > at && !drafted(x, i) && (VERBS.some((v) => v.re.test(x)) || ANNUL.test(x)),
+    );
+    if (acts !== -1) at = acts;
+  }
   // "get_and_reset_counter": a verb after "and" is what the tool also does.
   if (at !== -1 && READ.test(w[at]!)) {
     const and = w.findIndex((x, i) => i > at && AND.test(x));
@@ -761,6 +816,15 @@ function actionCall(
     return destructive ?? { category: undefined, certain: false, summary, args };
   }
   if (verb) return { category: verb.category, certain: true, summary, args };
+  // Into the bin: deleted, though the verb only moves ("sposta_nel_cestino", "move_to_bin").
+  if (intoBin(w)) {
+    return { category: 'delete', certain: true, summary, args };
+  }
+  // A payment started ("avvia_pagamento"), not recorded ("registra_pagamento").
+  const starts = w.findIndex((x) => START_PAYING.test(x));
+  if (starts !== -1 && w.slice(starts + 1).some((x) => PAYING_NOUN.test(x))) {
+    return { category: 'spend', certain: true, summary, args };
+  }
   if (w.some((x) => ARCHIVE.test(x))) {
     return {
       category: 'delete',
@@ -784,12 +848,15 @@ function actionCall(
   // A plain write in the user's own service (D-163): "anteiku_task_crea", "update_issue",
   // "add_label" change it and nothing leaves; only what deletes, sends, publishes or pays (above)
   // and the server's destructive hint ask. The data checks of the arguments still apply.
-  const first = w.find((x) => leads(x) || WRITE.test(x));
+  const first = w.find((x) => leads(x) || WRITE.test(x) || START.test(x));
+  const plain =
+    first !== undefined &&
+    (WRITE.test(first) || (START.test(first) && w.some((x) => OWN_START_NOUN.test(x))));
   // A mail in the arguments ("create_contact" with one) may mean a message: the instinct.
   if (
-    first &&
-    WRITE.test(first) &&
-    !w.some((x) => SEEN_NOUN.test(x)) &&
+    plain &&
+    !w.some((x) => SEEN_NOUN.test(x) || OUTWARD_NOUN.test(x)) &&
+    !OUTWARD_PAIR(w) &&
     !MAIL_IN_ARGS.test(fullArgs)
   ) {
     return destructive;

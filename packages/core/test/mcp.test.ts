@@ -703,9 +703,20 @@ describe('MCP: HTTP failures of a remote server', () => {
   });
 
   it('a 5xx is UNAVAILABLE with a hint about the service, not the arguments', () => {
-    const err = httpFailure('exa', http(503))!;
+    const err = httpFailure('exa', http(503), true)!;
     expect(err.code).toBe('UNAVAILABLE');
     expect(err.hint).toMatch(/not your arguments/);
+    expect(err.hint).toMatch(/retry later/);
+  });
+
+  it('a 5xx on a call that may write says it may have been applied, never "retry later" (C-2)', () => {
+    for (const status of [500, 502, 504, 524]) {
+      const err = httpFailure('anteiku', http(status))!;
+      expect(err.code).toBe('UNAVAILABLE');
+      expect(err.hint).toMatch(/may already have been applied/);
+      expect(err.hint).toMatch(/before repeating it/);
+      expect(err.hint).not.toMatch(/retry later/);
+    }
   });
 
   it('other errors are left to the generic message', () => {
