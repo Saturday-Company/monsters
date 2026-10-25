@@ -475,6 +475,8 @@ export function adaptTool(t: MonstersTool, ctx: ToolAdapterContext, sources?: So
           };
         };
       }
+      /** One result per call: the first outcome logged is the call's outcome. */
+      let resulted = false;
       const finish = (
         ok: boolean,
         output: unknown,
@@ -482,6 +484,8 @@ export function adaptTool(t: MonstersTool, ctx: ToolAdapterContext, sources?: So
         repeated = false,
         cause?: ToolFailureCause,
       ) => {
+        if (resulted) return;
+        resulted = true;
         ctx.calls?.result(ok);
         ctx.log.append({
           agent: ctx.agentId,
@@ -536,6 +540,21 @@ export function adaptTool(t: MonstersTool, ctx: ToolAdapterContext, sources?: So
             : wrapExternalData(source, visible.text),
         );
       };
+
+      /*
+       * A stop logs the call's result at once, inside the abort: the kill switch logs the
+       * run's end right after aborting, while the tool may settle much later (a shell resolves
+       * on the close of its pipes, a tool may not listen to the signal at all). The result is
+       * then in the log before the end of the run, whatever the tool does after the stop.
+       */
+      const onStop = () => {
+        try {
+          finish(false, undefined, 'aborted');
+        } catch {
+          // A log that cannot write (a closing core) never breaks the abort of the others.
+        }
+      };
+      ctx.signal.addEventListener('abort', onStop, { once: true });
 
       let executed = false;
       /** The brake is holding the call: an ABORTED from it is a card nobody answered. */
@@ -602,6 +621,7 @@ export function adaptTool(t: MonstersTool, ctx: ToolAdapterContext, sources?: So
         finish(false, failure, `${failure.error.code}: ${failure.error.message}`, false, cause);
         return failure;
       } finally {
+        ctx.signal.removeEventListener('abort', onStop);
         callScope?.close();
       }
     },

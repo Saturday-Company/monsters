@@ -264,9 +264,10 @@ describe('system tools in the hub', () => {
       expect(Date.now() - started).toBeLessThan(2000);
       const ended = await t.runEnded(sent.runId);
       expect(ended.data.status).toBe('aborted');
-      expect(toolResult(t, sent.runId, 'shell')).toMatchObject({
-        data: { ok: false, error: 'aborted' },
-      });
+      // In the log before the end of the run, not when the shell's pipes close (CI on macOS).
+      const result = toolResult(t, sent.runId, 'shell');
+      expect(result).toMatchObject({ data: { ok: false, error: 'aborted' } });
+      expect(result!.id < ended.id).toBe(true);
     },
   );
 

@@ -230,6 +230,8 @@ export class RunController {
     const processes = this.#root.countProcesses();
     const oldRoot = this.#root;
     this.#root = this.#newRoot();
+    // Before any line below: the calls in flight log their result inside the abort, so every
+    // `tool_result` of a run comes before its `run aborted`.
     const aborting = oldRoot.abort(new KilledError('global', params.reason));
 
     this.#log.append({
@@ -341,7 +343,10 @@ export class RunController {
     this.#runs.clear();
     const oldRoot = this.#root;
     this.#root = this.#newRoot();
-    // Logged first: the questions of these runs are parked before the waits reject (D-078).
+    // Aborted first, as in `kill`: the calls in flight log their result inside the abort, before
+    // the end of their run. The waits reject in a later microtask, after the lines below: the
+    // questions of these runs are still parked before (D-078).
+    const aborting = oldRoot.abort(new KilledError('global', 'shutdown'));
     for (const r of runs) {
       this.#log.append({
         agent: r.agentId,
@@ -350,7 +355,7 @@ export class RunController {
         data: { status: 'aborted', reason: 'shutdown', ...this.#facts(r) },
       });
     }
-    await oldRoot.abort(new KilledError('global', 'shutdown'));
+    await aborting;
   }
 
   #newRoot(): ControlScope {
