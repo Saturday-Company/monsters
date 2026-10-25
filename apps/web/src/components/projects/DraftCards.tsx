@@ -11,7 +11,14 @@ import { cn } from '../../lib/utils.ts';
 import { getApi, notify, refreshAgents } from '../../store/app.ts';
 import { handDraft } from '../../store/draft-handoff.ts';
 import { useAgents, useNameOf } from '../../store/hooks.ts';
-import { refreshDrafts, refreshProjects, useDrafts, useProject } from '../../store/projects.ts';
+import {
+  holdDraft,
+  refreshDrafts,
+  refreshProjects,
+  releaseDraft,
+  useDrafts,
+  useProject,
+} from '../../store/projects.ts';
 import { RowBody } from '../settings/parts.tsx';
 import { Button } from '../ui/button.tsx';
 import { PathText } from '../ui/PathText.tsx';
@@ -62,19 +69,56 @@ export async function confirmDraft(d: Pick<DraftView, 'kind' | 'id' | 'title'>):
   }
 }
 
-/** Leaves a draft aside: nothing is created, who proposed it reads it at its next turn. */
-export async function discardDraft(d: Pick<DraftView, 'kind' | 'id' | 'title'>): Promise<void> {
+/** How long a discarded draft can still be brought back with "Undo" (U2-32). */
+export const DISCARD_UNDO_MS = 10_000;
+
+/**
+ * Leaves a draft aside: nothing is created, who proposed it reads it at its next turn. The draft
+ * disappears at once and the core is told after `DISCARD_UNDO_MS`, unless "Undo" is pressed: a
+ * discard is not something to take back after the fact, so it waits instead. If the page closes
+ * first the draft is still there at the next visit.
+ */
+export function discardDraft(d: Pick<DraftView, 'kind' | 'id' | 'title'>): Promise<void> {
   const s = draftStrings();
-  await getApi().discardDraft(d.kind, d.id);
-  void refreshDrafts();
-  if (d.kind === 'project') void refreshProjects();
+  const key = `${d.kind}:${d.id}`;
+  let undone = false;
+  const timer = setTimeout(() => {
+    if (undone) return;
+    getApi()
+      .discardDraft(d.kind, d.id)
+      .then(() => {
+        releaseDraft(key);
+        void refreshDrafts();
+        if (d.kind === 'project') void refreshProjects();
+      })
+      .catch((err: unknown) => {
+        // It did not go through: the draft is back where it was, and the reason is said.
+        releaseDraft(key);
+        void refreshDrafts();
+        notify(describeError(err), 'error');
+      });
+  }, DISCARD_UNDO_MS);
+  holdDraft(key);
   notify(
     d.kind === 'docs'
       ? s.docsLeft(s.docsSubject(d.title))
       : d.kind === 'memory'
         ? s.memoryLeft(s.memorySubject(d.title))
         : s.discarded(d.title),
+    'info',
+    {
+      action: {
+        label: s.card.undo,
+        run: () => {
+          undone = true;
+          clearTimeout(timer);
+          releaseDraft(key);
+        },
+      },
+      ms: DISCARD_UNDO_MS,
+    },
   );
+  return Promise.resolve();
 }
 
 /** "Edit": the form of its kind, filled in with the draft. */
