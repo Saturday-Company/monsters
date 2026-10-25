@@ -62,18 +62,18 @@ test('rename a monster and give it another look', async ({ page }) => {
   await expect(page.getByText('You renamed Rhea: now Febe').first()).toBeVisible();
 });
 
-test('role and duties: checked in the page, AGENTS.md edited by hand needs a yes', async ({
+test('role and what it does: checked in the page, AGENTS.md edited by hand needs a yes', async ({
   page,
 }) => {
   await openTeam(page);
   const enceladus = await openMember(page, 'enceladus');
   await enceladus.getByRole('button', { name: 'Edit' }).click();
   const form = enceladus.getByTestId('team-role-form-enceladus');
-  await form.getByLabel('Duties, one per line').fill('');
+  await form.getByLabel('What it does, one thing per line').fill('');
   await form.getByRole('button', { name: 'Save' }).click();
-  await expect(form.getByText('At least one duty is needed.')).toBeVisible();
+  await expect(form.getByText('Write at least one thing it does.')).toBeVisible();
   await form
-    .getByLabel('Duties, one per line')
+    .getByLabel('What it does, one thing per line')
     .fill('You never delete a note: you move it to Archive.\nEvery Monday you remove duplicates.');
   await form.getByRole('button', { name: 'Save' }).click();
   // Its instructions were changed by hand: replace them only after a yes.
@@ -81,8 +81,8 @@ test('role and duties: checked in the page, AGENTS.md edited by hand needs a yes
   await expect(overwrite).toContainText('You edited Enceladus’s instructions by hand');
   await expect(overwrite).toContainText('A copy stays saved');
   await overwrite.getByRole('button', { name: 'Replace' }).click();
-  await expect(page.getByText('Enceladus’s role and duties saved.')).toBeVisible();
-  await expect(page.getByTestId('team-member-enceladus')).toContainText('2 duties');
+  await expect(page.getByText('What Enceladus does is saved.')).toBeVisible();
+  await expect(page.getByTestId('team-member-enceladus')).toContainText('2 things it does');
 });
 
 test('remove a monster, find it among the archived, bring it back', async ({ page }) => {
@@ -118,7 +118,7 @@ test('add a monster from a description, reviewed before it is added', async ({ p
   );
   await add.getByRole('button', { name: 'Prepare the monster' }).click();
   const draft = page.getByTestId('team-draft');
-  await expect(draft.getByLabel('What it does, in one line')).toHaveValue(
+  await expect(draft.getByLabel('Role, in one line')).toHaveValue(
     'Sums up long documents and notes in a few clear points.',
   );
   await draft.getByLabel('Name', { exact: true }).fill('Pan');
@@ -140,6 +140,12 @@ test('your profile: name and tone; what to always ask, in Permessi', async ({ pa
 
   await you.getByLabel('Tone').selectOption({ index: 1 });
   await expect(page.getByText('Tone saved.')).toBeVisible();
+
+  // The language the monsters write in is not the app's (General → App language).
+  const writing = you.getByLabel('Monsters’ writing language');
+  await expect(you.getByLabel('Language', { exact: true })).toHaveCount(0);
+  await writing.selectOption({ label: 'English' });
+  await expect(page.getByText('Writing language saved.')).toBeVisible();
 
   // What they always ask lives in Permessi now (D-066): Squadra links to it.
   await you.getByTestId('team-ask-always-link').click();
@@ -185,4 +191,16 @@ test('change the password: the current one is checked, then the new one works', 
   await page.getByLabel('Password').fill('a-new-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByTestId('sidebar')).toBeVisible();
+});
+
+test('a project’s monsters are listed read-only, with a link to the project’s squad', async ({
+  page,
+}) => {
+  await openTeam(page);
+  const squad = page.getByTestId('team-squad-social-di-saturday');
+  await squad
+    .getByRole('link', { name: /Open Saturday Social’s squad/ })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/[^#]#\/progetto\?id=social-di-saturday&sezione=squadra$/);
 });

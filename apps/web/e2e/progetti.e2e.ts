@@ -349,17 +349,17 @@ test('Progetti: a project’s monster is renamed, changes look and role from its
   await expect(page.getByText('Calypso is now called Telesto.')).toBeVisible();
   await expect(page.getByTestId('sidebar').getByRole('link', { name: /^Telesto,/ })).toBeVisible();
 
-  // Role and duties.
+  // Role and what it does.
   row = page.getByTestId('project-member').filter({ hasText: 'Telesto' });
   await row.getByRole('button', { name: 'Edit' }).click();
   const form = row.getByTestId('team-role-form-calypso');
-  await form.getByLabel('What it does, in one line').fill('Prepares the images for the posts');
+  await form.getByLabel('Role, in one line').fill('Prepares the images for the posts');
   await form
-    .getByLabel('Duties, one per line')
+    .getByLabel('What it does, one thing per line')
     .fill('Choose the photos.\nCrop them for every channel.');
   await form.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('Telesto’s role and duties saved.')).toBeVisible();
-  await expect(row).toContainText('2 duties');
+  await expect(page.getByText('What Telesto does is saved.')).toBeVisible();
+  await expect(row).toContainText('2 things it does');
   await expect(row).toContainText('Prepares the images for the posts');
 
   // A new look, still in the project; the chat and "Togli" stay.

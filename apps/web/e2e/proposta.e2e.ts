@@ -71,7 +71,7 @@ test('"Cambia" opens the form of Settings → Squadra with the draft', async ({ 
   await expect(form).toBeVisible();
   await expect(form).toContainText('Your lead proposed it');
   await expect(form.getByLabel('Name')).toHaveValue('Lyra');
-  await expect(form.getByLabel('What it does, in one line')).toHaveValue('keeps ideas in order');
+  await expect(form.getByLabel('Role, in one line')).toHaveValue('keeps ideas in order');
   await expect(form.getByLabel('Where it writes in the notes')).toHaveValue('Idee');
   await form.getByLabel('Name').fill('Vega');
   await form.getByRole('button', { name: 'Add to the squad' }).click();

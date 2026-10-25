@@ -19,9 +19,9 @@ const en = {
     tone: 'Tone',
     toneHint: 'How they write to you.',
     toneSaved: 'Tone saved.',
-    language: 'Language',
-    languageHint: 'The language they answer you in.',
-    languageSaved: 'Language saved.',
+    language: 'Monsters’ writing language',
+    languageHint: 'The language the monsters write to you in.',
+    languageSaved: 'Writing language saved.',
     style: 'Your style',
     styleEmpty: 'Nothing in particular.',
     stylePlaceholder: 'For example: short sentences, no emoji, always give me an example.',
@@ -40,34 +40,33 @@ const en = {
     squadFull: (max: number) =>
       `The squad is full: at most ${max} monsters besides the lead. To add one, remove another first.`,
     squadFooter:
-      'Each one has its own chat, its own tasks and a folder in the notes where it writes.',
+      'Each one has its own chat, its own role and a folder in the notes where it writes.',
     leadGroup: 'Your lead',
     personalSquad: 'Personal squad',
     addMonster: 'Add a monster',
     archived: 'Archived monsters',
-    archivedFooter:
-      'Their chat stays in Activity. Brought back, they find their tasks and notes again.',
+    archivedFooter: 'Their chat stays in Activity. Brought back, they find their notes again.',
   },
   members: {
     roleLine: 'One line only, between 5 and 120 characters.',
     missionLine: 'One line only, between 5 and 200 characters.',
-    dutiesNone: 'At least one duty is needed.',
-    dutiesMax: (max: number) => `At most ${max} duties.`,
-    dutyBad: (duty: string) => `The duty “${duty}” isn’t right: too short or too long.`,
-    whatItDoes: 'What it does, in one line',
+    dutiesNone: 'Write at least one thing it does.',
+    dutiesMax: (max: number) => `At most ${max} things.`,
+    dutyBad: (duty: string) => `“${duty}” isn’t right: too short or too long.`,
+    whatItDoes: 'Role, in one line',
     whatItDoesHint: 'Shown under its name.',
     goal: 'Its goal',
     goalHint: (name: string, title: string) =>
       `Completes the sentence “You are ${name}, ${title}: …”.`,
     titleDefault: 'on the squad',
-    duties: 'Duties, one per line',
+    duties: 'What it does, one thing per line',
     dutiesHint: (max: number) => `At most ${max}.`,
     area: 'Where it writes in the notes',
     areaHint: 'A folder in the notes: it puts what it prepares there.',
     web: 'Does web research',
     webText:
       'Research is its job: the lead hands it the searches and it gets more steps per job. Any monster with web permission can also search the web (see Permissions).',
-    roleSaved: (name: string) => `${name}’s role and duties saved.`,
+    roleSaved: (name: string) => `What ${name} does is saved.`,
     overwrite: (name: string) =>
       `You edited ${name}’s instructions by hand: replace them? A copy stays saved.`,
     replace: 'Replace',
@@ -97,9 +96,9 @@ const en = {
     role: 'Role',
     leadOfProject: 'Coordinates the project’s monsters: its role can’t be changed, its name can.',
     leadOfSquad: 'Coordinates the squad: its role can’t be changed, its name can.',
-    roleAndDuties: 'Role and duties',
+    roleAndDuties: 'Role and what it does',
     dutiesLine: (n: number, area: string, web: boolean) =>
-      `${n === 1 ? '1 duty' : `${n} duties`} · writes in ${area}/${web ? ' · does web research' : ''}`,
+      `${n === 1 ? '1 thing it does' : `${n} things it does`} · writes in ${area}/${web ? ' · does web research' : ''}`,
     edit: 'Edit',
     removeFromProject: 'Remove from the project',
     removeFromSquad: 'Remove from the squad',
@@ -147,16 +146,11 @@ const en = {
     what: 'the monsters’ scorecard',
     footerOff:
       'The scorecard is read-only: “Learn which model works best” is off in the monsters’ decisions.',
-    footerNone: (min: number) =>
-      `At least ${min} checked jobs per model are needed before the squad changes the order of the models.`,
-    footerClosest: (min: number, name: string, checked: number) =>
-      `At least ${min} checked jobs per model are needed before changing the order: ${name} is at ${checked}.`,
     footerReady: (min: number) =>
       `After ${min} checked jobs a model can move to first place, among those the monster already has. It never uses paid models if you turned them off.`,
     title: 'Monster scorecard',
     description:
       'For each monster and model: how many jobs, how many really finished and what a successful job costs.',
-    empty: 'No checked jobs yet: the scorecard fills up as the monsters finish their tasks.',
   },
 };
 
@@ -177,9 +171,9 @@ const it: typeof en = {
     tone: 'Tono',
     toneHint: 'Come ti scrivono.',
     toneSaved: 'Tono salvato.',
-    language: 'Lingua',
-    languageHint: 'In che lingua ti rispondono.',
-    languageSaved: 'Lingua salvata.',
+    language: 'Lingua in cui scrivono i mostri',
+    languageHint: 'La lingua in cui i mostri ti scrivono.',
+    languageSaved: 'Lingua di scrittura salvata.',
     style: 'Il tuo stile',
     styleEmpty: 'Niente di particolare.',
     stylePlaceholder: 'Per esempio: frasi brevi, niente emoji, dammi sempre un esempio.',
@@ -197,32 +191,32 @@ const it: typeof en = {
     squad: 'La squadra',
     squadFull: (max) =>
       `La squadra è al completo: al massimo ${max} mostri oltre al capo. Per aggiungerne uno, prima togline un altro.`,
-    squadFooter: 'Ognuno ha la sua chat, i suoi compiti e una cartella nelle note dove scrive.',
+    squadFooter: 'Ognuno ha la sua chat, il suo ruolo e una cartella nelle note dove scrive.',
     leadGroup: 'Il tuo capo',
     personalSquad: 'Squadra personale',
     addMonster: 'Aggiungi un mostro',
     archived: 'Mostri archiviati',
-    archivedFooter: 'La loro chat resta in Attività. Riportati, ritrovano compiti e note.',
+    archivedFooter: 'La loro chat resta in Attività. Riportati, ritrovano le loro note.',
   },
   members: {
     roleLine: 'Una riga sola, tra 5 e 120 caratteri.',
     missionLine: 'Una riga sola, tra 5 e 200 caratteri.',
-    dutiesNone: 'Serve almeno un compito.',
-    dutiesMax: (max) => `Al massimo ${max} compiti.`,
-    dutyBad: (duty) => `Il compito “${duty}” non va bene: troppo corto o troppo lungo.`,
-    whatItDoes: 'Cosa fa, in una riga',
+    dutiesNone: 'Scrivi almeno una cosa che fa.',
+    dutiesMax: (max) => `Al massimo ${max} cose.`,
+    dutyBad: (duty) => `“${duty}” non va bene: troppo corto o troppo lungo.`,
+    whatItDoes: 'Ruolo, in una riga',
     whatItDoesHint: 'Si legge sotto il suo nome.',
     goal: 'Il suo obiettivo',
     goalHint: (name, title) => `Completa la frase “Sei ${name}, ${title}: …”.`,
     titleDefault: 'della squadra',
-    duties: 'Compiti, uno per riga',
+    duties: 'Cosa fa, una cosa per riga',
     dutiesHint: (max) => `Al massimo ${max}.`,
     area: 'Dove scrive nelle note',
     areaHint: 'Una cartella delle note: lì mette quello che prepara.',
     web: 'Fa ricerche sul web',
     webText:
       'È il suo mestiere: il capo gli passa le ricerche e ha più passi per lavoro. Il web lo usa ogni mostro che ne ha il permesso, in Permessi.',
-    roleSaved: (name) => `Ruolo e compiti di ${name} salvati.`,
+    roleSaved: (name) => `Cosa fa ${name}: salvato.`,
     overwrite: (name) =>
       `Hai modificato a mano le istruzioni di ${name}: le sostituisco? Una copia resta salvata.`,
     replace: 'Sostituisci',
@@ -251,9 +245,9 @@ const it: typeof en = {
     role: 'Ruolo',
     leadOfProject: 'Coordina i mostri del progetto: il suo ruolo non si cambia, il nome sì.',
     leadOfSquad: 'Coordina la squadra: il suo ruolo non si cambia, il nome sì.',
-    roleAndDuties: 'Ruolo e compiti',
+    roleAndDuties: 'Ruolo e cosa fa',
     dutiesLine: (n, area, web) =>
-      `${n} ${n === 1 ? 'compito' : 'compiti'} · scrive in ${area}/${web ? ' · fa ricerche sul web' : ''}`,
+      `${n === 1 ? '1 cosa che fa' : `${n} cose che fa`} · scrive in ${area}/${web ? ' · fa ricerche sul web' : ''}`,
     edit: 'Modifica',
     removeFromProject: 'Togli dal progetto',
     removeFromSquad: 'Togli dalla squadra',
@@ -300,17 +294,11 @@ const it: typeof en = {
     what: 'la pagella dei mostri',
     footerOff:
       'La pagella resta solo da leggere: «Impara quale modello lavora meglio» è spento in Decisioni dei mostri.',
-    footerNone: (min) =>
-      `Servono almeno ${min} lavori controllati per modello prima che la squadra cambi l’ordine dei modelli.`,
-    footerClosest: (min, name, checked) =>
-      `Servono almeno ${min} lavori controllati per modello prima di cambiare l’ordine: ${name} è a ${checked}.`,
     footerReady: (min) =>
       `Dopo ${min} lavori controllati un modello può passare primo, tra quelli che il mostro ha già. Non usa mai modelli a pagamento se li hai spenti.`,
     title: 'Pagella dei mostri',
     description:
       'Per ogni mostro e modello: quanti lavori, quanti finiti davvero e quanto costa un lavoro riuscito.',
-    empty:
-      'Ancora nessun lavoro controllato: la pagella si riempie man mano che i mostri finiscono i compiti.',
   },
 };
 
