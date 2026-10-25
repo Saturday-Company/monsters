@@ -44,10 +44,13 @@ import { setPrefs } from '../../store/prefs.ts';
 import { usePreview } from '../../store/preview.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { KeyCap } from '../ui/button.tsx';
+import { uiStrings } from '../ui/ui.strings.ts';
+import { useLayer } from '../ui/layers.ts';
 import { vaultApi } from '../vault/api.ts';
 import { isMac } from '../chat/ChatList.tsx';
 import { armKillSwitch } from './KillSwitch.tsx';
 import { showNews } from './NewsSheet.tsx';
+import { focusNotice } from './StatusLayer.tsx';
 import { showReview } from './ReviewSheet.tsx';
 import { shellStrings } from './shell.strings.ts';
 
@@ -116,9 +119,24 @@ function settings(tab: SettingsTab) {
 
 function useCommands(): Item[] {
   const halted = useApp((s) => s.halted);
+  const message = useApp((s) => s.notice?.text ?? null);
   return useMemo(() => {
     const c = shellStrings().palette.commands;
     const list: Item[] = [
+      // The toast on screen, for the keyboard (W-18): the palette closes first, then the focus goes there.
+      ...(message
+        ? [
+            {
+              id: 'cmd-message',
+              group: 'commands' as const,
+              label: uiStrings().goToMessage,
+              detail: message,
+              keys: keyOf('⇧.'),
+              icon: ChatCircleText,
+              run: () => void setTimeout(focusNotice, 0),
+            },
+          ]
+        : []),
       {
         id: 'cmd-new-note',
         group: 'commands',
@@ -262,7 +280,7 @@ function useCommands(): Item[] {
       },
     ];
     return list;
-  }, [halted]);
+  }, [halted, message]);
 }
 
 /** Notes found by the search of the notes, a moment after the last key (null: not asked). */
@@ -333,6 +351,9 @@ function PaletteBody() {
   const [text, setText] = useState('');
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  // A modal layer: Escape closes only the palette, Tab stays inside, the focus goes back to the opener.
+  useLayer({ ref: dialog, trap: true, onEscape: closePalette });
   const listId = `${domId(useId())}-list`;
   const q = norm(text.trim());
   const notes = useNoteHits(q);
@@ -399,6 +420,7 @@ function PaletteBody() {
       {/* Click away closes; no veil over the instrument (solid colours only). */}
       <div aria-hidden className="fixed inset-0 z-40" onMouseDown={closePalette} />
       <div
+        ref={dialog}
         role="dialog"
         aria-modal="true"
         aria-label={s.dialog}

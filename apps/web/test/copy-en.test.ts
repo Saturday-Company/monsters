@@ -24,11 +24,14 @@ describe('agreement by count', () => {
     );
   });
 
-  it('keeps the Italian band as it was', () => {
+  it('agrees the verb of the Italian band with one message or more (W-39)', () => {
     setAppLang('it');
     const s = shellStrings().halt;
     expect(s.again('il messaggio per Titan', 1)).toBe(
-      'Con «Riprendi e continua» ripartono il messaggio per Titan.',
+      'Con «Riprendi e continua» riparte il messaggio per Titan.',
+    );
+    expect(s.again('i messaggi per Titan e Rhea', 2)).toBe(
+      'Con «Riprendi e continua» ripartono i messaggi per Titan e Rhea.',
     );
   });
 

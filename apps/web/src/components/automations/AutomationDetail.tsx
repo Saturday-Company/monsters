@@ -20,6 +20,7 @@ import { usePrefs } from '../../store/prefs.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { Group, Row } from '../settings/parts.tsx';
 import { Button } from '../ui/button.tsx';
+import { useInPlaceConfirm } from '../ui/confirm.ts';
 import { CrewScreen } from '../monster/CrewScreen.tsx';
 import { automationsStrings } from './automations.strings.ts';
 import { RunState } from './parts.tsx';
@@ -307,7 +308,14 @@ export function AutomationDetail({
   const lead = useAgent(a.lead);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<{ text: string; halted: boolean } | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const {
+    asking: confirmDelete,
+    ask: askDelete,
+    close: closeDelete,
+    trigger: deleteKey,
+    safe: keepKey,
+    onKeyDown: deleteKeys,
+  } = useInPlaceConfirm();
   const running = a.current !== null;
 
   const runNow = async () => {
@@ -390,7 +398,8 @@ export function AutomationDetail({
         </Button>
         <Button
           variant="dangerSoft"
-          onClick={() => setConfirmDelete(true)}
+          ref={deleteKey}
+          onClick={askDelete}
           disabled={busy || confirmDelete}
           className="sm:ml-auto"
         >
@@ -418,6 +427,7 @@ export function AutomationDetail({
           role="alertdialog"
           aria-labelledby="delete-title"
           data-testid="delete-confirm"
+          onKeyDown={deleteKeys}
           className="set-module grid gap-3 px-4 py-4 shadow-[inset_0_0_0_1.5px_var(--stop)]"
         >
           <p id="delete-title" className="text-large font-semibold text-ink">
@@ -425,7 +435,7 @@ export function AutomationDetail({
           </p>
           <p className="text-body text-ink-muted">{s.deleteText}</p>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)} autoFocus>
+            <Button ref={keepKey} variant="secondary" size="sm" onClick={closeDelete}>
               {s.cancel}
             </Button>
             <Button variant="danger" size="sm" onClick={() => void remove()} disabled={busy}>

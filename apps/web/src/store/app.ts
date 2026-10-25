@@ -1,4 +1,5 @@
 import { initNewsSeen } from './news.ts';
+import { dropNotice, pushNotice } from './notice-queue.ts';
 import {
   appLang,
   DRAFT_EVENT_TYPES,
@@ -45,10 +46,16 @@ export interface Notice {
   id: number;
   text: string;
   tone: 'info' | 'error' | 'success';
-  /** One action in the toast ("Rifai"); it closes the toast. */
+  /**
+   * One action in the toast ("Rifai"); it closes the toast. A toast with an action stays at least
+   * 30 s, and until it is used or dismissed when it is news from the core (`fromEvent`): a
+   * keyboard or screen-reader user needs time (store/notice-queue.ts).
+   */
   action?: { label: string; run: () => void };
-  /** How long it stays up, in ms (default: 3.5 s, 6 s for errors). */
+  /** How long a toast stays up, in ms (default: 3.5 s, 6 s for errors). */
   ms?: number;
+  /** News from the core (a cap, a tool, an automation), not the answer to what the user just did. */
+  fromEvent?: boolean;
 }
 
 export interface AppState {
@@ -105,6 +112,8 @@ export interface AppState {
   /** "Novità" as a sheet. */
   newsOpen: boolean;
   notice: Notice | null;
+  /** The messages waiting behind the one on screen (store/notice-queue.ts). */
+  noticeQueue: readonly Notice[];
   /**
    * "Conferma che sei tu": the core wants the user in person for a request (approvals,
    * permissions, Telegram) and this session is not (`owner`: opened by the app with the CLI
@@ -139,6 +148,7 @@ const INITIAL: AppState = {
   reviewOpen: false,
   newsOpen: false,
   notice: null,
+  noticeQueue: [],
   ownerPrompt: false,
 };
 
@@ -402,6 +412,7 @@ export function ingest(batch: readonly LogEvent[], opts: IngestOptions = {}): vo
         run: () => (window.location.hash = SPEND_CAP_PATH),
       },
       ms: 10_000,
+      fromEvent: true,
     });
   }
   // Tools of another program changed (D-070): they wait in "Da rivedere" (the decision is
@@ -424,6 +435,7 @@ export function ingest(batch: readonly LogEvent[], opts: IngestOptions = {}): vo
         },
       },
       ms: 10_000,
+      fromEvent: true,
     });
   }
   // A service whose sign-in died while in use (connettori 1): the card says "Serve l’accesso".
@@ -436,6 +448,7 @@ export function ingest(batch: readonly LogEvent[], opts: IngestOptions = {}): vo
     notify(signIn.data.message ?? s.serviceSignIn, 'error', {
       action: { label: s.connect, run: () => (window.location.hash = MCP_SIGN_IN_PATH) },
       ms: 10_000,
+      fromEvent: true,
     });
   }
   // The end of a giro of an automation (D-094), when it asks for the notice of the app.
@@ -461,6 +474,7 @@ export function ingest(batch: readonly LogEvent[], opts: IngestOptions = {}): vo
         run: () => (window.location.hash = automationPath(d.automationId, { giro: d.giro })),
       },
       ms: 8000,
+      fromEvent: true,
     });
   }
   // A monster added, renamed, re-skinned or archived (Settings → Squadra): the
@@ -544,13 +558,20 @@ function applyStatus(st: StatusResponse): void {
 export function notify(
   text: string,
   tone: Notice['tone'] = 'info',
-  extra: Pick<Notice, 'action' | 'ms'> = {},
+  extra: Pick<Notice, 'action' | 'ms' | 'fromEvent'> = {},
 ): void {
-  useApp.setState({ notice: { id: ++noticeSeq, text, tone, ...extra } });
+  const { notice, noticeQueue } = useApp.getState();
+  const line = pushNotice(
+    { notice, queue: noticeQueue },
+    { id: ++noticeSeq, text, tone, ...extra },
+  );
+  useApp.setState({ notice: line.notice, noticeQueue: line.queue });
 }
 
 export function dismissNotice(id: number): void {
-  if (useApp.getState().notice?.id === id) useApp.setState({ notice: null });
+  const { notice, noticeQueue } = useApp.getState();
+  const line = dropNotice({ notice, queue: noticeQueue }, id);
+  useApp.setState({ notice: line.notice, noticeQueue: line.queue });
 }
 
 /* ------------------------------------------------------------- lifecycle */

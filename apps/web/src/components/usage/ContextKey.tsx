@@ -62,6 +62,8 @@ export function ContextKey({ agentId, name }: { agentId: string; name: string })
   const amount = contextAmount(context);
   const ratio = context?.window ? context.total / context.window : 0;
   const near = context !== null && ratio >= context.threshold;
+  // Without the model's window the amount is a count of tokens: it says so, so it is not read as a share.
+  const counted = context !== null && !context.window && !context.measuredWith;
   const said = context
     ? context.window
       ? s.window(amount)
@@ -92,7 +94,7 @@ export function ContextKey({ agentId, name }: { agentId: string; name: string })
         className={`font-mono text-micro leading-4 tabular-nums ${near ? 'text-screen-signal' : 'text-screen-ink'}`}
         data-testid="context-amount"
       >
-        {amount}
+        {counted ? s.tokensShort(amount) : amount}
       </span>
     </button>
   );

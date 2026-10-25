@@ -210,6 +210,7 @@ function UndoAll({ runId, onDone }: { runId: string; onDone: (r: UndoRunResult) 
         onClick={() => void press()}
         onKeyDown={(e) => {
           if (e.key === 'Escape' && armed) {
+            e.preventDefault();
             setArmed(false);
             if (timer.current) clearTimeout(timer.current);
           }

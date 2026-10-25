@@ -57,6 +57,8 @@ const en = {
     window: (amount: string) => `${amount} of the model’s window`,
     changed: 'model changed, I’ll measure it at the next step',
     tokens: (n: string) => `${n} tokens`,
+    /** The count on the monitor's key when the model's window is not known. */
+    tokensShort: (n: string) => `${n} tok`,
     noStep: 'no steps yet',
     aria: (name: string, said: string) => `Context and usage of ${name}: ${said}`,
     title: 'Context: how much of the model’s working memory this conversation takes up. Open usage',
@@ -177,6 +179,7 @@ const it: typeof en = {
   key: {
     window: (amount) => `${amount} della finestra del modello`,
     changed: 'modello cambiato, lo misuro al prossimo passo',
+    tokensShort: (n) => `${n} tok`,
     tokens: (n) => `${n} token`,
     noStep: 'nessun passo ancora',
     aria: (name, said) => `Contesto e consumi di ${name}: ${said}`,

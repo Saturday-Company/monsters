@@ -5,6 +5,7 @@ import { cn, domId } from '../../lib/utils.ts';
 import { useAgent } from '../../store/hooks.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { Button } from '../ui/button.tsx';
+import { useInPlaceConfirm } from '../ui/confirm.ts';
 import { Label } from '../ui/field.tsx';
 import { partsStrings } from './parts.strings.ts';
 import './settings.css';
@@ -390,29 +391,29 @@ export function ConfirmButton({
   busy?: boolean;
 }) {
   const s = partsStrings();
-  const [asking, setAsking] = useState(false);
+  const { asking, ask, close, trigger, safe, onKeyDown } = useInPlaceConfirm();
   if (!asking) {
     return (
-      <Button variant="secondary" size="sm" disabled={busy} onClick={() => setAsking(true)}>
+      <Button ref={trigger} variant="secondary" size="sm" disabled={busy} onClick={ask}>
         {label}
       </Button>
     );
   }
   return (
-    <span className="flex flex-wrap items-center justify-end gap-1.5">
+    <span className="flex flex-wrap items-center justify-end gap-1.5" onKeyDown={onKeyDown}>
       <span className="text-footnote text-ink-muted">{question}</span>
       <Button
         variant="dangerSoft"
         size="sm"
         disabled={busy}
         onClick={() => {
-          setAsking(false);
+          close();
           onConfirm();
         }}
       >
         {confirm}
       </Button>
-      <Button variant="ghost" size="sm" onClick={() => setAsking(false)}>
+      <Button ref={safe} variant="ghost" size="sm" onClick={close}>
         {s.cancel}
       </Button>
     </span>
@@ -577,7 +578,10 @@ export function InlineEdit({
           autoComplete="off"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') close();
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              close();
+            }
           }}
           aria-invalid={problem ? true : undefined}
           aria-describedby={problem ? `${id}-error` : undefined}

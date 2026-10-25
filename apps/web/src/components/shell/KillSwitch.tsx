@@ -4,6 +4,7 @@ import { playSound } from '../../lib/sound.ts';
 import { cn } from '../../lib/utils.ts';
 import { killAll, resumeAll, resumeAndContinue, useApp } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
+import { useLayer } from '../ui/layers.ts';
 import { shellStrings } from './shell.strings.ts';
 
 /*
@@ -81,19 +82,13 @@ export function KillSwitch({ compact = false }: { compact?: boolean }) {
   const ref = useRef<HTMLButtonElement>(null);
   const state: SwitchState = halted ? 'halted' : armed ? 'armed' : 'idle';
 
-  // Armed for a few seconds; Escape closes the cover again.
+  // Armed for a few seconds; Escape closes the cover again (and only that: the layer is on top).
   useEffect(() => {
     if (!armed) return;
     const t = setTimeout(() => setArmed(false), ARMED_MS);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setArmed(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener('keydown', onKey);
-    };
+    return () => clearTimeout(t);
   }, [armed]);
+  useLayer({ open: armed, onEscape: () => setArmed(false) });
 
   // ⌘. / Ctrl+. (or the palette) lifts the cover from anywhere and puts the focus on the switch.
   useEffect(() => {

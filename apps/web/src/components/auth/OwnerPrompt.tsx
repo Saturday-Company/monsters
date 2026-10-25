@@ -1,9 +1,10 @@
-import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useId, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { domId } from '../../lib/utils.ts';
 import { answerOwnerPrompt, confirmOwner, errorText, useApp } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Field, Input } from '../ui/field.tsx';
+import { useLayer } from '../ui/layers.ts';
 import { authStrings } from './auth.strings.ts';
 
 /*
@@ -28,13 +29,15 @@ function OwnerDialog({ reason }: { reason: 'owner' | 'recent' }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') answerOwnerPrompt(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  // A modal layer: Escape cancels only this prompt (a sheet or dialog under it stays), Tab stays
+  // inside, the password field takes the focus and the focus goes back to what asked.
+  const dialog = useRef<HTMLDialogElement>(null);
+  useLayer({
+    ref: dialog,
+    trap: true,
+    initialFocus: 'first',
+    onEscape: () => answerOwnerPrompt(false),
+  });
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -57,6 +60,7 @@ function OwnerDialog({ reason }: { reason: 'owner' | 'recent' }) {
       data-testid="owner-prompt-layer"
     >
       <dialog
+        ref={dialog}
         open
         aria-modal="true"
         aria-labelledby={`${ids}-title`}
@@ -76,7 +80,7 @@ function OwnerDialog({ reason }: { reason: 'owner' | 'recent' }) {
               id={`${ids}-password`}
               type="password"
               autoComplete="current-password"
-              autoFocus
+              data-autofocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               aria-invalid={error ? true : undefined}
