@@ -5,42 +5,100 @@ import type {
   AgentPermissionsView,
   FolderGrant,
   PermissionsResponse,
+  ProjectView,
 } from '@monsters/shared';
 import { useEffect, useMemo, useState } from 'react';
 import { squadsOf } from '../../lib/projects.ts';
+import { projectPath } from '../../lib/router.ts';
 import { errorText, getApi, notify } from '../../store/app.ts';
 import { useAgents } from '../../store/hooks.ts';
 import { useProjects } from '../../store/projects.ts';
+import { Button } from '../ui/button.tsx';
 import { Switch } from '../ui/controls.tsx';
-import { terminalText } from '../../onboarding/PermissionsStep.tsx';
 import { FolderGrants } from './FolderGrants.tsx';
-import { AgentMark, DisclosureRow, Group, LoadFailed, Row, RowBody, useRetry } from './parts.tsx';
+import {
+  AgentMark,
+  ConfirmButton,
+  DisclosureRow,
+  Group,
+  LoadFailed,
+  Row,
+  RowBody,
+  selectClass,
+  useRetry,
+} from './parts.tsx';
+import {
+  full,
+  presetOf,
+  PRESETS,
+  withPreset,
+  type Full,
+  type Preset,
+} from './permission-presets.ts';
 import { permissionsStrings } from './permissions.strings.ts';
 
 /*
- * Settings → what each monster may do (M2.1): notes, web, terminal and the
- * folders of the computer. Every change is saved at once; a permission removed
- * holds from the next tool call, a permission granted from the next job.
+ * Settings → what each monster may do (M2.1, C7): one choice per monster, "Notes only / Notes and
+ * web / Also runs commands", with "Apply to all" on top; behind each row, "Fine-tune" has the
+ * switches one by one (notes, web, commands) and the folders of the computer. Every change is
+ * saved at once; a permission removed holds from the next tool call, a permission granted from the
+ * next job. Where a project switches the web off, the row says so, with a link to the project.
  */
 
-type Full = Required<AgentPermissions>;
-
-function full(p: AgentPermissions): Full {
-  return { vault: p.vault, web: p.web, shell: p.shell ?? false, folders: p.folders ?? [] };
-}
-
-/** "Notes, web, terminal, 2 folders" */
+/** "Notes, web, commands, 2 folders" */
 export function permissionsSummary(p: AgentPermissions): string {
   const f = full(p);
   const s = permissionsStrings().summary;
   const parts = [
     f.vault ? s.notes : s.notesReadOnly,
     ...(f.web ? [s.web] : []),
-    ...(f.shell ? [s.terminal] : []),
+    ...(f.shell ? [s.commands] : []),
     ...(f.folders.length > 0 ? [s.folders(f.folders.length)] : []),
   ];
   const text = parts.join(', ');
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function PresetSelect({
+  value,
+  onChange,
+  label,
+  disabled,
+  placeholder,
+}: {
+  value: Preset | null;
+  onChange: (next: Preset) => void;
+  label: string;
+  disabled?: boolean;
+  /** Without a value (the "apply to all" one): a first option that says to choose. */
+  placeholder?: string;
+}) {
+  const s = permissionsStrings().preset;
+  return (
+    <select
+      aria-label={label}
+      className={selectClass}
+      value={value ?? (placeholder !== undefined ? '' : 'custom')}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value as Preset)}
+    >
+      {placeholder !== undefined && (
+        <option value="" disabled>
+          {placeholder}
+        </option>
+      )}
+      {placeholder === undefined && value === null && (
+        <option value="custom" disabled>
+          {s.custom}
+        </option>
+      )}
+      {PRESETS.map((p) => (
+        <option key={p} value={p}>
+          {s[p]}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 function ToggleRow({
@@ -75,7 +133,75 @@ function ToggleRow({
   );
 }
 
+/** One monster on the first layer: its level, and where a project switches the web off. */
 function AgentRow({
+  agent,
+  noWebIn,
+  onSave,
+}: {
+  agent: AgentPermissionsView;
+  /** The project this monster belongs to when that project switches the web off. */
+  noWebIn: ProjectView | null;
+  onSave: (id: string, next: Full) => Promise<void>;
+}) {
+  const s = permissionsStrings();
+  const [saving, setSaving] = useState(false);
+  const p = full(agent.permissions);
+  const choose = async (preset: Preset) => {
+    setSaving(true);
+    try {
+      await onSave(agent.id, withPreset(p, preset));
+    } catch (err) {
+      notify(errorText(err), 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Row
+      as="li"
+      testId={`agent-permissions-${agent.id}`}
+      leading={<AgentMark id={agent.id} color={agent.color} />}
+      label={<AgentName agent={agent} />}
+      description={
+        <>
+          <span data-testid="permissions-summary">{permissionsSummary(p)}</span>
+          {p.web && noWebIn && (
+            <a
+              href={projectPath(noWebIn.id, 'collegamenti')}
+              className="mt-0.5 block font-medium text-ink underline underline-offset-2"
+              data-testid="permissions-web-override"
+            >
+              {s.webOffIn(noWebIn.name)}
+            </a>
+          )}
+        </>
+      }
+      wrap
+    >
+      <PresetSelect
+        value={presetOf(p)}
+        label={s.preset.label(agent.name)}
+        disabled={saving}
+        onChange={(preset) => void choose(preset)}
+      />
+    </Row>
+  );
+}
+
+function AgentName({ agent }: { agent: AgentPermissionsView }) {
+  return (
+    <span className="flex flex-wrap items-baseline gap-x-2">
+      <span className="text-large font-semibold">{agent.name}</span>
+      {agent.isOrchestrator && (
+        <span className="label text-signal-ink">{permissionsStrings().lead}</span>
+      )}
+    </span>
+  );
+}
+
+/** One monster behind "Switches and folders": the three switches one by one, and its folders. */
+function AgentDetail({
   agent,
   home,
   windows,
@@ -104,15 +230,10 @@ function AgentRow({
 
   return (
     <DisclosureRow
-      testId={`agent-permissions-${agent.id}`}
+      testId={`agent-permissions-fine-${agent.id}`}
       leading={<AgentMark id={agent.id} color={agent.color} />}
-      label={
-        <span className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-large font-semibold">{agent.name}</span>
-          {agent.isOrchestrator && <span className="label text-signal-ink">{s.lead}</span>}
-        </span>
-      }
-      description={<span data-testid="permissions-summary">{permissionsSummary(p)}</span>}
+      label={<AgentName agent={agent} />}
+      description={permissionsSummary(p)}
     >
       <div className="set-rows pl-6">
         <ToggleRow
@@ -135,7 +256,7 @@ function AgentRow({
           <ToggleRow
             icon={TerminalWindow}
             title={SETTINGS_SECTIONS.terminale.label}
-            text={windows ? s.terminal.onWindows(terminalText()) : terminalText()}
+            text={windows ? s.commands.onWindows(s.commands.text) : s.commands.text}
             checked={p.shell}
             onChange={toggle('shell')}
             disabled={saving}
@@ -146,7 +267,7 @@ function AgentRow({
               data-testid="shell-warning"
             >
               <Warning size={18} aria-hidden className="mt-px shrink-0" />
-              <span>{s.terminal.warning(agent.name)}</span>
+              <span>{s.commands.warning(agent.name)}</span>
             </p>
           )}
         </div>
@@ -162,6 +283,56 @@ function AgentRow({
         </RowBody>
       </div>
     </DisclosureRow>
+  );
+}
+
+/** "The same for everyone": one level for every monster. Giving commands to all asks first. */
+function ApplyToAll({
+  data,
+  onApply,
+}: {
+  data: PermissionsResponse;
+  onApply: (preset: Preset) => Promise<void>;
+}) {
+  const s = permissionsStrings();
+  const [preset, setPreset] = useState<Preset | null>(null);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    if (!preset) return;
+    setBusy(true);
+    try {
+      await onApply(preset);
+      setPreset(null);
+    } catch (err) {
+      notify(errorText(err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const gives = preset === 'commands' && data.agents.some((a) => !full(a.permissions).shell);
+  return (
+    <Row as="li" testId="permissions-all" label={s.all.label} description={s.all.text} wrap>
+      <PresetSelect
+        value={preset}
+        label={s.all.selectLabel}
+        placeholder={s.all.choose}
+        disabled={busy}
+        onChange={setPreset}
+      />
+      {gives ? (
+        <ConfirmButton
+          label={s.all.apply}
+          question={s.all.askCommands}
+          confirm={s.all.confirm}
+          busy={busy}
+          onConfirm={() => void run()}
+        />
+      ) : (
+        <Button variant="secondary" size="sm" disabled={busy || !preset} onClick={() => void run()}>
+          {s.all.apply}
+        </Button>
+      )}
+    </Row>
   );
 }
 
@@ -192,6 +363,16 @@ export function AgentPermissionsSettings() {
     return out;
   }, [data, team, projects, s]);
 
+  /** Monsters of a project that switches the web off: the web permission does not reach them there. */
+  const noWebIn = useMemo(() => {
+    const out = new Map<string, ProjectView>();
+    for (const a of team) {
+      const project = a.project ? projects?.find((p) => p.id === a.project) : undefined;
+      if (project && !project.webSearch) out.set(a.id, project);
+    }
+    return out;
+  }, [team, projects]);
+
   const [attempt, retry] = useRetry(() => setFailed(false));
   useEffect(() => {
     let alive = true;
@@ -211,14 +392,24 @@ export function AgentPermissionsSettings() {
     notify(s.saved(name), 'success');
   };
 
+  const onApplyAll = async (preset: Preset) => {
+    if (!data) return;
+    const agents = Object.fromEntries(
+      data.agents.map((a) => [a.id, withPreset(a.permissions, preset)]),
+    );
+    setData(await getApi().setPermissions({ agents }));
+    notify(s.all.done, 'success');
+  };
+
   return (
     <div data-testid="permissions-settings">
-      <Group title={s.title} description={s.description} as="ul">
+      <Group title={s.title} description={s.description} footer={s.footer} as="ul">
         {failed && (
           <li className="list-none px-4 py-3">
             <LoadFailed what={s.what} onRetry={retry} />
           </li>
         )}
+        {data && data.agents.length > 1 && <ApplyToAll data={data} onApply={onApplyAll} />}
         {data &&
           groups.map((g) => (
             <li key={g.key} className="list-none" data-testid={`permissions-squad-${g.key}`}>
@@ -228,14 +419,35 @@ export function AgentPermissionsSettings() {
                   <AgentRow
                     key={a.id}
                     agent={a}
-                    home={data.home}
-                    windows={data.platform === 'win32'}
+                    noWebIn={noWebIn.get(a.id) ?? null}
                     onSave={onSave}
                   />
                 ))}
               </ul>
             </li>
           ))}
+        {data && (
+          <DisclosureRow
+            advanced
+            testId="permissions-fine"
+            label={s.fine.label}
+            description={s.fine.text}
+          >
+            <ul className="set-rows">
+              {groups.flatMap((g) =>
+                g.items.map((a) => (
+                  <AgentDetail
+                    key={a.id}
+                    agent={a}
+                    home={data.home}
+                    windows={data.platform === 'win32'}
+                    onSave={onSave}
+                  />
+                )),
+              )}
+            </ul>
+          </DisclosureRow>
+        )}
       </Group>
     </div>
   );

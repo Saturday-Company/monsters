@@ -21,13 +21,13 @@ afterEach(() => setAppLang('en'));
 describe('permissions summary', () => {
   const p = { vault: true, web: true, shell: true, folders: [{ path: '/a', write: false }] };
   it('lists what a monster may do', () => {
-    expect(permissionsSummary(p)).toBe('Notes, web, terminal, 1 folder');
+    expect(permissionsSummary(p)).toBe('Notes, web, commands, 1 folder');
     expect(permissionsSummary({ vault: false, web: false })).toBe('Read-only notes');
     expect(
       permissionsSummary({ ...p, folders: [p.folders[0]!, { path: '/b', write: true }] }),
     ).toContain('2 folders');
     setAppLang('it');
-    expect(permissionsSummary(p)).toBe('Note, web, terminale, 1 cartella');
+    expect(permissionsSummary(p)).toBe('Note, web, comandi, 1 cartella');
     expect(permissionsSummary({ vault: false, web: false })).toBe('Note in sola lettura');
     expect(
       permissionsSummary({ ...p, folders: [p.folders[0]!, { path: '/b', write: true }] }),
@@ -43,7 +43,7 @@ describe('plurals', () => {
     expect(mcpStrings().servers.kind(true, 2)).toBe('Web service · 2 tools');
     expect(mcpStrings().servers.kind(false, undefined)).toBe('App on this computer');
     expect(teamStrings().members.dutiesLine(1, 'Research', true)).toBe(
-      '1 duty · writes in Research/ · does web research',
+      '1 thing it does · writes in Research/ · does web research',
     );
     expect(teamStrings().score.jobs(1)).toBe('1 job');
     expect(teamStrings().score.jobs(4)).toBe('4 jobs');
@@ -61,7 +61,7 @@ describe('plurals', () => {
     expect(mcpStrings().gallery.toolsReady(1)).toBe('1 strumento pronto per i mostri.');
     expect(mcpStrings().gallery.toolsReady(5)).toBe('5 strumenti pronti per i mostri.');
     expect(teamStrings().members.dutiesLine(1, 'Ricerca', false)).toBe(
-      '1 compito · scrive in Ricerca/',
+      '1 cosa che fa · scrive in Ricerca/',
     );
     expect(teamStrings().score.finished(1)).toBe('1 finito davvero');
     expect(teamStrings().score.finished(3)).toBe('3 finiti davvero');
