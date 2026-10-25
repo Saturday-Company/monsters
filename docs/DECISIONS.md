@@ -5865,3 +5865,24 @@ commands.
 - A refusal tells the model to run the earlier step and the wildcard command as separate calls.
 **Accepted risks:** a file name a program computes, a folder removed or copied whole that holds a config
 (`rm -rf sub`), a `cd .claude` made in an earlier call is seen only through the hook's `cwd`.
+
+### D-190 · Hash routes in English, the Italian ones kept as aliases
+**Status:** done · 25/10/2026
+**Context:** `#/benvenuto`, `#/impostazioni?sezione=…`, `?vista=nuova` showed in the address bar of an English-first
+app (V-10), while saved links, Telegram messages and delivered notifications use them.
+**Choices:** the app writes English only (`#/settings?section=models`, `#/project?id=…&section=settings`,
+`#/notes?note=…`, `?view=new`); readers accept both and the router rewrites an old link in the bar. One table
+(`apps/web/src/lib/route-names.ts`) maps paths, keys and values; ids inside the code stay Italian (D-153). The old
+names stay in the table for good.
+
+### D-191 · Every tool call has its result before the end of its run
+**Status:** done · 25/10/2026
+**Context:** the macOS CI of 25/10 found a shell call with no result in the log after a Stop. `RunController.kill`
+logs `run aborted` right after aborting, while a tool settles later (a shell on the close of its pipes, a tool may
+ignore the signal); `shutdown` even logged the end before aborting; a harness's own calls open at a stop never got a
+result. On Linux the test only passed by timing.
+**Choices:** the tool adapter logs the aborted result inside the abort, once, whatever the tool does afterwards (a
+late outcome is dropped); `shutdown` aborts before logging the ends (the waits reject a microtask later, so D-078
+parking holds); a harness closes its own open calls at a stop or when it ends. Events with facts known only after
+the stop (delegation, usage, receipt) stay after the end. `stop-results.test.ts` checks every kind of call in
+flight (shell, web fetch, MCP, delegation).
