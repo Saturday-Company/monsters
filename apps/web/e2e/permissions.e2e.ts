@@ -94,12 +94,12 @@ test('settings: where a project switches the web off, the row says so with a lin
   // Iapetus works in a project; its own web permission is on.
   const iapetus = section.getByTestId('agent-permissions-iapetus');
   await expect(iapetus.getByTestId('permissions-web-override')).toHaveCount(0);
-  // Switch the web off in the project (its Connections tab), then look again.
+  // Switch the web off in the project (its Settings tab), then look again.
   await page
     .getByRole('link', { name: /Saturday Social/ })
     .first()
     .click();
-  await page.getByRole('tab', { name: 'Connections' }).click();
+  await page.getByRole('tab', { name: 'Settings' }).click();
   await page.getByRole('switch', { name: /web/i }).first().click();
   await page.goto('/?mock=demo#/impostazioni?sezione=permessi');
   const link = page

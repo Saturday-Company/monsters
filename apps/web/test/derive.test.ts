@@ -1519,7 +1519,7 @@ describe('Telegram events in words', () => {
       reason: 'conflict',
     });
     expect(text).toContain('@rhea_saturday_bot');
-    expect(text).toContain('un altro programma');
+    expect(text).toContain('un’altra app');
     expect(text).not.toContain('serve il tuo intervento');
     expect(channel({ action: 'disconnected', reason: 'error' })).toBe(
       'Telegram si è fermato: serve il tuo intervento',

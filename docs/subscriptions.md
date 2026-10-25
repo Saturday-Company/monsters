@@ -5,7 +5,7 @@ only in the ways OpenAI and Anthropic allow for open-source apps that run on you
 need them to get started: free OpenRouter is enough.
 
 Everything is done from **Settings → Models → Plans you already have** (Impostazioni → Modelli in Italian).
-Then, under **Which model they use**, you choose the main model and a fallback for the whole squad; **Advanced** has a model for each monster.
+Then, under **Which model they use**, you choose the main model and a fallback for all the monsters; **Advanced** has a model for each monster.
 
 ## ChatGPT (Plus and Pro)
 

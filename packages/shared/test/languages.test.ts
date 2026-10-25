@@ -303,7 +303,7 @@ describe('small words', () => {
     setAppLang('it');
     expect(EFFORT_WORD.xhigh).toBe('Molto alto');
     expect(CLAUDE_PLAN_MODELS[2].description).toBe('il più capace');
-    expect(telegramTokenShapeMessage()).toMatch(/^Questo non sembra un token di Telegram/);
+    expect(telegramTokenShapeMessage()).toMatch(/^Questo non sembra un codice di bot Telegram/);
     expect(nodeMissing()).toMatch(/^Node\.js non trovato/);
     expect(draftTaint(draft)).toBe('testo di terzi');
   });

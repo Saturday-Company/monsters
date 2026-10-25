@@ -205,7 +205,7 @@ describe('events in words, in both languages', () => {
       channel({ action: 'disconnected', reason: 'conflict', bot: true, name: 'Mario' }),
     ).toEqual([
       'The bot Mario is in use by another app (or has a webhook): Monsters will retry',
-      'Il bot Mario è usato da un altro programma (o ha un webhook): Monsters riprova',
+      'Il bot Mario è usato da un’altra app (o ha un webhook): Monsters riprova',
     ]);
     expect(channel({ action: 'disconnected' })).toEqual([
       'Telegram isn’t responding: Monsters will retry',
@@ -515,8 +515,8 @@ describe('the instinct and the receipt in both languages', () => {
       'Rhea: hard task → claude opus 5.5',
     );
     expect(instinct('tier', { level: 'hard' })).toEqual([
-      'Hard request: Rhea uses the strongest model',
-      'Richiesta difficile: Rhea usa il modello più forte',
+      'Hard request: Rhea uses the thorough model',
+      'Richiesta difficile: Rhea usa il modello accurato',
     ]);
     expect(
       instinct('outbound_refused', {

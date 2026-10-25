@@ -80,7 +80,7 @@ const en = {
     tier: {
       label: 'Uses the cheaper model for simple things',
       description:
-        'If a monster has a light model and a strong one, simple requests go to the light one and hard ones to the strong one; every task the lead hands to a monster gets its own level. It never uses paid models if you’ve turned them off.',
+        'If a monster has a quick model and a thorough one, simple requests go to the quick one and hard ones to the thorough one; every task the lead hands to a monster gets its own level. It never uses paid models if you’ve turned them off.',
       sends:
         'Your request (in the same question as “Hands the job to the right monster”) and, for each task, the text the lead writes to the monster.',
     },
@@ -186,7 +186,7 @@ const it: typeof en = {
     tier: {
       label: 'Usa il modello più economico per le cose semplici',
       description:
-        'Se un mostro ha un modello leggero e uno potente, le richieste semplici vanno al leggero e quelle difficili al potente; ogni incarico che il capo passa a un mostro ha il suo livello. Non usa mai modelli a pagamento se li hai spenti.',
+        'Se un mostro ha un modello veloce e uno accurato, le richieste semplici vanno al veloce e quelle difficili all’accurato; ogni incarico che il capo passa a un mostro ha il suo livello. Non usa mai modelli a pagamento se li hai spenti.',
       sends:
         'La tua richiesta (nella stessa domanda di «Passa il lavoro al mostro giusto») e, per ogni incarico, il testo che il capo scrive al mostro.',
     },

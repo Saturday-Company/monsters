@@ -543,7 +543,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
 - **Settings**: five tabs, one idea each (D-066), as a row of keys at the top: **Squad** (who is there, and who you are:
   name, tone, language, style; the Profile note; the lead is renamed on its row of the squad; at the bottom a closed
   "Advanced" drawer with the monsters' decisions and the scorecard, D-167), **Models** (what they think with: the plans and
-  accounts that are on, "Add a model"; then "Main model" and "If it doesn't answer, use" for the whole squad, the
+  accounts that are on, "Add a model"; then "Main model" and "If it doesn't answer, use" for all the monsters, the
   spending, and at the bottom a closed "Advanced" drawer with a model for each monster, the order, up to six links, the
   Quick / Balanced / Thorough tiers and "Automatic"; a squad whose monsters differ says "Different for some monsters";
   the name reads in words, "Free, chosen by OpenRouter"),

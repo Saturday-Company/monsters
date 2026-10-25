@@ -16,6 +16,7 @@ import {
   type SubscriptionsResponse,
 } from '@monsters/shared';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { Details } from '../components/projects/Details.tsx';
 import { ChatGPTWelcome } from '../components/settings/SubscriptionsSection.tsx';
 import { subscriptionsStrings } from '../components/settings/subscriptions.strings.ts';
 import { Button } from '../components/ui/button.tsx';
@@ -523,13 +524,15 @@ function ChatGPTPanel({
               {t.reopen}
             </a>
           )}
-          <p>
-            {t.tunnel}{' '}
-            <code className="font-mono break-all text-ink">
-              {/* i18n-ignore: a command */}
-              ssh -L {c.callbackPort ?? 1455}:127.0.0.1:{c.callbackPort ?? 1455} {t.sshTarget}
-            </code>
-          </p>
+          <Details>
+            <p>
+              {t.tunnel}{' '}
+              <code className="font-mono break-all text-ink">
+                {/* i18n-ignore: a command */}
+                ssh -L {c.callbackPort ?? 1455}:127.0.0.1:{c.callbackPort ?? 1455} {t.sshTarget}
+              </code>
+            </p>
+          </Details>
         </Note>
       )}
       {c.message && <p className="text-footnote text-ink-muted">{c.message}</p>}
