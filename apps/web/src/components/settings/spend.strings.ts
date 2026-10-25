@@ -10,7 +10,7 @@ const en = {
   noCapShort: 'no cap',
   period: { oggi: 'today', mese: 'this month' },
   higherThan: (label: string, outer: Link) =>
-    `${label}: higher than the ${{ monster: 'monster’s', project: 'project’s', team: 'squad’s' }[outer]} cap, which kicks in first.`,
+    `${label}: higher than ${{ monster: 'the monster’s cap', project: 'the project’s cap', team: 'the cap for all monsters' }[outer]}, which kicks in first.`,
   chainLabel: (labels: readonly string[], closest: string | null) =>
     `How the caps apply: ${labels.join(', then ')}${closest ? `. Closest to the limit: ${closest}` : ''}`,
   unpriced: (names: readonly string[], whose?: string) =>
@@ -20,8 +20,8 @@ const en = {
   form: {
     invalid:
       'Type an amount in euros (at least €0.50), like 1000 or 12.50, or leave empty for no cap.',
-    day: 'Per day (€)',
-    month: 'Per month (€)',
+    day: 'Spend at most per day (€)',
+    month: 'Spend at most per month (€)',
   },
   what: 'the spending cap',
   freeRequests: (n: string, count: number) =>
@@ -29,10 +29,10 @@ const en = {
   subscriptionRequests: (label: string, n: string, count: number) =>
     count === 1 ? `${label}: ${n} request` : `${label}: ${n} requests`,
   description:
-    'How much the monsters can spend with paid models. At the cap those jobs stop until you raise it; subscriptions and free models don’t count.',
+    'How much the monsters can spend with paid models. At the cap those jobs stop until you raise it; plans and free models don’t count.',
   notCounted: (list: string) => `This month, not counted: ${list}. `,
-  rate: (rate: string) => `Fixed rate: $1 = €${rate}.`,
-  links: { monster: 'Monster', project: 'Project', team: 'Whole squad' },
+  rate: (rate: string) => `Providers bill in dollars: counted at a fixed rate, $1 = €${rate}.`,
+  links: { monster: 'Monster', project: 'Project', team: 'All monsters' },
   reached:
     'You’ve reached the cap: jobs with paid models are stopped. Raise it below to restart them.',
   warned: (pct: number) => `You’ve spent more than ${pct}% of the cap.`,
@@ -44,10 +44,10 @@ const en = {
   emptyHint: 'Empty: no cap.',
   saved: 'Spending cap saved.',
   perMonster: 'Per monster',
-  perMonsterText: 'An extra cap for one monster only, on top of the squad’s.',
+  perMonsterText: 'An extra cap for one monster only, on top of the cap for all monsters.',
   agentLine: (day: string, month: string, paid: boolean, unpriced: string | null) =>
     `Today ${day} · this month ${month}${paid ? '' : ' · now uses free models'}${unpriced ? ` · ${unpriced} not counted` : ''}`,
-  agentEmptyHint: 'Empty: only the squad’s cap applies.',
+  agentEmptyHint: 'Empty: only the cap for all monsters applies.',
   agentSaved: (name: string) => `${name}’s cap saved.`,
   save: 'Save',
 };
@@ -57,7 +57,7 @@ const it: typeof en = {
   noCapShort: 'senza tetto',
   period: { oggi: 'oggi', mese: 'mese' },
   higherThan: (label, outer) =>
-    `${label}: più alto del tetto ${{ monster: 'del mostro', project: 'del progetto', team: 'della squadra' }[outer]}: scatta prima quello.`,
+    `${label}: più alto del tetto ${{ monster: 'del mostro', project: 'del progetto', team: 'di tutti i mostri' }[outer]}: scatta prima quello.`,
   chainLabel: (labels, closest) =>
     `Come valgono i tetti: ${labels.join(', poi ')}${closest ? `. Il più vicino al limite: ${closest}` : ''}`,
   unpriced: (names, whose) =>
@@ -67,8 +67,8 @@ const it: typeof en = {
   form: {
     invalid:
       'Scrivi una cifra in euro (almeno 0,50), come 1000 o 12,50, o lascia vuoto per nessun tetto.',
-    day: 'Al giorno (€)',
-    month: 'Al mese (€)',
+    day: 'Spendi al massimo al giorno (€)',
+    month: 'Spendi al massimo al mese (€)',
   },
   what: 'il tetto di spesa',
   freeRequests: (n, count) =>
@@ -76,10 +76,10 @@ const it: typeof en = {
   subscriptionRequests: (label, n, count) =>
     count === 1 ? `${label}: ${n} richiesta` : `${label}: ${n} richieste`,
   description:
-    'Quanto possono spendere i mostri con i modelli a pagamento. Al tetto quei lavori si fermano finché non lo alzi; abbonamenti e modelli gratuiti non contano.',
+    'Quanto possono spendere i mostri con i modelli a pagamento. Al tetto quei lavori si fermano finché non lo alzi; piani e modelli gratuiti non contano.',
   notCounted: (list) => `Questo mese, fuori dal conto: ${list}. `,
-  rate: (rate) => `Cambio fisso: 1 $ = ${rate} €.`,
-  links: { monster: 'Mostro', project: 'Progetto', team: 'Tutta la squadra' },
+  rate: (rate) => `I fornitori fatturano in dollari: conto a un cambio fisso, 1 $ = ${rate} €.`,
+  links: { monster: 'Mostro', project: 'Progetto', team: 'Tutti i mostri' },
   reached:
     'Hai raggiunto il tetto: i lavori con modelli a pagamento sono fermi. Alzalo qui sotto per farli ripartire.',
   warned: (pct) => `Hai speso più dell’${pct}% del tetto.`,
@@ -91,10 +91,10 @@ const it: typeof en = {
   emptyHint: 'Vuoto: nessun tetto.',
   saved: 'Tetto di spesa salvato.',
   perMonster: 'Per mostro',
-  perMonsterText: 'Un tetto in più solo per un mostro, oltre a quello della squadra.',
+  perMonsterText: 'Un tetto in più solo per un mostro, oltre a quello di tutti i mostri.',
   agentLine: (day, month, paid, unpriced) =>
     `Oggi ${day} · questo mese ${month}${paid ? '' : ' · ora usa modelli gratuiti'}${unpriced ? ` · ${unpriced} fuori dal conto` : ''}`,
-  agentEmptyHint: 'Vuoto: vale solo il tetto della squadra.',
+  agentEmptyHint: 'Vuoto: vale solo il tetto di tutti i mostri.',
   agentSaved: (name) => `Tetto di ${name} salvato.`,
   save: 'Salva',
 };

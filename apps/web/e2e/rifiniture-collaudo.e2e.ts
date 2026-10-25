@@ -48,7 +48,7 @@ for (const size of SIZES) {
       await rhea.getByTestId('spend-caps-rhea-save').click();
       const chain = page.getByTestId('spend-chain');
       await expect(chain.getByTestId('spend-chain-warning')).toContainText(
-        'higher than the squad’s cap, which kicks in first',
+        'higher than the cap for all monsters, which kicks in first',
       );
       // A "≤" is never alone at the end of a line: it sits on the same row as its link.
       const rows = await chain.locator('span[aria-hidden]:text("≤")').evaluateAll((signs) =>
