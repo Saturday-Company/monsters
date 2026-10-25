@@ -11,7 +11,7 @@ import type { AgentDefinition } from '../agents/definition.ts';
 import { HaltedError, type RunController, type RunHandle } from '../kill/run-controller.ts';
 import type { EventLog } from '../log/event-log.ts';
 import { fromLine } from '../projects/lines.ts';
-import type { RunLimits } from './run-limits.ts';
+import type { RunLimitsOverride } from './run-limits.ts';
 import type { TeamService } from './team-service.ts';
 import { teamStrings } from './team.strings.ts';
 import { inflightSettled } from './team-tools.ts';
@@ -74,7 +74,7 @@ export interface AutomationContext {
   /** The earlier runs of the giro: the history the agent reads (not its chat). */
   runs: readonly string[];
   /** Limits of the run instead of `settings.limits` (only the ones set). */
-  limits?: Partial<RunLimits>;
+  limits?: RunLimitsOverride;
 }
 
 export type DispatchErrorCode = 'unknown_agent' | 'no_orchestrator' | 'no_provider' | 'busy';

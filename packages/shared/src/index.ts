@@ -14,6 +14,7 @@ export * from './halted.ts';
 export * from './i18n.ts';
 export * from './ids.ts';
 export * from './instinct.ts';
+export * from './limits.ts';
 export * from './log-archive.ts';
 export * from './mcp.ts';
 export * from './mcp-catalog.ts';

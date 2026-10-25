@@ -1,4 +1,10 @@
-import { ToolError } from '@monsters/shared';
+import {
+  ToolError,
+  type LimitReason,
+  type RunLimitsUpdate,
+  type RunLimitsValues,
+  type RunLimitsView,
+} from '@monsters/shared';
 import { z } from 'zod';
 import { teamStrings } from './team.strings.ts';
 
@@ -8,8 +14,24 @@ import { teamStrings } from './team.strings.ts';
  * a total of model steps, tokens and dollars. When a limit is reached the
  * agent gets a clear `LIMIT_REACHED` tool error, and the model loop ends with
  * one last step without tools, for the report (D-064). Configurable in
- * `settings.json` (`limits`).
+ * `settings.json` (`limits`) and in Settings → Spending cap.
  */
+
+/**
+ * The caps of the requests served by a subscription harness (Claude Code, Codex). Their cost is
+ * notional, but they use the user's plan quota, so they stay bounded to stop a runaway. They are
+ * apart from the API's: every request of Claude Code counts as a step, and its cache writes count
+ * as fresh tokens, so the same figures would stop a real multi-monster job.
+ */
+export const PlanRunLimitsSchema = z.object({
+  /** Requests served by a subscription harness in a run, every agent included. */
+  maxRunSteps: z.number().int().min(1).default(400),
+  /** Fresh input + output tokens of those requests in a run, every agent included. */
+  maxRunTokens: z.number().int().min(1000).default(5_000_000),
+  /** Fresh tokens of one delegated agent on a harness in one task, when its agent.yaml sets none. */
+  maxSubagentTokens: z.number().int().min(1000).default(1_500_000),
+});
+export type PlanRunLimits = z.infer<typeof PlanRunLimitsSchema>;
 
 export const RunLimitsSchema = z.object({
   /** Delegations running at the same time, i.e. in one step of the orchestrator. */
@@ -38,11 +60,25 @@ export const RunLimitsSchema = z.object({
    * agent.yaml sets none: one agent cannot use the budget of all (D-064).
    */
   maxSubagentTokens: z.number().int().min(1000).default(400_000),
+  /** The steps and tokens of the requests served by a subscription harness (the API's are above). */
+  plan: PlanRunLimitsSchema.default(() => PlanRunLimitsSchema.parse({})),
 });
 export type RunLimits = z.infer<typeof RunLimitsSchema>;
 export type RunLimitsInput = z.input<typeof RunLimitsSchema>;
 
 export const DEFAULT_RUN_LIMITS: RunLimits = RunLimitsSchema.parse({});
+
+/** Limits of one run instead of the settings' (only the ones set), `plan` too. */
+export type RunLimitsOverride = Omit<Partial<RunLimits>, 'plan'> & {
+  plan?: Partial<PlanRunLimits> | undefined;
+};
+
+/** `base` with the limits of `over` on top; the nested `plan` is merged field by field. */
+export function mergeRunLimits(base: RunLimits, over: RunLimitsOverride | undefined): RunLimits {
+  if (!over) return base;
+  const { plan, ...rest } = over;
+  return { ...base, ...rest, plan: { ...base.plan, ...plan } };
+}
 
 /**
  * The cost of a run with the work it sent to projects, against the limit of one run. Each
@@ -56,6 +92,48 @@ export const TREE_COST_FACTOR = 3;
 /** The limit of a run with the work it sent to projects (`maxTreeCostUsd`). */
 export function treeCostLimit(limits: RunLimits): number {
   return limits.maxTreeCostUsd ?? TREE_COST_FACTOR * limits.maxRunCostUsd;
+}
+
+/** The limits the settings show, from the core's (`RunLimitsValues`). */
+export function runLimitsValues(l: RunLimits): RunLimitsValues {
+  return {
+    maxRunSteps: l.maxRunSteps,
+    maxRunTokens: l.maxRunTokens,
+    maxRunCostUsd: l.maxRunCostUsd,
+    maxSubagentTokens: l.maxSubagentTokens,
+    maxDelegationsPerRun: l.maxDelegationsPerRun,
+    plan: { ...l.plan },
+  };
+}
+
+/** What `GET /api/settings/limits` answers: the limits in force and the defaults, to reset to. */
+export function runLimitsView(l: RunLimits): RunLimitsView {
+  return { limits: runLimitsValues(l), defaults: runLimitsValues(DEFAULT_RUN_LIMITS) };
+}
+
+/** `current` with the fields of `update` on top (what is not sent stays), checked by the schema. */
+export function applyRunLimitsUpdate(current: RunLimits, update: RunLimitsUpdate): RunLimits {
+  const { plan, ...rest } = update;
+  return RunLimitsSchema.parse({ ...current, ...rest, plan: { ...current.plan, ...plan } });
+}
+
+/**
+ * What `settings.json` keeps of the limits: only the fields that differ from the defaults, so the
+ * ones the person never touched follow the defaults of the next version. Null: nothing differs.
+ */
+export function runLimitsToSave(l: RunLimits): Record<string, unknown> | null {
+  const out: Record<string, unknown> = {};
+  const defaults = DEFAULT_RUN_LIMITS;
+  for (const [key, value] of Object.entries(l)) {
+    if (key === 'plan') continue;
+    if (value !== undefined && value !== defaults[key as keyof RunLimits]) out[key] = value;
+  }
+  const plan: Record<string, number> = {};
+  for (const key of Object.keys(l.plan) as (keyof PlanRunLimits)[]) {
+    if (l.plan[key] !== defaults.plan[key]) plan[key] = l.plan[key];
+  }
+  if (Object.keys(plan).length > 0) out['plan'] = plan;
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 function limitError(message: string, hint: string): ToolError {
@@ -80,6 +158,9 @@ export class RunBudget {
   spendCheck: ((agentId: string) => string | null) | undefined;
   #steps = 0;
   #tokens = 0;
+  /** Requests served by a subscription harness: their own counters and caps (`limits.plan`). */
+  #planSteps = 0;
+  #planTokens = 0;
   #costUsd = 0;
   #delegations = 0;
   #active = 0;
@@ -111,6 +192,9 @@ export class RunBudget {
   get usage(): {
     steps: number;
     tokens: number;
+    /** Requests and fresh tokens served by a subscription harness. */
+    planSteps: number;
+    planTokens: number;
     costUsd: number;
     delegations: number;
     active: number;
@@ -118,16 +202,26 @@ export class RunBudget {
     return {
       steps: this.#steps,
       tokens: this.#tokens,
+      planSteps: this.#planSteps,
+      planTokens: this.#planTokens,
       costUsd: this.#costUsd,
       delegations: this.#delegations,
       active: this.#active,
     };
   }
 
-  /** Counts one finished model step, with its cost when the provider reports one. */
-  addStep(tokens: number, costUsd = 0): void {
-    this.#steps++;
-    this.#tokens += Math.max(0, tokens);
+  /**
+   * Counts one finished model step, with its cost when the provider reports one. `plan`: the
+   * request was served by a subscription harness, which has its own counters and caps.
+   */
+  addStep(tokens: number, costUsd = 0, plan = false): void {
+    if (plan) {
+      this.#planSteps++;
+      this.#planTokens += Math.max(0, tokens);
+    } else {
+      this.#steps++;
+      this.#tokens += Math.max(0, tokens);
+    }
     this.#spent(costUsd);
   }
 
@@ -140,8 +234,11 @@ export class RunBudget {
    * Counts a request that is not a finished step (a stream broken halfway and
    * asked again, an answer given up): its tokens and cost, not a step (F-A4).
    */
-  addUsage(tokens: number, costUsd = 0): void {
-    if (Number.isFinite(tokens)) this.#tokens += Math.max(0, tokens);
+  addUsage(tokens: number, costUsd = 0, plan = false): void {
+    if (Number.isFinite(tokens)) {
+      if (plan) this.#planTokens += Math.max(0, tokens);
+      else this.#tokens += Math.max(0, tokens);
+    }
     this.#spent(costUsd);
   }
 
@@ -161,7 +258,10 @@ export class RunBudget {
     return this.#parent ? this.#parent.#root() : this;
   }
 
-  /** Model steps the run may still take (every agent of the run included). */
+  /**
+   * Model steps the run may still take on API models (every agent of the run included). The
+   * plan's steps are not here: the last step without tools is the loop of the API models'.
+   */
   stepsLeft(): number {
     return Math.max(0, this.limits.maxRunSteps - this.#steps);
   }
@@ -177,24 +277,48 @@ export class RunBudget {
 
   /** Why the run must stop, or null while it may go on (with the agent: its spending cap too). */
   exhausted(agentId?: string): string | null {
+    return this.exhaustedBy(agentId)?.message ?? null;
+  }
+
+  /**
+   * The same, with the limit as data too: the sentence is for the model and the log, the
+   * `limit` for the UI, which words it in the person's language.
+   */
+  exhaustedBy(agentId?: string): { message: string; limit: LimitReason } | null {
     const l = this.limits;
+    const t = teamStrings();
+    const stop = (message: string, limit: LimitReason) => ({ message, limit });
     if (this.#steps >= l.maxRunSteps) {
-      return teamStrings().runSteps(l.maxRunSteps);
+      return stop(t.runSteps(l.maxRunSteps), { kind: 'steps', value: l.maxRunSteps });
+    }
+    if (this.#planSteps >= l.plan.maxRunSteps) {
+      return stop(t.runSteps(l.plan.maxRunSteps, true), {
+        kind: 'steps',
+        value: l.plan.maxRunSteps,
+        plan: true,
+      });
     }
     if (this.#tokens >= l.maxRunTokens) {
-      return teamStrings().runTokens(l.maxRunTokens);
+      return stop(t.runTokens(l.maxRunTokens), { kind: 'tokens', value: l.maxRunTokens });
+    }
+    if (this.#planTokens >= l.plan.maxRunTokens) {
+      return stop(t.runTokens(l.plan.maxRunTokens, true), {
+        kind: 'tokens',
+        value: l.plan.maxRunTokens,
+        plan: true,
+      });
     }
     if (this.#costUsd >= l.maxRunCostUsd) {
-      return teamStrings().runCost(l.maxRunCostUsd);
+      return stop(t.runCost(l.maxRunCostUsd), { kind: 'cost', value: l.maxRunCostUsd });
     }
     // The run that sent the work and every lead's run it started: one cost limit (F-A6).
     const root = this.#root();
     const tree = treeCostLimit(root.limits);
     if (root.#treeCostUsd >= tree) {
-      return teamStrings().runTreeCost(tree);
+      return stop(t.runTreeCost(tree), { kind: 'tree_cost', value: tree });
     }
-    if (agentId !== undefined && this.spendCheck) return this.spendCheck(agentId);
-    return null;
+    const spent = agentId !== undefined && this.spendCheck ? this.spendCheck(agentId) : null;
+    return spent ? stop(spent, { kind: 'spend' }) : null;
   }
 
   /** Throws `LIMIT_REACHED` when the run is out of steps or tokens. */
@@ -284,7 +408,8 @@ export function limitTokens(inTok: number, outTok: number, cacheReadTok = 0): nu
 
 /**
  * Token limit of one agent in one task: its own `maxTotalTokens`, or for a
- * delegated agent the run's `maxSubagentTokens`, counted with `limitTokens`.
+ * delegated agent the run's `maxSubagentTokens` (`plan.maxSubagentTokens` when the agent runs on
+ * a subscription harness), counted with `limitTokens`.
  */
 export function agentTokenLimit(
   agent: {
@@ -292,9 +417,22 @@ export function agentTokenLimit(
     limits: { maxTotalTokens?: number | undefined };
   },
   limits: RunLimits | undefined,
+  plan = false,
 ): number | undefined {
   if (agent.limits.maxTotalTokens !== undefined) return agent.limits.maxTotalTokens;
-  return agent.kind === 'subagent' && limits ? limits.maxSubagentTokens : undefined;
+  if (agent.kind !== 'subagent' || !limits) return undefined;
+  return plan ? limits.plan.maxSubagentTokens : limits.maxSubagentTokens;
+}
+
+/** The token limit of an agent as data for the UI (`agentTokenLimit` says the number). */
+export function agentTokenLimitReason(
+  agent: { limits: { maxTotalTokens?: number | undefined } },
+  value: number,
+  plan = false,
+): LimitReason {
+  return agent.limits.maxTotalTokens !== undefined
+    ? { kind: 'agent_tokens', value, own: true }
+    : { kind: 'agent_tokens', value, ...(plan ? { plan } : {}) };
 }
 
 const budgets = new WeakMap<object, RunBudget>();

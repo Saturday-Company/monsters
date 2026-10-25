@@ -130,7 +130,11 @@ describe('the last step writes the report (AG-03)', () => {
     // The earlier steps had their tools.
     expect(env.provider.calls[2]!.options.tools?.length).toBe(3);
     const stop = events.find((e): e is LogEvent<'error'> => e.type === 'error');
-    expect(stop?.data).toMatchObject({ code: 'max_steps' });
+    expect(stop?.data).toMatchObject({
+      code: 'max_steps',
+      limit: { kind: 'agent_steps', value: 4 },
+    });
+    expect(result.limit).toEqual({ kind: 'agent_steps', value: 4 });
     expect(stop?.data.message).toContain('report written at the last step');
   });
 
@@ -143,10 +147,18 @@ describe('the last step writes the report (AG-03)', () => {
       ],
     });
     const budget = new RunBudget(RunLimitsSchema.parse({ maxRunSteps: 3 }));
-    const { result } = await run(env, { agent: agent({ limits: { maxSteps: 20 } }), budget });
+    const { result, events } = await run(env, {
+      agent: agent({ limits: { maxSteps: 20 } }),
+      budget,
+    });
     expect(result).toMatchObject({
       status: 'run_limit',
       finalText: 'Rapporto: Rea e Teti, il resto no.',
+      limit: { kind: 'steps', value: 3 },
+    });
+    expect(events.find((e) => e.type === 'error')?.data).toMatchObject({
+      code: 'run_limit',
+      limit: { kind: 'steps', value: 3 },
     });
     expect(env.provider.calls).toHaveLength(3);
     expect(env.provider.calls[2]!.options.toolChoice).toEqual({ type: 'none' });
@@ -160,7 +172,11 @@ describe('the last step writes the report (AG-03)', () => {
     budget.addStep(10, 0.2);
     // Spent before the agent started: it does not start.
     const { result } = await run(env, { budget });
-    expect(result).toMatchObject({ status: 'run_limit', steps: 0 });
+    expect(result).toMatchObject({
+      status: 'run_limit',
+      steps: 0,
+      limit: { kind: 'cost', value: 0.1 },
+    });
     expect(result.error).toContain('0.1 $');
   });
 });

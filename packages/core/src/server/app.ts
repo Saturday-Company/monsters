@@ -113,6 +113,8 @@ const OWNER_ONLY: readonly { methods: ReadonlySet<string>; path: RegExp }[] = [
     methods: new Set(['PUT']),
     path: /^\/api\/settings\/(?:spend|instinct|decisions|language)\/?$/,
   },
+  // The limits of each job are a brake like the cap: a monster could raise its own.
+  { methods: new Set(['PUT', 'DELETE']), path: /^\/api\/settings\/limits\/?$/ },
   // Telegram: the main bot, the pairing, the paired accounts, the dedicated bots.
   { methods: UNSAFE_METHODS, path: /^\/api\/telegram(?:\/|$)/ },
   // What a monster proposes and only the user confirms (D-098, D-103, D-113).

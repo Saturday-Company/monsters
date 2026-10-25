@@ -30,7 +30,7 @@ import type { EventLog } from '../log/event-log.ts';
 import { answerText } from '../team/conversation.ts';
 import type { Dispatcher, InboxItem } from '../team/dispatcher.ts';
 import type { QuestionStore } from '../team/questions.ts';
-import type { RunLimits } from '../team/run-limits.ts';
+import type { RunLimitsOverride } from '../team/run-limits.ts';
 import { OBJECTIVE_TEXT_TAIL, proposalText } from '../team/proposal-text.ts';
 import type { TeamService } from '../team/team-service.ts';
 import { automationPrompts } from './automations.prompts.ts';
@@ -980,13 +980,25 @@ export class AutomationService {
     }
   }
 
-  /** The limits of a run of the automation, as `RunLimits` (the euro cap in dollars). */
-  #limits(a: Automation): Partial<RunLimits> | undefined {
-    const out: Partial<RunLimits> = {};
-    if (a.limits.maxSteps !== undefined) out.maxRunSteps = a.limits.maxSteps;
-    if (a.limits.maxTotalTokens !== undefined) out.maxRunTokens = a.limits.maxTotalTokens;
+  /**
+   * The limits of a run of the automation, as `RunLimits` (the euro cap in dollars). The steps and
+   * tokens the user chose also bound the requests of a subscription harness: it is their limit
+   * for the whole job, whatever serves it.
+   */
+  #limits(a: Automation): RunLimitsOverride | undefined {
+    const out: RunLimitsOverride = {};
+    const plan: NonNullable<RunLimitsOverride['plan']> = {};
+    if (a.limits.maxSteps !== undefined) {
+      out.maxRunSteps = a.limits.maxSteps;
+      plan.maxRunSteps = a.limits.maxSteps;
+    }
+    if (a.limits.maxTotalTokens !== undefined) {
+      out.maxRunTokens = a.limits.maxTotalTokens;
+      plan.maxRunTokens = a.limits.maxTotalTokens;
+    }
     // Counted from the cost the providers report: a subscription reports none (D-064, D-070).
     if (a.limits.maxEur !== undefined) out.maxRunCostUsd = a.limits.maxEur / this.#o.usdToEur();
+    if (Object.keys(plan).length > 0) out.plan = plan;
     return Object.keys(out).length > 0 ? out : undefined;
   }
 

@@ -104,7 +104,10 @@ import { DecisionsViewSchema, type DecisionEngine, type DecisionsView } from '@m
 import { AgentUsageViewSchema, type AgentUsageView } from '@monsters/shared';
 import {
   InstinctViewSchema,
+  RunLimitsViewSchema,
   SpendViewSchema,
+  type RunLimitsUpdate,
+  type RunLimitsView,
   type SpendUpdate,
   type SpendView,
   ReceiptSchema,
@@ -636,6 +639,22 @@ export class ApiClient {
 
   setSpend(update: SpendUpdate): Promise<SpendView> {
     return this.call('PUT', '/api/settings/spend', SpendViewSchema, update);
+  }
+
+  /* Limits of each job (D-064, shared/src/limits.ts). */
+
+  runLimits(): Promise<RunLimitsView> {
+    return this.call('GET', '/api/settings/limits', RunLimitsViewSchema);
+  }
+
+  /** Saves the fields sent; the rest stays. 400 when a value is out of bounds. */
+  setRunLimits(update: RunLimitsUpdate): Promise<RunLimitsView> {
+    return this.call('PUT', '/api/settings/limits', RunLimitsViewSchema, update);
+  }
+
+  /** Back to the defaults. */
+  resetRunLimits(): Promise<RunLimitsView> {
+    return this.call('DELETE', '/api/settings/limits', RunLimitsViewSchema);
   }
 
   /** Consumi of a monster: its context, its conversation, today and this month (D-075). */

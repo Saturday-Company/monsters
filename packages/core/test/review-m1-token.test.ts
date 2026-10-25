@@ -156,6 +156,8 @@ describe('the CLI token is not the user in person (review of 18/10, M1)', () => 
     const attempts: [string, string, unknown][] = [
       ['PUT', '/api/permissions', SHELL_FOR_RHEA],
       ['PUT', '/api/settings/spend', { dailyEur: 1000 }],
+      ['PUT', '/api/settings/limits', { maxRunSteps: 5000 }],
+      ['DELETE', '/api/settings/limits', undefined],
       ['PUT', '/api/profile', { askAlways: { extras: [], text: '' } }],
       ['PUT', '/api/settings/instinct', { uses: { outbound: 'off' } }],
       ['POST', '/api/telegram/pairing', {}],

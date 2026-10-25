@@ -508,7 +508,7 @@ describe('Claude Agent', () => {
     const options = hubOptions(fake, { claude: binary });
     const t = await startTestHub(
       {},
-      { hub: { ...options.hub, settings: { limits: { maxRunSteps: 1 } } } },
+      { hub: { ...options.hub, settings: { limits: { plan: { maxRunSteps: 1 } } } } },
     );
     await t.json('POST', '/api/subscriptions/claude-agent/activate', {});
     await t.json('PUT', '/api/agents/titan/models', {
@@ -520,7 +520,10 @@ describe('Claude Agent', () => {
       .events(sent.runId)
       .find((e) => e.type === 'error' && e.data.code === 'run_limit');
     expect(limit?.agent).toBe('titan');
-    expect((limit?.data as { message?: string } | undefined)?.message).toContain('model steps');
+    expect((limit?.data as { message?: string } | undefined)?.message).toContain(
+      'model steps on the subscription',
+    );
+    expect(limit?.data).toMatchObject({ limit: { kind: 'steps', value: 1, plan: true } });
   });
 
   it('reports a missing login with the terminal instruction, never a login of its own', async () => {

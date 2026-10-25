@@ -339,6 +339,7 @@ describe('what the cache costs and saves, as the log counts it', () => {
       limits: {},
       addStep: (fresh: number) => void added.push(fresh),
       exhausted: () => null,
+      exhaustedBy: () => null,
       stepsLeft: () => 100,
     };
     const run = env.services.runs.startRun({ agent: 'rhea' });

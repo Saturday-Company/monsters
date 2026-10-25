@@ -201,6 +201,8 @@ export const SETTINGS_ALIASES: Readonly<Record<string, { tab: SettingsTab; part?
   pagella: { tab: 'squadra', part: 'pagella' },
   abbonamenti: { tab: 'modelli' },
   tetto: { tab: 'modelli', part: 'tetto' },
+  // The closed row of the limits of each job, under the spending cap: the link opens it.
+  limiti: { tab: 'modelli', part: 'limiti' },
   pausa: { tab: 'collegamenti', part: 'pausa' },
 };
 

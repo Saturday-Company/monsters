@@ -9,11 +9,13 @@ import {
   originalRequest,
   requestsOf,
   resumeText,
+  settingsPath,
   type AgentState,
   type AgentSummary,
   type EventDataMap,
   type FileEventData,
   type HaltedWork,
+  type LimitReason,
   type LogEvent,
   type PreviewData,
   type ReceiptData,
@@ -574,6 +576,8 @@ export type ChatItem =
       agent: string;
       text: string;
       code?: string | undefined;
+      /** With a limit as code: which cap stopped the job (older events have none). */
+      limit?: LimitReason | undefined;
       /** The run that failed: "Try again" sends its request again, "Behind the scenes" opens it. */
       runId?: string | undefined;
     }
@@ -958,6 +962,7 @@ export function buildChat(
           agent: e.agent,
           text: e.data.message,
           code: e.data.code,
+          limit: e.data.limit,
           runId: e.runId ?? undefined,
         });
         break;
@@ -1293,7 +1298,7 @@ export function previewText(item: ChatItem, nameOf: (id: string) => string): str
       return c.askedYou(nameOf(item.agent));
     case 'error':
       return errorSentence(
-        { agent: item.agent, data: { code: item.code, message: item.text } },
+        { agent: item.agent, data: { code: item.code, message: item.text, limit: item.limit } },
         nameOf,
       );
     case 'system':
@@ -1649,9 +1654,99 @@ export function agentFileText(path: string, action: string): string | null {
     : s.agentFile.workOther(f.owner, baseName(path), s.vault.noteParticiple(action));
 }
 
+/** The statuses and error codes that mean a limit of a job or of a monster stopped it. */
+export const LIMIT_CODES: ReadonlySet<string> = new Set(['run_limit', 'token_limit', 'max_steps']);
+
+/** The limit as the sentence's reason ("the job used all its 400 steps…"); `code` when the core sent none. */
+function limitWhy(code: string, limit: LimitReason | undefined): string {
+  const w = deriveStrings().error.limit.why;
+  const n = (v: number | undefined) => formatNumber(v ?? 0);
+  const plan = limit?.plan === true;
+  switch (limit?.kind) {
+    case 'steps':
+      return w.steps(n(limit.value), plan);
+    case 'tokens':
+      return w.tokens(n(limit.value), plan);
+    case 'cost':
+      return w.cost(formatNumber(limit.value ?? 0, { maximumFractionDigits: 2 }));
+    case 'tree_cost':
+      return w.treeCost(formatNumber(limit.value ?? 0, { maximumFractionDigits: 2 }));
+    case 'agent_tokens':
+      return w.agentTokens(n(limit.value), plan);
+    case 'agent_steps':
+      return w.agentSteps(n(limit.value));
+    default:
+      return code === 'token_limit' ? w.tokenLimit : code === 'max_steps' ? w.maxSteps : w.runLimit;
+  }
+}
+
+/** The limits that can be raised in Settings → … → Limits of each job (the others are a monster's own). */
+function raisable(limit: LimitReason | undefined): boolean {
+  switch (limit?.kind) {
+    case 'steps':
+    case 'tokens':
+    case 'cost':
+    case 'tree_cost':
+      return true;
+    case 'agent_tokens':
+      return limit.own !== true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * The exact reason a job stopped at a limit, and where to change it: "Franco stops here: the job
+ * used all its 400 steps on the subscription. You can raise the limit in Settings → Models →
+ * Spending cap → Limits of each job." Null when the core gave no `limit` (an older event) or it
+ * was the spending cap (its own message says it).
+ */
+export function limitStopSentence(
+  who: string,
+  code: string,
+  limit: LimitReason | undefined,
+): string | null {
+  if (!limit || limit.kind === 'spend') return null;
+  return deriveStrings().error.limit.stopsHere(
+    who,
+    limitWhy(code, limit),
+    raisable(limit) ? settingsPath('limiti') : null,
+  );
+}
+
+/**
+ * What a delegation that stopped at a limit says (the `error` of the event is the core's English
+ * for the model): the reason and whether the monster still wrote a report. Null when the
+ * delegation did not stop at a limit.
+ */
+export function delegationLimitSentence(
+  d: {
+    status: string;
+    runStatus?: string | undefined;
+    limit?: LimitReason | undefined;
+    summary?: string | undefined;
+  },
+  who: string,
+): string | null {
+  const code = d.runStatus;
+  if (!code || !LIMIT_CODES.has(code) || (d.status !== 'failed' && d.status !== 'aborted'))
+    return null;
+  const s = deriveStrings().error.limit;
+  const reason =
+    d.limit?.kind === 'spend'
+      ? null
+      : (limitStopSentence(who, code, d.limit) ??
+        s.stopsHere(who, limitWhy(code, undefined), null));
+  if (!reason) return null;
+  return `${reason} ${d.summary?.trim() ? s.partial : s.noReport}`;
+}
+
 /** Plain sentence for an `error` event (codes from the core and the tools). */
 export function errorSentence(
-  e: { agent: string; data: { code?: string | undefined; message: string } },
+  e: {
+    agent: string;
+    data: { code?: string | undefined; message: string; limit?: LimitReason | undefined };
+  },
   nameOf: (id: string) => string,
 ): string {
   const s = deriveStrings().error;
@@ -1682,7 +1777,14 @@ export function errorSentence(
       // The spending cap (D-070) stops a job in the middle with the same code: its words say so.
       // i18n-ignore: "tetto di spesa" / "spending cap", in the core's message
       if (/tetto di spesa|spending cap/i.test(msg)) return msg.replace(/\.$/, '');
-      return s.runLimit(who);
+      return limitStopSentence(who, 'run_limit', e.data.limit) ?? s.runLimit(who);
+    case 'token_limit':
+    case 'max_steps': {
+      const exact = limitStopSentence(who, e.data.code, e.data.limit);
+      if (exact) return exact;
+      if (isStopText(msg)) return s.stopped(who);
+      return e.agent === 'system' ? msg : s.problem(who, lowerFirst(msg));
+    }
     case 'spend_cap':
       return msg.replace(/\.$/, '');
     case 'context_guard':

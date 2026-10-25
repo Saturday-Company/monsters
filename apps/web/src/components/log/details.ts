@@ -1,5 +1,5 @@
 import { formatEur, formatNumber, SPEND_PERIOD_WORDS, type LogEvent } from '@monsters/shared';
-import { capitalize, modelLabel, toolLabel } from '../../store/derive.ts';
+import { capitalize, delegationLimitSentence, modelLabel, toolLabel } from '../../store/derive.ts';
 import {
   receiptCost,
   receiptNotes,
@@ -48,7 +48,8 @@ export function detailsOf(e: LogEvent): DetailField[] {
       add(l.doneWhen, e.data.doneWhen);
       add(l.notesToRead, e.data.contextLinks);
       add(l.result, e.data.summary);
-      add(l.problem, e.data.error);
+      // A stop at a limit: which cap, in the person's language (the `error` is for the model).
+      add(l.problem, delegationLimitSentence(e.data, capitalize(e.data.to)) ?? e.data.error);
       break;
     case 'tool_call':
       add(l.tool, `${toolLabel(e.data.tool)} (${e.data.tool})`);

@@ -43,6 +43,8 @@ export interface SettingsPatch {
   openrouter?: { freeOnly: boolean };
   /** Spending caps (D-070): the whole object. */
   spend?: Record<string, unknown>;
+  /** Limits of each job (D-064): the whole object; null drops it (the defaults). */
+  limits?: Record<string, unknown> | null;
   /** Paid web search (D-071): merged into `paidSearch`. */
   paidSearch?: { mode?: 'auto' | 'on' | 'off'; engine?: 'parallel' | 'exa' };
 }
@@ -111,6 +113,8 @@ export function patchSettingsFile(home: string, patch: SettingsPatch): Record<st
     next['instinct'] = instinct;
   }
   if (patch.spend !== undefined) next['spend'] = patch.spend;
+  if (patch.limits === null) delete next['limits'];
+  else if (patch.limits !== undefined) next['limits'] = patch.limits;
   writeSensitiveFile(join(home, SETTINGS_FILE), `${JSON.stringify(next, null, 2)}\n`);
   return next;
 }

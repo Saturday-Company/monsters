@@ -84,8 +84,11 @@ const en = {
   memorySkipped: (name: string, n: number) =>
     `I didn’t add to ${name}’s memory ${n === 1 ? 'a line that only mattered for this job' : `${n} lines that only mattered for this job`}.`,
   // --- the limits of a task
-  runSteps: (n: number) => `this task used all its ${n} model steps`,
-  runTokens: (n: number) => `this task used all its ${n} tokens`,
+  // `plan`: the cap of the requests served by a subscription (Claude Code, Codex), apart from the API's.
+  runSteps: (n: number, plan = false) =>
+    `this task used all its ${n} model steps${plan ? ' on the subscription' : ''}`,
+  runTokens: (n: number, plan = false) =>
+    `this task used all its ${n} tokens${plan ? ' on the subscription' : ''}`,
   runCost: (usd: number) => `this task spent its ${usdText(usd)} $ limit`,
   runTreeCost: (usd: number) =>
     `this task spent its ${usdText(usd)} $ limit (with the work sent to projects)`,
@@ -164,8 +167,10 @@ const it: typeof en = {
   memoryNotSaved: 'Non sono riuscito a scrivere la memoria: riprova tra poco.',
   memorySkipped: (name, n) =>
     `Non ho aggiunto alla memoria di ${name} ${n === 1 ? 'una riga che serviva solo a questo lavoro' : `${n} righe che servivano solo a questo lavoro`}.`,
-  runSteps: (n) => `questo compito ha usato tutti i suoi ${n} passi del modello`,
-  runTokens: (n) => `questo compito ha usato tutti i suoi ${n} token`,
+  runSteps: (n, plan = false) =>
+    `questo compito ha usato tutti i suoi ${n} passi del modello${plan ? ' sull’abbonamento' : ''}`,
+  runTokens: (n, plan = false) =>
+    `questo compito ha usato tutti i suoi ${n} token${plan ? ' sull’abbonamento' : ''}`,
   runCost: (usd) => `questo compito ha speso il suo limite di ${usdText(usd, 'it')} $`,
   runTreeCost: (usd) =>
     `questo compito ha speso il suo limite di ${usdText(usd, 'it')} $ (con il lavoro mandato ai progetti)`,

@@ -156,6 +156,27 @@ describe('a delegation that stopped says why (D-160)', () => {
     expect(end.status).not.toBe('completed');
   });
 
+  it('writes which cap stopped the agent on the delegation, for the UI to word it', async () => {
+    inLang('en');
+    const limit = { kind: 'steps', value: 400, plan: true } as const;
+    const partial = await delegate(() =>
+      Promise.resolve(result({ status: 'run_limit', finalText: 'A metà', limit })),
+    );
+    expect(ended(partial.events).data).toMatchObject({ runStatus: 'run_limit', limit });
+    // Without a word: still a failed delegation, still with the cap.
+    const empty = await delegate(() => Promise.resolve(result({ status: 'run_limit', limit })));
+    expect(ended(empty.events).data).toMatchObject({
+      status: 'failed',
+      runStatus: 'run_limit',
+      limit,
+    });
+    // A delegation that completed has none.
+    const done = await delegate(() =>
+      Promise.resolve(result({ status: 'completed', finalText: 'Fatto' })),
+    );
+    expect(ended(done.events).data).not.toHaveProperty('limit');
+  });
+
   it('a completed delegation stays as it was', async () => {
     inLang('en');
     const { report, events } = await delegate(() =>

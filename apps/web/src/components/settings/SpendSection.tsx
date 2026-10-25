@@ -13,6 +13,7 @@ import { errorText, getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Input } from '../ui/field.tsx';
 import { AgentMark, DisclosureRow, FormField, Group, Row, RowBody, Status } from './parts.tsx';
+import { RunLimitsRow } from './RunLimitsRow.tsx';
 import { spendStrings } from './spend.strings.ts';
 
 /*
@@ -475,6 +476,7 @@ export function SpendSection() {
           </ul>
         </DisclosureRow>
       )}
+      <RunLimitsRow />
     </Group>
   );
 }

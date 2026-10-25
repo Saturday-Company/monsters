@@ -30,6 +30,8 @@ import {
   type MonstersTool,
   type Project,
   type Question,
+  type RunLimitsUpdate,
+  type RunLimitsView,
   type SecretsStatus,
   type SettingsResponse,
   type StoppedRequest,
@@ -194,7 +196,16 @@ import {
 import { TeamService } from './team/team-service.ts';
 import { TeamManager } from './team/team-manager.ts';
 import { finalQuestionHook } from './team/final-question.ts';
-import { runBudget, type RunBudget } from './team/run-limits.ts';
+import {
+  applyRunLimitsUpdate,
+  DEFAULT_RUN_LIMITS,
+  mergeRunLimits,
+  runBudget,
+  runLimitsToSave,
+  runLimitsView,
+  type RunBudget,
+  type RunLimits,
+} from './team/run-limits.ts';
 import {
   instinctRememberFilter,
   keepMemoryFrom,
@@ -249,6 +260,17 @@ import { hubStrings } from './hub.strings.ts';
  * kill switch. `startCore` creates it at startup; tests can create it on top of
  * `createCoreServices`.
  */
+
+/** The limits of each job as the settings use them (`Hub.runLimits`). */
+export interface RunLimitsSettings {
+  view(): RunLimitsView;
+  /** Saves the fields sent (the rest stays); throws a ZodError when a value is out of bounds. */
+  update(update: RunLimitsUpdate): RunLimitsView;
+  /** Back to the defaults. */
+  reset(): RunLimitsView;
+  /** Saves and applies whole limits. */
+  set(next: RunLimits): RunLimitsView;
+}
 
 export interface HubOptions {
   /** Overrides of `settings.json`. */
@@ -365,6 +387,8 @@ export interface Hub {
   mcp: McpManager;
   /** Spending caps in euros per day and month (D-070). */
   spend: SpendMeter;
+  /** Limits of each job: steps, tokens, cost and delegations (D-064). */
+  runLimits: RunLimitsSettings;
   /** The Consumi panel of each monster: context, conversation, spend (D-075). */
   usage: AgentUsage;
   /** Summaries of the older turns (D-082): `idle()` waits for those being written. */
@@ -1809,6 +1833,21 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       return m.provider !== 'openrouter' || !settings.openrouter.freeOnly;
     });
   };
+  // The limits of each job (D-064): saved, and used at once by the jobs that start from now on.
+  const runLimits: RunLimitsSettings = {
+    view: () => runLimitsView(settings.limits),
+    update(update) {
+      return this.set(applyRunLimitsUpdate(settings.limits, update));
+    },
+    reset() {
+      return this.set(DEFAULT_RUN_LIMITS);
+    },
+    set(next) {
+      patchSettingsFile(paths.home, { limits: runLimitsToSave(next) });
+      settings.limits = next;
+      return runLimitsView(next);
+    },
+  };
   const spend = new SpendMeter({
     log,
     state,
@@ -2146,11 +2185,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     // the orchestrator (`project_send`) has its own limits and counts its cost in the sender's tree (F-A6).
     const sender = batch.map((b) => senderBudget(b.eventId)).find((b) => b !== undefined);
     for (const b of batch) inheritedBudget.delete(b.eventId);
-    const budget = runBudget(
-      run,
-      auto?.limits ? { ...settings.limits, ...auto.limits } : settings.limits,
-      sender,
-    );
+    const budget = runBudget(run, mergeRunLimits(settings.limits, auto?.limits), sender);
     budget.spendCheck ??= (id) => spend.stopReason(id);
     const exclude = new Set(batch.flatMap((b) => [b.eventId, ...(b.related ?? [])]));
     // The latest turns as they are: for the radiografia and the user's known sites.
@@ -3093,6 +3128,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     telegramBots,
     mcp,
     spend,
+    runLimits,
     usage,
     compactor,
     files,

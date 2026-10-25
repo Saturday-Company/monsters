@@ -473,6 +473,8 @@ async function runDelegation(
     ...(result ? { steps: result.steps } : {}),
     ...(costUsd !== undefined ? { costUsd } : {}),
     ...(result && result.status !== 'completed' ? { runStatus: result.status } : {}),
+    // Which cap it was, for the UI to say it in the person's language.
+    ...(result?.limit ? { limit: result.limit } : {}),
   };
   const name = target.config.name;
   /** What was done before the stop (D-160): the lead says it instead of "did not respond". */
