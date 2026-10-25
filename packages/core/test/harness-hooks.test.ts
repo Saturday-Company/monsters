@@ -106,6 +106,27 @@ describe('answers of the hooks', () => {
   };
   const signal = new AbortController().signal;
 
+  it('the configuration check fails closed: a check that throws is a refusal, not a 500', async () => {
+    // Folders that cannot be read: the check throws while it judges the call.
+    const broken = {
+      [Symbol.iterator]: () => {
+        throw new Error('folders unavailable');
+      },
+    } as unknown as string[];
+    const { ctx: c } = ctx({ workspace: '/tmp/ws', instructionFolders: broken });
+    for (const [tool, input] of [
+      ['Bash', { command: 'ls' }],
+      ['Write', { file_path: '/tmp/ws/x.md', content: '' }],
+    ] as const) {
+      const out = await answerHarnessHook(
+        { hook_event_name: 'PreToolUse', tool_name: tool, tool_input: input },
+        c,
+        signal,
+      );
+      expect(out, tool).toMatchObject({ hookSpecificOutput: { permissionDecision: 'deny' } });
+    }
+  });
+
   it('never answers allow: nothing when the brake lets it go, deny when the user says no', async () => {
     const seen: string[] = [];
     const { ctx: go } = ctx({

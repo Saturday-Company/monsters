@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { commandWritesConfig } from '../src/system/command-writes-config.ts';
@@ -437,20 +437,72 @@ describe('commandWritesConfig (D-079, D-166)', () => {
         'src/x.ts',
         'sub/AGENTS.md',
         'sub/notes.txt',
+        'build/out.js',
+        'node_modules/x/index.js',
+        'bare/notes.txt',
+        'bare/x/y.txt',
       ]) {
         mkdirSync(join(root, path, '..'), { recursive: true });
         writeFileSync(join(root, path), '');
       }
       mkdirSync(join(root, 'empty'));
+      // A link to the configuration folder under another name.
+      symlinkSync('.claude', join(root, 'cfg'), 'dir');
     });
     it.each([
       // [command, folder it runs in (under the root), writes]
       ['rm -rf dist/*', '.', false],
       ['rm -f dist/*.js', '.', false],
-      ['rm -rf missing/*', '.', false],
       ['rm -rf empty/*', '.', false],
       ['cd dist && rm -rf *', '.', false],
-      ['cd ./dist; rm -rf ./*', '.', false],
+      // The false refusals the review checked: they stay reads or plain writes.
+      ['rm -rf node_modules dist/*', '.', false],
+      ['cp -r src/* dist/', '.', false],
+      ['mv build/* out/', '.', false],
+      ['sed -n 1p CLAUDE.md', '.', false],
+      ['git diff -- *', '.', false],
+      ['ls *', '.', false],
+      ['shopt -s dotglob; ls -a *', '.', false],
+      ['find dist -name "*.js" -delete', '.', false],
+      ['find . -name "*.txt" -delete', 'bare', false],
+      // A folder that is not there yet, or a `cd` that may fail and leave the line here: the pattern.
+      ['rm -rf missing/*', '.', true],
+      ['cd ./dist; rm -rf ./*', '.', true],
+      ['cd nope; rm -f *', '.', true],
+      ['cd /nonexistent; rm -f *', '.', true],
+      ['cd nope || true; rm -f *', '.', true],
+      ['export CDPATH=/; cd x; rm *', '.', true],
+      // Made earlier on the line: the disk is out of date.
+      ['git worktree add t HEAD && cp t/* .', '.', true],
+      ['unzip -o x.zip -d t && cp -f t/* .', '.', true],
+      ['npm run build && rm -rf dist/*', '.', true],
+      // Brace ranges make names that do not exist yet; `**` goes to any depth.
+      ['echo x | tee sub/{A..Z}LAUDE.md', '.', true],
+      ['echo x > {A..A}GENTS.md', 'bare', true],
+      ['mkdir -p .{c..c}laude && echo x > .{c..c}laude/settings.json', 'bare', true],
+      ['echo "{}" > .{a..c}laude/settings.json', 'bare', true],
+      ['rm -rf **/*.md', '.', true],
+      // Glob options and qualifiers change what a glob matches.
+      ['shopt -s dotglob; rm -rf *', 'bare', true],
+      ['GLOBIGNORE=.; rm -rf *', 'bare', true],
+      ['rm -rf *(D)', 'bare', true],
+      ['setopt globdots; rm -rf *', 'bare', true],
+      // Bracket expressions, POSIX classes included.
+      ['rm -f [[:upper:]]LAUDE.md', '.', true],
+      ['rm -f ./[[:upper:]]LAUDE.md', '.', true],
+      ['rm -f ./[]C]LAUDE.md', '.', true],
+      ['rm -f [!x]LAUDE.md', '.', true],
+      // A search that deletes or runs commands walks into the configuration.
+      ['find . -name "*.md" -delete', '.', true],
+      ['find . -name settings.json -delete', '.', true],
+      ['find . -type f -exec rm {} +', '.', true],
+      ['fd -e json -x rm', '.', true],
+      // Links followed, and Windows' short names.
+      ['rm cfg/*', '.', true],
+      ['cd cfg && rm *', '.', true],
+      ['cd cfg && echo x > settings.json', '.', true],
+      ['rm -f CLAUDE~1.MD', '.', true],
+      ['rm -rf CLAUDE~1', '.', true],
       ['cp -r src/* out/', '.', false],
       ['mv dist/* /tmp/old/', '.', false],
       ['rm *.ts', '.', false],
@@ -487,6 +539,44 @@ describe('commandWritesConfig (D-079, D-166)', () => {
         expect(commandWritesConfig(c, { cwd: inside, inConfig: true }), c).toBe(false);
       }
     });
+  });
+
+  // The native `shell` tool on Windows runs PowerShell: a backslash is a separator, `*` also matches
+  // `.claude`. No glob is expanded on disk and every glob of a writer is a write.
+  it.each([
+    ['Remove-Item -Force .\\*', true],
+    ['Remove-Item -Recurse .\\.c*', true],
+    ['Remove-Item .\\*.md', true],
+    ['Set-Content .\\CLAUDE.md x', true],
+    ['"x" | Out-File .\\.claude\\settings.json', true],
+    ['Copy-Item x .\\.claude\\', true],
+    ['Move-Item x CLAUDE.md', true],
+    ['New-Item -ItemType File .\\.claude\\x', true],
+    ['echo x > .\\CLAUDE.md', true],
+    ['Remove-Item -Recurse -Force .\\dist\\*', true],
+    ['Get-ChildItem *', false],
+    ['Get-Content .\\CLAUDE.md', false],
+    ['Remove-Item .\\dist\\a.js', false],
+  ] as const)('Windows (PowerShell): %j writes: %s', (command, writes) => {
+    expect(commandWritesConfig(command, { cwd: process.cwd(), windows: true }), command).toBe(
+      writes,
+    );
+  });
+
+  it('a big folder is read on a budget, once per line (C-19 for the disk)', () => {
+    const root = tempDir();
+    mkdirSync(join(root, 'big'));
+    for (let i = 0; i < 6000; i++) writeFileSync(join(root, 'big', `f${i}`), '');
+    for (const line of [
+      'rm ' + Array.from({ length: 200 }, () => 'big/*').join(' '),
+      'find big -delete',
+      'rm ' + Array.from({ length: 2000 }, () => '*').join(' '),
+    ]) {
+      const t0 = performance.now();
+      // Past the budget the pattern decides: `big/*` could be a CLAUDE.md.
+      expect(commandWritesConfig(line, { cwd: root }), line.slice(0, 30)).toBe(true);
+      expect(performance.now() - t0, line.slice(0, 30)).toBeLessThan(500);
+    }
   });
 
   it('knows the names at any depth and in either case', () => {

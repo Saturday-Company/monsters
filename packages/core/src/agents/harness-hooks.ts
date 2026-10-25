@@ -486,18 +486,22 @@ async function preToolUse(
   const locked = ctx.lockout
     ? lockedHarnessCall(name, input.tool_input, ctx.lockout.cwd, ctx.lockout.lock)
     : null;
-  if (
-    !locked &&
-    ctx.workspace &&
-    (await harnessConfigWrite(
-      name,
-      input.tool_input,
-      ctx.workspace,
-      ctx.instructionFolders,
-      // Claude Code says where its terminal is (a `cd` of an earlier call lasts).
-      str(input.cwd) ?? ctx.workspace,
-    ))
-  ) {
+  // Fails closed: a check that throws would answer 500, and Claude Code goes on after a failed hook.
+  const writesConfig = async (workspace: string) => {
+    try {
+      return await harnessConfigWrite(
+        name,
+        input.tool_input,
+        workspace,
+        ctx.instructionFolders,
+        // Claude Code says where its terminal is (a `cd` of an earlier call lasts).
+        str(input.cwd) ?? workspace,
+      );
+    } catch {
+      return true;
+    }
+  };
+  if (!locked && ctx.workspace && (await writesConfig(ctx.workspace))) {
     refusedCall(ctx, input, 'harness_config', runAgentStrings().configWriteStopped);
     return deny(harnessConfigDenied());
   }

@@ -44,9 +44,12 @@ export function commandWritesInstructions(
   command: string,
   cwd?: string,
   folders: readonly string[] = [],
+  /** On Windows the line is PowerShell's: read conservatively (`windows` of `commandWritesConfig`). */
+  platform: NodeJS.Platform = process.platform,
 ): boolean {
   return commandWritesConfig(command, {
     ...(cwd !== undefined ? { cwd, inConfig: instructionFileIn(cwd, folders) } : {}),
+    ...(platform === 'win32' ? { windows: true } : {}),
   });
 }
 
