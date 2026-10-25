@@ -16,6 +16,7 @@ import { z } from 'zod';
  *                                   `Content-Security-Policy: sandbox …; default-src 'none'`
  *   GET    /api/files/:id/thumb     image/webp thumbnail (images, PDF first page when cheap)
  *   DELETE /api/files/:id
+ *   POST   /api/files/:id/restore
  *
  * A chat message carries the ids of its attachments (`attachments` on the send
  * request and on the `message` event).
@@ -45,6 +46,9 @@ import { z } from 'zod';
  * - `hasText` may become true after the upload answered: the text of a
  *   document is extracted in a worker, then a `file` event with action
  *   `updated` says so.
+ * - `DELETE` puts the file in a trash: it is gone for every read at once, its bytes
+ *   stay for 30 s. `POST /api/files/:id/restore` ("Undo") brings it back → FileMeta
+ *   (404 `unknown_file` once it is gone for good) and logs a `file` event `updated`.
  */
 
 /**

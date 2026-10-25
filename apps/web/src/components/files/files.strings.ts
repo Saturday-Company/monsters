@@ -5,6 +5,8 @@ import { defineStrings } from '../../lib/i18n.ts';
 const en = {
   filters: { all: 'All', images: 'Images', documents: 'Documents', monsters: 'Monsters' },
   deleted: (name: string) => `I deleted ${name}.`,
+  undo: 'Undo',
+  restored: (name: string) => `${name} is back.`,
   openLabel: (name: string) => `${name}: open in the preview`,
   download: (name: string) => `Download ${name}`,
   downloadTitle: 'Download',
@@ -18,6 +20,9 @@ const en = {
     filtered
       ? 'Try another filter, or search for another name.'
       : 'Attach images and documents from the chat with the paperclip, paste them or drag them in. The monsters’ screenshots and pages end up here too.',
+  attach: 'Attach a file in a chat',
+  capped: (n: number) => `The first ${n} files: search or filter to find the others.`,
+  failed: 'the files',
   title: 'Files',
   which: 'Which files',
   searchLabel: 'Search the names and text of the files',
@@ -34,11 +39,15 @@ const en = {
     remove: 'Remove',
     imageLabel: (name: string) => `${name}, image: open in the preview`,
     gone: 'File deleted',
+    unread: 'Couldn’t load the file',
+    retry: 'Try again',
   },
 };
 const it: typeof en = {
   filters: { all: 'Tutti', images: 'Immagini', documents: 'Documenti', monsters: 'Dai mostri' },
   deleted: (name) => `Ho eliminato ${name}.`,
+  undo: 'Annulla',
+  restored: (name) => `${name} è tornato.`,
   openLabel: (name) => `${name}: apri nell’anteprima`,
   download: (name) => `Scarica ${name}`,
   downloadTitle: 'Scarica',
@@ -52,6 +61,9 @@ const it: typeof en = {
     filtered
       ? 'Prova un altro filtro, o cerca un altro nome.'
       : 'Allega immagini e documenti dalla chat con la graffetta, incollali o trascinali. Qui finiscono anche gli screenshot e le pagine dei mostri.',
+  attach: 'Allega un file in una chat',
+  capped: (n) => `I primi ${n} file: cerca o filtra per trovare gli altri.`,
+  failed: 'i file',
   title: 'File',
   which: 'Quali file',
   searchLabel: 'Cerca nei nomi e nel testo dei file',
@@ -68,6 +80,8 @@ const it: typeof en = {
     remove: 'Togli',
     imageLabel: (name) => `${name}, immagine: apri nell’anteprima`,
     gone: 'File eliminato',
+    unread: 'Impossibile caricare il file',
+    retry: 'Riprova',
   },
 };
 

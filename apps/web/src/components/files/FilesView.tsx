@@ -1,16 +1,19 @@
 import type { FileListQuery, FileMeta } from '@monsters/shared';
-import { DownloadSimple, MagnifyingGlass, Trash, X } from '@phosphor-icons/react';
+import { DownloadSimple, MagnifyingGlass, Paperclip, Trash, X } from '@phosphor-icons/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { describeError } from '../../lib/api.ts';
 import { formatSize, kindLabel, sourceText } from '../../lib/files.ts';
+import { openChat } from '../../lib/router.ts';
 import { cn, formatShortDay, formatTime } from '../../lib/utils.ts';
 import { getApi, notify, useApp } from '../../store/app.ts';
 import { useFiles } from '../../store/files.ts';
-import { useAgent, useMediaQuery, useNameOf } from '../../store/hooks.ts';
+import { useAgent, useMediaQuery, useNameOf, useOrchestrator } from '../../store/hooks.ts';
 import { openPreview } from '../../store/preview.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { downloadHref, downloadOnClick } from '../preview/files.ts';
 import { ToolbarContent, ToolbarTitle } from '../shell/Toolbar.tsx';
+import { LoadFailed, useRetry } from '../settings/parts.tsx';
+import { Button } from '../ui/button.tsx';
 import { Segmented } from '../ui/controls.tsx';
 import { EmptyScreen } from '../ui/EmptyScreen.tsx';
 import { FileThumb } from './FileChip.tsx';
@@ -35,12 +38,28 @@ function queryOf(filter: Filter, q: string): FileListQuery {
     ...(filter === 'documents' ? { kind: 'documents' as const } : {}),
     ...(filter === 'monsters' ? { source: 'monsters' as const } : {}),
     ...(q.trim() ? { q: q.trim() } : {}),
-    limit: 300,
+    limit: LIST_LIMIT,
   };
 }
 
+/** How many files the list asks for; a full list says it is cut (W-37). */
+const LIST_LIMIT = 300;
 /** How long the delete key stays armed ("AGAIN"), as Stop. */
 const ARMED_MS = 5000;
+/** How long "Undo" stays on a deleted file (the core keeps it a little longer, U2-32). */
+const UNDO_MS = 10_000;
+
+/** "Undo" of a delete: the file comes back from the core's trash, in the list and in the chats. */
+async function restoreFile(id: string, name: string): Promise<void> {
+  try {
+    const meta = await getApi().restoreFile(id);
+    useFiles.getState().undrop(id);
+    useFiles.getState().put([meta]);
+    notify(filesStrings().restored(name), 'success');
+  } catch (err) {
+    notify(describeError(err), 'error');
+  }
+}
 const DOWNLOAD_KEY =
   'key inline-flex size-9 items-center justify-center rounded-[9px] text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink';
 
@@ -67,7 +86,10 @@ function FileTile({ meta, onDeleted }: { meta: FileMeta; onDeleted: (id: string)
       await getApi().deleteFile(meta.id);
       useFiles.getState().drop(meta.id);
       onDeleted(meta.id);
-      notify(s.deleted(meta.name));
+      notify(s.deleted(meta.name), 'info', {
+        action: { label: s.undo, run: () => void restoreFile(meta.id, meta.name) },
+        ms: UNDO_MS,
+      });
     } catch (err) {
       notify(describeError(err), 'error');
       setBusy(false);
@@ -172,8 +194,16 @@ function FileTile({ meta, onDeleted }: { meta: FileMeta; onDeleted: (id: string)
 
 function EmptyState({ filtered }: { filtered: boolean }) {
   const s = filesStrings();
+  const lead = useOrchestrator();
   return (
-    <EmptyScreen testId="files-empty" title={s.emptyTitle(filtered)} text={s.emptyText(filtered)} />
+    <EmptyScreen testId="files-empty" title={s.emptyTitle(filtered)} text={s.emptyText(filtered)}>
+      {/* The way in is the chat's paperclip: the button takes you to the lead's chat (U2-34). */}
+      {!filtered && lead && (
+        <Button onClick={() => openChat(lead.id)} data-testid="files-attach">
+          <Paperclip size={18} weight="bold" aria-hidden /> {s.attach}
+        </Button>
+      )}
+    </EmptyScreen>
   );
 }
 
@@ -182,7 +212,8 @@ export default function FilesView() {
   const [filter, setFilter] = useState<Filter>('all');
   const [q, setQ] = useState('');
   const [files, setFiles] = useState<FileMeta[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, retry] = useRetry(() => setFailed(false));
   const phone = useMediaQuery('(max-width: 767px)');
   // A new file event (a monster saved one) or one deleted elsewhere: read the list again.
   const fileEvents = useApp((s) => s.events.filter((e) => e.type === 'file').length);
@@ -198,9 +229,9 @@ export default function FilesView() {
             if (!live) return;
             useFiles.getState().put(list);
             setFiles(list);
-            setError(null);
+            setFailed(false);
           })
-          .catch((err: unknown) => live && setError(describeError(err)));
+          .catch(() => live && setFailed(true));
       },
       query.q ? 150 : 0,
     );
@@ -208,7 +239,7 @@ export default function FilesView() {
       live = false;
       clearTimeout(t);
     };
-  }, [query, fileEvents]);
+  }, [query, fileEvents, attempt]);
 
   const filtered = filter !== 'all' || q.trim() !== '';
   // Nothing to filter, nothing to search: the bar waits until there is a file (or a filter on).
@@ -273,10 +304,8 @@ export default function FilesView() {
       )}
       {showBar && <div aria-hidden className="seam-h" />}
       <div className="scroll-soft min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-8 sm:px-6">
-        {error ? (
-          <p className="text-body text-stop-ink" role="alert">
-            {error}
-          </p>
+        {failed ? (
+          <LoadFailed what={s.failed} onRetry={retry} />
         ) : files === null ? (
           <p className="label text-ink-muted" aria-busy="true">
             {s.loading}
@@ -297,6 +326,11 @@ export default function FilesView() {
               />
             ))}
           </ul>
+        )}
+        {!failed && files !== null && files.length >= LIST_LIMIT && (
+          <p className="label mt-4 text-ink-muted" data-testid="files-capped">
+            {s.capped(LIST_LIMIT)}
+          </p>
         )}
       </div>
     </section>

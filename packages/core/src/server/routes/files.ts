@@ -220,7 +220,8 @@ export function registerFileRoutes(
 
   app.delete('/api/files/:id', requireAuth, (c) => {
     const meta = find(c);
-    if (!meta || !deps.files().delete(meta.id)) return unknown(c);
+    // To the trash, not gone yet: `POST /api/files/:id/restore` brings it back for a few seconds.
+    if (!meta || !deps.files().trash(meta.id)) return unknown(c);
     deps.log.append({
       agent: 'user',
       type: 'file',
@@ -233,5 +234,23 @@ export function registerFileRoutes(
       },
     });
     return c.json({ ok: true });
+  });
+
+  // "Undo" of a delete: only while the file is still in the trash (TRASH_GRACE_MS).
+  app.post('/api/files/:id/restore', requireAuth, (c) => {
+    const meta = deps.files().restore(c.req.param('id') ?? '');
+    if (!meta) return unknown(c);
+    deps.log.append({
+      agent: 'user',
+      type: 'file',
+      data: {
+        action: 'updated',
+        id: meta.id,
+        name: meta.name,
+        kind: meta.kind,
+        source: meta.source,
+      },
+    });
+    return c.json(meta);
   });
 }
