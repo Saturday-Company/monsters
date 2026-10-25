@@ -54,7 +54,15 @@ function DetailPage({
   onChanged: (a: AutomationView) => void;
 }) {
   const runs = useLoaded(() => getApi().automationRuns(a.id), tick);
-  return <AutomationDetail a={a} runs={runs.data} onChanged={onChanged} />;
+  return (
+    <AutomationDetail
+      a={a}
+      runs={runs.data}
+      runsError={runs.error}
+      onRetryRuns={runs.retry}
+      onChanged={onChanged}
+    />
+  );
 }
 
 function GiroPage({ a, giro, tick }: { a: AutomationView; giro: string; tick: string }) {
