@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.1.0-alpha.25 · 26 ottobre 2026
+
+### Cosa si vede
+- **Primo avvio in quattro schermate.** Account, modello, il tuo nome, poi la squadra con un solo «Va bene»: niente
+  pause forzate. Che lavoro fai, cosa delegare, tono e lingua arrivano dopo, in una carta «Dimmi di più su di te»
+  nella chat del capo, che puoi saltare.
+- **Impostazioni più semplici, senza togliere niente.** Con tutte le righe aperte le impostazioni mostrano meno della
+  metà dei controlli di prima (86 invece di 194); il resto è in «Avanzate». I modelli sono un modello principale e una
+  riserva; la spesa è «al massimo X € al giorno / Y € al mese» più una rete di sicurezza Prudente / Normale / Largo,
+  tutto in euro; le decisioni dei mostri sono Base o Più furbe; i permessi di ogni mostro sono un livello (note, web,
+  eseguire comandi) con «Applica a tutti».
+- **App e Telegram.** La scheda Collegamenti ora è «App e Telegram»: il tuo bot Telegram in tre passi, i bot dei
+  gruppi in Avanzate, e una galleria con la ricerca che parte dalle app più comuni.
+- **Progetti più leggeri.** Un progetto si crea con il solo nome e ha cinque schede: Chat, Squadra, Note,
+  Automazioni, Impostazioni. Un progetto mostra quali mostri non possono cercare sul web e li abilita con un tocco.
+- **Più calmo di default.** I dettagli tecnici sono spenti per tutti (si riaccendono in Impostazioni → Generale →
+  Avanzate); Consumi parte da una frase in parole; le note hanno una sola casella di ricerca.
+- **Non si perde niente.** Ogni chat tiene tutta la sua storia dopo un riavvio, con «Messaggi precedenti»; le bozze di
+  messaggi e note sono salvate; una frase che inizia con A–D non risponde più per sbaglio a una domanda aperta; file
+  eliminati e bozze scartate si possono recuperare per qualche secondo.
+- **Nessun vicolo cieco.** «Da rivedere» e «Novità» sono su ogni pagina, ogni caricamento fallito ha «Riprova», le righe
+  di Attività che ti aspettano hanno il loro tasto, ed Esc chiude un livello alla volta.
+- **Parole più chiare e indirizzi in inglese.** Una parola per ogni cosa in tutta l’app («Eseguire comandi», «piano»,
+  «Tutti i mostri», «Stop»); gli indirizzi nella barra sono in inglese e i vecchi link funzionano ancora.
+- **Limiti che si spiegano.** Un lavoro fermato a un limite scrive prima il suo rapporto e dice quale limite e dove
+  cambiarlo; i piani hanno limiti propri, più larghi.
+
+### Più affidabile
+- **Un freno più solido.** Il terminale di Claude Code e quello di Monsters condividono un solo controllo contro le
+  scritture nella configurazione dei mostri, con meno rifiuti sbagliati sui comandi di tutti i giorni.
+- **Stop lascia un registro pulito**: ogni chiamata a uno strumento ha il suo risultato prima della fine del lavoro, su
+  ogni sistema.
+- **Numeri come li scrivi**: «1.000» e «1,000» si leggono nella tua lingua, e un numero ambiguo viene rifiutato invece
+  che indovinato.
+- **Più veloce nelle sessioni lunghe**: l’app tiene in memoria un numero limitato di eventi e il grafo delle note non
+  si ricostruisce più a ogni tasto.
+
 ## 0.1.0-alpha.24 · 24 ottobre 2026
 
 ### Cosa si vede

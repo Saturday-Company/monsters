@@ -2,6 +2,41 @@
 
 The Italian version is in [`CHANGELOG.it.md`](CHANGELOG.it.md).
 
+## 0.1.0-alpha.25 · 26 October 2026
+
+### What you’ll see
+- **A first start in four screens.** Account, model, your name, then the squad with one “Looks good”: no forced
+  pauses. What you do, what to hand off, tone and language come later, in a “Tell me more about you” card in your
+  lead’s chat that you can skip.
+- **Simpler settings, nothing taken away.** With every row open the settings show less than half the controls of
+  before (86 instead of 194); the rest is under “Advanced”. Models are a main model and a fallback; spending is “at
+  most € X a day / € Y a month” plus a Careful / Normal / Generous safety net, all in euros; the monsters’ decisions
+  are Basic or Smarter; each monster’s permissions are one level (notes, web, run commands) with “Apply to all”.
+- **Apps and Telegram.** The Connections tab is now “Apps and Telegram”: your Telegram bot in three steps, group bots
+  under Advanced, and a gallery with search that starts from the most common apps.
+- **Lighter projects.** A project is created with just its name and has five tabs: Chat, Squad, Notes, Automations,
+  Settings. A project shows which monsters can’t search the web and lets you allow them in one tap.
+- **Calmer by default.** Technical details are off for everyone (turn them back on in Settings → General →
+  Advanced); Usage starts with one sentence in words; notes have a single search box.
+- **Nothing gets lost.** Every chat keeps its whole history after a restart, with “Earlier messages”; drafts of
+  messages and notes are saved; a sentence starting with A–D no longer answers an open question by mistake; deleted
+  files and discarded drafts can be undone for a few seconds.
+- **No dead ends.** “To review” and “What’s new” are on every page, every failed load has “Try again”, Activity rows
+  that wait for you have their button, and Escape closes one layer at a time.
+- **Clearer words and English addresses.** One word per thing across the app (“Run commands”, “plan”, “All
+  monsters”, “Stop”); addresses in the bar are in English, and old links still work.
+- **Limits that explain themselves.** A job stopped at a limit writes its report first and says which limit and where
+  to change it; plans have their own, larger limits.
+
+### More reliable
+- **A stronger brake.** The terminal of Claude Code and Monsters’ own terminal share one check against writing the
+  monsters’ configuration, with fewer false refusals on everyday commands.
+- **Stop leaves a clean log**: every tool call has its result before the job ends, on every system.
+- **Numbers as you write them**: “1.000” and “1,000” are read in your language, and an ambiguous number is refused
+  instead of guessed.
+- **Faster with long sessions**: the app keeps a bounded number of events in memory and the notes graph no longer
+  rebuilds on every keystroke.
+
 ## 0.1.0-alpha.24 · 24 October 2026
 
 ### What you’ll see

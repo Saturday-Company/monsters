@@ -5886,3 +5886,42 @@ late outcome is dropped); `shutdown` aborts before logging the ends (the waits r
 parking holds); a harness closes its own open calls at a stop or when it ends. Events with facts known only after
 the stop (delegation, usage, receipt) stay after the end. `stop-results.test.ts` checks every kind of call in
 flight (shell, web fetch, MCP, delegation).
+
+### D-192 · One word per concept
+**Status:** done · 25/10/2026
+**Context:** after wave C the same concept still had different names across dictionaries, docs and prompts
+(U2-16…U2-26): "terminal" meant three things, "connections" six, "service" both a provider and an app.
+**Choices:** every EN and IT dictionary follows one glossary, now in `docs/design.md` and written from the UI:
+"Run commands" for the permission and "terminal" only for the system's; "Behind the scenes" without "(terminal)";
+"Computers" for the desktop window; "Add a model"; "account" for a provider, "app" for an integration; "plan" for
+Claude and ChatGPT ("subscription" only in legal text); "All monsters" at the top of the caps; "job" for a request,
+"run" only for an automation, "task"/"incarico" only for a delegation; "Stop", never "kill switch"; a stopped monster
+is "stopped"; job cost limits in euros; "Monsters" instead of "the core"; commands, YAML and tokens only in Details.
+Prompts changed only where they name a UI place or a user-facing word; the access fingerprint accepts the old names
+next to the new ones. Still to do: the website, the files the vault scaffold writes, the CLI's `kill` output.
+
+### D-193 · The bar gives way to the title; denser sidebar in short windows; a combobox only when open
+**Status:** done · 25/10/2026
+**Context:** at 1280 px the page title was cut with NEWS lit and "New automation"; at 1280×720 the sidebar showed four
+monsters; the composer was always `role=combobox` (W-30); W-39 a11y leftovers.
+**Choices:** the status block yields first (words from 1440 px, short form from 1000, a light below; Stop short below
+1000); below 860 px of height chat rows are 54 px (a `short` variant); "To review" keeps its word on a phone where it
+fits. The composer is a textbox and becomes a combobox only while the @ menu is open (tests use `composer-input`).
+The window title follows the page, a "Skip" link comes first, focus returns to the language selector after a switch,
+and waiting monsters are flagged by `asked` in the live state instead of comparing a localized text. Automation
+lists and runs get Try again; chat attachments retry their metadata three times on their own.
+
+### D-194 · Bounded memory for the event stream; lighter notes graph; cut lists say so
+**Status:** done · 25/10/2026
+**Choices:**
+- The client folds consecutive answer chunks of a run into one event and keeps the newest 5,000 events (+500 slack);
+  pages the user loaded and open questions are kept, chat floors move to the cut and older events reload on demand
+  (D-188). Hot derivations are computed once per events array: 7,000 raw events become ~2,200, per-event work drops
+  about 3× (W-25).
+- The notes graph is rebuilt only when filters, titles, authors or links change, from the previous positions,
+  keeping pan, zoom and selection (W-11): a keystroke went from ~258 ms of layout to nothing on 500 notes.
+- Files page with "Show more", project notes ask the folder when the overview was cut, text previews read at most
+  512 KB, note links are re-read after a vault change (W-37, W-38).
+- `ProjectService.allowConnection` reads the off-list inside the project's queue (C-10).
+- `provider_fallback`, `search_fallback` and `context_rescue` stay `error` events: the UI already treats them as
+  quiet, and the hub and receipt read their payloads; a `notice` would lose the rewritten sentences.
