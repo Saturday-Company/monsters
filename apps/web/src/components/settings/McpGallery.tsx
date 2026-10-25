@@ -42,6 +42,7 @@ import { getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Segmented } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
+import { useLayer } from '../ui/layers.ts';
 import { Meter } from '../ui/Meter.tsx';
 import { BRAND_ICONS } from './brand-icons.ts';
 import { SATURDAY_ICONS } from './saturday-icons.ts';
@@ -307,13 +308,10 @@ function ConnectPanel({
     }
   }, [state, authUrl, runTest]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // A modal layer: Escape closes only the gallery panel (the password prompt over it closes first),
+  // Tab stays inside, the focus goes back to the card that opened it.
+  const dialog = useRef<HTMLDialogElement>(null);
+  useLayer({ ref: dialog, trap: true, initialFocus: 'first', onEscape: onClose });
 
   const connect = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -423,6 +421,7 @@ function ConnectPanel({
       }}
     >
       <dialog
+        ref={dialog}
         open
         aria-labelledby={titleId}
         aria-modal="true"
@@ -440,7 +439,13 @@ function ConnectPanel({
               <StateLabel state={state} />
             </div>
           </div>
-          <Button variant="ghost" size="iconSm" aria-label={s.close} onClick={onClose} autoFocus>
+          <Button
+            variant="ghost"
+            size="iconSm"
+            aria-label={s.close}
+            onClick={onClose}
+            data-autofocus
+          >
             <X size={18} aria-hidden />
           </Button>
         </div>

@@ -135,6 +135,7 @@ export function Segmented<T extends string>({
   fill?: boolean;
 }) {
   const group = domId(useId());
+  const chosen = options.some((o) => o.value === value);
   return (
     <div
       role="radiogroup"
@@ -155,6 +156,9 @@ export function Segmented<T extends string>({
             role="radio"
             aria-checked={active}
             aria-label={o.ariaLabel}
+            // One stop for Tab, the chosen key (the first when none is); the arrows move
+            // inside the group (ui/radio-keys.ts).
+            tabIndex={active || (!chosen && i === 0) ? 0 : -1}
             data-pressed={active ? 'true' : undefined}
             onClick={() => onChange(o.value)}
             className={cn(

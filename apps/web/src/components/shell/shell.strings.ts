@@ -255,7 +255,7 @@ const it: typeof en = {
     reason: (reason) => `Motivo: ${reason}. `,
     pending: (left) => `In sospeso: ${left}. `,
     canWrite: 'Puoi scrivere: i messaggi partono quando riprendi.',
-    again: (again) => `Con «Riprendi e continua» ripartono ${again}.`,
+    again: (again, n) => `Con «Riprendi e continua» ${n === 1 ? 'riparte' : 'ripartono'} ${again}.`,
     resume: 'Riprendi',
     resumeAndContinue: 'Riprendi e continua',
   },

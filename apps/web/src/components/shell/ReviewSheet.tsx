@@ -1,5 +1,5 @@
 import { Tray, X } from '@phosphor-icons/react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useApp, setReviewOpen } from '../../store/app.ts';
 import { useMediaQuery } from '../../store/hooks.ts';
 import { setPrefs, usePrefs } from '../../store/prefs.ts';
@@ -11,6 +11,7 @@ import { pausedToolEvents } from '../log/activity.ts';
 import { REVIEW_WITH_DOCK_FROM } from '../dock/layout.ts';
 import { ActivityPanel, latestNoteChanges } from '../log/ActivityPanel.tsx';
 import { LabeledKey } from '../ui/button.tsx';
+import { useLayer } from '../ui/layers.ts';
 import { shellStrings } from './shell.strings.ts';
 
 /*
@@ -126,17 +127,20 @@ export function ReviewSheet() {
   const s = shellStrings().review;
   const open = useApp((s) => s.reviewOpen);
   useMarkReviewed(open);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setReviewOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
+  const sheet = useRef<HTMLElement>(null);
+  const closeKey = useRef<HTMLButtonElement>(null);
+  // Not modal (the chat stays usable beside it): Escape closes it only when it is the top layer,
+  // the focus goes to its close key and comes back to the key of the rail.
+  useLayer({
+    open,
+    ref: sheet,
+    initialFocus: closeKey,
+    onEscape: () => setReviewOpen(false),
+  });
   if (!open) return null;
   return (
     <aside
+      ref={sheet}
       role="dialog"
       aria-modal="false"
       aria-label={s.label}
@@ -147,6 +151,7 @@ export function ReviewSheet() {
       )}
     >
       <button
+        ref={closeKey}
         type="button"
         onClick={() => setReviewOpen(false)}
         aria-label={s.close}

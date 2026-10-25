@@ -5,6 +5,7 @@ import { unwrapMarkdown, type ChangelogVersion } from '../../lib/changelog.ts';
 import { cn } from '../../lib/utils.ts';
 import { setNewsOpen, useApp } from '../../store/app.ts';
 import { hasNews, markNewsSeen, useNews } from '../../store/news.ts';
+import { useLayer } from '../ui/layers.ts';
 import { Markdown } from '../ui/Markdown.tsx';
 import { shellStrings } from './shell.strings.ts';
 
@@ -127,32 +128,28 @@ export function NewsSheet() {
   const s = shellStrings().news;
   const open = useApp((s) => s.newsOpen);
   const version = useApp((s) => s.version);
+  const sheet = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   // The version in use opens first; when the changelog does not list it, the newest does.
   const currentKey = CHANGELOG.some((v) => v.version === version) ? version : CHANGELOG[0]?.version;
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (!open) return;
-    markNewsSeen(version);
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const close = closeRef.current;
-    close?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setNewsOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      // Back to the key that opened the sheet, unless the user moved on to something else.
-      if (document.activeElement === document.body || document.activeElement === close)
-        opener?.focus();
-    };
+    if (open) markNewsSeen(version);
   }, [open, version]);
+  // Not modal: Escape closes it only when it is the top layer; the focus goes to its close key and
+  // comes back to the key that opened it.
+  useLayer({
+    open,
+    ref: sheet,
+    initialFocus: closeRef,
+    onEscape: () => setNewsOpen(false),
+  });
 
   if (!open) return null;
   return (
     <aside
+      ref={sheet}
       role="dialog"
       aria-modal="false"
       aria-label={s.label}

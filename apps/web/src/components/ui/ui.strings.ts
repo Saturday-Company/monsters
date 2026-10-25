@@ -14,6 +14,8 @@ const en = {
   inTrashTag: '(in the trash)',
   newTab: ' (opens in a new tab)',
   image: (alt: string) => (alt ? `Image: ${alt}` : 'Image'),
+  /** The command that puts the focus on the message on screen (its key: Undo, Raise the cap…). */
+  goToMessage: 'Go to the message',
 };
 
 const it: typeof en = {
@@ -28,6 +30,7 @@ const it: typeof en = {
   inTrashTag: '(nel cestino)',
   newTab: ' (si apre in una nuova scheda)',
   image: (alt) => (alt ? `Immagine: ${alt}` : 'Immagine'),
+  goToMessage: 'Vai al messaggio',
 };
 
 export const uiStrings = defineStrings({ en, it });

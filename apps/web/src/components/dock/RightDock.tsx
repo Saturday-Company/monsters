@@ -18,6 +18,7 @@ import { useOrchestrator } from '../../store/hooks.ts';
 import { DOCK_WIDTH_DEFAULT, DOCK_WIDTH_MIN, setPrefs, usePrefs } from '../../store/prefs.ts';
 import { hideDock, usePreview, type DockTab } from '../../store/preview.ts';
 import { ErrorBoundary } from '../shell/ErrorBoundary.tsx';
+import { useLayer } from '../ui/layers.ts';
 import { useUsageSheet } from '../usage/state.ts';
 import { closeByBack, useBackCloses } from './back.ts';
 import { dockStrings } from './dock.strings.ts';
@@ -176,16 +177,9 @@ export default function RightDock({ leaving }: { leaving: boolean }) {
   // On a phone the pane is the whole screen: the browser's Back closes it (D-086).
   useBackCloses(mode === 'phone' && !leaving, hideDock);
 
-  // Esc closes the pane (what is inside handles its own Esc first: a zoomed image, the palette).
-  useEffect(() => {
-    if (leaving) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return;
-      closeByBack(hideDock);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [leaving]);
+  // Esc closes the pane when nothing is above it (what is inside handles its own Esc first: a zoomed
+  // image, the palette, a sheet).
+  useLayer({ open: !leaving, onEscape: () => closeByBack(hideDock) });
 
   // The focus comes here only when the user asked for the pane (not when a monster shows something).
   const focused = useRef(0);

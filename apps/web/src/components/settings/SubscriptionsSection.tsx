@@ -6,6 +6,7 @@ import { ApiError, describeError } from '../../lib/api.ts';
 import { cn } from '../../lib/utils.ts';
 import { getApi, notify } from '../../store/app.ts';
 import { Button, buttonVariants } from '../ui/button.tsx';
+import { useLayer } from '../ui/layers.ts';
 import { PlanLimitsBlock } from '../usage/PlanLimitsBlock.tsx';
 import { serviceLabel } from './data.ts';
 import { ConfirmButton, RowBody, ServiceRow } from './parts.tsx';
@@ -71,14 +72,9 @@ export function ChatGPTWelcome({ onDone }: { onDone: () => void }) {
     setOpen(false);
     done.current();
   }, []);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, close]);
+  // A modal layer (below the top bar, which stays reachable): Escape, Tab and the focus are kept in it.
+  const dialog = useRef<HTMLDialogElement>(null);
+  useLayer({ open, ref: dialog, trap: true, initialFocus: 'first', onEscape: close });
   if (!open) return null;
   return createPortal(
     <div
@@ -86,7 +82,9 @@ export function ChatGPTWelcome({ onDone }: { onDone: () => void }) {
       className="fixed inset-x-0 top-16 bottom-0 z-40 flex items-center justify-center bg-black/40 p-4"
     >
       <dialog
+        ref={dialog}
         open
+        aria-modal="true"
         aria-labelledby="chatgpt-welcome-title"
         data-testid="chatgpt-welcome"
         className="raised relative m-0 w-[min(440px,100%)] rounded-[16px] p-6 text-ink"
@@ -103,7 +101,7 @@ export function ChatGPTWelcome({ onDone }: { onDone: () => void }) {
         </p>
         <p className="mt-2 text-footnote leading-snug text-ink-muted">{s.welcomeNote}</p>
         <div className="mt-5 flex justify-end">
-          <Button onClick={close} autoFocus>
+          <Button onClick={close} data-autofocus>
             {s.gotIt}
           </Button>
         </div>

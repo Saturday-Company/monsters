@@ -27,6 +27,7 @@ import { filterNotes, NO_FILTERS, NoteList, useVaultSearch, type Filters } from 
 import { NoteReader } from './NoteReader.tsx';
 import { GroupDot, isAgentNote, useLastVaultChange } from './shared.tsx';
 import { TrashView } from './TrashView.tsx';
+import { useLayer } from '../ui/layers.ts';
 import { vaultStrings } from './vault.strings.ts';
 
 /* The graph (canvas and force layout) has a chunk of its own: loaded on the first visit. */
@@ -217,14 +218,7 @@ export default function VaultView() {
   const drawerKey = `${note}|${tab}`;
   const drawerOpen = drawerMode && drawerFor === drawerKey;
   const setDrawer = (open: boolean) => setDrawerFor(open ? drawerKey : null);
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDrawerFor(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [drawerOpen]);
+  useLayer({ open: drawerOpen, onEscape: () => setDrawerFor(null) });
   const showList = (wide && !drawerMode) || (tab === 'note' && !note);
   const showMain = wide || tab !== 'note' || !!note;
   /*

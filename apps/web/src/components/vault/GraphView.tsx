@@ -533,7 +533,8 @@ export default function GraphView({
     } else if ((e.key === 'Enter' || e.key === ' ') && selected >= 0) {
       e.preventDefault();
       onOpen(notes[selected]!.path);
-    } else if (e.key === 'Escape') {
+    } else if (e.key === 'Escape' && selected >= 0) {
+      e.preventDefault();
       setSelected(-1);
       setAnnounce('');
     }

@@ -1270,7 +1270,9 @@ export function ChatPanel({
               className="flex flex-1 flex-col"
               aria-live="polite"
               aria-relevant="additions"
-              aria-busy={loadingOlder || undefined}
+              // A reply that is still being written is not read in pieces: the region waits (busy)
+              // and gives the finished message when the stream ends (W-26).
+              aria-busy={loadingOlder || streaming || undefined}
             >
               {canLoadOlder && (thread.length > 0 || !loadingOlder) && (
                 <OlderKey

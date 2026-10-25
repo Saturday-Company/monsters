@@ -300,6 +300,8 @@ export function Composer({
         return;
       }
       if (e.key === 'Escape') {
+        // The list closes; a sheet or the pane behind the chat stays.
+        e.preventDefault();
         setMentionOff(true);
         return;
       }
@@ -332,7 +334,7 @@ export function Composer({
             {s.writeTo}
           </li>
           {suggestions.map((a, i) => (
-            <li key={a.id} role="option" aria-selected={i === active}>
+            <li key={a.id} id={`${listId}-${i}`} role="option" aria-selected={i === active}>
               <button
                 type="button"
                 tabIndex={-1}
@@ -522,6 +524,10 @@ export function Composer({
             aria-expanded={showList}
             aria-controls={showList ? listId : undefined}
             aria-autocomplete="list"
+            aria-haspopup="listbox"
+            aria-activedescendant={
+              showList ? `${listId}-${Math.min(active, suggestions.length - 1)}` : undefined
+            }
             placeholder={composerPlaceholder({
               name: agent.name,
               halted,

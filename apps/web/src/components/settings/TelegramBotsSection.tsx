@@ -23,6 +23,7 @@ import { getApi, notify, useApp } from '../../store/app.ts';
 import { useAgents, type AgentView } from '../../store/hooks.ts';
 import { useProjects } from '../../store/projects.ts';
 import { Button } from '../ui/button.tsx';
+import { useInPlaceConfirm } from '../ui/confirm.ts';
 import { Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { partsStrings } from './parts.strings.ts';
@@ -150,7 +151,7 @@ function ToolsForOthers({
 }) {
   const s = telegramStrings().bots;
   const common = partsStrings();
-  const [asking, setAsking] = useState(false);
+  const { asking, ask, close, trigger, safe, onKeyDown } = useInPlaceConfirm<HTMLSpanElement>();
   const set = (fullTools: boolean) =>
     void act(
       () => getApi().updateTelegramBot(bot.id, { fullTools }),
@@ -159,13 +160,13 @@ function ToolsForOthers({
   return (
     <div className="grid gap-1.5" data-testid="telegram-bot-tools">
       <h4 className="label text-ink-muted">{s.toolsTitle}</h4>
-      <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      <span ref={trigger} className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <Switch
           checked={bot.fullTools}
           disabled={busy || asking}
           words
           label={s.toolsLabel(monster, bot.bot.username)}
-          onCheckedChange={(on) => (on ? setAsking(true) : set(false))}
+          onCheckedChange={(on) => (on ? ask() : set(false))}
         />
         <span className="min-w-[min(100%,240px)] flex-1 text-footnote leading-snug text-ink-muted">
           {bot.fullTools
@@ -178,6 +179,7 @@ function ToolsForOthers({
           className="flex flex-wrap items-center gap-1.5"
           role="alert"
           data-testid="telegram-bot-tools-confirm"
+          onKeyDown={onKeyDown}
         >
           <span className="text-footnote text-stop-ink">
             {s.toolsConfirm(monster, risk ? riskWords(risk) : null)}
@@ -187,13 +189,13 @@ function ToolsForOthers({
             size="sm"
             disabled={busy}
             onClick={() => {
-              setAsking(false);
+              close();
               set(true);
             }}
           >
             {s.toolsYes}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setAsking(false)}>
+          <Button ref={safe} variant="ghost" size="sm" onClick={close}>
             {common.cancel}
           </Button>
         </span>

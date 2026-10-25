@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom';
 import { holdNavigation, proceedNavigation } from '../../lib/navigation-guard.ts';
 import { Button } from '../ui/button.tsx';
+import { useLayer } from '../ui/layers.ts';
 import { noteStrings } from './note.strings.ts';
 
 /*
@@ -67,15 +68,16 @@ export function useUnsavedGuard({
   }, []);
 
   const keep = useCallback(() => setTarget(null), []);
-  useEffect(() => {
-    if (target === null) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') keep();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [target, keep]);
-
+  const dialog = useRef<HTMLDivElement>(null);
+  // A modal layer: Escape keeps editing (only this question closes), Tab stays inside, the focus
+  // goes to "Keep editing" and comes back to where the person was.
+  useLayer({
+    open: target !== null,
+    ref: dialog,
+    trap: true,
+    initialFocus: 'first',
+    onEscape: keep,
+  });
   if (target === null) return { question: null, allow };
   const saveThenLeave = async () => {
     setSaving(true);
@@ -94,6 +96,7 @@ export function useUnsavedGuard({
       className="fixed inset-x-0 top-16 bottom-0 z-40 flex items-center justify-center bg-black/40 p-4"
     >
       <div
+        ref={dialog}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="unsaved-title"
@@ -126,7 +129,7 @@ export function useUnsavedGuard({
               {s.save}
             </Button>
           )}
-          <Button onClick={keep} disabled={saving} autoFocus data-testid="unsaved-keep">
+          <Button onClick={keep} disabled={saving} data-autofocus data-testid="unsaved-keep">
             {s.keep}
           </Button>
         </div>
