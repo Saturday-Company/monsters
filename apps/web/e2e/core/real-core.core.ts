@@ -103,7 +103,9 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     if ((await page.getByTestId('models-add').count()) === 0) {
       await page.getByRole('button', { name: 'Add a model' }).click();
     }
-    await expect(page.getByTestId('key-status')).toHaveAttribute('data-set', 'no');
+    await expect(
+      page.getByTestId('provider-row-openrouter').getByTestId('key-status'),
+    ).toHaveAttribute('data-set', 'no');
     await page.getByRole('tab', { name: 'General' }).click();
     // The notes folder sits behind "Advanced" (D-181).
     const advanced = page
