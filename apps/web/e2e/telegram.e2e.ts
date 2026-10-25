@@ -163,8 +163,11 @@ test('settings: use the monsters from your phone, in three steps; the rest waits
   await expect(section).not.toContainText('TELEGRAM_BOT_TOKEN');
 
   // Connected: the commands and the environment variable are in Details, closed.
+  // A fresh mock (same URL: without a new document the bot would stay disconnected).
+  await page.goto('about:blank');
   const fresh = await openTelegram(page, { disconnected: false });
-  await expect(fresh).not.toContainText('/resume');
+  await expect(fresh.getByTestId('telegram-help')).toBeVisible();
+  await expect(fresh.getByText(/\/resume/)).toBeHidden();
   await expect(fresh).not.toContainText('TELEGRAM_BOT_TOKEN');
   await fresh.getByText('Details').click();
   await expect(fresh.getByTestId('telegram-help')).toContainText('/resume');

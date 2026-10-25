@@ -468,7 +468,7 @@ for (const scheme of ['dark', 'light'] as const) {
     await noSideScroll(page, 390);
     // (The rows first show a plain version, then the full one once the monster is read.)
     await expect(
-      page.getByTestId('project-member').getByRole('button', { expanded: false }),
+      page.getByTestId('project-member').getByRole('button', { name: /^Edit / }),
     ).toHaveCount(3);
     // What flaked here with many workers: a screen-reader-only status after a truncated line sat
     // outside the clipped box (its status text is long only for some of the mock's moods), and
