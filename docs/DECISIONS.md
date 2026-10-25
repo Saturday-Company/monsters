@@ -5726,3 +5726,118 @@ unread errors and spend-cap warnings (W-18).
   focuses it (also a palette command), Escape dismisses it and the focus goes back.
 - In-place confirmations focus Cancel and take Escape; one window-level handler gives arrows, Home and End to every
   `role="radio"` group. The context counter says "12 tok" when the model window is unknown.
+
+### D-181 · Express first start
+**Status:** done · 25/10/2026
+**Context:** the first start had 7 screens, 4 text fields, 8 clicks with a plan already working and 3.65 s of forced
+reply delays before the first chat (U2-37, U2-30, U2-31, V-11, V-13).
+**Choices:**
+- Account → model → "What should I call you?" (your name, the lead's prefilled) → the squad, with "Looks good" as the
+  only main key, a Back and one Edit per card → birth: 4 screens, about 5 clicks, no forced delays.
+- Permissions are not a screen: they start as D-159 (notes, web, run commands on, Giulio's choice of 25/10) and the
+  squad screen says so in one sentence, with Settings → Permissions.
+- Work, hand-offs, what they always ask, tone and writing language move to a skippable "Tell me more about you" card
+  in the lead's chat after its first answer, saved to the Profile note through `PUT /api/profile` (which now also
+  writes `work` and `delegate`). The core needs only the names; everything else has a default.
+- The old goals and tools questions are dropped; installs that answered them keep reading them.
+- A row of three example jobs stays under the lead's first messages, not only the first greeting.
+
+### D-182 · One story for limits: a spending cap in euros and a safety net
+**Status:** done · 25/10/2026
+**Context:** four families of limits in four places and two currencies (U2-3, U2-11): caps in €, job limits (D-170,
+D-171) as two groups of five raw fields with the cost in $, automation caps in steps, tokens and euros.
+**Choices:**
+- Models shows "Spend at most per day / per month (€)"; per-monster caps sit behind an Advanced row; the top of the
+  cap chain is "All monsters".
+- Job limits are one "Safety net" row with Careful / Normal / Generous = ×0.5 / ×1 / ×3 of the core defaults
+  (`runLimitsPreset` in `@monsters/shared`), plan caps always at their defaults; a value matching none reads Custom;
+  the exact fields stay in an Advanced "Exact limits" drawer, the only place with steps and tokens. A stop message's
+  link opens it too, since a job may stop on steps.
+- The core keeps `maxRunCostUsd` in dollars: the UI shows euros at `SpendView.usdToEur` and converts back on save,
+  so the cost cut-off follows the same rate as the cap.
+- The automation form asks name, goal and when; the rest is under "More options", with one optional "Cap per
+  automation run (€)" (steps and tokens in Advanced). Without a cap a run inherits the job limits, as it already did.
+
+### D-183 · Models without chains: a main model and a fallback
+**Status:** done · 25/10/2026
+**Context:** per-monster chains needed provider, model id and tier knowledge; "Automatic" depended on a setting in
+another tab, named but not linked (U2-1, U2-29, U2-18, U2-23).
+**Choices:**
+- No new data: "Main model" and "If it doesn't answer, use" are links 1 and 2 of the chain every monster has; editing
+  them keeps links 3-6. Different chains read "Different for some monsters" with a way into Advanced, never one
+  monster's chain shown as everyone's. Saves go to every monster with `allSettled` (W-20).
+- Per-monster chains, order, tiers (renamed Quick / Balanced / Thorough) and Automatic live in an Advanced row;
+  Automatic shows "Needs the expert model" with a link to Monsters' decisions when that use is off.
+- One home for "paid models": the switch under main/fallback; other screens link here.
+- Words: a keyed provider is an "account", Claude and ChatGPT are "plans"; the ssh tunnel line is in Details.
+
+### D-184 · Quick decisions in one control; permission levels per monster
+**Status:** done · 25/10/2026
+**Context:** Monsters' decisions was 12 switches, a three-way engine and a vendor key, with a row that changed nothing
+and one that could not be turned off (U2-2); permissions were a monsters × switches matrix with typed paths (U2-5);
+the same rule had a switch in three screens (U2-13).
+**Choices:**
+- "Quick decisions: Basic / Smarter" maps the existing engine (`rules`/`llm` → Basic, `jev` → Smarter); the
+  switches and the three-step engine are in "Choose one by one". The trial shortcut and the outbound brake have no
+  switch any more (data and API unchanged): the brake always applies and is a sentence with a link. TypeSafe is
+  named once, elsewhere "the expert model". The scorecard appears once a model has the checked jobs it needs.
+- Each monster has a level, "Notes only / Notes and web / Also runs commands", with "Apply to all" (it asks first
+  when it gives commands). A level sets web and commands only, so notes and folders are never undone; the switches
+  and folders stay behind "Switches and folders", folders with the system dialog when the app is local.
+- One home per concept: "ask first" in Permissions → "They always ask you", web in each monster's permission, paid
+  models in Models; elsewhere a read-only line with a link. The permission is "Run commands" (the default stays on,
+  D-159); a monster's duties are "What it does", "task" stays for delegations.
+- Squad: each monster is one row with a single Edit (name, look, role, what it does, folder, web, Remove inside).
+
+### D-185 · Lighter projects: created by name, five tabs
+**Status:** done · 25/10/2026
+**Context:** creating a project asked six decisions; its page had seven tabs; web search needed three switches to
+agree (U2-12, U2-35, U2-14).
+**Choices:**
+- A project is created with the name only; folder, lead, first monsters and apps sit behind "More options" with the
+  defaults of before (the row opens itself on an error). The core API is unchanged.
+- Tabs: Chat, Squad, Notes, Automations, Settings. Settings is one page (folder, web search, apps, spending,
+  archive); the old `sezione` ids are aliases that open it at their section, so saved links and the core's texts
+  still land right. The shared tab names follow.
+- The project lists the monsters that cannot search the web and why; "Allow" turns on only what is off.
+- A truncated row's screen-reader-only text could escape its clip and widen the phone page (the flaky
+  `progetti.e2e.ts` 45 px): the truncating container is `relative`, and a test checks every `.truncate .sr-only`.
+
+### D-186 · Apps and Telegram in layers; the gallery by common use
+**Status:** done · 25/10/2026 · changes the order of D-081
+**Context:** "Connections" meant six things (U2-17); Telegram was two products in one module (U2-4); the gallery had
+five connection modes and a custom MCP form on the first layer, with Anteiku and WitDesk first (U2-7, V-15).
+**Choices:**
+- The tab is "Apps and Telegram" (route `collegamenti` unchanged, names from `app-places.strings.ts` so the core's
+  texts follow); the section is "Apps".
+- Telegram shows the personal bot in three steps and its status; group bots are in an Advanced row that opens itself
+  when a request waits; "Tools for others" is explained in its confirmation; commands and variables in Details.
+- The gallery has a search box, six cards with one "Connect" and "Show all"; the custom form is "Advanced: add an
+  app by address", the only place that says MCP.
+- Order by common use (GitHub, Notion, Linear, Google, Slack…), then Anteiku and WitDesk, still present and
+  searchable (Giulio's choice of 25/10): the first contact of someone who is not Saturday should be a tool they have.
+
+### D-187 · Technical details off for everyone; usage in words
+**Status:** done · 25/10/2026
+**Context:** the instrumentation line under each reply, models and tokens in receipts and an Usage pane that opened on
+internals were on by default (U2-9, U2-10, V-12); the notes list exposed retrieval modes (U2-15).
+**Choices:**
+- `showDetails` defaults to off for everyone, also for people who had it on (Giulio's choice): the stored prefs gain
+  a `version`; a store older than 2 has `showDetails` reset once, then the person's choice sticks. The switch is in
+  Settings → General → Advanced, with sounds, the notes folder and where keys are kept; "App language" on top.
+- Usage opens with one sentence (share of the model's memory and cost, or the plan's usage); the breakdown is in a
+  Details drawer shown only with technical details on.
+- Notes search is one box; "Try exact words" appears after a search with no results.
+
+### D-188 · Core leftovers of waves A and B: notices, one request per chat history, honest hints
+**Status:** done · 25/10/2026
+**Choices:**
+- A `notice` event (message, code) for what Monsters did on its own (retired model replaced, project links reset,
+  semantic search off, MCP tools limited): Activity shows it as a plain row, never under Errors; the same codes
+  logged as errors by an older core read as notices. A replacement that could not be saved stays an `error`.
+- `GET /api/chats/:agent/history?before=` returns a chat's history in one call, with the chat's event types chosen
+  by the core (`chat-history.ts` in `@monsters/shared`); a client meeting an older core falls back to `/api/events`.
+- The reads cap stops only re-reads for tools without filters (C-14); `access_request` says "it's yours" only when
+  the job holds a tool of that service, otherwise the real cause: not responding, paused, cut, not selected (C-15).
+- The orchestrator test (d) waited for one delegation's start only; a delegation stopped while its brief is written
+  never logs "started".
