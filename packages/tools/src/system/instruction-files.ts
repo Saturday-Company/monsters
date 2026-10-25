@@ -31,7 +31,7 @@ export const INSTRUCTION_FILES = [
 /** What the model reads when a call would write one of them. */
 export const instructionFilesDenied = (): string => toolPrompts().instructionFilesDenied;
 export const INSTRUCTION_FILES_HINT =
-  'For CLAUDE.md or AGENTS.md at the top of the folder: propose the whole new text with `project_docs_propose` (load it with `tools_search` if you do not see it); the user applies it with one tap. For the other files: write what you would change in a note of the project, or tell the user.';
+  'For CLAUDE.md or AGENTS.md at the top of the folder: propose the whole new text with `project_docs_propose` (load it with `tools_search` if you do not see it); the user applies it with one tap. For the other files: write what you would change in a note of the project, or tell the user. If the command only reaches them through a wildcard after another step on the same line (`npm run build && rm -rf dist/*`), run the two as separate calls: a wildcard is checked against the folder only when nothing before it on the line may have changed it.';
 
 /**
  * A command line of the `shell` tool that writes, moves or removes one of those files, run in `cwd`

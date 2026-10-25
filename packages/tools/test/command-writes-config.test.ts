@@ -441,6 +441,8 @@ describe('commandWritesConfig (D-079, D-166)', () => {
         'node_modules/x/index.js',
         'bare/notes.txt',
         'bare/x/y.txt',
+        'public/index.html',
+        'docs/CLAUDE.md',
       ]) {
         mkdirSync(join(root, path, '..'), { recursive: true });
         writeFileSync(join(root, path), '');
@@ -448,6 +450,8 @@ describe('commandWritesConfig (D-079, D-166)', () => {
       mkdirSync(join(root, 'empty'));
       // A link to the configuration folder under another name.
       symlinkSync('.claude', join(root, 'cfg'), 'dir');
+      // `d -> ../docs` inside `sub`: `sub/d/..` is the root on disk, `sub` on paper.
+      symlinkSync('../docs', join(root, 'sub', 'd'), 'dir');
     });
     it.each([
       // [command, folder it runs in (under the root), writes]
@@ -465,6 +469,18 @@ describe('commandWritesConfig (D-079, D-166)', () => {
       ['shopt -s dotglob; ls -a *', '.', false],
       ['find dist -name "*.js" -delete', '.', false],
       ['find . -name "*.txt" -delete', 'bare', false],
+      // Narrowed after the second review: a writer dates only the folders it names.
+      ['mkdir -p out && cp -r public/* out/', '.', false],
+      ['mkdir -p out && cp src/*.ts out/', '.', false],
+      ['touch dist/x && rm -f public/*', '.', false],
+      ['cd dist && rm -f *.js', '.', false],
+      ['find . -name "*.log" -delete', '.', false],
+      ['find . -name .DS_Store -delete', '.', false],
+      ['find . -name node_modules -prune -o -name "*.log" -delete', '.', false],
+      ['find dist -name "*.map" -delete', '.', false],
+      ['find dist -name "*.json" -delete', '.', false],
+      ['sed -i s/a/b/ src/*.ts', '.', false],
+      ['echo CLAUDE.md | wc -l', '.', false],
       // A folder that is not there yet, or a `cd` that may fail and leave the line here: the pattern.
       ['rm -rf missing/*', '.', true],
       ['cd ./dist; rm -rf ./*', '.', true],
@@ -502,6 +518,25 @@ describe('commandWritesConfig (D-079, D-166)', () => {
       ['cd cfg && rm *', '.', true],
       ['cd cfg && echo x > settings.json', '.', true],
       ['rm -f CLAUDE~1.MD', '.', true],
+      // `..` after a link is the real folder's parent.
+      ['rm -f sub/d/../*', '.', true],
+      ['cd sub && rm -f d/../*', '.', true],
+      ['cd -P sub/d/.. && rm -f *', '.', true],
+      // A writer that names the folder, or one that may change anything, dates the glob after it.
+      ['mkdir -p sub && rm -f sub/*', '.', true],
+      ['echo x > t; rm -f *', '.', true],
+      ['tar -xf a.tar -C bare && rm -f bare/*', '.', true],
+      ['git clone u bare && rm -f bare/*', '.', true],
+      ['npm run build && rm -rf dist/*', '.', true],
+      // A list fed to a runner on its input, and the lines a shell runs.
+      ['echo CLAUDE.md | parallel rm', '.', true],
+      ['ls *.md | parallel rm', '.', true],
+      ['ls *.md | rush rm', '.', true],
+      ['find sub -maxdepth 0 -exec sh -c "cd ..; rm C*" \\;', '.', true],
+      ['bash -c "rm -f C*"', 'bare', true],
+      ['find . -name "*.json" -delete', '.', true],
+      ['cd sub & rm -f *', '.', true],
+      ['cd sub | rm -f *', '.', true],
       ['rm -rf CLAUDE~1', '.', true],
       ['cp -r src/* out/', '.', false],
       ['mv dist/* /tmp/old/', '.', false],
@@ -557,6 +592,10 @@ describe('commandWritesConfig (D-079, D-166)', () => {
     ['Get-ChildItem *', false],
     ['Get-Content .\\CLAUDE.md', false],
     ['Remove-Item .\\dist\\a.js', false],
+    ['Get-ChildItem -Recurse -Filter CLAUDE.md | Remove-Item', true],
+    ['Get-ChildItem -Recurse -Filter *.md | Remove-Item -Force', true],
+    ['Get-ChildItem *.log | Remove-Item', true],
+    ['Get-ChildItem dist | Measure-Object', false],
   ] as const)('Windows (PowerShell): %j writes: %s', (command, writes) => {
     expect(commandWritesConfig(command, { cwd: process.cwd(), windows: true }), command).toBe(
       writes,
