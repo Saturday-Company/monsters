@@ -146,10 +146,28 @@ test('Automazioni: a new one with a preset, the advanced rule and its next giri'
   await form.getByRole('button', { name: 'Friday' }).click();
   await page.getByTestId('form-time').fill('18:00');
   await expect(preview).toHaveText('every Monday and Friday at 6:00 PM');
+  // Who takes part, the notes folder, the notices and the cap are behind "More options".
+  await expect(page.getByTestId('pick-enceladus')).toHaveCount(0);
+  await expect(page.getByTestId('form-folder')).toHaveCount(0);
+  await expect(page.getByTestId('form-cap-eur')).toHaveCount(0);
+  await expect(form.getByRole('heading', { name: 'Who does it' })).toHaveCount(0);
+  const more = page.getByTestId('form-more');
+  await expect(more.getByRole('button', { name: /More options/ })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  await more.getByRole('button', { name: /More options/ }).click();
+  await expect(more).toContainText('Nobody picked: the lead decides who helps.');
   await page.getByTestId('pick-enceladus').first().click();
   await expect(page.getByTestId('pick-enceladus').first()).toHaveAttribute('aria-checked', 'true');
   await form.getByRole('group', { name: 'Taking part' }).getByTestId('pick-rhea').click();
   await page.getByTestId('form-folder').fill('Summaries');
+  // One cap, in euros; steps and tokens are in its Advanced drawer. Empty: the Safety net applies.
+  await expect(more).toContainText('Cap per automation run (€)');
+  await expect(more).toContainText('Empty: each run follows the Safety net of Settings → Models.');
+  await expect(page.getByTestId('form-advanced')).toHaveAttribute('data-advanced', 'true');
+  await expect(page.getByTestId('form-cap-steps')).toHaveCount(0);
+  await expect(page.getByTestId('form-cap-tokens')).toHaveCount(0);
   await shot(page, 'automazioni-nuova-chiaro');
   await page.getByTestId('form-save').click();
 
@@ -161,9 +179,87 @@ test('Automazioni: a new one with a preset, the advanced rule and its next giri'
   );
   await expect(detail.getByTestId('automation-crew').getByRole('listitem')).toHaveCount(2);
   await expect(detail.getByTestId('automation-giri')).toContainText('No runs yet.');
+  // No cap typed: the run follows the limits of every job.
+  await expect(detail).toContainText('The one of every job (Settings → Models).');
   await page.locator('[data-titlebar]').getByRole('heading', { name: 'Automations' }).isVisible();
   await page.getByTestId('sidebar').getByRole('link', { name: 'Automations' }).click();
   await expect(page.getByTestId('automation-row')).toHaveCount(2);
+});
+
+test('Automazioni: a new one with just the basics asks for nothing else', async ({ page }) => {
+  await page.goto('/?mock=demo#/automazioni');
+  await page.getByTestId('automation-new').click();
+  const form = page.getByTestId('automation-form');
+  // Basic: name, goal, when. The rest is one closed row, with the lead deciding who takes part.
+  await expect(form.getByTestId('form-name')).toBeVisible();
+  await expect(form.getByTestId('form-objective')).toBeVisible();
+  await expect(form.getByRole('radiogroup', { name: 'When it runs' })).toBeVisible();
+  const more = page.getByTestId('form-more');
+  await expect(more).toContainText('Who takes part, notes folder, notices and a cap per run.');
+  await expect(more.getByRole('button', { name: /More options/ })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  await expect(page.getByTestId('form-cap-eur')).toHaveCount(0);
+  await expect(form).not.toContainText('Tokens');
+  await expect(form).not.toContainText('Amount of work');
+  await page.getByTestId('form-name').fill('Quiet check');
+  await page.getByTestId('form-objective').fill('Look for anything that needs me.');
+  await page.getByTestId('form-save').click();
+  await expect(page).toHaveURL(/automazione=quiet-check$/);
+  await expect(page.getByTestId('automation-detail')).toContainText(
+    'The one of every job (Settings → Models).',
+  );
+});
+
+test('Automazioni: one cap in euros, steps and tokens in Advanced; a change opens the row on its values', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/automazioni?automazione=post-della-settimana');
+  await page.getByRole('button', { name: 'Edit' }).click();
+  const form = page.getByTestId('automation-form');
+  // The automation has a cap (60 steps, €2): the closed rows open on them.
+  const more = page.getByTestId('form-more');
+  await expect(more.getByRole('button', { name: /More options/ })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await expect(page.getByTestId('form-cap-eur')).toHaveValue('2');
+  const advanced = page.getByTestId('form-advanced');
+  await expect(advanced.getByRole('button', { name: /Advanced/ })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await expect(page.getByTestId('form-cap-steps')).toHaveValue('60');
+  await expect(page.getByTestId('form-cap-tokens')).toHaveValue('');
+
+  // A cap out of range is said where it is, and nothing is saved.
+  await page.getByTestId('form-cap-eur').fill('5000');
+  await page.getByTestId('form-save').click();
+  await expect(form).toContainText('Euros from 0.01 to 1,000');
+  await expect(page.getByTestId('form-cap-eur')).toHaveAttribute('aria-invalid', 'true');
+  await page.getByTestId('form-cap-eur').fill('3,5');
+  await page.getByTestId('form-cap-tokens').fill('300000');
+  await page.getByTestId('form-save').click();
+  const detail = page.getByTestId('automation-detail');
+  await expect(detail).toContainText('€3.5 per run');
+  await expect(detail).toContainText('300,000');
+});
+
+test('Automazioni: a closed row with a mistake in it opens when saving', async ({ page }) => {
+  await page.goto('/?mock=demo#/automazioni');
+  await page.getByTestId('automation-new').click();
+  await page.getByTestId('form-name').fill('Careful one');
+  await page.getByTestId('form-objective').fill('Check.');
+  // The folder is typed in the open row, which is then closed again: the mistake reopens it.
+  const more = page.getByTestId('form-more');
+  await more.getByRole('button', { name: /More options/ }).click();
+  await page.getByTestId('form-folder').fill('../outside');
+  await more.getByRole('button', { name: /More options/ }).click();
+  await expect(page.getByTestId('form-folder')).toHaveCount(0);
+  await page.getByTestId('form-save').click();
+  await expect(page.getByTestId('form-folder')).toBeVisible();
+  await expect(page.getByTestId('form-folder')).toHaveAttribute('aria-invalid', 'true');
 });
 
 test('Automazioni: pause, Esegui ora, the chat of the busy capo, 409 when stopped', async ({

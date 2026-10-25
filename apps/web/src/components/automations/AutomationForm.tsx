@@ -20,19 +20,22 @@ import { getApi, notify } from '../../store/app.ts';
 import { useAgents, useOrchestrator, type AgentView } from '../../store/hooks.ts';
 import { useProjects } from '../../store/projects.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
-import { Group, Row } from '../settings/parts.tsx';
+import { DisclosureRow, Group, Row } from '../settings/parts.tsx';
 import { Button } from '../ui/button.tsx';
 import { Chip, Segmented, Switch } from '../ui/controls.tsx';
 import { Field, Input, Label } from '../ui/field.tsx';
 import { automationsStrings } from './automations.strings.ts';
 
 /*
- * Create or change an automation (docs/design.md, "Automazioni"): the name
- * and the objective, the squad (the personal one or a project, D-100), the
- * capo and who takes part among its monsters (on their screens, as keys), when (ogni giorno / ogni settimana / ogni mese alle…, or the cron
- * rule under "Avanzato" with its description in Italian), with the next three
- * giri on a small screen, the folder of the results, the limits of one giro
- * and the notices. A new one can be saved as a draft, to finish later.
+ * Create or change an automation (docs/design.md, "Automazioni"). Up front what everyone needs: the
+ * name, the objective and when (ogni giorno / ogni settimana / ogni mese alle…, or the cron rule
+ * under "Avanzato" with its description in Italian), with the next three giri on a small screen.
+ * Behind a closed "More options" row (C2): the squad (the personal one or a project, D-100), the
+ * capo and who takes part among its monsters (on their screens, as keys; by default the capo
+ * decides), the folder of the results, the notices, one optional cap in euros per giro and, in its
+ * own Advanced drawer, the steps and tokens. Without a cap the giro follows the limits of every job
+ * (the core merges only what is set, `AutomationService.#limits`). A new one can be saved as a
+ * draft, to finish later.
  */
 
 const PRESET_IDS: SchedulePreset[] = ['daily', 'weekly', 'monthly', 'advanced'];
@@ -168,6 +171,22 @@ function squadMembers(agents: readonly AgentView[], project: string): AgentView[
   return project ? members.sort((x, y) => Number(!!y.isLead) - Number(!!x.isLead)) : members;
 }
 
+/** Whether a form holds something of the closed "More options" row, so that it opens on it. */
+function hasExtras(f: FormState, defaultLead: string, fromProject: boolean): boolean {
+  return (
+    fromProject ||
+    f.project !== '' ||
+    f.lead !== defaultLead ||
+    f.participants.length > 0 ||
+    f.folder !== '' ||
+    f.maxEur !== '' ||
+    f.maxSteps !== '' ||
+    f.maxTokens !== '' ||
+    !f.notifyApp ||
+    f.notifyTelegram
+  );
+}
+
 export function AutomationForm({ a }: { a: AutomationView | null }) {
   const allAgents = useAgents();
   const orch = useOrchestrator();
@@ -181,6 +200,14 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
     return initial(a, project ? (first ?? '') : (orch?.id ?? allAgents[0]?.id ?? ''), project);
   });
   const agents = squadMembers(allAgents, f.project);
+  // Closed unless it holds something the person chose (an automation being changed, or one started
+  // from a project's page, whose squad it shows).
+  const [more, setMore] = useState(() => {
+    const members = squadMembers(allAgents, f.project);
+    const defaultLead = f.project ? (members[0]?.id ?? '') : (orch?.id ?? allAgents[0]?.id ?? '');
+    return hasExtras(f, defaultLead, !a && fromProject !== '');
+  });
+  const [advanced, setAdvanced] = useState(() => f.maxSteps !== '' || f.maxTokens !== '');
   const [errors, setErrors] = useState<Errors>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -254,6 +281,9 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
     const e = check();
     setErrors(e);
     setFailure(null);
+    // What is wrong in the closed rows must be in view.
+    if (e.folder || e.limits) setMore(true);
+    if (e.limits) setAdvanced(true);
     if (Object.keys(e).length > 0) return;
     const steps = numberOf(f.maxSteps);
     const tokens = numberOf(f.maxTokens);
@@ -345,71 +375,6 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
               className="well min-h-[132px] w-full resize-y rounded-[10px] px-3.5 py-3 text-large leading-[1.5] text-ink placeholder:text-ink-muted focus:outline-2 focus:outline-offset-0 focus:outline-signal-ink aria-[invalid=true]:outline-2 aria-[invalid=true]:outline-stop"
             />
           </Field>
-        </div>
-      </Group>
-
-      <Group title={s.whoTitle}>
-        <div className="grid gap-5 px-4 pt-1 pb-4">
-          {(live.length > 0 || f.project) && (
-            <div className="grid gap-2">
-              <Label id={`${ids}-squad`}>{s.squad}</Label>
-              <div
-                role="group"
-                aria-labelledby={`${ids}-squad`}
-                className="flex flex-wrap gap-2"
-                data-testid="automation-squad-pick"
-              >
-                {[{ id: '', name: personalSquad() }, ...live].map((p) => (
-                  <Chip
-                    key={p.id || 'personale'}
-                    pressed={f.project === p.id}
-                    onClick={() => chooseSquad(p.id)}
-                  >
-                    {p.name}
-                  </Chip>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="grid gap-2">
-            <Label id={`${ids}-lead`}>{s.lead}</Label>
-            <p className="text-footnote text-ink-muted">{s.leadHint}</p>
-            <div
-              role="radiogroup"
-              aria-labelledby={`${ids}-lead`}
-              className="flex flex-wrap gap-2.5 pb-1"
-            >
-              {agents.map((x) => (
-                <MonsterKey
-                  key={x.id}
-                  agent={x}
-                  role="radio"
-                  pressed={f.lead === x.id}
-                  onClick={() => chooseLead(x.id)}
-                />
-              ))}
-            </div>
-          </div>
-          {others.length > 0 && (
-            <div className="grid gap-2">
-              <Label id={`${ids}-crew`}>{s.takingPart}</Label>
-              <div
-                role="group"
-                aria-labelledby={`${ids}-crew`}
-                className="flex flex-wrap gap-2.5 pb-1"
-              >
-                {others.map((x) => (
-                  <MonsterKey
-                    key={x.id}
-                    agent={x}
-                    role="checkbox"
-                    pressed={f.participants.includes(x.id)}
-                    onClick={() => toggleParticipant(x.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </Group>
 
@@ -533,75 +498,157 @@ export function AutomationForm({ a }: { a: AutomationView | null }) {
         </div>
       </Group>
 
-      <Group title={s.resultsTitle}>
-        <div className="grid gap-5 px-4 pt-1 pb-4">
-          <Field id={`${ids}-folder`} label={s.folder} hint={s.folderHint} error={errors.folder}>
-            <Input
-              id={`${ids}-folder`}
-              value={f.folder}
-              onChange={(e) => set({ folder: e.target.value })}
-              placeholder={s.folderPlaceholder}
-              aria-invalid={errors.folder ? true : undefined}
-              data-testid="form-folder"
-            />
-          </Field>
-          <div className="grid gap-2">
-            <p className="text-footnote font-medium text-ink">{s.capPerRun}</p>
-            <div className="grid gap-3 min-[560px]:grid-cols-3">
-              <Field id={`${ids}-steps`} label={s.steps}>
-                <Input
-                  id={`${ids}-steps`}
-                  inputMode="numeric"
-                  value={f.maxSteps}
-                  onChange={(e) => set({ maxSteps: e.target.value })}
-                  placeholder="60"
-                />
-              </Field>
-              <Field id={`${ids}-tokens`} label={s.work}>
-                <Input
-                  id={`${ids}-tokens`}
-                  inputMode="numeric"
-                  value={f.maxTokens}
-                  onChange={(e) => set({ maxTokens: e.target.value })}
-                  placeholder="200000"
-                />
-              </Field>
-              <Field id={`${ids}-eur`} label={s.euros}>
-                <Input
-                  id={`${ids}-eur`}
-                  inputMode="decimal"
-                  value={f.maxEur}
-                  onChange={(e) => set({ maxEur: e.target.value })}
-                  placeholder="2"
-                />
-              </Field>
-            </div>
-            {errors.limits ? (
-              <p className="text-footnote text-on-danger-soft" role="alert">
-                {errors.limits}
-              </p>
-            ) : (
-              <p className="text-footnote text-ink-faint">{s.limitsHint}</p>
+      <Group label={s.moreOptions}>
+        <DisclosureRow
+          as="div"
+          label={s.moreOptions}
+          description={s.moreOptionsHint}
+          open={more}
+          onOpenChange={setMore}
+          testId="form-more"
+        >
+          <div className="grid gap-5 px-4 pt-3 pb-4">
+            {(live.length > 0 || f.project) && (
+              <div className="grid gap-2">
+                <Label id={`${ids}-squad`}>{s.squad}</Label>
+                <div
+                  role="group"
+                  aria-labelledby={`${ids}-squad`}
+                  className="flex flex-wrap gap-2"
+                  data-testid="automation-squad-pick"
+                >
+                  {[{ id: '', name: personalSquad() }, ...live].map((p) => (
+                    <Chip
+                      key={p.id || 'personale'}
+                      pressed={f.project === p.id}
+                      onClick={() => chooseSquad(p.id)}
+                    >
+                      {p.name}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
             )}
+            <div className="grid gap-2">
+              <Label id={`${ids}-lead`}>{s.lead}</Label>
+              <p className="text-footnote text-ink-muted">{s.leadHint}</p>
+              <div
+                role="radiogroup"
+                aria-labelledby={`${ids}-lead`}
+                className="flex flex-wrap gap-2.5 pb-1"
+              >
+                {agents.map((x) => (
+                  <MonsterKey
+                    key={x.id}
+                    agent={x}
+                    role="radio"
+                    pressed={f.lead === x.id}
+                    onClick={() => chooseLead(x.id)}
+                  />
+                ))}
+              </div>
+            </div>
+            {others.length > 0 && (
+              <div className="grid gap-2">
+                <Label id={`${ids}-crew`}>{s.takingPart}</Label>
+                <p className="text-footnote text-ink-muted">{s.takingPartHint}</p>
+                <div
+                  role="group"
+                  aria-labelledby={`${ids}-crew`}
+                  className="flex flex-wrap gap-2.5 pb-1"
+                >
+                  {others.map((x) => (
+                    <MonsterKey
+                      key={x.id}
+                      agent={x}
+                      role="checkbox"
+                      pressed={f.participants.includes(x.id)}
+                      onClick={() => toggleParticipant(x.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            <Field id={`${ids}-folder`} label={s.folder} hint={s.folderHint} error={errors.folder}>
+              <Input
+                id={`${ids}-folder`}
+                value={f.folder}
+                onChange={(e) => set({ folder: e.target.value })}
+                placeholder={s.folderPlaceholder}
+                aria-invalid={errors.folder ? true : undefined}
+                data-testid="form-folder"
+              />
+            </Field>
+            <Field
+              id={`${ids}-eur`}
+              label={s.capPerRun}
+              hint={errors.limits ? undefined : s.capHint}
+              error={errors.limits}
+            >
+              <Input
+                id={`${ids}-eur`}
+                inputMode="decimal"
+                value={f.maxEur}
+                onChange={(e) => set({ maxEur: e.target.value })}
+                placeholder="2"
+                className="w-36"
+                aria-invalid={errors.limits ? true : undefined}
+                data-testid="form-cap-eur"
+              />
+            </Field>
           </div>
-        </div>
-      </Group>
-
-      <Group title={s.noticesTitle}>
-        <Row label={s.inApp} description={s.inAppHint}>
-          <Switch
-            checked={f.notifyApp}
-            onCheckedChange={(v) => set({ notifyApp: v })}
-            label={s.inAppLabel}
-          />
-        </Row>
-        <Row label={s.telegram} description={s.telegramHint}>
-          <Switch
-            checked={f.notifyTelegram}
-            onCheckedChange={(v) => set({ notifyTelegram: v })}
-            label={s.telegramLabel}
-          />
-        </Row>
+          <div className="seam-t">
+            <p className="label px-4 pt-3 text-ink-muted">{s.noticesTitle}</p>
+            <Row label={s.inApp} description={s.inAppHint}>
+              <Switch
+                checked={f.notifyApp}
+                onCheckedChange={(v) => set({ notifyApp: v })}
+                label={s.inAppLabel}
+              />
+            </Row>
+            <Row label={s.telegram} description={s.telegramHint}>
+              <Switch
+                checked={f.notifyTelegram}
+                onCheckedChange={(v) => set({ notifyTelegram: v })}
+                label={s.telegramLabel}
+              />
+            </Row>
+          </div>
+          <div className="seam-t">
+            <DisclosureRow
+              as="div"
+              advanced
+              label={s.advanced}
+              description={s.advancedHint}
+              open={advanced}
+              onOpenChange={setAdvanced}
+              testId="form-advanced"
+            >
+              <div className="grid gap-3 px-4 py-3 min-[560px]:grid-cols-2">
+                <Field id={`${ids}-steps`} label={s.steps}>
+                  <Input
+                    id={`${ids}-steps`}
+                    inputMode="numeric"
+                    value={f.maxSteps}
+                    onChange={(e) => set({ maxSteps: e.target.value })}
+                    placeholder="60"
+                    data-testid="form-cap-steps"
+                  />
+                </Field>
+                <Field id={`${ids}-tokens`} label={s.tokens}>
+                  <Input
+                    id={`${ids}-tokens`}
+                    inputMode="numeric"
+                    value={f.maxTokens}
+                    onChange={(e) => set({ maxTokens: e.target.value })}
+                    placeholder="200000"
+                    data-testid="form-cap-tokens"
+                  />
+                </Field>
+              </div>
+            </DisclosureRow>
+          </div>
+        </DisclosureRow>
       </Group>
 
       {failure && (
