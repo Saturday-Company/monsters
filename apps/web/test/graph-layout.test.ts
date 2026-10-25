@@ -4,6 +4,9 @@ import {
   createGraphLayout,
   layoutBounds,
   placeLabels,
+  REFRESH_ALPHA,
+  sameGraph,
+  startPositions,
 } from '../src/lib/graph-layout.ts';
 
 /** Deterministic pseudo-random links: mostly between near notes, like a real vault. */
@@ -114,5 +117,87 @@ describe('labels of the graph (audit UI-26)', () => {
     ];
     expect([...placeLabels([{ id: 1, box: box(0, 0) }], dots)]).toEqual([]);
     expect([...placeLabels([{ id: 2, box: box(0, 0) }], dots)]).toEqual([2]);
+  });
+});
+
+describe('refreshing a laid-out graph (W-11)', () => {
+  const paths = (n: number) => Array.from({ length: n }, (_, i) => `N${i}.md`);
+
+  it('starts from the places of the notes already there and does not scatter them', () => {
+    const n = 120;
+    const links = vault(n);
+    const first = createGraphLayout(n, links);
+    first.settle();
+    const before = new Map(paths(n).map((p, i) => [p, { x: first.x[i]!, y: first.y[i]! }]));
+    // The same vault plus one new note linked to note 3.
+    const more = [...links, [n, 3] as [number, number]];
+    const start = startPositions([...paths(n), 'New.md'], more, before);
+    expect(start[5]).toEqual(before.get('N5.md'));
+    const fresh = createGraphLayout(n + 1, more);
+    const warm = createGraphLayout(n + 1, more, { positions: start, alpha: REFRESH_ALPHA });
+    fresh.settle();
+    warm.settle();
+    const drift = (l: ReturnType<typeof createGraphLayout>) => {
+      let sum = 0;
+      for (let i = 0; i < n; i++) sum += Math.hypot(l.x[i]! - first.x[i]!, l.y[i]! - first.y[i]!);
+      return sum / n;
+    };
+    // The refresh keeps the picture the user knows; a layout from the seed does not.
+    expect(drift(warm)).toBeLessThan(drift(fresh) / 2);
+    expect(Number.isFinite(warm.x[n])).toBe(true);
+  });
+
+  it('puts a new note next to the notes it links to, any other on the seed', () => {
+    const before = new Map([
+      ['A.md', { x: 100, y: 100 }],
+      ['B.md', { x: 200, y: 100 }],
+    ]);
+    const start = startPositions(
+      ['A.md', 'B.md', 'C.md', 'D.md'],
+      [
+        [0, 2],
+        [1, 2],
+      ],
+      before,
+    );
+    expect(Math.abs(start[2]!.x - 150)).toBeLessThan(10);
+    expect(Math.abs(start[2]!.y - 100)).toBeLessThan(10);
+    expect(start[3]).toBeNull();
+  });
+
+  it('settles sooner than a first layout', () => {
+    const n = 200;
+    const links = vault(n);
+    const first = createGraphLayout(n, links);
+    first.settle();
+    const warm = createGraphLayout(n, links, {
+      positions: paths(n).map((_, i) => ({ x: first.x[i]!, y: first.y[i]! })),
+      alpha: REFRESH_ALPHA,
+    });
+    let ticks = 0;
+    while (warm.tick()) ticks++;
+    expect(ticks).toBeLessThan(300 * 0.85);
+  });
+
+  it('sameGraph: a note edited in place is the same graph, a new link or title is not', () => {
+    const notes = [
+      { path: 'A.md', title: 'A', author: 'x', updated: 1 },
+      { path: 'B.md', title: 'B', author: null, updated: 1 },
+    ];
+    const edges = [{ from: 'A.md', to: 'B.md' }];
+    expect(
+      sameGraph(
+        { notes, edges },
+        { notes: notes.map((n) => ({ ...n, updated: 2 })), edges: [...edges] },
+      ),
+    ).toBe(true);
+    expect(sameGraph({ notes, edges }, { notes, edges: [] })).toBe(false);
+    expect(
+      sameGraph({ notes, edges }, { notes: [notes[0]!, { ...notes[1]!, title: 'C' }], edges }),
+    ).toBe(false);
+    expect(
+      sameGraph({ notes, edges }, { notes: [notes[0]!, { ...notes[1]!, author: 'y' }], edges }),
+    ).toBe(false);
+    expect(sameGraph({ notes, edges }, { notes: notes.slice(0, 1), edges })).toBe(false);
   });
 });

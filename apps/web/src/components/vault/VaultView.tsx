@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { SCREEN_INK } from '../../lib/brand-light.ts';
 import { replaceHash, useHashParam, vaultPath, type VaultTab } from '../../lib/router.ts';
+import { sameGraph } from '../../lib/graph-layout.ts';
 import { foldersOf, linkIndex } from '../../lib/vault-markdown.ts';
 import { cn } from '../../lib/utils.ts';
 import { useAgents, useMediaQuery, useNameOf, useReducedMotionPref } from '../../store/hooks.ts';
@@ -35,6 +36,20 @@ const GraphView = lazy(() => import('./GraphView.tsx'));
 
 function go(note: string | null, tab: VaultTab = 'note') {
   window.location.hash = vaultPath(note, tab);
+}
+
+const NO_EDGES: VaultOverview['edges'] = [];
+
+/**
+ * The notes and links of the graph, the same objects as long as they look the same on it: the
+ * vault is read again after every change of the monsters, and a new array would lay the graph
+ * out from scratch (and the layout of a few hundred notes is not free).
+ */
+function useStableGraph(notes: VaultNoteSummary[], edges: VaultOverview['edges']) {
+  const [stable, setStable] = useState({ notes, edges });
+  const changed = useMemo(() => !sameGraph(stable, { notes, edges }), [stable, notes, edges]);
+  if (changed) setStable({ notes, edges });
+  return changed ? { notes, edges } : stable;
 }
 
 function Empty({ overview }: { overview: VaultOverview | null }) {
@@ -171,10 +186,17 @@ export default function VaultView() {
     [agentColors],
   );
 
+  /*
+   * The notes on the screen depend on the filters of the list, not on the text typed in the search
+   * box (the search only makes some of them stand out): a key must not lay the graph out again.
+   */
+  const { tags, folder, agents: withAgents } = filters;
   const graphNotes = useMemo(
-    () => filterNotes(overview?.notes ?? [], filters),
-    [overview, filters],
+    () => filterNotes(overview?.notes ?? [], { tags, folder, agents: withAgents }),
+    [overview, tags, folder, withAgents],
   );
+  /** Same notes and links as the last read: the graph keeps its layout. */
+  const graph = useStableGraph(graphNotes, overview?.edges ?? NO_EDGES);
   /** The search, in the graph too: the notes found stand out. */
   const highlight = useMemo(
     () => (search.hits ? new Set(search.hits.map((h) => h.path)) : null),
@@ -375,8 +397,8 @@ export default function VaultView() {
                         }
                       >
                         <GraphView
-                          notes={graphNotes}
-                          edges={overview.edges}
+                          notes={graph.notes}
+                          edges={graph.edges}
                           colorOf={colorOf}
                           current={note}
                           highlight={highlight}
