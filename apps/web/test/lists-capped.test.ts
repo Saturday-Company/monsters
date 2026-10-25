@@ -77,14 +77,16 @@ describe('the notes of a project (very large vault)', () => {
   it('takes the area from the overview when the overview holds the whole vault', async () => {
     const result = await loadProjectNotes(
       {
-        overview: async () =>
-          overview(
-            [
-              note('Projects/Alpha/a.md', '2026-10-01'),
-              note('Other/x.md', '2026-10-09'),
-              note('projects/alpha/b.md', '2026-10-05'),
-            ],
-            3,
+        overview: () =>
+          Promise.resolve(
+            overview(
+              [
+                note('Projects/Alpha/a.md', '2026-10-01'),
+                note('Other/x.md', '2026-10-09'),
+                note('projects/alpha/b.md', '2026-10-05'),
+              ],
+              3,
+            ),
           ),
         search: () => Promise.reject(new Error('not needed')),
       },
@@ -106,10 +108,13 @@ describe('the notes of a project (very large vault)', () => {
       tags: [],
     });
     const vault = (count: number) => ({
-      overview: async () => overview([note('Other/x.md', '2026-10-09')], 6000),
-      search: async (p: { folder: string; limit: number }): Promise<VaultSearchResponse> => {
+      overview: () => Promise.resolve(overview([note('Other/x.md', '2026-10-09')], 6000)),
+      search: (p: { folder: string; limit: number }): Promise<VaultSearchResponse> => {
         asked.push(p);
-        return { hits: Array.from({ length: count }, (_, i) => hit(i)), mode: 'text' };
+        return Promise.resolve({
+          hits: Array.from({ length: count }, (_, i) => hit(i)),
+          mode: 'text',
+        });
       },
     });
     const few = await loadProjectNotes(vault(3), 'Projects/Alpha');

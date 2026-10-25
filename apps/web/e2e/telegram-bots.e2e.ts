@@ -170,7 +170,9 @@ test.describe('dedicated bots, desktop light', () => {
     // Each error sits in its own field and is its description.
     await expect(select.locator('xpath=..')).toContainText('Choose the monster');
     await expect(token.locator('xpath=..')).not.toContainText('Choose the monster');
-    await expect(select).toHaveAccessibleDescription('Choose the monster that answers from this bot.');
+    await expect(select).toHaveAccessibleDescription(
+      'Choose the monster that answers from this bot.',
+    );
     // Fixing the field and sending again clears them.
     await select.selectOption({ label: 'Pandora · Saturday Social' });
     await limit.fill('150');
