@@ -1,6 +1,13 @@
 import { MOCK_SETUP_CODE } from '../src/lib/mock/constants.ts';
 import type { Page } from '@playwright/test';
-import { expect, holdMock, releaseMock, stepMockUntil, test } from './fixtures.ts';
+import {
+  expect,
+  holdMock,
+  openGeneralAdvanced,
+  releaseMock,
+  stepMockUntil,
+  test,
+} from './fixtures.ts';
 
 /* Main flows of the UI against the mock core (`?mock=…`). */
 
@@ -434,8 +441,10 @@ test('settings: theme, OpenRouter and Brave keys', async ({ page }) => {
   await page.getByRole('radio', { name: 'Light' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   expect(await chassis()).toBe('#e3e1db');
-  // No transparency to reduce any more (D-062); sounds off, technical details on.
+  // No transparency to reduce any more (D-062); sounds and technical details are off, in "Advanced".
   await expect(page.getByRole('switch', { name: 'Reduce transparency' })).toHaveCount(0);
+  await expect(page.getByRole('switch', { name: 'Sounds' })).toHaveCount(0);
+  await openGeneralAdvanced(page);
   const sounds = page.getByRole('switch', { name: 'Sounds' });
   await expect(sounds).toHaveAttribute('aria-checked', 'false');
   await sounds.click();
@@ -443,7 +452,7 @@ test('settings: theme, OpenRouter and Brave keys', async ({ page }) => {
   await sounds.click();
   await expect(page.getByRole('switch', { name: 'Show technical details' })).toHaveAttribute(
     'aria-checked',
-    'true',
+    'false',
   );
 
   await page.getByRole('tab', { name: 'Models' }).click();

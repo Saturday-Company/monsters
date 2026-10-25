@@ -19,12 +19,13 @@ import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { teamError, useSettings } from './data.ts';
 import { generalStrings } from './general.strings.ts';
-import { fieldOnGroup, FormField, Group, Row, RowBody } from './parts.tsx';
+import { DisclosureRow, fieldOnGroup, FormField, Group, Row, RowBody } from './parts.tsx';
 
 /*
  * Settings → Generale: appearance, the desktop app (only inside it: "Apri
- * all'accesso", D-095), the account (with "Cambia password", D-057), the notes
- * folder and where the keys are kept (D-042).
+ * all'accesso", D-095), the account (with "Cambia password", D-057), and one
+ * "Advanced" drawer (D-181): sounds, the technical details, the notes folder
+ * and where the keys are kept (D-042), with the commands only inside "Details".
  */
 
 function Language() {
@@ -64,8 +65,6 @@ function Appearance() {
   const s = generalStrings().appearance;
   const theme = usePrefs((p) => p.theme);
   const still = usePrefs((p) => p.reduceMotion);
-  const sounds = usePrefs((p) => p.sounds);
-  const details = usePrefs((p) => p.showDetails);
   return (
     <Group title={s.title} id="settings-aspetto" testId="settings-appearance">
       <Language />
@@ -110,28 +109,6 @@ function Appearance() {
           checked={still}
           onCheckedChange={(v) => setPrefs({ reduceMotion: v })}
           label={s.reduceMotion}
-        />
-      </Row>
-      <Row label={s.sounds} description={s.soundsHint} htmlFor="sounds">
-        <Switch
-          words
-          id="sounds"
-          checked={sounds}
-          onCheckedChange={(v) => {
-            setPrefs({ sounds: v });
-            // The lever of the switch itself says the sounds are on.
-            if (v) playSound('lever', { force: true });
-          }}
-          label={s.sounds}
-        />
-      </Row>
-      <Row label={s.details} description={s.detailsHint} htmlFor="show-details">
-        <Switch
-          words
-          id="show-details"
-          checked={details}
-          onCheckedChange={(v) => setPrefs({ showDetails: v })}
-          label={s.details}
         />
       </Row>
     </Group>
@@ -295,7 +272,7 @@ function PasswordForm({
   );
 }
 
-function Account({ settings }: { settings: SettingsResponse | null }) {
+function Account() {
   const s = generalStrings().account;
   const email = useApp((s) => s.email);
   const [changing, setChanging] = useState(false);
@@ -325,11 +302,11 @@ function Account({ settings }: { settings: SettingsResponse | null }) {
           </div>
         )}
       </div>
-      <Secrets settings={settings} />
     </Group>
   );
 }
 
+/** The notes folder: its path as a readout, to copy (a row of the advanced drawer). */
 function NotesFolder({ settings }: { settings: SettingsResponse | null }) {
   const s = generalStrings().notes;
   const copy = async () => {
@@ -342,31 +319,32 @@ function NotesFolder({ settings }: { settings: SettingsResponse | null }) {
     }
   };
   return (
-    <Group title={s.title} footer={s.footer}>
-      <Row
-        label={s.folder}
-        description={
-          // The path as a readout on a small screen: it is the instrument's own data.
+    <Row
+      label={s.folder}
+      description={
+        <>
+          {s.footer}
+          {/* The path as a readout on a small screen: it is the instrument's own data. */}
           <span
             className="screen mt-1.5 block rounded-[8px] px-3 py-2 font-mono text-caption leading-[1.5] break-all text-screen-ink"
             data-testid="vault-path"
           >
             {settings?.vaultPath ?? '…'}
           </span>
-        }
+        </>
+      }
+    >
+      <Button
+        variant="ghost"
+        size="iconSm"
+        aria-label={s.copyLabel}
+        title={s.copyTitle}
+        disabled={!settings}
+        onClick={() => void copy()}
       >
-        <Button
-          variant="ghost"
-          size="iconSm"
-          aria-label={s.copyLabel}
-          title={s.copyTitle}
-          disabled={!settings}
-          onClick={() => void copy()}
-        >
-          <Copy size={18} aria-hidden />
-        </Button>
-      </Row>
-    </Group>
+        <Copy size={18} aria-hidden />
+      </Button>
+    </Row>
   );
 }
 
@@ -376,6 +354,7 @@ function Secrets({ settings }: { settings: SettingsResponse | null }) {
   const s = settings?.secrets;
   if (!s) return null;
   const keychain = s.backend === 'keychain';
+  const detail = t.detail[s.reason];
   return (
     <div data-testid="secrets-status" data-backend={s.backend}>
       <Row
@@ -390,6 +369,13 @@ function Secrets({ settings }: { settings: SettingsResponse | null }) {
           )
         }
       />
+      {detail && (
+        <DisclosureRow as="div" testId="secrets-details" label={t.details}>
+          <RowBody>
+            <p className="text-footnote leading-snug text-ink-muted">{detail}</p>
+          </RowBody>
+        </DisclosureRow>
+      )}
       {(s.unreadable.length > 0 || (s.quarantined?.length ?? 0) > 0) && (
         <RowBody className="set-seam-t">
           {s.unreadable.length > 0 && (
@@ -408,14 +394,69 @@ function Secrets({ settings }: { settings: SettingsResponse | null }) {
   );
 }
 
+/** Sounds and the technical details (rows of the advanced drawer). */
+function Switches() {
+  const s = generalStrings().appearance;
+  const sounds = usePrefs((p) => p.sounds);
+  const details = usePrefs((p) => p.showDetails);
+  return (
+    <>
+      <Row label={s.sounds} description={s.soundsHint} htmlFor="sounds">
+        <Switch
+          words
+          id="sounds"
+          checked={sounds}
+          onCheckedChange={(v) => {
+            setPrefs({ sounds: v });
+            // The lever of the switch itself says the sounds are on.
+            if (v) playSound('lever', { force: true });
+          }}
+          label={s.sounds}
+        />
+      </Row>
+      <Row label={s.details} description={s.detailsHint} htmlFor="show-details">
+        <Switch
+          words
+          id="show-details"
+          checked={details}
+          onCheckedChange={(v) => setPrefs({ showDetails: v })}
+          label={s.details}
+        />
+      </Row>
+    </>
+  );
+}
+
+/** What most people never change, behind one closed row (wave C). */
+function MoreOptions({ settings }: { settings: SettingsResponse | null }) {
+  const s = generalStrings().more;
+  return (
+    <Group testId="settings-more" label={s.title}>
+      <DisclosureRow
+        as="div"
+        advanced
+        testId="general-advanced"
+        label={s.title}
+        description={s.hint}
+      >
+        <div className="set-rows">
+          <Switches />
+          <NotesFolder settings={settings} />
+          <Secrets settings={settings} />
+        </div>
+      </DisclosureRow>
+    </Group>
+  );
+}
+
 export function GeneralTab() {
   const [settings] = useSettings();
   return (
     <>
       <Appearance />
       <DesktopApp />
-      <Account settings={settings} />
-      <NotesFolder settings={settings} />
+      <Account />
+      <MoreOptions settings={settings} />
     </>
   );
 }

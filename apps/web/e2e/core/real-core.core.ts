@@ -105,6 +105,11 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     }
     await expect(page.getByTestId('key-status')).toHaveAttribute('data-set', 'no');
     await page.getByRole('tab', { name: 'General' }).click();
+    // The notes folder sits behind "Advanced" (D-181).
+    const advanced = page
+      .getByTestId('general-advanced')
+      .getByRole('button', { name: /^Advanced/ });
+    if ((await advanced.getAttribute('aria-expanded')) !== 'true') await advanced.click();
     await expect(page.getByTestId('vault-path')).toHaveText(join(HOME, 'Monsters Note'));
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();

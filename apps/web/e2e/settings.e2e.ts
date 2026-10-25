@@ -1,4 +1,10 @@
-import { expect, expectNoSideScroll, test } from './fixtures.ts';
+import {
+  expect,
+  expectNoSideScroll,
+  openGeneralAdvanced,
+  setTechnicalDetails,
+  test,
+} from './fixtures.ts';
 
 /* Settings in tabs: links to one tab (old names too), keyboard, screen-reader wiring, phones. */
 
@@ -82,6 +88,71 @@ test('the old tab names and parts open the tab that holds them now', async ({ pa
   await expect(page.getByRole('switch', { name: 'Reduce motion' })).toBeVisible();
 });
 
+test('General: the app language first, the rest of the tab behind "Advanced"', async ({ page }) => {
+  await page.goto('/?mock=demo#/impostazioni?sezione=generale');
+  const panel = page.getByRole('tabpanel', { name: 'General' });
+  // "Language" is also a setting of the monsters (Squad): here it is the app's.
+  await expect(panel.getByRole('radiogroup', { name: 'App language' })).toBeVisible();
+  await expect(panel.getByRole('radiogroup', { name: 'Theme' })).toBeVisible();
+  await expect(panel.getByRole('switch', { name: 'Reduce motion' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  // Closed: no sounds, no technical details, no notes folder, no commands.
+  const advanced = panel.getByTestId('general-advanced');
+  await expect(advanced).toHaveAttribute('data-advanced', 'true');
+  for (const name of ['Sounds', 'Show technical details'])
+    await expect(panel.getByRole('switch', { name })).toHaveCount(0);
+  await expect(panel.getByTestId('vault-path')).toHaveCount(0);
+  await expect(panel.getByText(/MONSTERS_SECRETS|monsters secrets reset/)).toHaveCount(0);
+
+  await openGeneralAdvanced(page);
+  await expect(panel.getByRole('switch', { name: 'Sounds' })).toBeVisible();
+  // Off for everyone by default, and the switch says what it shows in one line.
+  const details = panel.getByRole('switch', { name: 'Show technical details' });
+  await expect(details).toHaveAttribute('aria-checked', 'false');
+  await expect(panel.getByText(/Adds a line under each reply and run/)).toBeVisible();
+  await expect(panel.getByTestId('vault-path')).toBeVisible();
+  await expect(panel.getByTestId('secrets-status')).toBeVisible();
+  // Still no commands on the first layer of the keys row.
+  await expect(panel.getByText(/MONSTERS_SECRETS|monsters secrets reset/)).toHaveCount(0);
+
+  // The choice sticks: a reload keeps it (the one-time reset of D-181 does not run again).
+  await details.click();
+  await expect(details).toHaveAttribute('aria-checked', 'true');
+  await page.reload();
+  await openGeneralAdvanced(page);
+  await expect(panel.getByRole('switch', { name: 'Show technical details' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+});
+
+test('technical details: off by default and after the old stored choice, on when turned on', async ({
+  page,
+}) => {
+  // A person who had them on (the old default, no version stored) finds them off, once.
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem('seeded')) {
+      sessionStorage.setItem('seeded', '1');
+      localStorage.setItem('monsters-prefs', JSON.stringify({ theme: 'light', showDetails: true }));
+    }
+  });
+  await page.goto('/?mock=demo');
+  await expect(page.getByTestId('chat-monitor')).toContainText('Titan');
+  await expect(page.getByTestId('agent-bubble').first()).toBeVisible();
+  await expect(page.getByTestId('instrumentation')).toHaveCount(0);
+  await expect(page.getByTestId('chat-summary')).toHaveCount(0);
+  const stored = await page.evaluate(
+    () => JSON.parse(localStorage.getItem('monsters-prefs') ?? '{}') as Record<string, unknown>,
+  );
+  expect(stored['showDetails']).toBe(false);
+  expect(stored['theme']).toBe('light');
+  // Turned on afterwards, it stays on across a reload.
+  await setTechnicalDetails(page, true);
+  await expect(page.getByTestId('instrumentation').last()).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId('instrumentation').last()).toBeVisible();
+});
+
 test('one model for the whole team, or one per monster', async ({ page }) => {
   await page.goto('/?mock=demo#/impostazioni?sezione=modelli');
   const chains = page.getByTestId('chains');
@@ -122,7 +193,7 @@ test('the arrows move between tabs, the URL follows, Back leaves the page', asyn
 
   await page.keyboard.press('End');
   await expect(page.getByRole('tab', { name: 'General' })).toBeFocused();
-  await expect(page.getByTestId('vault-path')).toBeVisible();
+  await expect(page.getByTestId('general-advanced')).toBeVisible();
   await page.keyboard.press('ArrowRight');
   await expect(squadra).toBeFocused();
   await expect(page).toHaveURL(/#\/impostazioni$/);
