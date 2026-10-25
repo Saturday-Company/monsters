@@ -64,3 +64,21 @@ test('the connections of a project that cannot be read say so, and a retry loads
   await expect(links.getByText('Loading…')).toHaveCount(0);
   await expect(links.getByRole('listitem').first()).toBeVisible();
 });
+
+test('the list of the automations that cannot be read says so, and a retry loads it (R2)', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo');
+  await breakReads(page, ['/api/automations']);
+  await page.evaluate(() => (window.location.hash = '#/automazioni'));
+  const failed = page.getByTestId('load-failed');
+  await expect(failed).toContainText('Couldn’t load the automations.');
+  await expect(page.getByText('Loading…')).toHaveCount(0);
+  // Still down: the retry shows the notice again.
+  await failed.getByRole('button', { name: 'Try again' }).click();
+  await expect(failed).toBeVisible();
+  await repair(page);
+  await failed.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByTestId('load-failed')).toHaveCount(0);
+  await expect(page.getByTestId('automation-row').first()).toBeVisible();
+});

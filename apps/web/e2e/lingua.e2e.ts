@@ -118,6 +118,8 @@ test('Settings → General → Language: English ↔ Italian in place, the page 
   await english.getByRole('radio', { name: 'Italiano' }).click();
   const italian = page.getByRole('radiogroup', { name: 'Lingua' });
   await expect(italian).toBeVisible();
+  // The tree was remounted, but the key that was pressed has the focus again (W-39).
+  await expect(italian.getByRole('radio', { name: 'Italiano' })).toBeFocused();
   await expect(titlebar.getByRole('heading', { name: 'Impostazioni', level: 1 })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Generale' })).toHaveAttribute(
     'aria-selected',
@@ -144,7 +146,7 @@ test.describe('the main screens in Italian, at 1024 px', () => {
   test('chat: the composer and the sidebar', async ({ page }) => {
     await page.goto('/?mock=demo&lang=it#/?chat=titan');
     await expect(page.getByTestId('chat-panel')).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Messaggio' })).toBeVisible();
+    await expect(page.getByTestId('composer-input')).toBeVisible();
     const sidebar = page.getByTestId('sidebar');
     await expect(sidebar.getByRole('link', { name: 'Automazioni' })).toBeVisible();
     await expect(sidebar.getByRole('link', { name: 'Note', exact: true })).toBeVisible();

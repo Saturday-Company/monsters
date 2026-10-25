@@ -129,7 +129,7 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
   });
 
   await test.step('a message: delegation to Rhea and a question with options', async () => {
-    const input = page.getByRole('combobox', { name: 'Message' });
+    const input = page.getByTestId('composer-input');
     await input.fill('Find me three facts about Enceladus');
     await input.press('Enter');
     await expect(page.getByTestId('user-bubble').last()).toHaveText(
@@ -270,7 +270,7 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
       .getByTestId('sidebar')
       .getByRole('link', { name: /^Titan,/ })
       .click();
-    const input = page.getByRole('combobox', { name: 'Message' });
+    const input = page.getByTestId('composer-input');
     await input.fill('Write me a long poem');
     await input.press('Enter');
     await expect(page.getByRole('link', { name: /^Titan, working/ })).toBeVisible();

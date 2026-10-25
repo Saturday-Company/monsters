@@ -167,7 +167,7 @@ test('an error at the end of a chat offers Riprova and Dietro le quinte (UI-14)'
 test('the answer line waits for words and can be turned off (UI-15)', async ({ page }) => {
   await page.goto('/?mock=demo#/?chat=titan');
   await expect(page.getByTestId('question-card').first()).toBeVisible();
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('@');
   await expect(page.getByTestId('composer-answering')).toHaveCount(0);
   await input.fill('Let’s go friendly');

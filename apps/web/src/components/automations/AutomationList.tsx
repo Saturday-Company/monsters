@@ -10,6 +10,7 @@ import { useNameOf } from '../../store/hooks.ts';
 import { useProjects } from '../../store/projects.ts';
 import { describeError } from '../../lib/api.ts';
 import '../settings/settings.css';
+import { LoadFailed } from '../settings/parts.tsx';
 import { Button } from '../ui/button.tsx';
 import { Switch } from '../ui/controls.tsx';
 import { EmptyScreen } from '../ui/EmptyScreen.tsx';
@@ -144,19 +145,17 @@ function Empty() {
 export function AutomationList({
   list,
   error,
+  onRetry,
   onChanged,
 }: {
   list: AutomationView[] | null;
   error: string | null;
+  onRetry: () => void;
   onChanged: (a: AutomationView) => void;
 }) {
   const projects = useProjects();
   if (error && !list) {
-    return (
-      <p className="text-body text-stop-ink" role="alert">
-        {error}
-      </p>
-    );
+    return <LoadFailed what={automationsStrings().list.what} onRetry={onRetry} />;
   }
   if (!list) {
     return (

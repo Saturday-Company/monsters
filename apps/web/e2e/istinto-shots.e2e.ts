@@ -148,7 +148,7 @@ for (const size of SIZES) {
         await shot(page, '13-attivita-tutto');
 
         await page.goto('/?mock=demo&mockSpeed=0.2#/?chat=dione');
-        const composer = page.getByRole('combobox', { name: 'Message' });
+        const composer = page.getByTestId('composer-input');
         await composer.fill('Publish the first post on Instagram');
         await composer.press('Enter');
         const card = page.getByTestId('question-card').filter({ hasText: 'Go ahead?' });

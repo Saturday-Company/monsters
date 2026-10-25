@@ -5,6 +5,8 @@ import { toNameIt } from '../../lib/utils.strings.ts';
 
 const en = {
   loading: 'Loading…',
+  skipToChat: 'Skip to the chat',
+  skipToContent: 'Skip to the content',
   /** The name of each page, in the rail until the view puts its own title. */
   titles: {
     automations: 'Automations',
@@ -177,6 +179,8 @@ const en = {
 
 const it: typeof en = {
   loading: 'Carico…',
+  skipToChat: 'Vai alla chat',
+  skipToContent: 'Vai al contenuto',
   titles: {
     automations: 'Automazioni',
     project: 'Progetto',

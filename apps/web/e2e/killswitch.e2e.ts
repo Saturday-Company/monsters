@@ -81,7 +81,7 @@ for (const size of SIZES) {
       await expectKillReachable(page, 'chat with a question');
 
       // @-mention list of the composer.
-      const input = page.getByRole('combobox', { name: 'Message' });
+      const input = page.getByTestId('composer-input');
       await input.fill('@');
       await expect(page.getByRole('option').first()).toBeVisible();
       await expectKillReachable(page, 'mention list');

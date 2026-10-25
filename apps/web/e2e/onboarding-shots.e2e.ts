@@ -84,7 +84,7 @@ for (const size of SIZES) {
         await expect(page.getByTestId('chat-panel')).toBeVisible();
         await shot('6-chat');
         // The first answer of the lead brings the card and the row of first jobs.
-        const input = page.getByRole('combobox', { name: 'Message' });
+        const input = page.getByTestId('composer-input');
         await input.fill('hello');
         await input.press('Enter');
         await expect(page.getByText('What tone should we give the posts?')).toBeVisible({

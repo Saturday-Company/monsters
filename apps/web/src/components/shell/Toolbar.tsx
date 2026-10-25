@@ -197,6 +197,10 @@ export function Toolbar({
   mock?: boolean;
 }) {
   const wide = useMediaQuery('(min-width: 1100px)');
+  // The status display gives way before anything else: its words need 1440 px, its short form
+  // 1000, below that a light with the number. The page's title and keys keep their room (R2).
+  const ample = useMediaQuery('(min-width: 1440px)');
+  const tablet = useMediaQuery('(max-width: 999px)');
   // A big phone, or one held sideways, has room for the words of the status; a small one, for its light and count.
   const roomy = useMediaQuery('(min-width: 540px)');
   // Above every layer of the shell (terminal z-30, menus z-40): Ferma is always
@@ -259,15 +263,22 @@ export function Toolbar({
           tools wait there whatever page is open. The news key is quiet until there is news.
         */}
         <div className="flex shrink-0 items-center">
-          {/* Without room for the word (a phone, a narrow window) the tray with its count says how many things wait. */}
-          <ReviewKey layout={wide ? 'inline' : 'icon'} />
+          {/*
+            Without room for the word (a narrow window, or a phone inside a page) the tray with its
+            count says how many things wait; on the phone's home, or a wide phone, the word goes under it.
+          */}
+          <ReviewKey
+            layout={phone ? (atHome || roomy ? 'stacked' : 'icon') : wide ? 'inline' : 'icon'}
+          />
           {/* On a phone inside a page the title needs the room: the news key waits for the home. */}
           {(!phone || atHome) && (
             <NewsKey layout={phone ? 'icon' : 'inline'} hideQuiet={phone || !wide} />
           )}
         </div>
-        <StatusDisplay size={phone ? (roomy ? 'compact' : 'dot') : wide ? 'full' : 'compact'} />
-        <KillSwitch compact={phone} />
+        <StatusDisplay
+          size={phone ? (roomy ? 'compact' : 'dot') : ample ? 'full' : tablet ? 'dot' : 'compact'}
+        />
+        <KillSwitch compact={phone || tablet} />
       </div>
     </header>
   );

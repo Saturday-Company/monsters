@@ -24,6 +24,7 @@ import {
 import {
   statusText,
   useLive,
+  useMediaQuery,
   useNameOf,
   useResolvedTheme,
   waitsForUser,
@@ -198,7 +199,7 @@ export function ChatList({
           aria-keyshortcuts={isMac ? 'Meta+K' : 'Control+K'}
           aria-describedby={hintId}
           data-testid="search-key"
-          className="well relative flex h-10 w-full items-center rounded-[10px] pr-3 pl-10 text-left text-body text-ink-muted focus-visible:outline-2 focus-visible:outline-signal-ink"
+          className="well relative flex h-10 w-full items-center rounded-[10px] short:h-9 pr-3 pl-10 text-left text-body text-ink-muted focus-visible:outline-2 focus-visible:outline-signal-ink"
         >
           <MagnifyingGlass
             size={18}
@@ -285,9 +286,9 @@ function SquadGroup({
       aria-label={squad.label}
       data-testid="squad"
       data-squad={squad.key || 'personale'}
-      className="grid grid-cols-[minmax(0,1fr)] gap-0.5 pt-2"
+      className="grid grid-cols-[minmax(0,1fr)] gap-0.5 pt-2 short:pt-1"
     >
-      <h2 className="flex h-9 min-w-0 items-center gap-0.5">
+      <h2 className="flex h-9 min-w-0 items-center gap-0.5 short:h-8">
         <button
           type="button"
           onClick={() => toggleFold(key)}
@@ -358,6 +359,8 @@ export const ChatRow = forwardRef<
   }
 >(function ChatRow({ agent, thread, waiting, selected, tabbable, onOpen }, ref) {
   const s = chatStrings().list;
+  // A short window (under 860 px tall) draws the strips denser, so six or so fit (D-178).
+  const short = useMediaQuery('(max-height: 859px)');
   const live = useLive(agent.id);
   const nameOf = useNameOf();
   const theme = useResolvedTheme();
@@ -427,7 +430,7 @@ export const ChatRow = forwardRef<
       data-agent={agent.id}
       data-waiting={question ? 'true' : undefined}
       className={cn(
-        'group relative flex h-[68px] w-full items-center gap-3 rounded-[12px] py-2 pr-3 pl-2 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink',
+        'group relative flex h-[68px] w-full items-center gap-3 rounded-[12px] py-2 pr-3 pl-2 text-left short:h-[54px] short:py-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink',
         selected ? 'bg-panel shadow-[inset_0_0_0_1.5px_var(--ink)]' : 'row-key',
       )}
     >
@@ -435,14 +438,14 @@ export const ChatRow = forwardRef<
         genome={agent.genome}
         mood={live.mood}
         confused={live.confused}
-        width={60}
-        height={52}
+        width={short ? 50 : 60}
+        height={short ? 43 : 52}
         // Always alive: at rest it blinks, at work it thinks, done it is happy, stopped it
         // sleeps. Frames are visibility toggles, nearly free; out of sight they rest.
       />
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
-          <span className="min-w-0 flex-1 truncate text-large leading-6 font-semibold text-ink">
+          <span className="min-w-0 flex-1 truncate text-large leading-6 font-semibold text-ink short:leading-5">
             {agent.name}
           </span>
           {summary.last && (
@@ -457,7 +460,7 @@ export const ChatRow = forwardRef<
             </time>
           )}
         </span>
-        <span className="mt-0.5 flex h-5 items-center gap-2">
+        <span className="mt-0.5 flex h-5 items-center gap-2 short:mt-0">
           <span
             id={previewId}
             className={cn(

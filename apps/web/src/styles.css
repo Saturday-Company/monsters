@@ -6,6 +6,8 @@
  * (@fontsource, imported by main.tsx): the app never fetches a font.
  */
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+/* A window under 860 px tall: the sidebar draws its strips denser (D-178). */
+@custom-variant short (@media (max-height: 859px));
 
 @theme inline {
   --color-chassis: var(--chassis);

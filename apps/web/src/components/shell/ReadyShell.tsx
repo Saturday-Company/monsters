@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { openChat, openPage, PATHS, useHashParam, type Route } from '../../lib/router.ts';
 import { cn } from '../../lib/utils.ts';
 import { useAgents, useMediaQuery, useOrchestrator } from '../../store/hooks.ts';
@@ -94,6 +94,15 @@ export default function ReadyShell({ route }: { route: Route }) {
   const title = usePageTitle(route);
   const showSidebar = !phone || atHome;
   const showContent = !phone || !atHome;
+  const main = useRef<HTMLElement>(null);
+
+  // The page's name is the tab's and the window's title, so a screen reader hears it on every move (W-39).
+  useEffect(() => {
+    document.title = title === 'Monsters' ? title : `${title} · Monsters`;
+    return () => {
+      document.title = 'Monsters';
+    };
+  }, [title]);
 
   const orchId = useOrchestrator()?.id ?? null;
   const mock = new URLSearchParams(window.location.search).has('mock');
@@ -134,6 +143,21 @@ export default function ReadyShell({ route }: { route: Route }) {
 
   return (
     <div data-shell data-window className="relative z-[1] flex h-full flex-col bg-chassis">
+      {/* First in the tab order: past the rail and the sidebar, to the page (W-39). */}
+      {showContent && (
+        <button
+          type="button"
+          data-testid="skip-link"
+          onClick={() => {
+            // The chat goes straight to its message box; any other page to its own region.
+            const composer = route === 'home' ? document.getElementById('composer-input') : null;
+            (composer ?? main.current)?.focus();
+          }}
+          className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:top-2 focus-visible:left-2 focus-visible:z-[60] focus-visible:rounded-[10px] focus-visible:bg-ink focus-visible:px-4 focus-visible:py-2 focus-visible:text-body focus-visible:font-semibold focus-visible:text-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
+        >
+          {route === 'home' ? shellStrings().skipToChat : shellStrings().skipToContent}
+        </button>
+      )}
       <ToolbarProvider slot={slot}>
         <Toolbar
           title={title}
@@ -155,7 +179,7 @@ export default function ReadyShell({ route }: { route: Route }) {
                 phone ? 'on-panel bg-panel seam-t' : 'module',
               )}
             >
-              <main className="flex min-h-0 flex-1 flex-col">
+              <main ref={main} tabIndex={-1} className="flex min-h-0 flex-1 flex-col outline-none">
                 {/* Keyed by page: a page that failed is tried again when you come back to it. */}
                 <ErrorBoundary key={route}>
                   <Suspense fallback={<PageLoading />}>

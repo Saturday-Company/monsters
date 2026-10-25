@@ -19,7 +19,7 @@ async function firstAnswer(page: Page): Promise<void> {
   // Before any message: the greeting and its three first ideas, no card yet.
   await expect(page.getByTestId('suggestions')).toBeVisible();
   await expect(page.getByTestId('first-steps')).toHaveCount(0);
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('hello');
   await input.press('Enter');
   // The mock's lead asks a question before it answers; the card waits for the answer, as it
@@ -47,7 +47,7 @@ test('after the first answer: first jobs in one row, and a skippable card', asyn
     'Make a plan for…',
   ]);
   await jobs.getByRole('button', { name: 'Draft a reply to…' }).click();
-  await expect(page.getByRole('combobox', { name: 'Message' })).toHaveValue('Draft a reply to ');
+  await expect(page.getByTestId('composer-input')).toHaveValue('Draft a reply to ');
 
   // The card comes as a short invitation that leaves the answer in sight; "Tell me more" opens it
   // with the fields the old questions had: work, what eats your time, what they always ask,
@@ -122,7 +122,7 @@ test('"Not now" answers the card empty; the row brings it back', async ({ page }
 
 test('the card has a link of its own, and only the lead’s chat has it', async ({ page }) => {
   await page.goto('/?mock=demo');
-  await expect(page.getByRole('combobox', { name: 'Message' })).toBeVisible();
+  await expect(page.getByTestId('composer-input')).toBeVisible();
   // The demo has told the monsters already: no card by itself…
   await expect(page.getByTestId('tell-more')).toHaveCount(0);
   // …but the link opens it (a settings page or a message can point here).
@@ -130,7 +130,7 @@ test('the card has a link of its own, and only the lead’s chat has it', async 
   await expect(page.getByTestId('tell-more')).toBeVisible();
   // A member's chat never shows it.
   await page.goto('/?mock=demo#/?chat=rhea&profilo=1');
-  await expect(page.getByRole('combobox', { name: 'Message' })).toBeVisible();
+  await expect(page.getByTestId('composer-input')).toBeVisible();
   await expect(page.getByTestId('tell-more')).toHaveCount(0);
 });
 

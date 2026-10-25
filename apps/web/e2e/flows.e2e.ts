@@ -22,10 +22,7 @@ async function expireDemoQuestion(page: Page): Promise<void> {
   await page.getByTestId('kill').click();
   await page.getByTestId('resume').click();
   await expect(page.getByTestId('question-card').first()).toHaveAttribute('data-status', 'expired');
-  await expect(page.getByRole('combobox', { name: 'Message' })).toHaveAttribute(
-    'placeholder',
-    /^Message Titan/,
-  );
+  await expect(page.getByTestId('composer-input')).toHaveAttribute('placeholder', /^Message Titan/);
 }
 
 test('setup with the one-time code, logout and login', async ({ page }) => {
@@ -64,7 +61,7 @@ test('setup with the one-time code, logout and login', async ({ page }) => {
 test('sending a message shows the reply while it streams', async ({ page }) => {
   await page.goto('/?mock=demo&mockSpeed=0.6');
   await expireDemoQuestion(page);
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('Prepare me 3 posts about the weekend in Lisbon');
   // The reply comes out one step at a time, so its streaming state cannot
   // come and go between two checks on a slow machine.
@@ -96,7 +93,7 @@ test('answering a question with options', async ({ page }) => {
   await expect(card.getByRole('button', { name: /Friendly.*Recommended/ })).toBeVisible();
   // The options only: words of one's own go in the composer (one field, not two).
   await expect(card.getByRole('button')).toHaveCount(3);
-  await expect(page.getByRole('combobox', { name: 'Message' })).toHaveAttribute(
+  await expect(page.getByTestId('composer-input')).toHaveAttribute(
     'placeholder',
     'Message Titan, or type A, B or C and press Enter',
   );
@@ -160,7 +157,7 @@ test('agents’ memories stay out of the recent notes', async ({ page }) => {
 test('answering with free text, from the composer', async ({ page }) => {
   await page.goto('/?mock=demo&mockSpeed=0.4');
   const card = page.getByTestId('question-card').first();
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('A bit poetic');
   await expect(page.getByTestId('composer-answering')).toContainText('Answering Titan’s question');
   await page.getByRole('button', { name: 'Send the answer' }).click();
@@ -200,7 +197,7 @@ test('an open question out of sight: a bar above the composer brings it back', a
 test('answering an open question (no options)', async ({ page }) => {
   await page.goto('/?mock=demo&mockSpeed=0.4');
   await expireDemoQuestion(page);
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('Prepare the posts about the autumn menu');
   await input.press('Enter');
   const card = page.getByTestId('question-card').filter({ hasText: 'Which dishes' });
@@ -334,7 +331,7 @@ test('new conversation: clean chat, open question still answerable, old one on r
 
   // `/nuova` in the composer does the same (once the work in progress has ended).
   await expect(fresh).toBeEnabled();
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await expect(async () => {
     await input.fill('/new');
     await input.press('Enter');
@@ -363,7 +360,7 @@ test('kill switch and resume', async ({ page }) => {
   await expect(page.getByTestId('halt-banner')).toContainText('The monsters are stopped');
   await expect(page.getByRole('link', { name: /^Rhea, paused/ })).toBeVisible();
   // The field stays on: what is written waits for "Riprendi".
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await expect(input).toBeEnabled();
   await expect(input).toHaveAttribute(
     'placeholder',
@@ -413,7 +410,7 @@ test('the lifted cover closes again: Escape, or by itself after 5 s', async ({ p
 
 test('@mention talks to another agent', async ({ page }) => {
   await page.goto('/?mock=demo&mockSpeed=0.4');
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('@Rh');
   await expect(page.getByRole('option', { name: /Rhea/ })).toBeVisible();
   await input.press('Enter');
@@ -545,9 +542,11 @@ test('light by construction: no blur, no permanent will-change, no filter on mon
 test('a question that waits with no run behind it (D-078): card, status, answer', async ({
   page,
 }) => {
+  // The display says who asks from 1440 px; below that its short form (R2).
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?mock=demo&mockSpeed=0.4');
   await expireDemoQuestion(page);
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('Prepare the lunch flyer');
   await input.press('Enter');
   const card = page.getByTestId('question-card').filter({ hasText: 'What format' });

@@ -51,7 +51,7 @@ test('the cap reached: warning, stop and "Alza il tetto", then the work goes on'
   page,
 }) => {
   await page.goto('/?mock=demo&mockSpeed=0.2#/?chat=dione');
-  const composer = page.getByRole('combobox', { name: 'Message' });
+  const composer = page.getByTestId('composer-input');
   await composer.fill('Go ahead and spend on the supplier research');
   await composer.press('Enter');
   // 80%: a line in the chat (and a toast), then the stop with a clear sentence.

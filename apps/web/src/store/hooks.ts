@@ -5,7 +5,7 @@ import { genomeOf } from '../lib/monsters.ts';
 import type { ConnectionState } from '../lib/stream.ts';
 import type { ThemeName } from '../theme/tokens.ts';
 import { useApp } from './app.ts';
-import { ASKED_ACTIVITY, CONFUSED_TEXT, DONE_MS, makeNameOf, type LiveState } from './derive.ts';
+import { CONFUSED_TEXT, DONE_MS, makeNameOf, type LiveState } from './derive.ts';
 import { appStrings } from './app.strings.ts';
 import { usePrefs } from './prefs.ts';
 
@@ -77,7 +77,7 @@ export function moodText(mood: LiveState['mood']): string {
 
 /** True when the monster waits for the user's answer to its question (see `applyLive`). */
 export function waitsForUser(live: LiveState): boolean {
-  return live.mood === 'waiting' && live.activity === ASKED_ACTIVITY;
+  return live.mood === 'waiting' && live.asked === true;
 }
 
 /** The state of a monster in a few words: "working: Searching “Lisbon”", "waiting for your answer". */

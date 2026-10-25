@@ -16,7 +16,7 @@ const SHOTS = process.env['SCREENSHOTS'];
 const key = (page: Page) => page.getByTestId('chat-monitor').getByTestId('context-key');
 
 async function send(page: Page, text: string) {
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill(text);
   await input.press('Enter');
 }

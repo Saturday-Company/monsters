@@ -498,6 +498,7 @@ function setAgents(list: readonly AgentSummary[], from: string | null): void {
       mood: moodFromState(a.state),
       // The core's `waiting` is a question for the user (a delegation is `working`).
       activity: a.state === 'waiting' ? ASKED_ACTIVITY : a.activity,
+      ...(a.state === 'waiting' ? { asked: true as const } : {}),
       since: confused ? a.confusedSince! : now,
       ...(confused ? { confused: true } : {}),
       ...(work.length > 0 ? { work } : {}),

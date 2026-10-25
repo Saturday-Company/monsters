@@ -411,7 +411,7 @@ test('a monster showing something: open beside its chat, a chip elsewhere', asyn
       },
       [agent, fileId, name] as const,
     );
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.focus();
   // Titan's chat is on screen: it opens, and the composer keeps the focus.
   await show('titan', 'f-preventivo', 'Lisbon quote.pdf');

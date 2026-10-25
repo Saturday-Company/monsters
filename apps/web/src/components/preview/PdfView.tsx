@@ -57,21 +57,26 @@ function PdfPage({
     if (!near || width <= 0) return;
     let task: { cancel(): void; promise: Promise<unknown> } | null = null;
     let alive = true;
-    void doc.getPage(number).then((page) => {
-      if (!alive || !canvas.current) return;
-      const base = page.getViewport({ scale: 1 });
-      const scale = width / base.width;
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      const viewport = page.getViewport({ scale: scale * dpr });
-      const c = canvas.current;
-      c.width = Math.floor(viewport.width);
-      c.height = Math.floor(viewport.height);
-      setHeight(Math.round(base.height * scale));
-      task = page.render({ canvas: c, viewport });
-      task.promise.catch(() => {
-        // cancelled by a new width or by closing: nothing to say
+    void doc
+      .getPage(number)
+      .then((page) => {
+        if (!alive || !canvas.current) return;
+        const base = page.getViewport({ scale: 1 });
+        const scale = width / base.width;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const viewport = page.getViewport({ scale: scale * dpr });
+        const c = canvas.current;
+        c.width = Math.floor(viewport.width);
+        c.height = Math.floor(viewport.height);
+        setHeight(Math.round(base.height * scale));
+        task = page.render({ canvas: c, viewport });
+        task.promise.catch(() => {
+          // cancelled by a new width or by closing: nothing to say
+        });
+      })
+      .catch(() => {
+        // the document was destroyed while the page was on its way (W-39)
       });
-    });
     return () => {
       alive = false;
       task?.cancel();
@@ -85,6 +90,9 @@ function PdfPage({
       style={{ width, height }}
       data-testid="preview-pdf-page"
       data-page={number}
+      // The canvas is only paint: the page says what it is, and where its text can be read.
+      role="img"
+      aria-label={previewStrings().pdf.pageLabel(number, doc.numPages)}
     >
       <canvas ref={canvas} style={{ width, height }} aria-hidden className="block" />
     </div>
@@ -157,6 +165,7 @@ export default function PdfView({ meta, url }: { meta: FileMeta; url: string }) 
       >
         {doc && width > 0 && (
           <div className="flex flex-col" style={{ gap: GAP }}>
+            <p className="sr-only">{s.textHint}</p>
             {Array.from({ length: pages }, (_, i) => (
               <PdfPage
                 key={i}
@@ -169,7 +178,11 @@ export default function PdfView({ meta, url }: { meta: FileMeta; url: string }) 
             ))}
           </div>
         )}
-        {!doc && <p className="px-5 py-10 text-center text-screen-muted">{s.loading}</p>}
+        {!doc && (
+          <p role="status" className="px-5 py-10 text-center text-screen-muted">
+            {s.loading}
+          </p>
+        )}
       </div>
       {pages > 0 && (
         <p

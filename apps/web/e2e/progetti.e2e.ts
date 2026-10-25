@@ -325,7 +325,7 @@ test('Progetti: Ferma progetto stops its monsters with two presses, not the kill
   await page.goto('/?mock=demo&mockSpeed=6#/progetto?id=social-di-saturday');
   await expect(page.getByTestId('chat-panel')).toHaveAttribute('data-agent', 'iapetus');
   await holdMock(page);
-  const input = page.getByRole('combobox', { name: 'Message' });
+  const input = page.getByTestId('composer-input');
   await input.fill('Prepare the Halloween posts');
   await input.press('Enter');
   await stepMockUntil(page, () => page.getByTestId('working-row').isVisible());

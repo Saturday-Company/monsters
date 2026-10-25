@@ -62,6 +62,12 @@ export interface LiveState {
    * an older core said "at work" without them.
    */
   work?: readonly string[] | undefined;
+  /**
+   * It waits for the user's answer to a question of its own (`waitsForUser`). A flag, not a
+   * comparison with `activity`: that text is in the language of the moment it was written, and a
+   * switch of language must not make a waiting monster look like a busy one (W-39, I-9).
+   */
+  asked?: true | undefined;
 }
 
 export const DONE_MS = 4500;
@@ -75,8 +81,8 @@ export function busyMood(mood: LiveMood | undefined): boolean {
 }
 
 /**
- * The activity of a monster that waits for the user's answer (see `waitsForUser`). A live binding:
- * it follows the app's language (the components compare `live.activity` with it).
+ * The words of a monster that waits for the user's answer (the flag `asked` says that it does). A
+ * live binding: it follows the app's language.
  */
 export let ASKED_ACTIVITY = deriveStrings().live.asked;
 
@@ -309,7 +315,13 @@ export function applyLive(
     const cur = next[id];
     if (cur && cur.mood === mood && cur.activity === activity && !cur.confused) return;
     if (next === prev) next = { ...prev };
-    next[id] = { mood, activity, since: at, ...(cur?.work?.length ? { work: cur.work } : {}) };
+    next[id] = {
+      mood,
+      activity,
+      since: at,
+      ...(mood === 'waiting' && activity === ASKED_ACTIVITY ? { asked: true as const } : {}),
+      ...(cur?.work?.length ? { work: cur.work } : {}),
+    };
   };
   /** A confused monster moves on (a tool, words): it stays confused for a moment first. */
   const movesOn = (id: string, mood: LiveMood, activity?: string) => {
@@ -317,7 +329,8 @@ export function applyLive(
     if (cur?.confused && at - cur.since < CONFUSED_MS) {
       if (cur.activity === activity && cur.mood === mood) return;
       if (next === prev) next = { ...prev };
-      next[id] = { ...cur, mood, activity };
+      const { asked: _asked, ...rest } = cur;
+      next[id] = { ...rest, mood, activity };
       return;
     }
     set(id, mood, activity);
@@ -334,6 +347,7 @@ export function applyLive(
       activity: cur.activity,
       since: cur.since,
       ...(cur.confused ? { confused: true } : {}),
+      ...(cur.asked ? { asked: true as const } : {}),
       ...(work.length ? { work } : {}),
     };
   };
@@ -416,6 +430,7 @@ export function applyLive(
         activity: cur?.activity,
         since: at,
         confused: true,
+        ...(cur?.asked ? { asked: true as const } : {}),
         work: workOf(id),
       };
       break;
@@ -513,7 +528,7 @@ export function applyLive(
 
 /** True when the monster waits for the user's answer to its question. */
 function waitsForUser(live: LiveState): boolean {
-  return live.mood === 'waiting' && live.activity === ASKED_ACTIVITY;
+  return live.mood === 'waiting' && live.asked === true;
 }
 
 export function capitalize(s: string): string {

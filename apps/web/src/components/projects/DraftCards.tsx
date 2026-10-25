@@ -1,6 +1,6 @@
 import { describeSchedule, draftTaint, type DraftView, type ProjectView } from '@monsters/shared';
 import { Warning } from '@phosphor-icons/react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { describeError } from '../../lib/api.ts';
 import { crewOf } from '../../lib/automations.ts';
 import { docsDiff } from '../../lib/docs-diff.ts';
@@ -331,17 +331,32 @@ function MemoryLines({ d }: { d: Extract<DraftView, { kind: 'memory' }> }) {
   );
 }
 
+/** How long a card whose press went through waits for the drafts to be read again. */
+const DRAFT_SETTLE_MS = 6000;
+
 function DraftCard({ d, primary }: { d: DraftView; primary: boolean }) {
   const s = draftStrings();
   const nameOf = useNameOf();
   const [busy, setBusy] = useState<'confirm' | 'discard' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The press went through: the card should leave with the next read of the drafts. If that read
+  // failed it would stay with its keys disabled for good, so they come back after a while (W-39).
+  const [went, setWent] = useState(false);
+  useEffect(() => {
+    if (!went) return;
+    const t = setTimeout(() => {
+      setBusy(null);
+      setWent(false);
+    }, DRAFT_SETTLE_MS);
+    return () => clearTimeout(t);
+  }, [went]);
   const who = d.from === 'user' ? null : (d.fromName ?? nameOf(d.from));
   const run = async (what: 'confirm' | 'discard') => {
     setBusy(what);
     setError(null);
     try {
       await (what === 'confirm' ? confirmDraft(d) : discardDraft(d));
+      setWent(true);
     } catch (err) {
       setError(describeError(err));
       setBusy(null);
@@ -365,6 +380,7 @@ function DraftCard({ d, primary }: { d: DraftView; primary: boolean }) {
     <li
       className="set-module grid grid-cols-[minmax(0,1fr)] gap-3 px-3.5 py-3"
       data-testid="draft-card"
+      aria-busy={busy !== null || undefined}
       data-kind={d.kind}
       data-id={d.id}
     >
