@@ -8,7 +8,7 @@ import {
   type TelegramView,
   SETTINGS_SECTIONS,
 } from '@monsters/shared';
-import { useCallback, useEffect, useId, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ApiError, describeError } from '../../lib/api.ts';
 import { formatDate } from '@monsters/shared';
 import { domId } from '../../lib/utils.ts';
@@ -246,15 +246,30 @@ function TimeInput({
   onChange: (v: string) => void;
 }) {
   const id = domId(useId());
+  /**
+   * What is being typed; null while the field just shows the saved time. A time input reports
+   * every partial value on the way to "01:30", and each would be a request that comes back
+   * with the old time: the draft stays until the field is left or Enter is pressed (W-14).
+   */
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft !== null && /^\d{2}:\d{2}$/.test(draft) && draft !== value) onChange(draft);
+    setDraft(null);
+  };
   return (
     <label htmlFor={id} className="flex items-center gap-2 text-footnote text-ink-muted">
       {label}
       <Input
         id={id}
         type="time"
-        value={value}
-        onChange={(e) => {
-          if (/^\d{2}:\d{2}$/.test(e.target.value)) onChange(e.target.value);
+        value={draft ?? value}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          }
         }}
         className={`h-9 w-[7.5rem] px-3 text-body ${fieldOnGroup}`}
       />
@@ -368,6 +383,9 @@ export function TelegramSection() {
     // `view` changes at every poll: only a new code restarts the timer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairing]);
+
+  // Preferences are sent one after the other, so an old answer never lands on a newer one (W-14).
+  const prefsQueue = useRef<Promise<void>>(Promise.resolve());
 
   const act = async (job: () => Promise<TelegramView | void>, done?: string) => {
     setBusy(true);
@@ -543,7 +561,11 @@ export function TelegramSection() {
 
           <Notifications
             prefs={view.prefs}
-            onChange={(update) => void act(() => getApi().setTelegramPrefs(update))}
+            onChange={(update) => {
+              prefsQueue.current = prefsQueue.current.then(() =>
+                act(() => getApi().setTelegramPrefs(update)),
+              );
+            }}
           />
         </>
       )}

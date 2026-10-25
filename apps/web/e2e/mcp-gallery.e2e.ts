@@ -1,4 +1,4 @@
-import { expect, expectNoSideScroll, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, holdMock, releaseMock, test } from './fixtures.ts';
 
 /*
  * Settings → Collegamenti → App e servizi (D-063), on the mock core: the gallery
@@ -292,3 +292,32 @@ for (const theme of ['light', 'dark'] as const) {
     });
   }
 }
+
+test('gallery: "who uses it" clicked twice in a row keeps both choices (W-13)', async ({
+  page,
+}) => {
+  await page.goto(URL);
+  const gallery = page.getByTestId('mcp-gallery');
+  await gallery.getByTestId('gallery-notion').click();
+  const panel = page.getByTestId('gallery-panel-notion');
+  const popup = page.waitForEvent('popup');
+  await panel.getByRole('button', { name: 'Connect' }).click();
+  await (await popup).close();
+  await expect(panel.getByTestId('gallery-state')).toHaveText('Connected');
+
+  // The first answer is still on its way when the second click comes.
+  await holdMock(page);
+  await panel.getByRole('button', { name: 'Titan', exact: true }).click();
+  await panel.getByRole('button', { name: 'Rhea', exact: true }).click();
+  await releaseMock(page);
+  for (const [name, on] of [
+    ['Titan', 'false'],
+    ['Rhea', 'false'],
+    ['Dione', 'true'],
+  ] as const) {
+    await expect(panel.getByRole('button', { name, exact: true })).toHaveAttribute(
+      'aria-pressed',
+      on,
+    );
+  }
+});

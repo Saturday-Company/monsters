@@ -46,7 +46,15 @@ import { Meter } from '../ui/Meter.tsx';
 import { BRAND_ICONS } from './brand-icons.ts';
 import { SATURDAY_ICONS } from './saturday-icons.ts';
 import { ClaudeConnectBody } from './ClaudeConnect.tsx';
-import { AgentPicker, Details, errorOf, TestButton, ToolsResult, useTest } from './mcp-parts.tsx';
+import {
+  AgentPicker,
+  Details,
+  errorOf,
+  TestButton,
+  ToolsResult,
+  useSavedAgents,
+  useTest,
+} from './mcp-parts.tsx';
 import { OAuthPaste } from './McpOAuthPaste.tsx';
 import { mcpStrings } from './mcp.strings.ts';
 import { partsStrings } from './parts.strings.ts';
@@ -388,15 +396,16 @@ function ConnectPanel({
     }
   };
 
+  const serverName = server?.name;
+  const savedAgents = useSavedAgents(server?.agents ?? [], (next) =>
+    getApi().saveMcpServer(serverName!, { agents: next }).then(onData),
+  );
   const saveAgents = (next: string[]) => {
     if (!server) {
       setAgents(next);
       return;
     }
-    getApi()
-      .saveMcpServer(server.name, { agents: next })
-      .then(onData)
-      .catch((err: unknown) => notify(errorOf(err), 'error'));
+    savedAgents.change(next);
   };
 
   const connected = state === 'connected' || state === 'error';
@@ -618,7 +627,12 @@ function ConnectPanel({
           <OAuthPaste
             key={paste ? 'paste' : 'link'}
             open={paste}
-            onDone={() => void getApi().mcpServers().then(onData)}
+            onDone={() =>
+              void getApi()
+                .mcpServers()
+                .then(onData)
+                .catch((err: unknown) => notify(errorOf(err), 'error'))
+            }
           />
         )}
 
@@ -632,7 +646,7 @@ function ConnectPanel({
             {tools !== undefined && !test.result && (
               <p className="text-footnote text-ink-muted">{s.toolsReady(tools)}</p>
             )}
-            <AgentPicker agents={data.agents} value={server.agents} onChange={saveAgents} />
+            <AgentPicker agents={data.agents} value={savedAgents.value} onChange={saveAgents} />
             <div className="flex flex-wrap items-center gap-2">
               <TestButton testing={test.testing} onClick={() => void test.run()} />
               <ConfirmButton

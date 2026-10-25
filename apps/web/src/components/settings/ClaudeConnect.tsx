@@ -9,7 +9,7 @@ import {
 import { useState } from 'react';
 import { getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
-import { AgentPicker, Details, errorOf } from './mcp-parts.tsx';
+import { AgentPicker, Details, errorOf, useSavedAgents } from './mcp-parts.tsx';
 import { mcpStrings } from './mcp.strings.ts';
 import { ConfirmButton } from './parts.tsx';
 
@@ -150,15 +150,15 @@ export function ClaudeConnectBody({
     }
   };
 
+  const savedAgents = useSavedAgents(view.added ? view.agents : [], (next) =>
+    getApi().setClaudeConnection(entry.id, { agents: next }).then(onData),
+  );
   const saveAgents = (next: string[]) => {
     if (!view.added) {
       setChosen(next);
       return;
     }
-    getApi()
-      .setClaudeConnection(entry.id, { agents: next })
-      .then(onData)
-      .catch((err: unknown) => notify(errorOf(err), 'error'));
+    savedAgents.change(next);
   };
 
   return (
@@ -168,7 +168,7 @@ export function ClaudeConnectBody({
       {view.added && <NotReady entry={entry} view={view} />}
       <AgentPicker
         agents={agents}
-        value={view.added ? view.agents : chosen}
+        value={view.added ? savedAgents.value : chosen}
         onChange={saveAgents}
       />
       {error && (

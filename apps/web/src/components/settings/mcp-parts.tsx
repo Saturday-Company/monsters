@@ -1,9 +1,9 @@
 import { CaretRight, Warning } from '@phosphor-icons/react';
 import type { McpServerStatus, McpServersResponse, McpTestResponse } from '@monsters/shared';
-import { useId, useState, type CSSProperties, type ReactNode } from 'react';
+import { useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ApiError, describeError } from '../../lib/api.ts';
 import { cn, domId } from '../../lib/utils.ts';
-import { getApi } from '../../store/app.ts';
+import { getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Meter } from '../ui/Meter.tsx';
 import { mcpStrings } from './mcp.strings.ts';
@@ -63,6 +63,35 @@ export function StatusPill({
       {mcpStrings().parts.status[shown]}
     </span>
   );
+}
+
+/**
+ * Who uses a service, saved at every click (W-13). Clicks do not wait for each other: the picker
+ * shows the latest choice at once, every click computes its list from it, and the requests go
+ * one after the other, so a slow answer never brings back what a later click took away. A
+ * refused save says why and the picker goes back to what the core has.
+ */
+export function useSavedAgents(
+  saved: string[],
+  persist: (next: string[]) => Promise<unknown>,
+): { value: string[]; change: (next: string[]) => void } {
+  const [latest, setLatest] = useState<string[] | null>(null);
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const open = useRef(0);
+  const change = (next: string[]) => {
+    setLatest(next);
+    open.current++;
+    queue.current = queue.current
+      .then(() => persist(next))
+      .then(
+        () => undefined,
+        (err: unknown) => notify(errorOf(err), 'error'),
+      )
+      .finally(() => {
+        if (--open.current === 0) setLatest(null);
+      });
+  };
+  return { value: latest ?? saved, change };
 }
 
 export function AgentPicker({
