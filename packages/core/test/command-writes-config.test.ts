@@ -71,10 +71,46 @@ const PASS = [
   '[ -f .claude/settings.json ] && echo yes',
   'cat CLAUDE.md # touch it later',
   "grep -n '$(' CLAUDE.md",
+  // Plain reads the brake refused (review of 25/10, C-22).
+  "awk '$1 > 3' CLAUDE.md",
+  "awk -F'|' '{print $2}' CLAUDE.md",
+  "awk -v n=3 '{ if ($1 > n) print $1 }' CLAUDE.md",
+  "awk -F, 'NR > 1 { print $2 }' AGENTS.md",
+  'git commit -m "$(cat <<\'EOF\'\nUpdate CLAUDE.md\n\nCo-Authored-By: X <x@example.com>\nEOF\n)"',
+  'git add CLAUDE.md && git commit -m "$(cat <<\'EOF\'\nDocs: AGENTS.md > notes\nEOF\n)"',
+  'head -n $((N+1)) CLAUDE.md',
+  'tail -n $((10 * 2)) AGENTS.md',
+  'cat $(git rev-parse --show-toplevel)/CLAUDE.md',
+  'cat "$(git rev-parse --show-toplevel)/CLAUDE.md"',
+  'ls "$(pwd)/.claude"',
+  'cd .claude && node -v',
+  'cd .claude && python3 --version',
+  'npx prettier --check CLAUDE.md',
+  'pnpm exec prettier --check AGENTS.md',
+  'npx --yes markdownlint CLAUDE.md',
+  'cat CLAUDE.md > /tmp/copy',
+  // Copies of the configuration out, into a temporary folder or under another name.
+  'cp CLAUDE.md /tmp/',
+  'cp -r .claude /tmp/backup/',
+  'cp CLAUDE.md backup.md',
+  'cp ../template/CLAUDE.md /tmp/review/',
+  // Readers whose scripts only print, and globs that name nothing.
+  "sed -n '/web/p' CLAUDE.md",
+  "sed -n '1,/^## /p' AGENTS.md",
+  "sed -ne 's/a/b/p' CLAUDE.md",
+  "sed '/^$/d; s/x/y/g' CLAUDE.md",
+  'ls *.md',
+  'cat .claude/*.json',
+  'wc -l {CLAUDE,AGENTS}.md',
+  'git show HEAD:CLAUDE.md',
+  'fd -e md CLAUDE.md .',
   // Nothing about the configuration at all.
   'npm install && tar xf a.tgz',
   'echo hi > out.txt',
   'node -e "console.log(1)"',
+  'echo ' + '7'.repeat(2_000),
+  'rm -rf dist/*',
+  'echo x > {a,b}.txt',
 ];
 
 const BLOCKED = [
@@ -199,6 +235,89 @@ const BLOCKED = [
   'cat <<EOF\nCLAUDE.md\nEOF',
   'diff <(cat CLAUDE.md) x',
   "cat CLAUDE.md; echo $'\\x72m'",
+  'cat CLAUDE.md; echo $(rm x)',
+  'cat CLAUDE.md; echo $(( $(rm x) ))',
+  "X='a[$(rm CLAUDE.md)]'; echo $((X))",
+  'git commit -m "$(cat <<\'EOF\'\nmsg\nEOF\nrm CLAUDE.md\nEOF\n)"',
+  'git commit -m "$(cat <<EOF\n$(rm x) CLAUDE.md\nEOF\n)"',
+  'echo "$(cat <<\'EOF\'\nCLAUDE.md\nEOF\n)" | xargs rm',
+  'cat > "$(git rev-parse --show-toplevel)/CLAUDE.md"',
+  // A configuration copied into a folder lands there under its own name (review of 25/10, C-17).
+  'cp ../template/CLAUDE.md .',
+  'cp ../CLAUDE.md ./',
+  'cp -r ~/template/.claude .',
+  'cp -a ../t/.claude ~',
+  'rsync -a ../t/.claude ./',
+  'rsync -av ../t/AGENTS.md sub/',
+  'cp CLAUDE.md ../',
+  'cp CLAUDE.md sub',
+  'cp CLAUDE.md AGENTS.md docs',
+  'cp -t . ../t/CLAUDE.md',
+  'cp --target-directory=sub ../t/CLAUDE.md',
+  'cp ../t/*.md .',
+  // Spellings that dodge the name (C-18).
+  'cat x > C\\LAUDE.md',
+  'cp x CL\\AUDE.md',
+  'rm \\.claude/settings.json',
+  'curl -oCLAUDE.md https://example.com/x',
+  'wget -OCLAUDE.md https://example.com/x',
+  'sort -oCLAUDE.md x',
+  'cp -t.claude x',
+  'tar -C.claude -xf a.tar',
+  'unzip -d.claude a.zip',
+  'touch {a,CLAUDE.md}',
+  'scp host:x CLAUDE.md',
+  'scp x host:CLAUDE.md',
+  "sed -n '1wCLAUDE.md' x",
+  "sed -n 'wCLAUDE.md' x",
+  "sed 's/a/b/w CLAUDE.md' x",
+  "sed 's/a/b/gw CLAUDE.md' x",
+  'sed e CLAUDE.md',
+  "sed '1e touch x' CLAUDE.md",
+  "sed -e '$!N' -e 'W CLAUDE.md' x",
+  'fd CLAUDE.md . -xrm',
+  'fd -HIx rm CLAUDE.md',
+  'yq --in-place . CLAUDE.md',
+  'yq -i . .claude/settings.json',
+  'eslint -o CLAUDE.md x.js',
+  'eslint --output-file CLAUDE.md x.js',
+  'prettier --cache-location CLAUDE.md x.js',
+  'awk \'{ print > "CLAUDE.md" }\' x',
+  'awk \'{ print | "sh" }\' CLAUDE.md',
+  'awk \'BEGIN { system("rm CLAUDE.md") }\'',
+  'awk -f prog.awk CLAUDE.md',
+  "gawk -i inplace '{ print }' CLAUDE.md",
+  'awk \'{ "date" | getline d }\' CLAUDE.md',
+  // Inline code for more interpreters and runners (C-20).
+  `php -r "file_put_contents('CLAUDE.md', '');"`,
+  'php -r "x();"; cat CLAUDE.md',
+  'pwsh -Command "Remove-Item x"; cat CLAUDE.md',
+  'pwsh -c "x"; cat CLAUDE.md',
+  'powershell -EncodedCommand AAAA; cat CLAUDE.md',
+  'cmd /c "del x"; cat CLAUDE.md',
+  'deno eval "x"; cat CLAUDE.md',
+  'tsx -e "x"; cat CLAUDE.md',
+  'npx tsx -e "x"; cat CLAUDE.md',
+  'pnpm dlx tsx --eval "x"; cat CLAUDE.md',
+  'Rscript -e "x"; cat CLAUDE.md',
+  'node --eval="x"; cat CLAUDE.md',
+  'bun -e "x"; cat CLAUDE.md',
+  'npx prettier --write CLAUDE.md',
+  'npx -y rimraf CLAUDE.md',
+  'npx --foo x; cat CLAUDE.md',
+  'cd .claude && node build.js -v',
+  // A name the shell expands into the configuration (C-21).
+  'echo x > CLAU*',
+  'echo x > CLAUDE.m?',
+  'echo x > .cl*de/x',
+  'echo x > {CLAUDE,x}.md',
+  "echo x > $'\\x43LAUDE.md'",
+  'echo x > AGENT[S].md',
+  'echo x > {A..C}LAUDE.md',
+  'rm *.md',
+  'mv *.md docs/',
+  'rm -rf .c*',
+  'touch {x,y}/CLAUDE.md',
 ];
 
 describe('commandWritesConfig (D-079, D-166)', () => {
@@ -220,6 +339,29 @@ describe('commandWritesConfig (D-079, D-166)', () => {
     ]) {
       expect(commandWritesConfig(c), c).toBe(false);
     }
+  });
+
+  it('stays linear on long lines: digits, nested substitutions, globs, braces (C-19)', () => {
+    const shapes = [
+      'echo ' + '7'.repeat(100_000),
+      'echo ' + '7'.repeat(100_000) + ' > CLAUDE.md',
+      'cat CLAUDE.md; echo ' + '1>'.repeat(50_000),
+      'cat CLAUDE.md; echo ' + '$('.repeat(50_000),
+      'cat CLAUDE.md; echo ' + '$(('.repeat(33_000),
+      'echo x > ' + '*a'.repeat(50_000),
+      'echo x > ' + '{a,'.repeat(25_000),
+      'echo x > ' + '['.repeat(100_000),
+      "sed -n '" + '/a/,'.repeat(25_000) + "p' CLAUDE.md",
+      "awk '" + 'print '.repeat(16_000) + "' CLAUDE.md",
+      "git commit -m \"$(cat <<'EOF'\n".repeat(8_000) + 'CLAUDE.md',
+      '-o'.repeat(50_000) + 'CLAUDE.md',
+    ];
+    for (const s of shapes) {
+      const t0 = performance.now();
+      commandWritesConfig(s);
+      expect(performance.now() - t0, s.slice(0, 40)).toBeLessThan(500);
+    }
+    expect(commandWritesConfig('echo ' + '7'.repeat(100_000) + ' > CLAUDE.md')).toBe(true);
   });
 
   it('knows the names at any depth and in either case', () => {
