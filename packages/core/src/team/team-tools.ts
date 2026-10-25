@@ -371,6 +371,8 @@ async function runDelegation(
   const from = ctx.self.config.id;
   const to = target.config.id;
   const { brief, filled } = await delegationBrief(ctx, target, input);
+  // Stopped while the brief was being written: the task never starts (no "started" after a stop).
+  tc.signal.throwIfAborted();
   const delegation = {
     from,
     to,
