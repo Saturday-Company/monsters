@@ -50,7 +50,7 @@ describe('the places of the app', () => {
   it('are named in the language in use, with the same ids', () => {
     expect(settingsLabel()).toBe('Settings');
     expect(settingsPath('altriProgrammi')).toBe('Settings → Connections → Apps and services');
-    expect(settingsPath('abbonamenti')).toBe('Settings → Models → A subscription you already have');
+    expect(settingsPath('abbonamenti')).toBe('Settings → Models → Plans you already have');
     expect(settingsPath('ilWeb')).toBe('Settings → Permissions → The web');
     expect(SETTINGS_TABS.squadra).toBe('Squad');
     expect(SETTINGS_SECTIONS.tettoDiSpesa.label).toBe('Spending cap');

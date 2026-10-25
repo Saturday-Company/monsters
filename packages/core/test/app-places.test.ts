@@ -91,7 +91,7 @@ describe('the places of the app in the texts (D-133)', () => {
       'Impostazioni → Collegamenti → App e servizi → Browser',
     );
     expect(settingsPath('ilWeb')).toBe('Impostazioni → Permessi → Il web');
-    expect(settingsPath('abbonamenti')).toBe('Impostazioni → Modelli → Un abbonamento che hai già');
+    expect(settingsPath('abbonamenti')).toBe('Impostazioni → Modelli → Piani che hai già');
     expect(projectPagePath('Saturday', 'spesa')).toBe(
       'pagina del progetto «Saturday», scheda Spesa',
     );
@@ -106,7 +106,7 @@ describe('the places of the app in the texts (D-133)', () => {
       'Settings → Connections → Apps and services → Browser',
     );
     expect(settingsPath('ilWeb')).toBe('Settings → Permissions → The web');
-    expect(settingsPath('abbonamenti')).toBe('Settings → Models → A subscription you already have');
+    expect(settingsPath('abbonamenti')).toBe('Settings → Models → Plans you already have');
     expect(projectPagePath('Saturday', 'spesa')).toBe('“Saturday” project page, Spending tab');
     expect(spendCapPath('Saturday')).toBe('“Saturday” project page, Spending tab');
     expect(spendCapPath()).toBe('Settings → Models → Spending cap');
