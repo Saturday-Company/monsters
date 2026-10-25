@@ -1,6 +1,7 @@
 import { isAbsolute, resolve } from 'node:path';
 import { settingsLabel, ToolError, type MonstersTool } from '@monsters/shared';
 import {
+  commandWritesConfig,
   instructionFileIn,
   lockedCommand,
   lockedPath,
@@ -18,7 +19,6 @@ import {
   injectionRemoved,
   injectionWarning,
 } from '../team/instinct/guard.ts';
-import { commandWritesConfig } from './command-writes-config.ts';
 import { stripInvisible } from './invisible.ts';
 import { runAgentPrompts } from './run-agent.prompts.ts';
 import { runAgentStrings } from './run-agent.strings.ts';
@@ -82,6 +82,8 @@ export const ClaudeHookInputSchema = z.looseObject({
   error: z.unknown().optional(),
   stop_hook_active: z.boolean().optional(),
   last_assistant_message: z.string().optional(),
+  /** The folder Claude Code's session is in now (its terminal keeps a `cd`). */
+  cwd: z.string().optional(),
 });
 export type ClaudeHookInput = z.infer<typeof ClaudeHookInputSchema>;
 
@@ -287,6 +289,8 @@ export async function harnessConfigWrite(
   workspace: string,
   /** Further folders whose configuration stays closed: the projects' folders (D-103). */
   folders: readonly string[] = [],
+  /** Where Claude Code's terminal is now (it keeps a `cd`): Bash's globs are expanded there. */
+  cwd: string = workspace,
 ): Promise<boolean> {
   const i = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   // At any depth, on the path given and on the real one (review of 18/10, M3 and B3): `ln -s . x`
@@ -309,7 +313,12 @@ export async function harnessConfigWrite(
       return configPath(str(i['notebook_path']));
     case 'Bash': {
       const command = str(i['command']) ?? '';
-      return commandWritesConfig(command);
+      // Globs are expanded where the terminal is; inside a `.claude` any write is one (as after a `cd`).
+      const at = isAbsolute(cwd) ? resolve(cwd) : resolve(workspace, cwd);
+      return commandWritesConfig(command, {
+        cwd: at,
+        inConfig: instructionFileIn(at, [workspace, ...folders]),
+      });
     }
     default:
       return false;
@@ -480,7 +489,14 @@ async function preToolUse(
   if (
     !locked &&
     ctx.workspace &&
-    (await harnessConfigWrite(name, input.tool_input, ctx.workspace, ctx.instructionFolders))
+    (await harnessConfigWrite(
+      name,
+      input.tool_input,
+      ctx.workspace,
+      ctx.instructionFolders,
+      // Claude Code says where its terminal is (a `cd` of an earlier call lasts).
+      str(input.cwd) ?? ctx.workspace,
+    ))
   ) {
     refusedCall(ctx, input, 'harness_config', runAgentStrings().configWriteStopped);
     return deny(harnessConfigDenied());

@@ -28,6 +28,10 @@ export {
   commandWritesInstructions,
   instructionFileIn,
 } from './system/instruction-files.ts';
+export {
+  commandWritesConfig,
+  type CommandWritesConfigOptions,
+} from './system/command-writes-config.ts';
 export { htmlToMarkdown, type HtmlPage } from './html.ts';
 export { monstersUserAgent } from './http.ts';
 export {

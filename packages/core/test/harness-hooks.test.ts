@@ -533,6 +533,22 @@ describe('the harness configuration of the working folder is never written (D-07
       ).toBe(false);
     },
   );
+
+  it('Bash: globs are expanded where the terminal is, and inside `.claude` any write is one', async () => {
+    const ws = join(home, 'ws-bash');
+    mkdirSync(join(ws, 'dist'), { recursive: true });
+    mkdirSync(join(ws, 'docs', '.claude'), { recursive: true });
+    writeFileSync(join(ws, 'docs', 'CLAUDE.md'), '');
+    const bash = (command: string, cwd?: string) =>
+      harnessConfigWrite('Bash', { command }, ws, [], cwd);
+    expect(await bash('rm -rf *')).toBe(false);
+    expect(await bash('rm -rf dist/*')).toBe(false);
+    // Claude Code's terminal kept a `cd docs` of an earlier call: its `*` holds CLAUDE.md.
+    expect(await bash('rm -rf *', join(ws, 'docs'))).toBe(true);
+    expect(await bash('rm -rf *', 'docs')).toBe(true);
+    expect(await bash('rm settings.json', join(ws, 'docs', '.claude'))).toBe(true);
+    expect(await bash('cat settings.json', join(ws, 'docs', '.claude'))).toBe(false);
+  });
 });
 
 describe('a Claude Code run with the brake and the stop hook (fake binary)', () => {
