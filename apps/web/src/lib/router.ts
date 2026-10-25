@@ -126,28 +126,46 @@ export function automationPath(
   return s ? `${PATHS.automations}?${s}` : PATHS.automations;
 }
 
-/** Sections of a project's page (D-100), in the order of its tabs (the first is the default). */
-export const PROJECT_TABS = [
-  'chat',
-  'squadra',
-  'note',
-  'cartella',
-  'collegamenti',
-  'automazioni',
-  'spesa',
-] as const;
+/** Tabs of a project's page (D-100), in order (the first is the default). */
+export const PROJECT_TABS = ['chat', 'squadra', 'note', 'automazioni', 'impostazioni'] as const;
 export type ProjectTab = (typeof PROJECT_TABS)[number];
 
-/** The tab named by `?sezione=…`; anything else is the chat. */
+/**
+ * Names of the old tabs (Cartella, Collegamenti, Spesa) and of the archive: each opens the
+ * project's Settings, scrolled to its part (`project-settings-<part>`).
+ */
+export const PROJECT_ALIASES = {
+  cartella: { tab: 'impostazioni', part: 'cartella' },
+  collegamenti: { tab: 'impostazioni', part: 'collegamenti' },
+  spesa: { tab: 'impostazioni', part: 'spesa' },
+  archivio: { tab: 'impostazioni', part: 'archivio' },
+} as const satisfies Record<string, { tab: ProjectTab; part: string }>;
+
+/** A tab, or an old name that opens Settings at one part (`projectPath(id, 'spesa')`). */
+export type ProjectPlace = ProjectTab | keyof typeof PROJECT_ALIASES;
+
+function projectAliasOf(param: string | null): { tab: ProjectTab; part: string } | undefined {
+  return param && Object.hasOwn(PROJECT_ALIASES, param)
+    ? PROJECT_ALIASES[param as keyof typeof PROJECT_ALIASES]
+    : undefined;
+}
+
+/** The tab named by `?sezione=…` (or an old name of it); anything else is the chat. */
 export function projectTabOf(param: string | null): ProjectTab {
-  return PROJECT_TABS.find((t) => t === param) ?? PROJECT_TABS[0];
+  return PROJECT_TABS.find((t) => t === param) ?? projectAliasOf(param)?.tab ?? PROJECT_TABS[0];
+}
+
+/** The part of Settings an old name points to (`?sezione=spesa` → `spesa`); a tab has no part. */
+export function projectPartOf(param: string | null): string | null {
+  return projectAliasOf(param)?.part ?? null;
 }
 
 /**
  * A project's page (`#/progetto?id=…&sezione=squadra`, D-100), or the form of a
- * new one (`#/progetto?vista=nuovo`).
+ * new one (`#/progetto?vista=nuovo`). An old tab name keeps working in links
+ * (`projectPath(id, 'spesa')`: Settings, at the spending).
  */
-export function projectPath(id?: string | null, tab?: ProjectTab | null): string {
+export function projectPath(id?: string | null, tab?: ProjectPlace | null): string {
   const q = new URLSearchParams();
   if (id) q.set('id', id);
   else q.set('vista', 'nuovo');

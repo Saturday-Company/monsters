@@ -4,6 +4,7 @@ import {
   MCP_CATALOG,
   type ClaudeConnectionsResponse,
   type McpServersResponse,
+  type PermissionsResponse,
   type ProjectSpendView,
   type ProjectView,
   type SpendView,
@@ -52,22 +53,24 @@ import { Button } from '../ui/button.tsx';
 import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { ProjectDocsDrafts } from './DraftCards.tsx';
+import { Details } from './Details.tsx';
 import { FolderPickButton, useCanPickFolder } from './FolderPicker.tsx';
 import { sectionsStrings } from './sections.strings.ts';
 
 /*
- * The tabs of a project's page besides the chat and the squad (D-100):
+ * The tabs of a project's page besides the chat and the squad (D-100), and the
+ * parts of its Settings (one page that scrolls, `ProjectSettings`):
  * - Notes: the notes of its area (`Progetti/<nome>/`), written by its monsters,
  *   read by everyone;
  * - Folder: the folder where its monsters work, on a small screen with
  *   "Copy" (the browser cannot open a folder of the computer, and the
  *   desktop bridge opens only files of the notes), changed or taken away;
- *   the monsters' proposals for its CLAUDE.md and AGENTS.md (D-113);
- * - Connections: which servers given to the whole team its monsters see,
- *   and the web search;
+ *   the monsters' proposals for its instructions file (D-113);
+ * - Apps: the web search with the monsters that cannot use it and why, and
+ *   which apps given to all monsters the project sees;
  * - Automations: its automations, as in the Automations section;
- * - Spend: its cap, with the team's above and the monsters' below (three
- *   levels, D-070, D-097).
+ * - Spend: its cap, with the one for all monsters above and the monsters' below
+ *   (three levels, D-070, D-097).
  */
 
 /* ---------------------------------------------------------------- Notes */
@@ -185,7 +188,8 @@ export function ProjectFolder({
 }) {
   const id = domId(useId());
   const s = sectionsStrings().folder;
-  const [editing, setEditing] = useState(!p.folder);
+  // Without a folder it says so and offers "Choose a folder": the form is one tap away, not open.
+  const [editing, setEditing] = useState(false);
   const [path, setPath] = useState(p.folder ?? '');
   const [choice, setChoice] = useState<FolderChoice>('existing');
   const [error, setError] = useState<string | null>(null);
@@ -219,7 +223,7 @@ export function ProjectFolder({
       setBusy(false);
     }
   };
-  // CLAUDE.md or AGENTS.md changed since they were approved (D-103): the runs start cautious.
+  // The instructions file changed since it was approved (D-103): the runs start cautious.
   const approve = async () => {
     setBusy(true);
     try {
@@ -237,7 +241,7 @@ export function ProjectFolder({
       onChanged(await getApi().updateProject(p.id, { folder: null }));
       notify(s.removed);
       setPath('');
-      setEditing(true);
+      setEditing(false);
     } catch (err) {
       notify(describeError(err), 'error');
     } finally {
@@ -246,7 +250,12 @@ export function ProjectFolder({
   };
 
   return (
-    <Group title={s.title} testId="project-folder" description={s.description}>
+    <Group
+      title={s.title}
+      testId="project-folder"
+      description={s.description}
+      footer={<Details>{s.details}</Details>}
+    >
       {p.folder && (
         <Row
           label={s.path}
@@ -278,7 +287,18 @@ export function ProjectFolder({
       {p.folderDocs?.changed && (
         <Row
           label={s.docsChanged}
-          description={s.docsChangedText(p.folderDocs.files.join(s.filesJoin))}
+          description={
+            <>
+              {s.docsChangedLead}{' '}
+              {p.folderDocs.files.map((f, i) => (
+                <span key={f}>
+                  {i > 0 && s.filesJoin}
+                  <span className="font-mono text-micro text-ink">{f}</span>
+                </span>
+              ))}{' '}
+              {s.docsChangedRest}
+            </>
+          }
           testId="project-folder-docs-changed"
         >
           <Button
@@ -363,9 +383,9 @@ export function ProjectFolder({
   );
 }
 
-/* --------------------------------------------------------- Connections */
+/* ---------------------------------------------------------------- Apps */
 
-/** The name of a service of the gallery (`MCP_CATALOG`), as Impostazioni → Collegamenti says it. */
+/** The name of an app of the gallery (`MCP_CATALOG`), as Impostazioni → Collegamenti says it. */
 function serviceName(id: string): string {
   return MCP_CATALOG.find((e) => e.id === id)?.name ?? id;
 }
@@ -381,6 +401,8 @@ export function ProjectLinks({
   const agents = useAgents();
   const [mcp, setMcp] = useState<McpServersResponse | null>(null);
   const [claude, setClaude] = useState<ClaudeConnectionsResponse | null>(null);
+  /** The monsters' own web permission; a failed read just hides the list of who cannot search. */
+  const [perms, setPerms] = useState<PermissionsResponse | null>(null);
   const [busy, setBusy] = useState(false);
   /** A read failed (W-35): the list is not complete, the section says so and offers a retry. */
   const [failed, setFailed] = useState(false);
@@ -399,6 +421,10 @@ export function ProjectLinks({
       .claudeConnections()
       .then((r) => alive && setClaude(r))
       .catch(lost);
+    api
+      .permissions()
+      .then((r) => alive && setPerms(r))
+      .catch(() => {});
     return () => {
       alive = false;
     };
@@ -433,9 +459,60 @@ export function ProjectLinks({
   );
   const services = (claude?.connections ?? []).filter((c) => c.added && c.agents.includes('*'));
 
+  // Who cannot search the web now, and why: the project's switch, the monster's own permission, or both.
+  const webOwn = new Map(perms?.agents.map((a) => [a.id, a.permissions.web]) ?? []);
+  const cannot = perms
+    ? p.members
+        .map((m) => ({ id: m.id, projectOff: !p.webSearch, ownOff: webOwn.get(m.id) === false }))
+        .filter((m) => m.projectOff || m.ownOff)
+    : [];
+  // "Allow" makes that monster able to search: what is off for it is turned on, nothing else.
+  const allow = async (m: (typeof cannot)[number]) => {
+    setBusy(true);
+    try {
+      if (m.projectOff) onChanged(await getApi().updateProject(p.id, { webSearch: true }));
+      if (m.ownOff) {
+        const own = perms?.agents.find((a) => a.id === m.id)?.permissions;
+        if (own)
+          setPerms(
+            await getApi().setPermissions({
+              agents: {
+                [m.id]: {
+                  vault: own.vault,
+                  web: true,
+                  shell: own.shell ?? false,
+                  folders: own.folders ?? [],
+                },
+              },
+            }),
+          );
+      }
+      notify(s.blocked.allowed(nameOf(m.id)), 'success');
+    } catch (err) {
+      notify(describeError(err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <>
-      <Group title={s.webTitle} testId="project-web" footer={s.webFooter}>
+      <Group
+        title={s.webTitle}
+        testId="project-web"
+        footer={
+          <>
+            {s.webFooter}{' '}
+            <a
+              href={settingsPath('permessi')}
+              className="font-medium text-signal-ink hover:underline"
+            >
+              {s.webFooterLink}
+            </a>
+            .
+          </>
+        }
+      >
         <Row label={s.webLabel} description={s.webDescription}>
           <Switch
             checked={p.webSearch}
@@ -444,7 +521,58 @@ export function ProjectLinks({
             label={s.webSwitch}
           />
         </Row>
+        {perms && cannot.length === 0 && (
+          <RowBody>
+            <Status ok testId="project-web-all-ok">
+              {s.blocked.allOk}
+            </Status>
+          </RowBody>
+        )}
       </Group>
+
+      {cannot.length > 0 && (
+        <Group
+          title={s.blocked.title(cannot.length)}
+          as="ul"
+          testId="project-web-blocked"
+          description={s.blocked.description}
+        >
+          {cannot.map((m) => (
+            <Row
+              key={m.id}
+              as="li"
+              testId="project-web-blocked-monster"
+              leading={
+                <AgentMark
+                  id={m.id}
+                  color={perms?.agents.find((a) => a.id === m.id)?.color ?? 'var(--ink-muted)'}
+                  width={40}
+                  height={34}
+                />
+              }
+              label={nameOf(m.id)}
+              description={
+                m.projectOff && m.ownOff
+                  ? s.blocked.both
+                  : m.projectOff
+                    ? s.blocked.project
+                    : s.blocked.own
+              }
+            >
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy}
+                aria-label={s.blocked.allowLabel(nameOf(m.id))}
+                onClick={() => void allow(m)}
+                data-testid="project-web-allow"
+              >
+                {s.blocked.allow}
+              </Button>
+            </Row>
+          ))}
+        </Group>
+      )}
 
       <Group
         title={s.title}
@@ -452,12 +580,15 @@ export function ProjectLinks({
         testId="project-links"
         description={s.description}
         footer={
-          <a
-            href={settingsPath('collegamenti')}
-            className="font-medium text-signal-ink hover:underline"
-          >
-            {s.more}
-          </a>
+          <div className="grid gap-1.5">
+            <Details>{s.details}</Details>
+            <a
+              href={settingsPath('collegamenti')}
+              className="font-medium text-signal-ink hover:underline"
+            >
+              {s.more}
+            </a>
+          </div>
         }
       >
         {failed && (

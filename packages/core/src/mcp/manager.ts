@@ -1618,7 +1618,7 @@ export class McpManager {
     if (c.setting.agents.includes('*') && project) {
       return off(
         `${label} is turned off for the project ${mcpPrompts().quoted(project.name)} by the user.`,
-        `The user turns it on again in the app (${projectPagePath(project.name, 'collegamenti')}); a capo can ask for it with access_request. Go on without it.`,
+        `The user turns it on again in the app (${projectPagePath(project.name, 'impostazioni')}); a capo can ask for it with access_request. Go on without it.`,
       );
     }
     return off(

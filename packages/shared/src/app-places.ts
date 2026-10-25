@@ -6,7 +6,7 @@ import { LANGS } from './i18n.ts';
  * The names of the app's places, word for word as the UI shows them (D-133).
  * The UI renders its tabs and section titles from these constants, and the
  * texts of the core that send the user somewhere ("Settings → Connections →
- * Apps and services", "the project page, Spending tab") are built from them, in the
+ * Apps and services", "the project page, Settings tab") are built from them, in the
  * language of the app (D-153): a renamed tab cannot leave a monster pointing at
  * a screen that does not exist (review of 19/10: «External tools»,
  * «Permessi → Altri programmi»).
@@ -148,17 +148,12 @@ export const PROJECT_TABS = {
   get note() {
     return placesStrings().projectTabs.note;
   },
-  get cartella() {
-    return placesStrings().projectTabs.cartella;
-  },
-  get collegamenti() {
-    return placesStrings().projectTabs.collegamenti;
-  },
   get automazioni() {
     return placesStrings().projectTabs.automazioni;
   },
-  get spesa() {
-    return placesStrings().projectTabs.spesa;
+  /** Folder, apps, spending and archive of the project are parts of this one tab. */
+  get impostazioni() {
+    return placesStrings().projectTabs.impostazioni;
   },
 };
 export type ProjectTabId = keyof typeof PROJECT_TABS;
@@ -184,8 +179,8 @@ export function settingsPath(
 
 /**
  * A project's page and one of its tabs, as a noun phrase without article: the caller says
- * "the" (English: "the “X” project page, Spending tab") or "nella" (Italian: "nella pagina del
- * progetto «X», scheda Spesa").
+ * "the" (English: "the “X” project page, Settings tab") or "nella" (Italian: "nella pagina del
+ * progetto «X», scheda Impostazioni").
  */
 export function projectPagePath(project: string, tab: ProjectTabId): string {
   return placesStrings().projectPage(project, PROJECT_TABS[tab]);
@@ -195,11 +190,11 @@ export function projectPagePath(project: string, tab: ProjectTabId): string {
  * Where a spending cap is raised: a project's cap on its page (D-097), the others in
  * Settings → Models → Spending cap (review of 19/10, §2.3). `true`: a project whose name is not
  * known here. A project's page is a noun phrase without article, as `projectPagePath` ("the
- * Spending tab of the project page" / "la scheda Spesa della pagina del progetto").
+ * Settings tab of the project page" / "la scheda Impostazioni della pagina del progetto").
  */
 export function spendCapPath(project?: string | true): string {
-  if (project === true) return placesStrings().projectTabOfPage(PROJECT_TABS.spesa);
-  return project ? projectPagePath(project, 'spesa') : settingsPath('tettoDiSpesa');
+  if (project === true) return placesStrings().projectTabOfPage(PROJECT_TABS.impostazioni);
+  return project ? projectPagePath(project, 'impostazioni') : settingsPath('tettoDiSpesa');
 }
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

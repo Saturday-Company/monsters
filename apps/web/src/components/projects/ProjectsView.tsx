@@ -1,11 +1,11 @@
 import { PROJECT_TABS } from '@monsters/shared';
 import type { ProjectView } from '@monsters/shared';
-import { ArchiveProject } from './ArchiveProject.tsx';
 import { HandPalm } from '@phosphor-icons/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { describeError } from '../../lib/api.ts';
 import {
   goHome,
+  projectPartOf,
   projectPath,
   projectTabOf,
   replaceHash,
@@ -26,13 +26,8 @@ import { Button } from '../ui/button.tsx';
 import { panelId, tabId, Tabs } from '../ui/tabs.tsx';
 import { ArchivedPage, DraftPage } from './ProjectDraft.tsx';
 import { ProjectForm } from './ProjectForm.tsx';
-import {
-  ProjectAutomations,
-  ProjectFolder,
-  ProjectLinks,
-  ProjectNotes,
-  ProjectSpend,
-} from './ProjectSections.tsx';
+import { ProjectAutomations, ProjectNotes } from './ProjectSections.tsx';
+import { ProjectSettings } from './ProjectSettings.tsx';
 import { ProjectSquad } from './ProjectSquad.tsx';
 import { viewStrings } from './view.strings.ts';
 import '../settings/settings.css';
@@ -41,8 +36,10 @@ import '../settings/settings.css';
  * A project's page (plan of 17/10 §3 B1, D-097, D-100; docs/design.md,
  * "Progetti"): `#/progetto?id=…&sezione=…`. The chat with its lead first (the
  * `@Nome` of the composer reaches its monsters), then Squadra, Note,
- * Cartella, Collegamenti, Automazioni and Spesa as tabs of one row of joined
- * keys. "Ferma i mostri di questo progetto", in the page header, stops its monsters only
+ * Automazioni and Impostazioni (folder, apps, spending, archive: one page that
+ * scrolls) as tabs of one row of joined keys. The old tabs' names (`cartella`,
+ * `collegamenti`, `spesa`) open Impostazioni at their part.
+ * "Ferma i mostri di questo progetto", in the page header, stops its monsters only
  * (the kill switch stays Ferma). A draft shows its plan with Conferma, an
  * archived project its "Ripristina"; `?vista=nuovo` is the form of a new one.
  */
@@ -51,10 +48,8 @@ const TABS: { value: ProjectTab; label: string }[] = [
   { value: 'chat', label: PROJECT_TABS.chat },
   { value: 'squadra', label: PROJECT_TABS.squadra },
   { value: 'note', label: PROJECT_TABS.note },
-  { value: 'cartella', label: PROJECT_TABS.cartella },
-  { value: 'collegamenti', label: PROJECT_TABS.collegamenti },
   { value: 'automazioni', label: PROJECT_TABS.automazioni },
-  { value: 'spesa', label: PROJECT_TABS.spesa },
+  { value: 'impostazioni', label: PROJECT_TABS.impostazioni },
 ];
 
 /** How long "Ferma progetto" waits for its second press, as Ferma (docs/design.md). */
@@ -160,8 +155,36 @@ function LeadChat({ p }: { p: ProjectView }) {
   );
 }
 
-function ProjectPage({ p, tab }: { p: ProjectView; tab: ProjectTab }) {
+function ProjectPage({ p, tab, part }: { p: ProjectView; tab: ProjectTab; part: string | null }) {
   const onChanged = (next: ProjectView) => putProject(next);
+
+  // An old tab's name (`?sezione=spesa`): the link becomes Settings' own, and its part scrolls into
+  // view once it is there (the section may still be loading). The target outlives the hash.
+  const [target, setTarget] = useState<string | null>(null);
+  const [seenPart, setSeenPart] = useState<string | null>(null);
+  if (part !== seenPart) {
+    setSeenPart(part);
+    if (part) setTarget(part);
+  }
+  useEffect(() => {
+    if (part) replaceHash(projectPath(p.id, tab));
+  }, [part, tab, p.id]);
+  useEffect(() => {
+    if (!target) return;
+    let tries = 0;
+    const timer = setInterval(() => {
+      const el = document.getElementById(`project-settings-${target}`);
+      if (el || ++tries > 30) {
+        clearInterval(timer);
+        setTarget(null);
+        // Only the tab's own column scrolls: scrollIntoView would also move the window's frame.
+        const box = el?.closest<HTMLElement>('.scroll-soft');
+        if (el && box)
+          box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top - 16;
+      }
+    }, 100);
+    return () => clearInterval(timer);
+  }, [target]);
 
   let body: ReactNode;
   switch (tab) {
@@ -182,21 +205,6 @@ function ProjectPage({ p, tab }: { p: ProjectView; tab: ProjectTab }) {
         </Scroll>
       );
       break;
-    case 'cartella':
-      body = (
-        <Scroll>
-          <ProjectFolder p={p} onChanged={onChanged} />
-          <ArchiveProject p={p} onChanged={onChanged} />
-        </Scroll>
-      );
-      break;
-    case 'collegamenti':
-      body = (
-        <Scroll>
-          <ProjectLinks p={p} onChanged={onChanged} />
-        </Scroll>
-      );
-      break;
     case 'automazioni':
       body = (
         <Scroll>
@@ -204,10 +212,10 @@ function ProjectPage({ p, tab }: { p: ProjectView; tab: ProjectTab }) {
         </Scroll>
       );
       break;
-    case 'spesa':
+    case 'impostazioni':
       body = (
-        <Scroll>
-          <ProjectSpend p={p} onChanged={onChanged} />
+        <Scroll testId="project-settings-tab">
+          <ProjectSettings p={p} onChanged={onChanged} />
         </Scroll>
       );
       break;
@@ -257,7 +265,9 @@ function ProjectPage({ p, tab }: { p: ProjectView; tab: ProjectTab }) {
 
 export default function ProjectsView() {
   const id = useHashParam('id');
-  const tab = projectTabOf(useHashParam('sezione'));
+  const param = useHashParam('sezione');
+  const tab = projectTabOf(param);
+  const part = projectPartOf(param);
   const projects = useProjects();
   const error = useLists((s) => s.projectsError);
   const p = id ? (projects?.find((x) => x.id === id) ?? null) : null;
@@ -299,5 +309,5 @@ export default function ProjectsView() {
   }
   if (p.status === 'draft') return <DraftPage key={p.id} p={p} />;
   if (p.archived) return <ArchivedPage key={p.id} p={p} />;
-  return <ProjectPage key={p.id} p={p} tab={tab} />;
+  return <ProjectPage key={p.id} p={p} tab={tab} part={part} />;
 }

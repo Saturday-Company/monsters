@@ -70,11 +70,8 @@ const en = {
     tabs: { squad: string; models: string; permissions: string; connections: string },
   ) =>
     `Only the user, in ${settings}: ${tabs.squad} (create, change and archive monsters; who the user is to you), ${tabs.models} (models and spending; you don’t see it), ${tabs.permissions}, ${tabs.connections} (services, Telegram).`,
-  onlyUserProject: (
-    project: string,
-    tabs: { squad: string; connections: string; spending: string },
-  ) =>
-    ` For the project “${project}” the project page: tabs ${tabs.squad}, ${tabs.connections} (services and web search) and ${tabs.spending} (spending cap).`,
+  onlyUserProject: (project: string, tabs: { squad: string; settings: string }) =>
+    ` For the project “${project}” the project page: tabs ${tabs.squad} and ${tabs.settings} (folder, apps and web search, spending cap).`,
   sidebar:
     ' In the sidebar on the left also Notes, Files (attachments and pages) and Activity. If asked, use these names and answer from here, not from the files.',
   // The web, with the cause and who changes it
@@ -150,7 +147,7 @@ const it: typeof en = {
   onlyUser: (settings, tabs) =>
     `Solo l’utente, in ${settings}: ${tabs.squad} (creare, cambiare e archiviare mostri; chi è lui per voi), ${tabs.models} (modelli e spesa; tu non la vedi), ${tabs.permissions}, ${tabs.connections} (servizi, Telegram).`,
   onlyUserProject: (project, tabs) =>
-    ` Per il progetto «${project}» la pagina del progetto: schede ${tabs.squad}, ${tabs.connections} (servizi e ricerca sul web) e ${tabs.spending} (tetto di spesa).`,
+    ` Per il progetto «${project}» la pagina del progetto: schede ${tabs.squad} e ${tabs.settings} (cartella, app e ricerca sul web, tetto di spesa).`,
   sidebar:
     ' Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file.',
   webOffPermission: (path, asks, who, whoText) =>

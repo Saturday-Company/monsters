@@ -3,6 +3,12 @@ import { defineStrings } from '../../lib/i18n.ts';
 
 /* The drafts of the monsters in "To review" (D-153). */
 
+/** The file at the end of a docs draft's title ("Instructions of Saturday (CLAUDE.md)"). */
+const DOCS_FILE = /\s*\([^()]*\.md\)$/;
+/** What the instructions are of, from a docs draft's title: the project, without the file. */
+const docsName = (title: string) =>
+  title.replace(DOCS_FILE, '').replace(/^(?:Instructions of|Istruzioni di) /, '');
+
 const en = {
   kindWords: {
     monster: 'a new monster',
@@ -17,7 +23,9 @@ const en = {
       : `${title} is ready: message its lead from the project page.`,
   monsterReady: (title: string) => `${title} is on the squad: message it from its chat.`,
   /** The subject of a docs draft from its title ("Instructions of Saturday (CLAUDE.md)"). */
-  docsSubject: (title: string) => title.replace(/^(?:Instructions of|Istruzioni di) /, ''),
+  docsSubject: (title: string) => docsName(title),
+  /** The card's title: the core's, without the file name (it is on the card, in small mono). */
+  docsTitle: (title: string) => title.replace(DOCS_FILE, ''),
   /** The subject of a memory draft from its title ("Memory of Rhea"). */
   memorySubject: (title: string) => title.replace(/^(?:Memory of|Memoria di) (.+)$/, '$1’s memory'),
   docsDone: (title: string) => `I updated the instructions: ${title}.`,
@@ -50,7 +58,7 @@ const en = {
     folder: 'Folder',
   },
   docs: {
-    file: 'File',
+    file: 'Instructions file',
     isNew: ' · new, I’ll create it',
     tainted: (source: string | null) =>
       `Proposed after reading third-party text${source ? ` (${source})` : ''}: check it carefully before applying.`,
@@ -97,7 +105,8 @@ const it: typeof en = {
       ? `${title} è pronto. ${later === 1 ? 'La sua prima automazione aspetta' : `Le sue ${later} automazioni aspettano`} una conferma a parte, qui in Da rivedere.`
       : `${title} è pronto: scrivi al suo capo dalla pagina del progetto.`,
   monsterReady: (title) => `${title} è nella squadra: scrivigli dalla sua chat.`,
-  docsSubject: (title) => title.replace(/^(?:Instructions of|Istruzioni di) /, ''),
+  docsSubject: (title) => docsName(title),
+  docsTitle: (title) => title.replace(DOCS_FILE, ''),
   memorySubject: (title) => title.replace(/^(?:Memory of|Memoria) /, 'la memoria '),
   docsDone: (title) => `Ho aggiornato le istruzioni: ${title}.`,
   memoryDone: (subject) => `Fatto: ${subject} ha le righe nuove.`,
@@ -128,7 +137,7 @@ const it: typeof en = {
     folder: 'Cartella',
   },
   docs: {
-    file: 'File',
+    file: 'File delle istruzioni',
     isNew: ' · nuovo, lo creo',
     tainted: (source) =>
       `Proposta dopo aver letto testo di terzi${source ? ` (${source})` : ''}: controlla bene prima di applicare.`,

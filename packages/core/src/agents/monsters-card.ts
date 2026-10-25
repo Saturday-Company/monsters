@@ -178,7 +178,7 @@ export function monstersCard(options: MonstersCardOptions & CardContext): string
     // The cause and where it changes (D-132), never a bare «non hai» the model fills in.
     cannot.push(
       options.project
-        ? p.noServicesProject(projectPagePath(options.project, 'collegamenti'))
+        ? p.noServicesProject(projectPagePath(options.project, 'impostazioni'))
         : p.noServices(settingsPath('altriProgrammi')),
     );
   }
@@ -211,8 +211,7 @@ export function monstersCard(options: MonstersCardOptions & CardContext): string
       (options.project
         ? p.onlyUserProject(options.project, {
             squad: PROJECT_TABS.squadra,
-            connections: PROJECT_TABS.collegamenti,
-            spending: PROJECT_TABS.spesa,
+            settings: PROJECT_TABS.impostazioni,
           })
         : '') +
       p.sidebar,
@@ -246,7 +245,7 @@ function webMissing(
   if (o.webOff === 'project') {
     return p.webOffProject(
       o.project,
-      o.project ? projectPagePath(o.project, 'collegamenti') : p.projectPageWord,
+      o.project ? projectPagePath(o.project, 'impostazioni') : p.projectPageWord,
       asks,
     );
   }

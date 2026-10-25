@@ -26,7 +26,7 @@ import { SquadChart } from './SquadChart.tsx';
  * of a monster of another squad, with the free name the core will give it
  * ("Rhea · Saturday", editable); a new monster through the same flow as
  * Impostazioni → Squadra, its colour kept away from this squad's; and at the
- * foot a note on where "Archive the project" went (the Folder tab).
+ * foot a note on where "Archive the project" went (Settings).
  */
 
 /** A member before its fields are read: the name, the chat and "Remove". */

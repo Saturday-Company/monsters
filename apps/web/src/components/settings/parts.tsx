@@ -227,7 +227,9 @@ export function DisclosureRow({
         <span className="min-w-0 flex-1">
           <span className="block text-body text-ink">{label}</span>
           {description && (
-            <span className="block truncate text-footnote text-ink-muted">{description}</span>
+            <span className="relative block truncate text-footnote text-ink-muted">
+              {description}
+            </span>
           )}
         </span>
         {trailing}

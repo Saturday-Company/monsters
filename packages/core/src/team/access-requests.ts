@@ -52,9 +52,9 @@ const DENY = 'deny';
 export type AccessStep =
   /** The monster's own web permission (Impostazioni → Permessi). */
   | { do: 'agent_web'; agent: string }
-  /** The project's "Ricerca sul web" (scheda Collegamenti). */
+  /** The project's "Ricerca sul web" (scheda Impostazioni). */
   | { do: 'project_web'; project: string }
-  /** A connection of the whole team chosen for the project (scheda Collegamenti). */
+  /** A connection of the whole team chosen for the project (scheda Impostazioni). */
   | { do: 'project_link'; project: string; via: 'mcp' | 'claude'; id: string }
   /** A server given to one monster by name (the browser, Impostazioni → Collegamenti). */
   | { do: 'server_agent'; server: string; agent: string };
