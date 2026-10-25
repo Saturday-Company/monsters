@@ -77,6 +77,8 @@ const en = {
     browser:
       'Monsters isn’t answering. Check that it’s running on the computer where you installed it, then try again.',
     retry: 'Try again',
+    trying: 'Trying again…',
+    auto: 'I’ll keep trying on my own.',
   },
 };
 
@@ -152,6 +154,8 @@ const it: typeof en = {
     browser:
       'Monsters non risponde. Controlla che sia acceso sul computer dove l’hai installato, poi riprova.',
     retry: 'Riprova',
+    trying: 'Riprovo…',
+    auto: 'Riprovo anche da solo.',
   },
 };
 

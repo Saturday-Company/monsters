@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { openChat, openPage, PATHS, useHashParam, type Route } from '../../lib/router.ts';
 import { cn } from '../../lib/utils.ts';
 import { useAgents, useMediaQuery, useOrchestrator } from '../../store/hooks.ts';
@@ -6,6 +6,7 @@ import { CommandPalette, openPalette } from './CommandPalette.tsx';
 import { DockSlot } from '../dock/DockSlot.tsx';
 import { chatAgentOf, useDockFollowsPage, usePreviewEvents } from '../dock/follow.ts';
 import { usePreview } from '../../store/preview.ts';
+import { Meter } from '../ui/Meter.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
 import { NewsSheet } from './NewsSheet.tsx';
 import { ReviewSheet } from './ReviewSheet.tsx';
@@ -34,11 +35,33 @@ const FilesView = lazy(() => import('../files/FilesView.tsx'));
 const SettingsView = lazy(() =>
   import('../settings/SettingsView.tsx').then((m) => ({ default: m.SettingsView })),
 );
-/** Placeholder of a page while its chunk loads (a few milliseconds from the local core). */
+/** How long a page may take to load before the page says so (a chunk from the local core is much faster). */
+const LOADING_AFTER_MS = 250;
+
+/**
+ * Placeholder of a page while its chunk loads: nothing for a blink, then the meter of the monsters
+ * and a word, quiet and centred (the meter stands still for whoever asks for reduced motion).
+ */
 function PageLoading() {
+  const [late, setLate] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setLate(true), LOADING_AFTER_MS);
+    return () => clearTimeout(t);
+  }, []);
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center" aria-busy="true">
-      <span className="sr-only">{shellStrings().loading}</span>
+    <div
+      className="flex min-h-0 flex-1 items-center justify-center"
+      aria-busy="true"
+      data-testid="page-loading"
+    >
+      {late ? (
+        <p role="status" className="rise-in label flex items-center gap-3 text-ink-muted">
+          <Meter active />
+          {shellStrings().loading}
+        </p>
+      ) : (
+        <span className="sr-only">{shellStrings().loading}</span>
+      )}
     </div>
   );
 }
