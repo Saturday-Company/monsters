@@ -21,6 +21,7 @@ const en = {
     emptyText:
       'An automation is a job the squad does on its own at a set time: for example the week’s posts, every Sunday evening, ready to read on Monday.',
     createFirst: 'Create the first one',
+    what: 'the automations',
   },
   view: {
     missing: 'This automation is gone.',
@@ -85,13 +86,13 @@ const en = {
       'It will stop running. Past runs stay in Activity; the notes and files it made stay where they are.',
     cancel: 'Cancel',
     runsTitle: (n: number) => `Runs${n > 0 ? ` · ${n}` : ''}`,
-    runsFailed: 'I can’t read the runs right now.',
-    retry: 'Try again',
+    runsWhat: 'the runs',
     noRuns: (firstAt: string | null) =>
       `No runs yet.${firstAt ? ` The first one starts ${firstAt}.` : ''}`,
     goal: 'Goal',
   },
   giro: {
+    what: 'this run',
     forLead: ' · for the lead',
     goal: 'Goal',
     results: 'What it did',
@@ -201,6 +202,7 @@ const it: typeof en = {
     emptyText:
       'Un’automazione è un lavoro che la squadra fa da sola, a un’ora fissa: per esempio i post della settimana, ogni domenica sera, pronti da leggere il lunedì.',
     createFirst: 'Crea la prima',
+    what: 'le automazioni',
   },
   view: {
     missing: 'Questa automazione non c’è più.',
@@ -265,12 +267,12 @@ const it: typeof en = {
       'Non girerà più. I giri passati restano in Attività, le note e i file che ha fatto restano dove sono.',
     cancel: 'Annulla',
     runsTitle: (n) => `Giri${n > 0 ? ` · ${n}` : ''}`,
-    runsFailed: 'Non riesco a leggere i giri adesso.',
-    retry: 'Riprova',
+    runsWhat: 'i giri',
     noRuns: (firstAt) => `Ancora nessun giro.${firstAt ? ` Il primo parte ${firstAt}.` : ''}`,
     goal: 'Obiettivo',
   },
   giro: {
+    what: 'questo giro',
     forLead: ' · per il capo',
     goal: 'Obiettivo',
     results: 'Cosa ha fatto',

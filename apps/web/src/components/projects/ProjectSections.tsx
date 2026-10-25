@@ -686,6 +686,7 @@ export function ProjectAutomations({ p }: { p: ProjectView }) {
         <AutomationList
           list={mine}
           error={list.error}
+          onRetry={list.retry}
           onChanged={(a) => list.set((list.data ?? []).map((x) => (x.id === a.id ? a : x)))}
         />
       )}

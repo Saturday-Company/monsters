@@ -18,7 +18,7 @@ import { getApi, notify, resumeAll, useApp } from '../../store/app.ts';
 import { useAgent, useAgents, useNameOf } from '../../store/hooks.ts';
 import { usePrefs } from '../../store/prefs.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
-import { Group, Row } from '../settings/parts.tsx';
+import { Group, LoadFailed, Row } from '../settings/parts.tsx';
 import { Button } from '../ui/button.tsx';
 import { useInPlaceConfirm } from '../ui/confirm.ts';
 import { CrewScreen } from '../monster/CrewScreen.tsx';
@@ -300,7 +300,7 @@ export function AutomationDetail({
   runs: AutomationRunSummary[] | null;
   /** Why the runs could not be read (nothing loaded yet): shown with a retry (W-12). */
   runsError?: string | null;
-  onRetryRuns?: () => void;
+  onRetryRuns: () => void;
   onChanged: (a: AutomationView) => void;
 }) {
   const s = automationsStrings().detail;
@@ -450,18 +450,7 @@ export function AutomationDetail({
           {s.runsTitle(runs?.length ?? 0)}
         </h2>
         {runs === null && runsError ? (
-          <div
-            role="alert"
-            data-testid="automation-giri-error"
-            className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 text-body text-stop-ink"
-          >
-            <span>{s.runsFailed}</span>
-            {onRetryRuns && (
-              <Button size="sm" variant="secondary" onClick={onRetryRuns}>
-                {s.retry}
-              </Button>
-            )}
-          </div>
+          <LoadFailed what={s.runsWhat} onRetry={onRetryRuns} testId="automation-giri-error" />
         ) : runs === null ? (
           <p className="label px-1 text-ink-muted" aria-busy="true">
             {automationsStrings().loading}

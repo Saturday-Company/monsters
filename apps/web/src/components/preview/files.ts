@@ -6,7 +6,7 @@ import {
   type FileMeta,
   type PreviewItem,
 } from '@monsters/shared';
-import { useCallback, useEffect, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import { ApiError, describeError } from '../../lib/api.ts';
 import { kindLabel } from '../../lib/files.ts';
 import { filesLibStrings } from '../../lib/files.strings.ts';
@@ -309,24 +309,42 @@ export type MetaState =
   /** The read failed (not a 404): `retry` asks again (W-36). */
   | { state: 'error'; text: string; retry: () => void };
 
+/**
+ * A read that failed is tried again on its own a few times, with growing pauses (W-36): a
+ * connection that comes back fixes the chips of a chat without anyone pressing anything. Only
+ * when these are over does the chip say "couldn't read", with the key to ask by hand.
+ */
+export const META_RETRY_MS = [1500, 4000, 10_000] as const;
+
 export function useFileMeta(id: string | null): MetaState {
   const [, bump] = useState(0);
   const [failure, setFailure] = useState<{ id: string; state: MetaState } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // How many of the automatic tries were used for this id; a press of the key starts a plain read.
+  const auto = useRef<{ id: string | null; used: number }>({ id: null, used: 0 });
   const retry = useCallback(() => {
     setFailure(null);
+    auto.current.used = META_RETRY_MS.length;
     setAttempt((n) => n + 1);
   }, []);
   const known = id ? metas.get(id) : undefined;
   useEffect(() => {
     if (!id || metas.has(id)) return;
+    if (auto.current.id !== id) auto.current = { id, used: 0 };
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const l = () => alive && bump((n) => n + 1);
     listeners.add(l);
     loadFileMeta(id).catch((err: unknown) => {
       if (!alive) return;
       const missing =
         err instanceof ApiError && (err.status === 404 || err.code === 'unknown_file');
+      const wait = META_RETRY_MS[auto.current.used];
+      if (!missing && wait !== undefined) {
+        auto.current.used += 1;
+        timer = setTimeout(() => setAttempt((n) => n + 1), wait);
+        return;
+      }
       setFailure({
         id,
         state: missing ? { state: 'missing' } : { state: 'error', text: describeError(err), retry },
@@ -334,6 +352,7 @@ export function useFileMeta(id: string | null): MetaState {
     });
     return () => {
       alive = false;
+      clearTimeout(timer);
       listeners.delete(l);
     };
   }, [id, attempt, retry]);

@@ -220,14 +220,26 @@ test('Attività: nothing yet says what to try, with a way into the lead’s chat
   await expect(page).toHaveURL(/#\/\?chat=titan$/);
 });
 
+/** Lets the pauses of the automatic tries pass (the clock is the test's), one read at a time. */
+async function letRetriesPass(page: Page) {
+  for (let i = 0; i < 6; i++) {
+    await page.clock.runFor(5000);
+    await page.waitForTimeout(100);
+  }
+}
+
 test('Files: a chat attachment whose metadata cannot be read says so and reads again (W-36)', async ({
   page,
 }) => {
+  await page.clock.install();
   // Not through the File view: it would leave the metadata in the cache.
   await page.goto('/?mock=demo#/note');
   await expect(page.getByTestId('vault-view')).toBeVisible();
   await fail(page, 'GET /api/files');
   await page.evaluate(() => (window.location.hash = '#/?chat=dione'));
+  // The tries on its own come first: the chip waits, then it says it could not read.
+  await expect(page.getByTestId('file-unread')).toHaveCount(0);
+  await letRetriesPass(page);
   const unread = page.getByTestId('file-unread').first();
   await expect(unread).toBeVisible();
   await mend(page);
@@ -236,6 +248,21 @@ test('Files: a chat attachment whose metadata cannot be read says so and reads a
   for (let left = await keys.count(); left > 0; left--) await keys.first().click();
   await expect(page.getByTestId('file-unread')).toHaveCount(0);
   await expect(page.getByTestId('file-chip').filter({ hasText: 'Weekly menu.html' })).toBeVisible();
+});
+
+test('Files: a read that fails once is tried again on its own, with no key pressed (W-36)', async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto('/?mock=demo#/note');
+  await expect(page.getByTestId('vault-view')).toBeVisible();
+  await fail(page, 'GET /api/files');
+  await page.evaluate(() => (window.location.hash = '#/?chat=dione'));
+  await page.clock.runFor(1000);
+  await mend(page);
+  await page.clock.runFor(2000);
+  await expect(page.getByTestId('file-chip').filter({ hasText: 'Weekly menu.html' })).toBeVisible();
+  await expect(page.getByTestId('file-unread')).toHaveCount(0);
 });
 
 test('Draft discard: Undo brings the draft back; left alone it goes through after ten seconds (U2-32)', async ({

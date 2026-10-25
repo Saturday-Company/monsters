@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils.ts';
 import { getApi } from '../../store/app.ts';
 import { useMediaQuery } from '../../store/hooks.ts';
 import { ToolbarActions, ToolbarContent, ToolbarTitle, useToolbarBack } from '../shell/Toolbar.tsx';
+import { LoadFailed } from '../settings/parts.tsx';
 import { LabeledKey } from '../ui/button.tsx';
 import { preloadMarkdown } from '../ui/Markdown.tsx';
 import { AutomationDetail } from './AutomationDetail.tsx';
@@ -70,11 +71,7 @@ function GiroPage({ a, giro, tick }: { a: AutomationView; giro: string; tick: st
   const runsTick = useGiroTick(giro);
   const detail = useLoaded(() => getApi().automationRun(a.id, giro), `${tick}|${runsTick}`);
   if (detail.error && !detail.data) {
-    return (
-      <p className="text-body text-stop-ink" role="alert">
-        {detail.error}
-      </p>
-    );
+    return <LoadFailed what={s.giro.what} onRetry={detail.retry} />;
   }
   if (!detail.data) {
     return (
@@ -121,12 +118,18 @@ export default function AutomationsView() {
 
   let body;
   if (creating) body = <AutomationForm a={null} />;
-  else if (!id) body = <AutomationList list={list.data} error={list.error} onChanged={onChanged} />;
+  else if (!id)
+    body = (
+      <AutomationList
+        list={list.data}
+        error={list.error}
+        onRetry={list.retry}
+        onChanged={onChanged}
+      />
+    );
   else if (!list.data) {
     body = list.error ? (
-      <p className="text-body text-stop-ink" role="alert">
-        {list.error}
-      </p>
+      <LoadFailed what={s.list.what} onRetry={list.retry} />
     ) : (
       <p className="label text-ink-muted" aria-busy="true">
         {s.loading}
