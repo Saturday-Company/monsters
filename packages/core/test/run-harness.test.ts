@@ -708,3 +708,72 @@ describe("calls of Monsters' tools that never reached the core (D-160)", () => {
     expect(results[0]!.parentId).toBe(call!.id);
   });
 });
+
+describe("the harness's own calls always get their result", () => {
+  it('a call open at a stop: its result inside the abort, before the end of the run; none later', async () => {
+    const log = memoryLog();
+    const scope = new ControlScope('run', 'r1', null, 100);
+    const h = scripted([]);
+    h.run = async function* (_task, signal) {
+      yield { type: 'tool-call', id: 'b1', name: 'Bash', input: { command: 'sleep 60' } };
+      await new Promise((resolve) => signal.addEventListener('abort', resolve, { once: true }));
+      // What the harness sends while it closes: the result of the command it was killed in.
+      yield { type: 'tool-result', id: 'b1', output: 'Exit code 130', isError: true };
+      yield { type: 'done', reason: 'aborted' };
+    };
+    const running = runHarnessAgent({
+      agent: agent(),
+      harness: h,
+      task: 'ciao',
+      tools: [],
+      signal: scope.signal,
+      scope,
+      log,
+      runId: 'r1',
+      sessions: new HarnessToolSessions(log),
+      mcpUrl: () => 'http://127.0.0.1:1/api/harness/mcp',
+      workspace: join(dir, 'ws'),
+      scratchRoot: join(dir, 'scratch'),
+      systemTools: false,
+    });
+    await vi.waitFor(() => {
+      expect(log.query({ type: 'tool_call', limit: 10 })).toHaveLength(1);
+    });
+    // As the kill switch does: abort, then the end of the run at once.
+    void scope.abort();
+    const end = log.append({
+      agent: 'rhea',
+      runId: 'r1',
+      type: 'run',
+      data: { status: 'aborted' },
+    });
+    expect((await running).status).toBe('aborted');
+    const results = log.query({ type: 'tool_result', limit: 10 });
+    expect(results).toHaveLength(1);
+    expect(results[0]!.data).toMatchObject({
+      callId: 'b1',
+      tool: 'claude-agent.Bash',
+      ok: false,
+      error: 'aborted',
+    });
+    expect(results[0]!.id < end.id).toBe(true);
+  });
+
+  it('a harness that ends with a call open: the call is closed with what happened', async () => {
+    const h = scripted([
+      { type: 'tool-call', id: 'b1', name: 'Bash', input: { command: 'make' } },
+      { type: 'tool-call', id: 'b2', name: 'Read', input: { file_path: 'a.md' } },
+      { type: 'tool-result', id: 'b2', output: 'testo' },
+      { type: 'done', reason: 'error', error: 'the program crashed' },
+    ]);
+    const r = await run(h, agent());
+    expect(r.status).toBe('failed');
+    const results = r.events.filter((e) => e.type === 'tool_result');
+    expect(results.map((e) => e.data.callId).sort()).toEqual(['b1', 'b2']);
+    expect(results.find((e) => e.data.callId === 'b1')!.data).toMatchObject({
+      ok: false,
+      error: runAgentStrings().harnessCallUnanswered,
+      cause: 'error',
+    });
+  });
+});

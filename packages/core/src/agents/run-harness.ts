@@ -810,6 +810,10 @@ async function runHarnessOnce(
   const hookRefused = new Set<string>();
   /** `tool_call` events of the harness's own tools, by call id: logged once (stream or hook). */
   const callEvents = new Map<string, string>();
+  /** The harness's own calls logged without their result yet. */
+  const unanswered = new Set<string>();
+  /** Calls closed by `closeUnanswered`: a result the harness sends later is not logged again. */
+  const closedEarly = new Set<string>();
   const callEvent = (id: string, name: string, input: unknown): string => {
     const known = id ? callEvents.get(id) : undefined;
     if (known) return known;
@@ -821,9 +825,43 @@ async function runHarnessOnce(
       type: 'tool_call',
       data: { callId: id, tool: `${harness.id}.${name}`, input: preview(input) },
     });
-    if (id) callEvents.set(id, event.id);
+    if (id) {
+      callEvents.set(id, event.id);
+      unanswered.add(id);
+    }
     return event.id;
   };
+  /**
+   * Every call of the harness's own logged gets its result: at a stop inside the abort, so it
+   * comes before the end of the run (the kill switch logs it right after aborting); at the end
+   * of a harness that left calls open, with what happened. Monsters' tools have theirs from the
+   * endpoint's adapter.
+   */
+  const closeUnanswered = (aborted: boolean) => {
+    for (const id of unanswered) {
+      closedEarly.add(id);
+      try {
+        log.append({
+          agent: agentId,
+          runId,
+          parentId,
+          type: 'tool_result',
+          data: {
+            callId: id,
+            tool: `${harness.id}.${toolNames.get(id) ?? 'tool'}`,
+            ok: false,
+            error: aborted ? 'aborted' : runAgentStrings().harnessCallUnanswered,
+            ...(aborted ? {} : { cause: 'error' as const }),
+          },
+        });
+      } catch {
+        // A log that cannot write (a closing core) never breaks the abort of the others.
+      }
+    }
+    unanswered.clear();
+  };
+  const onStop = () => closeUnanswered(true);
+  scope.signal.addEventListener('abort', onStop, { once: true });
   let lastText = '';
   /*
    * The stop hook's reminder (D-069), handled like our loop does (D-025,
@@ -1350,7 +1388,8 @@ async function runHarnessOnce(
             // (a broken connection, an input the MCP server refused) is logged here (D-160).
             const call = monstersCalls.get(e.id);
             monstersCalls.delete(e.id);
-            if (!call || !e.isError || fromCore(e.output)) break;
+            // A call cut by a stop never started for Monsters: nothing to log after the stop.
+            if (!call || !e.isError || fromCore(e.output) || scope.aborted) break;
             const unseen =
               (harnessCalls.get(call.name) ?? 0) -
               session.received(call.name) -
@@ -1384,6 +1423,9 @@ async function runHarnessOnce(
           }
           // The plan's web search: its links count as seen for the notes' link check.
           session.seen(e.output);
+          // Its result was logged at the stop: one result per call.
+          if (closedEarly.has(e.id)) break;
+          unanswered.delete(e.id);
           {
             const name = toolNames.get(e.id) ?? 'tool';
             const limited = e.isError === true && limitRefused.has(e.id);
@@ -1477,6 +1519,8 @@ async function runHarnessOnce(
     if (limitTimer) clearTimeout(limitTimer);
     flush();
     options.signal.removeEventListener('abort', onParentAbort);
+    scope.signal.removeEventListener('abort', onStop);
+    closeUnanswered(scope.aborted);
     close();
     scope.close();
     rmSync(scratchDir, { recursive: true, force: true });
