@@ -1055,6 +1055,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     team,
     servers: () => mcp.view().servers,
     allowed: (agentId, server) => mcp.allowed(agentId, server),
+    missingWhy: (agentId, server) => mcp.missingWhy(agentId, server),
     claude: () => claudeConnections.view().connections,
     notHere: (agent) => {
       const p = team.projectOf(agent.config.id);
@@ -2386,6 +2387,8 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     const turnHint = [coordinator ? xray.hint : undefined, drawn ? uiGuideHint() : undefined]
       .filter(Boolean)
       .join('\n\n');
+    // The MCP tools this run holds, known once `toolsFor` below has run (C-15).
+    let mcpOfRun: readonly string[] = [];
     const tools = coordinator
       ? [
           ...baseTools,
@@ -2447,6 +2450,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
                   self: agent,
                   // A harness never holds the call (D-078): the request parks, the turn ends.
                   waitMs: () => (harnessOf(agent) ? 0 : (options.askWaitMs ?? ASK_USER_WAIT_MS)),
+                  toolNames: () => mcpOfRun,
                 }),
               ]
             : []),
@@ -2606,10 +2610,15 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         ...(compacted.summary ? { summary: compacted.summary } : {}),
         tools,
         extraTools: [
-          ...(await mcp.toolsFor(agent, run.signal, {
-            deferred: mcpDeferred(agent),
-            unbounded: harnessOf(agent)?.id === 'claude-agent',
-          })),
+          ...(await mcp
+            .toolsFor(agent, run.signal, {
+              deferred: mcpDeferred(agent),
+              unbounded: harnessOf(agent)?.id === 'claude-agent',
+            })
+            .then((got) => {
+              mcpOfRun = got.map((t) => t.name);
+              return got;
+            })),
           ...artifactFor(agent, request, run),
           // Every monster, API or harness: the manual of the drawn blocks (D-162).
           uiGuideTool(),

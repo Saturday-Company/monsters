@@ -21,6 +21,11 @@ export interface AccessStateDeps {
   servers: () => readonly Pick<McpServerView, 'name' | 'label' | 'preset' | 'enabled'>[];
   /** The server is given to the monster now (assignment, project, web for the browser). */
   allowed: (agentId: string, server: string) => boolean;
+  /** Why a server given to the monster has no tool in its run (`McpManager.missingWhy`, C-15). */
+  missingWhy?: (
+    agentId: string,
+    server: string,
+  ) => 'unlinked' | 'paused' | 'cut' | 'unlisted' | undefined;
   claude: () => readonly Pick<ClaudeConnectionView, 'id' | 'added' | 'state' | 'parts'>[];
   /** Connected and given to the whole squad, but not ticked in the monster's project (D-129). */
   notHere: (agent: AgentDefinition) => readonly string[];
@@ -203,14 +208,23 @@ export function accessState(deps: AccessStateDeps, input: RunAccessInput): Acces
     if (s.preset === BROWSER_SERVER) continue;
     const base = { name: s.label, ...(s.name !== s.label ? { aliases: [s.name] } : {}) };
     if (inRun.has(s.name)) push({ ...base, has: true });
-    else if (unlinked.has(s.label) || (s.enabled && deps.allowed(id, s.name)))
+    else if (unlinked.has(s.label) || (s.enabled && deps.allowed(id, s.name))) {
+      // Given but not in the run: the cause the run had, never "not responding" by default (C-15).
+      const missing = unlinked.has(s.label) ? 'unlinked' : deps.missingWhy?.(id, s.name);
       push({
         ...base,
         has: false,
         off: true,
-        why: accessPrompts().serviceNotResponding(s.label),
+        why:
+          missing === 'paused'
+            ? accessPrompts().servicePaused(s.label)
+            : missing === 'cut'
+              ? accessPrompts().serviceCut(s.label)
+              : missing === 'unlisted'
+                ? accessPrompts().serviceNotListed(s.label)
+                : accessPrompts().serviceNotResponding(s.label),
       });
-    else if (!s.enabled)
+    } else if (!s.enabled)
       push({
         ...base,
         has: false,

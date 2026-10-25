@@ -28,8 +28,13 @@ const en = {
   filtersHint: (tool: string, filters: string) =>
     `If you need only part of it, call ${tool} again with its filters (${filters}) instead of reading on.`,
   readsOver: (ref: string, max: number) => `${ref} has been read ${max} times in this job already`,
-  readsOverHint: (tool: string) =>
-    `Call ${tool} again with its filters for the part you need, or go on with what you have read.`,
+  readsOverHint: (tool: string, filters: string) =>
+    `Call ${tool} again with its filters (${filters}) for the part you need, or go on with what you have read.`,
+  // A tool without filters (C-14): only reading the same part again stops.
+  readsOverUnread: (ref: string, next: number | null) =>
+    next !== null
+      ? `You have read this part of ${ref} already: read on from offset ${next} (not read yet), or go on with what you have read.`
+      : `You have read all of ${ref} already: go on with what you have read.`,
   maskedNote: (tool: string, chars: string, ref: string) =>
     `[Monsters] Result of ${tool} taken out of the context to make room (${chars} characters). If you still need it: result_read {"ref":"${ref}"}.`,
   resultErrorKind: 'error, ',
@@ -64,8 +69,12 @@ const it: typeof en = {
   filtersHint: (tool, filters) =>
     `Se te ne serve solo una parte, richiama ${tool} con i suoi filtri (${filters}) invece di leggere avanti.`,
   readsOver: (ref, max) => `${ref} è già stato letto ${max} volte in questo lavoro`,
-  readsOverHint: (tool) =>
-    `Richiama ${tool} con i suoi filtri per la parte che ti serve, o vai avanti con quello che hai letto.`,
+  readsOverHint: (tool, filters) =>
+    `Richiama ${tool} con i suoi filtri (${filters}) per la parte che ti serve, o vai avanti con quello che hai letto.`,
+  readsOverUnread: (ref, next) =>
+    next !== null
+      ? `Questa parte di ${ref} l’hai già letta: leggi avanti da offset ${next} (non ancora letto), o vai avanti con quello che hai letto.`
+      : `Hai già letto tutto ${ref}: vai avanti con quello che hai letto.`,
   maskedNote: (tool, chars, ref) =>
     `[Monsters] Risultato di ${tool} tolto dal contesto per fare spazio (${chars} caratteri). Se ti serve ancora: result_read {"ref":"${ref}"}.`,
   resultErrorKind: 'errore, ',
