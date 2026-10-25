@@ -85,6 +85,8 @@ function photo(): Blob {
 
 export class MockFiles {
   readonly #files = new Map<string, Stored>();
+  /** Deleted files wait here for "Undo" (the core keeps them a few seconds, U2-32). */
+  readonly #trash = new Map<string, Stored>();
   readonly #urls = new Map<string, string>();
   readonly #log: (event: EventInput, ts?: number) => void;
   readonly #speed: number;
@@ -325,9 +327,27 @@ export class MockFiles {
         .slice(0, limit);
       return ok({ files });
     }
-    const m = /^\/api\/files\/([^/]+)(?:\/(text|scripts))?$/.exec(path);
+    const m = /^\/api\/files\/([^/]+)(?:\/(text|scripts|restore))?$/.exec(path);
     if (!m) return null;
     const id = decodeURIComponent(m[1]!);
+    if (method === 'POST' && m[2] === 'restore') {
+      const back = this.#trash.get(id);
+      if (!back) return fail(404, 'unknown_file', tr('File not found.', 'File non trovato.'));
+      this.#trash.delete(id);
+      this.#files.set(id, back);
+      this.#log({
+        agent: 'user',
+        type: 'file',
+        data: {
+          action: 'updated',
+          id,
+          name: back.meta.name,
+          kind: back.meta.kind,
+          source: back.meta.source,
+        },
+      });
+      return ok(back.meta);
+    }
     const stored = this.#files.get(id);
     if (!stored) return fail(404, 'unknown_file', tr('File not found.', 'File non trovato.'));
     if (method === 'POST' && m[2] === 'scripts') {
@@ -343,9 +363,7 @@ export class MockFiles {
     if (method === 'GET') return ok(stored.meta);
     if (method === 'DELETE') {
       this.#files.delete(id);
-      const url = this.#urls.get(id);
-      if (url) URL.revokeObjectURL(url);
-      this.#urls.delete(id);
+      this.#trash.set(id, stored);
       this.#log({
         agent: 'user',
         type: 'file',

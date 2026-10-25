@@ -1,5 +1,6 @@
 import {
   ArrowArcRight,
+  ArrowRight,
   ArrowBendUpLeft,
   ArrowCounterClockwise,
   CaretRight,
@@ -10,8 +11,15 @@ import { dotPalette } from '@monsters/monster-kit';
 import type { LogEvent } from '@monsters/shared';
 import { memo, useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { describeError } from '../../lib/api.ts';
-import { openChat } from '../../lib/router.ts';
-import { dismissUndoConflict, getApi, notify, undoAction, useApp } from '../../store/app.ts';
+import { MCP_PAUSED_PATH, openChat, openPage } from '../../lib/router.ts';
+import {
+  dismissUndoConflict,
+  getApi,
+  notify,
+  setReviewOpen,
+  undoAction,
+  useApp,
+} from '../../store/app.ts';
 import {
   categoryOf,
   describeEvent,
@@ -19,11 +27,12 @@ import {
   runOwners,
   undoConflictText,
 } from '../../store/derive.ts';
-import { canUndo, typeLabel, undoState } from './activity.ts';
+import { canUndo, pausedToolEvents, pendingDraftOf, typeLabel, undoState } from './activity.ts';
 import { detailsOf } from './details.ts';
 import { logStrings } from './log.strings.ts';
 import { useAgent, useNameOf } from '../../store/hooks.ts';
 import { cn, domId, formatTime, prettyJson } from '../../lib/utils.ts';
+import { useDrafts } from '../../store/projects.ts';
 import { Button } from '../ui/button.tsx';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import './log.css';
@@ -209,6 +218,34 @@ function AnswerKey({ e }: { e: LogEvent<'question'> }) {
   );
 }
 
+/**
+ * "Review" on a row that waits for a choice (V-8), the way "To review" offers it: a tool that
+ * stays paused until it is accepted goes to where its change is read and accepted (Settings),
+ * a draft opens "To review", where its card has Confirm, Edit and Discard.
+ */
+function ReviewKey({ e }: { e: LogEvent }) {
+  const s = logStrings().row;
+  const pausedTool = useApp((st) =>
+    e.type === 'security' && e.data.action === 'mcp_tools_changed'
+      ? pausedToolEvents(st.events).some((x) => x.id === e.id)
+      : false,
+  );
+  const drafts = useDrafts();
+  const draft = pendingDraftOf(e, drafts);
+  if (!pausedTool && !draft) return null;
+  return (
+    <Button
+      size="sm"
+      variant="primary"
+      onClick={() => (pausedTool ? openPage(MCP_PAUSED_PATH) : setReviewOpen(true))}
+      data-testid="review-row"
+    >
+      <ArrowRight size={16} weight="bold" aria-hidden />
+      {s.review}
+    </Button>
+  );
+}
+
 function EventDetails({ id, e }: { id: string; e: LogEvent }) {
   const fields = detailsOf(e);
   const s = logStrings().row;
@@ -282,6 +319,16 @@ export function SendHeldButton({ e }: { e: LogEvent }) {
     </Button>
   );
 }
+
+/** The events that can leave a choice waiting: only these rows look for a "Review". */
+const REVIEW_TYPES: ReadonlySet<string> = new Set([
+  'security',
+  'monster_proposal',
+  'project_change',
+  'automation_change',
+  'project_docs_proposal',
+  'memory',
+]);
 
 /** One event of Attività in plain language, with details on demand. */
 export const EventRow = memo(function EventRow({
@@ -372,6 +419,11 @@ export const EventRow = memo(function EventRow({
       {!compact && e.type === 'question' && (
         <div className="flex empty:hidden max-sm:col-start-3 max-sm:mt-2.5 sm:justify-end">
           <AnswerKey e={e} />
+        </div>
+      )}
+      {!compact && REVIEW_TYPES.has(e.type) && (
+        <div className="flex empty:hidden max-sm:col-start-3 max-sm:mt-2.5 sm:justify-end">
+          <ReviewKey e={e} />
         </div>
       )}
     </li>

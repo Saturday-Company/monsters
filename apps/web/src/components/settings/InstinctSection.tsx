@@ -14,7 +14,17 @@ import { Button } from '../ui/button.tsx';
 import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
 import { instinctStrings } from './instinct.strings.ts';
-import { DisclosureRow, fieldOnGroup, FormField, Group, Row, RowBody, Status } from './parts.tsx';
+import {
+  DisclosureRow,
+  fieldOnGroup,
+  FormField,
+  Group,
+  LoadFailed,
+  Row,
+  RowBody,
+  Status,
+  useRetry,
+} from './parts.tsx';
 import { partsStrings } from './parts.strings.ts';
 
 /*
@@ -109,6 +119,7 @@ export function InstinctSection() {
   // The answers of the switches are whole views: one request at a time, so an old one never lands last.
   const usesQueue = useRef<Promise<void>>(Promise.resolve());
 
+  const [attempt, retry] = useRetry(() => setFailed(false));
   useEffect(() => {
     let alive = true;
     getApi()
@@ -118,7 +129,7 @@ export function InstinctSection() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [attempt]);
 
   // The field of the key in sight and ready as soon as the core asks for it.
   useEffect(() => {
@@ -127,12 +138,7 @@ export function InstinctSection() {
     field.current?.focus();
   }, [noKey]);
 
-  if (failed)
-    return (
-      <p className="px-1 text-footnote text-ink-muted" role="status">
-        {s.failed}
-      </p>
-    );
+  if (failed) return <LoadFailed what={s.what} onRetry={retry} />;
   if (!view) return null;
 
   const engine: DecisionEngine = wantJev ? 'jev' : view.engine;

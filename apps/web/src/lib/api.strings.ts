@@ -37,6 +37,10 @@ const en = {
   invalidFolder: 'This folder can’t be granted.',
   invalidRequestWith: (message: string) => `Something’s wrong with the data: ${message}`,
   invalidRequest: 'Something’s wrong with the data sent.',
+  /** `limit` is the count, already written with its separators. */
+  tooLong: (limit: string) =>
+    `This text is too long: ${limit} characters at most. Shorten it or split it in two.`,
+  payloadTooLarge: 'That is too much to send at once. Send less, or split it in parts.',
   invalidResponse: 'The core answered in a way I don’t understand.',
   fileTooLarge: 'The file is too large: 25 MB at most.',
   unsupportedType: 'This kind of file can’t be attached.',
@@ -90,6 +94,9 @@ const it: typeof en = {
   invalidFolder: 'Questa cartella non si può concedere.',
   invalidRequestWith: (message) => `Qualcosa non va nei dati: ${message}`,
   invalidRequest: 'Qualcosa non va nei dati inviati.',
+  tooLong: (limit) =>
+    `Il testo è troppo lungo: al massimo ${limit} caratteri. Accorcialo o dividilo in due.`,
+  payloadTooLarge: 'È troppo da mandare in una volta. Manda meno, o dividilo in parti.',
   invalidResponse: 'Il core ha risposto in un modo che non capisco.',
   fileTooLarge: 'Il file è troppo grande: al massimo 25 MB.',
   unsupportedType: 'Questo tipo di file non si può allegare.',

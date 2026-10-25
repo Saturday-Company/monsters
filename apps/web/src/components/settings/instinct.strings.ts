@@ -9,7 +9,7 @@ const en = {
   keyFromEnv: 'The key comes from TYPESAFE_API_KEY on the computer: change it there.',
   noKey:
     'To use the expert model you need the TypeSafe key first. Paste it below: as soon as it’s saved, it decides.',
-  failed: 'I can’t read the monsters’ decisions right now. Try again in a moment.',
+  what: 'the monsters’ decisions',
   keyIncomplete: 'Paste the full key, with no spaces.',
   keySaved: 'TypeSafe key saved: the expert model decides.',
   usesOn: (on: number, total: number) => `${on} of ${total} on`,
@@ -45,7 +45,7 @@ const it: typeof en = {
   keyFromEnv: 'La chiave viene da TYPESAFE_API_KEY sul computer: si cambia lì.',
   noKey:
     'Per usare il modello esperto serve prima la chiave di TypeSafe. Incollala qui sotto: appena è salvata, decide lui.',
-  failed: 'Non riesco a leggere le decisioni dei mostri adesso. Riprova tra poco.',
+  what: 'le decisioni dei mostri',
   keyIncomplete: 'Incolla la chiave completa, senza spazi.',
   keySaved: 'Chiave di TypeSafe salvata: decide il modello esperto.',
   usesOn: (on, total) => `${on} su ${total} accese`,

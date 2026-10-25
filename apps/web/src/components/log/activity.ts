@@ -1,4 +1,4 @@
-import type { LogEvent } from '@monsters/shared';
+import type { DraftView, LogEvent } from '@monsters/shared';
 import {
   agentFileOf,
   categoryOf,
@@ -71,7 +71,7 @@ export function isFailedTool(e: LogEvent): boolean {
 /**
  * Events with an effect, shown by default: changes to the notes (not the
  * monsters' own notes), files and commands, questions, errors, external tools,
- * changes to the setup, the orders removed from external texts and the brake. "Titan replied", "started a job" and
+ * changes to the setup, the orders removed from external texts, the brake and the drafts that wait for you. "Titan replied", "started a job" and
  * reading tools are under "Everything".
  */
 export function hasEffect(e: LogEvent): boolean {
@@ -93,6 +93,15 @@ export function hasEffect(e: LogEvent): boolean {
       return !isQuietError(e) && categoryOf(e) === 'errors';
     // The instinct (D-068): texts that gave orders to the monsters, and the brake on the
     // actions that leave the computer, are effects; its other lines are under "Everything".
+    // A draft waiting for the user (V-8): it is something to decide, not background noise. Its
+    // row carries "Review" while it waits.
+    case 'monster_proposal':
+    case 'project_docs_proposal':
+    case 'memory':
+      return e.data.action === 'proposed';
+    case 'project_change':
+    case 'automation_change':
+      return e.data.action === 'created' && e.data.status === 'draft';
     case 'security':
       // Only what was removed or paused: a warning (old logs, the core no longer sends it) is in
       // "Everything", and so is the user's own "Accept".
@@ -108,6 +117,38 @@ export function hasEffect(e: LogEvent): boolean {
       return isBrakeEvent(e.data);
     default:
       return SETUP_EVENTS.has(e.type);
+  }
+}
+
+/**
+ * The draft a row stands for while it still waits for the user (`GET /api/drafts` still lists
+ * it): the proposal of a monster, a project or an automation in draft, a change to CLAUDE.md or
+ * AGENTS.md, lines of memory. Its row in Attività carries "Review" (V-8).
+ */
+export function pendingDraftOf(
+  e: LogEvent,
+  drafts: readonly DraftView[] | null,
+): DraftView | undefined {
+  if (!drafts || drafts.length === 0) return undefined;
+  const find = (kind: DraftView['kind'], id: string) =>
+    drafts.find((d) => d.kind === kind && d.id === id);
+  switch (e.type) {
+    case 'monster_proposal':
+      return e.data.action === 'proposed' ? find('monster', e.id) : undefined;
+    case 'project_change':
+      return e.data.action === 'created' && e.data.status === 'draft'
+        ? find('project', e.data.project)
+        : undefined;
+    case 'automation_change':
+      return e.data.action === 'created' && e.data.status === 'draft'
+        ? find('automation', e.data.automationId)
+        : undefined;
+    case 'project_docs_proposal':
+      return e.data.action === 'proposed' ? find('docs', e.id) : undefined;
+    case 'memory':
+      return e.data.action === 'proposed' ? find('memory', e.id) : undefined;
+    default:
+      return undefined;
   }
 }
 

@@ -23,6 +23,7 @@ import {
   fieldOnGroup,
   FormField,
   Group,
+  LoadFailed,
   LoadNotice,
   Row,
   RowBody,
@@ -429,13 +430,12 @@ export function TelegramSection() {
 
   return (
     <div className="grid gap-5" data-testid="telegram-settings">
-      {failed && (
-        <LoadNotice
-          text={view ? s.section.stale : s.section.failed}
-          onRetry={reload}
-          testId="telegram-stale"
-        />
-      )}
+      {failed &&
+        (view ? (
+          <LoadNotice text={s.section.stale} onRetry={reload} testId="telegram-stale" />
+        ) : (
+          <LoadFailed what={s.section.what} onRetry={reload} testId="telegram-stale" />
+        ))}
       <Group
         title={SETTINGS_SECTIONS.telegram.label}
         level={3}

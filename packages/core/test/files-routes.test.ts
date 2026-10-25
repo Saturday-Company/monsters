@@ -69,8 +69,10 @@ describe('/api/files', () => {
 
     const del = await t.api('DELETE', `/api/files/${meta.id}`);
     expect(del.status).toBe(200);
-    expect(existsSync(join(root, meta.path))).toBe(false);
+    // In the trash for a few seconds (U2-32): gone for everyone, bytes kept for the undo.
+    expect(existsSync(join(root, meta.path))).toBe(true);
     expect((await t.api('GET', `/api/files/${meta.id}`)).status).toBe(404);
+    expect((await t.api('GET', `/api/files/${meta.id}/content`)).status).toBe(404);
     // The chat asks its files by id together (D-086): a deleted one is absent, not a 404.
     const byIds = await t.api('GET', `/api/files?ids=${meta.id},01ZZZZZZZZZZZZZZZZZZZZZZZZ`);
     expect(byIds.status).toBe(200);
@@ -81,6 +83,31 @@ describe('/api/files', () => {
         .events()
         .some((e) => e.type === 'file' && e.data.action === 'deleted' && e.data.id === meta.id),
     ).toBe(true);
+  });
+
+  it('brings a deleted file back with "restore" while it is in the trash (U2-32)', async () => {
+    const t = await startTestHub({});
+    const meta = (await (await upload(t, form(png(8, 6), 'foto.png'))).json()) as FileMeta;
+    const root = t.core.hub.vault.root;
+    expect((await t.api('DELETE', `/api/files/${meta.id}`)).status).toBe(200);
+    expect((await t.api('GET', `/api/files/${meta.id}`)).status).toBe(404);
+
+    const back = await t.api('POST', `/api/files/${meta.id}/restore`);
+    expect(back.status).toBe(200);
+    expect(await back.json()).toEqual(meta);
+    expect((await t.api('GET', `/api/files/${meta.id}/content`)).status).toBe(200);
+    expect(
+      (await t.json<{ files: FileMeta[] }>('GET', '/api/files')).files.map((f) => f.id),
+    ).toEqual([meta.id]);
+    // Not in the trash any more: nothing to bring back.
+    expect((await t.api('POST', `/api/files/${meta.id}/restore`)).status).toBe(404);
+
+    // Once the trash is emptied the file is really gone.
+    expect((await t.api('DELETE', `/api/files/${meta.id}`)).status).toBe(200);
+    expect(t.core.hub.files.purgeTrash(true)).toBe(1);
+    expect(existsSync(join(root, meta.path))).toBe(false);
+    expect((await t.api('POST', `/api/files/${meta.id}/restore`)).status).toBe(404);
+    expect((await t.api('POST', '/api/files/01ZZZZZZZZZZZZZZZZZZZZZZZZ/restore')).status).toBe(404);
   });
 
   it('refuses unknown types, HTML from the user, and too much', async () => {

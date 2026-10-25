@@ -291,6 +291,23 @@ export function FileById({ id, image = false }: { id: string; image?: boolean })
     );
   }
   if (!meta) return <span aria-hidden className="block h-[56px] w-[180px]" />;
+  if ('failed' in meta) {
+    return (
+      <span
+        className="label inline-flex items-center gap-2 rounded-[10px] px-2 py-1 text-ink-muted"
+        data-testid="file-unread"
+      >
+        {filesStrings().chip.unread}
+        <button
+          type="button"
+          onClick={meta.retry}
+          className="font-medium text-signal-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
+        >
+          {filesStrings().chip.retry}
+        </button>
+      </span>
+    );
+  }
   if (image && meta.kind === 'image') return <ImageTile meta={meta} />;
   return <FileChip file={meta} />;
 }

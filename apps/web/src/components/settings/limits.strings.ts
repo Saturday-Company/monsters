@@ -6,7 +6,7 @@ const en = {
   rowHint: 'A safety net against a job that runs away.',
   intro:
     'A job is a request of yours and every monster it delegates to. These limits stop a job that runs away: when one is reached, the monsters report what they did so far. On a subscription they also protect your plan’s quota.',
-  failed: 'I can’t read the limits right now. Try again in a moment.',
+  what: 'the limits',
   groups: {
     api: 'Models paid per use',
     apiHint: 'OpenRouter and direct keys.',
@@ -34,7 +34,7 @@ const it: typeof en = {
   rowHint: 'Una rete di sicurezza contro un lavoro che sfugge di mano.',
   intro:
     'Un lavoro è una tua richiesta e tutti i mostri a cui passa il compito. Questi limiti fermano un lavoro che sfugge di mano: quando ne scatta uno, i mostri riferiscono quello che hanno fatto fin lì. Con un abbonamento proteggono anche la quota del tuo piano.',
-  failed: 'Non riesco a leggere i limiti adesso. Riprova tra poco.',
+  what: 'i limiti',
   groups: {
     api: 'Modelli a consumo',
     apiHint: 'OpenRouter e chiavi dirette.',

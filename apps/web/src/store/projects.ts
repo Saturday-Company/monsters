@@ -1,5 +1,5 @@
 import type { DraftView, ProjectView } from '@monsters/shared';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 import { describeError } from '../lib/api.ts';
 import { getApi } from './app.ts';
@@ -18,6 +18,11 @@ interface Lists {
   /** Why the last read failed, in Italian (the list on screen stays). */
   projectsError: string | null;
   draftsError: string | null;
+  /**
+   * Drafts the user discarded and may still bring back (`kind:id`): hidden everywhere, but still
+   * in the core until the undo window closes (U2-32).
+   */
+  held: readonly string[];
 }
 
 export const useLists = create<Lists>()(() => ({
@@ -25,6 +30,7 @@ export const useLists = create<Lists>()(() => ({
   drafts: null,
   projectsError: null,
   draftsError: null,
+  held: [],
 }));
 
 let projectsAsked = false;
@@ -56,6 +62,16 @@ export async function refreshDrafts(): Promise<void> {
   }
 }
 
+/** Hides a draft that waits for its discard to go through (see `held`). */
+export function holdDraft(key: string): void {
+  useLists.setState((s) => ({ held: s.held.includes(key) ? s.held : [...s.held, key] }));
+}
+
+/** The draft is back in the lists (undo), or its discard went through. */
+export function releaseDraft(key: string): void {
+  useLists.setState((s) => ({ held: s.held.filter((k) => k !== key) }));
+}
+
 /** Puts a project an action returned, without a round trip. */
 export function putProject(p: ProjectView): void {
   const list = useLists.getState().projects ?? [];
@@ -82,10 +98,15 @@ export function useProjects(): ProjectView[] | null {
 /** The drafts waiting for the user (null until the first answer). */
 export function useDrafts(): DraftView[] | null {
   const list = useLists((s) => s.drafts);
+  const held = useLists((s) => s.held);
   useEffect(() => {
     if (!draftsAsked) void refreshDrafts();
   }, []);
-  return list;
+  return useMemo(
+    () =>
+      list && held.length > 0 ? list.filter((d) => !held.includes(`${d.kind}:${d.id}`)) : list,
+    [list, held],
+  );
 }
 
 /** One project of the list (null while it loads or when it is not there). */
@@ -100,5 +121,11 @@ export function resetLists(): void {
   draftsAsked = false;
   projectsSeq++;
   draftsSeq++;
-  useLists.setState({ projects: null, drafts: null, projectsError: null, draftsError: null });
+  useLists.setState({
+    projects: null,
+    drafts: null,
+    projectsError: null,
+    draftsError: null,
+    held: [],
+  });
 }

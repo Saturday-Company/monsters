@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { getApi } from '../../store/app.ts';
 import { useAgent, useNameOf } from '../../store/hooks.ts';
 import { reorderedLines, scoreLines, type ScoreLine } from '../../store/instinct.ts';
-import { AgentMark, Group, Row, RowBody, Status } from './parts.tsx';
+import { AgentMark, Group, LoadFailed, Row, RowBody, Status, useRetry } from './parts.tsx';
 import { teamStrings } from './team.strings.ts';
 
 /*
@@ -57,6 +57,7 @@ export function ScorecardSection() {
   const [view, setView] = useState<ScorecardView | null>(null);
   const [failed, setFailed] = useState(false);
 
+  const [attempt, retry] = useRetry(() => setFailed(false));
   useEffect(() => {
     let alive = true;
     getApi()
@@ -66,17 +67,14 @@ export function ScorecardSection() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [attempt]);
 
-  if (failed)
-    return (
-      <p className="px-1 text-footnote text-ink-muted" role="status">
-        {s.failed}
-      </p>
-    );
+  if (failed) return <LoadFailed what={s.what} onRetry={retry} />;
   if (!view) return null;
 
   const lines = scoreLines(view);
+  // Nothing to show until a model has been checked at least once (U2-34): no empty module.
+  if (lines.length === 0 && reorderedLines(view, nameOf).length === 0) return null;
   const moved = reorderedLines(view, nameOf);
   const min = view.minDelegations;
   const ready = lines.filter((l) => l.missing === 0);

@@ -76,9 +76,9 @@ const en = {
     disconnected: 'Bot disconnected.',
     usersTitle: 'Who can command the monsters',
     usersFooter: 'Other messages to the bot are ignored and end up in Activity.',
-    failed: 'I can’t read the Telegram settings right now. Try again in a moment.',
+    what: 'the Telegram settings',
     stale:
-      'I couldn’t refresh Telegram. What you see may be out of date; what you’re typing is safe.',
+      'Couldn’t refresh Telegram. What you see may be out of date; what you’re typing is safe.',
     noAccount: 'No account yet',
     noAccountText: 'Connect yours: until you do, the bot ignores every message, yours too.',
     connectedOn: (date: string) => `Connected on ${date}`,
@@ -261,9 +261,9 @@ const it: typeof en = {
     disconnected: 'Bot scollegato.',
     usersTitle: 'Chi può comandare i mostri',
     usersFooter: 'Gli altri messaggi al bot vengono ignorati e finiscono in Attività.',
-    failed: 'Non riesco a leggere le impostazioni di Telegram adesso. Riprova tra poco.',
+    what: 'le impostazioni di Telegram',
     stale:
-      'Non sono riuscito ad aggiornare Telegram. Quello che vedi potrebbe essere vecchio; quello che stai scrivendo è al sicuro.',
+      'Impossibile aggiornare Telegram. Quello che vedi potrebbe essere vecchio; quello che stai scrivendo è al sicuro.',
     noAccount: 'Nessun account ancora',
     noAccountText:
       'Collega il tuo: finché non lo fai, il bot ignora tutti i messaggi, anche i tuoi.',

@@ -15,7 +15,15 @@ import { serviceLabel, useSettings } from './data.ts';
 import { SpendSection } from './SpendSection.tsx';
 import { modelsStrings } from './models.strings.ts';
 import { partsStrings } from './parts.strings.ts';
-import { ConfirmButton, Group, LoadNotice, Row, RowBody, ServiceRow } from './parts.tsx';
+import {
+  ConfirmButton,
+  Group,
+  LoadFailed,
+  LoadNotice,
+  Row,
+  RowBody,
+  ServiceRow,
+} from './parts.tsx';
 import {
   aboutOf,
   ChainsGroup,
@@ -349,18 +357,7 @@ export function ModelsTab() {
   };
   if (!data || !subs.data) {
     if (failed || subs.failed) {
-      return (
-        <div className="grid gap-3 px-1">
-          <p className="text-footnote text-ink-muted" role="status">
-            {t.failed}
-          </p>
-          <div>
-            <Button variant="secondary" size="sm" onClick={retry}>
-              {partsStrings().retry}
-            </Button>
-          </div>
-        </div>
-      );
+      return <LoadFailed what={t.what} onRetry={retry} />;
     }
     return null;
   }

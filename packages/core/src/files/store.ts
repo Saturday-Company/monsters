@@ -100,7 +100,20 @@ export const filesMigrations: readonly Migration[] = [
     name: 'files_inert',
     up: `ALTER TABLE files ADD COLUMN inert INTEGER NOT NULL DEFAULT 0;`,
   },
+  {
+    // A deleted file waits a few seconds in the trash, so "Undo" can bring it back.
+    version: 3,
+    name: 'files_trash',
+    up: `ALTER TABLE files ADD COLUMN trashed_at INTEGER;`,
+  },
 ];
+
+/**
+ * How long a deleted file stays in the trash before its bytes are removed for good: the web
+ * app offers "Undo" for 10 s, the rest is room for a slow network. A restart removes at once
+ * what is still there (nobody can undo after it).
+ */
+export const TRASH_GRACE_MS = 30_000;
 
 export type FileErrorCode = 'unsupported_type' | 'file_too_large' | 'unknown_file' | 'invalid_name';
 
@@ -147,6 +160,7 @@ interface Row {
   tool: string | null;
   has_thumb: number;
   inert: number;
+  trashed_at: number | null;
   text: string | null;
   text_truncated: number;
   width: number | null;
@@ -158,7 +172,7 @@ const COLUMNS =
   'id, name, path, mime, size, kind, source, agent, run_id, message_id, title, tool, has_thumb, inert, ' +
   'text IS NOT NULL AS has_text, width, height, created_at';
 
-type ListRow = Omit<Row, 'text' | 'text_truncated'> & { has_text: number };
+type ListRow = Omit<Row, 'text' | 'text_truncated' | 'trashed_at'> & { has_text: number };
 
 function metaOf(r: ListRow): FileMeta {
   return {
@@ -317,6 +331,8 @@ export class FileStore {
     this.#now = options.now ?? Date.now;
     this.#extract = options.extract ?? extractTextIsolated;
     this.#onText = options.onText;
+    // What a past session left in the trash cannot be undone any more.
+    this.purgeTrash(true);
   }
 
   /** Who hears that the text of a file is ready (the hub logs a `file` event). */
@@ -457,14 +473,18 @@ export class FileStore {
 
   /** Bytes of all the files (the size of the files folder, roughly). */
   usage(): number {
-    return this.#db.get<{ n: number | null }>('SELECT SUM(size) AS n FROM files')?.n ?? 0;
+    return (
+      this.#db.get<{ n: number | null }>(
+        'SELECT SUM(size) AS n FROM files WHERE trashed_at IS NULL',
+      )?.n ?? 0
+    );
   }
 
   /** Images a tool saved in one run. */
   toolImagesOf(runId: string): number {
     return (
       this.#db.get<{ n: number }>(
-        "SELECT COUNT(*) AS n FROM files WHERE run_id = ? AND source = 'tool'",
+        "SELECT COUNT(*) AS n FROM files WHERE run_id = ? AND source = 'tool' AND trashed_at IS NULL",
         runId,
       )?.n ?? 0
     );
@@ -549,7 +569,17 @@ export class FileStore {
     return join(this.dir, THUMBS_DIR, `${id}.webp`);
   }
 
+  /** A file in the trash is gone for everyone: `get`, `list` and the rest do not see it. */
   get(id: string): FileMeta | undefined {
+    const r = this.#db.get<ListRow>(
+      `SELECT ${COLUMNS} FROM files WHERE id = ? AND trashed_at IS NULL`,
+      id,
+    );
+    return r ? metaOf(r) : undefined;
+  }
+
+  /** A file by id, in the trash or not. */
+  #any(id: string): FileMeta | undefined {
     const r = this.#db.get<ListRow>(`SELECT ${COLUMNS} FROM files WHERE id = ?`, id);
     return r ? metaOf(r) : undefined;
   }
@@ -568,7 +598,7 @@ export class FileStore {
    * of a chat), the deleted ones absent.
    */
   list(q: FileListQuery = {}): FileMeta[] {
-    const where: string[] = [];
+    const where: string[] = ['trashed_at IS NULL'];
     const params: (string | number)[] = [];
     if (q.ids) {
       const ids = q.ids.split(',').slice(0, 100);
@@ -652,7 +682,7 @@ export class FileStore {
 
   text(id: string): { text: string; truncated: boolean } | null {
     const r = this.#db.get<{ text: string | null; text_truncated: number }>(
-      'SELECT text, text_truncated FROM files WHERE id = ?',
+      'SELECT text, text_truncated FROM files WHERE id = ? AND trashed_at IS NULL',
       id,
     );
     return r?.text ? { text: r.text, truncated: r.text_truncated === 1 } : null;
@@ -677,13 +707,62 @@ export class FileStore {
    * at the old path is the user's now.
    */
   delete(id: string): boolean {
-    const meta = this.get(id);
+    const meta = this.#any(id);
     if (!meta) return false;
     const abs = this.absPath(meta);
     if (abs) rmSync(abs, { force: true });
     if (meta.hasThumb) rmSync(this.#thumbAbs(id), { force: true });
     this.#db.run('DELETE FROM files WHERE id = ?', id);
     return true;
+  }
+
+  /**
+   * Puts the file in the trash: it disappears for everyone at once, its bytes stay for
+   * `TRASH_GRACE_MS` so that `restore` can bring it back, then they are removed for good.
+   * False when there was no such file.
+   */
+  trash(id: string): boolean {
+    if (!this.get(id)) return false;
+    this.#db.run('UPDATE files SET trashed_at = ? WHERE id = ?', this.#now(), id);
+    // No timer keeps the core alive; if it stops first, the next start empties the trash.
+    setTimeout(() => {
+      try {
+        this.purgeTrash();
+      } catch {
+        // The core closed meanwhile: the next start empties the trash.
+      }
+    }, TRASH_GRACE_MS + 500).unref();
+    return true;
+  }
+
+  /** Brings a file back from the trash (undo of a delete); undefined when it is already gone. */
+  restore(id: string): FileMeta | undefined {
+    const row = this.#db.get<{ trashed_at: number | null; path: string }>(
+      'SELECT trashed_at, path FROM files WHERE id = ?',
+      id,
+    );
+    if (!row || row.trashed_at === null) return undefined;
+    const abs = this.absPath({ path: row.path });
+    // The bytes went (the folder changed, or the file was removed by hand): nothing to bring back.
+    if (!abs || !onDisk(abs)) return undefined;
+    this.#db.run('UPDATE files SET trashed_at = NULL WHERE id = ?', id);
+    return this.get(id);
+  }
+
+  /**
+   * Removes for good what has been in the trash for `TRASH_GRACE_MS` (all of it with `all`: at
+   * start, when nobody can undo any more). Returns how many files it removed.
+   */
+  purgeTrash(all = false): number {
+    const cutoff = all ? Number.MAX_SAFE_INTEGER : this.#now() - TRASH_GRACE_MS;
+    const ids = this.#db
+      .all<{ id: string }>(
+        'SELECT id FROM files WHERE trashed_at IS NOT NULL AND trashed_at <= ?',
+        cutoff,
+      )
+      .map((r) => r.id);
+    for (const id of ids) this.delete(id);
+    return ids.length;
   }
 }
 

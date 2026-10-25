@@ -2,11 +2,11 @@ import { CaretDown, FileText, Funnel, X } from '@phosphor-icons/react';
 import type { LogEvent } from '@monsters/shared';
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import { noteKey, noteName } from '../../lib/markdown.ts';
-import { PATHS, useHashParam, vaultPath } from '../../lib/router.ts';
+import { openChat, PATHS, useHashParam, vaultPath } from '../../lib/router.ts';
 import { cn, domId, formatDay } from '../../lib/utils.ts';
 import { errorText, HISTORY_PAGE, loadOlder, notify, useApp } from '../../store/app.ts';
 import { withoutRepeatedStops, type EventCategory } from '../../store/derive.ts';
-import { useAgents, useMediaQuery } from '../../store/hooks.ts';
+import { useAgents, useMediaQuery, useOrchestrator } from '../../store/hooks.ts';
 import { ToolbarContent, ToolbarTitle } from '../shell/Toolbar.tsx';
 import { Button } from '../ui/button.tsx';
 import { joinedKey, KeyLight, Segmented } from '../ui/controls.tsx';
@@ -171,6 +171,7 @@ export function LogView() {
   const events = useApp((s) => s.events);
   const hasOlder = useApp((s) => s.hasOlder);
   const agents = useAgents();
+  const lead = useOrchestrator();
   const id = domId(useId());
   const [who, setWho] = useState<string>('');
   const [types, setTypes] = useState<Set<EventCategory>>(new Set());
@@ -385,6 +386,19 @@ export function LogView() {
                   ? s.nothingWithFilters
                   : s.nothingYet}
             </p>
+            {/* A log with nothing in it yet: what to try, not only that it is empty (U2-34). */}
+            {!note && !filtering && (
+              <>
+                <p className="max-w-[44ch] text-body text-ink-muted" data-testid="log-empty-hint">
+                  {s.nothingYetHint}
+                </p>
+                {lead && (
+                  <Button size="sm" onClick={() => openChat(lead.id)} data-testid="log-ask-lead">
+                    {s.askLead}
+                  </Button>
+                )}
+              </>
+            )}
             {!all && types.size === 0 && (
               <Button size="sm" variant="secondary" onClick={() => setAll(true)}>
                 {s.showEverything}

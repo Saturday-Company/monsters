@@ -1,10 +1,11 @@
-import { setAppLang, ulid, type EventInput, type LogEvent } from '@monsters/shared';
+import { setAppLang, ulid, type DraftView, type EventInput, type LogEvent } from '@monsters/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   hasEffect,
   matchesActivity,
   otherTypes,
   pausedToolEvents,
+  pendingDraftOf,
   typeLabel,
   undoState,
   type ActivityFilter,
@@ -220,5 +221,52 @@ describe('tools of another program in pause', () => {
       data: { server: 'github', action: 'removed', transport: 'stdio', by: 'ui' },
     });
     expect(pausedToolEvents([changed, removed])).toEqual([]);
+  });
+});
+
+describe('the draft a row waits on (V-8)', () => {
+  const draft = (kind: DraftView['kind'], id: string) => ({ kind, id }) as unknown as DraftView;
+
+  it('finds the draft still listed for the event that proposed it', () => {
+    const automation = ev({
+      agent: 'rhea',
+      type: 'automation_change',
+      data: {
+        action: 'created',
+        automationId: 'au_1',
+        name: 'Digest',
+        status: 'draft',
+        from: 'rhea',
+      },
+    });
+    const project = ev({
+      agent: 'titan',
+      type: 'project_change',
+      data: { action: 'created', project: 'sito', name: 'Sito', status: 'draft', from: 'titan' },
+    });
+    const monster = ev({
+      agent: 'titan',
+      type: 'monster_proposal',
+      data: { action: 'proposed', from: 'titan' },
+    });
+    const drafts = [
+      draft('automation', 'au_1'),
+      draft('project', 'sito'),
+      draft('monster', monster.id),
+    ];
+    expect(pendingDraftOf(automation, drafts)).toBe(drafts[0]);
+    expect(pendingDraftOf(project, drafts)).toBe(drafts[1]);
+    expect(pendingDraftOf(monster, drafts)).toBe(drafts[2]);
+    // Confirmed or discarded: no longer listed, so the row has no key.
+    expect(pendingDraftOf(automation, [])).toBeUndefined();
+    expect(pendingDraftOf(automation, null)).toBeUndefined();
+    expect(pendingDraftOf(automation, [draft('automation', 'other')])).toBeUndefined();
+    // The answer events of a draft are not the proposal.
+    const confirmed = ev({
+      agent: 'user',
+      type: 'automation_change',
+      data: { action: 'confirmed', automationId: 'au_1', name: 'Digest', status: 'active' },
+    });
+    expect(pendingDraftOf(confirmed, drafts)).toBeUndefined();
   });
 });

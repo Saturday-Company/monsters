@@ -306,11 +306,17 @@ export type MetaState =
   | { state: 'loading' }
   | { state: 'ready'; meta: FileMeta }
   | { state: 'missing' }
-  | { state: 'error'; text: string };
+  /** The read failed (not a 404): `retry` asks again (W-36). */
+  | { state: 'error'; text: string; retry: () => void };
 
 export function useFileMeta(id: string | null): MetaState {
   const [, bump] = useState(0);
   const [failure, setFailure] = useState<{ id: string; state: MetaState } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setFailure(null);
+    setAttempt((n) => n + 1);
+  }, []);
   const known = id ? metas.get(id) : undefined;
   useEffect(() => {
     if (!id || metas.has(id)) return;
@@ -323,14 +329,14 @@ export function useFileMeta(id: string | null): MetaState {
         err instanceof ApiError && (err.status === 404 || err.code === 'unknown_file');
       setFailure({
         id,
-        state: missing ? { state: 'missing' } : { state: 'error', text: describeError(err) },
+        state: missing ? { state: 'missing' } : { state: 'error', text: describeError(err), retry },
       });
     });
     return () => {
       alive = false;
       listeners.delete(l);
     };
-  }, [id]);
+  }, [id, attempt, retry]);
   if (!id) return { state: 'missing' };
   if (known) return { state: 'ready', meta: known };
   if (failure?.id === id) return failure.state;

@@ -32,9 +32,11 @@ import {
   fieldOnGroup,
   FormField,
   Group,
+  LoadFailed,
   Row,
   RowBody,
   textareaClass,
+  useRetry,
 } from './parts.tsx';
 
 /*
@@ -441,6 +443,7 @@ export function useMcpServers() {
   const s = mcpStrings().servers;
   const [data, setData] = useState<McpServersResponse | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, retry] = useRetry(() => setFailed(false));
 
   useEffect(() => {
     let alive = true;
@@ -451,7 +454,7 @@ export function useMcpServers() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [attempt]);
 
   const onSave = async (name: string, body: McpServerRequest, done: string) => {
     setData(await getApi().saveMcpServer(name, body));
@@ -467,7 +470,7 @@ export function useMcpServers() {
     setData(await getApi().removeMcpServer(name));
     notify(s.removed, 'success');
   };
-  return { data, setData, failed, onSave, reload, onRemove };
+  return { data, setData, failed, retry, onSave, reload, onRemove };
 }
 
 export type McpServers = ReturnType<typeof useMcpServers>;
@@ -478,7 +481,7 @@ export type McpServers = ReturnType<typeof useMcpServers>;
  */
 export function McpServersSection({ mcp }: { mcp: McpServers }) {
   const s = mcpStrings().servers;
-  const { data, setData, failed, onSave, onRemove, reload } = mcp;
+  const { data, setData, failed, retry, onSave, onRemove, reload } = mcp;
   const [adding, setAdding] = useState(false);
 
   const browser = data?.servers.find((s) => s.preset === 'browser');
@@ -492,7 +495,9 @@ export function McpServersSection({ mcp }: { mcp: McpServers }) {
     <div data-testid="mcp-settings">
       {!data && failed && (
         <Group title={SETTINGS_SECTIONS.altriProgrammi.label} level={3} as="ul">
-          <Row as="li" label={s.failed} />
+          <li className="list-none px-4 py-3">
+            <LoadFailed what={s.what} onRetry={retry} />
+          </li>
         </Group>
       )}
       {data && (

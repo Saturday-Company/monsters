@@ -14,7 +14,7 @@ import { useProjects } from '../../store/projects.ts';
 import { Switch } from '../ui/controls.tsx';
 import { terminalText } from '../../onboarding/PermissionsStep.tsx';
 import { FolderGrants } from './FolderGrants.tsx';
-import { AgentMark, DisclosureRow, Group, Row, RowBody } from './parts.tsx';
+import { AgentMark, DisclosureRow, Group, LoadFailed, Row, RowBody, useRetry } from './parts.tsx';
 import { permissionsStrings } from './permissions.strings.ts';
 
 /*
@@ -192,6 +192,7 @@ export function AgentPermissionsSettings() {
     return out;
   }, [data, team, projects, s]);
 
+  const [attempt, retry] = useRetry(() => setFailed(false));
   useEffect(() => {
     let alive = true;
     getApi()
@@ -201,7 +202,7 @@ export function AgentPermissionsSettings() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [attempt]);
 
   const onSave = async (id: string, next: Full) => {
     const name = data?.agents.find((a) => a.id === id)?.name ?? id;
@@ -213,7 +214,11 @@ export function AgentPermissionsSettings() {
   return (
     <div data-testid="permissions-settings">
       <Group title={s.title} description={s.description} as="ul">
-        {failed && <Row as="li" label={s.failed} />}
+        {failed && (
+          <li className="list-none px-4 py-3">
+            <LoadFailed what={s.what} onRetry={retry} />
+          </li>
+        )}
         {data &&
           groups.map((g) => (
             <li key={g.key} className="list-none" data-testid={`permissions-squad-${g.key}`}>

@@ -635,6 +635,35 @@ describe('Attività and the errors of the core', () => {
     ]);
   });
 
+  it('says a text past its limit with the limit, and keeps the core’s words for unknown codes (W-22, W-23)', () => {
+    const e = (code: string, message?: string) => new ApiError(400, code, message);
+    expect(
+      both(() =>
+        describeError(
+          e('invalid_request', 'text: Too big: expected string to have <=20000 characters'),
+        ),
+      ),
+    ).toEqual([
+      'This text is too long: 20,000 characters at most. Shorten it or split it in two.',
+      'Il testo è troppo lungo: al massimo 20.000 caratteri. Accorcialo o dividilo in due.',
+    ]);
+    // Another invalid request keeps the validator's message.
+    expect(both(() => describeError(e('invalid_request', 'name: Required')))[0]).toBe(
+      'Something’s wrong with the data: name: Required',
+    );
+    expect(both(() => describeError(e('payload_too_large')))[0]).toBe(
+      'That is too much to send at once. Send less, or split it in parts.',
+    );
+    // A code without a sentence of ours: the core's own message, else the generic one.
+    expect(both(() => describeError(e('internal_error', 'The disk is full')))).toEqual([
+      'The disk is full',
+      'The disk is full',
+    ]);
+    expect(both(() => describeError(e('internal_error')))[0]).toBe(
+      'Something went wrong. Try again in a moment.',
+    );
+  });
+
   it('is in English unless the language says otherwise', () => {
     expect(appLang()).toBe('en');
   });

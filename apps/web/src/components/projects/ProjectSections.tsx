@@ -26,7 +26,16 @@ import { getApi, notify } from '../../store/app.ts';
 import { useAgents } from '../../store/hooks.ts';
 import { AutomationList } from '../automations/AutomationList.tsx';
 import { useAutomationTick, useLoaded } from '../automations/parts.tsx';
-import { AgentMark, FormField, Group, Row, RowBody, Status } from '../settings/parts.tsx';
+import {
+  AgentMark,
+  FormField,
+  Group,
+  LoadFailed,
+  Row,
+  RowBody,
+  Status,
+  useRetry,
+} from '../settings/parts.tsx';
 import {
   CapChain,
   CapsForm,
@@ -66,7 +75,10 @@ import { sectionsStrings } from './sections.strings.ts';
 export function ProjectNotes({ p }: { p: ProjectView }) {
   const s = sectionsStrings().notes;
   const [notes, setNotes] = useState<VaultNoteSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  /** The overview cuts a very large vault: the list may miss notes of this project (W-37). */
+  const [capped, setCapped] = useState(false);
+  const [attempt, retry] = useRetry(() => setFailed(false));
   const area = p.vaultArea;
   useEffect(() => {
     let alive = true;
@@ -74,6 +86,7 @@ export function ProjectNotes({ p }: { p: ProjectView }) {
       .overview()
       .then((o) => {
         if (!alive) return;
+        setCapped(o.total > o.notes.length);
         const prefix = `${area}/`.toLowerCase();
         setNotes(
           o.notes
@@ -81,11 +94,11 @@ export function ProjectNotes({ p }: { p: ProjectView }) {
             .sort((a, b) => b.updated.localeCompare(a.updated)),
         );
       })
-      .catch((err: unknown) => alive && setError(describeError(err)));
+      .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
     };
-  }, [area]);
+  }, [area, attempt]);
 
   return (
     <Group
@@ -104,16 +117,14 @@ export function ProjectNotes({ p }: { p: ProjectView }) {
         </a>
       }
     >
-      {error && (
+      {failed && (
         <li>
           <RowBody>
-            <p className="text-footnote text-stop-ink" role="alert">
-              {error}
-            </p>
+            <LoadFailed what={s.what} onRetry={retry} />
           </RowBody>
         </li>
       )}
-      {!error && notes === null && (
+      {!failed && notes === null && (
         <li>
           <RowBody>
             <p className="label text-ink-muted">{sectionsStrings().loading}</p>
@@ -148,6 +159,15 @@ export function ProjectNotes({ p }: { p: ProjectView }) {
           </a>
         </li>
       ))}
+      {capped && (
+        <li>
+          <RowBody>
+            <p className="text-footnote text-ink-muted" data-testid="project-notes-capped">
+              {s.capped}
+            </p>
+          </RowBody>
+        </li>
+      )}
     </Group>
   );
 }
@@ -443,16 +463,7 @@ export function ProjectLinks({
         {failed && (
           <li>
             <RowBody>
-              <div
-                role="alert"
-                data-testid="project-links-error"
-                className="flex flex-wrap items-center gap-x-4 gap-y-2 text-body text-stop-ink"
-              >
-                <span>{s.failed}</span>
-                <Button size="sm" variant="secondary" onClick={retry}>
-                  {s.retry}
-                </Button>
-              </div>
+              <LoadFailed what={s.what} onRetry={retry} testId="project-links-error" />
             </RowBody>
           </li>
         )}
@@ -565,6 +576,10 @@ export function ProjectSpend({
   const [team, setTeam] = useState<SpendView | null>(null);
   const [failed, setFailed] = useState(false);
   const [round, setRound] = useState(0);
+  const retryRead = () => {
+    setFailed(false);
+    setRound((r) => r + 1);
+  };
   useEffect(() => {
     let alive = true;
     const api = getApi();
@@ -581,13 +596,7 @@ export function ProjectSpend({
     };
   }, [p.id, round]);
 
-  if (failed) {
-    return (
-      <p className="px-1 text-footnote text-ink-muted" role="status">
-        {s.failed}
-      </p>
-    );
-  }
+  if (failed) return <LoadFailed what={s.what} onRetry={retryRead} />;
   if (!view) return <p className="label px-1 text-ink-muted">{sectionsStrings().loading}</p>;
 
   const saveProject = async (caps: { dailyEur: number | null; monthlyEur: number | null }) => {

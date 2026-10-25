@@ -342,6 +342,37 @@ export function LoadNotice({
 }
 
 /**
+ * A first read that failed (U2-25, U2-27): "Couldn't load the limits." and "Try again", which runs
+ * the read again. One voice for every module that reads something; `what` reads after "load".
+ */
+export function LoadFailed({
+  what,
+  onRetry,
+  testId = 'load-failed',
+}: {
+  what: string;
+  onRetry: () => void;
+  testId?: string;
+}) {
+  return <LoadNotice text={partsStrings().loadFailed(what)} onRetry={onRetry} testId={testId} />;
+}
+
+/**
+ * Reading again on demand: `attempt` goes in the dependencies of the effect that reads, and
+ * `retry` is what "Try again" calls (`onRetry` runs first, to clear the failure).
+ */
+export function useRetry(onRetry?: () => void): [attempt: number, retry: () => void] {
+  const [attempt, setAttempt] = useState(0);
+  return [
+    attempt,
+    () => {
+      onRetry?.();
+      setAttempt((n) => n + 1);
+    },
+  ];
+}
+
+/**
  * A button with a confirmation in place ("Disconnect"): the first press asks, the
  * second does it; "Cancel" goes back.
  */

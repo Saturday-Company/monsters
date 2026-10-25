@@ -4,7 +4,7 @@ import {
   type ClaudeConnectionsResponse,
   type Lang,
 } from '@monsters/shared';
-import { MemoryOwnResponseSchema, type MemoryOwnResponse } from '@monsters/shared';
+import { formatNumber, MemoryOwnResponseSchema, type MemoryOwnResponse } from '@monsters/shared';
 import { LogArchiveStatusSchema, type LogArchiveStatus } from '@monsters/shared';
 import {
   McpOAuthFinishResponseSchema,
@@ -202,6 +202,9 @@ export class ApiError extends Error {
   }
 }
 
+/** The limit in a validator's "too long" message (zod: "Too big: expected string to have <=20000 characters"). */
+const TOO_BIG = /too big: expected string to have <=\s*(\d+)\s*characters/i;
+
 /** Friendly text for an error, in the app's language, ready to show in the UI. */
 export function describeError(err: unknown): string {
   const s = apiStrings();
@@ -268,8 +271,15 @@ export function describeError(err: unknown): string {
         return own ?? s.invalidServer;
       case 'invalid_folder':
         return own ?? s.invalidFolder;
-      case 'invalid_request':
+      case 'invalid_request': {
+        // A text past its limit ("text: Too big: expected string to have <=20000 characters"):
+        // said in the app's words, with the limit, not in the validator's.
+        const limit = own ? TOO_BIG.exec(own)?.[1] : undefined;
+        if (limit) return s.tooLong(formatNumber(Number(limit)));
         return own ? s.invalidRequestWith(own) : s.invalidRequest;
+      }
+      case 'payload_too_large':
+        return s.payloadTooLarge;
       case 'invalid_response':
         return s.invalidResponse;
       case 'file_too_large':
@@ -307,7 +317,8 @@ export function describeError(err: unknown): string {
           ? s.invalidScheduleWith(own.replace(/^(?:quando|when):\s*/, ''))
           : s.invalidSchedule;
       default:
-        return s.generic;
+        // A code we have no sentence for: the core's own words say more than "Something went wrong".
+        return own ?? s.generic;
     }
   }
   return s.generic;
@@ -511,8 +522,14 @@ export class ApiClient {
     return this.call('POST', `/api/files/${encodeURIComponent(id)}/scripts`, FileMetaSchema);
   }
 
+  /** Puts the file in the core's trash; `restoreFile` brings it back for a few seconds. */
   deleteFile(id: string): Promise<{ ok: boolean }> {
     return this.call('DELETE', `/api/files/${encodeURIComponent(id)}`, OkSchema);
+  }
+
+  /** "Undo" of a delete (U2-32). */
+  restoreFile(id: string): Promise<FileMeta> {
+    return this.call('POST', `/api/files/${encodeURIComponent(id)}/restore`, FileMetaSchema);
   }
 
   /** Where the browser loads the bytes (`content`) or the thumbnail of a file. */

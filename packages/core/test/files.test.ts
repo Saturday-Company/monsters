@@ -24,6 +24,7 @@ import {
   FILES_MARKER,
   filesDirFor,
   filesMigrations,
+  TRASH_GRACE_MS,
 } from '../src/files/store.ts';
 import { FILE_READ_PAGE_CHARS, fileReadTool } from '../src/files/tools.ts';
 import { readZipEntries, zipEntryNames } from '../src/files/zip.ts';
@@ -151,6 +152,65 @@ describe('names and paths', () => {
     expect(existsSync(join(root, a.path))).toBe(false);
     expect(files.get(a.id)).toBeUndefined();
     expect(files.delete(a.id)).toBe(false);
+  });
+
+  it('keeps a trashed file out of every read, then brings it back or removes it (U2-32)', async () => {
+    let clock = Date.UTC(2026, 9, 16, 12);
+    const { files, root } = store(() => clock);
+    const a = await files.save({ bytes: png(), name: 'foto.png', source: 'user', maxBytes: 1e6 });
+    const keep = await files.save({
+      bytes: png(),
+      name: 'altra.png',
+      source: 'user',
+      maxBytes: 1e6,
+    });
+    expect(files.usage()).toBe(a.size + keep.size);
+
+    expect(files.trash(a.id)).toBe(true);
+    expect(files.trash(a.id)).toBe(false);
+    expect(files.get(a.id)).toBeUndefined();
+    expect(files.list().map((f) => f.id)).toEqual([keep.id]);
+    expect(files.list({ ids: a.id })).toEqual([]);
+    expect(files.text(a.id)).toBeNull();
+    expect(files.usage()).toBe(keep.size);
+    // The bytes wait in place, and the name stays taken so that a restore never clashes.
+    expect(existsSync(join(root, a.path))).toBe(true);
+    const again = await files.save({
+      bytes: png(),
+      name: 'foto.png',
+      source: 'user',
+      maxBytes: 1e6,
+    });
+    expect(again.name).toBe('foto (2).png');
+
+    expect(files.restore(a.id)).toEqual(a);
+    expect(files.get(a.id)).toEqual(a);
+    expect(files.restore(a.id)).toBeUndefined();
+
+    // Past the grace the bytes are removed for good, and a restore finds nothing.
+    files.trash(a.id);
+    clock += TRASH_GRACE_MS - 1;
+    expect(files.purgeTrash()).toBe(0);
+    clock += 2;
+    expect(files.purgeTrash()).toBe(1);
+    expect(existsSync(join(root, a.path))).toBe(false);
+    expect(files.restore(a.id)).toBeUndefined();
+    expect(files.delete(a.id)).toBe(false);
+  });
+
+  it('empties the trash of a past session when the store starts', async () => {
+    const root = tempHome();
+    mkdirSync(root, { recursive: true });
+    const db = openDb(':memory:');
+    migrate(db, 'files', filesMigrations);
+    const first = new FileStore({ db, root });
+    const a = await first.save({ bytes: png(), name: 'foto.png', source: 'user', maxBytes: 1e6 });
+    first.trash(a.id);
+    expect(existsSync(join(root, a.path))).toBe(true);
+    // Same database, a new store: nobody can undo after a restart.
+    const second = new FileStore({ db, root });
+    expect(existsSync(join(root, a.path))).toBe(false);
+    expect(second.restore(a.id)).toBeUndefined();
   });
 
   it('keeps a thumbnail only when it is a real WebP', async () => {

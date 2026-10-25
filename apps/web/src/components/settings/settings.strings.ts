@@ -16,7 +16,7 @@ const en = {
     },
   },
   askAlways: {
-    failed: 'I can’t read what they always ask you. Try again in a moment.',
+    what: 'what they always ask you',
     footerBefore: 'For everything else the monsters decide: you choose who decides in ',
     footerAfter: '.',
     fixed: 'Always: it can’t be turned off.',
@@ -43,7 +43,7 @@ const it: typeof en = {
     },
   },
   askAlways: {
-    failed: 'Non riesco a leggere cosa ti chiedono sempre. Riprova tra poco.',
+    what: 'cosa ti chiedono sempre',
     footerBefore: 'Per tutto il resto decidono i mostri: chi decide lo scegli in ',
     footerAfter: '.',
     fixed: 'Sempre: non si può spegnere.',

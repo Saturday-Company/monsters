@@ -6,7 +6,7 @@ const en = {
   title: 'What the monsters can do',
   description:
     'For each monster, choose what it can use. A permission you give applies from the next job, one you take away applies right away.',
-  failed: 'I can’t read the permissions right now.',
+  what: 'the permissions',
   lead: 'your lead',
   leadGroup: 'Your lead',
   others: 'Others',
@@ -52,7 +52,7 @@ const it: typeof en = {
   title: 'Cosa possono fare i mostri',
   description:
     'Per ogni mostro scegli cosa può usare. Un permesso dato vale dal prossimo lavoro, uno tolto subito.',
-  failed: 'Non riesco a leggere i permessi adesso.',
+  what: 'i permessi',
   lead: 'il tuo capo',
   leadGroup: 'Il tuo capo',
   others: 'Altri',

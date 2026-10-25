@@ -12,7 +12,17 @@ import { domId, parseAmount } from '../../lib/utils.ts';
 import { errorText, getApi, notify } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
 import { Input } from '../ui/field.tsx';
-import { AgentMark, DisclosureRow, FormField, Group, Row, RowBody, Status } from './parts.tsx';
+import {
+  AgentMark,
+  DisclosureRow,
+  FormField,
+  Group,
+  LoadFailed,
+  Row,
+  RowBody,
+  Status,
+  useRetry,
+} from './parts.tsx';
 import { RunLimitsRow } from './RunLimitsRow.tsx';
 import { spendStrings } from './spend.strings.ts';
 
@@ -336,6 +346,7 @@ export function SpendSection() {
   const [failed, setFailed] = useState(false);
   const dailyRef = useRef<HTMLInputElement | null>(null);
 
+  const [attempt, retry] = useRetry(() => setFailed(false));
   useEffect(() => {
     let alive = true;
     getApi()
@@ -345,14 +356,9 @@ export function SpendSection() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [attempt]);
 
-  if (failed)
-    return (
-      <p className="px-1 text-footnote text-ink-muted" role="status">
-        {s.failed}
-      </p>
-    );
+  if (failed) return <LoadFailed what={s.what} onRetry={retry} />;
   if (!view) return null;
 
   const save = async (update: SpendUpdate, said: string) => {

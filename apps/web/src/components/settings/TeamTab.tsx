@@ -26,6 +26,7 @@ import {
   DisclosureRow,
   Group,
   InlineEdit,
+  LoadFailed,
   Row,
   RowBody,
   selectClass,
@@ -345,13 +346,11 @@ export function TeamTab() {
     notify(done, 'success');
   };
 
-  if (failed) {
-    return (
-      <p className="px-1 text-footnote text-ink-muted" role="status">
-        {s.failed}
-      </p>
-    );
-  }
+  const retry = () => {
+    setFailed(false);
+    load();
+  };
+  if (failed) return <LoadFailed what={s.what} onRetry={retry} />;
   if (!team || !profile) return null;
 
   const lead = team.members.find((m) => m.isOrchestrator);
