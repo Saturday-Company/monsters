@@ -115,6 +115,28 @@ test('a PDF, a note and a page of the chat; the strip keeps them', async ({ page
   await expect(dock(page)).toHaveCount(0);
 });
 
+test('a note made after the first preview resolves in the links of the next one (W-38)', async ({
+  page,
+}) => {
+  await page.goto(SCENE);
+  await open(page, { kind: 'note', path: 'Inbox/Quick idea.md' });
+  const body = dock(page).getByTestId('vault-note-body');
+  await expect(body.getByTestId('vault-link-missing')).toHaveText('Note to write');
+  // Someone writes the note the link names; the vault tells the app.
+  await page.evaluate(async () => {
+    const { vaultApi } = (await import(
+      /* @vite-ignore */ '/src/components/vault/api.ts'
+    )) as typeof import('../src/components/vault/api.ts');
+    await vaultApi.create('Inbox', 'Note to write', 'Written afterwards.');
+  });
+  await open(page, { kind: 'note', path: 'Resources/Tram 28.md' });
+  await expect(dock(page).getByTestId('preview-title')).toHaveText('Tram 28');
+  await open(page, { kind: 'note', path: 'Inbox/Quick idea.md' });
+  await expect(dock(page).getByTestId('preview-title')).toHaveText('Quick idea');
+  await expect(body.getByTestId('vault-link-missing')).toHaveCount(0);
+  await expect(body.getByRole('link', { name: 'Note to write' })).toBeVisible();
+});
+
 test('text, CSV, JSON, code and other files', async ({ page }) => {
   await page.goto(SCENE);
   await open(page, { kind: 'file', fileId: 'f-spese' });

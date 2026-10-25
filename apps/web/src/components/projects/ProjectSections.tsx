@@ -8,7 +8,6 @@ import {
   type ProjectSpendView,
   type ProjectView,
   type SpendView,
-  type VaultNoteSummary,
 } from '@monsters/shared';
 import { ArrowRight, Copy, Plus } from '@phosphor-icons/react';
 import { useEffect, useId, useState, type FormEvent } from 'react';
