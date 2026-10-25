@@ -31,6 +31,10 @@ const en = {
   summaryNeutralised: '‹summary',
   finalStepNote:
     '[System] Last step: you have no more tools. Write the report now: what you did, the notes saved, what is missing.',
+  // A harness run past a limit (D-170): every tool refused, the report asked like the last step.
+  limitWrapUp: (why: string) =>
+    `[System] Limit reached (${why}): you have no more tools. Write the report now, without tools: what you did, the notes saved and where the results are, what is missing.`,
+  agentTokensWhy: (n: number) => `your limit of ${n} tokens for this task`,
   // Tools called while they were not sent
   missedLoaded: (name: string) =>
     `${name} was waiting for \`tools_search\`: it is loaded now, call it again.`,
@@ -82,6 +86,9 @@ const it: typeof en = {
   finalStepNote:
     '[Sistema] Ultimo passo: non hai più strumenti. Scrivi ora il rapporto: cosa hai fatto, ' +
     'le note salvate, cosa manca.',
+  limitWrapUp: (why) =>
+    `[Sistema] Limite raggiunto (${why}): non hai più strumenti. Scrivi ora il rapporto, senza strumenti: cosa hai fatto, le note salvate e dove sono i risultati, cosa manca.`,
+  agentTokensWhy: (n) => `il tuo limite di ${n} token per questo compito`,
   missedLoaded: (name) => `${name} aspettava \`tools_search\`: ora è caricato, richiamalo.`,
   missedLimit: (name, max) =>
     `${name} non si può caricare: limite di ${max} strumenti caricati in questo lavoro. Non è un no dell’utente: usa gli strumenti già pronti.`,

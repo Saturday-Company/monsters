@@ -1,6 +1,7 @@
 // A fake `codex app-server` for the tests: JSON-RPC lines without the
 // `jsonrpc` field, as documented. Fake options come first:
-//   node codex.mjs --fake-record=<file> --fake-scenario=<tool|loop|hang|noinit|usage_limit|longcmd|netcmd|mcpfail> app-server …
+//   node codex.mjs --fake-record=<file> --fake-scenario=<tool|loop|hang|noinit|usage_limit|longcmd|netcmd|mcpfail|limit> app-server …
+// `--fake-wrap=obey|ignore`: what the `limit` scenario does after the core's note (D-170).
 // `--fake-answer=<text>`: the last message of the `tool` scenario (default «Fatto: <prompt>»).
 // `--fake-limits=off` leaves out the plan limits notification (D-111).
 // `longcmd`: a command that runs silent for `--fake-cmd-ms` (default 600), then prints a line.
@@ -192,6 +193,79 @@ async function netcmd() {
   });
 }
 
+/** Notes the client added to the thread (`thread/inject_items`), as they arrive. */
+const notes = [];
+let onNote = () => {};
+const nextNote = (ms) =>
+  notes.length > 0
+    ? Promise.resolve(notes.shift())
+    : new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(null), ms);
+        onNote = () => {
+          clearTimeout(timer);
+          resolve(notes.shift());
+        };
+      });
+
+/**
+ * `limit` (D-170): a call of Monsters' tool and the request that reaches the run's limit; the
+ * core's note comes before the next request. `--fake-wrap=obey` (default): one more call
+ * (refused by the core), then the report; `ignore`: calls tools until it is interrupted.
+ */
+async function limitTurn(mcpName) {
+  const url = config[`mcp_servers.${mcpName}.url`];
+  const token = process.env[config[`mcp_servers.${mcpName}.bearer_token_env_var`]];
+  const mcpCall = async (id, query) => {
+    const item = {
+      type: 'mcpToolCall',
+      id,
+      server: mcpName,
+      tool: 'vault_search',
+      arguments: { query },
+      status: 'inProgress',
+      result: null,
+      error: null,
+    };
+    notify('item/started', { threadId: thread, turnId: turn, item });
+    const called = await callMcpTool(url, token, 'vault_search', { query });
+    record({ kind: 'mcp', id, ...called });
+    const failed = Boolean(called.error || called.result?.isError);
+    notify('item/completed', {
+      threadId: thread,
+      turnId: turn,
+      item: {
+        ...item,
+        status: failed ? 'failed' : 'completed',
+        result: failed ? null : { content: called.result.content, structuredContent: null },
+        error: failed ? { message: JSON.stringify(called.result?.content ?? called.error) } : null,
+      },
+    });
+  };
+  await mcpCall('m1', 'lune');
+  tokenUsage(200, 100);
+  const note = await nextNote(2000);
+  record({ kind: 'note', note });
+  const rounds = fake.wrap === 'ignore' ? 10 : 1;
+  for (let i = 2; i <= rounds + 1; i++) {
+    await mcpCall(`m${i}`, `lune ${i}`);
+    tokenUsage(50, 5);
+  }
+  notify('item/completed', {
+    threadId: thread,
+    turnId: turn,
+    item: {
+      type: 'agentMessage',
+      id: 'a9',
+      text: 'Rapporto: 2 lune in Ricerche/Lune.md; manca la terza.',
+    },
+  });
+  tokenUsage(60, 15);
+  notify('turn/completed', {
+    threadId: thread,
+    turn: { id: turn, status: 'completed', items: [], error: null },
+  });
+}
+
 const rl = createInterface({ input: process.stdin });
 for await (const line of rl) {
   if (!line.trim()) continue;
@@ -203,6 +277,8 @@ for await (const line of rl) {
     continue;
   }
   if (msg.method === 'thread/inject_items') {
+    notes.push(msg.params);
+    onNote();
     send({ id: msg.id, result: {} });
     continue;
   }
@@ -300,6 +376,14 @@ for await (const line of rl) {
           planType: 'plus',
         },
       });
+    }
+    if (scenario === 'limit') {
+      // Not awaited: the core's note comes on this same input.
+      const mcpName = Object.keys(config)
+        .find((k) => k.startsWith('mcp_servers.') && k.endsWith('.url'))
+        .split('.')[1];
+      void limitTurn(mcpName);
+      continue;
     }
     if (scenario === 'netcmd') {
       // Not awaited here: the client's answer to the approval comes on this same input.
