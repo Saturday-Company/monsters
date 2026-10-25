@@ -240,7 +240,7 @@ export function createShellTool(options: ShellToolOptions): MonstersTool<ShellIn
       const inProject = folders.some(
         (f) => isInside(resolve(f), cwd, platform) || input.command.includes(f),
       );
-      if (inProject && commandWritesInstructions(input.command)) {
+      if (inProject && commandWritesInstructions(input.command, cwd, folders)) {
         throw new ToolError('BLOCKED_BY_POLICY', instructionFilesDenied(), {
           hint: INSTRUCTION_FILES_HINT,
         });

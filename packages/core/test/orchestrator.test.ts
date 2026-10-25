@@ -510,10 +510,14 @@ describe('orchestrator scenarios (fake provider)', () => {
     });
     const clearQueues = vi.spyOn(t.core.hub.providers, 'clearQueues');
     const sent = await t.json<Sent>('POST', '/api/messages', { text: 'Lavoro lungo' });
-    await t.waitEvent(isType('question'));
-    await t.waitEvent(
-      isType('delegation', (e) => e.data.to === 'dione' && e.data.status === 'started'),
-    );
+    // Both tasks started, in either order: each builds its brief before it starts, and under
+    // load Rhea's may come after Dione's (the test used to wait for Dione's only, then read Rhea).
+    await Promise.all([
+      t.waitEvent(isType('question')),
+      ...['rhea', 'dione'].map((to) =>
+        t.waitEvent(isType('delegation', (e) => e.data.to === to && e.data.status === 'started')),
+      ),
+    ]);
     const working = await t.json<AgentSummary[]>('GET', '/api/agents');
     expect(working.find((a) => a.id === 'rhea')).toMatchObject({
       state: 'working',

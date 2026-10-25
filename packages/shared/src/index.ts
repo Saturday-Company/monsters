@@ -2,6 +2,7 @@ export * from './agent-area.ts';
 export * from './api.ts';
 export * from './app-places.ts';
 export * from './automations.ts';
+export * from './chat-history.ts';
 export * from './claude-connections.ts';
 export * from './context.ts';
 export * from './decisions.ts';

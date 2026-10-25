@@ -1,5 +1,6 @@
 import { isAbsolute, relative, resolve } from 'node:path';
 import { toolPrompts } from '../tools.prompts.ts';
+import { commandWritesConfig } from './command-writes-config.ts';
 import { segment } from './launch-files.ts';
 
 /*
@@ -32,27 +33,21 @@ export const instructionFilesDenied = (): string => toolPrompts().instructionFil
 export const INSTRUCTION_FILES_HINT =
   'For CLAUDE.md or AGENTS.md at the top of the folder: propose the whole new text with `project_docs_propose` (load it with `tools_search` if you do not see it); the user applies it with one tap. For the other files: write what you would change in a note of the project, or tell the user.';
 
-/** Names of those files inside a command line (a word, any path before it). */
-const CONFIG_WORD =
-  /(?:^|[\s'"`=;|&(<>/\\])(?:\.claude(?:[/\\]|\b)|\.mcp\.json\b|CLAUDE(?:\.local)?\.md\b|AGENTS(?:\.override)?\.md\b|\.codex(?:[/\\]|\b))/i;
-/** A command of one segment that writes, moves or removes the files it names. */
-const WRITE_VERB =
-  /(?:^|[\s(`{]|\$\()(?:tee|cp|mv|ln|rm|rmdir|mkdir|touch|install|dd|truncate|chmod|unlink|rsync|tar|unzip|curl|wget|python3?|node|perl|ruby|sed\s+(?:[^\s;&|]+\s+)*-[a-zA-Z]*i|Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item|Remove-Item|Rename-Item)(?=\s|$)/i;
-/** A redirection into one of those files (`> CLAUDE.md`, `>> ./AGENTS.md`). */
-const REDIRECT_INTO =
-  /\d?>{1,2}\|?\s*['"]?[^\s'";&|]*(?:\.claude[/\\]|\.mcp\.json|CLAUDE(?:\.local)?\.md|AGENTS(?:\.override)?\.md|\.codex[/\\])/i;
-
 /**
- * A command line that writes, moves or removes one of those files: in one
- * segment (between `;`, `&`, `|` and new lines) a command that writes and the
- * name, or a redirection into it. Reading them (`cat AGENTS.md`, `grep x
- * CLAUDE.md 2>&1`) stays possible.
+ * A command line of the `shell` tool that writes, moves or removes one of those files, run in `cwd`
+ * of `folders`. The same brake as Claude Code's Bash (`commandWritesConfig`, D-166, D-176): it had its
+ * own coarser rules here (a write word and a name in one segment), so a copy into a folder, a glob, a
+ * backslash or `sed w` passed the native terminal while the harness refused them, and `grep -n install
+ * CLAUDE.md` was refused. Reading them (`cat AGENTS.md`, `grep x CLAUDE.md 2>&1`) stays possible.
  */
-export function commandWritesInstructions(command: string): boolean {
-  if (REDIRECT_INTO.test(command)) return true;
-  return command
-    .split(/[;&|\n]+/)
-    .some((segment) => CONFIG_WORD.test(segment) && WRITE_VERB.test(segment));
+export function commandWritesInstructions(
+  command: string,
+  cwd?: string,
+  folders: readonly string[] = [],
+): boolean {
+  return commandWritesConfig(command, {
+    ...(cwd !== undefined ? { cwd, inConfig: instructionFileIn(cwd, folders) } : {}),
+  });
 }
 
 const INSTRUCTION_NAMES = new Set(INSTRUCTION_FILES.map((f) => f.toLowerCase()));

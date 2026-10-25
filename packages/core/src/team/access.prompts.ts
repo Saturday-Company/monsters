@@ -41,6 +41,13 @@ const en = {
   serviceNotResponding: (label: string) =>
     `${label} is not responding now (sign-in expired or an error): it is reconnected in ${settingsPath('collegamenti')}`,
   serverOff: (label: string) => `${label} is off in ${settingsPath('altriProgrammi')}`,
+  // Given to the monster but none of its tools in this job (C-15): never "not responding" for these.
+  servicePaused: (label: string) =>
+    `${label} is given to you, but its tools are paused until the user accepts them (new or changed since they were accepted): the user accepts them in ${settingsPath('altriProgrammi')} (${label})`,
+  serviceCut: (label: string) =>
+    `${label} is given to you, but its tools did not fit in this job (too many tools from the apps given to you)`,
+  serviceNotListed: (label: string) =>
+    `${label} is given to you, but none of its tools is in this job (the user chooses which of its tools the monsters get in ${settingsPath('altriProgrammi')} (${label}))`,
   serviceNotGiven: (label: string) =>
     `${label} is connected to the user’s account but not given to you: the user gives it in ${settingsPath('collegamenti')}`,
   viaClaudeReconnect: (name: string) =>
@@ -116,10 +123,20 @@ const en = {
     `Tell the user to turn it on in ${settingsPath('altriProgrammi', 'Browser')}.`,
   serviceReaches: (label: string) =>
     `${label} reaches the monsters of the personal squad already when it is given to the whole team: if its tools are missing, it is not signed in (${settingsPath('collegamenti')}).`,
-  serviceYours: (label: string, prefix: string, unlinked: boolean) =>
-    unlinked
+  serviceYours: (label: string, prefix: string, paused: readonly string[]) =>
+    `${label} is yours already: its tools are yours in this job (\`${prefix}…\`, call them by name or find them with \`tools_search\`). No card was shown to the user: go on with the work.` +
+    (paused.length > 0
+      ? ` Paused until the user accepts them, so not in this job: ${paused.join(', ')} (${settingsPath('altriProgrammi')} (${label})).`
+      : ''),
+  /** The service is given to the monster, but this job holds none of its tools (C-15). */
+  serviceNotHeld: (label: string, why: 'unlinked' | 'paused' | 'cut' | 'unlisted') =>
+    why === 'unlinked'
       ? `${label} is yours already, but it is not responding now (sign-in expired or an error): tell the user to reconnect it in ${settingsPath('collegamenti')}. No card was shown.`
-      : `${label} is yours already: its tools are yours in this job (\`${prefix}…\`, call them by name or find them with \`tools_search\`). No card was shown to the user: go on with the work.`,
+      : why === 'paused'
+        ? `${label} is given to you, but none of its tools is in this job: they are paused until the user accepts them (new or changed since they were accepted). Tell the user to accept them in ${settingsPath('altriProgrammi')} (${label}); they come with your next job. No card was shown.`
+        : why === 'cut'
+          ? `${label} is given to you, but its tools did not fit in this job (too many tools from the apps given to you): tell the user, who can give you fewer apps or fewer of their tools in ${settingsPath('altriProgrammi')} (${label}). No card was shown.`
+          : `${label} is given to you, but none of its tools is in this job (the user chooses which of its tools the monsters get, in ${settingsPath('altriProgrammi')} (${label})): tell the user which one you need. No card was shown.`,
   serviceOnAlready: (label: string, project: string, viaClaude: boolean) =>
     `${label} is on for “${project}” already. If its tools are missing, the user signs in again in ${settingsPath('collegamenti')}${viaClaude ? ' (and only monsters working with Claude get it)' : ''}.`,
   onlyUserChanges: (where: string, user: string) =>
@@ -167,6 +184,12 @@ const it: typeof en = {
   serviceNotResponding: (label) =>
     `${label} non risponde ora (accesso scaduto o un errore): si ricollega in Impostazioni → Collegamenti`,
   serverOff: (label) => `${label} è spento in Impostazioni → Collegamenti → App e servizi`,
+  servicePaused: (label) =>
+    `${label} è dato a te, ma i suoi strumenti sono in pausa finché l’utente non li accetta (nuovi o cambiati da quando li ha accettati): li accetta in Impostazioni → Collegamenti → App e servizi (${label})`,
+  serviceCut: (label) =>
+    `${label} è dato a te, ma i suoi strumenti non sono entrati in questo lavoro (troppi strumenti dalle app che hai)`,
+  serviceNotListed: (label) =>
+    `${label} è dato a te, ma nessuno dei suoi strumenti è in questo lavoro (l’utente sceglie quali suoi strumenti hanno i mostri in Impostazioni → Collegamenti → App e servizi (${label}))`,
   serviceNotGiven: (label) =>
     `${label} è collegato all’account dell’utente ma non è dato a te: lo dà l’utente in Impostazioni → Collegamenti`,
   viaClaudeReconnect: (name) =>
@@ -238,10 +261,19 @@ const it: typeof en = {
     'Tell the user to turn it on in Impostazioni → Collegamenti → App e servizi → Browser.',
   serviceReaches: (label) =>
     `${label} reaches the monsters of the personal squad already when it is given to the whole team: if its tools are missing, it is not signed in (Impostazioni → Collegamenti).`,
-  serviceYours: (label, prefix, unlinked) =>
-    unlinked
+  serviceYours: (label, prefix, paused) =>
+    `${label} is yours already: its tools are yours in this job (\`${prefix}…\`, call them by name or find them with \`tools_search\`). No card was shown to the user: go on with the work.` +
+    (paused.length > 0
+      ? ` Paused until the user accepts them, so not in this job: ${paused.join(', ')} (Impostazioni → Collegamenti → App e servizi (${label})).`
+      : ''),
+  serviceNotHeld: (label, why) =>
+    why === 'unlinked'
       ? `${label} is yours already, but it is not responding now (sign-in expired or an error): tell the user to reconnect it in Impostazioni → Collegamenti. No card was shown.`
-      : `${label} is yours already: its tools are yours in this job (\`${prefix}…\`, call them by name or find them with \`tools_search\`). No card was shown to the user: go on with the work.`,
+      : why === 'paused'
+        ? `${label} is given to you, but none of its tools is in this job: they are paused until the user accepts them (new or changed since they were accepted). Tell the user to accept them in Impostazioni → Collegamenti → App e servizi (${label}); they come with your next job. No card was shown.`
+        : why === 'cut'
+          ? `${label} is given to you, but its tools did not fit in this job (too many tools from the apps given to you): tell the user, who can give you fewer apps or fewer of their tools in Impostazioni → Collegamenti → App e servizi (${label}). No card was shown.`
+          : `${label} is given to you, but none of its tools is in this job (the user chooses which of its tools the monsters get, in Impostazioni → Collegamenti → App e servizi (${label})): tell the user which one you need. No card was shown.`,
   serviceOnAlready: (label, project, viaClaude) =>
     `${label} is on for «${project}» already. If its tools are missing, the user signs in again in Impostazioni → Collegamenti${viaClaude ? ' (and only monsters working with Claude get it)' : ''}.`,
   onlyUserChanges: (where, user) => `Only the user changes who uses it, in ${where}: tell ${user}.`,

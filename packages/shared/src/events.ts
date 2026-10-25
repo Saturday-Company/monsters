@@ -456,6 +456,17 @@ export const ErrorDataSchema = z.object({
     .optional(),
 });
 
+/**
+ * Something Monsters did or found on its own that is not a failure (the leftover of C-11): a retired
+ * model replaced, an old setting dropped, semantic search not installed, the tools of a server cut
+ * at the cap. Activity shows it as an information line, never among the errors.
+ */
+export const NoticeDataSchema = z.object({
+  message: z.string(),
+  code: z.string().optional(),
+});
+export type NoticeData = z.infer<typeof NoticeDataSchema>;
+
 export const KillScopeSchema = z.enum(['global', 'run', 'agent', 'tool']);
 export type KillScope = z.infer<typeof KillScopeSchema>;
 
@@ -965,6 +976,7 @@ export const EventDataSchemas = {
   vault_change: VaultChangeDataSchema,
   provider_usage: ProviderUsageDataSchema,
   error: ErrorDataSchema,
+  notice: NoticeDataSchema,
   kill: KillDataSchema,
   resume: ResumeDataSchema,
   run: RunDataSchema,
@@ -1038,6 +1050,7 @@ export const EventInputSchema = z.discriminatedUnion('type', [
   inputVariant('vault_change'),
   inputVariant('provider_usage'),
   inputVariant('error'),
+  inputVariant('notice'),
   inputVariant('kill'),
   inputVariant('resume'),
   inputVariant('run'),
@@ -1081,6 +1094,7 @@ export const LogEventSchema = z.discriminatedUnion('type', [
   storedVariant('vault_change'),
   storedVariant('provider_usage'),
   storedVariant('error'),
+  storedVariant('notice'),
   storedVariant('kill'),
   storedVariant('resume'),
   storedVariant('run'),

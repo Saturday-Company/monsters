@@ -2,13 +2,15 @@ import { initNewsSeen } from './news.ts';
 import { dropNotice, pushNotice } from './notice-queue.ts';
 import {
   appLang,
+  chatAroundQueries,
+  chatHistoryMerge,
+  chatOwnQuery,
   DRAFT_EVENT_TYPES,
   onAppLang,
   setVaultLayout,
   type AgentSummary,
   type Lang,
   type AnswerRequest,
-  type EventType,
   type LogEvent,
   type Question,
   type StatusResponse,
@@ -156,38 +158,6 @@ const INITIAL: AppState = {
 
 export const HISTORY_PAGE = 400;
 
-/** One page of a chat's own history: its monster's events, of every kind (W-1). */
-export const CHAT_PAGE = 300;
-/** The pages of what the chats of other monsters bring along (delegations, questions…). */
-export const AROUND_PAGE = 1000;
-
-/**
- * What a chat shows besides its own monster's events: a task given by the lead, a question
- * asked by a monster working for this chat, a file, a stop, a receipt… They are rare
- * kinds, so one page of them covers a long time (the streamed words are never among them).
- */
-export const CHAT_TYPES: readonly EventType[] = [
-  'run',
-  'delegation',
-  'question',
-  'answer',
-  'question_expired',
-  'question_parked',
-  'new_conversation',
-  'kill',
-  'resume',
-  'instinct',
-  'security',
-  'spend',
-  'monster_proposal',
-  'preview',
-  'file',
-  'project_report',
-  'receipt',
-  'vault_change',
-  'error',
-];
-
 /** The history a chat loaded on its own (W-1). */
 export interface ChatHistory {
   /** Everything of this chat newer than this id is loaded (null: from the newest). */
@@ -270,6 +240,8 @@ const keptHeld = new Set<string>();
 const choiceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 /** A chat's page of history being loaded, by monster. */
 const chatLoads = new Map<string, Promise<number>>();
+/** The core has `GET /api/chats/:agent/history` (false after its 404: a core of before it). */
+let chatRoute = true;
 /** Moves on at every sign-out: an answer of the session before is dropped. */
 let sessionSeq = 0;
 
@@ -666,6 +638,7 @@ function clearModuleState(): void {
   for (const t of choiceTimers.values()) clearTimeout(t);
   choiceTimers.clear();
   chatLoads.clear();
+  chatRoute = true;
   sessionSeq++;
   resetLists();
 }
@@ -882,10 +855,31 @@ function setChat(agentId: string, h: ChatHistory): void {
 }
 
 /**
+ * One page of a chat's history: one request to the core, which chooses what the chat shows
+ * (`GET /api/chats/:agent/history`). A core without that route answers 404 (the web UI is served
+ * by its own core, so only a development UI in front of an older core meets one): then the same
+ * rule over `/api/events`, in three requests, as before.
+ */
+async function chatPage(
+  agentId: string,
+  before: string | undefined,
+): Promise<{ events: LogEvent[]; floor: string | null; own: number }> {
+  const c = client();
+  if (chatRoute) {
+    const page = await c.chatHistory(agentId, before);
+    if (page) return page;
+    chatRoute = false;
+  }
+  const own = await c.events(chatOwnQuery(agentId, before));
+  const [around, words] = await Promise.all(chatAroundQueries(own, before).map((q) => c.events(q)));
+  return chatHistoryMerge(own, around!, words!);
+}
+
+/**
  * The next page of one chat's history (W-1): the events of its monster, of every kind, and
- * in the same span what the chat shows of the others (`CHAT_TYPES`) and the user's
- * messages. The chat is then complete down to the newest edge of the pages that were cut.
- * Resolves to how many events of its monster came; 0 when there is nothing older.
+ * in the same span what the chat shows of the others and the user's messages. The chat is then
+ * complete down to the newest edge of the pages that were cut. Resolves to how many events of
+ * its monster came; 0 when there is nothing older.
  */
 export function loadChatOlder(agentId: string): Promise<number> {
   const running = chatLoads.get(agentId);
@@ -895,25 +889,13 @@ export function loadChatOlder(agentId: string): Promise<number> {
   const at = sessionSeq;
   const job = (async () => {
     setChat(agentId, { ...cur, loading: true });
-    const c = client();
     try {
-      const range = cur.before ? { before: cur.before } : {};
-      const own = await c.events({ agent: [agentId], limit: CHAT_PAGE, order: 'desc', ...range });
-      const cut = own.length >= CHAT_PAGE ? own.at(-1)!.id : null;
-      const span = { ...range, ...(cut ? { after: cut } : {}), order: 'desc' as const };
-      const [around, words] = await Promise.all([
-        c.events({ ...span, type: [...CHAT_TYPES], limit: AROUND_PAGE }),
-        c.events({ ...span, agent: ['user'], type: ['message'], limit: AROUND_PAGE }),
-      ]);
+      const page = await chatPage(agentId, cur.before ?? undefined);
       if (at !== sessionSeq) return 0;
-      let floor = cut;
-      for (const page of [around, words]) {
-        const edge = page.length >= AROUND_PAGE ? page.at(-1)!.id : null;
-        if (edge && (floor === null || edge > floor)) floor = edge;
-      }
-      ingest([...own, ...around, ...words], { history: true });
+      const { floor } = page;
+      ingest(page.events, { history: true });
       setChat(agentId, { before: floor ?? cur.before, hasOlder: floor !== null, loading: false });
-      return own.length;
+      return page.own;
     } catch (err) {
       if (at === sessionSeq) setChat(agentId, { ...cur, loading: false });
       throw err;

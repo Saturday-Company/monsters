@@ -1,5 +1,6 @@
 import {
   AnswerRequestSchema,
+  chatHistoryPage,
   KillRequestSchema,
   LoginRequestSchema,
   NewConversationRequestSchema,
@@ -459,6 +460,12 @@ export class MockCore {
     for (const run of waiting) run();
   }
 
+  /** Test hook: every request, as "METHOD /path?query" (the newest 1000), to count them. */
+  requests: string[] = [];
+
+  /** Test hook: answer as a core of before `GET /api/chats/:agent/history` (404). */
+  withoutChatHistory = false;
+
   /** Requests that fail on purpose (`failRequests`): the text they must contain, how many are left. */
   private failures: { match: string; times: number }[] = [];
 
@@ -601,6 +608,8 @@ export class MockCore {
     const url = new URL(rawPath, 'http://mock.local');
     const path = url.pathname;
     const route = `${method} ${path}`;
+    this.requests.push(`${route}${url.search}`);
+    if (this.requests.length > 1000) this.requests.shift();
 
     switch (route) {
       case 'GET /api/health':
@@ -696,6 +705,21 @@ export class MockCore {
     const projects = this.projects.handle(method, path, body);
     if (projects) return projects;
     if (path.startsWith('/api/drafts')) return this.drafts(method, path);
+    // One page of a chat's history in one request, as the core does it (same rule, shared).
+    const chat = /^\/api\/chats\/([^/]+)\/history$/.exec(path);
+    if (method === 'GET' && chat && !this.withoutChatHistory) {
+      const before = url.searchParams.get('before') ?? undefined;
+      return ok(
+        chatHistoryPage(decodeURIComponent(chat[1]!), before, (q) => {
+          const params = new URLSearchParams({ limit: String(q.limit), order: q.order });
+          if (q.agent) params.set('agent', q.agent.join(','));
+          if (q.type) params.set('type', q.type.join(','));
+          if (q.before) params.set('before', q.before);
+          if (q.after) params.set('after', q.after);
+          return this.queryEvents(params);
+        }),
+      );
+    }
 
     switch (route) {
       case 'GET /api/me':

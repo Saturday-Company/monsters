@@ -110,6 +110,11 @@ describe('instruction files of a project folder (D-103)', () => {
       'mkdir .codex',
       "sed -i 's/a/b/' CLAUDE.md",
       "python3 -c \"open('CLAUDE.md','w').write(1)\"",
+      // The same brake as Claude Code's Bash now (D-166, D-176): these passed the native terminal.
+      'cp ../modello/CLAUDE.md .',
+      "sed -n 'w.claude/x' note.md",
+      'rm C\\LAUDE.md',
+      'echo x > CLAU*',
     ]) {
       expect(commandWritesInstructions(c), c).toBe(true);
     }
@@ -120,9 +125,22 @@ describe('instruction files of a project folder (D-103)', () => {
       'cat CLAUDE.md | head -20 > /tmp/estratto.txt',
       'git status',
       'echo ciao > note.txt',
+      // Refused by the old rules (a write word anywhere in the segment).
+      'grep -n install CLAUDE.md',
+      'cat CLAUDE.md | head; node -v',
     ]) {
       expect(commandWritesInstructions(c), c).toBe(false);
     }
+    // Run inside a configuration folder of the project (`cwd: ".claude"`): any write is one.
+    const project = tempDir();
+    mkdirSync(join(project, '.claude'));
+    expect(commandWritesInstructions('rm settings.json', join(project, '.claude'), [project])).toBe(
+      true,
+    );
+    expect(commandWritesInstructions('ls', join(project, '.claude'), [project])).toBe(false);
+    expect(commandWritesInstructions('rm -rf *', project, [project])).toBe(false);
+    writeFileSync(join(project, 'AGENTS.md'), '');
+    expect(commandWritesInstructions('rm -rf *', project, [project])).toBe(true);
   });
 
   it('fs_write, fs_move and fs_delete refuse them, other files of the folder are free', async () => {

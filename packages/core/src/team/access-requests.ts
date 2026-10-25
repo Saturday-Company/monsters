@@ -108,6 +108,11 @@ export interface AccessRequestsOptions {
     allowed?(agentId: string, server: string): boolean;
     /** The labels of its servers that are not responding (`McpManager.unlinkedFor`). */
     unlinkedFor?(agent: AgentDefinition): string[];
+    /** Why a server given to it has no tool in its run (`McpManager.missingWhy`, C-15). */
+    missingWhy?(
+      agentId: string,
+      server: string,
+    ): 'unlinked' | 'paused' | 'cut' | 'unlisted' | undefined;
   };
   /** The services through Claude (`ClaudeConnectionService.view`). */
   claude: () => ClaudeConnectionsResponse;
@@ -153,6 +158,11 @@ export interface AccessToolContext {
   self: AgentDefinition;
   /** How long a native run holds the request (0 on a harness: it parks at once, D-078). */
   waitMs?: () => number;
+  /**
+   * The names of the tools this run holds (`mcp__<server>__<tool>` among them): "it is yours"
+   * only when the run has a tool of the service, never from the setting alone (C-15).
+   */
+  toolNames?: () => readonly string[];
 }
 
 /** What the model reads when its request is parked: the answer starts a new turn. */
@@ -336,7 +346,7 @@ export class AccessRequests {
       description: accessPrompts().toolDescription(accessStrings().grant, accessStrings().deny),
       inputSchema: Input,
       execute: async (input, tc) => {
-        const plan = this.#plan(ctx.self, input);
+        const plan = this.#plan(ctx, input);
         if ('done' in plan) return { status: 'already', note: plan.done };
         const user = this.#o.userName?.()?.trim() || accessPrompts().theUser;
         const question = this.#o.questions.create({
@@ -406,10 +416,11 @@ export class AccessRequests {
    * for what cannot be asked (with where the user does it).
    */
   #plan(
-    self: AgentDefinition,
+    ctx: AccessToolContext,
     input: z.infer<typeof Input>,
   ): { steps: AccessStep[]; summary: string; changes: string } | { done: string } {
     const { team } = this.#o;
+    const { self } = ctx;
     const isOrchestrator = self.config.kind === 'orchestrator';
     const own = team.projectOf(self.config.id);
     if (!isOrchestrator && !(self.config.kind === 'lead' && own)) {
@@ -457,6 +468,17 @@ export class AccessRequests {
       const p = team.projectOf(who.config.id);
       const steps = this.#webSteps(who, p);
       if (steps.length === 0) {
+        // The permission is on, but a capo whose squad has researchers does not search itself
+        // (D-026, D-161): "it gets web_search" would be false (C-15).
+        if (!who.config.tools.includes('web_search')) {
+          const by = team
+            .members(p?.id)
+            .filter((d) => d.config.id !== who.config.id && d.config.tools.includes('web_search'))
+            .map((d) => d.config.name);
+          return {
+            done: `${who.config.name} has the web permission already, but by its role it ${who.config.tools.includes('web_fetch') ? 'only reads pages' : 'does not use the web'}: the searches go to ${by.length > 0 ? formatList(by) : 'its squad'} (delegate them). Nothing to ask.`,
+          };
+        }
         return {
           done: `${who.config.name} has the web already: it gets web_search and web_fetch at every job (delegate again if it said otherwise).`,
         };
@@ -477,8 +499,21 @@ export class AccessRequests {
         (!input.project?.trim() || project?.id === own?.id);
       const mine = forSelf ? this.#serverOf(name) : undefined;
       if (mine && this.#o.mcp.allowed?.(self.config.id, mine.name)) {
+        // Given by the settings is not held by this run (C-15): paused tools, the tools cap,
+        // the server's own list or a sign-in leave the run without them, and "it is yours"
+        // would leave the monster with no tool and no way to the user.
+        const prefix = `mcp__${mine.name}__`;
         const unlinked = this.#o.mcp.unlinkedFor?.(self).includes(mine.label) ?? false;
-        return { done: accessPrompts().serviceYours(mine.label, `mcp__${mine.name}__`, unlinked) };
+        const names = ctx.toolNames?.();
+        const held = names ? names.some((n) => n.startsWith(prefix)) : !unlinked;
+        if (held) {
+          const paused = (mine.pausedTools ?? []).map((p) => p.name);
+          return { done: accessPrompts().serviceYours(mine.label, prefix, paused) };
+        }
+        const why = unlinked
+          ? 'unlinked'
+          : (this.#o.mcp.missingWhy?.(self.config.id, mine.name) ?? 'unlisted');
+        return { done: accessPrompts().serviceNotHeld(mine.label, why) };
       }
       const found = this.#findService(name);
       if (!project) {

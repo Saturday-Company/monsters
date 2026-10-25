@@ -68,6 +68,24 @@ function deps(over: Partial<AccessStateDeps> = {}, web = true): AccessStateDeps 
 }
 
 describe('accessState', () => {
+  // C-15: a server given to the monster but missing from the run says the cause the run had;
+  // "not responding" only for a server that is not answering (or a core that cannot tell).
+  it.each([
+    ['unlinked', 'Notion non risponde ora'],
+    ['paused', 'i suoi strumenti sono in pausa finché l’utente non li accetta'],
+    ['cut', 'non sono entrati in questo lavoro'],
+    ['unlisted', 'nessuno dei suoi strumenti è in questo lavoro'],
+    [undefined, 'Notion non risponde ora'],
+  ] as const)('a given server not in the run, because %s', (missing, why) => {
+    const state = accessState(
+      deps({ allowed: () => true, ...(missing ? { missingWhy: () => missing } : {}) }),
+      { agent: pixel, runId: 'r', toolNames: ['vault_read'] },
+    );
+    const notion = state.services.find((s) => s.name === 'Notion');
+    expect(notion).toMatchObject({ has: false, off: true });
+    expect(notion!.why).toContain(why);
+  });
+
   it('Luna of 19/10: no web for D-026, Canva and Notion not ticked in the project', () => {
     const state = accessState(deps(), {
       agent: luna,

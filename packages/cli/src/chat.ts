@@ -149,6 +149,8 @@ function describeEvent(
     case 'error':
       if (e.data.code === 'aborted') return null;
       return `! ${who}: ${e.data.message}`;
+    case 'notice':
+      return `  i ${e.data.message}`;
     case 'kill':
       return `■ kill switch (${e.data.by})${e.data.reason ? `: ${e.data.reason}` : ''}`;
     default:

@@ -1,6 +1,8 @@
 import {
   appLang,
+  chatHistoryPage,
   vaultLayout,
+  ChatHistoryQuerySchema,
   ConfirmRequestSchema,
   EventTypeSchema,
   EventsQuerySchema,
@@ -15,6 +17,7 @@ import {
   SESSION_SECRET_HEADER,
   SetupRequestSchema,
   type Channel,
+  type ChatHistoryResponse,
   type EventType,
   type StatusResponse,
   type StoppedRequest,
@@ -743,6 +746,19 @@ export function createApp(deps: AppDeps): Hono<Env> {
       order: q.order,
     });
     return c.json({ events });
+  });
+
+  // One page of a chat's history in one request (D-173 made three; the chat's types are chosen
+  // here, not by the client). An unknown monster is an empty chat, not a 404: a 404 means a core
+  // without this route, and the client falls back to `/api/events`.
+  app.get('/api/chats/:agent/history', requireAuth, (c) => {
+    const agent = c.req.param('agent');
+    const parsed = ChatHistoryQuerySchema.safeParse(c.req.query());
+    if (!parsed.success || agent.length > 64) return c.json({ error: 'invalid_request' }, 400);
+    const page = chatHistoryPage(agent, parsed.data.before, (q) =>
+      log.query({ ...q, type: q.type as EventType[] | undefined }),
+    );
+    return c.json(page satisfies ChatHistoryResponse);
   });
 
   deps.extend?.(app, {

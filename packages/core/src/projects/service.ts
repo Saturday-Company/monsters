@@ -348,7 +348,7 @@ export class ProjectService {
       if (!p) continue;
       log.append({
         agent: 'system',
-        type: 'error',
+        type: 'notice',
         data: {
           code: 'project_connections_reset',
           message: strings.connectionsReset(old.name, old.allowed.join(', ') || strings.none),
@@ -371,7 +371,7 @@ export class ProjectService {
       if (stale.length === 0) continue;
       log.append({
         agent: 'system',
-        type: 'error',
+        type: 'notice',
         data: {
           code: 'project_connections_stale',
           message: strings.connectionsStale(p.name, stale.join(', ')),

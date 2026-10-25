@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { commandWritesConfig } from '../src/agents/command-writes-config.ts';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { commandWritesConfig } from '../src/system/command-writes-config.ts';
+import { tempDir } from './system-helpers.ts';
 
 // The harness configuration is never written by a monster's terminal (D-079), but reading it is allowed:
 // a command is judged on its own, not by the words that happen to be elsewhere on the line (D-166).
@@ -109,8 +112,21 @@ const PASS = [
   'echo hi > out.txt',
   'node -e "console.log(1)"',
   'echo ' + '7'.repeat(2_000),
-  'rm -rf dist/*',
   'echo x > {a,b}.txt',
+  // A write command of a script that only looks like one, and readers kept to reading.
+  "sed -n '/w/p' CLAUDE.md",
+  "sed 's/w/x/; s/a/b/g' CLAUDE.md",
+  "sed 'y/abcw/xyzv/' AGENTS.md",
+  'echo w.claude',
+  'less +G CLAUDE.md',
+  'less +/Rules CLAUDE.md',
+  'more +20 AGENTS.md',
+  'view CLAUDE.md',
+  'view -R +12 AGENTS.md',
+  'bat --paging=never CLAUDE.md',
+  'sort -u CLAUDE.md',
+  'rg --pretty foo CLAUDE.md',
+  'tar -czf /tmp/backup.tgz -C . CLAUDE.md',
 ];
 
 const BLOCKED = [
@@ -318,6 +334,51 @@ const BLOCKED = [
   'mv *.md docs/',
   'rm -rf .c*',
   'touch {x,y}/CLAUDE.md',
+  // A last segment of wildcards can be CLAUDE.md: without the folder, the pattern decides.
+  'rm -rf dist/*',
+  'cd $D && rm *',
+  'mv ./* /tmp/old/',
+  'rm -f ?????????',
+  // The files a `sed` script writes, glued to its command (the leftover of C-18).
+  "sed 'w.claude/x' notes.md",
+  "sed -n '1w.claude/settings.json' notes.md",
+  "sed -n '$W.codex/config.toml' notes.md",
+  "sed -n '/x/w.mcp.json' notes.md",
+  "sed 's/a/b/w.claude/x' notes.md",
+  "sed 's/a/b/gw.claude/x' notes.md",
+  "sed 's/a/b/2pw.claude/x' notes.md",
+  "sed -e p -e 'w.claude/x' notes.md",
+  "sed --expression='w.claude/x' notes.md",
+  "sed -n '1{w.claude/x\n}' notes.md",
+  "sed -i'.claude/*' s/a/b/ notes.md",
+  'sed --in-place=.claude/* s/a/b/ notes.md',
+  // Other ways a "reading" program writes a file or runs one (the family of the leftover).
+  "ed -s notes.md <<< 'w.claude/x'",
+  "vim -es -c 'w!.claude/x' -c q notes.md",
+  "view -c 'w! CLAUDE.md' notes.md",
+  "view +'w CLAUDE.md' notes.md",
+  'view -W .claude/x notes.md',
+  "less '+!rm CLAUDE.md' notes.md",
+  "less '+|tee CLAUDE.md' notes.md",
+  "less '+s CLAUDE.md' notes.md",
+  "more '+!touch AGENTS.md' notes.md",
+  "bat --pager 'tee CLAUDE.md' notes.md",
+  "ag --pager 'tee CLAUDE.md' foo",
+  'rg --hostname-bin ./x.sh foo CLAUDE.md',
+  'sort --compress-program=./x.sh CLAUDE.md',
+  'tar -cf /tmp/x.tar -I ./x.sh CLAUDE.md',
+  'tar --use-compress-program=./x.sh -cf /tmp/x.tar CLAUDE.md',
+  'tar -cf /tmp/x.tar --checkpoint-action=exec=./x.sh CLAUDE.md',
+  'awk \'{ print > ".claude/x" }\' notes.md',
+  'awk \'{ printf "%s", $0 >> "CLAUDE.md" }\' notes.md',
+  'find . -name x -fprint .claude/x',
+  'find . -fls CLAUDE.md',
+  'dd if=notes.md of=.claude/x',
+  'printf x | tee -a .claude/x',
+  "perl -pi'.claude/*' -e 1 notes.md",
+  'bash -c "echo x>.claude/x"',
+  "sh -c 'cat notes.md >> CLAUDE.md'",
+  'git diff --output=.claude/x',
 ];
 
 describe('commandWritesConfig (D-079, D-166)', () => {
@@ -330,13 +391,7 @@ describe('commandWritesConfig (D-079, D-166)', () => {
   });
 
   it('only looks at lines that name the configuration', () => {
-    for (const c of [
-      'rm -rf build',
-      'node -e "1"',
-      'echo x > out.txt',
-      'eval "$X"',
-      'cd $D && rm *',
-    ]) {
+    for (const c of ['rm -rf build', 'node -e "1"', 'echo x > out.txt', 'eval "$X"']) {
       expect(commandWritesConfig(c), c).toBe(false);
     }
   });
@@ -357,11 +412,81 @@ describe('commandWritesConfig (D-079, D-166)', () => {
       '-o'.repeat(50_000) + 'CLAUDE.md',
     ];
     for (const s of shapes) {
-      const t0 = performance.now();
-      commandWritesConfig(s);
-      expect(performance.now() - t0, s.slice(0, 40)).toBeLessThan(500);
+      // Also with the globs expanded in a real folder.
+      for (const options of [{}, { cwd: process.cwd() }]) {
+        const t0 = performance.now();
+        commandWritesConfig(s, options);
+        expect(performance.now() - t0, s.slice(0, 40)).toBeLessThan(500);
+      }
     }
     expect(commandWritesConfig('echo ' + '7'.repeat(100_000) + ' > CLAUDE.md')).toBe(true);
+  });
+
+  // The leftover of C-21: a glob is judged by what the shell expands it to in the folder the line runs
+  // in. A segment of wildcards only is no longer let through by its pattern: `dist/*` passes while
+  // `dist` holds no configuration, `*` does not pass next to a CLAUDE.md.
+  describe('globs expanded in the folder (the leftover of C-21)', () => {
+    let root = '';
+    beforeEach(() => {
+      root = tempDir();
+      for (const path of [
+        'CLAUDE.md',
+        '.claude/settings.json',
+        'dist/a.js',
+        'dist/b.css',
+        'src/x.ts',
+        'sub/AGENTS.md',
+        'sub/notes.txt',
+      ]) {
+        mkdirSync(join(root, path, '..'), { recursive: true });
+        writeFileSync(join(root, path), '');
+      }
+      mkdirSync(join(root, 'empty'));
+    });
+    it.each([
+      // [command, folder it runs in (under the root), writes]
+      ['rm -rf dist/*', '.', false],
+      ['rm -f dist/*.js', '.', false],
+      ['rm -rf missing/*', '.', false],
+      ['rm -rf empty/*', '.', false],
+      ['cd dist && rm -rf *', '.', false],
+      ['cd ./dist; rm -rf ./*', '.', false],
+      ['cp -r src/* out/', '.', false],
+      ['mv dist/* /tmp/old/', '.', false],
+      ['rm *.ts', '.', false],
+      ['grep -l x src/* | xargs sed -i s/a/b/', '.', false],
+      ['rm -rf *', 'dist', false],
+      ['rm -rf *', '.', true],
+      ['rm *.md', '.', true],
+      ['rm -rf .*', '.', true],
+      ['rm -rf .c*/*', '.', true],
+      ['mv * /tmp/x/', '.', true],
+      ['rm -rf ?????????', '.', true],
+      ['rm -rf sub/*', '.', true],
+      ['cp -r sub/* out/', '.', true],
+      ['cd sub && rm *', '.', true],
+      ['(cd dist && ls); rm *', '.', true],
+      ['cd $D && rm *', '.', true],
+      ['cd - && rm *', '.', true],
+      ['grep -l x * | xargs sed -i s/a/b/', '.', true],
+      ['rm -rf ../*', 'dist', true],
+      ['rm -rf */AGENTS.md', '.', true],
+    ] as const)('%j in %s writes: %s', (command, dir, writes) => {
+      expect(commandWritesConfig(command, { cwd: join(root, dir) }), command).toBe(writes);
+    });
+
+    it('the folder the line runs in counts only as the caller says (`inConfig`)', () => {
+      // A path above that holds `.claude` is not the glob's: only what the pattern adds is judged.
+      const inside = join(root, '.claude');
+      expect(commandWritesConfig('rm -f *.bak', { cwd: inside })).toBe(false);
+      // A terminal left inside the configuration folder: any write is one, reads pass.
+      for (const c of ['rm -f *.bak', 'rm settings.json', 'echo {} > settings.json', 'node x.js']) {
+        expect(commandWritesConfig(c, { cwd: inside, inConfig: true }), c).toBe(true);
+      }
+      for (const c of ['ls', 'cat settings.json', 'grep -n x *']) {
+        expect(commandWritesConfig(c, { cwd: inside, inConfig: true }), c).toBe(false);
+      }
+    });
   });
 
   it('knows the names at any depth and in either case', () => {

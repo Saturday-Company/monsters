@@ -1722,7 +1722,8 @@ export class McpManager {
         this.#limited.add(key);
         this.#o.log.append({
           agent: 'system',
-          type: 'error',
+          // The run goes on with the tools that fit, and the card says it: news, not a failure.
+          type: 'notice',
           data: {
             code: 'mcp_tools_limited',
             message: mcpStrings().toolsLimited(agent.config.name, max, tools.length),
@@ -1739,6 +1740,24 @@ export class McpManager {
     return this.#cut.get(agentId) ?? [];
   }
   readonly #cut = new Map<string, { server: string; shown: number; total: number }[]>();
+
+  /**
+   * Why a server given to this agent has no tool in its run (C-15): `allowed` is the setting,
+   * not what the run got. Not answering (`unlinked`), tools paused until the user accepts them
+   * (D-070), cut at the tools cap of the last `toolsFor` (D-134), or none left by the server's
+   * own list of tools (or none known). Undefined when the server is not given to it.
+   */
+  missingWhy(
+    agentId: string,
+    server: string,
+  ): 'unlinked' | 'paused' | 'cut' | 'unlisted' | undefined {
+    const c = this.#connections.get(server);
+    if (!c || !this.allowed(agentId, server)) return undefined;
+    if (this.#unlinked(c)) return 'unlinked';
+    if (this.pausedNames(c).size > 0) return 'paused';
+    if (this.cutFor(agentId).some((x) => x.server === c.label)) return 'cut';
+    return 'unlisted';
+  }
 
   /** Not signed in, refused, or failing to start again and again: its tools would all fail. */
   #unlinked(c: Connection): boolean {

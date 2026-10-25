@@ -46,7 +46,10 @@ export interface ContextLimits {
   minMaskChars?: number;
   /** Most characters `result_read` gives at once (below `offloadChars`). Default 7000. */
   readChars?: number;
-  /** Reads of one stored result, at most: past them the model filters or goes on. Default 8. */
+  /**
+   * Reads of one stored result, at most: past them the model filters or goes on. A tool without
+   * filters still reads what it has not read yet; only the same characters again stop. Default 8.
+   */
   readsPerResult?: number;
 }
 
@@ -141,18 +144,47 @@ function parse(ref: string, tool: string, text: string, error: boolean): Stored 
 
 const fmt = (n: number) => String(n);
 
+/** `[start, end)` spans, sorted and merged. */
+type Spans = [number, number][];
+
+function addSpan(spans: Spans, start: number, end: number): Spans {
+  const out: Spans = [];
+  let [s, e] = [start, end];
+  for (const [a, b] of spans) {
+    if (b < s || a > e) out.push([a, b]);
+    else [s, e] = [Math.min(a, s), Math.max(b, e)];
+  }
+  out.push([s, e]);
+  return out.sort((x, y) => x[0] - y[0]);
+}
+
+/** The first character at or after `from` that no span covers, or null when all of it is. */
+function firstUnread(spans: Spans, from: number, length: number): number | null {
+  let at = from;
+  for (const [a, b] of spans) if (a <= at && at < b) at = b;
+  return at < length ? at : null;
+}
+
 /** The results of one run of an agent, by reference (`r1`, `r2`…), in memory. */
 export class ResultStore {
   readonly #byRef = new Map<string, Stored>();
   /** Reads of each result so far. */
   readonly #reads = new Map<string, number>();
+  /** The characters of each result read so far. */
+  readonly #read = new Map<string, Spans>();
   readonly #readChars: number;
   readonly #readsPerResult: number;
+  readonly #filtersOf: (tool: string) => readonly string[];
   #chars = 0;
 
-  constructor(readChars = RESULT_READ_MAX, readsPerResult = DEFAULT_CONTEXT_LIMITS.readsPerResult) {
+  constructor(
+    readChars = RESULT_READ_MAX,
+    readsPerResult = DEFAULT_CONTEXT_LIMITS.readsPerResult,
+    filtersOf: (tool: string) => readonly string[] = () => [],
+  ) {
     this.#readChars = readChars;
     this.#readsPerResult = readsPerResult;
+    this.#filtersOf = filtersOf;
   }
 
   put(entry: Stored): void {
@@ -161,6 +193,7 @@ export class ResultStore {
     for (const [ref, old] of this.#byRef) {
       if (this.#chars <= STORE_MAX_CHARS || ref === entry.ref) break;
       this.#byRef.delete(ref);
+      this.#read.delete(ref);
       this.#chars -= old.text.length;
     }
   }
@@ -177,18 +210,39 @@ export class ResultStore {
         hint: 'Use the ref written in the note of the result (r1, r2…), or call the tool again.',
       });
     }
-    // Past the reads of one result, a hint instead of the next page (D-163): a list read in
-    // pieces again and again costs the whole list at every step.
-    const reads = (this.#reads.get(ref) ?? 0) + 1;
-    if (reads > this.#readsPerResult) {
-      throw new ToolError('LIMIT_REACHED', runtimePrompts().readsOver(ref, this.#readsPerResult), {
-        hint: runtimePrompts().readsOverHint(s.tool),
-      });
-    }
-    this.#reads.set(ref, reads);
     const body = s.body ?? s.text;
     const start = Math.min(Math.max(0, offset), body.length);
     const end = Math.min(body.length, start + Math.min(length, this.#readChars));
+    const spans = this.#read.get(ref) ?? [];
+    // Past the reads of one result, a hint instead of the next page (D-163): a list read in
+    // pieces again and again costs the whole list at every step. The hint must name a way
+    // the tool has (C-14): with filters, call it again with them; without, there is no
+    // cheaper way to the rest, so a read of characters not read yet always passes and only
+    // reading the same ones again stops, with where the unread part starts.
+    const reads = (this.#reads.get(ref) ?? 0) + 1;
+    if (reads > this.#readsPerResult) {
+      const filters = this.#filtersOf(s.tool);
+      if (filters.length > 0) {
+        throw new ToolError(
+          'LIMIT_REACHED',
+          runtimePrompts().readsOver(ref, this.#readsPerResult),
+          {
+            hint: runtimePrompts().readsOverHint(s.tool, filters.join(', ')),
+          },
+        );
+      }
+      if (firstUnread(spans, start, end) === null) {
+        throw new ToolError(
+          'LIMIT_REACHED',
+          runtimePrompts().readsOver(ref, this.#readsPerResult),
+          {
+            hint: runtimePrompts().readsOverUnread(ref, firstUnread(spans, 0, body.length)),
+          },
+        );
+      }
+    }
+    this.#reads.set(ref, reads);
+    if (end > start) this.#read.set(ref, addSpan(spans, start, end));
     const slice = body.slice(start, end);
     const where = runtimePrompts().readRange(
       fmt(start),
@@ -238,7 +292,7 @@ export class RunContext {
   ) {
     this.#limits = { ...DEFAULT_CONTEXT_LIMITS, ...limits };
     this.#limits.readChars = Math.min(this.#limits.readChars, this.#limits.offloadChars - 1);
-    this.store = new ResultStore(this.#limits.readChars, this.#limits.readsPerResult);
+    this.store = new ResultStore(this.#limits.readChars, this.#limits.readsPerResult, filtersOf);
     this.#filtersOf = filtersOf;
   }
 

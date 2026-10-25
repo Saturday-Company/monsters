@@ -527,6 +527,64 @@ describe('context: offload and masking (C.2)', () => {
     ).rejects.toMatchObject({ code: 'LIMIT_REACHED' });
   });
 
+  // C-14: the cap's hint names a way the tool has. With filters, the third read of a cap of 2
+  // stops whatever it asks; without, a read of characters not read yet always passes (there is
+  // no cheaper way to them) and only the same characters again stop, saying where to go on.
+  const filtered = defineTool({
+    name: 'list_clients',
+    description: 'Lists clients',
+    inputSchema: z.object({ text: z.string().optional() }),
+    readOnly: true,
+    execute: () => Promise.resolve('x'),
+  });
+  const plain = defineTool({
+    name: 'web_fetch',
+    description: 'Reads a page',
+    inputSchema: z.object({ url: z.string() }),
+    readOnly: true,
+    execute: () => Promise.resolve('x'),
+  });
+  it.each([
+    // [case, tool, offsets read in order (7000 characters each), outcome of the last, hint]
+    ['filters: the third read stops', filtered.name, [7000, 14_000, 21_000], 'stop', /\(text\)/],
+    ['filters: a re-read stops too', filtered.name, [7000, 7000, 7000], 'stop', /\(text\)/],
+    ['no filters: forward reads pass', plain.name, [7000, 14_000, 21_000, 28_000], 'ok', null],
+    ['no filters: a re-read past the cap stops', plain.name, [0, 7000, 0], 'stop', /offset 14000/],
+    ['no filters: a partly new read passes', plain.name, [7000, 14_000, 17_000], 'ok', null],
+    ['no filters: back to an unread gap passes', plain.name, [14_000, 21_000, 7000], 'ok', null],
+    [
+      'no filters: all read, nothing left',
+      plain.name,
+      [0, 7000, 14_000, 21_000, 28_000, 0],
+      'stop',
+      /all of r1/,
+    ],
+  ] as const)(
+    'the reads cap of a stored result: %s (C-14)',
+    async (_, tool, offsets, outcome, hint) => {
+      inLang('en');
+      const ctx = new RunContext({ readsPerResult: 2 }, filtersOf([filtered, plain]));
+      ctx.compact([toolMessage('1', 'y'.repeat(35_000), tool)]);
+      const read = ctx.tool();
+      const last = offsets.length - 1;
+      for (const [i, offset] of offsets.entries()) {
+        const call = read.execute({ ref: 'r1', offset, length: 7000 }, noCtx);
+        if (i < last || outcome === 'ok') {
+          await expect(call).resolves.toContain(`[Monsters] r1 (${tool})`);
+          continue;
+        }
+        const err = (await call.then(
+          () => null,
+          (e: unknown) => e,
+        )) as ToolError | null;
+        expect(err).toMatchObject({ code: 'LIMIT_REACHED' });
+        expect(err!.hint).toMatch(hint);
+        // Never "call it with its filters" for a tool that has none.
+        if (tool === plain.name) expect(err!.hint).not.toMatch(/filters/);
+      }
+    },
+  );
+
   it('old steps become one line, in chunks: the prefix stays the same between moves', () => {
     inLang('it');
     const ctx = new RunContext({ recentToolResultChars: 1_000_000 });

@@ -157,6 +157,7 @@ export function detailsOf(e: LogEvent): DetailField[] {
         add(l.cost, e.data.costUsd === 0 ? d.free : formatUsd(e.data.costUsd));
       break;
     case 'error':
+    case 'notice':
       add(l.message, e.data.message);
       break;
     case 'kill':

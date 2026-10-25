@@ -1,4 +1,5 @@
 import {
+  CHAT_PAGE,
   ulid,
   type AgentSummary,
   type EventInput,
@@ -10,7 +11,6 @@ import type { RawResponse, SocketLike, Transport } from '../src/lib/transport.ts
 import {
   ANSWER_UNDO_MS,
   boot,
-  CHAT_PAGE,
   chatHistoryOf,
   chooseOption,
   HISTORY_PAGE,
@@ -286,7 +286,10 @@ describe('each chat loads its own history (W-1)', () => {
 
     core.requests.length = 0;
     await Promise.all([loadChatOlder('dione'), loadChatOlder('dione')]);
-    const paths = core.requests.map((r) => decodeURIComponent(r.path));
+    // A core without the chat's route (404): the same rule over `/api/events`, three pages.
+    const all = core.requests.map((r) => decodeURIComponent(r.path));
+    expect(all[0]).toBe(`/api/chats/dione/history?before=${floor}`);
+    const paths = all.slice(1);
     // One load at a time; its three pages all end at the hub's floor.
     expect(paths).toHaveLength(3);
     expect(paths[0]).toContain('agent=dione');
@@ -306,6 +309,53 @@ describe('each chat loads its own history (W-1)', () => {
     core.requests.length = 0;
     await loadOlder();
     expect(decodeURIComponent(core.requests[0]!.path)).toContain(`before=${floor}`);
+  });
+
+  it('one request to a core with the chat’s route, the chat’s kinds chosen there', async () => {
+    const noise = Array.from({ length: HISTORY_PAGE }, () =>
+      ev({ agent: 'enceladus', type: 'tool_call', data: { callId: 'c', tool: 'x', input: {} } }),
+    ).reverse();
+    const floor = noise.at(-1)!.id;
+    const asked = ev({
+      agent: 'user',
+      type: 'message',
+      data: { role: 'user', text: 'A bio, please', to: 'dione' },
+    });
+    const answer = ev({ agent: 'dione', type: 'message', data: { role: 'agent', text: 'Here' } });
+    for (const e of [asked, answer]) e.id = ulid(e.ts - 10_000_000);
+    // Complete down to an edge older than the hub's pages: the chat goes further back alone.
+    const edge = '01ARZ3NDEKTSV4RRFFQ69G5FAV';
+    let page: { events: LogEvent[]; floor: string | null; own: number } = {
+      events: [answer, asked],
+      floor: edge,
+      own: CHAT_PAGE,
+    };
+    const core = fakeCore({
+      '/api/events': (q) => ({ events: q.get('before') ? [] : noise }),
+      '/api/chats/dione/history': () => page,
+    });
+    initApp(core.transport);
+    await boot();
+    core.requests.length = 0;
+    expect(await loadChatOlder('dione')).toBe(CHAT_PAGE);
+    expect(core.requests.map((r) => decodeURIComponent(r.path))).toEqual([
+      `/api/chats/dione/history?before=${floor}`,
+    ]);
+    expect(useApp.getState().events.map((e) => e.id)).toEqual(
+      expect.arrayContaining([asked.id, answer.id]),
+    );
+    // The core said how far the chat is complete: the next page starts there.
+    expect(chatHistoryOf(useApp.getState(), 'dione')).toMatchObject({
+      before: edge,
+      hasOlder: true,
+    });
+    page = { events: [], floor: null, own: 0 };
+    core.requests.length = 0;
+    expect(await loadChatOlder('dione')).toBe(0);
+    expect(core.requests.map((r) => decodeURIComponent(r.path))).toEqual([
+      `/api/chats/dione/history?before=${edge}`,
+    ]);
+    expect(chatHistoryOf(useApp.getState(), 'dione').hasOlder).toBe(false);
   });
 
   it('a full page leaves the chat open below its oldest edge', async () => {
@@ -330,7 +380,9 @@ describe('each chat loads its own history (W-1)', () => {
     core.requests.length = 0;
     await loadChatOlder('dione');
     // The others' pages cover the same span as the cut one: down to its edge, no further.
-    const first = core.requests.map((r) => decodeURIComponent(r.path));
+    const first = core.requests
+      .map((r) => decodeURIComponent(r.path))
+      .filter((p) => p.startsWith('/api/events'));
     expect(first.slice(1).every((p) => p.includes(`after=${own.at(-1)!.id}`))).toBe(true);
     expect(chatHistoryOf(useApp.getState(), 'dione')).toMatchObject({
       before: own.at(-1)!.id,
@@ -339,7 +391,9 @@ describe('each chat loads its own history (W-1)', () => {
     });
     core.requests.length = 0;
     await loadChatOlder('dione');
+    // The 404 is remembered: straight to `/api/events`.
     const next = core.requests.map((r) => decodeURIComponent(r.path));
+    expect(next.some((p) => p.startsWith('/api/chats/'))).toBe(false);
     expect(next[0]).toContain(`before=${own.at(-1)!.id}`);
     expect(next[1]).not.toContain('after=');
     expect(chatHistoryOf(useApp.getState(), 'dione').hasOlder).toBe(false);

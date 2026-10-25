@@ -13,9 +13,12 @@ import { startTestHub } from './hub-helpers.ts';
  */
 
 const OLD = { provider: 'openrouter', model: 'nvidia/nemotron-3-super-120b-a12b:free' };
+/** The lines of a replacement: a notice when saved, an error when `agent.yaml` could not be written. */
 const retiredLines = (events: LogEvent[]) =>
   events.filter(
-    (e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'retired_model',
+    (e): e is LogEvent<'notice' | 'error'> =>
+      (e.type === 'notice' && e.data.code === 'retired_model') ||
+      (e.type === 'error' && e.data.code === 'retired_model_unsaved'),
   );
 
 const NEW = { provider: 'openrouter', model: 'nvidia/nemotron-3-ultra-550b-a55b:free' };
@@ -62,8 +65,10 @@ describe('retired models (D-165)', () => {
     await t.core.hub.team.setModels('rhea', [OLD]);
     await t.core.close();
     const again = await startTestHub({}, { withoutTeam: true, home: t.home });
-    const lines = retiredLines(again.core.log.query({ type: 'error' }));
+    const lines = retiredLines(again.core.log.query({ type: ['notice', 'error'] }));
     expect(lines).toHaveLength(1);
+    // Saved: an information line, not an error (the leftover of C-11).
+    expect(lines[0]!.type).toBe('notice');
     expect(lines[0]!.agent).toBe('system');
     expect(lines[0]!.data.message).toContain('Rhea');
     expect(lines[0]!.data.message).toContain(NEW.model);
@@ -95,8 +100,10 @@ describe('retired models (D-165)', () => {
         { provider: 'openrouter', model: 'openrouter/free' },
       ]);
       expect(readFileSync(file, 'utf8')).toBe(before);
-      const lines = retiredLines(again.core.log.query({ type: 'error' }));
+      const lines = retiredLines(again.core.log.query({ type: ['notice', 'error'] }));
       expect(lines).toHaveLength(1);
+      // Not saved: that part failed, so it stays an error.
+      expect(lines[0]!.type).toBe('error');
       expect(lines[0]!.data.message).toContain('could not be saved');
       // The other agents are untouched and the core answers.
       expect(again.core.hub.team.get('dione')!.config.models).toEqual([

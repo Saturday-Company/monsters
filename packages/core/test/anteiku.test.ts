@@ -112,10 +112,16 @@ describe('Anteiku: connecting', () => {
       { server: 'Anteiku', shown: MAX_MCP_TOOLS, total: 124 },
     ]);
     const limited = t.core.log
-      .query({ type: 'error', limit: 50 })
+      .query({ type: 'notice', limit: 50 })
       .find(
-        (e): e is LogEvent<'error'> => e.type === 'error' && e.data.code === 'mcp_tools_limited',
+        (e): e is LogEvent<'notice'> => e.type === 'notice' && e.data.code === 'mcp_tools_limited',
       );
+    // A cut is news, not a failure (the leftover of C-11): never among the errors.
+    expect(
+      t.core.log
+        .query({ type: 'error', limit: 50 })
+        .some((e) => JSON.stringify(e).includes('mcp_tools_limited')),
+    ).toBe(false);
     expect(limited?.data.message).not.toContain('Permessi');
     // Claude Code defers them with its own ToolSearch (D-075): all of them, nothing cut.
     expect(await t.core.hub.mcp.toolsFor(titan, undefined, { unbounded: true })).toHaveLength(124);
