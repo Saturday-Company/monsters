@@ -291,6 +291,11 @@ export interface AgentRunResult {
   stopCause?: RunStopCause;
   /** With a limit as status: which cap stopped the run, as data for the UI. */
   limit?: LimitReason;
+  /**
+   * The harness session the run worked in (D-199), and the folder it worked from: a follow-up
+   * that continues the job resumes it. Only on a harness, once the harness told it.
+   */
+  harnessSession?: { harness: string; id: string; cwd: string };
 }
 
 export function resolveAgentTools(

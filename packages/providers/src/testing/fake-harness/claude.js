@@ -7,6 +7,7 @@
 // `--fake-limits=off|rejected`: the plan limits events (D-111).
 // `--fake-mcp=failed|pending|needs-auth|missing`: the status of Monsters' server at the init (D-160).
 // `--fake-error=<text>`: the run ends with an error result saying <text> (after the limits events).
+// `--resume <id>`: the session goes on with that id; an id starting with `gone` is not found.
 // `hooks` calls the HTTP hooks of the run's --settings file (D-069) around a
 // web search, a push and a tool of a claude.ai connector, then at the stop.
 // Like the real binary, it reads its own login from $HOME/.claude: the test
@@ -86,7 +87,14 @@ record({
   mcpConfig,
 });
 
-const session = 'sess-0001';
+// `--resume <id>` (D-199): the resumed session keeps its id; one whose id starts with `gone`
+// is not on disk, and the binary exits before the init as 2.1.308 does.
+const resumed = flag('--resume');
+if (resumed?.startsWith('gone')) {
+  process.stderr.write(`No conversation found with session ID: ${resumed}\n`);
+  process.exit(1);
+}
+const session = resumed ?? 'sess-0001';
 const scenario = fake.scenario ?? 'tool';
 out({
   type: 'system',

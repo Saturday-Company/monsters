@@ -206,6 +206,28 @@ describe('Claude Agent harness', () => {
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'stop' });
   });
 
+  it('resumes the session of a job it continues, and says when that session is gone (D-199)', async () => {
+    const { h, record } = harness('tool', userEnv(loggedInHome()));
+    const events = await collect(
+      h.run(task({ model: 'opus', resume: 'sess-job' }), new AbortController().signal),
+    );
+    const run = records(record).find((r) => r.kind === 'run')!;
+    const argv = run['argv'] as string[];
+    expect(argv[argv.indexOf('--resume') + 1]).toBe('sess-job');
+    expect(events.find((e) => e.type === 'session')).toMatchObject({ id: 'sess-job' });
+    expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'stop' });
+
+    // Cleaned up by the binary: it exits before the init, nothing was asked.
+    const gone = await collect(
+      h.run(task({ model: 'opus', resume: 'gone-0001' }), new AbortController().signal),
+    );
+    expect(gone.some((e) => e.type === 'session' || e.type === 'usage')).toBe(false);
+    expect(gone.at(-1)).toMatchObject({ type: 'done', reason: 'error', code: 'resume_not_found' });
+    // The binary's own words stay in the error.
+    const last = gone.at(-1);
+    expect(last?.type === 'done' ? last.error : '').toContain('No conversation found');
+  });
+
   it('prints no limits when the binary sends none', async () => {
     const { h } = harness('tool', userEnv(loggedInHome()), ['--fake-limits=off']);
     const events = await collect(h.run(task({ model: 'sonnet' }), new AbortController().signal));
@@ -1100,6 +1122,20 @@ describe('Codex harness', () => {
       .filter((r) => r.kind === 'rpc')
       .map((r) => r['msg'] as { method: string; params: unknown });
     expect(rpc[2]).toMatchObject({ method: 'thread/resume', params: { threadId: 'thr_old' } });
+  });
+
+  it('says when the thread to resume is gone, without starting a turn (D-199)', async () => {
+    const { h, record } = harness('tool', userEnv(join(dir, 'home')));
+    const events = await collect(h.run(task({ resume: 'gone-thr' }), new AbortController().signal));
+    expect(events.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'error',
+      code: 'resume_not_found',
+    });
+    const methods = records(record)
+      .filter((r) => r.kind === 'rpc')
+      .map((r) => (r['msg'] as { method?: string }).method);
+    expect(methods).not.toContain('turn/start');
   });
 
   it("counts only this turn's tokens, once (resumed thread, repeated update)", async () => {
