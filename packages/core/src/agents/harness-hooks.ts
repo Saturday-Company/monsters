@@ -65,7 +65,9 @@ import type { ToolGuard } from './tool-adapter.ts';
  * - D-170: past a limit of the run or of the agent, `PreToolUse` refuses every
  *   tool with the words that ask for the report (the matchers cover all the
  *   run's built-ins; Monsters' own tools answer `LIMIT_REACHED` in the core),
- *   and `Stop` sends no reminder.
+ *   and `Stop` sends no reminder. D-196: a few steps before the agent's step
+ *   cap, one `PreToolUse` that lets its tool run adds the note to save the
+ *   work (`additionalContext`, Claude Code 2.1.308).
  *
  * A hook never answers `allow` (that would skip the permission rules of the
  * run): nothing means "go on as the rules say", `deny` stops that tool only.
@@ -177,6 +179,11 @@ export interface HarnessHookContext {
    * the run may work. Called once per `PreToolUse`, with the call's id.
    */
   wrapUp?: (toolUseId: string) => string | null;
+  /**
+   * Few of the agent's steps left (D-196): the note the model reads once, as `additionalContext`
+   * of a `PreToolUse` that lets the tool run; null when there is nothing to say.
+   */
+  stepsNote?: () => string | null;
   /** The data folder of Monsters is off limits (D-078); `cwd`: the agent's working folder. */
   lockout?: { lock: DataDirLock; cwd: string };
   /**
@@ -427,7 +434,7 @@ export async function answerHarnessHook(
   const input = parsed.data;
   switch (input.hook_event_name) {
     case 'PreToolUse':
-      return preToolUse(input, ctx, signal, holdMs);
+      return withStepsNote(await preToolUse(input, ctx, signal, holdMs), ctx);
     case 'PostToolUse':
       return postToolUse(input, ctx, signal);
     case 'PostToolUseFailure':
@@ -437,6 +444,18 @@ export async function answerHarnessHook(
     default:
       return {};
   }
+}
+
+/** A `PreToolUse` answer that lets the tool run, with the "few steps left" note when due (D-196). */
+function withStepsNote(out: ClaudeHookOutput, ctx: HarnessHookContext): ClaudeHookOutput {
+  const specific = out['hookSpecificOutput'] as { permissionDecision?: unknown } | undefined;
+  if (specific?.permissionDecision === 'deny' || !ctx.stepsNote) return out;
+  const note = ctx.stepsNote();
+  if (!note) return out;
+  return {
+    ...out,
+    hookSpecificOutput: { ...specific, hookEventName: 'PreToolUse', additionalContext: note },
+  };
 }
 
 /**

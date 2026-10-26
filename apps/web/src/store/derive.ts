@@ -1814,13 +1814,21 @@ export function delegationLimitSentence(
 export function errorSentence(
   e: {
     agent: string;
-    data: { code?: string | undefined; message: string; limit?: LimitReason | undefined };
+    data: {
+      code?: string | undefined;
+      message: string;
+      limit?: LimitReason | undefined;
+      report?: boolean | undefined;
+    };
   },
   nameOf: (id: string) => string,
 ): string {
   const s = deriveStrings().error;
   const who = nameOf(e.agent);
   const msg = e.data.message;
+  // A monster that still wrote its report at the limit (the last step, a harness's wrap-up).
+  const withReport = (sentence: string) =>
+    e.data.report ? `${sentence.replace(/\.?$/, '.')} ${s.limit.partial}` : sentence;
   switch (e.data.code) {
     case 'aborted':
       return s.stopped(who);
@@ -1846,11 +1854,11 @@ export function errorSentence(
       // The spending cap (D-070) stops a job in the middle with the same code: its words say so.
       // i18n-ignore: "tetto di spesa" / "spending cap", in the core's message
       if (/tetto di spesa|spending cap/i.test(msg)) return msg.replace(/\.$/, '');
-      return limitStopSentence(who, 'run_limit', e.data.limit) ?? s.runLimit(who);
+      return withReport(limitStopSentence(who, 'run_limit', e.data.limit) ?? s.runLimit(who));
     case 'token_limit':
     case 'max_steps': {
       const exact = limitStopSentence(who, e.data.code, e.data.limit);
-      if (exact) return exact;
+      if (exact) return withReport(exact);
       if (isStopText(msg)) return s.stopped(who);
       return e.agent === 'system' ? msg : s.problem(who, lowerFirst(msg));
     }

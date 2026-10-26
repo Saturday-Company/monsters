@@ -84,6 +84,28 @@ describe('which limit stopped a job', () => {
     expect(steps).toBe('Franco stops here: it used all its 12 steps without finishing.');
   });
 
+  it('says the monster wrote a partial report when it did (D-196)', () => {
+    const stopped = (code: string, limit?: LimitReason) =>
+      errorSentence(
+        {
+          agent: 'franco',
+          data: { code, message: 'stopped', report: true, ...(limit ? { limit } : {}) },
+        },
+        names,
+      );
+    const [en, it] = both(() => stopped('max_steps', { kind: 'agent_steps', value: 30 }));
+    expect(en).toBe(
+      'Franco stops here: it used all its 30 steps without finishing. It wrote a partial report.',
+    );
+    expect(it).toMatch(/Ha scritto un rapporto parziale\.$/);
+    // The generic sentence of an older run limit gets its full stop first.
+    expect(stopped('run_limit')).toBe(
+      'Franco stops here: this job reached its limit. It wrote a partial report.',
+    );
+    // Without the flag, nothing is added.
+    expect(run({ kind: 'agent_steps', value: 12 }, 'max_steps')).not.toContain('report');
+  });
+
   it('the spending cap keeps its own words', () => {
     const sentence = errorSentence(
       {

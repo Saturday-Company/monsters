@@ -445,6 +445,11 @@ export const ErrorDataSchema = z.object({
   code: z.string().optional(),
   /** With `run_limit`, `token_limit` and `max_steps`: which cap stopped the job. */
   limit: LimitReasonSchema.optional(),
+  /**
+   * With a limit code: the monster still wrote a report at the limit (the last step without
+   * tools, or a harness's wrap-up, D-170/D-196), so the UI says it left a partial report.
+   */
+  report: z.boolean().optional(),
   stack: z.string().optional(),
   /**
    * `provider_fallback` from a harness (D-093): the plan's limit on one model,

@@ -484,6 +484,27 @@ export const truncatedNote = (): string => runAgentStrings().truncatedNote;
 export const finalStepNote = (): string => runAgentPrompts().finalStepNote;
 
 /**
+ * How many steps that may still use tools are left when the agent is told to finish cleanly
+ * (D-196): 15% of its own cap, at least 2 and at most 10 (30 steps: told with 5 left).
+ */
+export function stepsWarningAt(maxSteps: number): number {
+  return Math.min(10, Math.max(2, Math.ceil(maxSteps * 0.15)));
+}
+
+/** Below this cap the system prompt's "at most N steps" says it all: no note (D-196). */
+export const STEPS_WARNING_MIN_CAP = 10;
+
+/**
+ * The note that few steps are left (D-196), or null: `left` steps may still use tools, then
+ * the report comes without them. Never before the first step, never when none is left.
+ */
+export function stepsLeftNote(left: number, maxSteps: number, done: number): string | null {
+  if (maxSteps < STEPS_WARNING_MIN_CAP || done <= 0) return null;
+  if (left < 1 || left > stepsWarningAt(maxSteps)) return null;
+  return runAgentPrompts().stepsLeftNote(left, maxSteps);
+}
+
+/**
  * The agent's AGENTS.md for a run with these tools (D-134, A7 of the review of 19/10): the
  * web method and the sources rule were written in it when the monster was made with the web;
  * a run without web tools (permission off, the project's search off, a covered capo) does not
@@ -879,6 +900,8 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
    * the run's budget ran out. Once set, the limits stop the loop.
    */
   let forced: 'max_steps' | 'token_limit' | 'run_limit' | null = null;
+  /** The agent was told that few of its steps are left (D-196): once per run. */
+  let stepsWarned = false;
   const stopWhen: StopCondition<ToolSet>[] = [isStepCount(limits.maxSteps)];
   let runLimit: string | null = null;
   /** Which cap of the run `runLimit` says, as data for the UI. */
@@ -1208,6 +1231,15 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
               message: runAgentStrings().errorStreak(agent.config.name, streak.count, moved),
             },
           });
+        }
+        // Few steps left (D-196): told once, so the work is saved before the step without tools.
+        if (!stepsWarned) {
+          const agentStep = stepsBefore + stepNumber;
+          const note = stepsLeftNote(limits.maxSteps - 1 - agentStep, limits.maxSteps, agentStep);
+          if (note) {
+            stepsWarned = true;
+            extra.push({ role: 'user', content: note });
+          }
         }
         if (extra.length > 0) {
           // Their place among the SDK's response messages: what was neither sent nor added.
@@ -1661,6 +1693,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
               : runAgentStrings().tokenLimit(agent.config.name, maxTokens ?? 0, planRun)) +
           (forced !== null && answer() ? runAgentStrings().reportAtLastStep : ''),
         ...(stoppedBy ? { limit: stoppedBy } : {}),
+        ...(forced !== null && answer() ? { report: true } : {}),
       },
     });
   }
