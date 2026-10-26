@@ -21,12 +21,16 @@ import {
 const SHOTS = process.env['MONSTERS_E2E_SHOTS'];
 
 async function closeNotice(page: Page) {
-  // The demo's notice (a tool in pause) would cover the page.
-  const close = page.getByRole('button', { name: 'Close', exact: true });
-  if (await close.count()) {
+  // The demo's notices (a tool in pause) would cover the page; they come one at a time (D-180).
+  const close = page.getByRole('button', {
+    name: SHOT_LANG === 'it' ? 'Chiudi' : 'Close',
+    exact: true,
+  });
+  for (let i = 0; i < 5 && (await close.count()); i++) {
     await close.first().click();
-    await expect(close).toHaveCount(0);
+    await page.waitForTimeout(200);
   }
+  await expect(close).toHaveCount(0);
 }
 
 async function shot(page: Page, name: string) {
@@ -577,8 +581,10 @@ for (const theme of ['light', 'dark'] as const) {
     test('Squadra del progetto, una riga aperta', async ({ page }) => {
       await page.goto('/?mock=demo#/progetto?id=social-di-saturday&sezione=squadra');
       const row = page.getByTestId('project-member').nth(1);
-      await row.getByRole('button', { name: /^Edit / }).click();
-      await row.getByRole('button', { name: 'Change look' }).click();
+      // E2E_LOCALE=it-IT writes the Italian README's screenshot.
+      const it = SHOT_LANG === 'it';
+      await row.getByRole('button', { name: it ? /^Modifica / : /^Edit / }).click();
+      await row.getByRole('button', { name: it ? 'Cambia aspetto' : 'Change look' }).click();
       await expect(row.getByTestId(/^team-looks-/)).toBeVisible();
       await closeNotice(page);
       await page.screenshot({

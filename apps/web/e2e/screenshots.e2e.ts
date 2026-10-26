@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
-import { test } from './fixtures.ts';
+import { SHOT_LANG, test } from './fixtures.ts';
 
 /*
  * Visual check: `pnpm --filter @monsters/web screenshots` writes the chats,
@@ -14,6 +14,18 @@ const OUT = process.env['SCREENSHOTS_DIR']
 const shot2 = (page: Page, name: string) =>
   page.screenshot({ path: `${OUT}${name}.png`, animations: 'disabled' });
 const enabled = !!process.env['SCREENSHOTS'];
+
+/** Closes the demo's notices (a tool in pause), which come one at a time and cover the chat. */
+async function closeNotices(page: Page) {
+  const close = page.getByRole('button', {
+    name: SHOT_LANG === 'it' ? 'Chiudi' : 'Close',
+    exact: true,
+  });
+  for (let i = 0; i < 5 && (await close.count()); i++) {
+    await close.first().click();
+    await page.waitForTimeout(200);
+  }
+}
 
 const SIZES = [
   { name: '1440', width: 1440, height: 900 },
@@ -44,6 +56,7 @@ for (const size of SIZES) {
 
         await page.goto('/?mock=demo#/?chat=titan');
         await page.getByTestId('question-card').waitFor();
+        await closeNotices(page);
 
         await page
           .getByTestId('question-card')
@@ -52,7 +65,9 @@ for (const size of SIZES) {
         await shot('chat-domanda');
 
         await page.evaluate(() => (window.location.hash = '#/?chat=rhea'));
-        await page.getByRole('button', { name: 'Behind the scenes of Rhea' }).first().click();
+        const behind =
+          SHOT_LANG === 'it' ? 'Dietro le quinte di Rhea' : 'Behind the scenes of Rhea';
+        await page.getByRole('button', { name: behind }).first().click();
         await page.getByTestId('agent-terminal').waitFor();
         await page.getByTestId('tool-line').first().click();
         await page.waitForTimeout(400);
@@ -124,13 +139,14 @@ for (const size of SIZES) {
         await page.goto('/?mock=demo&mockSpeed=0.2#/?chat=titan');
         await page
           .getByTestId('question-card')
-          .getByRole('button', { name: /^Friendly/ })
+          .getByRole('button', { name: SHOT_LANG === 'it' ? /^Amichevole/ : /^Friendly/ })
           .click();
         await page
           .getByTestId('agent-bubble')
-          .filter({ hasText: 'All done!' })
+          .filter({ hasText: SHOT_LANG === 'it' ? 'Ecco fatto!' : 'All done!' })
           .and(page.locator('[data-streaming="false"]'))
           .waitFor();
+        await closeNotices(page);
         await page.waitForTimeout(500);
         await page.screenshot({
           path: `${OUT}chat-risposta-${theme}-${size.name}.png`,

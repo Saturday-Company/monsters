@@ -2,61 +2,74 @@
 
 *Italiano: [README.it.md](README.it.md)*
 
-**A local-first, provider-agnostic agentic hub: a team of small AI agents ("monsters") that work on your own computer.**
+**A local-first, provider-agnostic agentic hub: a squad of small AI agents ("monsters") that work on your own computer.**
 
-Monsters gives you an orchestrator and a team of agents, each with its own chat, behind-the-scenes view, permissions and model chain.
-They keep their knowledge in an Obsidian-compatible Markdown vault where every change is a git commit you can undo,
-and everything they do lands in an action log. A **Stop** key halts all work at once. It runs as a
-desktop app on Linux, Windows and macOS, and you bring your own models: OpenRouter, API keys, local models, or the
-plans you already pay for.
+You talk to your lead; it hands work to the other monsters, asks you when a choice is yours, and gives you back a
+receipt you can undo. Every monster has its own chat, its own "behind the scenes" view, permissions and models. Their
+knowledge lives in an Obsidian-compatible Markdown folder where every change is a git commit, everything they do lands
+in Activity, and one **Stop** key halts all work at once. It is a desktop app for Linux, Windows and macOS, and you
+bring your own models: free ones through OpenRouter, the Claude or ChatGPT plan you already pay for, API keys, or
+local models.
 
 Website: <https://getmonsters.dev>
 
-![A project with its team](docs/schermate/progetto-squadra-light-1440-en.png)
+![Your lead asks a question with options](docs/schermate/chat-domanda-light-1440-en.png)
 
-| Chat with questions and options | Per-agent terminal |
+| The receipt of a finished job | Behind the scenes of a monster |
 |---|---|
-| ![Chat](docs/schermate/chat-domanda-light-1440-en.png) | ![Terminal](docs/schermate/terminale-dark-1440-en.png) |
+| ![Receipt](docs/schermate/chat-ricevuta-light-1440-en.png) | ![Behind the scenes](docs/schermate/terminale-dark-1440-en.png) |
 
-![What's new](docs/schermate/novita-dark-1440-en.png)
+![A project with its own squad](docs/schermate/progetto-squadra-light-1440-en.png)
 
 ## Status
 
-**Alpha, version 0.1.0-alpha.20.** It works and is used daily, but expect rough edges and changes. See
-[`CHANGELOG.md`](CHANGELOG.md) and [`docs/ROADMAP.md`](docs/ROADMAP.md).
+**Alpha, version 0.1.0-alpha.25** (26 October 2026). It works and is used every day, but expect rough edges and
+changes. What changed in each version is in [`CHANGELOG.md`](CHANGELOG.md); where it is going is in
+[`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Features
 
-- **A team of agents.** A chat and a behind-the-scenes view for every monster; an orchestrator (the "Dio dei mostri", god of the
-  monsters) that proposes whole projects and automations as drafts under **Da rivedere**: nothing exists until you
-  confirm it.
-- **Projects and automations.** Dedicated teams with a lead, their own agents, a vault area, a folder, apps and a
-  spending cap; scheduled automations such as "every Sunday night, next week's posts".
-- **Any model.** OpenRouter (free tier to start), Anthropic, OpenAI, Google, Mistral and Groq with your own keys, local
-  Ollama and LM Studio. Each monster has its own model chain with fallbacks.
-- **Plans you already have.** Claude Agent (Claude Code on your machine) and ChatGPT Plus/Pro, also through
-  Codex. See [`docs/subscriptions.md`](docs/subscriptions.md).
-- **Apps.** Any MCP app, plus a browser with a profile separate from yours. Running commands and file access are off
-  by default and granted monster by monster.
-- **Obsidian-compatible vault.** Markdown with YAML frontmatter and wikilinks; list, graph, hybrid keyword and semantic
-  search, backlinks, history and trash. Every agent edit is a git commit, undoable from the action log.
-  `monsters mcp` exposes the vault to Claude Desktop, Codex or Cursor with a monster's permissions
-  ([`docs/mcp-vault.md`](docs/mcp-vault.md)).
-- **Istinto ("instinct").** A small, fast model decides whether to ask you something, checks that work is really
-  finished, notices agents spinning in circles, brakes actions that leave the machine, and strips instructions aimed at
-  the monsters out of external text. At the end of a job you get a receipt with "undo all the work".
-- **Remote.** Telegram from your phone (including dedicated bots per monster), or the terminal chat over SSH
-  (`monsters chat`); the desktop app can also connect as a client to a core running elsewhere through an SSH tunnel.
+- **A squad, not a chatbot.** Your lead plans the work, delegates it to the other monsters in parallel and checks that
+  it is really done. It asks you with 2-4 options (one recommended) only when the choice is yours, and proposes whole
+  projects and automations as drafts under **To review**: nothing exists until you confirm it.
+- **A first start in four screens.** Account, model, your name, then the squad with one "Looks good". Your work, tone
+  and writing language come later, in a skippable "Tell me more about you" card.
+- **Projects and automations.** A project is created with just its name and has its own lead, monsters, notes,
+  folder, apps and spending cap, in five tabs (Chat, Squad, Notes, Automations, Settings). Automations run on a
+  schedule, such as "every Sunday night, next week's posts".
+- **Any model.** OpenRouter (free models to start), Anthropic, OpenAI, Google, Mistral and Groq with your own keys,
+  Ollama and LM Studio locally. Each monster has a main model and a fallback; per-monster chains and Quick / Balanced
+  / Thorough tiers are under Advanced.
+- **Plans you already have.** Your Claude plan through Claude Code on your computer, and ChatGPT Plus/Pro, also
+  through Codex, with the fixed instructions read from the prompt cache so a plan lasts longer. See
+  [`docs/subscriptions.md`](docs/subscriptions.md).
+- **Apps.** Connect GitHub, Notion, Linear, Google, Slack or any MCP app from a searchable gallery: every connected
+  app reaches every monster and project (unless you turn it off for one), and the monsters know all of its tools at
+  once. Ordinary writes just happen; deleting, sending, publishing and paying always ask first. A browser with a
+  profile separate from yours is included.
+- **Answers you can read at a glance.** Key numbers, tables, bar, line and donut charts, comparisons and checklists
+  drawn right in the chat, with suggested replies you send in one tap (keys under the message on Telegram).
+- **Notes compatible with Obsidian.** Markdown with YAML frontmatter and wikilinks; list, graph, one search box over
+  keywords and meaning, backlinks, history and trash. Every edit by a monster is a git commit you can undo, one note
+  or a whole job at a time. `monsters mcp` exposes the notes to Claude Desktop, Codex or Cursor with a monster's
+  permissions ([`docs/mcp-vault.md`](docs/mcp-vault.md)).
+- **Monsters' decisions.** A small, fast model ("the instinct", Basic or Smarter) decides whether to ask you
+  something, checks that work is really finished, notices monsters going in circles, brakes actions that leave the
+  computer, and strips instructions aimed at the monsters out of web pages and other outside text.
+- **Remote.** Telegram from your phone (with dedicated bots per monster for groups), or the terminal chat over SSH
+  (`monsters chat`); the desktop app can also connect to Monsters running on another computer through an SSH tunnel.
   See [`docs/remote.md`](docs/remote.md).
-- **Control.** Action log for everything, daily and monthly spending caps (per project too), the **Stop** key,
-  secrets in the system keychain.
+- **Control.** Activity records everything; spending caps in euros per day and per month (per project too) plus a
+  Careful / Normal / Generous safety net for each job; the **Stop** key; keys in the system keychain. A job stopped at
+  a limit writes its report first and says which limit stopped it.
 
 ## Download
 
-Get the latest build from [GitHub Releases](https://github.com/Saturday-Company/monsters/releases):
+Get the latest build from [GitHub Releases](https://github.com/Saturday-Company/monsters/releases) or from
+<https://getmonsters.dev>:
 
 - **Linux:** AppImage or `.deb`
-- **macOS:** `.dmg` for Apple silicon (arm64) or Intel (x64)
+- **macOS:** `.dmg` for Apple silicon (arm64) or Intel (x64), signed and notarized
 - **Windows:** `.exe` installer. It is **not yet signed with a certificate from a public CA**, so Windows SmartScreen
   will warn you. Updates are still verified: the app updates itself from a feed whose manifests are signed with the
   project's update key.
@@ -65,27 +78,45 @@ Installed apps update automatically from the signed feed. See [`docs/signing.md`
 
 ## Build from source
 
-Requirements: **Node.js 24** or newer (`corepack enable` activates pnpm but does not change your Node version) and
-**pnpm 12** (`corepack enable` picks the version in `package.json`). About 1 GB of disk space, most of it
-dependencies and the local embedding model. Optional: Chrome for the monsters' browser, Claude Code for Claude Agent.
+Requirements: **Node.js 24** or newer and **pnpm 12** (`corepack enable` picks the pnpm version in `package.json`;
+it does not change your Node version). About 1 GB of disk space, most of it dependencies and the local embedding
+model. Optional: Chrome for the monsters' browser, Claude Code for your Claude plan, Codex for your ChatGPT plan.
 
 ```sh
 pnpm install
 pnpm build:core                                   # web UI + bundled core
-pnpm --filter @monsters/cli exec monsters start   # core at http://127.0.0.1:4747
+pnpm --filter @monsters/cli exec monsters start   # Monsters at http://127.0.0.1:4747
 pnpm desktop:dev                                  # or run the Electron desktop app
 ```
 
-`monsters start` prints the address to open, the data folder and the vault folder, and a one-time **setup code** for
-creating your account. The core listens only on `127.0.0.1`; to reach it from another machine use an SSH tunnel. The
-onboarding asks for an [OpenRouter](https://openrouter.ai/keys) key (a free one is enough to start); other providers
-are added later in **Settings → Models**.
+`monsters start` prints the address to open, the data folder and the notes folder, and a one-time **setup code** for
+creating your account. It listens only on `127.0.0.1`; to reach it from another machine use an SSH tunnel. The first
+start asks how to reach a model: your Claude plan, your ChatGPT plan, or free models with an
+[OpenRouter](https://openrouter.ai/keys) key. Other accounts are added later in **Settings → Models**.
 
-Data lives in `~/.monsters` (or `MONSTERS_HOME`), the vault in `~/Monsters Notes` (`~/Monsters Note` for an
-install that started in Italian). Without a system keychain, start with
-`MONSTERS_SECRETS=file`. Kill switch from another terminal: `monsters kill` (and `monsters resume`, `monsters status`).
+Data lives in `~/.monsters` (or `MONSTERS_HOME`), the notes in `~/Monsters Notes` (`~/Monsters Note` for an install
+that started in Italian). Without a system keychain, start with `MONSTERS_SECRETS=file`. The Stop key from another
+terminal: `monsters kill` (and `monsters resume`, `monsters status`).
 
-For development: `pnpm typecheck && pnpm lint && pnpm test`. See [`AGENTS.md`](AGENTS.md) for all the commands.
+For development: `pnpm typecheck && pnpm lint && pnpm test`. [`AGENTS.md`](AGENTS.md) has every command, the
+conventions and the checklist before a pull request.
+
+## Repository layout
+
+| Folder | What it is |
+|---|---|
+| [`apps/desktop`](apps/desktop) | The Electron app: Monsters in a utility process, the UI in a hardened window, updates |
+| [`apps/web`](apps/web) | The interface: chats, behind the scenes, notes, Activity, settings |
+| [`apps/site`](apps/site) | The website, getmonsters.dev (Astro) |
+| [`apps/update-server`](apps/update-server) | The update feed (a Cloudflare Worker) |
+| [`packages/core`](packages/core) | The core: agents, lead and delegation, event log, Stop, local server |
+| [`packages/providers`](packages/providers) | Model providers, fallbacks, plans and rate budgets |
+| [`packages/vault`](packages/vault) | The notes: Markdown, SQLite index, search, git history |
+| [`packages/tools`](packages/tools) | Built-in tools such as web search and web fetch |
+| [`packages/cli`](packages/cli) | The `monsters` command |
+| [`packages/remote`](packages/remote) | Client mode over SSH |
+| [`packages/monster-kit`](packages/monster-kit) | The monsters' looks: a parametric SVG kit |
+| [`packages/db`](packages/db), [`packages/shared`](packages/shared) | SQLite with namespaced migrations; shared schemas and types |
 
 ## Documentation
 
@@ -98,7 +129,9 @@ The guides, the community files (README, CONTRIBUTING, SECURITY, AGENTS) and the
 - [`docs/security-model.md`](docs/security-model.md): threat model and defenses
 - [`docs/remote.md`](docs/remote.md): Telegram and SSH
 - [`docs/subscriptions.md`](docs/subscriptions.md): using Claude and ChatGPT plans
-- [`docs/mcp-vault.md`](docs/mcp-vault.md): the vault as an MCP server
+- [`docs/mcp-vault.md`](docs/mcp-vault.md): the notes as an MCP server
+- [`docs/design.md`](docs/design.md): the visual direction and the glossary of the interface
+- [`docs/i18n.md`](docs/i18n.md): English and Italian dictionaries
 - [`docs/signing.md`](docs/signing.md): packaging, signing and updates
 - [`docs/ci.md`](docs/ci.md): continuous integration
 
@@ -106,7 +139,10 @@ The guides, the community files (README, CONTRIBUTING, SECURITY, AGENTS) and the
 
 Contributions are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) (contributions are signed off under the
 [DCO](https://developercertificate.org/)), the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) and [`AGENTS.md`](AGENTS.md),
-the guide for people and coding agents working on the code. To report a vulnerability, see [`SECURITY.md`](SECURITY.md).
+the guide for people and coding agents working on the code. Questions and ideas go to
+[Discussions](https://github.com/Saturday-Company/monsters/discussions), bugs to
+[Issues](https://github.com/Saturday-Company/monsters/issues). To report a vulnerability, see
+[`SECURITY.md`](SECURITY.md).
 
 ## License
 
