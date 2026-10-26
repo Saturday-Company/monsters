@@ -38,7 +38,11 @@ describe('eval:instinct', () => {
     expect(c.routing.filter((r) => r.tier === 2).length).toBeGreaterThanOrEqual(7);
     expect(c.done).toHaveLength(18);
     expect(c.loop).toHaveLength(15);
-    expect(c.injection).toHaveLength(20);
+    // 20 of 15/10 and 20 replies of apps of 26/10 (D-195), several connectors.
+    expect(c.injection).toHaveLength(40);
+    expect(new Set(c.injection.map((i) => i.service).filter(Boolean)).size).toBeGreaterThanOrEqual(
+      5,
+    );
     expect(c.finalq).toHaveLength(20);
     expect(c.outbound.length).toBeGreaterThanOrEqual(10);
     expect(c.memory.length).toBeGreaterThanOrEqual(8);

@@ -2,10 +2,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { DecisionPort, SystemOneRequest, SystemOneResponse } from '../../src/team/decision.ts';
+import { setAppLang, type Lang } from '@monsters/shared';
 import { INSTINCT_JEV_MODEL } from '../../src/team/instinct/questions.ts';
 import { JevDecisionPort } from '../../src/team/jev.ts';
 import {
   loadInstinctCases,
+  measureInjection,
   measureInstinct,
   measureTier,
   MeteredPort,
@@ -20,6 +22,7 @@ import {
  *   pnpm --filter @monsters/core eval:instinct --model jev-1.14.0 --cap 0.05
  *   pnpm --filter @monsters/core eval:instinct --only tier --label tier     # the 30 levels (D-093)
  *                                                                          # and the 10 subtasks (D-109)
+ *   pnpm --filter @monsters/core eval:instinct --only injection --lang it  # injections only (D-195)
  *
  * The key is TYPESAFE_API_KEY, from the environment or `--env` (never
  * printed). `--cap` stops the calls at that spend (default 0.05 $). Results:
@@ -40,6 +43,8 @@ const { values: args } = parseArgs({
      * of delegations (D-109, the question the core asks for a subtask).
      */
     only: { type: 'string' },
+    /** The family of the questions (`en`, the app's default, or `it`). */
+    lang: { type: 'string', default: 'en' },
     'timeout-ms': { type: 'string', default: '20000' },
   },
 });
@@ -106,6 +111,7 @@ function summary(r: InstinctReport): void {
   line('gira a vuoto?', r.loop);
   line('iniezioni (tutte)', r.injection);
   line('iniezioni (solo fonti esterne)', r.injection.externalOnly);
+  line('iniezioni (risposte delle app)', r.injection.connectors);
   line('domanda nel testo', r.finalq);
   out(`  regex da sola ${r.finalq.regexAlone}, regex OR istinto ${r.finalq.combined}`);
   line('azioni che escono (candidati)', r.outbound);
@@ -123,6 +129,7 @@ function summary(r: InstinctReport): void {
 }
 
 async function main(): Promise<void> {
+  setAppLang(args.lang as Lang);
   const cases = loadInstinctCases();
   out(
     `casi: ${Object.entries(cases)
@@ -175,6 +182,25 @@ async function main(): Promise<void> {
     report('livello delle richieste', tier);
     report('livello degli incarichi', subtasks);
     save({ tier, subtasks });
+    return;
+  }
+  if (args.only === 'injection') {
+    const { stats, rows } = await measureInjection(cases.injection, port);
+    out();
+    if (dry) {
+      out(`prova a secco: ${port.calls} chiamate, ~${port.inputTokens} token in input`);
+      return;
+    }
+    const line = (name: string, st: typeof stats.connectors) =>
+      out(
+        `${name}: ${st.at05}/${st.n} a 0,5, AUC ${st.auc?.toFixed(2)}; sopra la banda alta ${st.high}, sotto la bassa ${st.low}, in mezzo ${st.mid}; errori ${st.errors.join(' ') || '–'}`,
+      );
+    line('iniezioni (tutte)', stats);
+    line('iniezioni (solo fonti esterne)', stats.externalOnly);
+    line('iniezioni (risposte delle app)', stats.connectors);
+    for (const r of rows) out(`  ${r.id} ${r.expected ? 'sì' : 'no'} ${r.p.toFixed(2)}`);
+    out(`costo: ${port.calls} chiamate, ${port.costUsd.toFixed(5)} $`);
+    save({ lang: args.lang, injection: stats, rows });
     return;
   }
   const report = await measureInstinct(cases, port, {

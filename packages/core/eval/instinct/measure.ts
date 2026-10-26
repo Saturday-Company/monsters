@@ -75,7 +75,8 @@ export interface InstinctCases {
     expected: boolean;
   })[];
   loop: (Base & { goal: string; steps: string[]; expected: boolean })[];
-  injection: (Base & { source: string; text: string; expected: boolean })[];
+  /** `service`: the app or site the text came from (D-195); the old cases name it in `source`. */
+  injection: (Base & { source: string; service?: string; text: string; expected: boolean })[];
   finalq: (Base & { text: string; expected: boolean })[];
   outbound: {
     id: string;
@@ -94,6 +95,7 @@ export function loadInstinctCases(): InstinctCases {
     InstinctCases,
     'outbound' | 'memory'
   > & {
+    injection?: InstinctCases['injection'];
     finalq?: InstinctCases['finalq'];
     routing?: InstinctCases['routing'];
     subtasks?: InstinctCases['subtasks'];
@@ -103,6 +105,8 @@ export function loadInstinctCases(): InstinctCases {
     // 20 requests of 15/10 and 10 of 17/10: the 30 of the tier measure (D-093).
     routing: [...measured.routing, ...(fresh.routing ?? [])],
     finalq: [...measured.finalq, ...(fresh.finalq ?? [])],
+    // 20 texts of 15/10 and the replies of connectors of 26/10 (D-195).
+    injection: [...measured.injection, ...(fresh.injection ?? [])],
     outbound: fresh.outbound,
     memory: fresh.memory,
     subtasks: fresh.subtasks ?? [],
@@ -208,7 +212,7 @@ export interface InstinctReport {
   routing: ReturnType<typeof routingStats>;
   done: ReturnType<typeof noulStats> & { verdicts: Record<string, string> };
   loop: ReturnType<typeof noulStats>;
-  injection: ReturnType<typeof noulStats> & { externalOnly: ReturnType<typeof noulStats> };
+  injection: InjectionStats;
   finalq: ReturnType<typeof noulStats> & { regexAlone: string; combined: string };
   outbound: ReturnType<typeof noulStats> & { kind: string; core: OutboundCoreStats };
   memory: ReturnType<typeof noulStats> & { dropped: string };
@@ -401,6 +405,58 @@ export interface OutboundCoreStats {
 }
 
 /** Every use on its cases, one call per case (the same request the core would send). */
+/** The app or site of a case: its own field, or what the old cases say in `source`. */
+function serviceOfCase(c: InstinctCases['injection'][number]): string {
+  if (c.service) return c.service;
+  if (/^mail/i.test(c.source)) return 'Gmail';
+  if (/^web/i.test(c.source)) return 'the site';
+  return c.source;
+}
+
+export interface InjectionStats extends ReturnType<typeof noulStats> {
+  externalOnly: ReturnType<typeof noulStats>;
+  /** The replies of the apps' tools (cases with `service`, D-195). */
+  connectors: ReturnType<typeof noulStats>;
+}
+
+/** Injections: one block per case, asked as the guard asks it (D-195). */
+export async function measureInjection(
+  cases: InstinctCases['injection'],
+  port: DecisionPort,
+): Promise<{ stats: InjectionStats; rows: (NoulRow & { source: string })[] }> {
+  const rows: (NoulRow & { source: string; service?: string })[] = [];
+  for (const c of cases) {
+    const { request, ids } = injectionRequest({
+      source: c.source,
+      blocks: [c.text],
+      service: serviceOfCase(c),
+    });
+    const res = await port.decide(request);
+    rows.push({
+      id: c.id,
+      set: c.set,
+      p: num(res, ids[0]!),
+      expected: c.expected,
+      source: c.source,
+      ...(c.service ? { service: c.service } : {}),
+    });
+  }
+  return {
+    stats: {
+      ...noulStats(rows, BANDS.injection),
+      externalOnly: noulStats(
+        rows.filter((r) => !/nota del vault/i.test(r.source)),
+        BANDS.injection,
+      ),
+      connectors: noulStats(
+        rows.filter((r) => r.service !== undefined),
+        BANDS.injection,
+      ),
+    },
+    rows,
+  };
+}
+
 export async function measureInstinct(
   cases: InstinctCases,
   port: MeteredPort,
@@ -480,19 +536,8 @@ export async function measureInstinct(
   rows['loop'] = loop;
 
   progress('injection');
-  const injection: (NoulRow & { source: string })[] = [];
-  for (const c of cases.injection) {
-    const { request, ids } = injectionRequest({ source: c.source, blocks: [c.text] });
-    const res = await port.decide(request);
-    injection.push({
-      id: c.id,
-      set: c.set,
-      p: num(res, ids[0]!),
-      expected: c.expected,
-      source: c.source,
-    });
-  }
-  rows['injection'] = injection;
+  const injection = await measureInjection(cases.injection, port);
+  rows['injection'] = injection.rows;
 
   progress('finalq');
   const finalq: (NoulRow & { regex: boolean })[] = [];
@@ -595,13 +640,7 @@ export async function measureInstinct(
     routing: routingStats(routing),
     done: { ...noulStats(done, BANDS.done), verdicts },
     loop: noulStats(loop, BANDS.stuck),
-    injection: {
-      ...noulStats(injection, BANDS.injection),
-      externalOnly: noulStats(
-        injection.filter((r) => !/nota del vault/i.test(r.source)),
-        BANDS.injection,
-      ),
-    },
+    injection: injection.stats,
     finalq: {
       ...noulStats(finalq, BANDS.finalQuestion),
       regexAlone: `${finalq.filter((r) => r.regex === r.expected).length}/${finalq.length}`,
