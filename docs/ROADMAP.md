@@ -78,6 +78,22 @@ Done:
 - Projects, the orchestrator as head of all teams ("god of the monsters"), and scheduled automations, with drafts under
   **To review** that need your confirmation; a Claude-subscription model mode that picks model and effort per
   sub-task; a Blender MCP server in the connector gallery.
+- Open source under Apache-2.0 (alpha.19), with full CI on GitHub Actions at every push to main (D-152) and the
+  website at https://getmonsters.dev.
+- English first, with Italian as a choice (alpha.20, D-153, D-154).
+- Fixes from the first testers (alpha.21, D-156…D-161): every permission on by default, so a new squad can run
+  commands from its first message; monsters read the sites you name; token limits that ignore cache reads.
+- Answers drawn in the chat (alpha.22, D-162): key numbers, tables, charts, comparisons and checklists, with
+  suggested replies sent in one tap, also as keys on Telegram.
+- Connected apps without friction (alpha.23, D-163…D-165): every connected app reaches every monster and project,
+  monsters know all of its tools at once, ordinary writes no longer ask, and the brake stays on deleting, sending,
+  publishing and paying.
+- Plans that last longer (alpha.24, D-166…D-169): a per-command brake in the terminal, the prompt cache on API keys,
+  and the fixed instructions of the Claude Code and Codex harnesses read from the cache.
+- A usability pass (alpha.25, D-170…D-194): a first start in four screens, settings with less than half the
+  controls, spending caps in euros with a Careful / Normal / Generous safety net, projects created by name with five
+  tabs, "Apps and Telegram", chat history and drafts that survive a restart, one word per concept, and a job stopped
+  at a limit that writes its report first.
 
 Open:
 
@@ -91,7 +107,8 @@ Open:
 
 ## Toward a stable release (in progress)
 
-A review in October 2026 produced waves of fixes; the first four are done.
+A review in October 2026 produced waves of fixes, and a usability review on 25 October five more (alpha.25); all
+but the release wave are done.
 
 - [x] Quick fixes: core, connectors, security, interface.
 - [x] Money, limits and reliability: true spend tracking, MCP OAuth, search, stuck runs, lost work, Telegram, updates.
@@ -99,6 +116,7 @@ A review in October 2026 produced waves of fixes; the first four are done.
 - [x] Interface: names, jargon, a crashed core, sidebar, chat, "To review".
 - [x] Honest access reporting: monsters only see tools they can actually run, report the real cause of a failure, and
   ask for missing access with one tap; publishing always asks for confirmation.
+- [x] Usability: nothing gets lost, no dead ends, simpler settings and projects, one vocabulary, finishing touches.
 - [ ] Release wave: signed updates on all systems, Windows certificate, `RunAsNode`, a week-long soak test, then a beta.
 
 Completion criteria: no open Blocker or High issue; a test for every fix; green CI on the three systems and a
@@ -106,16 +124,19 @@ clean-clone walkthrough on video; a week of use without crashes or stalled autom
 
 ## English first
 
-Monsters started in Italian; the open-source release makes it **English first, with an Italian translation**. The app
-is English first, with Italian as a choice in Settings (D-153; see [`i18n.md`](i18n.md)).
+Monsters started in Italian; the open-source release made it **English first, with an Italian translation**. Since
+alpha.20 the app is English first, with Italian as a choice in Settings (D-153; see [`i18n.md`](i18n.md)).
 
-- [ ] A small typed dictionary (English source, Italian translation checked by the typecheck), language from the
+- [x] A small typed dictionary (English source, Italian translation checked by the typecheck), language from the
   system and switchable in Settings.
-- [ ] Every user-facing string of the interface and of the core (errors, notifications, Telegram, receipts, "To
+- [x] Every user-facing string of the interface and of the core (errors, notifications, Telegram, receipts, "To
   review") moved to the dictionary.
-- [ ] Monsters' prompts, onboarding and proposed team follow the chosen language.
-- [ ] A guard test that fails on hand-written UI text outside the dictionary.
-- [ ] Docs in `docs/` in English, Italian where useful.
+- [x] Monsters' prompts, onboarding and proposed team follow the chosen language.
+- [x] A guard test that fails on hand-written UI text outside the dictionary.
+- [x] Docs in `docs/` in English, Italian where useful.
+- [x] One word per concept across the English and Italian dictionaries (D-192; glossary in [`design.md`](design.md)).
+- [ ] The same words in the website, the files the notes scaffold writes and the `monsters` command's output (it still
+  says "kill switch").
 
 ## Later
 
