@@ -99,7 +99,7 @@ const en = {
     injection: {
       label: 'Flags texts that give orders to the monsters',
       description:
-        'In web pages and texts from other apps it looks for sentences aimed at the monsters: it flags them, or removes them when it’s sure. It doesn’t check your notes.',
+        'In web pages and in what other apps return it looks for orders to the monsters that don’t come from you (send your data, write to someone, hide something from you): it flags them, or removes them when it’s sure. An app’s own instructions on how to use it stay. It doesn’t check your notes.',
       sends:
         'The text of the web pages and of the results from other apps that the monsters read. Never your notes.',
     },
@@ -206,7 +206,7 @@ const it: typeof en = {
     injection: {
       label: 'Segnala i testi che danno ordini ai mostri',
       description:
-        'Nelle pagine web e nei testi di altre app cerca frasi rivolte ai mostri: le segnala, o le toglie quando è sicuro. Le tue note non le controlla.',
+        'Nelle pagine web e in quello che restituiscono le altre app cerca ordini ai mostri che non vengono da te (mandare i tuoi dati, scrivere a qualcuno, nasconderti qualcosa): li segnala, o li toglie quando è sicuro. Le istruzioni di un’app su come usarla restano. Le tue note non le controlla.',
       sends:
         'Il testo delle pagine web e dei risultati di altre app che i mostri leggono. Mai le tue note.',
     },

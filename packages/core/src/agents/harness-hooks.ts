@@ -581,10 +581,31 @@ function leaves(value: unknown, out: string[] = [], depth = 0): string[] {
   } else if (Array.isArray(value)) {
     for (const v of value) leaves(v, out, depth + 1);
   } else if (value && typeof value === 'object') {
-    for (const v of Object.values(value)) leaves(v, out, depth + 1);
+    for (const [k, v] of Object.entries(value)) {
+      if (!binaryLeaf(value as Record<string, unknown>, k)) leaves(v, out, depth + 1);
+    }
   }
   return out;
 }
+
+/**
+ * The encoded bytes of an image, an audio or a blob in a result (`{type: 'image', data, mimeType}`
+ * of MCP, `{type: 'base64', media_type, data}` of Claude): the model gets them as an image, never
+ * as words, so the injection check neither reads nor cuts them (D-197: a Canva thumbnail took
+ * three of the eight blocks, and a removal cut the image in half).
+ */
+function binaryLeaf(parent: Record<string, unknown>, key: string): boolean {
+  if (typeof parent[key] !== 'string') return false;
+  if (key === 'blob') return true;
+  if (key !== 'data') return false;
+  const type = parent['type'];
+  if (type === 'image' || type === 'audio' || type === 'base64') return true;
+  const mime = parent['mimeType'] ?? parent['media_type'];
+  // A text type in `data` is words: it is read like the rest.
+  return typeof mime === 'string' && !TEXT_MIME.test(mime);
+}
+
+const TEXT_MIME = /^text\/|json|xml|javascript|csv|yaml|markdown/i;
 
 /**
  * The most text of one result the hooks check (D-074): the injection check
@@ -594,7 +615,7 @@ function leaves(value: unknown, out: string[] = [], depth = 0): string[] {
 const MAX_HOOK_TEXT_CHARS = 200_000;
 
 /** Fields of a result that are not text to read: kept as they are when a block goes. */
-const STRUCTURAL = new Set(['url', 'query', 'tool_use_id', 'type', 'id']);
+const STRUCTURAL = new Set(['url', 'query', 'tool_use_id', 'type', 'id', 'mimeType', 'media_type']);
 
 /** The same value with every string passed through `f` (with its field name). */
 function mapLeaves(
@@ -608,7 +629,10 @@ function mapLeaves(
   if (Array.isArray(value)) return value.map((v) => mapLeaves(v, f, depth + 1, key));
   if (value && typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, mapLeaves(v, f, depth + 1, k)]),
+      Object.entries(value).map(([k, v]) => [
+        k,
+        binaryLeaf(value as Record<string, unknown>, k) ? v : mapLeaves(v, f, depth + 1, k),
+      ]),
     );
   }
   return value;

@@ -29,9 +29,12 @@ import type { RunTaint } from './taint.ts';
  * - injections in external data (research 08 §5.5): only third-party sources
  *   (web, other programs), never the user's notes nor the terminal. Above the
  *   high band the block is removed, in the middle a warning in the envelope;
- *   without an answer the text passes as it is (today's behaviour). It is a
- *   first filter, not a security boundary: `<dati_esterni>`, permissions and
- *   the gate stay.
+ *   without an answer the text passes as it is (today's behaviour). The
+ *   question is the same for every tool (D-197): does the text give orders
+ *   beyond using that app or site for the user's task? Its guidance on its own
+ *   use (how to upload, which tool next, what to verify) is how it is used. It is a
+ *   first filter, not a security boundary: `<dati_esterni>`, permissions, the
+ *   taint of the run and the gate stay.
  */
 
 /**
@@ -75,6 +78,17 @@ const programRead = () => instinctStrings().programRead;
 /** Tools whose output is checked for injections: third parties only. */
 export function scannedForInjection(tool: string): boolean {
   return tool.startsWith('web_') || tool.startsWith('mcp__');
+}
+
+/**
+ * The app or site a scanned text comes from (D-197), the same rule for every tool: the server
+ * of an MCP tool ("Canva" of `mcp__Canva__edit-design`), the host of a page, else the tool.
+ */
+export function serviceOf(tool: string, source: string): string {
+  const mcp = splitAgentToolName(tool);
+  if (mcp) return mcp.server;
+  const host = /https?:\/\/([^/\s?#"'<>]+)/i.exec(source)?.[1];
+  return host ?? tool;
 }
 
 /**
@@ -548,12 +562,14 @@ export class InstinctGuard implements ToolGuard {
     if (!scannedForInjection(call.tool.name) || !system1.available('injection')) {
       return { body: call.body };
     }
-    const key = hashOf(call.body);
+    const service = serviceOf(call.tool.name, call.source);
+    // The same text from another app or site is asked again: what it may say depends on it.
+    const key = hashOf(`${service}\n${call.body}`);
     const seen = this.#scanned.get(key);
     if (seen) return seen;
     const { blocks, unchecked } = injectionBlocks(call.body);
     if (blocks.length === 0) return { body: call.body };
-    const { request, ids } = injectionRequest({ source: call.source, blocks });
+    const { request, ids } = injectionRequest({ source: call.source, blocks, service });
     const answer = await system1.ask({
       use: 'injection',
       agent: this.#o.agent.id,

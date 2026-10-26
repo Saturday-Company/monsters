@@ -21,7 +21,7 @@ import { questionPrompts, ROUTE_LEADS, ROUTE_TEAMS } from './questions.prompts.t
  */
 
 /** Version of this registry: it goes in the `decision` events with the answers. */
-export const INSTINCT_QUESTIONS_VERSION = '2026-10-23.1';
+export const INSTINCT_QUESTIONS_VERSION = '2026-10-26.1';
 
 /** The Jev version the thresholds were measured on. */
 export const INSTINCT_JEV_MODEL = 'jev-1.13.0';
@@ -105,7 +105,10 @@ export const BANDS = {
   ui: { attach: 0.5 },
   /** Outbound action: ≥ 0.85 it waits for the user, ≥ 0.5 it is marked on the receipt. */
   outbound: { low: 0.5, high: 0.85 },
-  /** Injection (misurato 18/20): ≥ 0.85 the block is removed, ≥ 0.5 a warning. */
+  /**
+   * Injection (misurato 18/20 on 16/10, again on 26/10 with the question of D-197): ≥ 0.85 the
+   * block is removed, ≥ 0.5 a warning.
+   */
   injection: { low: 0.5, high: 0.85 },
   /** Memory: a line is dropped only when the engine is sure it is not useful. */
   memory: { drop: 0.15 },
@@ -419,14 +422,25 @@ export function injectionBlocks(text: string): { blocks: string[]; unchecked: nu
   return { blocks, unchecked: rest.length };
 }
 
-export function injectionRequest(input: { source: string; blocks: readonly string[] }): {
+export function injectionRequest(input: {
+  source: string;
+  blocks: readonly string[];
+  /**
+   * The app or site the agent used to get the text (D-197): the question is whether the text
+   * gives orders beyond using it for the user's task, so its guidance on its own use stays.
+   */
+  service: string;
+}): {
   request: SystemOneRequest;
   ids: string[];
 } {
   const single = input.blocks.length === 1;
   const q = questionPrompts();
   const field = (i: number) => (single ? q.keys.text : q.keys.textN(i + 1));
-  const state: Record<string, unknown> = { [q.keys.source]: clipText(input.source, 200) };
+  const state: Record<string, unknown> = {
+    [q.keys.source]: clipText(input.source, 200),
+    [q.keys.service]: clipText(input.service, 80),
+  };
   // Spaces squeezed: the same text costs fewer tokens.
   input.blocks.forEach((b, i) => (state[field(i)] = b.replace(/[ \t]+/g, ' ')));
   const ids = input.blocks.map((_, i) => `injected_${i + 1}`);

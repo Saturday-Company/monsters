@@ -44,7 +44,7 @@ Monsters is a local-first, provider-agnostic agentic hub: an orchestrator (Titan
 - An Obsidian-compatible Markdown vault: plain files with wikilinks, keyword search (semantic when built from source), history and trash. Every agent edit is a git commit you can undo. \`monsters mcp\` serves the vault over MCP to Claude Desktop, Codex or Cursor.
 - Connectors: any MCP server, and a browser with a profile separate from yours.
 - Remote use: Telegram bots, or the terminal chat over SSH (\`monsters chat\`); the desktop app can connect to a core running elsewhere through an SSH tunnel.
-- Instinct: a small, fast model decides when to ask you, checks that work is finished, notices agents going in circles, brakes outgoing actions and asks you, and strips instructions aimed at the monsters out of external text.
+- Instinct: a small, fast model decides when to ask you, checks that work is finished, notices agents going in circles, brakes outgoing actions and asks you, and strips orders that don't come from you out of external text (an app's own instructions on how to use it stay).
 
 ## Safety and privacy
 
