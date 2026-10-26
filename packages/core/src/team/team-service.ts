@@ -289,6 +289,8 @@ export function describeToolCall(tool: string, input: unknown): string {
       return t.looksAtNotes;
     case 'delegate':
       return clip(t.delegatesTo(str(input, 'agent') ?? t.anAgent));
+    case 'ask_teammate':
+      return clip(t.asksTeammate(str(input, 'agent') ?? t.anAgent));
     case 'shell':
       return clip(t.runs(str(input, 'command') ?? t.aCommand));
     case 'fs_read':

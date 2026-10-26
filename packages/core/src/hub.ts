@@ -223,7 +223,12 @@ import {
 } from './team/memory.ts';
 import { MemoryProposals } from './team/memory-proposals.ts';
 import { withProvenance } from './team/vault-provenance.ts';
-import { ASK_USER_WAIT_MS, teamTools } from './team/team-tools.ts';
+import {
+  ASK_USER_WAIT_MS,
+  askTeammateTool,
+  teamTools,
+  type SubagentRunParams,
+} from './team/team-tools.ts';
 import {
   needsDrawnBlock,
   needsRareTools,
@@ -2461,6 +2466,127 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       .join('\n\n');
     // The MCP tools this run holds, known once `toolsFor` below has run (C-15).
     let mcpOfRun: readonly string[] = [];
+    const tierOf = (delegation: string) => {
+      const own = tierOfDelegation.get(delegation);
+      tierOfDelegation.delete(delegation);
+      const level = own ?? runTier;
+      return level ? { level, chose: own !== undefined } : undefined;
+    };
+    /** Who a monster of this squad may ask (D-201): the others, never a coordinator. */
+    const peersOf = (asker: AgentDefinition) =>
+      team
+        .members(squadId)
+        .filter((a) => a.config.id !== asker.config.id && !coordinates(a.config));
+    const teammateFor = (asker: AgentDefinition, r: SubagentRunParams['run']): MonstersTool[] =>
+      peersOf(asker).length === 0
+        ? []
+        : [
+            askTeammateTool({
+              run: r,
+              self: asker,
+              team,
+              members: () => peersOf(asker),
+              log,
+              budget,
+              requestText: () => requestOf(c),
+              userName: settings.userName,
+              tier: tierOf,
+              runSubagent,
+            }),
+          ];
+    const runSubagent = async (p: SubagentRunParams): Promise<AgentRunResult> => {
+      // The level of this subtask (D-109): one question on the brief the coordinator
+      // wrote (at most the use's timeout); without an answer, the request's level.
+      const tiered = hasTiers(p.agent.config.models, !!p.agent.config.autoModels);
+      const own = tiered
+        ? await triage.subtaskTier({
+            agent: p.agent,
+            subtask: p.subtask,
+            runId: p.run.id,
+            parentId: p.parentId,
+            signal: p.scope.signal,
+          })
+        : undefined;
+      // Rare tools on a free chain wait for `tools_search` (D-134), never taken away.
+      const turnOfSub = withTurnDeferrals(
+        chainFor(p.run, p.agent, p.run.id, {
+          level: own ?? tierOfRun.get(p.run),
+          delegation: p.parentId,
+          own: own !== undefined,
+        }),
+        p.brief.goal,
+      );
+      const sub = withoutClosedTools(turnOfSub.agent, p.run.id);
+      const subDeferred = new Map(turnOfSub.deferred);
+      if (artifactDeferred(p.agent, p.brief.goal)) {
+        subDeferred.set(ARTIFACT_TOOL, 'pagine');
+      }
+      // The files of the capo's conversation, when its brief names one by id; in a
+      // Telegram chat, only that chat's (review of 18/10, B5).
+      const fileScope: FileReadScope = thread
+        ? { agents: [], runId: p.run.id, runs: ownRuns ?? new Set() }
+        : { agents: [p.agent.config.id, c.agent.config.id], runId: p.run.id };
+      // A native monster loads MCP tools when it needs them (C.2): all of them.
+      const extraTools = [
+        ...(await mcp.toolsFor(p.agent, p.scope.signal, {
+          deferred: mcpDeferred(sub),
+          unbounded: harnessOf(sub)?.id === 'claude-agent',
+        })),
+        ...artifactFor(p.agent, p.brief.goal, p.run),
+        uiGuideTool(),
+        // A teammate asked answers, it asks no third (D-201).
+        ...(p.consult ? [] : teammateFor(p.agent, p.run)),
+        ...(briefNamesFile(p.brief, fileScope) ? [fileReadFor(fileScope)] : []),
+      ];
+      const memory = await team.memory(p.agent.config.id, p.scope.signal);
+      // The delegated monster's own memory: a marked line taints the run (A2).
+      if (memoryTainted(memory)) {
+        taintOf(p.run).taint(hubStrings().memoryOfAfter(p.agent.config.name));
+      }
+      // A fallback served it (the first model failed): later delegations start there.
+      const offFallback = log.subscribe((e) => {
+        if (
+          e.type === 'error' &&
+          e.data.code === 'provider_fallback' &&
+          e.runId === p.run.id &&
+          e.agent === p.agent.config.id
+        ) {
+          let set = fellBackIn.get(p.run);
+          if (!set) fellBackIn.set(p.run, (set = new Set()));
+          set.add(p.agent.config.id);
+        }
+      });
+      const result = await runAny({
+        agent: sub,
+        task: p.brief,
+        tools: [...baseTools, ...docsToolFor(sub, p.run)],
+        extraTools,
+        // After `toolsFor`: a server that just failed to start counts too.
+        unlinked: mcp.unlinkedFor(p.agent),
+        ...(subDeferred.size > 0 ? { deferOwn: subDeferred } : {}),
+        card: cardOf(p.agent),
+        signal: p.scope.signal,
+        scope: p.scope,
+        log,
+        runId: p.run.id,
+        parentId: p.parentId,
+        providers,
+        budget,
+        memory,
+        ...(profile ? { profile } : {}),
+        ...(p.onFinalAnswer ? { onFinalAnswer: p.onFinalAnswer } : {}),
+        guard: guardFor(p.agent, p.run, p.parentId),
+        watcher: watcherFor(p.agent, p.run.id, p.brief.goal, p.scope.signal, p.parentId),
+      }).finally(offFallback);
+      served(p.run, p.agent, result);
+      // The report reaches the orchestrator without its memory section.
+      return remember(p.agent, result, {
+        run: p.run,
+        runId: p.run.id,
+        parentId: p.parentId,
+        signal: p.scope.signal,
+      });
+    };
     const tools = coordinator
       ? [
           ...baseTools,
@@ -2542,105 +2668,10 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
             proposals: squad,
             projectName: team.projectOf(agent.config.id)?.name,
             doneCheck,
-            tier: (delegation) => {
-              const own = tierOfDelegation.get(delegation);
-              tierOfDelegation.delete(delegation);
-              const level = own ?? runTier;
-              return level ? { level, chose: own !== undefined } : undefined;
-            },
+            tier: tierOf,
             // A harness never holds ask_user (D-078): the question parks, the turn ends.
             askWaitMs: () => (harnessOf(agent) ? 0 : (options.askWaitMs ?? ASK_USER_WAIT_MS)),
-            runSubagent: async (p) => {
-              // The level of this subtask (D-109): one question on the brief the coordinator
-              // wrote (at most the use's timeout); without an answer, the request's level.
-              const tiered = hasTiers(p.agent.config.models, !!p.agent.config.autoModels);
-              const own = tiered
-                ? await triage.subtaskTier({
-                    agent: p.agent,
-                    subtask: p.subtask,
-                    runId: p.run.id,
-                    parentId: p.parentId,
-                    signal: p.scope.signal,
-                  })
-                : undefined;
-              // Rare tools on a free chain wait for `tools_search` (D-134), never taken away.
-              const turnOfSub = withTurnDeferrals(
-                chainFor(p.run, p.agent, p.run.id, {
-                  level: own ?? tierOfRun.get(p.run),
-                  delegation: p.parentId,
-                  own: own !== undefined,
-                }),
-                p.brief.goal,
-              );
-              const sub = withoutClosedTools(turnOfSub.agent, p.run.id);
-              const subDeferred = new Map(turnOfSub.deferred);
-              if (artifactDeferred(p.agent, p.brief.goal)) {
-                subDeferred.set(ARTIFACT_TOOL, 'pagine');
-              }
-              // The files of the capo's conversation, when its brief names one by id; in a
-              // Telegram chat, only that chat's (review of 18/10, B5).
-              const fileScope: FileReadScope = thread
-                ? { agents: [], runId: p.run.id, runs: ownRuns ?? new Set() }
-                : { agents: [p.agent.config.id, c.agent.config.id], runId: p.run.id };
-              // A native monster loads MCP tools when it needs them (C.2): all of them.
-              const extraTools = [
-                ...(await mcp.toolsFor(p.agent, p.scope.signal, {
-                  deferred: mcpDeferred(sub),
-                  unbounded: harnessOf(sub)?.id === 'claude-agent',
-                })),
-                ...artifactFor(p.agent, p.brief.goal, p.run),
-                uiGuideTool(),
-                ...(briefNamesFile(p.brief, fileScope) ? [fileReadFor(fileScope)] : []),
-              ];
-              const memory = await team.memory(p.agent.config.id, p.scope.signal);
-              // The delegated monster's own memory: a marked line taints the run (A2).
-              if (memoryTainted(memory)) {
-                taintOf(p.run).taint(hubStrings().memoryOfAfter(p.agent.config.name));
-              }
-              // A fallback served it (the first model failed): later delegations start there.
-              const offFallback = log.subscribe((e) => {
-                if (
-                  e.type === 'error' &&
-                  e.data.code === 'provider_fallback' &&
-                  e.runId === p.run.id &&
-                  e.agent === p.agent.config.id
-                ) {
-                  let set = fellBackIn.get(p.run);
-                  if (!set) fellBackIn.set(p.run, (set = new Set()));
-                  set.add(p.agent.config.id);
-                }
-              });
-              const result = await runAny({
-                agent: sub,
-                task: p.brief,
-                tools: [...baseTools, ...docsToolFor(sub, p.run)],
-                extraTools,
-                // After `toolsFor`: a server that just failed to start counts too.
-                unlinked: mcp.unlinkedFor(p.agent),
-                ...(subDeferred.size > 0 ? { deferOwn: subDeferred } : {}),
-                card: cardOf(p.agent),
-                signal: p.scope.signal,
-                scope: p.scope,
-                log,
-                runId: p.run.id,
-                parentId: p.parentId,
-                providers,
-                budget,
-                memory,
-                ...(profile ? { profile } : {}),
-                ...(p.onFinalAnswer ? { onFinalAnswer: p.onFinalAnswer } : {}),
-                guard: guardFor(p.agent, p.run, p.parentId),
-                watcher: watcherFor(p.agent, p.run.id, p.brief.goal, p.scope.signal, p.parentId),
-              }).finally(offFallback);
-              served(p.run, p.agent, result);
-              // The report reaches the orchestrator without its memory section.
-              return remember(p.agent, result, {
-                run: p.run,
-                runId: p.run.id,
-                parentId: p.parentId,
-                signal: p.scope.signal,
-              });
-            },
+            runSubagent,
           }),
         ]
       : [...baseTools, ...docsToolFor(agent, run)];
@@ -2727,6 +2758,8 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
           ...artifactFor(agent, request, run),
           // Every monster, API or harness: the manual of the drawn blocks (D-162).
           uiGuideTool(),
+          // A monster of a squad asks its teammates (D-201); a coordinator delegates instead.
+          ...(coordinator ? [] : teammateFor(agent, run)),
           ...fileRead,
         ],
         // After `toolsFor` (the key above): a server that just failed to start counts too.

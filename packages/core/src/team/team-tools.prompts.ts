@@ -49,6 +49,24 @@ const en = {
     "Write the brief in the user's language: the agent writes its notes in the same language. " +
     'Example: {"agent": "Dione", "goal": "The November newsletter for the customers, in 2 variants", ' +
     `"context_links": ["${vaultLayout().research}/November news"], "done_when": "drafts saved in a note"}`,
+  askTeammateDescription: (names: string) =>
+    'Ask a teammate of your squad a question and wait for their answer: what they know, what they found, ' +
+    'a check on a piece of your work, or a short piece of work in their skill. Use it when you need ' +
+    'something only they have instead of guessing; do quick things yourself. They do not see your task: ' +
+    'say what you are working on in `context` and give notes as `context_links`. They answer you, ' +
+    `they cannot ask a third monster. Teammates: ${names}. ` +
+    'Example: {"agent": "Rhea", "question": "Which three sources did you use for the November market note?", ' +
+    `"context": "I am writing the newsletter from it", "context_links": ["${vaultLayout().research}/November market"]}`,
+  consultFormat: 'a short answer to the question, for a teammate: facts, sources, note paths',
+  consultDone: 'you have answered the question (save a note only if they ask for one)',
+  consultFrom: (name: string) =>
+    `${name}, a teammate of your squad, asks you this while working on their own task.`,
+  consultNext:
+    'This is your teammate’s answer: use it in your own work and say in your report what came from them. ' +
+    'Do not ask the same thing again.',
+  consultFailedNext:
+    'Your teammate could not answer (stopped_by, reason): go on with what you have, and say in your report ' +
+    'what is missing because of it.',
   askUserDescription:
     'Ask the user a choice that is theirs: publishing, writing to others, spending, deleting for good, ' +
     'changing the goal, or taste (tone, variant, which draft). Only for such a choice or a fact that blocks ' +
@@ -129,6 +147,25 @@ const it: typeof en = {
     "Write the brief in the user's language: the agent writes its notes in the same language. " +
     'Example: {"agent": "Dione", "goal": "La newsletter di novembre per i clienti, in 2 varianti", ' +
     `"context_links": ["${vaultLayout().research}/Novità di novembre"], "done_when": "bozze salvate in una nota"}`,
+  askTeammateDescription: (names) =>
+    'Ask a teammate of your squad a question and wait for their answer: what they know, what they found, ' +
+    'a check on a piece of your work, or a short piece of work in their skill. Use it when you need ' +
+    'something only they have instead of guessing; do quick things yourself. They do not see your task: ' +
+    'say what you are working on in `context` and give notes as `context_links`. They answer you, ' +
+    `they cannot ask a third monster. Teammates: ${names}. ` +
+    'Example: {"agent": "Rhea", "question": "Quali tre fonti hai usato per la nota sul mercato di novembre?", ' +
+    `"context": "Ci scrivo la newsletter", "context_links": ["${vaultLayout().research}/Mercato di novembre"]}`,
+  consultFormat:
+    'una risposta breve alla domanda, per un compagno di squadra: fatti, fonti, percorsi delle note',
+  consultDone: 'hai risposto alla domanda (salva una nota solo se te la chiede)',
+  consultFrom: (name) =>
+    `${name}, un compagno della tua squadra, te lo chiede mentre lavora al suo incarico.`,
+  consultNext:
+    'This is your teammate’s answer: use it in your own work and say in your report what came from them. ' +
+    'Do not ask the same thing again.',
+  consultFailedNext:
+    'Your teammate could not answer (stopped_by, reason): go on with what you have, and say in your report ' +
+    'what is missing because of it.',
   askUserDescription:
     'Ask the user a choice that is theirs: publishing, writing to others, spending, deleting for good, ' +
     'changing the goal, or taste (tone, variant, which draft). Only for such a choice or a fact that blocks ' +

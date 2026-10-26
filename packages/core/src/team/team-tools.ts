@@ -70,6 +70,8 @@ export interface SubagentRunParams {
   subtask: string;
   /** "Finito davvero?" (D-067): the stop hook of the sub-agent. */
   onFinalAnswer?: RunAgentOptions['onFinalAnswer'];
+  /** A teammate's question (`ask_teammate`, D-201): the one asked answers and asks no third. */
+  consult?: boolean;
 }
 
 export interface TeamToolsContext {
@@ -123,6 +125,21 @@ export interface TeamToolsContext {
   /** Draft flow of the team (`team_propose_monster`, D-075); without it the tool is not given. */
   proposals?: MonsterProposals;
 }
+
+/** What one delegation needs of the context: `delegate` and `ask_teammate` share it. */
+type DelegationContext = Pick<
+  TeamToolsContext,
+  | 'run'
+  | 'self'
+  | 'team'
+  | 'log'
+  | 'budget'
+  | 'doneCheck'
+  | 'tier'
+  | 'requestText'
+  | 'userName'
+  | 'runSubagent'
+>;
 
 /*
  * Delegations still settling after their run was aborted: the model loop stops at
@@ -287,7 +304,7 @@ export function subtaskText(input: DelegateInputValue): string {
 
 /** `completeBrief` with the defaults of `target` (its blueprint) and of the run. */
 export async function delegationBrief(
-  ctx: TeamToolsContext,
+  ctx: DelegationContext,
   target: AgentDefinition,
   input: DelegateInputValue,
 ): Promise<{ brief: TaskBrief; filled: string[] }> {
@@ -362,7 +379,7 @@ export function delegationStop(
 
 /** One delegation: logs it, runs the sub-agent in a child scope, returns the short report. */
 async function runDelegation(
-  ctx: TeamToolsContext,
+  ctx: DelegationContext,
   target: AgentDefinition,
   input: z.infer<typeof DelegateInput>,
   tc: Parameters<MonstersTool['execute']>[1],
@@ -648,7 +665,7 @@ function checkReport(check: DoneCheckResult | undefined): Record<string, string>
 }
 
 function instinctEvent(
-  ctx: TeamToolsContext,
+  ctx: DelegationContext,
   action: 'retry' | 'doubt',
   target: AgentDefinition,
   e: { message: string; parentId: string; details?: Record<string, unknown> },
@@ -726,6 +743,101 @@ export function delegateTool(ctx: TeamToolsContext): MonstersTool {
           const report = await runDelegation(ctx, target, input, tc);
           rememberDelegation(ctx.run, target.config.id, input.goal, report);
           return report;
+        } finally {
+          release();
+        }
+      },
+    }),
+  );
+}
+
+/** A monster asks a teammate of its squad (D-201): the one asked answers, never a third. */
+export const ASK_TEAMMATE = 'ask_teammate';
+
+const TeammateInput = z.object({
+  agent: z.string().min(1).describe('Name of the teammate, e.g. "Rhea"'),
+  question: z
+    .string()
+    .min(1)
+    .max(2000)
+    .describe('What you need from them, in one or two sentences'),
+  context: z
+    .string()
+    .max(1000)
+    .optional()
+    .describe('What you are working on and what you already know: they do not see your task'),
+  context_links: z
+    .preprocess(oneOrMany, z.array(z.string().min(1).max(300)).max(10))
+    .optional()
+    .describe('Vault notes to read, as paths or [[wikilinks]]: links, not their content'),
+});
+
+/**
+ * `ask_teammate` (D-201): a monster at work asks another monster of its squad, never a
+ * coordinator (the lead that delegated is waiting on it), and waits for the answer. It is a
+ * delegation from that monster, so the log, the kill switch, the run's caps and the notes it
+ * touched work as for `delegate`; the one asked runs without this tool (`consult`), so a
+ * question never becomes a chain. No "finito davvero?": the asker judges the answer itself.
+ */
+export function askTeammateTool(
+  ctx: Omit<DelegationContext, 'doneCheck'> & { members: () => AgentDefinition[] },
+): MonstersTool {
+  const budget = () => ctx.budget ?? runBudget(ctx.run);
+  const peers = () => ctx.members().filter((a) => a.config.id !== ctx.self.config.id);
+  const names = () =>
+    peers()
+      .map((a) => `${a.config.name} (${a.config.role})`)
+      .join(', ');
+  const t = teamToolsPrompts();
+  return trackInflight(
+    ctx.run,
+    defineTool({
+      name: ASK_TEAMMATE,
+      description: t.askTeammateDescription(names() || 'nobody else'),
+      inputSchema: TeammateInput.extend({
+        agent: z
+          .string()
+          .min(1)
+          .meta({ description: 'Name of the teammate', enum: peers().map((a) => a.config.name) }),
+      }),
+      async execute(input, tc) {
+        const found = ctx.team.get(input.agent);
+        const target =
+          found && peers().some((m) => m.config.id === found.config.id) ? found : undefined;
+        if (!target) {
+          throw new ToolError('NOT_FOUND', `no teammate called "${input.agent}"`, {
+            hint: `Teammates: ${names() || 'nobody else'}.`,
+          });
+        }
+        const goal = input.question;
+        const earlier = earlierDelegation(ctx.run, target.config.id, goal);
+        if (earlier) return { ...earlier, repeated: true, note: REPEATED_DELEGATION_NOTE };
+        const release = budget().beginDelegation();
+        try {
+          const why = [t.consultFrom(ctx.self.config.name), input.context?.trim()]
+            .filter(Boolean)
+            .join('\n');
+          const report = await runDelegation(
+            {
+              ...ctx,
+              // The one asked answers: it never asks a third monster.
+              runSubagent: (p) => ctx.runSubagent({ ...p, consult: true }),
+            },
+            target,
+            {
+              agent: input.agent,
+              goal,
+              why,
+              ...(input.context_links?.length ? { context_links: input.context_links } : {}),
+              output_format: t.consultFormat,
+              done_when: t.consultDone,
+            },
+            tc,
+          );
+          const answered = report.status === 'completed' && 'summary' in report;
+          const out = { ...report, next: answered ? t.consultNext : t.consultFailedNext };
+          rememberDelegation(ctx.run, target.config.id, goal, out);
+          return out;
         } finally {
           release();
         }

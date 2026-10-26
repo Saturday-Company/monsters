@@ -175,6 +175,10 @@ export function describeTool(tool: string, input: unknown): string {
       const to = str(i['to']);
       return to ? t.delegate(capitalize(to)) : t.delegateAny;
     }
+    case 'ask_teammate': {
+      const to = str(i['agent']);
+      return to ? t.askTeammate(capitalize(to)) : t.askTeammateAny;
+    }
     case 'ask_user':
       return t.ask;
     case 'shell':

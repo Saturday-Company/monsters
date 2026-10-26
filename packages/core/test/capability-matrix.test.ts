@@ -277,6 +277,7 @@ function checkCell(s: Seen): void {
   // The MCP server's own instructions promise only what the session has (A5).
   const mcpText = s.mcpInstructions ?? '';
   if (mcpText.includes('the web')) expect(s.visible.some((n) => n.startsWith('web_'))).toBe(true);
+  if (mcpText.includes('your teammates')) expect(s.visible).toContain('ask_teammate');
   if (mcpText.includes('the team')) expect(s.visible).toContain('delegate');
   if (s.harness === 'claude-agent') {
     const argv = ClaudeAgentHarness.args(task, { mcpConfig: '/x/mcp.json' });

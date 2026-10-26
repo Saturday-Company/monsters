@@ -231,7 +231,13 @@ function ArchivedRow({
   );
 }
 
-/** The monsters of the projects, read-only here: a project's squad is managed on its page (U-12). */
+/** How many of a project's other monsters show as small faces next to its lead. */
+const SQUAD_FACES = 3;
+
+/**
+ * The squads of the projects, read-only here: a project's squad is managed on its page (U-12).
+ * One row per project: its lead, the faces of the others in a line and one link to the project.
+ */
 function ProjectSquads() {
   const s = teamStrings().tab;
   const agents = useAgents();
@@ -240,24 +246,55 @@ function ProjectSquads() {
   const withProject = squads.filter((sq) => sq.key !== '');
   return (
     <>
-      {withProject.map((sq) => (
-        <li key={sq.key} className="list-none" data-testid={`team-squad-${sq.key}`}>
-          <p className="label px-4 pt-3 pb-1 text-ink-muted">{sq.label}</p>
-          <ul className="set-rows">
-            {sq.members.map((m) => (
+      {withProject.map((sq) => {
+        // squadsOf puts the lead first; a squad without one shows its first monster.
+        const [head, ...rest] = sq.members;
+        if (!head) return null;
+        const faces = rest.slice(0, SQUAD_FACES);
+        const more = rest.length - faces.length;
+        return (
+          <li key={sq.key} className="list-none" data-testid={`team-squad-${sq.key}`}>
+            <p className="label px-4 pt-3 pb-1 text-ink-muted">{sq.label}</p>
+            <ul className="set-rows">
               <Row
-                key={m.id}
                 as="li"
-                testId={`team-member-${m.id}`}
-                leading={<MonsterScreen genome={m.genome} mood="idle" width={52} height={44} />}
+                wrap
+                testId={`team-member-${head.id}`}
+                leading={<MonsterScreen genome={head.genome} mood="idle" width={52} height={44} />}
                 label={
                   <span className="flex flex-wrap items-baseline gap-x-2.5">
-                    <span className="text-large font-semibold">{m.name}</span>
-                    {m.isLead && <span className="label text-signal-ink">{s.projectLead}</span>}
+                    <span className="text-large font-semibold">{head.name}</span>
+                    {head.isLead && <span className="label text-signal-ink">{s.projectLead}</span>}
                   </span>
                 }
-                description={m.role}
+                description={head.role}
               >
+                {rest.length > 0 && (
+                  <span
+                    className="flex items-center gap-1"
+                    data-testid="team-squad-faces"
+                    role="img"
+                    aria-label={s.squadOthers(rest.map((m) => m.name))}
+                  >
+                    {faces.map((m) => (
+                      <span key={m.id} title={m.name} data-testid={`team-face-${m.id}`}>
+                        <MonsterScreen
+                          genome={m.genome}
+                          mood="idle"
+                          width={34}
+                          height={30}
+                          pad={2}
+                          animated={false}
+                        />
+                      </span>
+                    ))}
+                    {more > 0 && (
+                      <span className="label pl-0.5 text-ink-muted" aria-hidden>
+                        +{more}
+                      </span>
+                    )}
+                  </span>
+                )}
                 <a
                   href={projectPath(sq.key, 'squadra')}
                   className="text-footnote font-medium text-signal-ink hover:underline"
@@ -266,10 +303,10 @@ function ProjectSquads() {
                   {s.openProject}
                 </a>
               </Row>
-            ))}
-          </ul>
-        </li>
-      ))}
+            </ul>
+          </li>
+        );
+      })}
     </>
   );
 }

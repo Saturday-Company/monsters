@@ -77,6 +77,7 @@ describe('core tools are loaded up front in Claude Code (D-169)', () => {
       else expect(t._meta?.[ALWAYS_LOAD_META_KEY]).toBeUndefined();
     }
     expect([...ALWAYS_LOADED_TOOLS].sort()).toEqual([
+      'ask_teammate',
       'ask_user',
       'delegate',
       'vault_edit',

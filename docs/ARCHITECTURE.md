@@ -146,6 +146,11 @@ It is an agent like the others, with the name the user chose, plus three tools:
 - `ask_user({question, options[2-4], recommended, blocking})`: sends the user a question with options on every
   active channel. Work that doesn't depend on the answer goes on.
 - `team_*` (Phase 1, for onboarding): propose, create and edit agents.
+
+The other monsters of a squad talk to each other with `ask_teammate({agent, question, context, context_links})`
+(D-201): a monster at work, delegated or in its own chat, asks another member of its squad (never a coordinator) and
+waits for the answer. It is a delegation from that monster, with its log, kill switch, caps and notes; the one asked
+runs without the tool, so a question never becomes a chain.
 - `access_request({access: web|service|browser, monster?, service?, project?, why})` (project leads too, D-130):
   asks the user for an access a squad monster is missing. It is a question in the questions store (app and Telegram,
   parked like an `ask_user`) with “Yes, grant” and “No”, which only the user in person can answer; on yes the core

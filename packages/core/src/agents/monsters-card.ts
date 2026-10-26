@@ -134,6 +134,7 @@ export function monstersCard(options: MonstersCardOptions & CardContext): string
   // Drawn blocks (D-162): one line; the manual is the `ui_guide` tool, or attached to the turn.
   if (has('ui_guide')) can.push(p.uiDraw);
   if (has('delegate')) can.push(p.delegate);
+  if (has('ask_teammate')) can.push(p.askTeammate);
   if (has('ask_user')) can.push(p.askUser);
   const projects = ['project_propose', 'project_send', 'project_status'].filter(has);
   if (projects.length > 0) {

@@ -6120,7 +6120,7 @@ notes are excerpts of the logged previews (4,000 characters per result at most),
 
 ### D-200 · No step cap of a monster's own by default: the job's limits bound every run
 **Status:** done · 26/10/2026
-**Context:** after D-196 the lead of the Thunderina case still stopped at its 30 steps, now with a report. The cap was
+**Context:** after D-196 the lead of the D-195 case still stopped at its 30 steps, now with a report. The cap was
 not the user's: every template wrote one (20 by default, 30 for the orchestrator, the projects' leads and the agents
 with web tools, 12 for Dione), and the person cannot see or change it in the app. Since D-064 and D-171 every job
 already has its own bounds: steps (150 on the API, 400 on a subscription), tokens, dollars and the spending cap, the
@@ -6141,3 +6141,30 @@ Giulio's choice on 26/10.
 person can read and change (Settings → Models → Spending cap → Limits of each job). Accepted: a delegated research
 monster (Rhea had 12 steps for cost on the free chain, D-071, then 30) can now use more of the job's budget; the loop
 guard and the per-agent token cap of a delegation (D-171) still bound it.
+
+### D-201 · The monsters of a squad ask each other (`ask_teammate`); a project is one row in Settings → Squad
+**Status:** done · 27/10/2026
+**Context:** Giulio asked whether the agents can talk to each other and share information. They could only through
+the coordinator: the lead (or the orchestrator) delegates and reads the report, the orchestrator writes to the
+projects' leads (`project_send`, `project_status`), and everybody shares the vault. Two members could not: Dione,
+writing a newsletter on Rhea's research, had to guess or stop, and two parallel delegations never exchanged a word;
+a member in its own chat could not ask anyone.
+**Choices:**
+- New tool `ask_teammate({agent, question, context?, context_links?})`, given as an extra tool (no `agent.yaml` change)
+  to every non-coordinator monster with at least one teammate: when delegated, and in its own chat. Teammates are the
+  members of its squad (the Personal squad, or its project) except itself and the coordinators: the lead that
+  delegated is waiting on the call, and a coordinator delegates instead of answering.
+- It is a delegation from the asking monster (`runDelegation`): `delegation` event from it to the teammate under its
+  tool call, child scope of the run (kill switch, stop), the run's caps on parallel and total delegations, the notes
+  the answer touched, the same-question memo. The brief says who asks and why (`context`): the one asked does not see
+  the asker's task. Format and "done when" ask for a short answer, not a note.
+- Depth one: the teammate runs with `consult: true` and gets no `ask_teammate`, so a question never becomes a chain
+  or a loop between two monsters. No "finito davvero?" on the answer: the asker judges it in its own work.
+- The monster card lists the ability, the harness MCP server counts it as "the team" and loads it up front (D-169).
+- Settings → Squad (the user's request of the same day): a project's monsters were listed one by one, each with its
+  own "Open the project". Now one row per project: the lead (or the first monster), the faces of up to three others in
+  a line (`+N` beyond), one link to the project's squad.
+**Consequence:** members exchange information directly, in the log and in the chat like a delegation. Accepted: a
+question counts as a delegation of the run (at most 4 at once, 12 per task by default), so a lead running four
+parallel delegations leaves no room for a question until one ends: the asker gets the limit error and goes on.
+

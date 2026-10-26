@@ -25,6 +25,8 @@ const en = {
   uiDraw:
     'drawn data: a table, key numbers, a chart, a comparison or steps, in a ```ui block inside your reply (manual: `ui_guide`)',
   delegate: 'squad: you delegate to the other monsters (`delegate`)',
+  askTeammate:
+    'squad: you ask a teammate what they know or found, and wait for the answer (`ask_teammate`)',
   askUser: 'questions to the user (`ask_user`)',
   projectPropose:
     'you propose a new project as a draft (`project_propose`: new monsters, with names never used; you copy an existing monster only if the user asks)',
@@ -107,6 +109,8 @@ const it: typeof en = {
   uiDraw:
     'dati disegnati: una tabella, numeri chiave, un grafico, un confronto o dei passi, in un blocco ```ui dentro la risposta (manuale: `ui_guide`)',
   delegate: 'squadra: deleghi agli altri mostri (`delegate`)',
+  askTeammate:
+    'squadra: chiedi a un compagno quello che sa o ha trovato, e aspetti la risposta (`ask_teammate`)',
   askUser: 'domande all’utente (`ask_user`)',
   projectPropose:
     'proponi un progetto nuovo come bozza (`project_propose`: mostri nuovi, con nomi mai usati; copi un mostro esistente solo se l’utente lo chiede)',

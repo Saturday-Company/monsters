@@ -215,6 +215,19 @@ test('change the password: the current one is checked, then the new one works', 
   await expect(page.getByTestId('sidebar')).toBeVisible();
 });
 
+test('a project is one row: its lead, the others’ faces in a line, one link', async ({ page }) => {
+  await openTeam(page);
+  const squad = page.getByTestId('team-squad-social-di-saturday');
+  await expect(squad.getByRole('listitem')).toHaveCount(1);
+  await expect(squad).toContainText('project lead');
+  await expect(squad.getByRole('link', { name: /Open Saturday Social’s squad/ })).toHaveCount(1);
+  const faces = squad.getByTestId('team-squad-faces');
+  await expect(faces).toHaveAttribute('aria-label', /^With /);
+  const shown = await faces.locator('[data-testid^="team-face-"]').count();
+  expect(shown).toBeGreaterThan(0);
+  expect(shown).toBeLessThanOrEqual(3);
+});
+
 test('a project’s monsters are listed read-only, with a link to the project’s squad', async ({
   page,
 }) => {

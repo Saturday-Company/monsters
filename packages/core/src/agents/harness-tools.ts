@@ -224,7 +224,11 @@ export function harnessMcpInstructions(
   const parts = [
     ...(has((n) => n.startsWith('vault_')) ? ["the vault (the user's notes)"] : []),
     ...(has((n) => n.startsWith('web_')) ? ['the web'] : []),
-    ...(has((n) => n === 'delegate') ? ['the team'] : []),
+    ...(has((n) => n === 'delegate')
+      ? ['the team']
+      : has((n) => n === 'ask_teammate')
+        ? ['your teammates']
+        : []),
   ];
   return (
     `Tools of Monsters for this agent${parts.length > 0 ? `: ${parts.join(', ')}` : ''}; only the ones listed here. ` +
@@ -265,6 +269,7 @@ export const ALWAYS_LOADED_TOOLS: ReadonlySet<string> = new Set([
   'vault_edit',
   'ask_user',
   'delegate',
+  'ask_teammate',
 ]);
 
 /** The `_meta` key that makes Claude Code load a tool's schema at the start. */

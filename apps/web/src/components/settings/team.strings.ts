@@ -35,6 +35,10 @@ const en = {
     projectLead: 'project lead',
     openSquadOf: (label: string) => `Open ${label}’s squad`,
     openProject: 'Open the project',
+    squadOthers: (names: readonly string[]) =>
+      names.length === 1
+        ? `With ${names[0]}`
+        : `With ${names.slice(0, -1).join(', ')} and ${names.at(-1)}`,
     what: 'the squad',
     squad: 'The squad',
     squadFull: (max: number) =>
@@ -185,6 +189,10 @@ const it: typeof en = {
     projectLead: 'capo del progetto',
     openSquadOf: (label) => `Apri la squadra di ${label}`,
     openProject: 'Apri il progetto',
+    squadOthers: (names) =>
+      names.length === 1
+        ? `Con ${names[0]}`
+        : `Con ${names.slice(0, -1).join(', ')} e ${names.at(-1)}`,
     what: 'la squadra',
     squad: 'La squadra',
     squadFull: (max) =>
