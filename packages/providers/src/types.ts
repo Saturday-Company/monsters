@@ -268,7 +268,8 @@ export type HarnessEvent =
    * `connected` | `failed` | `pending` | `needs-auth`); Codex: `mcpServer/startupStatus/updated`
    * (several updates, `pending` first); Claude Code: the `init`, once, before the model's first
    * request (`pending` there means its tools miss that request). The runner stops or starts
-   * again a run whose `monsters` server is not connected when the model starts (D-160).
+   * again a run whose `monsters` server is not connected when the model starts (D-160). Claude
+   * Code says `missing` for a server its init left out.
    */
   | { type: 'mcp-status'; servers: Record<string, string> }
   /** The plan's limits as the official program reports them (D-111); nothing is asked for. */

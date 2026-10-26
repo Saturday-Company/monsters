@@ -408,6 +408,20 @@ describe('Claude Agent harness', () => {
     expect(env['LANG']).toBe('it_IT.UTF-8');
   });
 
+  it("says `missing` when the init leaves Monsters' server out (allowlist of 26/10/2026)", async () => {
+    const { h } = harness('tool', userEnv(loggedInHome()), ['--fake-mcp=missing']);
+    const ctrl = new AbortController();
+    const seen: HarnessEvent[] = [];
+    for await (const e of h.run(task(), ctrl.signal)) {
+      seen.push(e);
+      if (e.type === 'mcp-status') ctrl.abort();
+    }
+    expect(seen.find((e) => e.type === 'mcp-status')).toEqual({
+      type: 'mcp-status',
+      servers: { monsters: 'missing' },
+    });
+  });
+
   it("reports how Monsters' server came up, and reaches it directly behind a proxy (D-160)", async () => {
     const { h, record } = harness(
       'tool',
@@ -657,9 +671,13 @@ describe('Claude Agent harness', () => {
     // The errors of the services come to PostToolUseFailure (D-074): the same tools.
     expect(settings.hooks['PostToolUseFailure']).toEqual(settings.hooks['PostToolUse']);
     expect(settings.hooks['Stop']).toHaveLength(1);
+    // By name and by address: with a `serverUrl` in the list, Claude Code 2.1.308 admits a remote
+    // server only by its address, and Monsters' own was left out (26/10/2026).
     expect(settings.allowedMcpServers).toEqual([
       { serverName: 'monsters' },
+      { serverUrl: mcpUrl },
       { serverName: 'claude-design' },
+      { serverUrl: 'https://api.anthropic.com/v1/design/mcp' },
       { serverUrl: 'https://mcp.figma.com/*' },
     ]);
     // The first-party server is in the run's MCP config, with no header of Monsters.

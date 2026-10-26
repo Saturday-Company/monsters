@@ -342,9 +342,14 @@ export function claudeRunSettings(task: HarnessTask): Record<string, unknown> {
   if (claudeAi.length > 0) {
     // Without --strict-mcp-config every connector of the account would load:
     // only Monsters' servers and the connectors the user chose are admitted.
+    // Once the list holds a `serverUrl`, Claude Code admits a remote server only by its address:
+    // a `serverName` alone left Monsters' own server out, and the run went on without the vault,
+    // the web and the delegation (2.1.308, 26/10/2026). Each server goes in by name and address.
+    const http = connectors.filter((c) => c.kind === 'http');
     settings['allowedMcpServers'] = [
       { serverName: task.mcp.name },
-      ...connectors.filter((c) => c.kind === 'http').map((c) => ({ serverName: c.name })),
+      { serverUrl: task.mcp.url },
+      ...http.flatMap((c) => [{ serverName: c.name }, { serverUrl: c.url }]),
       ...claudeAi.map((c) => ({ serverUrl: c.url })),
     ];
   }
@@ -982,6 +987,10 @@ export class ClaudeAgentHarness implements HarnessProvider {
                   servers[s.name] = s.status;
                 }
               }
+              // Left out of the init, Monsters' server is not coming: a setting kept it out (the
+              // allowlist of 26/10/2026), and the run would go on without the vault, the web
+              // and the team. Said as `missing`, the runner stops it as a failed server.
+              if (!task.plain && !(task.mcp.name in servers)) servers[task.mcp.name] = 'missing';
               if (Object.keys(servers).length > 0) yield { type: 'mcp-status', servers };
             }
             break;

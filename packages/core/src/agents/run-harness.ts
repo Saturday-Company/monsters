@@ -135,7 +135,8 @@ const LIMIT_TAIL_EVENTS = new Set<HarnessEvent['type']>([
  * `pending` too, but only when the model starts while it lasts (Claude Code 2.1.308 past
  * `CLAUDE_CODE_MCP_STARTUP_WAIT_MS`; Codex sends `pending`, then `connected`).
  */
-const TOOLS_FAILED: ReadonlySet<string> = new Set(['failed', 'needs-auth', 'disabled']);
+// `missing`: Claude Code's init did not list the server at all (a setting kept it out).
+const TOOLS_FAILED: ReadonlySet<string> = new Set(['failed', 'needs-auth', 'disabled', 'missing']);
 /** Events of the model's work: Monsters' server still `pending` at one of them is not there. */
 const ACTING_EVENTS = new Set<HarnessEvent['type']>(['text-delta', 'text', 'tool-call', 'usage']);
 /** How long the core's own check of its tools endpoint may take. */

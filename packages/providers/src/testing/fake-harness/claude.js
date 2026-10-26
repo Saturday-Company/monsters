@@ -3,7 +3,7 @@
 //   node claude.mjs --fake-record=<file> --fake-scenario=<tool|hooks|remind|denied|ask|files|limit|nostream|linger|hang|notlogged> <claude args…>
 // `--fake-wrap=obey|ignore|hang`: what the `limit` scenario does once the core refused its tools (D-170).
 // `--fake-limits=off|rejected`: the plan limits events (D-111).
-// `--fake-mcp=failed|pending|needs-auth`: the status of Monsters' server at the init (D-160).
+// `--fake-mcp=failed|pending|needs-auth|missing`: the status of Monsters' server at the init (D-160).
 // `--fake-error=<text>`: the run ends with an error result saying <text> (after the limits events).
 // `hooks` calls the HTTP hooks of the run's --settings file (D-069) around a
 // web search, a push and a tool of a claude.ai connector, then at the stop.
@@ -95,10 +95,13 @@ out({
   tools: [],
   // `--fake-mcp=<status>`: how the first server (Monsters') came up, as 2.1.308 prints it
   // (`failed` with the core down or the token refused, `pending` past the startup wait).
-  mcp_servers: Object.keys(mcpConfig.mcpServers).map((name) => ({
-    name,
-    status: fake.mcp && name === server[0] ? fake.mcp : 'connected',
-  })),
+  // `missing`: the init leaves it out, as a settings allowlist that does not admit it does.
+  mcp_servers: Object.keys(mcpConfig.mcpServers)
+    .filter((name) => !(fake.mcp === 'missing' && name === server[0]))
+    .map((name) => ({
+      name,
+      status: fake.mcp && name === server[0] ? fake.mcp : 'connected',
+    })),
 });
 if (fake.mcp && fake.mcp !== 'connected') {
   // Its tools are missing, the model would go on without them: the core stops it first.

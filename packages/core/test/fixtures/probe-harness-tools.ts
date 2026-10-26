@@ -99,7 +99,7 @@ export const CLAUDE_DEFAULT_TOOLS_2_1_303: readonly string[] = [
 export interface ProbeCase {
   id: string;
   label: string;
-  task: Pick<HarnessTask, 'systemTools' | 'webSearch' | 'readFiles'>;
+  task: Pick<HarnessTask, 'systemTools' | 'webSearch' | 'readFiles' | 'connectors'>;
 }
 
 /** The runs probed (`attachment` gets the path of a real temporary file). */
@@ -116,6 +116,18 @@ export function probeCases(attachment: string): ProbeCase[] {
       id: 'files',
       label: 'allegati senza terminale',
       task: { systemTools: false, readFiles: [attachment] },
+    },
+    // A claude.ai connector puts an allowlist in the settings: with only its name there,
+    // Monsters' own server was left out and the run had no vault, web or team (26/10/2026).
+    {
+      id: 'conn',
+      label: 'capo con un connettore claude.ai',
+      task: {
+        systemTools: true,
+        connectors: [
+          { name: 'claude.ai Canva', kind: 'claude-ai', url: 'https://mcp.canva.com/*' },
+        ],
+      },
     },
   ];
 }
@@ -702,8 +714,8 @@ async function main(): Promise<number> {
     if (!codex) {
       say('Codex non installato: salto (Codex not installed: skipped)');
     } else {
-      // Codex reads no attachment itself (images go as `localImage`): the first three runs.
-      for (const probe of cases.filter((c) => !c.task.readFiles)) {
+      // Codex reads no attachment itself (images go as `localImage`) and has no claude.ai connector.
+      for (const probe of cases.filter((c) => !c.task.readFiles && !c.task.connectors)) {
         const r = await probeCodex(codex, probe, { url: mcp.url, token }, dir);
         if (!r.names) {
           red = true;
