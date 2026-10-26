@@ -205,7 +205,11 @@ export interface HarnessTask {
   images?: string[];
   /** Services reached through the harness's sign-in (Claude Code only). */
   connectors?: HarnessConnector[];
-  /** Session/thread of an earlier turn to continue. */
+  /**
+   * Session/thread of an earlier turn to continue (D-195: a follow-up that continues a job):
+   * Claude Code `--resume`, Codex `thread/resume`. A session the harness no longer has ends
+   * with `done` code `resume_not_found` before any request.
+   */
   resume?: string;
   /**
    * A one-shot answer with no tool at all (the summary of a conversation,
@@ -283,7 +287,10 @@ export type HarnessEvent =
       type: 'done';
       reason: 'stop' | 'max-steps' | 'aborted' | 'error';
       error?: string;
-      /** Machine code of the failure (`not_logged_in`, `usage_limit`, …). */
+      /**
+       * Machine code of the failure (`not_logged_in`, `usage_limit`, …); `resume_not_found`: the
+       * session of `resume` is gone, nothing was asked (D-195).
+       */
       code?: string;
       /** Final answer when the harness reports it. */
       text?: string;

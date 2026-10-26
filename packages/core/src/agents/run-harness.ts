@@ -240,8 +240,13 @@ export interface RunHarnessOptions {
   workspace: string;
   /** Summary of the turns older than `history` (D-082): first in the conversation of the turn's message. */
   summary?: string;
-  /** Session of the harness to continue (its earlier turns are in the context, D-079). */
+  /** Session of the harness to continue (its earlier turns are in the context, D-079, D-195). */
   resume?: string;
+  /**
+   * What the run gets instead of `resume` when the harness no longer has that session (D-195):
+   * the conversation, its summary and the notes of the job, as a turn without a session gets.
+   */
+  resumeFallback?: { history?: ModelMessage[]; summary?: string; notes?: string };
   /** Where the private files of each run go (0700, removed at the end). */
   scratchRoot: string;
   /** The agent has the `shell` permission: the harness may use its own terminal and files. */
@@ -576,11 +581,25 @@ type OnceResult = AgentRunResult & {
   planLimited?: boolean;
   /** Monsters' tools were not there at the start and nothing was done yet: start again. */
   toolsRetry?: boolean;
+  /** The session to resume is gone and nothing was asked: start again without it (D-195). */
+  resumeLost?: boolean;
 };
 
 function withoutFlag(r: OnceResult): AgentRunResult {
-  const { planLimited: _flag, toolsRetry: _retry, ...result } = r;
+  const { planLimited: _flag, toolsRetry: _retry, resumeLost: _lost, ...result } = r;
   return result;
+}
+
+/** The run without its session: the conversation and the notes of the job instead (D-195). */
+function withoutResume<T extends Omit<RunHarnessOptions, 'fallbackModel'>>(options: T): T {
+  const { resume: _resume, resumeFallback, ...rest } = options;
+  const hint = [resumeFallback?.notes, options.hint].filter(Boolean).join('\n\n');
+  return {
+    ...rest,
+    ...(resumeFallback?.history?.length ? { history: resumeFallback.history } : {}),
+    ...(resumeFallback?.summary ? { summary: resumeFallback.summary } : {}),
+    ...(hint ? { hint } : {}),
+  } as T;
 }
 
 /**
@@ -591,7 +610,12 @@ async function runWithTools(
   options: Omit<RunHarnessOptions, 'fallbackModel'>,
   quietPlanLimit: boolean,
 ): Promise<OnceResult> {
-  const first = await runHarnessOnce(options, quietPlanLimit, true);
+  let first = await runHarnessOnce(options, quietPlanLimit, true);
+  // The session to continue is gone (cleaned up by the harness): the same turn without it.
+  if (first.resumeLost) {
+    options = withoutResume(options);
+    first = await runHarnessOnce(options, quietPlanLimit, true);
+  }
   if (!first.toolsRetry) return first;
   return runHarnessOnce(options, quietPlanLimit, false);
 }
@@ -675,8 +699,11 @@ async function runHarnessOnce(
     usage: { inputTokens: totalIn, outputTokens: totalOut },
     model: servedModel,
     missingTools: missing,
+    ...(sessionId ? { harnessSession: { harness: harness.id, id: sessionId, cwd } } : {}),
     ...extra,
   });
+  /** The harness's session of this run (D-195): a continuation resumes it. */
+  let sessionId: string | undefined;
   let steps = 0;
   let totalIn = 0;
   let totalOut = 0;
@@ -1304,6 +1331,7 @@ async function runHarnessOnce(
       }
       switch (e.type) {
         case 'session':
+          if (e.id) sessionId = e.id;
           if (e.model) servedModel = { provider: harness.id, model: e.model };
           break;
         case 'mcp-status': {
@@ -1622,6 +1650,10 @@ async function runHarnessOnce(
     return base('aborted', lastText, cause ? { stopCause: cause } : {});
   }
   if (!done || done.reason === 'error') {
+    // The session to resume is gone, before any request (D-195): the caller starts without it.
+    if (options.resume && done?.code === 'resume_not_found' && steps === 0 && !lastText) {
+      return { ...base('failed', ''), resumeLost: true };
+    }
     // The plan's limit before any answer: the caller runs the same request on the next model.
     if (quietPlanLimit && done?.code === 'usage_limit' && !lastText && !draftOpen) {
       return { ...base('failed', '', done.error ? { error: done.error } : {}), planLimited: true };

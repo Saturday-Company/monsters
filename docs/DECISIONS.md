@@ -5925,3 +5925,58 @@ lists and runs get Try again; chat attachments retry their metadata three times 
 - `ProjectService.allowConnection` reads the off-list inside the project's queue (C-10).
 - `provider_fallback`, `search_fallback` and `context_rescue` stay `error` events: the UI already treats them as
   quiet, and the hub and receipt read their payloads; a `notice` would lose the rewritten sentences.
+
+### D-195 · A follow-up that continues a job keeps its level and its working context
+**Status:** done · 26/10/2026
+**Context:** a monster on Claude Code ran a hard job (instinct tier Hard: Opus, high effort): a graphic for an event,
+after reading the event's site and poster and last week's designs, with assets exported to a folder. It stopped at
+its 30-step cap. The user wrote "finisci pure". The new run was tiered Medium (Sonnet, medium effort) from those two
+words alone, and it started a new Claude Code session whose context was the conversation only: the user's messages,
+the final answers and a ~1k-token summary of the older turns (D-082, D-169). None of what the job had read or made
+with its tools is in a turn, so the monster said it had not looked at the theme and listed as "to check" facts it had
+found. `RunHarnessOptions.resume` (D-079) existed down to `--resume`/`thread/resume`, but nothing ever set it, and
+the harness's session id was not kept.
+**Choices:**
+- **What continues a job** (`team/continuation.ts`, `continuesJob`): a short message (≤ 12 words, ≤ 160 characters,
+  no files) within 24 h of the previous job of the same conversation (the run of the latest turn; never an
+  automation's giro). It continues when its words ask to go on ("continua", "vai avanti", "ok procedi", "finisci",
+  "go ahead"…, not negated), or when the job was left open and the words do not close it ("grazie", "lascia stare",
+  "never mind"): open means cut (`max_steps`, `run_limit`, `token_limit`, a stop, a failure of the monster) or an
+  answer that ends with a question. So the conversation decides, the word list only adds the go-ahead after a job
+  that ended complete; "ok" after a complete answer stays a new request. No new instinct question: it would need its
+  own labels and eval, and these signals are in the log already.
+- **The level**: the run's tier is the higher of Jev's and the continued job's (its first `tier` event, the
+  request's, not a delegation's). The effort follows the model in "Automatica" (D-110), so Opus comes back at high
+  effort. The `tier` event carries `details.continues` (the run id), and says "Continues a hard job: … uses opus."
+  when the job's level raised Jev's. The radiografia is still asked (route, tools, UI).
+- **The working context, first choice: the same harness session.** `runHarnessAgent` returns
+  `harnessSession` (harness, the session id of the `session` event, the folder it worked from); the hub keeps the
+  latest one per monster in memory (`JobSessions`, like the tool set of D-168). A continuation resumes it when the
+  monster's chain still starts on that harness, works from the same folder (the session is stored per folder by the
+  binary), and the job's last measured context was below `CONTEXT_COMPACT_AT` of the window. Then the message is the
+  request alone (with the turn's hints): no `## Recent conversation`, no summary, the session already has all of it.
+  The model may change on resume (Medium → Hard): both binaries accept it. The run starts tainted when the job read
+  third-party text.
+- **When the session cannot be resumed** (a restart, another harness, the API path, a session past the mark): the
+  notes of the job (`jobNotes`) go with the request, after the usual conversation and summary: the job's request, how
+  it ended, then its steps oldest first, built from the log without a model: what the monster wrote while working,
+  each tool with its input and an excerpt of its result (ids, paths, URLs, the facts read). Within 12,000 characters
+  (~3-4k tokens): excerpts shrink first (to 120 characters), then the middle steps go, the first three and the latest
+  stay. ToolSearch rounds and base64 are left out. They sit inside `<previous_job>` as data, a closing tag inside is
+  neutralised (as the summary, D-082). With a partial report of a capped job (wrap-up, D-170), that report is the
+  last "you wrote" line and the job's final answer in the conversation.
+- **A session the binary no longer has** (Claude Code cleans up transcripts; another config folder): Claude Code exits
+  before its init with "No conversation found with session ID" (2.1.308, read in the binary), Codex refuses
+  `thread/resume`. Both harnesses now end with `done` code `resume_not_found`; `runWithTools` starts the same turn
+  once more without `resume`, with the conversation, the summary and the notes (`resumeFallback`). Nothing was asked,
+  nothing is logged as an error.
+**Why resume first:** it is the only way to keep everything the job saw (pages, images, tool results), not a
+digest of it. On cost: Claude Code's prompt is stable across turns since D-169, so a resume within the cache's life
+reads the job's prefix from the cache; past it the first request writes it once (the real job ended at ~165k tokens).
+A new session redoing the research costs more: the run of 26/10 was already at 51k tokens of context after five
+requests, reading the same designs again, and still missed the theme. Resume is limited to continuations: an ordinary follow-up keeps the compaction
+design (D-082, D-169), where an old job's tool results do not ride along in every later turn.
+**Consequence:** "finisci pure" after a hard job capped at its steps continues on Opus at high effort in the same
+Claude Code session, with what it had read and made. After a restart it gets the steps of the job from the log
+instead of 1k tokens of conversation. Open: the session store is in memory (a restart falls back to the notes); the
+notes are excerpts of the logged previews (4,000 characters per result at most), not the whole results.

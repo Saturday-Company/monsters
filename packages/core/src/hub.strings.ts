@@ -28,6 +28,8 @@ const en = {
   // the instinct
   tier: (own: boolean, level: 'simple' | 'medium' | 'hard', name: string, model: string) =>
     `${{ simple: 'Simple', medium: 'Medium', hard: 'Hard' }[level]} ${own ? 'task' : 'request'}: ${name} uses ${model}.`,
+  tierContinued: (level: 'simple' | 'medium' | 'hard', name: string, model: string) =>
+    `Continues a ${{ simple: 'simple', medium: 'medium', hard: 'hard' }[level]} job: ${name} uses ${model}.`,
   accessLinesSkipped: (name: string, n: number) =>
     `I didn’t add ${n === 1 ? 'a line' : `${n} lines`} about access to ${name}’s memory: Monsters tells it its permissions and connections on every task.`,
   webToolsWait: (name: string) =>
@@ -48,6 +50,7 @@ const en = {
   automationAfter: (name: string) => `automation proposed by ${name} after third-party text`,
   projectReport: 'a project’s report',
   recentConversation: 'recent conversation',
+  previousJob: 'previous job',
   conversationSummary: 'conversation summary',
   profileAfter: 'profile written after third-party text',
   memoryAfter: 'memory written after third-party text',
@@ -74,6 +77,8 @@ const it: typeof en = {
         ? { simple: 'semplice', medium: 'medio', hard: 'difficile' }[level]
         : { simple: 'semplice', medium: 'media', hard: 'difficile' }[level]
     }: ${name} usa ${model}.`,
+  tierContinued: (level, name, model) =>
+    `Continua un lavoro ${{ simple: 'semplice', medium: 'medio', hard: 'difficile' }[level]}: ${name} usa ${model}.`,
   accessLinesSkipped: (name, n) =>
     `Non ho aggiunto alla memoria di ${name} ${n === 1 ? 'una riga sui suoi accessi' : `${n} righe sui suoi accessi`}: permessi e collegamenti glieli dice Monsters a ogni lavoro.`,
   webToolsWait: (name) =>
@@ -91,6 +96,7 @@ const it: typeof en = {
   automationAfter: (name) => `automazione proposta da ${name} dopo testo di terzi`,
   projectReport: 'rapporto di un progetto',
   recentConversation: 'conversazione recente',
+  previousJob: 'lavoro precedente',
   conversationSummary: 'riassunto della conversazione',
   profileAfter: 'profilo scritto dopo testo di terzi',
   memoryAfter: 'memoria scritta dopo testo di terzi',

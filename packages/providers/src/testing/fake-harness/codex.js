@@ -306,6 +306,12 @@ for await (const line of rl) {
       id: msg.id,
       result: { userAgent: 'fake-codex/0.159.2', platformFamily: 'unix', platformOs: 'linux' },
     });
+  } else if (msg.method === 'thread/resume' && String(msg.params.threadId).startsWith('gone')) {
+    // A thread this CODEX_HOME does not have (D-195).
+    send({
+      id: msg.id,
+      error: { code: -32600, message: `no rollout found for thread id ${msg.params.threadId}` },
+    });
   } else if (msg.method === 'thread/start' || msg.method === 'thread/resume') {
     const server = Object.keys(config)
       .find((k) => k.startsWith('mcp_servers.') && k.endsWith('.url'))

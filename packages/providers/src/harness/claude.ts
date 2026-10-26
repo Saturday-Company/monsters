@@ -489,6 +489,11 @@ const HEARTBEAT_EVERY_MS = 5_000;
 const NOT_LOGGED_IN = /not logged in|\/login|invalid api key|authentication_error/i;
 /** The plan's limit by its words; a transient 429 («rate limit») is not it. */
 const USAGE_LIMIT = /usage limit|limit reached/i;
+/**
+ * `--resume` of a session the binary no longer has (its transcript was cleaned up, another
+ * config folder): it exits before the init with these words (2.1.308), nothing was asked.
+ */
+const RESUME_NOT_FOUND = /No conversation found with session ID/i;
 
 /** Token counts of the Anthropic API (`usage` of a message, of `message_delta`, of `result`). */
 interface ApiUsage {
@@ -1110,11 +1115,13 @@ export class ClaudeAgentHarness implements HarnessProvider {
                 type: 'done',
                 reason: 'error',
                 error,
-                ...(NOT_LOGGED_IN.test(error)
-                  ? { code: 'not_logged_in' }
-                  : planRejected || USAGE_LIMIT.test(error)
-                    ? { code: 'usage_limit' }
-                    : {}),
+                ...(task.resume && RESUME_NOT_FOUND.test(error)
+                  ? { code: 'resume_not_found' }
+                  : NOT_LOGGED_IN.test(error)
+                    ? { code: 'not_logged_in' }
+                    : planRejected || USAGE_LIMIT.test(error)
+                      ? { code: 'usage_limit' }
+                      : {}),
               };
             }
             // Calls the run's rules refused (D-127): the core says why, never "the user denied".
@@ -1155,7 +1162,11 @@ export class ClaudeAgentHarness implements HarnessProvider {
           type: 'done',
           reason: 'error',
           error: providerTexts().claudeClosed(code, tail.slice(-500)),
-          ...(NOT_LOGGED_IN.test(tail) ? { code: 'not_logged_in' } : {}),
+          ...(task.resume && RESUME_NOT_FOUND.test(tail)
+            ? { code: 'resume_not_found' }
+            : NOT_LOGGED_IN.test(tail)
+              ? { code: 'not_logged_in' }
+              : {}),
         };
       }
     } finally {

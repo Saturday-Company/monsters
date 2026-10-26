@@ -17,6 +17,7 @@ import { pinNodeRuntime } from '@monsters/shared/node';
 import {
   appLang,
   autoEffort,
+  CONTEXT_COMPACT_AT,
   EventInputSchema,
   MCP_CATALOG,
   OPENROUTER_FREE_ROUTER,
@@ -142,6 +143,14 @@ import { teamStrings } from './team/team.strings.ts';
 import { PaidSearch, searchRegion } from './team/paid-search.ts';
 import { answerText, conversationTurns, mergeTurns } from './team/conversation.ts';
 import { ConversationCompactor, fixedContextTokens, runsTainted } from './team/compaction.ts';
+import {
+  continuesJob,
+  higherTier,
+  jobNotes,
+  JobSessions,
+  previousJob,
+  sessionHasRoom,
+} from './team/continuation.ts';
 import { projectProposeTool } from './projects/propose.ts';
 import { automationProposeTool, AUTOMATION_PROPOSE } from './automations/propose.ts';
 import { DraftService } from './projects/drafts.ts';
@@ -1144,7 +1153,12 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
    * otherwise in our loop. A harness never falls back to a paid model (D-035).
    */
   const runAny = (
-    o: RunAgentOptions & { files?: readonly AttachmentSource[] },
+    o: RunAgentOptions & {
+      files?: readonly AttachmentSource[];
+      /** The harness session of the job this turn continues (D-195). */
+      resume?: string;
+      resumeFallback?: Parameters<typeof runHarnessAgent>[0]['resumeFallback'];
+    },
   ): Promise<AgentRunResult> => {
     const harness = harnessOf(o.agent);
     // The spending cap (D-070): a monster whose models cost money does not start past it.
@@ -1195,12 +1209,13 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       team.projectOf(runs.getRun(o.runId)?.agentId ?? o.agent.config.id)?.id ?? null;
     const access = accessOfRun(o, harness && o.scope ? harness : undefined);
     if (!harness || !o.scope) {
+      const { resume: _resume, resumeFallback: _fallback, ...api } = o;
       return runAgent({
         contextWindow,
         price: priceOf,
         projectId,
         toolMemory,
-        ...o,
+        ...api,
         onFinalAnswer: access.onFinalAnswer,
         ...(access.hint ? { hint: access.hint } : {}),
         ...(project ? { project } : {}),
@@ -1269,6 +1284,8 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       ...(o.parentId !== undefined ? { parentId: o.parentId } : {}),
       ...(o.history ? { history: o.history } : {}),
       ...(o.summary ? { summary: o.summary } : {}),
+      ...(o.resume ? { resume: o.resume } : {}),
+      ...(o.resumeFallback ? { resumeFallback: o.resumeFallback } : {}),
       ...(o.budget ? { budget: o.budget } : {}),
       // D-069: the plan's web search, the brake and the stop hook on the harness's own tools.
       webSearch: true,
@@ -2002,6 +2019,13 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
    * follow it, and a delegation whose subtask got no level of its own (D-109).
    */
   const tierOfRun = new WeakMap<object, TierLevel>();
+  /**
+   * The job a run continues (D-195), and whether its level raised the run's own: the `tier`
+   * event says so.
+   */
+  const continuedFrom = new WeakMap<object, { runId: string; raised: boolean }>();
+  /** The harness session of each monster's latest turn: a continuation resumes it (D-195). */
+  const jobSessions = new JobSessions();
   /** Level that chose the model of a delegation (D-109), by its `delegation` event: read once. */
   const tierOfDelegation = new Map<string, TierLevel>();
   /** Agents whose first model failed in a run (a fallback served them): they stay where they landed. */
@@ -2063,7 +2087,10 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         data: {
           use: 'tier',
           action: 'tier',
-          message: hubStrings().tier(!!subtask?.own, level, agent.config.name, first.model),
+          message:
+            !subtask && continuedFrom.get(run)?.raised
+              ? hubStrings().tierContinued(level, agent.config.name, first.model)
+              : hubStrings().tier(!!subtask?.own, level, agent.config.name, first.model),
           subject: agent.config.id,
           details: {
             level,
@@ -2076,6 +2103,10 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
             // Whose level: the subtask's own (Jev on the brief) or the request's (D-109).
             ...(subtask
               ? { delegation: subtask.delegation, from: subtask.own ? 'subtask' : 'request' }
+              : {}),
+            // The job this request continues (D-195): its level is the floor.
+            ...(!subtask && continuedFrom.has(run)
+              ? { continues: continuedFrom.get(run)!.runId }
               : {}),
           },
         },
@@ -2203,6 +2234,19 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     const history = mergeTurns(turns);
     while (history[0] && history[0].role !== 'user') history.shift();
     const attachedIds = batch.flatMap((b) => b.attachments ?? []);
+    // A short follow-up that continues the previous job of this conversation ("finisci pure"
+    // after a job cut at its cap, D-195): at least its level, and its working context.
+    const lastTurn = turns.at(-1);
+    const lastJob =
+      !auto && lastTurn?.runId && lastTurn.runId !== run.id
+        ? previousJob(log, c.agent.config.id, lastTurn.runId)
+        : null;
+    const continued = continuesJob(request, lastJob, {
+      now: Date.now(),
+      files: attachedIds.length,
+    })
+      ? lastJob
+      : null;
     // A document just uploaded may still be in the extraction worker (D-085): its text first.
     await files.ready(attachedIds);
     const attached = sourcesOf(attachedIds);
@@ -2253,8 +2297,18 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
           return {};
         }),
     ]);
-    // Medium too: the request has its level, the base stays (D-093).
-    if (xray.tier && !tierOfRun.has(run)) tierOfRun.set(run, xray.tier);
+    // Medium too: the request has its level, the base stays (D-093). A continuation never goes
+    // below the job it continues (D-195): "finisci pure" alone reads as a medium request.
+    const level = higherTier(xray.tier, continued?.tier);
+    if (level && !tierOfRun.has(run)) {
+      tierOfRun.set(run, level);
+      if (continued) {
+        continuedFrom.set(run, {
+          runId: continued.runId,
+          raised: continued.tier !== undefined && level !== xray.tier,
+        });
+      }
+    }
     // The user's own words, the profile and the memory: their sites are known, their text stays here.
     const taint = taintOf(run);
     // Only the user's own words: an agent's earlier reply may quote a hostile page, and a
@@ -2324,6 +2378,8 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     if (answerRuns.length > 0 && tainted(answerRuns)) taint.taint(hubStrings().recentConversation);
     // A summary of runs that read third-party text may carry an instruction of theirs (D-082).
     if (compacted.tainted) taint.taint(hubStrings().conversationSummary);
+    // The job this turn continues comes back whole (its session) or as notes of its steps (D-195).
+    if (continued && tainted([continued.runId])) taint.taint(hubStrings().previousJob);
     if (profile) {
       // A profile a run wrote after third-party text (review of 18/10, A2): data, not the user's
       // words, and the run starts tainted.
@@ -2605,12 +2661,45 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
             ),
           ]
         : [];
+    /*
+     * The working context of the job this turn continues (D-195). Its harness session, when the
+     * monster is still on that harness, in the same folder, and the session still had room: the
+     * whole job is there, the request goes alone (the harness keeps its cache). Otherwise, or if
+     * the session is gone, the notes of its steps from the log go with the request.
+     */
+    const harnessNow = harnessOf(agent);
+    const session =
+      continued && harnessNow
+        ? jobSessions.of(
+            agent.config.id,
+            continued.runId,
+            harnessNow.id,
+            team.workdirOf(agent.config.id) ?? agentWorkspace(paths.home, agent.config.id),
+          )
+        : undefined;
+    const resume =
+      session !== undefined && continued !== null && sessionHasRoom(continued, CONTEXT_COMPACT_AT)
+        ? session
+        : undefined;
+    const notes = continued ? jobNotes(log, c.agent.config.id, continued.runId) : null;
+    const hint = [resume ? undefined : notes, turnHint].filter(Boolean).join('\n\n');
     try {
       const result = await runAny({
         agent,
         task: request,
-        history: compacted.history,
-        ...(compacted.summary ? { summary: compacted.summary } : {}),
+        ...(resume
+          ? {
+              resume: session,
+              resumeFallback: {
+                history: compacted.history,
+                ...(compacted.summary ? { summary: compacted.summary } : {}),
+                ...(notes ? { notes } : {}),
+              },
+            }
+          : {
+              history: compacted.history,
+              ...(compacted.summary ? { summary: compacted.summary } : {}),
+            }),
         tools,
         extraTools: [
           ...(await mcp
@@ -2639,7 +2728,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         budget,
         memory,
         ...(profile ? { profile } : {}),
-        ...(turnHint ? { hint: turnHint } : {}),
+        ...(hint ? { hint } : {}),
         inbox: () => [
           ...c.inbox.splice(0).map((i) => {
             const asked = stranger(i.eventId);
@@ -2678,6 +2767,15 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
           : {}),
       });
       served(run, c.agent, result);
+      // The session of this turn: a follow-up that continues it resumes it (D-195).
+      if (result.harnessSession) {
+        jobSessions.remember(c.agent.config.id, {
+          runId: run.id,
+          harness: result.harnessSession.harness,
+          session: result.harnessSession.id,
+          cwd: result.harnessSession.cwd,
+        });
+      }
       // The chat keeps the «Da ricordare:» line (the user sees what is saved); the memory gets it.
       await remember(c.agent, result, { run, runId: run.id, signal: run.signal });
       writeReceipt(c, batch, request, result.status);

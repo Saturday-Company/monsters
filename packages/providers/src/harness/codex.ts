@@ -693,6 +693,16 @@ export class CodexHarness implements HarnessProvider {
           model?: string;
         };
       } catch (err) {
+        // A thread this CODEX_HOME no longer has (D-195): said as such, the caller starts anew.
+        if (task.resume && !CODEX_REQUIRED_MCP_FAILED.test((err as Error).message)) {
+          yield {
+            type: 'done',
+            reason: 'error',
+            code: 'resume_not_found',
+            error: (err as Error).message,
+          };
+          return;
+        }
         if (!CODEX_REQUIRED_MCP_FAILED.test((err as Error).message)) throw err;
         // Monsters' server never came up: no turn without its tools.
         yield { type: 'mcp-status', servers: { [task.mcp.name]: 'failed' } };
