@@ -389,6 +389,34 @@ describe('runAgent', () => {
     expect(env.provider.calls).toHaveLength(2);
   });
 
+  it('tells the agent once when few of its steps are left (D-196)', async () => {
+    inLang('en');
+    const env = setup({ a: () => fake.toolCall('lookup', { q: 'rea' }) });
+    const run = env.runs.startRun({ agent: 'rhea' });
+    const result = await runAgent({
+      agent: agent({ limits: { maxSteps: 10 } }),
+      task: 'loop',
+      tools: [lookup],
+      signal: run.signal,
+      log: env.log,
+      runId: run.id,
+      providers: env.providers,
+    });
+    expect(result.status).toBe('max_steps');
+    const prompts = env.provider.calls.map((c) => JSON.stringify(c.options.prompt));
+    expect(prompts).toHaveLength(10);
+    // Steps 1-9 may use tools, the 10th is the report: told before the 8th, with 2 left.
+    const note = '2 steps left of your 10 for this task';
+    expect(prompts.map((p) => p.includes(note))).toEqual([
+      ...Array<boolean>(7).fill(false),
+      true,
+      true,
+      true,
+    ]);
+    expect(prompts[9]!.split(note)).toHaveLength(2);
+    expect(prompts[9]).toContain('Last step: you have no more tools');
+  });
+
   it('reports a failure when every model is unavailable', async () => {
     const env = setup({ a: [fake.httpError(503)] });
     const run = env.runs.startRun({ agent: 'rhea' });

@@ -1,7 +1,9 @@
 // A fake `claude` binary for the tests: it speaks the documented stream-json
 // protocol of `claude -p` and `claude auth status`. Fake options come first:
-//   node claude.mjs --fake-record=<file> --fake-scenario=<tool|hooks|remind|denied|ask|files|limit|nostream|linger|hang|notlogged> <claude args…>
-// `--fake-wrap=obey|ignore|hang`: what the `limit` scenario does once the core refused its tools (D-170).
+//   node claude.mjs --fake-record=<file> --fake-scenario=<tool|hooks|remind|denied|ask|files|limit|steps|nostream|linger|hang|notlogged> <claude args…>
+// `--fake-wrap=obey|ignore|hang`: what the `limit` and `steps` scenarios do once the core refused their tools (D-170).
+// `steps` (D-196): a model that never finishes by itself, one request after another, stopped by
+// `--max-turns` like the real binary; `--fake-first=mcp|bash` is the tool each request calls first.
 // `--fake-limits=off|rejected`: the plan limits events (D-111).
 // `--fake-mcp=failed|pending|needs-auth|missing`: the status of Monsters' server at the init (D-160).
 // `--fake-error=<text>`: the run ends with an error result saying <text> (after the limits events).
@@ -290,6 +292,7 @@ async function hookedTool(id, name, input, output) {
     parent_tool_use_id: null,
     session_id: session,
   });
+  return answer;
 }
 
 if (scenario === 'hooks') {
@@ -635,6 +638,116 @@ if (scenario === 'hooks') {
     num_turns: 2,
     usage: {},
   });
+} else if (scenario === 'steps') {
+  // D-196: each request calls Monsters' `vault_search` and the terminal (in the order of
+  // `--fake-first`). The real binary ends with `error_max_turns` once `--max-turns` requests ran
+  // their tools. What the core said to the model (a hook's `additionalContext`, a text block of
+  // Monsters' result) is recorded as `context`; with `--fake-wrap=obey` the refusal of the limit
+  // gets the report, `ignore` goes on calling tools.
+  const wrap = fake.wrap ?? 'obey';
+  const maxTurns = Number(flag('--max-turns') ?? 0) || 100;
+  const pause = () => new Promise((resolve) => setTimeout(resolve, 100));
+  const token = String(server[1].headers.Authorization).replace(/^Bearer /, '');
+  const limited = (text) => /Limit reached|Limite raggiunto/.test(text);
+  let refused = false;
+  const mcpTool = async (n) => {
+    const called = await callMcpTool(server[1].url, token, 'vault_search', { query: `passo ${n}` });
+    record({ kind: 'mcp', request: n, ...called });
+    const blocks = called.result?.content ?? [{ type: 'text', text: String(called.error) }];
+    for (const b of blocks.slice(1))
+      record({ kind: 'context', request: n, via: 'mcp', text: b.text });
+    if (limited(JSON.stringify(blocks))) refused = true;
+    out({
+      type: 'user',
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: `toolu_v${n}`,
+            content: blocks,
+            is_error: Boolean(called.error || called.result?.isError),
+          },
+        ],
+      },
+      parent_tool_use_id: null,
+      session_id: session,
+    });
+  };
+  const bash = async (n) => {
+    const answer = await hookedTool(`toolu_b${n}`, 'Bash', { command: `echo ${n}` }, `${n}`);
+    const context = answer?.hookSpecificOutput?.additionalContext;
+    if (context) record({ kind: 'context', request: n, via: 'hook', text: context });
+    if (limited(answer?.hookSpecificOutput?.permissionDecisionReason ?? '')) refused = true;
+  };
+  let turns = 0;
+  let ended = false;
+  while (turns < maxTurns) {
+    turns++;
+    record({ kind: 'request', request: turns });
+    const vault = {
+      type: 'tool_use',
+      id: `toolu_v${turns}`,
+      name: `mcp__${server[0]}__vault_search`,
+      input: { query: `passo ${turns}` },
+    };
+    const term = {
+      type: 'tool_use',
+      id: `toolu_b${turns}`,
+      name: 'Bash',
+      input: { command: `echo ${turns}` },
+    };
+    const mcpFirst = fake.first !== 'bash';
+    request({
+      id: `msg_s${turns}`,
+      start: { input_tokens: 100, output_tokens: 1 },
+      end: { output_tokens: 10 },
+      blocks: [
+        { type: 'text', text: `Passo ${turns}.` },
+        ...(mcpFirst ? [vault, term] : [term, vault]),
+      ],
+    });
+    await pause();
+    if (mcpFirst) {
+      await mcpTool(turns);
+      await bash(turns);
+    } else {
+      await bash(turns);
+      await mcpTool(turns);
+    }
+    if (refused && wrap === 'obey') {
+      const text = 'Rapporto: grafica a metà, transazione Canva ancora aperta; mancano i testi.';
+      request({
+        id: 'msg_sr',
+        start: { input_tokens: 60, output_tokens: 1 },
+        end: { output_tokens: 15 },
+        blocks: [{ type: 'text', text }],
+      });
+      await callHook('Stop', { stop_hook_active: false, last_assistant_message: text });
+      out({
+        type: 'result',
+        subtype: 'success',
+        is_error: false,
+        result: text,
+        session_id: session,
+        num_turns: turns + 1,
+        usage: {},
+      });
+      ended = true;
+      break;
+    }
+  }
+  if (!ended) {
+    record({ kind: 'max-turns', turns });
+    out({
+      type: 'result',
+      subtype: 'error_max_turns',
+      is_error: true,
+      session_id: session,
+      num_turns: turns,
+      usage: {},
+    });
+  }
 } else if (scenario === 'hang') {
   process.on('SIGINT', () => {});
   process.on('SIGTERM', () => {});

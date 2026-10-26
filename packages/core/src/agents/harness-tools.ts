@@ -62,6 +62,11 @@ export interface HarnessSessionExtras {
    * run; the ones left out are reached with `tools_call` (D-163, Codex).
    */
   exposed?: readonly string[];
+  /**
+   * A note for the model added to the next result of Monsters' tools, when there is one (the
+   * "few steps left" of D-196): read once, as a text block after the tool's own.
+   */
+  note?: () => string | null;
 }
 
 export class HarnessToolSessions {
@@ -108,23 +113,11 @@ export class HarnessToolSessions {
             cause: TOOL_CAUSE_NOTE.not_in_run!,
           });
         }
-        const options = {
-          toolCallId: ulid(),
-          messages: [],
-          ...(signal ? { abortSignal: signal } : {}),
-        } as unknown as ToolExecutionOptions<unknown>;
-        try {
-          const output: unknown = await t.execute(args, options);
-          if (isFailure(output)) return errorResult(output.error);
-          return {
-            content: [
-              { type: 'text', text: typeof output === 'string' ? output : JSON.stringify(output) },
-            ],
-          };
-        } catch (err) {
-          // The kill switch stopped the run: the harness is being stopped too.
-          return errorResult({ code: 'ABORTED', message: (err as Error).message });
-        }
+        const result = await callTool(t, args, signal);
+        const note = extras.note?.();
+        return note
+          ? { ...result, content: [...result.content, { type: 'text', text: note }] }
+          : result;
       },
       ...(tools.some((t) => !listed.has(t.name))
         ? {
@@ -171,6 +164,27 @@ export class HarnessToolSessions {
 
   get size(): number {
     return this.#sessions.size;
+  }
+}
+
+/** One call of an adapted tool, as an MCP result: a failure or an abort is an error result. */
+async function callTool(t: Tool, args: unknown, signal?: AbortSignal): Promise<CallToolResult> {
+  const options = {
+    toolCallId: ulid(),
+    messages: [],
+    ...(signal ? { abortSignal: signal } : {}),
+  } as unknown as ToolExecutionOptions<unknown>;
+  try {
+    const output: unknown = await t.execute!(args, options);
+    if (isFailure(output)) return errorResult(output.error);
+    return {
+      content: [
+        { type: 'text', text: typeof output === 'string' ? output : JSON.stringify(output) },
+      ],
+    };
+  } catch (err) {
+    // The kill switch stopped the run: the harness is being stopped too.
+    return errorResult({ code: 'ABORTED', message: (err as Error).message });
   }
 }
 

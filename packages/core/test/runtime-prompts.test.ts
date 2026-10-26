@@ -70,7 +70,7 @@ describe('the run loop machinery, in English', () => {
       );
     }
     expect(finalStepNote()).toBe(
-      '[System] Last step: you have no more tools. Write the report now: what you did, the notes saved, what is missing.',
+      '[System] Last step: you have no more tools. Write the report now: what you did, the notes saved, what is missing, and anything you left half-open (a draft, an edit or a transaction still open in an external service).',
     );
     expect(briefLanguageNote()).toContain('Language: notes and report in the language');
     expect(accessNow()).toContain('## Accesses right now');

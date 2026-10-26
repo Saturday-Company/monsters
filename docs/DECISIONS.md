@@ -5952,3 +5952,30 @@ rules about asking were "ask_user for what only the user can decide", so a gap i
   Italian ones are the measured text).
 - The `AGENTS.md` of existing monsters is the user's and is not touched; the rule lives in the system part, so it
   reaches them without editing their files.
+
+### D-196 · An agent's step cap on a harness is a limit with a warning and a wrap-up
+**Status:** done · 26/10/2026
+**Context:** a lead monster on Claude Code (`limits.maxSteps: 30`) was cut at step 30 in the middle of a Canva edit:
+"used all 30 steps without finishing", no warning, no report, a Canva transaction left open. The cap went to Claude
+Code as `--max-turns` (and to our Codex runner as its own `maxTurns`) and the core only logged `max_steps`. D-170 gave
+the wrap-up to the run budget and the agent's tokens, not to its steps; the system prompt already promised "at the last
+step you will have no more tools and you will write the report", which on a harness was false.
+**Choices:**
+- The core counts the agent's steps on a harness (one per model request; a turn's aggregate total is not one). At the
+  cap it starts the wrap-up of D-170 (`agentStepsWhy`: "your limit of N steps for this task"): Claude Code's hooks and
+  Monsters' tools refuse every tool with the words that ask for the report, Codex gets them as a thread note. A report
+  ends the run at `max_steps` with its text; past the bound (90 s, 3 requests) it is stopped without one. The words of
+  the wrap-up and of our loop's last step now also ask for anything left half-open (a draft, an edit, a transaction
+  still open in an external service).
+- The harness's own stop stays as the backstop: `--max-turns`/`maxTurns` is the cap plus `WRAP_UP_REQUESTS`. A Claude
+  run without the core's hooks keeps max-turns at the cap, as before.
+- Few steps left: when the steps that may still use tools are 15% of the cap (at least 2, at most 10: 5 of 30), the
+  model is told once to save or commit its work, close what it left open and not start long new work. Codex reads it as
+  a thread note; Claude Code as `additionalContext` of the next `PreToolUse` that lets its tool run (accepted by 2.1.308)
+  or as a text block after the next result of Monsters' tools, whichever comes first. Our own loop gets the same note as
+  a user message before that step. No note under a cap of 10: the system prompt's "at most N steps" says it all there.
+- A limit error carries `report: true` when the monster still wrote its report (here and on our loop's last step); the
+  UI adds "It wrote a partial report." to "X stops here: …".
+**Consequence:** a monster near its step cap gets the chance to close its work and always says where it stopped. The
+numbers of the caps are unchanged. As in D-170, tools of the very request that reached the cap may still run on Claude
+Code if the binary runs them before the core has read that request's usage.

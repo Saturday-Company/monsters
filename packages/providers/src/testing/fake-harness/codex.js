@@ -4,6 +4,8 @@
 // `--fake-wrap=obey|ignore|done`: what the `limit` scenario does after the core's note (D-170);
 // `done`: the request that reaches the limit already ends with a complete answer, the note comes
 // (and is answered) before the turn completes, and the model makes no further request.
+// `steps` (D-196): a model that calls Monsters' tool request after request; the notes of the core
+// are recorded, and the one of the limit (`--fake-wrap=obey`, default) gets the report.
 // `--fake-answer=<text>`: the last message of the `tool` scenario (default «Fatto: <prompt>»).
 // `--fake-limits=off` leaves out the plan limits notification (D-111).
 // `longcmd`: a command that runs silent for `--fake-cmd-ms` (default 600), then prints a line.
@@ -282,6 +284,66 @@ async function limitTurn(mcpName) {
   });
 }
 
+/** The client interrupted the turn (`turn/interrupt`). */
+let interrupted = false;
+
+/** `steps` (D-196): one call of Monsters' tool per request, until the core's limit or a stop. */
+async function stepsTurn(mcpName) {
+  const url = config[`mcp_servers.${mcpName}.url`];
+  const token = process.env[config[`mcp_servers.${mcpName}.bearer_token_env_var`]];
+  const limited = (v) => /Limit reached|Limite raggiunto/.test(JSON.stringify(v ?? ''));
+  let wrap = false;
+  for (let i = 1; i <= 60 && !interrupted; i++) {
+    const item = {
+      type: 'mcpToolCall',
+      id: `s${i}`,
+      server: mcpName,
+      tool: 'vault_search',
+      arguments: { query: `passo ${i}` },
+      status: 'inProgress',
+      result: null,
+      error: null,
+    };
+    notify('item/started', { threadId: thread, turnId: turn, item });
+    const called = await callMcpTool(url, token, 'vault_search', { query: `passo ${i}` });
+    record({ kind: 'mcp', id: item.id, request: i, ...called });
+    if (interrupted) return;
+    if (limited(called.result?.content)) wrap = true;
+    const failed = Boolean(called.error || called.result?.isError);
+    notify('item/completed', {
+      threadId: thread,
+      turnId: turn,
+      item: {
+        ...item,
+        status: failed ? 'failed' : 'completed',
+        result: failed ? null : { content: called.result.content, structuredContent: null },
+        error: failed ? { message: JSON.stringify(called.result?.content ?? called.error) } : null,
+      },
+    });
+    tokenUsage(50, 5);
+    // The core's note (if any) comes on stdin before the next request.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    while (notes.length > 0) {
+      const note = notes.shift();
+      record({ kind: 'note', request: i, note });
+      if (limited(note)) wrap = true;
+    }
+    if (wrap && fake.wrap !== 'ignore') {
+      notify('item/completed', {
+        threadId: thread,
+        turnId: turn,
+        item: { type: 'agentMessage', id: 'a9', text: 'Rapporto: 3 passi fatti, manca il resto.' },
+      });
+      tokenUsage(60, 15);
+      notify('turn/completed', {
+        threadId: thread,
+        turn: { id: turn, status: 'completed', items: [], error: null },
+      });
+      return;
+    }
+  }
+}
+
 const rl = createInterface({ input: process.stdin });
 for await (const line of rl) {
   if (!line.trim()) continue;
@@ -360,6 +422,7 @@ for await (const line of rl) {
       });
     }
   } else if (msg.method === 'turn/interrupt') {
+    interrupted = true;
     if (scenario !== 'hang') {
       send({ id: msg.id, result: {} });
       notify('turn/completed', {
@@ -399,6 +462,13 @@ for await (const line of rl) {
         .find((k) => k.startsWith('mcp_servers.') && k.endsWith('.url'))
         .split('.')[1];
       void limitTurn(mcpName);
+      continue;
+    }
+    if (scenario === 'steps') {
+      const mcpName = Object.keys(config)
+        .find((k) => k.startsWith('mcp_servers.') && k.endsWith('.url'))
+        .split('.')[1];
+      void stepsTurn(mcpName);
       continue;
     }
     if (scenario === 'netcmd') {
