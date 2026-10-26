@@ -1,8 +1,9 @@
-import { isAbsolute, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { settingsLabel, ToolError, type MonstersTool } from '@monsters/shared';
 import {
   commandWritesConfig,
   instructionFileIn,
+  isInside,
   lockedCommand,
   lockedPath,
   lockedSearch,
@@ -86,6 +87,9 @@ export const ClaudeHookInputSchema = z.looseObject({
   last_assistant_message: z.string().optional(),
   /** The folder Claude Code's session is in now (its terminal keeps a `cd`). */
   cwd: z.string().optional(),
+  /** The session, and its transcript `<projects>/<project>/<session>.jsonl` (every hook gets both). */
+  session_id: z.string().optional(),
+  transcript_path: z.string().optional(),
 });
 export type ClaudeHookInput = z.infer<typeof ClaudeHookInputSchema>;
 
@@ -191,7 +195,16 @@ export interface HarnessHookContext {
    * `Privato/` in a run of a Telegram chat (D-107), Claude Code's transcripts
    * (M6). The same speed bump.
    */
-  closed?: readonly { lock: DataDirLock; cwd: string; message: string }[];
+  closed?: readonly {
+    lock: DataDirLock;
+    cwd: string;
+    message: string;
+    /**
+     * The folder is Claude Code's `projects`: reading (never writing) what the harness saved for
+     * the run's own session in it (`tool-results/`) stays open (D-198).
+     */
+    ownOutputs?: boolean;
+  }[];
   /** The agent's working folder, whose harness configuration the run never writes (D-079). */
   workspace?: string;
   /** The projects' folders: their CLAUDE.md, AGENTS.md and configuration are not written either (D-103). */
@@ -206,6 +219,8 @@ export interface HarnessHookContext {
     reason: (tool: string) => string;
     /** Without the terminal, `Read` opens only these files (the attachments). */
     readable?: readonly string[];
+    /** ... and what the harness saved for the run's own session in this `projects` folder (D-198). */
+    sessionOutputs?: string;
   };
 }
 
@@ -221,6 +236,8 @@ export interface RunWeb {
   elsewhere?: readonly string[];
   /** Built-in `Read` opens only the files the user attached (no terminal). */
   attachmentsOnly?: boolean;
+  /** ... and the results the harness saved for the session (D-198): `Read` is offered for them. */
+  savedOutputs?: boolean;
 }
 
 const WEB_BUILTINS = new Set(['WebSearch', 'WebFetch']);
@@ -252,13 +269,18 @@ export function unavailableBuiltin(
   web: RunWeb,
   server: string,
 ): { model: string; user: string } {
-  const readOnly = tool === 'Read' && web.attachmentsOnly === true;
+  const readOnly = tool === 'Read' && (web.attachmentsOnly === true || web.savedOutputs === true);
+  const saved = readOnly && web.savedOutputs === true;
   let model = readOnly
-    ? 'In this run the built-in Read opens only the files the user attached.'
+    ? `In this run the built-in Read opens only ${saved ? 'the files the user attached and the results saved for this session (the folder `tool-results/` of the session, the path is in the result)' : 'the files the user attached'}.`
     : `${tool} is not one of your tools in this run: Monsters gives you only the tools you see listed.`;
   model += ' This is not a refusal of the user and asking the user for it does not help.';
   const words = runAgentStrings();
-  let user = readOnly ? words.builtinOnlyAttached : words.builtinNotInJob(tool);
+  let user = readOnly
+    ? saved
+      ? words.builtinOnlyAttachedOrSaved
+      : words.builtinOnlyAttached
+    : words.builtinNotInJob(tool);
   if (WEB_BUILTINS.has(tool)) {
     const search = web.own ? 'WebSearch' : web.search ? `\`web_search\` of \`${server}\`` : '';
     const fetch = web.fetch ? `\`web_fetch\` of \`${server}\`` : '';
@@ -333,6 +355,49 @@ export async function harnessConfigWrite(
 }
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+
+/** The tools that only read (a hook of the file tools lets the closed folder's own outputs through for them). */
+const READING_TOOLS: ReadonlySet<string> = new Set(['Read', 'Glob', 'Grep', 'LS']);
+
+/** A session id as Claude Code writes it (a UUID): no separator, no `..`. */
+const SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/;
+
+/**
+ * Where Claude Code saves what a tool returned that is too large for the context, or an image of a
+ * service, for the session of this hook call (D-198): `<projects>/<project>/<session>/tool-results`.
+ * It comes from the call's own `session_id` and `transcript_path` (what the binary sends, never the
+ * model's) and only when the transcript is exactly `<projects>/<project>/<session>.jsonl`; otherwise
+ * null, and the folder stays closed. The other sessions' outputs, their transcripts and everything
+ * else in `projects` are never this.
+ */
+export async function sessionOutputsDir(
+  projects: string,
+  input: Pick<ClaudeHookInput, 'session_id' | 'transcript_path'>,
+): Promise<string | null> {
+  const id = str(input.session_id);
+  const transcript = str(input.transcript_path);
+  if (!id || !transcript || !SESSION_ID.test(id) || !isAbsolute(transcript)) return null;
+  const file = resolve(transcript);
+  if (basename(file) !== `${id}.jsonl`) return null;
+  const project = dirname(file);
+  const fold = (p: string) =>
+    process.platform === 'win32' || process.platform === 'darwin' ? p.toLowerCase() : p;
+  const parents = [dirname(project), await realPathOf(dirname(project)).catch(() => '')];
+  const roots = [resolve(projects), await realPathOf(projects).catch(() => '')];
+  if (!parents.some((a) => a && roots.some((b) => b && fold(a) === fold(b)))) return null;
+  return join(project, id, 'tool-results');
+}
+
+/** Is `raw` (a path of a `Read`, relative to the call's folder), once resolved, inside `dir`? */
+async function readsInside(dir: string, raw: string | undefined, cwd: string): Promise<boolean> {
+  if (!raw?.trim()) return false;
+  const abs = isAbsolute(raw) ? resolve(raw) : resolve(cwd, raw);
+  const [real, root] = await Promise.all([
+    realPathOf(abs).catch(() => abs),
+    realPathOf(dir).catch(() => resolve(dir)),
+  ]);
+  return isInside(root, real);
+}
 
 /**
  * A call of Claude Code's terminal or file tools that reaches the data
@@ -499,7 +564,13 @@ async function preToolUse(
     const path = str((input.tool_input as Record<string, unknown> | undefined)?.['file_path']);
     const wanted = path ? resolve(path) : '';
     if (!ctx.outside.readable.some((f) => resolve(f) === wanted)) {
-      return deny(ctx.outside.reason(name));
+      // Or what the harness saved for this session (D-198), by the call's own session and no other.
+      const saved = ctx.outside.sessionOutputs
+        ? await sessionOutputsDir(ctx.outside.sessionOutputs, input).catch(() => null)
+        : null;
+      if (!saved || !(await readsInside(saved, path, str(input.cwd) ?? process.cwd()))) {
+        return deny(ctx.outside.reason(name));
+      }
     }
   }
   const locked = ctx.lockout
@@ -529,7 +600,17 @@ async function preToolUse(
     return deny(`${locked.message} ${locked.hint}`);
   }
   for (const folder of ctx.closed ?? []) {
-    const closed = lockedHarnessCall(name, input.tool_input, folder.cwd, folder.lock);
+    // The outputs the harness saved for this very session stay readable (D-198); a write never.
+    const own =
+      folder.ownOutputs && READING_TOOLS.has(name)
+        ? await sessionOutputsDir(folder.lock.dataDir, input).catch(() => null)
+        : null;
+    const closed = lockedHarnessCall(
+      name,
+      input.tool_input,
+      folder.cwd,
+      own ? { ...folder.lock, allowed: [...folder.lock.allowed, own] } : folder.lock,
+    );
     if (!closed) continue;
     refusedCall(ctx, input, closed.path.slice(0, 300), folder.message);
     return deny(folder.message);
@@ -573,6 +654,25 @@ async function preToolUse(
   }
 }
 
+/**
+ * A block that carries bytes, not text (D-198): an image or audio, a base64 `source`, an embedded
+ * `blob`. The injection check neither reads nor changes it: a "removed" mark in its `data` or
+ * `media_type` made Claude Code's image unreadable ("the API could not process this image", a
+ * Canva thumbnail, 26/10/2026) and the monster could not see its own work.
+ */
+function isBinaryBlock(value: object): boolean {
+  const o = value as Record<string, unknown>;
+  const source = o['source'];
+  return (
+    o['type'] === 'image' ||
+    o['type'] === 'audio' ||
+    (typeof source === 'object' &&
+      source !== null &&
+      (source as Record<string, unknown>)['type'] === 'base64') ||
+    (typeof o['blob'] === 'string' && typeof o['mimeType'] === 'string')
+  );
+}
+
 /** Text the injection check reads in a result: its strings, one per line. */
 function leaves(value: unknown, out: string[] = [], depth = 0): string[] {
   if (depth > 8) return out;
@@ -580,7 +680,7 @@ function leaves(value: unknown, out: string[] = [], depth = 0): string[] {
     if (value.trim()) out.push(value);
   } else if (Array.isArray(value)) {
     for (const v of value) leaves(v, out, depth + 1);
-  } else if (value && typeof value === 'object') {
+  } else if (value && typeof value === 'object' && !isBinaryBlock(value)) {
     for (const [k, v] of Object.entries(value)) {
       if (!binaryLeaf(value as Record<string, unknown>, k)) leaves(v, out, depth + 1);
     }
@@ -627,6 +727,7 @@ function mapLeaves(
   if (depth > 8) return value;
   if (typeof value === 'string') return f(value, key);
   if (Array.isArray(value)) return value.map((v) => mapLeaves(v, f, depth + 1, key));
+  if (value && typeof value === 'object' && isBinaryBlock(value)) return value;
   if (value && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value).map(([k, v]) => [

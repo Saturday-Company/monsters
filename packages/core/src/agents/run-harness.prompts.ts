@@ -36,6 +36,8 @@ const en = {
     'The built-in tools of Claude Code that you don’t have are not part of this run: if one shows as denied, the user did not deny it.',
   claudeRule: (docs: boolean) =>
     `“denied by your permission settings” is a fixed rule of Monsters (its data, the Claude Code and Codex configuration in the folders, the folders closed to this job), not a permission of the user: do not ask them to change it${docs ? '; for the CLAUDE.md and AGENTS.md of a project, propose the text with `project_docs_propose`' : ''}.`,
+  claudeSaved: (terminal: boolean) =>
+    `When a result is too large or is an image, Claude Code saves it in a file of this session (\`…/tool-results/…\`) and gives you the path: open it with \`Read\`${terminal ? ' or search it with `Grep`' : ''}. That folder of this session is open to you; the other sessions’ files are not.`,
   recent: '## Recent conversation',
   currentRequest: '## Current request',
   userLabel: 'User',
@@ -75,6 +77,8 @@ const it: typeof en = {
     'Gli strumenti integrati di Claude Code che non hai non sono di questa run: se uno risulta negato, non l’ha negato l’utente.',
   claudeRule: (docs) =>
     `«denied by your permission settings» è una regola fissa di Monsters (i suoi dati, la configurazione di Claude Code e Codex nelle cartelle, le cartelle chiuse a questo lavoro), non un permesso dell’utente: non chiedergli di cambiarlo${docs ? '; per CLAUDE.md e AGENTS.md di un progetto proponi il testo con `project_docs_propose`' : ''}.`,
+  claudeSaved: (terminal) =>
+    `Quando un risultato è troppo grande o è un’immagine, Claude Code lo salva in un file di questa sessione (\`…/tool-results/…\`) e ti dà il percorso: aprilo con \`Read\`${terminal ? ' o cercaci dentro con `Grep`' : ''}. Quella cartella di questa sessione ti è aperta; i file delle altre sessioni no.`,
   recent: '## Conversazione recente',
   currentRequest: '## Richiesta attuale',
   userLabel: 'Utente',

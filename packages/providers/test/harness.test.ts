@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   ClaudeAgentHarness,
+  claudeBuiltinTools,
   claudeRulePath,
   claudeRunSettings,
   claudeDontAskDenial,
@@ -584,6 +585,43 @@ describe('Claude Agent harness', () => {
     ]);
   });
 
+  it('gives a run without the terminal a Read of what the harness saved for its session (D-198)', async () => {
+    const { h, record } = harness('tool', userEnv(loggedInHome()));
+    await collect(
+      h.run(
+        task({
+          sessionOutputs: '/home/g/.claude/projects',
+          hooks: { url: 'http://127.0.0.1:9/h', token: 't', stop: false },
+        }),
+        new AbortController().signal,
+      ),
+    );
+    const run = records(record).find((r) => r.kind === 'run')!;
+    const argv = run['argv'] as string[];
+    expect(argv[argv.indexOf('--tools') + 1]).toBe('Read,ToolSearch');
+    const allowed = argv.slice(argv.indexOf('--allowedTools') + 1, argv.indexOf('--tools'));
+    expect(allowed).toEqual([
+      'mcp__monsters',
+      'Read(//home/g/.claude/projects/*/*/tool-results/**)',
+    ]);
+    // The hook of `Read` narrows it to the current session; nothing is denied by a rule here.
+    const settings = records(record).find((r) => r.kind === 'settings')!['settings'] as {
+      hooks: { PreToolUse: { matcher: string }[] };
+      permissions?: unknown;
+    };
+    expect(settings.hooks.PreToolUse.map((m) => m.matcher)).toContain('^Read$');
+    expect(settings.permissions).toBeUndefined();
+    // With the attached files too, and not for a run that is not asked for it.
+    expect(
+      claudeBuiltinTools({ systemTools: false, readFiles: ['/a/b.png'], sessionOutputs: '/p' }),
+    ).toEqual(['Read', 'ToolSearch']);
+    expect(claudeBuiltinTools({ systemTools: false })).toEqual(['ToolSearch']);
+    expect(claudeBuiltinTools({ systemTools: false, sessionOutputs: '/p', plain: true })).toEqual(
+      [],
+    );
+    expect(claudeBuiltinTools({ systemTools: true, sessionOutputs: '/p' })).toContain('Read');
+  });
+
   it('writes the hooks and the connector allowlist in a private settings file (D-069)', async () => {
     const { h, record } = harness('tool', userEnv(loggedInHome()));
     const events = await collect(
@@ -731,6 +769,40 @@ describe('Claude Agent harness', () => {
     expect(claudeRunSettings({ ...base, systemTools: false })).toEqual({
       autoMemoryEnabled: false,
     });
+  });
+
+  it('closes writing to Claude Code’s sessions, and reading all but the current one’s outputs (D-198)', () => {
+    const projects = '/home/a/.claude/projects';
+    const base = {
+      ...task(),
+      systemTools: true,
+      forbiddenPaths: ['/home/a/.monsters/secrets', projects],
+      sessionOutputs: projects,
+    };
+    const { deny } = (claudeRunSettings(base) as { permissions: { deny: string[] } }).permissions;
+    // The hook decides on reading (a deny rule would win over it); a transcript stays denied.
+    expect(deny).toEqual(
+      expect.arrayContaining([
+        'Read(//home/a/.claude/projects/*/*.jsonl)',
+        'Edit(//home/a/.claude/projects)',
+        'Edit(//home/a/.claude/projects/**)',
+        'Read(//home/a/.monsters/secrets/**)',
+      ]),
+    );
+    expect(deny).not.toContain('Read(//home/a/.claude/projects)');
+    expect(deny).not.toContain('Read(//home/a/.claude/projects/**)');
+    // Without the flag, as before: both closed.
+    const closed = (
+      claudeRunSettings({ ...base, sessionOutputs: undefined }) as {
+        permissions: { deny: string[] };
+      }
+    ).permissions.deny;
+    expect(closed).toEqual(
+      expect.arrayContaining([
+        'Read(//home/a/.claude/projects)',
+        'Read(//home/a/.claude/projects/**)',
+      ]),
+    );
   });
 
   it('a plain run (a summary) turns extended thinking off; a normal run leaves it as it is (D-169)', () => {

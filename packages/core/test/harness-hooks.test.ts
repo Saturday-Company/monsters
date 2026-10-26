@@ -3,7 +3,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { getRequestListener } from '@hono/node-server';
-import { ClaudeAgentHarness, CodexHarness } from '@monsters/providers';
+import { ClaudeAgentHarness, claudeRulePath, CodexHarness } from '@monsters/providers';
 import { FAKE_CLAUDE_SCRIPT, FAKE_CODEX_SCRIPT } from '@monsters/providers/testing';
 import { ToolError, type LogEvent, type MonstersTool } from '@monsters/shared';
 import { Hono } from 'hono';
@@ -834,6 +834,104 @@ describe('a Claude Code run with the brake and the stop hook (fake binary)', () 
       expect.objectContaining({ tool: 'shell', outcome: 'refused', category: 'publish' }),
     ]);
   });
+  it('the outputs Claude Code saved for the run’s own session can be read, with or without the terminal (D-198)', async () => {
+    const s = services();
+    await listen(s);
+    const userHome = join(home, 'user');
+    mkdirSync(join(userHome, '.claude'), { recursive: true });
+    writeFileSync(join(userHome, '.claude', '.credentials.json'), '{"method":"claude.ai"}');
+    const projects = join(userHome, '.claude', 'projects');
+    const mine = join(projects, '-project', 'sess-0001', 'tool-results');
+    const theirs = join(projects, '-project', 'sess-0002', 'tool-results');
+    mkdirSync(mine, { recursive: true });
+    mkdirSync(theirs, { recursive: true });
+    const png = join(mine, 'mcp-claude_ai_Canva-blob-1-abc.png');
+    writeFileSync(png, 'png');
+    writeFileSync(join(theirs, 'mcp-claude_ai_Canva-blob-2-def.png'), 'png');
+    writeFileSync(join(projects, '-project', 'sess-0001.jsonl'), '{}');
+    const reads = [
+      png,
+      join(theirs, 'mcp-claude_ai_Canva-blob-2-def.png'),
+      join(projects, '-project', 'sess-0001.jsonl'),
+    ];
+    const closed = 'Le trascrizioni non sono accessibili.';
+
+    for (const systemTools of [true, false]) {
+      const record = join(home, `saved-${systemTools}.jsonl`);
+      const harness = new ClaudeAgentHarness({
+        binary: () => ({
+          command: process.execPath,
+          args: [
+            FAKE_CLAUDE_SCRIPT,
+            `--fake-record=${record}`,
+            '--fake-scenario=saved',
+            `--fake-projects=${projects}`,
+            `--fake-reads=${reads.join('|')}`,
+          ],
+          source: 'configured',
+        }),
+        env: { PATH: process.env['PATH'], HOME: userHome, USERPROFILE: userHome },
+      });
+      const scope = new ControlScope('run', `s${systemTools}`, null, 100);
+      const result = await runHarnessAgent({
+        agent: agentDef(),
+        harness,
+        model: 'haiku',
+        task: 'guarda',
+        tools: [],
+        signal: scope.signal,
+        scope,
+        log: s.log,
+        runId: `s${systemTools}`,
+        sessions,
+        mcpUrl: () => `http://127.0.0.1:${port}/api/harness/mcp`,
+        hookUrl: () => `http://127.0.0.1:${port}/api/harness/hook`,
+        workspace: join(home, 'ws'),
+        scratchRoot: join(home, 'scratch'),
+        systemTools,
+        dataDir: join(home, 'data'),
+        sessionOutputs: projects,
+        closedFolders: [{ path: projects, message: closed }],
+        // Without the terminal, the run has services reached through Claude: their results are the large ones.
+        connectors: [
+          { name: 'claude.ai Canva', kind: 'claude-ai', url: 'https://mcp.canva.com/*' },
+        ],
+      });
+      expect(result.status, `terminal ${systemTools}`).toBe('completed');
+      const all = readFileSync(record, 'utf8')
+        .trim()
+        .split('\n')
+        .map(
+          (l) =>
+            JSON.parse(l) as {
+              kind: string;
+              answer?: unknown;
+              argv?: string[];
+              settings?: { permissions?: { deny: string[] } };
+            },
+        );
+      const answers = all.filter((r) => r.kind === 'hook').map((r) => JSON.stringify(r.answer));
+      // Its own session's output opens; another session's, and its own transcript, do not.
+      expect(answers[0], `terminal ${systemTools}`).toBe('{}');
+      expect(answers[1], `terminal ${systemTools}`).toContain('deny');
+      expect(answers[2], `terminal ${systemTools}`).toContain('deny');
+      if (systemTools) expect(answers[1]).toContain(closed);
+      const argv = all.find((r) => r.kind === 'run')!.argv!;
+      const tools = argv[argv.indexOf('--tools') + 1]!;
+      expect(tools.split(',')).toContain('Read');
+      // The rules: nothing but the hook decides on reading in `projects` (writing stays denied).
+      const deny = all.find((r) => r.kind === 'settings')?.settings?.permissions?.deny ?? [];
+      if (systemTools) {
+        expect(deny.some((d) => d.startsWith('Edit') && d.includes('/.claude/projects'))).toBe(
+          true,
+        );
+        expect(deny).not.toContain(`Read(${claudeRulePath(projects)}/**)`);
+      } else {
+        expect(argv).toContain(`Read(${claudeRulePath(projects)}/*/*/tool-results/**)`);
+      }
+    }
+  });
+
   it('Codex: a command out of the sandbox passes the same brake, and the refusal is in Monsters’ words (D-158)', async () => {
     const s = services();
     await listen(s);

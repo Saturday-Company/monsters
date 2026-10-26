@@ -1,6 +1,6 @@
 // A fake `claude` binary for the tests: it speaks the documented stream-json
 // protocol of `claude -p` and `claude auth status`. Fake options come first:
-//   node claude.mjs --fake-record=<file> --fake-scenario=<tool|hooks|remind|denied|ask|files|limit|steps|nostream|linger|hang|notlogged> <claude args…>
+//   node claude.mjs --fake-record=<file> --fake-scenario=<tool|hooks|saved|remind|denied|ask|files|limit|steps|nostream|linger|hang|notlogged> <claude args…>
 // `--fake-wrap=obey|ignore|hang`: what the `limit` and `steps` scenarios do once the core refused their tools (D-170).
 // `steps` (D-196): a model that never finishes by itself, one request after another, stopped by
 // `--max-turns` like the real binary; `--fake-first=mcp|bash` is the tool each request calls first.
@@ -267,11 +267,12 @@ async function callHook(event, payload) {
   }
   return {};
 }
-async function hookedTool(id, name, input, output) {
+async function hookedTool(id, name, input, output, extra = {}) {
   const answer = await callHook('PreToolUse', {
     tool_name: name,
     tool_input: input,
     tool_use_id: id,
+    ...extra,
   });
   const denied = answer?.hookSpecificOutput?.permissionDecision === 'deny';
   out({
@@ -351,6 +352,40 @@ if (scenario === 'hooks') {
     subtype: 'success',
     is_error: false,
     result: text,
+    session_id: session,
+    num_turns: 2,
+    usage: {},
+  });
+} else if (scenario === 'saved') {
+  // D-198: `Read` of the paths in `--fake-reads=a|b|c`, as the real binary asks the hook: with the
+  // session and its transcript (`--fake-projects=<folder>` holds `<project>/<session>.jsonl`).
+  const reads = (fake.reads ?? '').split('|').filter(Boolean);
+  const transcript_path = join(fake.projects ?? '', '-project', `${session}.jsonl`);
+  request({
+    id: 'msg_s1',
+    start: { input_tokens: 50, output_tokens: 1 },
+    end: { output_tokens: 10 },
+    blocks: reads.map((file_path, i) => ({
+      type: 'tool_use',
+      id: `toolu_r${i}`,
+      name: 'Read',
+      input: { file_path },
+    })),
+  });
+  for (const [i, file_path] of reads.entries()) {
+    await hookedTool(`toolu_r${i}`, 'Read', { file_path }, 'bytes', { transcript_path });
+  }
+  request({
+    id: 'msg_s2',
+    start: { input_tokens: 60, output_tokens: 1 },
+    end: { output_tokens: 5 },
+    blocks: [{ type: 'text', text: 'Letto.' }],
+  });
+  out({
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    result: 'Letto.',
     session_id: session,
     num_turns: 2,
     usage: {},

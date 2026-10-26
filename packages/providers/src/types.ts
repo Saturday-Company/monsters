@@ -197,6 +197,15 @@ export interface HarnessTask {
    */
   forbiddenPaths?: string[];
   /**
+   * Claude Code's `projects` folder (where its sessions are kept), when the run may read what the
+   * harness saved for its own session in it (`<project>/<session>/tool-results/`: a result too
+   * large for the context, an image of a service). Within `forbiddenPaths` that folder then gets
+   * no `Read` deny rule, only the `Edit` one: the core's `PreToolUse` hook decides on reads, and
+   * lets through the current session's `tool-results/` and nothing else. Without the terminal it
+   * also gives the run a `Read` that opens only those files (and the attached ones).
+   */
+  sessionOutputs?: string;
+  /**
    * Absolute paths of files the user attached that the harness reads itself
    * (Claude Code: `Read` allowed on exactly these, also without the terminal).
    */

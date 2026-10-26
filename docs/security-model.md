@@ -65,7 +65,10 @@ describes the perimeter, the threat model and the risks we have accepted.
   `--resume`, so `--no-session-persistence` can't be used; `CLAUDE_CONFIG_DIR` would move the login too). They contain
   prompts, memory and notes read. That folder is closed to `fs_*` and to the monsters' terminal (a speed bump, like the
   rest) and Claude Code's automatic memory is off in the runs; but whoever has the terminal can always get around a
-  speed bump, and every other program of the user reads them.
+  speed bump, and every other program of the user reads them. The one exception is read-only: what Claude Code saved
+  for the run's own session (`<project>/<session>/tool-results/`: an image of a service, a result too large for the
+  context) opens to `Read`, `Grep`, `Glob` and `LS` of that run (D-198); the other sessions' files, the transcripts and
+  any write stay closed.
 - **The desktop app's cookie.** The app's session lives in its data folder (`~/.config/Monsters`,
   `~/Library/Application Support/Monsters`, `%APPDATA%\Monsters`). The package has the `EnableCookieEncryption` fuse, but
   the key is within reach of every process of the user: on macOS it is in the Keychain (and with RunAsNode on, a process

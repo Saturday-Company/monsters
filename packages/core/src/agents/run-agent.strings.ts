@@ -99,6 +99,8 @@ const en = {
     `Claude Code’s ${tool}: it doesn’t get there because of a fixed Monsters rule (its data, Claude Code and Codex configuration, the folders closed to this job), not because of a permission of yours.`,
   builtinOnlyAttached:
     'In this job Claude Code’s Read opens only the attached files: you didn’t deny it.',
+  builtinOnlyAttachedOrSaved:
+    'In this job Claude Code’s Read opens only the attached files and the results saved for this session: you didn’t deny it.',
   builtinNotInJob: (tool: string) =>
     `Claude Code’s ${tool} is not among this job’s tools: you didn’t deny it.`,
   builtinWebTools: ' For the web it has Monsters’ tools.',
@@ -199,6 +201,8 @@ const it: typeof en = {
     `${tool} di Claude Code: lì non arriva per una regola fissa di Monsters (i suoi dati, la configurazione di Claude Code e Codex, le cartelle chiuse a questo lavoro), non per un tuo permesso.`,
   builtinOnlyAttached:
     'In questo lavoro Read di Claude Code apre solo i file allegati: non l’hai negato tu.',
+  builtinOnlyAttachedOrSaved:
+    'In questo lavoro Read di Claude Code apre solo i file allegati e i risultati salvati per questa sessione: non l’hai negato tu.',
   builtinNotInJob: (tool) =>
     `${tool} di Claude Code non è tra gli strumenti di questo lavoro: non l’hai negato tu.`,
   builtinWebTools: ' Per il web ha gli strumenti di Monsters.',

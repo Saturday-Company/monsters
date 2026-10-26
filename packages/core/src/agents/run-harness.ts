@@ -261,6 +261,13 @@ export interface RunHarnessOptions {
    * Claude Code's transcripts, M6).
    */
   closedFolders?: readonly { path: string; message: string }[];
+  /**
+   * Claude Code's `projects` folder (one of `closedFolders` for the runs with the terminal): the
+   * run reads what the harness saved for its own session in it (`tool-results/`), nothing else
+   * and never a write (D-198). Without the terminal it gives a run with services reached through
+   * Claude a `Read` for those files.
+   */
+  sessionOutputs?: string;
   memory?: string;
   profile?: string;
   /** The "## Progetto" section of a project's monster (D-097). */
@@ -329,7 +336,14 @@ const HOOKED: ReadonlySet<string> = new Set(['claude-agent']);
 export function monstersToolsSection(
   harnessId: string,
   web: RunWeb,
-  run: { terminal?: boolean; docsPropose?: boolean; team?: boolean; ask?: boolean } = {},
+  run: {
+    terminal?: boolean;
+    docsPropose?: boolean;
+    team?: boolean;
+    ask?: boolean;
+    /** The harness saves what it cannot show in full and the run may read it (D-198). */
+    saved?: boolean;
+  } = {},
 ): string {
   const server = `\`${HARNESS_MCP_SERVER}\``;
   const p = runHarnessPrompts();
@@ -357,6 +371,7 @@ export function monstersToolsSection(
     lines.push(p.claudeBuiltins);
     // The deny rules answer before any hook (D-127): only these words can say whose rule it is.
     if (run.terminal) lines.push(p.claudeRule(run.docsPropose === true));
+    if (run.saved) lines.push(p.claudeSaved(run.terminal === true));
   }
   return `${p.head}\n${lines.join('\n')}`;
 }
@@ -724,13 +739,25 @@ async function runHarnessOnce(
   const agentsMdInPrompt = harness.id === 'claude-agent' || options.cwd !== undefined;
   // The brief goes with the task, not in the instructions (D-064).
   const files = options.attachments;
+  // What the harness saves for the session (a result too large for the context, an image of a
+  // service) and tells the model to read (D-198): with the terminal, or with services reached
+  // through Claude, whose results are the large ones.
+  const savedOutputs =
+    harness.id === 'claude-agent' &&
+    options.sessionOutputs !== undefined &&
+    (options.systemTools || connectors.length > 0)
+      ? options.sessionOutputs
+      : undefined;
   // The web of this run, said exactly (D-127): what it has, or who has it.
   const web: RunWeb = {
     search: tools.some((t) => t.name === 'web_search'),
     fetch: tools.some((t) => t.name === 'web_fetch'),
     own: ownSearch,
     ...(options.webElsewhere?.length ? { elsewhere: options.webElsewhere } : {}),
-    ...(!options.systemTools && files?.read.length ? { attachmentsOnly: true } : {}),
+    ...(!options.systemTools && (files?.read.length || savedOutputs)
+      ? { attachmentsOnly: true }
+      : {}),
+    ...(!options.systemTools && savedOutputs ? { savedOutputs: true } : {}),
   };
   // Claude Code's built-ins of this run (`--tools`, D-127): any other is not the run's.
   const builtins =
@@ -739,6 +766,7 @@ async function runHarnessOnce(
           systemTools: options.systemTools,
           ...(ownSearch ? { webSearch: true } : {}),
           ...(files?.read.length ? { readFiles: files.read } : {}),
+          ...(savedOutputs ? { sessionOutputs: savedOutputs } : {}),
         })
       : undefined;
   const request = [taskMessage(task), options.hint ?? '', files?.text ?? '']
@@ -779,6 +807,7 @@ async function runHarnessOnce(
       docsPropose: tools.some((t) => t.name === 'project_docs_propose'),
       team: tools.some((t) => t.name === 'delegate'),
       ask: tools.some((t) => t.name === 'ask_user'),
+      saved: savedOutputs !== undefined,
     }),
   ].join('\n\n');
   // The context of each request (C.1): the total is the harness's, ours is estimated.
@@ -1112,6 +1141,7 @@ async function runHarnessOnce(
             lock: { dataDir: f.path, allowed: [] },
             cwd,
             message: f.message,
+            ...(savedOutputs !== undefined && f.path === savedOutputs ? { ownOutputs: true } : {}),
           })),
         }
       : {}),
@@ -1125,6 +1155,7 @@ async function runHarnessOnce(
             builtins,
             reason: (tool: string) => unavailableBuiltin(tool, web, HARNESS_MCP_SERVER).model,
             ...(web.attachmentsOnly ? { readable: files?.read ?? [] } : {}),
+            ...(web.attachmentsOnly && savedOutputs ? { sessionOutputs: savedOutputs } : {}),
           },
         }
       : {}),
@@ -1321,6 +1352,7 @@ async function runHarnessOnce(
               ],
             }
           : {}),
+        ...(savedOutputs ? { sessionOutputs: savedOutputs } : {}),
         ...(files?.read.length ? { readFiles: files.read } : {}),
         ...(files?.images.length ? { images: files.images } : {}),
         ...(ownSearch ? { webSearch: true } : {}),
