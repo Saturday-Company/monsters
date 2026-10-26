@@ -618,6 +618,93 @@ describe('commandWritesConfig (D-079, D-166)', () => {
     }
   });
 
+  describe('here-documents (26/10/2026): the body of a file being written is text, not a line to run', () => {
+    // The Python script a monster wrote with `cat > scripts/x.py <<'EOF'`: `*(`, apostrophes, braces and
+    // brackets were read as globs, groups and quotes, and the write was refused as one to CLAUDE.md.
+    const script = [
+      'import json, math, random',
+      'def ix(xv): return lambda a, b: (xv, a[1] + (b[1]-a[1])*(xv-a[0])/(b[0]-a[0]))',
+      'for ins, it in ((lambda p: p[0] >= x0, ix(x0)), (lambda p: p[0] <= x1, ix(x1))):',
+      "    print(f\"{v:.1f}\".rstrip('0'))  # it's a {set} of [shapes]",
+      "dots = 'M{0} {1}a{2} {2} 0 1 0'  # * ? [a-z] $x `y`",
+    ].join('\n');
+    const cwd = tempDir();
+    writeFileSync(join(cwd, 'CLAUDE.md'), '');
+    mkdirSync(join(cwd, 'scripts'));
+    const run = (line: string) => commandWritesConfig(line, { cwd });
+
+    it.each([
+      `cat > scripts/forme.py <<'EOF'\n${script}\nEOF`,
+      `cat > ${join(cwd, 'scripts', 'forme.py')} <<'EOF'\n${script}\nEOF\npython3 scripts/forme.py > out.json`,
+      `mkdir -p scripts && cat > scripts/forme.py <<'EOF'\n${script}\nEOF`,
+      `cd scripts && cat >> forme.py <<"EOF"\n${script}\nEOF`,
+      `cat > scripts/forme.py <<\\EOF\n${script}\nEOF`,
+      `cat > scripts/forme.py <<E"O"F\n${script}\nEOF`,
+      `tee scripts/forme.py > /dev/null <<'EOF'\n${script}\nEOF`,
+      `cat > scripts/forme.py <<-'EOF'\n\t${script.replace(/\n/g, '\n\t')}\n\tEOF`,
+      // Several in a row, and commands after the last one.
+      `cat > a.txt <<'A'\nx *(y\nA\ncat > b.txt <<'B'\nit's {z\nB\nls scripts`,
+      `cat - <<'A' > a.txt && cat - <<'B' > b.txt\n*(a\nA\n*(b\nB`,
+      // Not quoted: variables are harmless, a substitution is not (blocked below).
+      "cat > scripts/a.txt <<EOF\nhome $HOME * (x) {y} it's\nEOF",
+      'cat <<EOF | grep -n x\n*(x)\nEOF',
+      'jq . <<\'EOF\'\n{"a": [1, 2], "b": "it\'s"}\nEOF',
+    ])('lets %j through', (line) => {
+      expect(run(line), line).toBe(false);
+      expect(commandWritesConfig(line), line).toBe(false);
+    });
+
+    it.each([
+      // The names in the body still count: a script that spells a configuration is refused as before.
+      "cat > scripts/x.py <<'EOF'\nopen('CLAUDE.md', 'w').write('')\nEOF",
+      "cat > scripts/x.sh <<'EOF'\nrm .claude/settings.json\nEOF",
+      'cat <<EOF\nCLAUDE.md\nEOF',
+      // The target and the rest of the line are judged as always.
+      "cat > CLAUDE.md <<'EOF'\nhello\nEOF",
+      "cat >> .claude/settings.json <<'EOF'\n{}\nEOF",
+      "cat <<'EOF' | tee AGENTS.md\nhello\nEOF",
+      "cat > a.txt <<'EOF'\nx\nEOF\nrm -rf *",
+      "cat > a.txt <<'EOF'\nx\nEOF\necho x > CLAUDE.md",
+      // An apostrophe in the body no longer swallows the lines after it (they were not judged).
+      "cat > a.txt <<'EOF'\nit's\nEOF\nrm -rf *",
+      "cat > a.txt <<'EOF'\nit's\nEOF\nrm -rf *\ncat > b.txt <<'EOF'\nit's\nEOF",
+      // The body is code: a shell, an interpreter, a pipe into one, a list for xargs.
+      "bash <<'EOF'\nrm -rf *\nEOF",
+      'sh <<EOF\nrm -rf *\nEOF',
+      "cat <<'EOF' | bash\nrm -rf *\nEOF",
+      "cat <<'EOF' | sh -s\nrm -rf *\nEOF",
+      "cat > x.sh <<'EOF' && bash x.sh\nrm -rf *\nEOF",
+      "xargs rm <<'EOF'\n*\nEOF",
+      "env bash <<'EOF'\nrm -rf *\nEOF",
+      // An unquoted body runs its substitutions.
+      'cat > a.txt <<EOF\n$(rm -rf *)\nEOF',
+      'cat > a.txt <<EOF\n${X:-$(rm -rf *)}\nEOF',
+      // A delimiter that cannot be followed, and one that never closes: lexed as it stands.
+      'cat > a.txt <<$D\n*(x\nEOF\nrm -rf *',
+      "cat > a.txt <<'EOF'\n*(x\nrm -rf *",
+    ])('blocks %j', (line) => {
+      expect(run(line), line).toBe(true);
+    });
+
+    it('only a line that is exactly the delimiter closes it (with the tabs of <<-, not without)', () => {
+      // `EOF ` and `\tEOF` do not close a plain one: the rest is still body, as the shell reads it.
+      expect(run("cat > a.txt <<'EOF'\nx *(y\nEOF \n\tEOF\nrm -rf *\nEOF")).toBe(false);
+      expect(run("cat > a.txt <<-'EOF'\n\tx *(y\n\t\tEOF")).toBe(false);
+      expect(run("cat > a.txt <<-'EOF'\n\tx *(y\n\t\tEOF\nrm -rf *")).toBe(true);
+      expect(run("cat > a.txt <<'EOF'\nx *(y\nEOF\nrm -rf *")).toBe(true);
+    });
+
+    it('stays linear on many here-documents and long bodies', () => {
+      const many = "cat > a.txt <<'EOF'\n*(x\nEOF\n".repeat(20_000) + 'rm -rf *';
+      const long = `cat > a.txt <<'EOF'\n${"*(it's {\n".repeat(100_000)}EOF\nls`;
+      for (const line of [many, long, "cat <<'A'\n".repeat(50_000)]) {
+        const t0 = performance.now();
+        run(line);
+        expect(performance.now() - t0, line.slice(0, 30)).toBeLessThan(1000);
+      }
+    });
+  });
+
   it('knows the names at any depth and in either case', () => {
     for (const c of [
       'rm ../x/CLAUDE.md',

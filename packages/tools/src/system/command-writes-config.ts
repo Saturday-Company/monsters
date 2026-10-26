@@ -457,6 +457,91 @@ const PATH_SUBSTITUTION =
  */
 const GLOB_CHARS = '*?[]{},\\';
 
+/** A here-document opened on a line: its delimiter and how the shell reads its body. */
+interface Heredoc {
+  /** The delimiter without quotes; undefined when it is not a plain word (`<<$X`): not followed. */
+  delim?: string;
+  /** Any part of the delimiter is quoted or escaped: the body expands nothing. */
+  quoted: boolean;
+  /** `<<-`: leading tabs of the lines are dropped. */
+  dash: boolean;
+}
+
+/** The delimiter after a `<<` that ends at `at` (`'EOF'`, `"EOF"`, `\EOF`, `EOF`, `<<-`). */
+function heredocHead(src: string, at: number): Heredoc {
+  const m = /^(-?)[ \t]*((?:'[^'\n]*'|"[^"\n]*"|\\[\w.-]|[\w.-])+)/.exec(src.slice(at, at + 256));
+  if (!m) return { quoted: false, dash: false };
+  const word = m[2]!;
+  const delim = word.replace(/['"\\]/g, '');
+  return {
+    ...(delim && /^[\w.-]+$/.test(delim) ? { delim } : {}),
+    quoted: /['"\\]/.test(word),
+    dash: m[1] === '-',
+  };
+}
+
+/**
+ * Commands that read their input as data, never as code, for the here-documents they are fed: a
+ * file written with `cat > f <<'EOF'`, a pipe into `grep`, `jq`. The shells, the interpreters,
+ * `xargs`, `eval` and every wrapper that runs another program are not among them.
+ */
+function readsInputAsData(c: Command): boolean {
+  const p = parseCommand(c.words);
+  if (!p.cmd || p.xargs || p.assigns.length > 0) return false;
+  return (
+    readsOnly(p.cmd, p.args) ||
+    p.cmd === 'tee' ||
+    p.cmd === 'mkdir' ||
+    p.cmd === 'touch' ||
+    CHDIR.has(p.cmd)
+  );
+}
+
+/**
+ * Where the lines go on after the bodies of the here-documents opened on the line just read, or -1 when
+ * they are lexed as they stand. A body is text that the command fed reads, not a line the shell runs
+ * (`cat > forme.py <<'EOF'` followed by Python: its `*(`, `{` and apostrophes were read as globs, groups
+ * and quotes, and refused as a write to the configuration, 26/10/2026). It is skipped only when every
+ * command of the line reads its input as data, each delimiter closes it on a line of its own, and an
+ * unquoted body holds no substitution (`$(…)`, backticks) that would run. The names in it still count
+ * for the line (`CONFIG_WORD` reads the whole text), so a script that spells a configuration is refused
+ * as before; a body piped into a shell or an interpreter is lexed like any other line.
+ */
+function inertHeredocsEnd(
+  src: string,
+  from: number,
+  heredocs: readonly Heredoc[],
+  line: readonly Command[],
+  budget: { left: number },
+): number {
+  if (heredocs.length === 0 || heredocs.length > 8 || !line.every(readsInputAsData)) return -1;
+  let at = from;
+  for (const h of heredocs) {
+    if (h.delim === undefined) return -1;
+    let pos = at;
+    let found = -1;
+    while (pos <= src.length) {
+      const nl = src.indexOf('\n', pos);
+      const end = nl < 0 ? src.length : nl;
+      // Lines are read on a budget for the whole text: past it the bodies are lexed as they stand.
+      if ((budget.left -= end - pos + 1) < 0) return -1;
+      const text = h.dash ? src.slice(pos, end).replace(/^\t+/, '') : src.slice(pos, end);
+      if (text === h.delim) {
+        found = pos;
+        break;
+      }
+      if (nl < 0) break;
+      pos = nl + 1;
+    }
+    // Never closed: the shell reads to the end, this keeps lexing it.
+    if (found < 0) return -1;
+    if (!h.quoted && /\$\(|`|\\\n/.test(src.slice(at, found))) return -1;
+    const nl = src.indexOf('\n', found);
+    at = nl < 0 ? src.length : nl + 1;
+  }
+  return at;
+}
+
 /** A small shell lexer: enough to cut the line into commands and words, quoting included. */
 function lex(src: string): Lexed {
   const commands: Command[] = [];
@@ -479,6 +564,12 @@ function lex(src: string): Lexed {
   let start = 0;
   let piped = false;
   let joined = false;
+  /** The here-documents opened on the line being read, whose bodies start at its end. */
+  let heredocs: Heredoc[] = [];
+  /** Where the commands of the line being read start in `commands`. */
+  let lineFirst = 0;
+  /** How many characters the search for the ends of here-documents may read in all. */
+  const scan = { left: 4 * src.length + 4096 };
 
   const endWord = () => {
     if (!inWord) return;
@@ -652,6 +743,16 @@ function lex(src: string): Lexed {
       if (ch === '(' || ch === ')') groups = true;
       endCommand(i);
       i++;
+      if (ch === '\n') {
+        // The body of a here-document read as data is not a command line (see `inertHeredocsEnd`).
+        const past = inertHeredocsEnd(src, i, heredocs, commands.slice(lineFirst), scan);
+        if (past >= 0) {
+          i = past;
+          start = past;
+        }
+        heredocs = [];
+        lineFirst = commands.length;
+      }
       continue;
     }
     if (ch === '|') {
@@ -691,6 +792,7 @@ function lex(src: string): Lexed {
       }
       if (next === '<' || next === '(') {
         opaque = true;
+        if (next === '<') heredocs.push(heredocHead(src, i + 2));
         i += 2;
         continue;
       }
