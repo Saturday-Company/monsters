@@ -100,8 +100,9 @@ export const ALL_VAULT_TOOLS = [
 ];
 export const WEB_TOOLS = ['web_search', 'web_fetch'];
 /**
- * Steps of an agent with web tools: searching, reading 3-5 pages, writing the
- * note and the memory took Rhea past 20 in the Phase 1 demo (DECISIONS D-026).
+ * Least steps of an agent with web tools, when it has its own cap (D-200: none by default):
+ * searching, reading 3-5 pages, writing the note and the memory took Rhea past 20 in the
+ * Phase 1 demo (DECISIONS D-026).
  */
 export const WEB_AGENT_MAX_STEPS = 30;
 /** Orchestrator only (ARCHITECTURE §5.4; `team_propose_monster`, D-075). */
@@ -141,7 +142,7 @@ export function rheaBlueprint(options: ArchetypeOptions): SubagentBlueprint {
     color: '#4f8df7',
     models: options.models ?? DEFAULT_FREE_CHAIN,
     tools: [...WEB_TOOLS, ...VAULT_READ_TOOLS, 'vault_write', 'vault_edit'],
-    limits: { maxSteps: WEB_AGENT_MAX_STEPS, maxOutputTokens: 4000 },
+    limits: { maxOutputTokens: 4000 },
   };
 }
 
@@ -163,7 +164,7 @@ export function dioneBlueprint(options: ArchetypeOptions): SubagentBlueprint {
     color: '#f2994a',
     models: options.models ?? DEFAULT_FREE_CHAIN,
     tools: [...VAULT_READ_TOOLS, ...VAULT_WRITE_TOOLS],
-    limits: { maxSteps: 12, maxOutputTokens: 6000 },
+    limits: { maxOutputTokens: 6000 },
   };
 }
 
@@ -194,6 +195,5 @@ export function orchestratorBlueprint(
     color: '#9b6dff',
     models: options.models ?? DEFAULT_FREE_CHAIN,
     tools: [...ALL_VAULT_TOOLS, ...WEB_TOOLS, ...TEAM_TOOLS],
-    limits: { maxSteps: 30 },
   };
 }

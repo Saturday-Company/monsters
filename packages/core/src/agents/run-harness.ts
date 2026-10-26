@@ -695,10 +695,11 @@ async function runHarnessOnce(
    * The agent's own step cap (D-196) is counted here, not left to the harness's max-turns
    * alone: a harness that can be told (Claude Code's hooks, Codex's notes) hears when few steps
    * are left and gets the wrap-up at the cap; its max-turns stays as the backstop, past the
-   * wrap-up's requests. Otherwise max-turns is the cap, as before.
+   * wrap-up's requests. Otherwise max-turns is the cap, as before. No cap of its own by default
+   * (D-200): no max-turns either, and the job's limits bound the run.
    */
   const maxSteps = agent.config.limits.maxSteps;
-  const stepsWrapUp = hooked || harness.id === 'codex';
+  const stepsWrapUp = maxSteps !== undefined && (hooked || harness.id === 'codex');
   // Where the harness works: the project's folder (D-097), or the agent's own folder.
   const cwd = options.cwd ?? options.workspace;
   const lock: DataDirLock | undefined =
@@ -1078,7 +1079,8 @@ async function runHarnessOnce(
     limitHit = hit?.message ?? null;
     limitReason = hit?.limit;
     tokenLimitHit = !limitHit && maxTokens !== undefined && counted >= maxTokens;
-    stepLimitHit = !limitHit && !tokenLimitHit && stepsWrapUp && agentSteps >= maxSteps;
+    stepLimitHit =
+      !limitHit && !tokenLimitHit && stepsWrapUp && agentSteps >= (maxSteps ?? Infinity);
     if (!limitHit && !tokenLimitHit && !stepLimitHit) return;
     // The wrap-up's words say it all now: no "few steps left" after them.
     stepsNotePending = false;
@@ -1090,7 +1092,7 @@ async function runHarnessOnce(
       limitHit ??
       (tokenLimitHit
         ? runAgentPrompts().agentTokensWhy(maxTokens ?? 0)
-        : runAgentPrompts().agentStepsWhy(maxSteps));
+        : runAgentPrompts().agentStepsWhy(maxSteps ?? 0));
     const wrap = {
       why,
       reason: runAgentPrompts().limitWrapUp(why),
@@ -1120,7 +1122,7 @@ async function runHarnessOnce(
    * next hook (`additionalContext`) or result of Monsters' tools (`takeStepsNote`).
    */
   const warnSteps = (): void => {
-    if (stepsWarned || !stepsWrapUp || wrapUp || scope.aborted) return;
+    if (stepsWarned || !stepsWrapUp || maxSteps === undefined || wrapUp || scope.aborted) return;
     const note = stepsLeftNote(maxSteps - agentSteps, maxSteps, agentSteps);
     if (!note) return;
     stepsWarned = true;
@@ -1135,7 +1137,7 @@ async function runHarnessOnce(
   };
   /** The "few steps left" note for the model, once, with the steps left when it reads it. */
   const takeStepsNote = (): string | null => {
-    if (!stepsNotePending || wrapUp) return null;
+    if (!stepsNotePending || wrapUp || maxSteps === undefined) return null;
     stepsNotePending = false;
     return stepsLeftNote(maxSteps - agentSteps, maxSteps, agentSteps);
   };
@@ -1395,8 +1397,11 @@ async function runHarnessOnce(
         ...(approveCommand ? { approveCommand } : {}),
         ...(connectors.length > 0 ? { connectors } : {}),
         ...(options.resume ? { resume: options.resume } : {}),
-        // The backstop past the wrap-up (D-196); the cap itself when the harness cannot be told.
-        maxTurns: stepsWrapUp ? maxSteps + WRAP_UP_REQUESTS : maxSteps,
+        // The backstop past the wrap-up (D-196); the cap itself when the harness cannot be told;
+        // none without a cap of the agent's own (D-200).
+        ...(maxSteps !== undefined
+          ? { maxTurns: stepsWrapUp ? maxSteps + WRAP_UP_REQUESTS : maxSteps }
+          : {}),
         spawn: (command, args, spawnOptions) => scope.spawn(command, args, spawnOptions),
         scratchDir,
         // A kill closes the run at once: the request in flight is recorded first.
@@ -1662,7 +1667,10 @@ async function runHarnessOnce(
   };
 
   /** The agent's step cap, as data for the UI (D-171). */
-  const stepsLimit: LimitReason = { kind: 'agent_steps', value: maxSteps };
+  const stepsLimit: LimitReason = {
+    kind: 'agent_steps',
+    ...(maxSteps !== undefined ? { value: maxSteps } : {}),
+  };
   // An answer the harness completed stays completed even if its last request reached a limit,
   // unless the model wrote it in the wrap-up (D-170, below).
   const answered = done?.reason === 'stop' && !options.signal.aborted;
@@ -1718,7 +1726,7 @@ async function runHarnessOnce(
   }
   if (stepLimitHit && !answered && !options.signal.aborted) {
     // Stopped at the agent's steps without a report: past the wrap-up's bound, or not told.
-    const message = runAgentStrings().maxSteps(agent.config.name, maxSteps);
+    const message = runAgentStrings().maxSteps(agent.config.name, maxSteps ?? 0);
     log.append({
       agent: agentId,
       runId,
@@ -1818,7 +1826,7 @@ async function runHarnessOnce(
       ? runAgentStrings().stops(agent.config.name, limitHit ?? '')
       : limitStatus === 'token_limit'
         ? runAgentStrings().tokenLimit(agent.config.name, maxTokens ?? 0, true)
-        : runAgentStrings().maxSteps(agent.config.name, maxSteps);
+        : runAgentStrings().maxSteps(agent.config.name, maxSteps ?? 0);
   if (limitStatus) {
     const reported = text.trim() !== '';
     const message = wrapUpWhy + (reported ? runAgentStrings().reportAtLastStep : '');
@@ -1842,7 +1850,7 @@ async function runHarnessOnce(
       type: 'error',
       data: {
         code: 'max_steps',
-        message: runAgentStrings().maxSteps(agent.config.name, maxSteps),
+        message: runAgentStrings().maxSteps(agent.config.name, maxSteps ?? 0),
         limit: stepsLimit,
       },
     });

@@ -499,6 +499,9 @@ export function stepsWarningAt(maxSteps: number): number {
 /** Below this cap the system prompt's "at most N steps" says it all: no note (D-196). */
 export const STEPS_WARNING_MIN_CAP = 10;
 
+/** Steps of a run with neither a cap of the agent's own nor a run budget (D-200): a backstop. */
+export const MAX_STEPS_WITHOUT_BUDGET = 200;
+
 /**
  * The note that few steps are left (D-196), or null: `left` steps may still use tools, then
  * the report comes without them. Never before the first step, never when none is left.
@@ -628,8 +631,10 @@ export function buildSystemPrompt(options: {
   // Lines of the memory written after third-party text: data, not the monster's own memory.
   const memory = splitMarkedMemory(options.memory ?? '');
   const p = runAgentPrompts();
+  const ownSteps = agent.config.limits.maxSteps;
   const rules = [
-    p.ruleSteps(agent.config.limits.maxSteps),
+    // Only a cap of its own (D-200): the job's limits are told when they are reached (D-170).
+    ...(ownSteps !== undefined ? [p.ruleSteps(ownSteps)] : []),
     p.ruleToolError,
     // D-132: who said no is part of the code; the model never guesses it.
     p.ruleWhoSaidNo,
@@ -909,7 +914,12 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
   let forced: 'max_steps' | 'token_limit' | 'run_limit' | null = null;
   /** The agent was told that few of its steps are left (D-196): once per run. */
   let stepsWarned = false;
-  const stopWhen: StopCondition<ToolSet>[] = [isStepCount(limits.maxSteps)];
+  /**
+   * The agent's own cap, or none (D-200): the run's budget then bounds the loop (its last step
+   * without tools), and a run without a budget stops at the backstop.
+   */
+  const stepCap = limits.maxSteps ?? (budget ? Infinity : MAX_STEPS_WITHOUT_BUDGET);
+  const stopWhen: StopCondition<ToolSet>[] = [isStepCount(stepCap)];
   let runLimit: string | null = null;
   /** Which cap of the run `runLimit` says, as data for the UI. */
   let runLimitReason: LimitReason | undefined;
@@ -932,7 +942,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
   }
   /** The step about to start (counted over every pass) must be the last one. */
   const lastStepReason = (agentStep: number): typeof forced => {
-    if (agentStep >= limits.maxSteps - 1) return 'max_steps';
+    if (agentStep >= stepCap - 1) return 'max_steps';
     if (budget && (budget.exhausted(agentId) !== null || budget.stepsLeft() <= 1))
       return 'run_limit';
     if (maxTokens !== undefined && counted >= maxTokens) return 'token_limit';
@@ -1242,7 +1252,10 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
         // Few steps left (D-196): told once, so the work is saved before the step without tools.
         if (!stepsWarned) {
           const agentStep = stepsBefore + stepNumber;
-          const note = stepsLeftNote(limits.maxSteps - 1 - agentStep, limits.maxSteps, agentStep);
+          const note =
+            limits.maxSteps === undefined
+              ? null
+              : stepsLeftNote(limits.maxSteps - 1 - agentStep, limits.maxSteps, agentStep);
           if (note) {
             stepsWarned = true;
             extra.push({ role: 'user', content: note });
@@ -1471,7 +1484,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     // An empty answer (or the task repeated) is a failure of the model: ask the
     // same model again, then the next one of the chain (D-019).
     while (noAnswer() && emptyAnswers < 2) {
-      const left = limits.maxSteps - steps;
+      const left = stepCap - steps;
       if (left <= 0 || (budget && budget.exhausted(agentId))) break;
       const from = servedModel ? formatModelRef(servedModel) : runAgentStrings().theModel;
       const other = emptyAnswers === 1 && session.demote();
@@ -1502,7 +1515,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     const reminder = typeof hooked === 'string' ? hooked : hooked?.text;
     /** A reply without tools replaces the first answer (a report rewritten after a check). */
     const textCounts = typeof hooked === 'object' && hooked !== null && hooked.textCounts === true;
-    const left = limits.maxSteps - steps;
+    const left = stepCap - steps;
     if (reminder && answer() && left > 0 && !(budget && budget.exhausted(agentId))) {
       followUp = true;
       log.append({
@@ -1671,7 +1684,8 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
   let stoppedBy: LimitReason | undefined;
   if (status !== 'completed') {
     // Which cap it was, as data: the UI words it (the message below is for the log).
-    if (status === 'max_steps') stoppedBy = { kind: 'agent_steps', value: limits.maxSteps };
+    if (status === 'max_steps')
+      stoppedBy = { kind: 'agent_steps', ...(Number.isFinite(stepCap) ? { value: stepCap } : {}) };
     else if (status === 'token_limit')
       stoppedBy = agentTokenLimitReason(agent.config, maxTokens ?? 0, planRun);
     else {
@@ -1692,8 +1706,8 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
         code: status,
         message:
           (status === 'max_steps'
-            ? steps >= limits.maxSteps
-              ? runAgentStrings().maxSteps(agent.config.name, limits.maxSteps)
+            ? steps >= stepCap
+              ? runAgentStrings().maxSteps(agent.config.name, stepCap)
               : runAgentStrings().extraSteps(agent.config.name)
             : status === 'run_limit'
               ? runAgentStrings().stops(agent.config.name, runLimit ?? runAgentStrings().taskLimit)

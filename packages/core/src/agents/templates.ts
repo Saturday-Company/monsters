@@ -329,9 +329,11 @@ export function renderAgentFiles(
 ): AgentFiles {
   const bp = AgentBlueprintSchema.parse(input);
   const config = blueprintToConfig(bp, lang, layout);
+  // No limits of its own (D-200: no step cap by default): no empty `limits` in the file.
+  const { limits, ...rest } = config;
   const files: AgentFiles = {
     [AGENTS_MD]: renderAgentsMd(bp, currentTemplates(lang), layout),
-    [AGENT_YAML]: stringifyYaml(config, { lineWidth: 0 }),
+    [AGENT_YAML]: stringifyYaml(Object.keys(limits).length > 0 ? config : rest, { lineWidth: 0 }),
   };
   if (bp.genome) files[GENOME_JSON] = `${JSON.stringify(bp.genome, null, 2)}\n`;
   return files;

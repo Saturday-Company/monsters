@@ -164,6 +164,21 @@ describe('the last step writes the report (AG-03)', () => {
     expect(env.provider.calls[2]!.options.toolChoice).toEqual({ type: 'none' });
   });
 
+  it('without a step cap of its own the run budget bounds the loop (D-200)', async () => {
+    const env = setup({
+      a: [
+        fake.toolCall('lookup', { q: 'rea' }),
+        fake.toolCall('lookup', { q: 'teti' }),
+        fake.text('Rapporto: Rea e Teti, il resto no.'),
+      ],
+    });
+    const budget = new RunBudget(RunLimitsSchema.parse({ maxRunSteps: 3 }));
+    const { result } = await run(env, { agent: agent({ limits: {} }), budget });
+    expect(result).toMatchObject({ status: 'run_limit', limit: { kind: 'steps', value: 3 } });
+    expect(env.provider.calls).toHaveLength(3);
+    expect(env.provider.calls[2]!.options.toolChoice).toEqual({ type: 'none' });
+  });
+
   it('and when the run is out of dollars (AG-23)', async () => {
     const env = setup({
       a: [fake.toolCall('lookup', { q: 'rea' }), fake.text('Rapporto: solo Rea.')],

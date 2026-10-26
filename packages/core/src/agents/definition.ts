@@ -68,14 +68,17 @@ export const AgentConfigSchema = z.object({
   vault: VaultPermissionsSchema.default({ read: ['**'], write: [] }),
   limits: z
     .object({
-      /** Model calls per run. */
-      maxSteps: z.number().int().min(1).max(200).default(20),
+      /**
+       * Model calls per run, when the monster has its own cap. None by default (D-200): the job's
+       * limits (steps, tokens, spending cap), the loop guard and the stop bound every run.
+       */
+      maxSteps: z.number().int().min(1).max(200).optional(),
       /** Output tokens per model call. */
       maxOutputTokens: z.number().int().min(64).optional(),
       /** Input + output tokens per run: the loop stops after the step that crosses it. */
       maxTotalTokens: z.number().int().min(1000).optional(),
     })
-    .default({ maxSteps: 20 }),
+    .default({}),
 });
 export type AgentConfig = z.infer<typeof AgentConfigSchema>;
 export type AgentConfigInput = z.input<typeof AgentConfigSchema>;

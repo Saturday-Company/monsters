@@ -56,6 +56,51 @@ describe('team', () => {
     expect(res.status).toBe(409);
   });
 
+  it('drops the step caps written by default before D-200; a cap set by hand stays', async () => {
+    const db = openDb(':memory:');
+    migrate(db, 'core', coreMigrations);
+    const log = new EventLog(db);
+    const dir = join(tempHome(), 'agents');
+    const team = new TeamService({ dir, log });
+    await team.load();
+    await team.bootstrap({ user: 'Giulio' });
+    const yamlOf = (id: string) => join(dir, id, 'agent.yaml');
+    const append = (id: string, text: string) =>
+      writeFileSync(yamlOf(id), readFileSync(yamlOf(id), 'utf8') + text);
+    // As alpha.25 wrote them: the lead's 30, Dione's 12 beside its output tokens; one by hand.
+    expect(readFileSync(yamlOf('titan'), 'utf8')).not.toContain('maxSteps');
+    append('titan', 'limits:\n  maxSteps: 30\n');
+    writeFileSync(
+      yamlOf('dione'),
+      readFileSync(yamlOf('dione'), 'utf8').replace(
+        'maxOutputTokens',
+        'maxSteps: 12\n  maxOutputTokens',
+      ),
+    );
+    writeFileSync(
+      yamlOf('rhea'),
+      readFileSync(yamlOf('rhea'), 'utf8').replace(
+        'maxOutputTokens',
+        'maxSteps: 45\n  maxOutputTokens',
+      ),
+    );
+    await team.load();
+    expect(team.get('titan')!.config.limits.maxSteps).toBe(30);
+
+    expect(await team.clearDefaultStepCaps()).toBe(true);
+    expect(team.get('titan')!.config.limits).toEqual({});
+    expect(readFileSync(yamlOf('titan'), 'utf8')).not.toContain('limits');
+    expect(team.get('dione')!.config.limits).toEqual({ maxOutputTokens: 6000 });
+    expect(readFileSync(yamlOf('dione'), 'utf8')).toContain('maxOutputTokens: 6000');
+    expect(team.get('rhea')!.config.limits.maxSteps).toBe(45);
+    await team.load();
+    expect(team.list().map((a) => [a.config.id, a.config.limits.maxSteps])).toEqual([
+      ['titan', undefined],
+      ['dione', undefined],
+      ['rhea', 45],
+    ]);
+  });
+
   it('never creates or loads an agent with the id of the user or of the system', async () => {
     const db = openDb(':memory:');
     migrate(db, 'core', coreMigrations);

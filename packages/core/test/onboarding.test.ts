@@ -37,6 +37,7 @@ import {
   type GenerateError,
   type ProposalContext,
 } from '../src/index.ts';
+import { WEB_TOOLS } from '../src/agents/archetypes.ts';
 import { onboardingStrings } from '../src/onboarding/onboarding.strings.ts';
 import { deferred, startTestHub, type TestHub } from './hub-helpers.ts';
 import { langHome } from './lang-home.ts';
@@ -367,7 +368,7 @@ describe('agent areas (write permissions)', () => {
     );
   });
 
-  it('gives the agents with web tools 30 steps and the sources rule (D-026)', () => {
+  it('gives no step cap of their own (D-200) and the sources rule to the web agents (D-026)', () => {
     inLang('it');
     const members = parseProposal(JSON.stringify(MODEL_TEAM), ctx());
     const steps = members.map((m) => [
@@ -376,16 +377,16 @@ describe('agent areas (write permissions)', () => {
     ]);
     // Rhea (archetype), Dione (archetype, no web), the planner with web tools.
     expect(steps).toEqual([
-      ['Rhea', 30],
-      ['Dione', 12],
-      [members[2]!.name, 30],
+      ['Rhea', undefined],
+      ['Dione', undefined],
+      [members[2]!.name, undefined],
     ]);
     const md = (i: number) => renderAgentFiles(memberBlueprint(members[i]!, ctx()))['AGENTS.md'];
     expect(md(0)).toContain(sourcesRule('it'));
     expect(md(1)).not.toContain(sourcesRule('it'));
-    // Without the web permission nobody gets the tools, nor the extra steps.
+    // Without the web permission nobody gets the tools.
     const offline = parseProposal(JSON.stringify(MODEL_TEAM), ctx({ vault: true, web: false }));
-    expect(blueprintToConfig(memberBlueprint(offline[2]!, ctx())).limits.maxSteps).toBe(20);
+    expect(offline[2]!.tools.some((t) => WEB_TOOLS.includes(t))).toBe(false);
   });
 
   it('the template refuses an unsafe area even from a hand-written blueprint', () => {

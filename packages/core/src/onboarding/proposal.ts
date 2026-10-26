@@ -243,15 +243,18 @@ export function genericReport(lang: Lang = appLang()): string {
   return PROPOSAL_PROMPTS[lang].genericReport;
 }
 
-/** Limits of a member: the archetype's, and room for searching and reading with web tools. */
+/**
+ * Limits of a member: the archetype's, no step cap of its own (D-200), and room for searching
+ * and reading with web tools when an archetype has one.
+ */
 function memberLimits(
   member: ProposedAgent,
   base: SubagentBlueprint['limits'],
 ): NonNullable<SubagentBlueprint['limits']> {
-  const limits = base ?? { maxSteps: 20, maxOutputTokens: 4000 };
+  const limits = base ?? { maxOutputTokens: 4000 };
   const web = member.tools.some((t) => WEB_TOOLS.includes(t));
-  return web
-    ? { ...limits, maxSteps: Math.max(limits.maxSteps ?? 20, WEB_AGENT_MAX_STEPS) }
+  return web && limits.maxSteps !== undefined
+    ? { ...limits, maxSteps: Math.max(limits.maxSteps, WEB_AGENT_MAX_STEPS) }
     : limits;
 }
 

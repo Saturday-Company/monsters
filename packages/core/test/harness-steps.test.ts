@@ -17,6 +17,7 @@ import { runHarnessAgent, WRAP_UP_REQUESTS } from '../src/agents/run-harness.ts'
 import { ControlScope } from '../src/kill/control-scope.ts';
 import { registerHarnessMcpRoutes } from '../src/server/routes/harness-mcp.ts';
 import type { AppEnv } from '../src/server/app.ts';
+import { RunBudget, RunLimitsSchema } from '../src/team/run-limits.ts';
 import { createCoreServices, type CoreServices } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
 import { inLang } from './prompt-lang.ts';
@@ -254,6 +255,25 @@ describe("the agent's step cap on Claude Code (D-196)", () => {
     expect(all.filter((r) => r.kind === 'context')).toEqual([]);
     expect(usages()).toHaveLength(MAX);
     expect(errors().map((e) => e.data.code)).toEqual(['max_steps']);
+  });
+});
+
+describe('no step cap of its own (D-200)', () => {
+  it('no max-turns and no note on Claude Code: the job’s limits bound the run', async () => {
+    const record = join(home, 'claude.jsonl');
+    const base = options(fakeClaude(record), {
+      budget: new RunBudget(RunLimitsSchema.parse({ plan: { maxRunSteps: 12 } })),
+    });
+    const uncapped = { ...base.agent, config: { ...base.agent.config, limits: {} } };
+    const result = await runHarnessAgent({ ...base, agent: uncapped });
+    expect(result.status).toBe('run_limit');
+    expect(result.text).toBe(CLAUDE_REPORT);
+    expect(result.limit).toMatchObject({ kind: 'steps', value: 12, plan: true });
+    const all = recorded(record);
+    expect(all.find((r) => r.kind === 'run')!.argv).not.toContain('--max-turns');
+    expect(all.filter((r) => r.kind === 'context')).toEqual([]);
+    // Past the cap of 10 the old default would have stopped it at.
+    expect(usages().length).toBeGreaterThan(MAX);
   });
 });
 

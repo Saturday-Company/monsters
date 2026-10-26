@@ -153,8 +153,10 @@ describe('AGENTS.md templates', () => {
       role: 'ricerche online e sintesi con fonti',
       tools: expect.arrayContaining(['web_search', 'web_fetch', 'vault_read']) as unknown,
       vault: { read: ['**'], write: ['Agenti/Rhea/**', 'Inbox/**', 'Risorse/Ricerche/**'] },
-      limits: { maxSteps: 30, maxOutputTokens: 4000 },
+      limits: { maxOutputTokens: 4000 },
     });
+    // No step cap of its own (D-200): the job's limits bound the run.
+    expect(def.config.limits.maxSteps).toBeUndefined();
     expect(def.config.models.at(-1)).toEqual({ provider: 'openrouter', model: 'openrouter/free' });
     expect(def.genome).toEqual({ hue: 220, eyes: 2 });
     expect(readFileSync(join(dir, 'agent.yaml'), 'utf8')).toContain('id: rhea');
@@ -180,7 +182,8 @@ describe('loadAgentDefinition', () => {
 
   it('applies defaults', async () => {
     const def = await loadAgentDefinition(folder({ 'AGENTS.md': '# Rhea\n', 'agent.yaml': yaml }));
-    expect(def.config).toMatchObject({ kind: 'subagent', tools: [], limits: { maxSteps: 20 } });
+    expect(def.config).toMatchObject({ kind: 'subagent', tools: [], limits: {} });
+    expect(def.config.limits.maxSteps).toBeUndefined();
     expect(def.genome).toBeUndefined();
   });
 

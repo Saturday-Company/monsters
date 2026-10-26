@@ -6117,3 +6117,27 @@ design (D-082, D-169), where an old job's tool results do not ride along in ever
 Claude Code session, with what it had read and made. After a restart it gets the steps of the job from the log
 instead of 1k tokens of conversation. Open: the session store is in memory (a restart falls back to the notes); the
 notes are excerpts of the logged previews (4,000 characters per result at most), not the whole results.
+
+### D-200 · No step cap of a monster's own by default: the job's limits bound every run
+**Status:** done · 26/10/2026
+**Context:** after D-196 the lead of the Thunderina case still stopped at its 30 steps, now with a report. The cap was
+not the user's: every template wrote one (20 by default, 30 for the orchestrator, the projects' leads and the agents
+with web tools, 12 for Dione), and the person cannot see or change it in the app. Since D-064 and D-171 every job
+already has its own bounds: steps (150 on the API, 400 on a subscription), tokens, dollars and the spending cap, the
+loop guard, the user's stop and the kill switch. Two caps on the same thing gave the smaller, invisible one the last
+word, and on a subscription a real job (a graphic with a site to read, files to export) needs more than 30 requests.
+Giulio's choice on 26/10.
+**Choices:**
+- `limits.maxSteps` in `agent.yaml` is optional, with no default; the archetypes, the leads, the onboarding proposal
+  and the template write none (and no empty `limits`). A cap written by hand keeps working as in D-196 (warning,
+  wrap-up, report); turning the web on still raises a cap below `WEB_AGENT_MAX_STEPS`.
+- Without a cap of its own: the system prompt has no "at most N steps" rule (the job's limits are told when reached,
+  D-170); a harness gets no `--max-turns` (Codex no `maxTurns`) and no "few steps left" note; our loop stops on the
+  run budget (its last step without tools, D-064), or at `MAX_STEPS_WITHOUT_BUDGET` (200) when a run has no budget.
+- The caps written before (12, 20, 30) leave the agents' files once, at the first start (`clearDefaultStepCaps`,
+  state key `agents.step_caps_cleared`); another number was written by hand and stays. A file that cannot be written
+  keeps its cap, and the start tries again next time.
+**Consequence:** a monster works until its job is done or the job's limits stop it, and the stop always names a cap the
+person can read and change (Settings → Models → Spending cap → Limits of each job). Accepted: a delegated research
+monster (Rhea had 12 steps for cost on the free chain, D-071, then 30) can now use more of the job's budget; the loop
+guard and the per-agent token cap of a delegation (D-171) still bound it.

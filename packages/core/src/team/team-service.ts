@@ -24,7 +24,7 @@ import {
 } from '@monsters/shared';
 import { FS_READ_TOOLS, FS_WRITE_TOOLS } from '@monsters/tools';
 import type { VaultPermissionsConfig, VaultService } from '@monsters/vault';
-import { parseDocument } from 'yaml';
+import { isMap, parseDocument } from 'yaml';
 import { z } from 'zod';
 import {
   ALL_VAULT_TOOLS,
@@ -64,6 +64,9 @@ import {
 } from './memory.ts';
 import { teamPrompts } from './team.prompts.ts';
 import { teamStrings } from './team.strings.ts';
+
+/** The step caps of the templates and archetypes before D-200: they were never the user's. */
+const OLD_DEFAULT_STEP_CAPS: readonly number[] = [12, 20, 30];
 
 /*
  * The team (ARCHITECTURE §5.3): agents are folders in `MONSTERS_HOME/agents/<id>/`,
@@ -784,6 +787,41 @@ export class TeamService {
       });
     }
     return true;
+  }
+
+  /**
+   * The step caps Monsters wrote by default before D-200 (12, 20, 30) leave every agent's
+   * `agent.yaml`: the job's limits bound a run from now on. A cap with another number was written
+   * by hand and stays. A file that cannot be written keeps its cap; returns false then, so the
+   * caller tries again at the next start.
+   */
+  async clearDefaultStepCaps(): Promise<boolean> {
+    let ok = true;
+    for (const def of this.#agents.values()) {
+      const steps = def.config.limits.maxSteps;
+      if (steps === undefined || !OLD_DEFAULT_STEP_CAPS.includes(steps) || !def.dir) continue;
+      try {
+        const path = join(def.dir, AGENT_YAML);
+        const doc = parseDocument(await readFile(path, 'utf8'));
+        doc.deleteIn(['limits', 'maxSteps']);
+        const limits = doc.get('limits');
+        if (isMap(limits) && limits.items.length === 0) doc.delete('limits');
+        await writeFile(path, doc.toString(), 'utf8');
+        const { maxSteps: _old, ...rest } = def.config.limits;
+        def.config = { ...def.config, limits: rest };
+      } catch (err) {
+        ok = false;
+        this.#log.append({
+          agent: 'system',
+          type: 'error',
+          data: {
+            code: 'agent_invalid',
+            message: teamStrings().agentNotUpdated(def.config.name, (err as Error).message),
+          },
+        });
+      }
+    }
+    return ok;
   }
 
   /**

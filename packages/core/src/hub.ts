@@ -475,6 +475,8 @@ export interface Hub {
 }
 
 const OPENROUTER_INFO_KEY = 'openrouter_key_info';
+/** The step caps written by default before D-200 left the agents' files. */
+const STEP_CAPS_CLEARED_KEY = 'agents.step_caps_cleared';
 /** A request that asks for a page (the free chains get `artifact_create` only then). */
 const ARTIFACT_REQUEST =
   /\b(pagin\w*|html|grafic\w*|tabell\w*|dashboard|report|presentazion\w*|artefatt\w*|sito|page|chart|table|artifact)\b/i;
@@ -652,6 +654,9 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
   // A model gone upstream: its successor in every chain, the tiers kept (D-165).
   // Best effort: a file that cannot be written does not stop the start (it keeps the new chain in memory).
   for (const a of team.list()) await team.replaceRetiredModels(a);
+  // No step cap of a monster's own by default (D-200): the ones written before leave, once.
+  if (state.get<boolean>(STEP_CAPS_CLEARED_KEY) !== true && (await team.clearDefaultStepCaps()))
+    state.set(STEP_CAPS_CLEARED_KEY, true);
   const bootstrapTeam = () =>
     team.bootstrap({
       user: settings.userName,

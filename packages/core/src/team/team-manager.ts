@@ -1189,8 +1189,10 @@ export class TeamManager {
         const tools = ((raw['tools'] ?? []) as string[]).filter((t) => !WEB_TOOLS.includes(t));
         doc.set('tools', doc.createNode(req.web ? [...WEB_TOOLS, ...tools] : tools));
         if (req.web) {
-          const steps = ((raw['limits'] ?? {}) as { maxSteps?: number }).maxSteps ?? 20;
-          if (steps < WEB_AGENT_MAX_STEPS) doc.setIn(['limits', 'maxSteps'], WEB_AGENT_MAX_STEPS);
+          // A cap of its own (none by default, D-200) leaves room for searching and reading.
+          const steps = ((raw['limits'] ?? {}) as { maxSteps?: number }).maxSteps;
+          if (steps !== undefined && steps < WEB_AGENT_MAX_STEPS)
+            doc.setIn(['limits', 'maxSteps'], WEB_AGENT_MAX_STEPS);
         }
       }
     });
@@ -2169,7 +2171,6 @@ export class TeamManager {
           ...WEB_TOOLS,
           ...TEAM_TOOLS,
         ],
-        limits: { maxSteps: 30 },
       };
       try {
         renderAgentFiles(bp);
