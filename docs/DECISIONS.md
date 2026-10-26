@@ -5925,3 +5925,53 @@ lists and runs get Try again; chat attachments retry their metadata three times 
 - `ProjectService.allowConnection` reads the off-list inside the project's queue (C-10).
 - `provider_fallback`, `search_fallback` and `context_rescue` stay `error` events: the UI already treats them as
   quiet, and the hub and receipt read their payloads; a `notice` would lose the rewritten sentences.
+
+### D-195 · A run reads what its own harness session saved for it; images of services are never touched; here-document bodies are text
+**Status:** done · 26/10/2026 · extends D-078, D-079, D-166, D-189 and D-074
+**Context:** a Canva design thumbnail in a Claude Code run (26/10/2026). The monster never saw its own work, for two
+reasons. (1) The result is an image block; the injection check (D-074) joined every string of the result, base64
+included, and the blocks it flagged were cut out of the `data` and the `media_type` of the image: Claude Code answered
+"the API could not process this image" and pointed the model at the copy it had saved,
+`<projects>/<project>/<session>/tool-results/mcp-…-blob-….png`. (2) That folder is inside `~/.claude/projects`, closed
+to every run since M6 by the hook and by `Read`/`Edit` deny rules, and a deny always wins over a hook: the `Read`
+was refused with "denied by your permission settings", which the run's own words call a fixed Monsters rule, and the
+monster told the user a folder was closed. In the run before, `cat > scripts/x.py <<'EOF' …` was refused as a write to
+the configuration: the body of the here-document was lexed as shell, and Python such as `*(xv-a[0])`, braces and
+apostrophes became globs, groups and quotes that "could name a CLAUDE.md".
+**Choices:**
+- **One folder open, read-only.** The core's `PreToolUse` lets `Read`, `Grep`, `Glob` and `LS` through in
+  `<projects>/<project>/<session>/tool-results/` of the session the call itself belongs to, and in nothing else of
+  `projects`: the folder comes from the hook's own `session_id` and `transcript_path` (what the binary sends, never the
+  model's), only when the transcript is exactly `<projects>/<project>/<session>.jsonl` under the configured
+  `projects` folder (`CLAUDE_CONFIG_DIR` honoured, links resolved on both sides, case folded on Windows and macOS).
+  Real paths decide, so a link in the folder that leads out is out. Other sessions' outputs, every transcript, `Write`,
+  `Edit` and the terminal stay closed (a refusal for the terminal says to use `Read` or `Grep`). The mechanism is the
+  lock's `allowed` list with one more folder per call (`closed[].ownOutputs`), so the rest of the lock is unchanged.
+- **The rules give way to the hook for reading only.** A deny rule wins over a hook, so for `projects` the run's
+  settings no longer carry `Read(projects)` and `Read(projects/**)`; they keep `Edit(projects)`, `Edit(projects/**)`
+  and `Read(projects/*/*.jsonl)` (the transcripts). The hook fails closed (`onFailure: block`), as for every other file
+  tool. Accepted: a bypass of the hook would now reach the other sessions' outputs, not the transcripts.
+- **Without the terminal.** A run on Claude Code with services reached through Claude (claude.ai connectors, whose results are
+  the large ones) gets `Read` too, with `Read(projects/*/*/tool-results/**)` allowed and the same hook narrowing it to
+  the attached files and the current session's outputs (`HarnessTask.sessionOutputs`; `RunWeb.savedOutputs`). A run
+  with neither the terminal nor connectors keeps no `Read`. The prompts say where the files are and what is open; the
+  refusal words say what `Read` opens in that run.
+- **Codex has no equivalent**: it keeps no tool-results folder, `CODEX_HOME` is a Monsters folder, and its commands
+  pass the same brake as before. Nothing changes there.
+- **Images are bytes, not text.** The injection check skips blocks that carry bytes (`type: image|audio`, a base64
+  `source`, an embedded `blob`): not read, never rewritten. `leaves` and `mapLeaves` skip the same blocks, so the
+  offsets of the removed ranges still line up.
+- **A here-document body is data for a command that reads its input as data** (D-189's brake). When every command of the
+  line that opens it is a plain reader, `tee`, `mkdir`, `touch` or `cd`, and each delimiter closes on a line of its
+  own (`<<-` tabs honoured), the body is skipped by the lexer instead of read as commands; an unquoted body with `$(`,
+  a backtick or a backslash-newline is lexed as before, as is any body fed to a shell, an interpreter, `xargs`, a
+  wrapper or a pipe into one, and a delimiter never closed. Names still count for the whole text: a script that spells
+  `CLAUDE.md` or `.claude` is refused as it was. Closing the quote that an apostrophe in a body used to leave open
+  also ends a bypass (`cat > a <<'EOF'` with `it's` in it hid the `rm -rf *` after it). The search for delimiters
+  reads at most 4× the line.
+**Accepted risks:** what a run reads in a saved file is not passed through the injection check again: it is the result
+of a service call the run is already tainted by (D-074, before the result), and Claude Code's `Read` output cannot be
+rewritten by a hook as an MCP result can, so the brake on outbound actions is the protection. A script written by
+`cat > x.sh <<'EOF'` with a glob but no name, and run in a later call, passes
+as it did for `echo '…' > x.sh`; the model reads a saved image through `Read` only, so a `jq` over a saved JSON needs
+`Grep` or `Read` with offsets, the terminal being closed for the folder.

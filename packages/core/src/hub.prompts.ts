@@ -10,6 +10,9 @@ import { pick } from '@monsters/shared';
 const it = {
   transcriptsClosed:
     'Le trascrizioni delle sessioni di Claude Code (~/.claude/projects) non sono accessibili: contengono le note lette dagli altri run.',
+  /** The same, for Claude Code's own tools: what it saved for this session (D-195) opens. */
+  transcriptsClosedSaved:
+    'Le trascrizioni delle sessioni di Claude Code (~/.claude/projects) non sono accessibili: contengono le note lette dagli altri run. Si apre solo quello che Claude Code ha salvato per questa sessione (…/tool-results/), con Read o Grep.',
   desktopDataClosed:
     'La cartella dei dati dell’app Monsters (sessione e impostazioni) non è accessibile.',
   /** `folder`: the vault's private folder (`Privato`, `Private`: D-154). */
@@ -30,6 +33,8 @@ const it = {
 const en: typeof it = {
   transcriptsClosed:
     'The Claude Code session transcripts (~/.claude/projects) aren’t accessible: they contain the notes read by the other runs.',
+  transcriptsClosedSaved:
+    'The Claude Code session transcripts (~/.claude/projects) aren’t accessible: they contain the notes read by the other runs. Only what Claude Code saved for this session (…/tool-results/) opens, with Read or Grep.',
   desktopDataClosed: 'The data folder of the Monsters app (session and settings) isn’t accessible.',
   privateInChat: (folder) =>
     `The private notes (${folder}/) aren’t accessible while you talk in a Telegram chat.`,

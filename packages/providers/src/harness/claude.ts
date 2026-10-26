@@ -168,10 +168,12 @@ const TOOL_SEARCH_TOOL = 'ToolSearch';
  * TodoWrite, and `LS` is dropped by it without error).
  */
 export function claudeBuiltinTools(
-  task: Pick<HarnessTask, 'systemTools' | 'webSearch' | 'readFiles' | 'plain'>,
+  task: Pick<HarnessTask, 'systemTools' | 'webSearch' | 'readFiles' | 'plain' | 'sessionOutputs'>,
 ): string[] {
   if (task.plain) return [];
-  const reads = !task.systemTools && (task.readFiles?.length ?? 0) > 0;
+  // Without the terminal, `Read` opens the attached files and what the harness saved for the session.
+  const reads =
+    !task.systemTools && ((task.readFiles?.length ?? 0) > 0 || task.sessionOutputs !== undefined);
   return [
     ...(task.systemTools ? SYSTEM_TOOLS : reads ? ['Read'] : []),
     ...(task.webSearch ? [WEB_SEARCH_TOOL] : []),
@@ -278,7 +280,7 @@ export function claudeRunSettings(task: HarnessTask): Record<string, unknown> {
       pre.push({ matcher: `^(${before.join('|')})$`, hooks: [http(CLAUDE_HOOK_TIMEOUT_S, true)] });
     }
     if (!task.plain) {
-      const readsOnly = !task.systemTools && (task.readFiles?.length ?? 0) > 0;
+      const readsOnly = !task.systemTools && claudeBuiltinTools(task).includes('Read');
       /*
        * The run's built-ins no other matcher covers (`ToolSearch`): with them every tool of the
        * run reaches a hook (Monsters' own are checked by the core), so at a limit the core can
@@ -325,9 +327,16 @@ export function claudeRunSettings(task: HarnessTask): Record<string, unknown> {
     }
   }
   const forbidden = task.systemTools ? (task.forbiddenPaths ?? []) : [];
+  const saved = task.sessionOutputs ? claudeRulePath(task.sessionOutputs) : undefined;
   const deny = forbidden.flatMap((p) => {
     // A second layer under the hook (D-078): Read rules cover Grep, Glob and LS, Edit rules every edit.
     const rule = claudeRulePath(p);
+    if (rule === saved) {
+      // Claude Code's own sessions: a deny always wins over the hook, so reading is left to the hook
+      // (the current session's `tool-results/` only, D-195); writing stays denied, and so do the
+      // transcripts (`<project>/<session>.jsonl`), the part with the prompts and the notes read.
+      return [`Read(${rule}/*/*.jsonl)`, `Edit(${rule})`, `Edit(${rule}/**)`];
+    }
     return [`Read(${rule})`, `Read(${rule}/**)`, `Edit(${rule})`, `Edit(${rule}/**)`];
   });
   if (task.systemTools) {
@@ -828,6 +837,10 @@ export class ClaudeAgentHarness implements HarnessProvider {
             `mcp__${task.mcp.name}`,
             ...(task.systemTools ? SYSTEM_TOOLS : []),
             ...reads.map((p) => `Read(${claudeRulePath(p)})`),
+            // Without the terminal: what the harness saved for the session (the hook narrows it to the current one).
+            ...(!task.systemTools && task.sessionOutputs
+              ? [`Read(${claudeRulePath(task.sessionOutputs)}/*/*/tool-results/**)`]
+              : []),
             // WebFetch stays off: pages go through Monsters' web_fetch (SSRF, <dati_esterni>).
             ...(task.webSearch ? [WEB_SEARCH_TOOL] : []),
             ...connectors.map((c) => claudeToolPrefix(c.name)),

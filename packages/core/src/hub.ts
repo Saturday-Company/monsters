@@ -1253,9 +1253,17 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       systemTools: team.permissionsFor(o.agent.config.id).shell && !othersAsk(o.runId),
       // Its terminal and files stay out of the data folder, except its own folder (D-078).
       dataDir: paths.home,
+      // Claude Code's sessions: what the harness saved for the run's own session opens (D-195).
+      sessionOutputs: claudeTranscriptsDir(),
       // In a Telegram chat, out of the private notes too (D-107).
       closedFolders: [
-        { path: claudeTranscriptsDir(), message: hubPrompts().transcriptsClosed },
+        {
+          path: claudeTranscriptsDir(),
+          message:
+            harness.id === 'claude-agent'
+              ? hubPrompts().transcriptsClosedSaved
+              : hubPrompts().transcriptsClosed,
+        },
         ...desktopUserDataDirs().map((path) => ({ path, message: hubPrompts().desktopDataClosed })),
         ...(threadOfRun(log, o.runId)
           ? privateFolders().map((path) => ({
