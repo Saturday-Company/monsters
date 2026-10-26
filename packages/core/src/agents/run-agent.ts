@@ -607,6 +607,8 @@ export function buildSystemPrompt(options: {
     p.ruleToolError,
     // D-132: who said no is part of the code; the model never guesses it.
     p.ruleWhoSaidNo,
+    // D-195: look in the user's past work before asking or leaving a gap.
+    p.ruleGaps,
   ];
   if (
     options.externalData ||

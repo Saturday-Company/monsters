@@ -10,9 +10,16 @@ import { pick, type Lang } from '@monsters/shared';
 const en = {
   reminder:
     'You asked a question in plain text: if there are clear options, use ask_user with 2-4 options; ' +
-    'if a fact only the user knows is missing, use ask_user without options; otherwise the plain-text question ' +
+    'if a fact only the user knows is missing (and it is not in the vault, the earlier jobs or the previous version of the work: look there first), ' +
+    'use ask_user without options; otherwise the plain-text question ' +
     'is fine as it is: reply only OK. Do not repeat the answer: the user has already read it.',
 };
+
+/** The English reminder before D-195, still read in a log. */
+const EN_V2 =
+  'You asked a question in plain text: if there are clear options, use ask_user with 2-4 options; ' +
+  'if a fact only the user knows is missing, use ask_user without options; otherwise the plain-text question ' +
+  'is fine as it is: reply only OK. Do not repeat the answer: the user has already read it.';
 
 /** The English reminder of wave 3 (D-153), before the review of the English family: still read in a log. */
 const EN_V1 =
@@ -23,12 +30,24 @@ const EN_V1 =
 const it: typeof en = {
   reminder:
     'Hai fatto una domanda in testo: se ci sono opzioni chiare, usa ask_user con 2-4 opzioni; ' +
-    "se manca un fatto che solo l'utente sa, ask_user senza opzioni; altrimenti la domanda in testo " +
+    "se manca un fatto che solo l'utente sa (e non è nel vault, nei lavori di prima o nella versione precedente del lavoro: cerca lì per prima), ask_user senza opzioni; altrimenti la domanda in testo " +
     "va bene così e rispondi solo OK. Non ripetere la risposta: l'utente l'ha già letta.",
 };
+
+/** The Italian reminder before D-195, still read in a log. */
+const IT_V1 =
+  'Hai fatto una domanda in testo: se ci sono opzioni chiare, usa ask_user con 2-4 opzioni; ' +
+  "se manca un fatto che solo l'utente sa, ask_user senza opzioni; altrimenti la domanda in testo " +
+  "va bene così e rispondi solo OK. Non ripetere la risposta: l'utente l'ha già letta.";
 
 /** The prompts of the stop hook in the app's language now (or in `lang`). */
 export const finalQuestionPrompts = (lang?: Lang) => pick({ en, it }, lang);
 
 /** The reminder of each family: a log that holds either is a reminder already sent. */
-export const FINAL_QUESTION_REMINDERS: readonly string[] = [it.reminder, en.reminder, EN_V1];
+export const FINAL_QUESTION_REMINDERS: readonly string[] = [
+  it.reminder,
+  en.reminder,
+  EN_V1,
+  EN_V2,
+  IT_V1,
+];

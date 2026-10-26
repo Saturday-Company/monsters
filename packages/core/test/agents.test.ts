@@ -587,6 +587,24 @@ describe('system prompt', () => {
     expect(prompt).toContain('All’ultimo passo non avrai più strumenti');
   });
 
+  it('tells every monster to look in the past work before asking or leaving a gap (D-195)', () => {
+    // No tool needed: the rule is for every monster and every provider, in both families.
+    inLang('en');
+    const english = buildSystemPrompt({ agent: agent({ tools: [] }), toolNames: [] });
+    expect(english).toContain('look for it in the past work you can reach');
+    expect(english).toContain('the report says where each detail came from');
+    expect(english).toContain('keep its brand elements');
+    expect(english).toContain('look at the result (thumbnail, preview) before saving');
+    inLang('it');
+    const italian = buildSystemPrompt({ agent: agent({ tools: [] }), toolNames: [] });
+    expect(italian).toContain('cercalo nel lavoro passato che puoi raggiungere');
+    expect(italian).toContain('il rapporto dice da dove viene ogni dettaglio');
+    // Part of the rules, before the card: a small, fixed cost.
+    expect(italian.indexOf('cercalo nel lavoro passato')).toBeLessThan(
+      italian.indexOf('## Monsters'),
+    );
+  });
+
   it('puts the brief in the first message: two delegations share the system prompt', async () => {
     inLang('it');
     const env = setup({ a: [fake.text('Prima.'), fake.text('Seconda.')] });

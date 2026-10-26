@@ -5925,3 +5925,30 @@ lists and runs get Try again; chat attachments retry their metadata three times 
 - `ProjectService.allowConnection` reads the off-list inside the project's queue (C-10).
 - `provider_fallback`, `search_fallback` and `context_rescue` stay `error` events: the UI already treats them as
   quiet, and the hub and receipt read their payloads; a `notice` would lose the rewritten sentences.
+
+### D-195 · Gaps in a job's data are looked for in the user's past work before they are asked
+**Status:** done · 26/10/2026
+**Context:** a project lead (a hobby club) was asked for the weekly events graphic on Canva, with the events in
+rough form. Its report ended with a "for you to check" list of things it could have found itself: whether "Wallace" is a
+shop (a sibling monster's notes keep the shops), the club and partner logos (they were in last week's design, and it deleted
+the background that held them), the details of a recurring event, and the Lucca 2026 theme (read in an earlier job).
+Nothing in the rules every monster gets said to look in the user's past work before asking or leaving a gap; the only
+rules about asking were "ask_user for what only the user can decide", so a gap in the data became a question.
+**Choices:**
+- One more system rule (`ruleGaps`, `run-agent.prompts.ts`, EN and IT), for every monster and every provider (API loop
+  and harnesses share `buildSystemPrompt`): before asking the user or leaving a gap in a deliverable, look in the past
+  work it can reach (notes, its own too; earlier jobs and conversation; the project's folder; the previous version of
+  the same deliverable in the connected app); only what is not findable goes back as a question; the report says where
+  each detail came from. A copy of a previous deliverable keeps its brand elements (logos, handles, partner marks)
+  unless asked to remove them, and the result (thumbnail, preview) is looked at before saving. About 190 tokens
+  (estimated, 3.6 characters per token) in the stable part of the system prompt, which the prompt cache keeps.
+- The reminder of the stop hook for a question left in the text (D-067) now says that a fact "only the user knows" must
+  first be looked for in the vault, the earlier jobs and the previous version of the work. The older texts stay in
+  `FINAL_QUESTION_REMINDERS`, so a log that holds one still counts as a reminder already sent.
+- Not done: the done_check compares a delegation's report with its brief, not a lead's own final report, and the
+  report in the case did not end with a question, so neither flagged it. Detecting "asks for what is in the vault"
+  needs the vault at check time (a search per question) and a new measure of the instinct: left for later, if the rule
+  alone does not change the behaviour. The `needsUser` gate and `pending` criteria of the instinct are unchanged (the
+  Italian ones are the measured text).
+- The `AGENTS.md` of existing monsters is the user's and is not touched; the rule lives in the system part, so it
+  reaches them without editing their files.

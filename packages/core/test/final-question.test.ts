@@ -2,7 +2,10 @@ import { fake } from '@monsters/providers/testing';
 import { setAppLang, type LogEvent, type Question } from '@monsters/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { endsWithQuestion, FINAL_QUESTION_REMINDER, lastSentence } from '../src/index.ts';
-import { finalQuestionPrompts } from '../src/team/final-question.prompts.ts';
+import {
+  FINAL_QUESTION_REMINDERS,
+  finalQuestionPrompts,
+} from '../src/team/final-question.prompts.ts';
 import { promptText, startTestHub, toolResultsSeen } from './hub-helpers.ts';
 
 type Sent = { runId: string };
@@ -19,6 +22,26 @@ const finals = (events: LogEvent[], agent = 'titan') =>
 
 const reminders = (events: LogEvent[]) =>
   events.filter((e) => e.type === 'message' && e.data.role === 'system');
+
+describe('the reminder', () => {
+  it('sends the user to the past work before asking for a fact (D-195), and older ones are still recognised', () => {
+    expect(finalQuestionPrompts('en').reminder).toContain('look there first');
+    expect(finalQuestionPrompts('it').reminder).toContain('cerca lì per prima');
+    // The reminders of older versions in a log still count as already sent.
+    expect(FINAL_QUESTION_REMINDERS).toHaveLength(5);
+    expect(
+      FINAL_QUESTION_REMINDERS.some(
+        (r) => r.startsWith('Hai fatto una domanda in testo') && !r.includes('cerca lì'),
+      ),
+    ).toBe(true);
+    expect(
+      FINAL_QUESTION_REMINDERS.some(
+        (r) =>
+          r.startsWith('You asked a question in plain text') && !r.includes('look there first'),
+      ),
+    ).toBe(true);
+  });
+});
 
 describe('endsWithQuestion', () => {
   it('spots a question at the end of an answer, in Italian and English', () => {
