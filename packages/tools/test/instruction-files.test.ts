@@ -146,9 +146,12 @@ describe('instruction files of a project folder (D-103)', () => {
       true,
     );
     expect(commandWritesInstructions('ls', join(project, '.claude'), [project])).toBe(false);
-    expect(commandWritesInstructions('rm -rf *', project, [project])).toBe(false);
+    // Bash expands `*` on disk (D-189); PowerShell's is read conservatively, so on Windows any glob
+    // in a writer counts as a write.
+    expect(commandWritesInstructions('rm -rf *', project, [project], 'linux')).toBe(false);
+    expect(commandWritesInstructions('rm -rf *', project, [project], 'win32')).toBe(true);
     writeFileSync(join(project, 'AGENTS.md'), '');
-    expect(commandWritesInstructions('rm -rf *', project, [project])).toBe(true);
+    expect(commandWritesInstructions('rm -rf *', project, [project], 'linux')).toBe(true);
   });
 
   it('fs_write, fs_move and fs_delete refuse them, other files of the folder are free', async () => {
