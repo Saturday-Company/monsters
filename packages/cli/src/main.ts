@@ -64,6 +64,8 @@ Commands:
   status     Show whether the core is running and what it is doing
   kill       Stop every agent now (kill switch); nothing runs until resume
   resume     Allow agents to run again after a kill
+  stop <monster>          Stop the work of one monster (its chat, its automations, its tasks
+                          for others); the other monsters go on, nothing stays stopped
   chat                    Interactive chat in the terminal (also over SSH): answers as they are
                           written, questions with numbered options, /stop, /new, /status
   chat <text>             Send a message (to the orchestrator, or --to / @Name) and follow the run
@@ -540,6 +542,31 @@ export async function run(
           },
           { client: values.client, err: io.err, layout: cliVaultLayout(home) },
         );
+      case 'stop': {
+        // One monster's work (F-1), not the kill switch: the others go on.
+        const agent = positionals[1];
+        if (!agent) {
+          io.err('Usage: monsters stop <monster>');
+          return 2;
+        }
+        const s = await callCore(
+          values,
+          home,
+          'POST',
+          `/api/agents/${encodeURIComponent(agent)}/stop`,
+        );
+        if (values.json) io.out(JSON.stringify(s));
+        else {
+          const runs = Number(s['stopped'] ?? 0);
+          const parts = Number(s['parts'] ?? 0);
+          io.out(
+            runs + parts > 0
+              ? `Stopped ${agent}. Runs aborted: ${runs}, tasks stopped in other runs: ${parts}, processes killed: ${Number(s['processesKilled'] ?? 0)}.`
+              : `Nothing of ${agent} was running.`,
+          );
+        }
+        return 0;
+      }
       case 'resume': {
         const s = await callCore(values, home, 'POST', '/api/resume');
         if (values.json) io.out(JSON.stringify(s));

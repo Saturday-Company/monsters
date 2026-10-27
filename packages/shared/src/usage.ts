@@ -152,6 +152,30 @@ export const AgentUsageViewSchema = z.object({
 });
 export type AgentUsageView = z.infer<typeof AgentUsageViewSchema>;
 
+/**
+ * Share of the window past which the chat says, in words, that the conversation is getting
+ * long (the chat plan of 27/10: the meter only with "Show technical details"). Below the
+ * compaction mark (`CONTEXT_COMPACT_AT`), so the sentence comes before the summary does.
+ */
+export const CONTEXT_LONG_AT = 0.6;
+
+/**
+ * How long the current conversation is, for everyone: `ok`; `long`, past `CONTEXT_LONG_AT` of
+ * the window ("This conversation is getting long: start a new one?"); `full`, past the
+ * compaction mark or with the older turns already summarised (the monster no longer reads them
+ * word for word). Without a known window only the summary counts.
+ */
+export type ContextLevel = 'ok' | 'long' | 'full';
+
+export function contextLevel(view: Pick<AgentUsageView, 'context' | 'summary'>): ContextLevel {
+  if (view.summary) return 'full';
+  const c = view.context;
+  if (!c?.window) return 'ok';
+  const share = c.total / c.window;
+  if (share >= CONTEXT_COMPACT_AT) return 'full';
+  return share >= CONTEXT_LONG_AT ? 'long' : 'ok';
+}
+
 /** How a model request counts (the same classes as the spending meter). */
 export type UsageCostClass = 'paid' | 'free' | 'subscription' | 'unpriced';
 

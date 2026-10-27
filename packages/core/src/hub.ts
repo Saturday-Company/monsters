@@ -25,6 +25,7 @@ import {
   PRIVATE_FOLDERS,
   VAULT_LAYOUTS,
   setVaultLayout,
+  type AgentStopResponse,
   type Channel,
   type FileMeta,
   type Lang,
@@ -159,6 +160,7 @@ import { createSummarizer } from './team/summarizer.ts';
 import { DecisionGate, resolveDecisionRules, type DecisionPort } from './team/decision.ts';
 import { DecisionEngineService } from './team/decision-engine.ts';
 import {
+  DispatchError,
   Dispatcher,
   type Conversation,
   type DispatcherOptions,
@@ -226,6 +228,7 @@ import { withProvenance } from './team/vault-provenance.ts';
 import {
   ASK_USER_WAIT_MS,
   askTeammateTool,
+  parseDelegationScope,
   teamTools,
   type SubagentRunParams,
 } from './team/team-tools.ts';
@@ -429,6 +432,11 @@ export interface Hub {
     /** Through the CLI token (review of 18/10, M1): see `Dispatcher.send`. */
     notOwner?: boolean | undefined;
   }): ReturnType<Dispatcher['send']>;
+  /**
+   * "Stop" in one monster's chat (F-1): its work stops, not the kill switch. Throws
+   * `DispatchError` (`unknown_agent`).
+   */
+  stopAgent(id: string, by: Channel): Promise<AgentStopResponse>;
   /** The requests the latest global stop left halfway ("Riprendi e continua", D-072). */
   haltedRequests(): StoppedRequest[];
   /** Starts them again, after `resume`: one new run each, marked `resumeOf`. */
@@ -3058,7 +3066,17 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
 
   // A stopped run takes its open questions with it. A run cut by the closing
   // of the core leaves them waiting for the user, as after a crash (D-078).
+  // The stop of one monster (F-1) closes them as `stopped`: the questions of its runs, and
+  // those it asked in its part of another monster's run.
+  const stoppedRuns = new Set<string>();
   const offLog = log.subscribe((e) => {
+    if (e.type === 'kill' && e.data.scope === 'agent' && e.runId) {
+      if (e.data.runsAborted === 1) stoppedRuns.add(e.runId);
+      else if (e.data.target) {
+        questions.expireOpen({ runId: e.runId, agent: e.data.target }, 'stopped');
+      }
+      return;
+    }
     if (e.type !== 'run' || e.data.status !== 'aborted' || !e.runId) return;
     if (e.data.reason === 'shutdown') {
       questions.expireOpen({ runId: e.runId, kind: 'brake' }, 'restart');
@@ -3067,8 +3085,39 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       }
       return;
     }
-    questions.expireOpen({ runId: e.runId }, 'run_aborted');
+    const stopped = stoppedRuns.delete(e.runId);
+    questions.expireOpen({ runId: e.runId }, stopped ? 'stopped' : 'run_aborted');
   });
+
+  /** "Stop" in one monster's chat (F-1): see `RunController.stopAgent`. */
+  const stopAgent = async (id: string, by: Channel): Promise<AgentStopResponse> => {
+    const agent = team.get(id);
+    if (!agent) throw new DispatchError('unknown_agent', `no agent called "${id}"`);
+    const me = agent.config.id;
+    const reason = teamStrings().stoppedAgent(agent.config.name);
+    const report = await runs.stopAgent(me, {
+      by,
+      reason,
+      // Its part in another monster's run: a task delegated to it, a teammate's question to it,
+      // or one it asked from inside that task (the asked one works for it).
+      partOf: (scope) => {
+        if (scope.kind !== 'agent') return false;
+        const d = parseDelegationScope(scope.id);
+        if (!d) return false;
+        if (d.to === me) return true;
+        const started = log.get(d.startedId);
+        return started?.type === 'delegation' && started.data.from === me;
+      },
+    });
+    const waiting = projects.dropWaiting(new Set([me]), reason);
+    return {
+      stopped: report.runs.length,
+      runs: report.runs,
+      parts: report.parts,
+      processesKilled: report.processesKilled,
+      ...waiting,
+    };
+  };
 
   // Kill switch: queued provider requests, open questions and queued messages.
   const offKill = runs.onKill((reason) => {
@@ -3292,6 +3341,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     docsProposals,
     hasModelProvider,
     send: (params) => dispatcher.send(params),
+    stopAgent,
     haltedRequests: () => (onboarding.done ? haltedRequests(log) : []),
     continueRequests: (requests, channel) =>
       continueRequests(requests, {

@@ -31,6 +31,7 @@ const TOKEN_OPEN: Record<string, string> = {
   'POST /api/files/:id/ticket': 'refused to the token: a ticket is of a session of the UI',
   // What the CLI does: the kill switch, resume, the chat, the automations' runs.
   'POST /api/kill': 'the kill switch must work from anywhere',
+  'POST /api/agents/:id/stop': 'stops one monster’s work: never more power',
   'POST /api/resume': 'the CLI resumes after a stop',
   'POST /api/messages': 'the chat: a message is never the answer to a card (M1)',
   'POST /api/conversations': 'a new conversation',

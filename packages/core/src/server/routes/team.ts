@@ -9,6 +9,7 @@ import {
   ToolError,
   UndoRequestSchema,
   WebSearchSettingsRequestSchema,
+  type AgentStopResponse,
   type Question,
 } from '@monsters/shared';
 import type { Hono } from 'hono';
@@ -26,6 +27,7 @@ import { serverStrings } from '../server.strings.ts';
  *   POST /api/messages                  → { runId }
  *   POST /api/conversations             → { id, ts, to? } (new conversation: older turns leave
  *                                         the model's context, they stay in the log)
+ *   POST /api/agents/:id/stop           → AgentStopResponse (one monster's work stops, F-1)
  *   GET  /api/questions?status=open     → Question[]
  *   POST /api/questions/:id/answer      → Question
  *   POST /api/vault/undo                → { ok, commit }
@@ -118,6 +120,19 @@ export function registerTeamRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: Hub)
           err.code === 'unknown_agent' ? 404 : 409,
         );
       }
+      throw err;
+    }
+  });
+
+  // "Stop" in one monster's chat (F-1): its work, not the kill switch. Allowed while halted
+  // (nothing runs then: `stopped: 0`) and before the onboarding (nothing to stop either).
+  app.post('/api/agents/:id/stop', requireAuth, async (c) => {
+    try {
+      const report = await hub.stopAgent(c.req.param('id'), channelOf(c.get('auth')));
+      return c.json(report satisfies AgentStopResponse);
+    } catch (err) {
+      if (err instanceof DispatchError)
+        return c.json({ error: err.code, message: err.message }, 404);
       throw err;
     }
   });

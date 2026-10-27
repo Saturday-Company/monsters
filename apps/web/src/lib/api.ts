@@ -6,6 +6,12 @@ import {
 } from '@monsters/shared';
 import { formatNumber, MemoryOwnResponseSchema, type MemoryOwnResponse } from '@monsters/shared';
 import { ChatHistoryResponseSchema } from '@monsters/shared';
+import {
+  AgentStopResponseSchema,
+  ChatConversationsResponseSchema,
+  type AgentStopResponse,
+  type ChatConversationsResponse,
+} from '@monsters/shared';
 import { LogArchiveStatusSchema, type LogArchiveStatus } from '@monsters/shared';
 import {
   McpOAuthFinishResponseSchema,
@@ -496,8 +502,45 @@ export class ApiClient {
     }
   }
 
+  /**
+   * The previous conversations of a chat, newest first (`GET /api/chats/:agent/conversations`);
+   * `before`: the `next` of the previous page. A 404 is a core without them.
+   */
+  chatConversations(
+    agent: string,
+    options: { before?: string | undefined; limit?: number | undefined } = {},
+  ): Promise<ChatConversationsResponse> {
+    return this.call(
+      'GET',
+      `/api/chats/${encodeURIComponent(agent)}/conversations${toQuery(options)}`,
+      ChatConversationsResponseSchema,
+    );
+  }
+
+  /**
+   * One page of a previous conversation's history, read-only (`id`: its `ChatConversation.id`),
+   * in the shape of `chatHistory`. 404 `unknown_conversation` for an id that is not one.
+   */
+  async conversationHistory(
+    agent: string,
+    id: string,
+    before?: string,
+  ): Promise<{ events: LogEvent[]; floor: string | null; own: number }> {
+    const res = await this.call(
+      'GET',
+      `/api/chats/${encodeURIComponent(agent)}/conversations/${encodeURIComponent(id)}/history${toQuery({ before })}`,
+      ChatHistoryResponseSchema,
+    );
+    return { ...res, events: parseEvents(res.events) };
+  }
+
   agents(): Promise<AgentSummary[]> {
     return this.call('GET', '/api/agents', z.array(AgentSummarySchema));
+  }
+
+  /** "Stop" in one monster's chat (F-1): its work stops, not the kill switch. */
+  stopAgent(id: string): Promise<AgentStopResponse> {
+    return this.call('POST', `/api/agents/${encodeURIComponent(id)}/stop`, AgentStopResponseSchema);
   }
 
   sendMessage(body: SendMessageRequest): Promise<SendMessageResponse> {

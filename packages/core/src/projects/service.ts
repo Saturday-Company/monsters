@@ -1355,15 +1355,29 @@ export class ProjectService {
     const runs = this.#o.runs.activeRuns().filter((r) => agents.has(r.agent));
     const reason = projectStrings().stoppedReason(p.name);
     for (const r of runs) await this.#o.runs.killRun(r.id, { by, reason });
+    const { sendsDropped, giriSkipped } = this.dropWaiting(agents, reason);
+    this.#event('stopped', p, by, { runs: runs.length });
+    return { runsStopped: runs.length, sendsDropped, giriSkipped };
+  }
+
+  /**
+   * The work that waited for these monsters to be free does not start ("Ferma progetto", the
+   * stop of one monster, F-1): the messages other monsters wrote to them (`project_send`, their
+   * writers hear it was stopped) and the giri of their automations (skipped, with `reason`).
+   * The user's own messages keep waiting.
+   */
+  dropWaiting(
+    agents: ReadonlySet<string>,
+    reason: string,
+  ): { sendsDropped: number; giriSkipped: number } {
     const dropped = this.#o.dispatcher.dropOwnDeferred(agents);
     for (const runId of dropped) {
       for (const s of this.#sends.get(runId) ?? []) this.#report(s, 'aborted', runId, 'stopped');
       this.#sends.delete(runId);
     }
-    const giri =
+    const giriSkipped =
       this.#o.automations?.()?.cancelWaiting(agents, projectStrings().giroNotStarted(reason)) ?? 0;
-    this.#event('stopped', p, by, { runs: runs.length });
-    return { runsStopped: runs.length, sendsDropped: dropped.length, giriSkipped: giri };
+    return { sendsDropped: dropped.length, giriSkipped };
   }
 
   #confirmed(id: string): Project {

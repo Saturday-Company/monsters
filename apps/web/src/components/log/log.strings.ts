@@ -226,6 +226,7 @@ const en = {
       run_aborted: 'the work stopped',
       restart: 'Monsters was restarted',
       run_ended: 'the work ended without this action',
+      stopped: 'you stopped the monster',
     } as Record<string, string>,
     parked: {
       harness:
@@ -475,6 +476,7 @@ const it: typeof en = {
       run_aborted: 'il lavoro si è fermato',
       restart: 'Monsters è stato riavviato',
       run_ended: 'il lavoro è finito senza questa azione',
+      stopped: 'hai fermato il mostro',
     },
     parked: {
       harness: 'il mostro lavora con un piano: chiude il turno e riparte dalla tua risposta',
