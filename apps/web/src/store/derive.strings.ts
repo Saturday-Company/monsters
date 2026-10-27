@@ -214,16 +214,6 @@ const en = {
     sentence: (project: string, lead: string, outcome: string) => `${project}: ${lead} ${outcome}`,
   },
 
-  group: {
-    events: (n: number) => `${n} ${n === 1 ? 'event' : 'events'} among the monsters`,
-    done: (n: number) => `${n} ${n === 1 ? 'task' : 'tasks'} completed`,
-    open: (n: number) => `${n} ${n === 1 ? 'task' : 'tasks'} handed to the squad`,
-    partDone: (n: number) => `${n} completed`,
-    partOpen: (n: number) => `${n} in progress`,
-    partOther: (n: number) => `${n} stopped`,
-    mixed: (total: number, parts: string) => `${total} ${total === 1 ? 'task' : 'tasks'}: ${parts}`,
-  },
-
   /** A list: "A, B and C". */
   list: (items: readonly string[]) => formatList(items),
 
@@ -790,17 +780,6 @@ const it: typeof en = {
     failed: 'non ce l’ha fatta',
     aborted: 'si è fermato',
     sentence: (project, lead, outcome) => `${project}: ${lead} ${outcome}`,
-  },
-
-  group: {
-    events: (n) => `${n} ${n === 1 ? 'evento' : 'eventi'} tra i mostri`,
-    done: (n) => (n === 1 ? '1 incarico completato' : `${n} incarichi completati`),
-    open: (n) =>
-      n === 1 ? '1 incarico passato alla squadra' : `${n} incarichi passati alla squadra`,
-    partDone: (n) => `${n} ${n === 1 ? 'completato' : 'completati'}`,
-    partOpen: (n) => `${n} in corso`,
-    partOther: (n) => `${n} ${n === 1 ? 'fermato' : 'fermati'}`,
-    mixed: (total, parts) => `${total} ${total === 1 ? 'incarico' : 'incarichi'}: ${parts}`,
   },
 
   list: (items) =>

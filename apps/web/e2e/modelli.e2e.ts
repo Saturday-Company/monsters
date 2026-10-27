@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures.ts';
+import { expect, showTechnicalDetails, test } from './fixtures.ts';
 
 /*
  * The choice of the model (D-093, wave C3) on the mock core. Up front, for the whole squad: "Main
@@ -269,11 +269,16 @@ test('"Automatic" with the expert model on: no "Needs" row', async ({ page }) =>
   await expect(team).toContainText('If Opus reaches the plan’s limit');
 });
 
-test('the receipt says which model worked and why', async ({ page }) => {
+test('the receipt says which model worked and why, with the technical details', async ({
+  page,
+}) => {
+  await showTechnicalDetails(page);
   await page.goto('/?mock=demo#/?chat=titan');
-  const receipt = page.getByTestId('receipt').first();
-  await expect(receipt).toHaveAttribute('data-open', 'true');
-  await expect(receipt.getByTestId('receipt-model').first()).toHaveText(
+  const strip = page.locator('[data-testid="work-strip"][data-run="run_seed_meeting"]');
+  // The closed strip names the level and the model only with the details on (D-181).
+  await expect(strip.getByTestId('receipt-summary')).toContainText('Hard → llama 3.3 70b');
+  await strip.getByRole('button', { expanded: false }).click();
+  await expect(strip.getByTestId('receipt-model').first()).toHaveText(
     'Titan · Hard → llama 3.3 70b',
   );
 });

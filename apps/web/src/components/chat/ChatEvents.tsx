@@ -1,11 +1,10 @@
 import { findSettingsPlaces } from '@monsters/shared';
-import { CaretDown, CaretUp, NotePencil, WarningCircle } from '@phosphor-icons/react';
-import { useState, type ReactNode } from 'react';
+import { NotePencil, WarningCircle } from '@phosphor-icons/react';
+import type { ReactNode } from 'react';
 import { openTerminal } from '../../store/app.ts';
 import { openTerminalAt } from '../terminal/focus.ts';
 import {
   capitalize,
-  delegationGroupLabel,
   doneSummary,
   errorSentence,
   fileSentence,
@@ -24,9 +23,11 @@ import { chatStrings } from './chat.strings.ts';
 import { CHATGPT_USAGE_URL } from './Composer.tsx';
 
 /*
- * The rows of a chat that are not bubbles: events among monsters (small
- * centred lines, folded when they come in a row), errors, stops and the start
- * of a new conversation (docs/design.md, audit 3.1 and 3.4).
+ * The rows of a chat that are not bubbles: a task received (the request of a
+ * turn in the chat of who got it), errors, and the events that belong to no
+ * turn: stops, a lead's report, the start of a new conversation, older events
+ * without a run (docs/design.md, audit 3.1 and 3.4). The work inside a turn is
+ * in its strip (WorkStrip.tsx).
  */
 
 /** “Task”, clipped: the task of a delegation in the lines of the chat. */
@@ -279,49 +280,6 @@ export function DelegationRow({
     <ReceivedTask item={item} />
   ) : (
     <DelegationLine item={item} />
-  );
-}
-
-/**
- * Several events among monsters in a row (tasks, and what the instinct said): one line that opens
- * ("4 tasks completed"), closed until the user opens it.
- */
-export function DelegationGroup({ items, chat }: { items: ChatItem[]; chat: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="flex flex-col items-center gap-2.5" data-testid="delegation-group">
-      <div className="event-line w-full px-2">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-label={delegationGroupLabel(items)}
-          className="label flex shrink-0 items-center gap-1.5 rounded-[6px] px-1.5 text-ink-muted hover:text-ink"
-        >
-          {delegationGroupLabel(items)}
-          {open ? (
-            <CaretUp size={12} weight="bold" aria-hidden />
-          ) : (
-            <CaretDown size={12} weight="bold" aria-hidden />
-          )}
-        </button>
-      </div>
-      {open && (
-        <ol className="flex w-full flex-col gap-2">
-          {items.map((it) =>
-            it.kind === 'delegation' ? (
-              <li key={it.id}>
-                <DelegationRow item={it} chat={chat} />
-              </li>
-            ) : it.kind === 'instinct' ? (
-              <li key={it.id}>
-                <InstinctRow item={it} />
-              </li>
-            ) : null,
-          )}
-        </ol>
-      )}
-    </div>
   );
 }
 

@@ -13,6 +13,8 @@ interface Mock {
 
 /** From now on the mock answers 500 to the paths that contain one of `parts`, while `window.__down` holds. */
 async function breakReads(page: Page, parts: string[]): Promise<void> {
+  // The mock core is loaded after the page (a dynamic import): wait for it.
+  await page.waitForFunction(() => '__monstersMock' in window);
   await page.evaluate((names) => {
     const w = window as unknown as { __monstersMock: Mock; __down: boolean };
     const original = w.__monstersMock.handle.bind(w.__monstersMock);

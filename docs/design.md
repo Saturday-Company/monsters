@@ -301,10 +301,12 @@ changes.
   the monster starts working the name flickers like a screen lighting up (520 ms in steps) and the meter starts; a
   waiting question lights the orange light. The title in the rail is only for screen readers.
 - **Bubbles**: the monsters' `--raised` with the monster's tint, radius 4/14/14/14, the seam as border; the user's
-  `--ink` with `--panel` text, radius 14/4/14/14. Avatar: a small 34×30 screen with the monster, only on the first
-  message of a group, still on the first frame (it talks only while it writes). Reading column up to 760 px. What
-  arrives with the chat open (a bubble, a question, a receipt, a file) rises in three frames (4 px and opacity); when
-  opening a chat the rows that were there stay still, and your message rises once, when you send it.
+  `--ink` with `--panel` text, radius 14/4/14/14. Avatar: a small 34×30 screen with the monster, once per turn (beside
+  its strip, else on the first bubble), still on the first frame (it talks only while the turn works). Reading column up
+  to 760 px. The files a turn made sit **inside its last bubble** as attachments (an image as a picture, the rest as
+  chips, what the monster showed in the preview as the card that opens it), never as rows of their own. What arrives
+  with the chat open rises in three frames (4 px and opacity); when opening a chat the rows that were there stay still,
+  and your message rises once, when you send it.
 - **Drawn blocks** (D-162): a reply can hold a fence ```` ```ui ```` of OpenUI Lang (`ui-blocks.ts` in `@monsters/shared` is the
   library) that the bubble draws with our own components (`components/chat/ui-block/`, a chunk loaded when a reply has one):
   key numbers as tiles (the change has an arrow and a word, never only a colour), a table (numbers on the right,
@@ -317,21 +319,30 @@ changes.
   keys (the suggested one orange), wrapped on a phone; a tap sends the label as the user's message, and they stay
   `aria-disabled`, with the reason as title, while the reply streams, after the user wrote something newer, while the
   monster works or a question waits; the terminal and the pages without a chat do not draw them.
-- **Instrumentation**: below the last bubble of each monster turn, a line in Martian Mono 10.5 uppercase
-  `--ink-muted`: `TITAN › DELEGATE ×2 · WEB SEARCH ×3 · 4.1 S · FREE · LLAMA 3.3 70B`. It is built from the turn's
-  events (`tool_call`, `tool_result`, `provider_usage`, run duration): the tools are those of the whole run, including
-  those of the monsters it delegated to; the time is there only when the run is finished; "FREE" when every request
-  went to a free model or the reported cost is 0; the model is missing with OpenRouter's free router (it doesn't say
-  which one it chose). Web searches say in brackets the engine that answered last (`WEB SEARCH ×3 (OPENROUTER)`,
-  `(WIKIPEDIA)` when the free search got blocked); the cost of a paid search goes into the cost, it is not the turn's
-  model (D-071). Pure functions in `store/derive.ts` (`runStatsIndex`, `instrumentationLine`). Click: it opens "Behind
-  the scenes" on that turn (the first row of the run, marked by a bar in the monster's color). It can be turned off in
-  Settings → General ("Show technical details", on by default).
-- **Events between monsters**: a centered `.label` line between two seam dashes of the same length ("RHEA FINISHED · 3
-  CAPTIONS"); the time after a dot ("YOU STOPPED ALL THE MONSTERS · 00:02"). Below 480 px no dashes and the line wraps
-  onto two lines instead of being cut. Several events in a row are grouped in a line that opens. A task handed over:
-  "TITAN → RHEA · THE TASK"; the full sentence, in normal lowercase, is the accessible name and the tooltip (screen
-  readers spell out the `.label`'s capitals).
+- **The turn** (`store/turn.ts`): a request and everything the monster, and whoever it involved, did to answer it,
+  keyed by the run. In order: your message; under the monster's small screen the **work strip**; the replies; what
+  needs a check. The column keeps only what must be read or asks for an action: requests, replies (with their files),
+  questions, errors with "Try again", drafts to approve, messages from other monsters, Telegram and leads' reports, and
+  under the reply a short line in normal case for an "in doubt" (orange) or a text with orders removed or an action
+  refused (red); a click opens Behind the scenes there. Everything else (tasks handed over, searches, what the instinct
+  said, the receipt) is in the strip. In the chat of a monster that received a task, the task is the request (centered,
+  "TITAN → RHEA", with its result and notes) and the strip has that monster's own steps. A second request in the same
+  run starts a second turn. The turn objects keep their identity between two chunks of a streamed reply, so only the
+  turn that changes renders again.
+- **Work strip**: one row in the chat's tone (Instrument Sans 14, `--ink-muted`), between the request and the reply.
+  While the turn works it is **alive**: a raised card with the monster's meter and the step under way in words
+  ("Asking Rhea · Searching “tram 28”"), the last three steps under it with each monster's light, the others counted
+  ("4 steps before"); no "at work" bubble at the bottom then. When the turn ends it **closes into one sentence**:
+  "Worked 1 min · asked Rhea and Dione · 2 notes · free" (unknown parts left out, never guessed; "job undone" once
+  undone). Closed unless you open it, so finished strips never pile up open. Open, it is the turn's receipt (D-067,
+  D-068): **What happened** in time order (each task with the monster's light, its outcome "really finished" / "in
+  doubt" / "not finished", its checks ✓/?/✗ with the reason, the instinct's remarks on it and its notes; the searches
+  and pages read; what the instinct, the defenses and the spending cap said), the notes touched as links, what left the
+  computer, security, then after a seam cost, steps and duration, "Behind the scenes ↗" on that run and the key
+  **"Undo the whole job"** (first touch "AGAIN" with a red border for 5 s, like Stop; the second undoes it and says
+  "Undone · N changes rolled back"). Models and levels ("Hard → llama 3.3 70b") and the tools line of the run (`TITAN ›
+  DELEGATE ×2 · WEB SEARCH ×3 (OPENROUTER) · 4.1 S · FREE`, D-071) only with "Show technical details" on (D-181); the
+  sum of the conversation stays on the monitor. The black screen is for Behind the scenes only.
 - **Message written by another monster** (D-102): what the god sends to a project's lead with `project_send` sits in
   the lead's chat on the monsters' side, not as a bubble of yours: the `.label` "FROM TITAN" above, the god's small
   screen as avatar and the bubble in its tint; for screen readers "From Titan, 10:32:". In the list the lead's strip
@@ -347,8 +358,15 @@ changes.
   "stopped before starting", dim; "is waiting for your answer", orange; "didn't make it", red) with the summary in
   `--ink-muted` (280 characters at most), and the orange-text `.label` link "Open the project's chat →". The full
   answer is in the lead's chat.
-- **Error at the bottom of the chat**: in place of the first suggestions two keys, "Try again" (resends the request of
-  the failed job, or the task it had started with) and "Behind the scenes" on that job.
+- **Error at the bottom of the chat**: the error stays in the column of its turn; under the last one, in place of
+  the first suggestions, two keys, "Try again" (resends the request of the failed job, or the task it had started
+  with) and "Behind the scenes" on that job.
+- **Events outside a turn** (a stop, "Resumed", a new conversation, a lead's report, older events without a run): a
+  centered `.label` line between two seam dashes ("YOU STOPPED ALL THE MONSTERS · 00:02"); below 480 px no dashes and
+  the line wraps. The full sentence is the accessible name.
+- **Screen readers and "New messages"**: the transcript is not a live region; a hidden one says each finished reply
+  ("Titan: …") and each new question once. Scrolled up, "N new messages" counts new items only, never a chunk of a
+  reply already there or the monster starting to work.
 - **Question with options** = **keypad**: a `--raised` card, the question in 16 semibold, the options as full-width
   keys with the letter tile (A, B, C…) on the left; the recommended one has the orange light on the right and
   "RECOMMENDED". With the focus outside every text field, pressing the letter on the keyboard presses that key (you
@@ -370,28 +388,17 @@ changes.
   press A, B or C").
 - **Empty chat**: the monster on a big screen that talks for a moment and the greeting in Martian Mono with a blinking
   cursor, in its own words (livelier if the genome has a high `bounce`); the name in Doto is only on the monitor,
-  once is enough. Below, the first suggestions as keys.
+  once is enough. Below, the first suggestions as keys, until you write; after "New conversation" the same. "More
+  things to try" and "Tell me more about you" come once, after the lead's very first answer, never after every reply.
 - **To review** (the questions waiting and the notes touched, with Undo): a key in the chat's rail (a `Tray` icon with
   "TO REVIEW" and the number of things waiting). From 1280 px it is a column beside the chat (remembered); below it is
   a sheet on the right, full screen on the phone; Esc or Back close it. Only one thing sits on the right: with the
   right-hand pane open the column steps aside below 1600 px (the key brings it back and closes the pane), from 1600 px
   they sit together; the sheet and the pane close each other.
 - **Sounds** of the open chat (if on): `question` when a new question arrives, `done` when the monster finishes.
-- **Receipt** (D-068): at the end of a turn with a user request and something to account for (tasks, notes, actions
-  toward the outside, removed texts), a black **display** below the last bubble, indented like the questions: at the
-  top the `.label` "RECEIPT" with the summary ("2 TASKS · 1 IN DOUBT · 1 NOTE · FREE") and the time; open it shows the
-  request, the tasks with the monster in its light, the outcome (`✓ really done` screen green, `? in doubt` orange,
-  `✗ incomplete / failed` screen red) and the ✓/✗ criteria with the reason, the notes touched (links), what left the
-  computer, security; at the bottom, after a line of light, cost, steps and duration (and the instinct's questions if
-  "Show technical details" is on) and the light key **"Undo the whole job"**: first touch "AGAIN" (red border, 5 s, like
-  Stop), second touch undoes it and the display says "UNDONE · N CHANGES ROLLED BACK" with the notes and any errors.
-  The last receipt in the chat is open, the others are a line. New token `--screen-ok` (`#4fd98a` in both themes, ≥
-  4.5:1 on black).
-- **Instinct lines**: like the events between monsters, a centered `.label` between the seams with `◇` ("◇ DIONE IS ON
-  IT"); in orange text what needs checking, in red a refused action or a text with orders removed. What the instinct
-  says about a task ("Dione hadn't finished the work: I asked it to complete it", "in doubt") sits below the task
-  itself, in lowercase. In the chat only hint, reminder, doubt, change of course, brake and removed texts; the rest in
-  Activity. Click: Behind the scenes on that job.
+- **Instinct lines** (D-068): in the strip, in normal case with a light (orange what needs checking, red a refused
+  action or a text with orders removed), and those with a light also under the reply. In the chat only hint, reminder,
+  doubt, change of course, brake and removed texts; the rest in Activity.
 - **Monster going in circles**: with a `stuck_*` instinct event the monster at work makes the **confused** face
   (`confused` expression: it looks this way and that, crooked mouth, an accent `?` in the corner, 3 frames, only
   `visibility`); the monitor says `? IS CHANGING COURSE` ("CHANGING COURSE" if narrow), the strip "Is changing course",

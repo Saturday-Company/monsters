@@ -14,10 +14,8 @@ import {
   chatSummary,
   chatThread,
   countMessages,
-  delegationGroupLabel,
   describeEvent,
   doneSummary,
-  groupDelegations,
   haltedWork,
   haltedResumeText,
   haltedWorkText,
@@ -993,85 +991,6 @@ describe('events among monsters in the chat', () => {
       summary: 'Fatto',
     };
     expect(previewText(item, names)).toBe('Dione ha finito «Scrivi la bozza del primo post»');
-  });
-
-  it('folds three or more events in a row into one line, and says what they are', () => {
-    const d = (id: string, status: 'started' | 'completed' | 'failed'): ChatItem => ({
-      kind: 'delegation',
-      id,
-      ts: 1,
-      from: 'titan',
-      to: 'rhea',
-      goal: 'cerca',
-      status,
-    });
-    const msg = (id: string): ChatItem => ({ kind: 'user', id, ts: 1, text: 'ciao' });
-    const rows = [
-      msg('a'),
-      d('b', 'completed'),
-      d('c', 'completed'),
-      msg('d'),
-      d('e', 'completed'),
-      d('f', 'completed'),
-      d('g', 'started'),
-      d('h', 'completed'),
-    ];
-    const out = groupDelegations(rows, (r) => r);
-    expect(
-      out.map((r) => (r.kind === 'one' ? r.row.id : `[${r.rows.map((x) => x.id).join('')}]`)),
-    ).toEqual(['a', 'b', 'c', 'd', '[efgh]']);
-    expect(
-      delegationGroupLabel([
-        d('1', 'completed'),
-        d('2', 'completed'),
-        d('3', 'completed'),
-        d('4', 'completed'),
-      ]),
-    ).toBe('4 incarichi completati');
-    expect(delegationGroupLabel([d('1', 'started'), d('2', 'started'), d('3', 'started')])).toBe(
-      '3 incarichi passati alla squadra',
-    );
-    expect(
-      delegationGroupLabel([
-        d('1', 'completed'),
-        d('2', 'started'),
-        d('3', 'started'),
-        d('4', 'failed'),
-      ]),
-    ).toBe('4 incarichi: 1 completato, 2 in corso e 1 fermato');
-  });
-
-  it('folds the lines of the instinct among the tasks into the same line', () => {
-    const d = (id: string): ChatItem => ({
-      kind: 'delegation',
-      id,
-      ts: 1,
-      from: 'titan',
-      to: 'rhea',
-      goal: 'cerca',
-      status: 'completed',
-    });
-    const i = (id: string): ChatItem => ({
-      kind: 'instinct',
-      id,
-      ts: 1,
-      agent: 'rhea',
-      text: 'Ci pensa Rhea',
-      tone: null,
-    });
-    const rows = [d('a'), i('b'), d('c')];
-    const out = groupDelegations(rows, (r) => r);
-    expect(out).toHaveLength(1);
-    expect(out[0]).toMatchObject({ kind: 'group' });
-    expect(delegationGroupLabel(rows)).toBe('3 eventi tra i mostri');
-    // A chat can keep some rows in sight: they break the run.
-    const kept = groupDelegations(
-      rows,
-      (r) => r,
-      3,
-      (item) => item.id !== 'b',
-    );
-    expect(kept.map((r) => r.kind)).toEqual(['one', 'one', 'one']);
   });
 
   it('collects the notes the delegated monster wrote for its task', () => {

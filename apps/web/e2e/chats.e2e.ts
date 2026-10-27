@@ -110,15 +110,19 @@ test('a message in another chat shows up as unread, and is read once opened', as
   await expect(row(page, 'Enceladus').getByTestId('chat-row-unread')).toHaveCount(0);
 });
 
-test('a monster at work: thinking in its row, a working line at the bottom of its chat', async ({
+test('a monster at work: thinking in its row, the live strip of its turn in its chat', async ({
   page,
 }) => {
   await page.goto('/?mock=demo#/?chat=rhea');
   const avatar = row(page, 'Rhea').locator('svg[data-dots]');
   await expect(avatar).toHaveAttribute('data-expression', 'think');
-  await expect(page.getByTestId('working-row')).toContainText(
+  // The work is in the strip of its turn, alive: no second "at work" line at the bottom.
+  const strip = page.getByTestId('work-strip').last();
+  await expect(strip).toHaveAttribute('data-alive', 'true');
+  await expect(strip.getByTestId('strip-now')).toContainText(
     'Searching “tram 28 weekend schedule”',
   );
+  await expect(page.getByTestId('working-row')).toHaveCount(0);
   await expect(page.getByTestId('chat-status')).toContainText('Working');
   // Rhea's chat shows the tasks Titan passed her and their results, not Titan's conversation.
   const tasks = page.getByTestId('received-task');
@@ -250,17 +254,16 @@ test('"Riduci movimento" stops the idle animations of the monsters, and is remem
     .evaluateAll((els) => [...new Set(els.map((el) => getComputedStyle(el).animationName))]);
   expect(names).toEqual(['none']);
   const meter = await page
-    .getByTestId('working-row')
-    .locator('.meter > i')
+    .locator('[data-testid="work-strip"][data-alive="true"] .meter > i')
     .nth(2)
     .evaluate((el) => getComputedStyle(el).animationName);
   expect(meter).toBe('none');
 });
 
-test('the monitor of the monster, the instrumentation line and "Dietro le quinte" on that turn', async ({
+test('the monitor of the monster, the strip of a turn and "Behind the scenes" on that turn', async ({
   page,
 }) => {
-  // The line under the turn is a technical detail: off by default (D-181).
+  // The tools of the run are a technical detail: off by default (D-181).
   await showTechnicalDetails(page);
   await page.goto('/?mock=demo');
   const monitor = page.getByTestId('chat-monitor');
@@ -268,12 +271,17 @@ test('the monitor of the monster, the instrumentation line and "Dietro le quinte
   await expect(monitor).toContainText('waiting for your answer');
   // The conversation also holds the finished job of the morning, whose instinct cost a little.
   await expect(page.getByTestId('chat-summary')).toContainText(/\d+ tools · .*(free|\$)/i);
-  // Under the turn: what the run did, from its events.
-  const line = page.getByTestId('instrumentation').last();
+  // The strip of the Lisbon turn: closed, one sentence; open, what the run did, from its events.
+  const strip = page.locator('[data-testid="work-strip"][data-run="run_seed_lisbon"]');
+  await expect(strip).toHaveAttribute('data-open', 'false');
+  await expect(strip.getByTestId('receipt-summary')).toHaveText('Asked Rhea · 1 note · free');
+  await strip.getByRole('button', { expanded: false }).click();
+  await expect(strip).toHaveAttribute('data-open', 'true');
+  const line = strip.getByTestId('instrumentation');
   await expect(line).toContainText(
     'Titan › Delegation · Web search · Web page · Note written · free',
   );
-  await line.click();
+  await strip.getByTestId('strip-behind').click();
   const term = page.getByTestId('agent-terminal');
   await expect(term.getByRole('heading', { name: 'Behind the scenes of Titan' })).toBeVisible();
   await expect(term.locator('[data-focus]').first()).toContainText('job started');
