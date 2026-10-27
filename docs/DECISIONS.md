@@ -6243,3 +6243,25 @@ monitor showed a token gauge and a second sum of the run.
   conversation and level in this browser. "Conversations" lists the current one and the earlier ones; an earlier one is
   read into local state (never into the chat's events) and shown read-only with a band and "Back to current". "New
   conversation" stays one click, with no confirm: the list is the way back.
+
+### D-205 · A long chat is virtualized, with our own window and scroll anchoring
+**Status:** done · 27/10/2026
+**Context:** after the turn of D-202 only the streaming turn re-rendered, but every row of a chat stayed in the DOM.
+Measured on the dev build at 1440×900 with a 1,500-turn chat (`?mock=demo&mockChat=1500`, 13,016 events,
+`apps/web/scripts/chat-perf.ts`): 5.7 s to open, 126,704 DOM nodes, 18.9 fps while a reply streamed (worst frame
+1 s). The budget of `docs/design.md` is ≥ 55 fps.
+**Choices:**
+- Above 80 rows the transcript renders about one screen above and one below the view (`VirtualList.tsx`, `virtual.ts`,
+  heights measured with ResizeObserver). Under 80 rows nothing changes: a 210-row chat already opened in 0.6 s and
+  streamed at 51 fps, and short chats keep find-in-page whole.
+- Our own code, no dependency: the windows are keyed (history pages arrive above), and stick-to-bottom and anchoring
+  are ours. The browser's scroll anchoring is off in long chats (WebKit lacks it): the list keeps the line being read in
+  place, picking an element inside the first visible row as browsers do.
+- The focused row stays rendered; rows keep their position in the list for screen readers; the entrance animation runs
+  once per row. A jump to a far card (the question bar's "Show", To review) jumps instead of gliding: the rows in between
+  are not rendered. Finished replies keep their parsed Markdown in a cache.
+- "Again" only on the user's last message of a run (two requests in one run are two turns, the first already answered
+  by the run going on); a 450 ms press opens a bubble's bar on touch.
+**Consequence:** the same chat opens in 0.09 s with 883 nodes and streams at 57 fps. Accepted: find-in-page sees only
+the rendered rows in long chats; a very fast flick still drops frames (18% over 25 ms at 9,600 px/s), to measure again
+on a production build; about 7 ms per chunk still goes into `buildChat` over all events.
