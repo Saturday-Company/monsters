@@ -61,7 +61,7 @@
   It touches the right and bottom edges.
 - **Phone (< 768 px)**: the rail stays (wordmark or "Back", display reduced to the light and the number, Stop). The
   sidebar is the home screen; every view opens full screen. "‹ Back" is the only back: with the right-hand pane or the
-  "To review" sheet open it closes that and nothing else; a view inside a view (a note above the list) takes it up one
+  Inbox sheet open it closes that and nothing else; a view inside a view (a note above the list) takes it up one
   level and says so ("‹ Notes", `useToolbarBack`); otherwise it goes back to the sidebar.
 - Sign-in and first start: the same rail on top (without the display), the chassis below with their content.
 
@@ -135,7 +135,7 @@ Scale (existing Tailwind classes, same names): `micro` 12/16, `caption` 13/18, `
   is something to do, and a single orange key per screen.
 - **Labeled key** (`LabeledKey`): an icon on its own is a riddle. In the rail and in the module bars the icons carry
   their name in `.label`: next to the icon where there is room, under the icon on the phone, tooltip only where it
-  doesn't fit. A tiny number (a `--signal` tile) says how many things are waiting (To review).
+  doesn't fit. A tiny number (a `--signal` tile) says how many things are waiting (Inbox).
 - **Switch** (`Switch`): a recessed `--well` track 52×30 with a lever (`.lever`, token `--lever`) that slides in
   steps and a light (green on, gray off) beside it. The lever is visible in both themes: in light it has the dark
   edge, in dark the gray cap; it doesn't change on mouse hover. Segments and tabs: a row of joined keys; the chosen one
@@ -200,7 +200,8 @@ everything runs in `steps()`, only `transform`, `opacity` and `visibility` chang
 - **View title**: Instrument Sans 17 px semibold. In the chat the title is only for screen readers (the name is on the
   monster's monitor). The view's keys are `ghost` with a 20 px icon and a tooltip; those with a label use `.label`.
 - **Status display** (`StatusDisplay`): a black screen 32 px tall, 240-340 px wide. Martian Mono 11 px uppercase text
-  and the time in Doto 18 px (with the unlit digits `88:88` behind, like a real display). It shows the first true
+  and the time in Doto 18 px (with the unlit digits `88:88` behind at 7% opacity: like a real display, but at 18 px
+  anything stronger reads as a printing defect next to the time). It shows the first true
   state in this order: `STOPPED` (red) · `NOT CONNECTED` (red) · `RECONNECTING…` (a steady orange light and a meter: it
   is a wait) · `● TITAN ASKS` (a question: the name first, it is the useful information) or `● N QUESTIONS · TITAN`
   (the orange light blinks: it is waiting for you; if someone is working meanwhile, the meter beside it) · `N AT
@@ -220,6 +221,29 @@ everything runs in `steps()`, only `transform`, `opacity` and `visibility` chang
   "Resume". `⌘.` / `Ctrl+.` (or "Stop all monsters" in the palette) lifts the cover (even with nobody at work) and
   brings the focus there; Esc closes it again: nothing stops the monsters with a single gesture. On the phone only the
   cover and the light; the word appears only when armed ("AGAIN"): when stopped, "Resume" is in the band, once.
+- **Inbox** ("In arrivo" in Italian): the one key of the rail, before the display, for everything that
+  arrives for the user: a `Tray` icon, the `.label` "INBOX" (under the icon on the phone's home and on a wide phone,
+  icon only on a narrow window or inside a page of a phone) and **one number** in a `--signal` tile. The number is
+  what waits for the user and nothing else: the drafts to confirm, the questions open in the chats and the paused
+  tools. It is the same on every page, at every width and in every browser, because it is derived from those lists
+  and from nothing that was "seen" (notes touched are information with their Undo, they never count; the questions of
+  an automation are in Automations, with their light in the sidebar). A small `--signal` light beside the number (or
+  alone, when nothing waits) says that the version in use has news that were not opened. It opens a panel with two
+  tabs, **To review** (the drafts, the paused tools, the questions waiting, the notes touched with Undo; the sections
+  are the ones of the old key) and **News** (the changelog; its tab has the light while the news are unseen and
+  opening the tab turns it off). On windows of 1280 px and more, on the chat pages, it is a column beside the chat
+  (a preference); elsewhere a sheet on the right, full screen on the phone (Back or Esc close it). Opened by the key it
+  starts on To review, or on News when only the news are lit; the palette's "To review" and "What's new" open the
+  same panel on their tab. The same question is said by different places that say different things: the display and
+  the god's bar say **who** waits, inside the chat the bar above the writing field says it, and the Inbox says
+  **how many things** need you; it never adds a second number for the same question.
+- **Notices** (toasts): a band of its own at the top, just under the rail (and under the bands of a stop or a lost
+  link), the card (max 460 wide) at the right on a desktop and across the screen on a phone. They are in the flow:
+  the page below gets shorter while one is there, and nothing is covered, not the keys at the top of the page (the
+  monster's monitor, the right-hand pane's tabs, "Resume"), not the writing field, Send/Stop and the answers of a
+  question, and on a phone not the bottom bar, where they used to sit. Never over Stop (it is in the rail, above
+  them). With the Inbox sheet open the card steps to its left (on a phone the full-screen sheet covers the band, like the
+  palette does: its own keys come first).
 - Below the rail, when the monsters are stopped, a band (`HaltBanner`) "The monsters are stopped", with what the stop
   left half done ("Pending: Titan's question and Rhea's work", `haltedWork`) and the keys "Resume" (only resume: Stop
   is a safety switch, nothing restarts by itself) and, when there is something to restart, "Resume and continue"
@@ -238,7 +262,11 @@ everything runs in `steps()`, only `transform`, `opacity` and `visibility` chang
   N", the archived projects. The up and down arrows move between the god's bar (the first stop) and the open strips of
   all squads.
 - **The foot**: Automations, Notes, Files, Activity, Settings and the computer don't scroll with the squads (a seam
-  above): they stay within reach even with many squads and on a short window.
+  above): they stay within reach even with many squads and on a short window. Under 960 px of height the five
+  sections become a grid of three equal columns (3 + 2: Activity and Settings sit under Automations and Notes, the
+  third cell stays empty, so every key is on the same columns as the one above it), a 46 px tile with the icon and its
+  name under it; under 760 px a row of five icons (the name stays in the accessible name and in the tooltip with the
+  shortcut). From 960 px they are the 44 px rows below.
 - **Monster strip** (row 68 tall, radius 12, padding 8/10): on the left the 60×52 **screen** with the animated dot
   monster; then the name (16 semibold) and a status line in Instrument Sans 13.5 `--ink-muted` (one line, ellipsis at
   the end); on the right the time (Martian Mono 11) and below, depending on the state: the orange light and the number
@@ -285,7 +313,7 @@ everything runs in `steps()`, only `transform`, `opacity` and `visibility` chang
 below the rail (Stop stays uncovered), with no veil over the rest. At the top a recessed field with the "esc" tile;
 below, the results in groups with the `.label`: **Monsters** (name or role, on their small screen), **Notes** (the
 notes search, after 2 letters), **Messages** (the chats that contain the words, the most recent), **Commands**
-(Automations `⌘2`, New automation, New note, Notes `⌘3`, Files `⌘4`, Activity `⌘5`, To review, Right-hand pane `⌘J`,
+(Automations `⌘2`, New automation, New note, Notes `⌘3`, Files `⌘4`, Activity `⌘5`, To review and What's new (both open the Inbox, each on its tab), Right-hand pane `⌘J`,
 Stop `⌘.`, Settings and its tabs, Light / Dark theme / Same as the computer). 44 rows like the @ menu, the chosen
 one with the `--ink` outline and the ↵ tile, the shortcut on the right. Arrows, Enter, Esc (first it empties the field,
 then it closes); at the bottom "↑↓ choose · ↵ open · esc close". It opens in steps (120 ms) and closes when the page
@@ -371,9 +399,9 @@ changes.
 - **Empty chat**: the monster on a big screen that talks for a moment and the greeting in Martian Mono with a blinking
   cursor, in its own words (livelier if the genome has a high `bounce`); the name in Doto is only on the monitor,
   once is enough. Below, the first suggestions as keys.
-- **To review** (the questions waiting and the notes touched, with Undo): a key in the chat's rail (a `Tray` icon with
-  "TO REVIEW" and the number of things waiting). From 1280 px it is a column beside the chat (remembered); below it is
-  a sheet on the right, full screen on the phone; Esc or Back close it. Only one thing sits on the right: with the
+- **To review** (the questions waiting, the drafts, the paused tools and the notes touched, with Undo): the first tab of
+  the Inbox (see "The top rail"; the number is the same in every view). From 1280 px it is a column beside the chat
+  (remembered); below it is a sheet on the right, full screen on the phone; Esc or Back close it. Only one thing sits on the right: with the
   right-hand pane open the column steps aside below 1600 px (the key brings it back and closes the pane), from 1600 px
   they sit together; the sheet and the pane close each other.
 - **Sounds** of the open chat (if on): `question` when a new question arrives, `done` when the monster finishes.
@@ -537,7 +565,9 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   segment (by default only what had an effect), then the filters as a row of keys ("Who" is a recessed menu, aligned
   to the top with the keys) and "More filters" (Messages, Monsters' jobs, Tasks handed over, Tools, System; the period
   "All time"); on the phone a single "Filters" key opens a drawer. A question still open has "Answer", which leads to
-  its chat. Details open in a small screen, values in Martian Mono 12.5 (internal codes only under "Technical data").
+  its chat. The action colour is for **one** key: of the rows that wait for you (an open question, a paused tool, a
+  draft), the first of the list (the newest) has the solid orange "Answer"/"Review"; the others have a normal key with
+  the orange light before the word, so with five rows waiting the colour still says "this one first". Details open in a small screen, values in Martian Mono 12.5 (internal codes only under "Technical data").
   "Undo" and "Redo" are keys (in narrow columns a 32 px key with ↺, the name in a tooltip and for screen readers).
   Hyphenated words (a date) don't wrap.
 - **Settings**: five tabs, one idea each (D-066), as a row of keys at the top: **Squad** (who is there, and who you are:
@@ -589,7 +619,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   and, apart, for plans ("Restore the defaults"). At the cap a line says the paid jobs are
   stopped and "Raise the cap" (double, rounded to €5) restarts them. At the bottom, small, what doesn't count (free
   models, plans) and the fixed exchange rate. In the chat the 80% and the cap are lines between the seams
-  (`--signal`, `--stop`), the stopped job has "Raise the cap" in place of "Try again"; also a notice at the bottom.
+  (`--signal`, `--stop`), the stopped job has "Raise the cap" in place of "Try again"; also a notice (at the top).
 - **Paused tools** (Apps and Telegram tab, D-070): a module that is there only when needed, above "Apps": "GitHub
   changed a tool: the monsters don't use it until you accept it", the tool's name in monospace with a tile
   ("DESCRIPTION CHANGED", "NEW", "ARGUMENTS CHANGED"), the previous description struck through and the current one on
@@ -630,7 +660,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   core); then folder, cap per run (steps, tokens, euros) and the two notice levers. A new one can be saved as a draft.
 - **In the chat** the lead working on a run doesn't show that work (it belongs to the automation): above the writing
   field a line with the light, "Working on the automation «Post of the week»: your message goes out as soon as it
-  finishes" and "See the run". At the end of the run a notice at the bottom ("run finished", "waiting for your
+  finishes" and "See the run". At the end of the run a notice ("run finished", "waiting for your
   answer") with "See".
 
 ## Projects (D-097, D-098, D-100)
@@ -639,7 +669,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   920 px for the tabs that are not the chat. The old tab names (`section=folder`, `apps`, `spending`,
   `archive`; before alpha.25 `sezione=cartella`, `collegamenti`, `spesa`, `archivio`) open Settings scrolled to their part.
 - **Chat**: the lead's chat as it is at home (monitor, bubbles, field), with in the rail the project's name, "Stop
-  project" and "To review". `@Name` reaches the project's monsters (in the @ menu they come first).
+  project" and the Inbox. `@Name` reaches the project's monsters (in the @ menu they come first).
 - **Stop project**: a ghost key in the rail with the open hand and the `.label` ("STOP" on the phone). First touch:
   "AGAIN" in `--stop-ink` with a red border for 5 s; second touch: it stops the work of the project's monsters (not of
   the others, Stop stays up) and a notice says what ("1 job", "nobody was working").
@@ -668,16 +698,20 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   proposed it, the squad it will be on a small screen 52 tall, the plan, Discard and Confirm), then the modules that
   can be changed beforehand. **Archived**: a module with the dim light, "ARCHIVED ON …", where the notes and folder are,
   "Restore".
-- **To review**: at the top, only when there is something, "TO CONFIRM · N" (blinking orange light) with a card per draft
+- **To review** (the Inbox's first tab): at the top, only when there is something, "TO CONFIRM · N" (blinking orange light) with a card per draft
   (`--raised`, the `.label` "TITAN PROPOSES A PROJECT", the monsters on their screen (the lead first: new, with the look
   its name will give it, D-102), the title, a summary line; for a project the plan in `.label` + text rows: Lead,
   Monsters, Folder, Afterwards) and the keys Confirm (orange only in the first), Edit, Discard.
 - **Instructions proposal** (D-113): the same card ("IAPETUS PROPOSES A CHANGE TO THE INSTRUCTIONS", the monster on its
-  screen, "Instructions of <project>", the summary with the reason), then the "INSTRUCTIONS FILE" `.label` row (name and folder in
-  Martian Mono), the notices with the triangle in `--signal-ink` (text from third parties; file changed after the
-  proposal), "WHAT CHANGES · +N −M" and the difference on the small screen of the notes' diffs (removed and added rows
-  colored, "· line N ·" between the pieces, at most 360 tall and it scrolls by itself). Keys **Apply** (orange only in
-  the first card, dim when the file has changed) and **Leave it**; no Edit. The same cards in the project's Settings, under the folder,
+  screen) **in words first**: the sentence as the title ("Iapetus wants to change the instructions of Saturday
+  Social"), the monster's own reason under it in quotes, and the warnings with the triangle in `--signal-ink` (text
+  from third parties; file changed after the proposal: they decide whether to apply it, so they are never behind
+  anything). The technical part is behind one key, "Show changes · +N −M" (a caret row, closed by default): the
+  "INSTRUCTIONS FILE" `.label` row (name and folder) and the difference on the small screen of the notes' diffs
+  (removed and added rows colored, "· line N ·" between the pieces, at most 360 tall and it scrolls by itself). Keys
+  **Apply** (orange only in the first card, dim when the file has changed) and **Leave it**; no Edit. Paths in a card
+  are written the way a person says them: the home folder is `~` and a long one is cut in the middle
+  (`~/…/Saturday website`); the whole path is the tooltip and what a screen reader says. The same cards in the project's Settings, under the folder,
   below "PROPOSALS FOR THE INSTRUCTIONS · N".
 
 ## Sign-in and first start
@@ -778,6 +812,7 @@ the app says in Italian. Wave D swept every dictionary to these words.
 | An HTML page made by a monster, closed | **page** "in a closed box" | pagina | artifact, sandbox, iframe |
 | Work the squad does by itself at a set time | **automation** ("New automation") | automazione | routine, cron |
 | A squad with its own lead, folder, notes and cap | **project** ("New project", "Stop project") | progetto | workspace, team |
+| Where what arrives for the user is (questions, drafts, paused tools, notes touched, news) | **Inbox** (tabs "To review" and "News") | In arrivo (tabs Da rivedere, Novità) | NEWS (as a key of its own), Notifications |
 | What a monster proposes and waits for a tap | **draft** ("To confirm", "Confirm", "Discard") | bozza | pending proposal |
 | Images and documents sent or created | **files**, **attachments** ("Attach a file", the "Files" section) | file, allegati | upload, asset |
 

@@ -211,8 +211,8 @@ export function StatusDisplay({ size }: { size: 'full' | 'compact' | 'dot' }) {
       {size === 'full' && (
         <span aria-hidden className="flex shrink-0 items-end gap-1.5">
           <span className="relative text-title3 leading-none dots tracking-[0.04em]">
-            {/* The unlit dots of the clock, like a real display. */}
-            <span className="text-screen-off">88:88</span>
+            {/* The unlit dots of the clock, like a real display: almost off (7%), or at 18 px they read as a printing defect behind the time. */}
+            <span className="text-screen-ink opacity-[0.07]">88:88</span>
             <span className="absolute inset-0 text-screen-ink">
               {/* A one-digit hour keeps its place on the right of the first cell. */}
               {clock.hour.length < 2 && <span className="invisible">8</span>}

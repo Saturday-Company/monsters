@@ -40,8 +40,11 @@ const en = {
       notes: { label: 'Notes' },
       files: { label: 'Files', detail: 'Attachments, screenshots and the monsters’ pages' },
       log: { label: 'Activity' },
-      review: { label: 'To review', detail: 'Open questions and the notes that were touched' },
-      news: { label: 'What’s new', detail: 'What changed with the updates' },
+      review: {
+        label: 'To review',
+        detail: 'Inbox: open questions, drafts, paused tools and the notes touched',
+      },
+      news: { label: 'What’s new', detail: 'Inbox: what changed with the updates' },
       dock: { label: 'Right-hand pane', detail: 'Preview, Behind the scenes, Usage' },
       resume: { label: 'Resume the monsters' },
       stop: {
@@ -139,23 +142,29 @@ const en = {
     switch: 'Switch computer',
   },
   news: {
-    label: 'What’s new',
-    labelFresh: 'What’s new, there’s news you haven’t seen',
-    title: 'What’s new in this version',
     inUse: 'In use',
-    close: 'Close “What’s new”',
-    closeTitle: 'Close (Esc)',
     using: (version: string) => `You’re using ${version}`,
     none: 'There’s no news to show yet.',
   },
-  review: {
-    label: 'To review',
-    count: (n: number) => `To review: ${n} ${n === 1 ? 'thing' : 'things'}`,
-    hide: 'Hide “To review”',
-    show: 'Show “To review”',
-    withCount: (n: number) => `To review, ${n}`,
-    close: 'Close “To review”',
+  /** The Inbox: "To review" and the news of the updates, one key in the rail. */
+  inbox: {
+    label: 'Inbox',
+    /** The tooltip: how many things wait, or what the key does. */
+    title: (n: number, shown: boolean) =>
+      n > 0
+        ? `Inbox: ${n} ${n === 1 ? 'thing' : 'things'} to review`
+        : shown
+          ? 'Hide the Inbox'
+          : 'Show the Inbox',
+    /** The accessible name: the number of things and the light of the news. */
+    named: (n: number, fresh: boolean) =>
+      `Inbox${n > 0 ? `, ${n} to review` : ''}${fresh ? ', news you haven’t seen' : ''}`,
+    close: 'Close the Inbox',
     closeTitle: 'Close (Esc)',
+    tabs: 'Inbox sections',
+    review: 'To review',
+    news: 'News',
+    newNews: 'new',
   },
   errors: {
     stillBroken:
@@ -213,8 +222,11 @@ const it: typeof en = {
       notes: { label: 'Note' },
       files: { label: 'File', detail: 'Allegati, screenshot e pagine dei mostri' },
       log: { label: 'Attività' },
-      review: { label: 'Da rivedere', detail: 'Le domande aperte e le note toccate' },
-      news: { label: 'Novità', detail: 'Cosa è cambiato con gli aggiornamenti' },
+      review: {
+        label: 'Da rivedere',
+        detail: 'In arrivo: domande aperte, bozze, strumenti fermi e note toccate',
+      },
+      news: { label: 'Novità', detail: 'In arrivo: cosa è cambiato con gli aggiornamenti' },
       dock: { label: 'Pannello a destra', detail: 'Anteprima, Dietro le quinte, Consumi' },
       resume: { label: 'Riprendi i mostri' },
       stop: {
@@ -312,23 +324,26 @@ const it: typeof en = {
     switch: 'Cambia computer',
   },
   news: {
-    label: 'Novità',
-    labelFresh: 'Novità, ci sono novità non viste',
-    title: 'Novità della versione',
     inUse: 'In uso',
-    close: 'Chiudi “Novità”',
-    closeTitle: 'Chiudi (Esc)',
     using: (version) => `Stai usando la ${version}`,
     none: 'Non ci sono ancora novità da mostrare.',
   },
-  review: {
-    label: 'Da rivedere',
-    count: (n) => `Da rivedere: ${n} ${n === 1 ? 'cosa' : 'cose'}`,
-    hide: 'Nascondi “Da rivedere”',
-    show: 'Mostra “Da rivedere”',
-    withCount: (n) => `Da rivedere, ${n}`,
-    close: 'Chiudi “Da rivedere”',
+  inbox: {
+    label: 'In arrivo',
+    title: (n, shown) =>
+      n > 0
+        ? `In arrivo: ${n} ${n === 1 ? 'cosa' : 'cose'} da rivedere`
+        : shown
+          ? 'Nascondi “In arrivo”'
+          : 'Mostra “In arrivo”',
+    named: (n, fresh) =>
+      `In arrivo${n > 0 ? `, ${n} da rivedere` : ''}${fresh ? ', novità non viste' : ''}`,
+    close: 'Chiudi “In arrivo”',
     closeTitle: 'Chiudi (Esc)',
+    tabs: 'Sezioni di “In arrivo”',
+    review: 'Da rivedere',
+    news: 'Novità',
+    newNews: 'nuove',
   },
   errors: {
     stillBroken:

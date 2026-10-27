@@ -3,7 +3,7 @@ import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /*
  * The leftovers of waves A and B on the web (stream R2): the top rail keeps the page's title
- * whatever else it carries (the status display gives way first), "To review" has its word on a
+ * whatever else it carries (the status display gives way first), the Inbox has its word on a
  * phone's home, a short window draws the sidebar's strips denser, the page has its name as the
  * document's title and a way to skip the rail, the focus survives a switch of language, and a
  * draft card whose press went through does not stay disabled for ever (W-39).
@@ -24,7 +24,7 @@ async function visibleRows(page: Page): Promise<number> {
   });
 }
 
-/** Lights "NEWS" (a version not yet seen), as after an update. */
+/** Lights the news of the Inbox (a version not yet seen), as after an update. */
 const lightNews = (page: Page) => page.addInitScript((k) => localStorage.setItem(k, '0.0.1'), SEEN);
 
 const truncated = (page: Page) =>
@@ -44,7 +44,7 @@ for (const [width, height] of [
     ['#/automazioni', 'Automations'],
     ['#/note', 'Notes'],
   ] as const) {
-    test(`the rail keeps the title of ${heading} whole at ${width}×${height} with NEWS lit (R2)`, async ({
+    test(`the rail keeps the title of ${heading} whole at ${width}×${height} with the Inbox’s news light on (R2)`, async ({
       page,
     }) => {
       await lightNews(page);
@@ -53,7 +53,7 @@ for (const [width, height] of [
       const rail = page.getByTestId('toolbar');
       await expect(rail.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
       if (width >= 1100)
-        await expect(rail.getByTestId('news-toggle')).toHaveAttribute('data-fresh');
+        await expect(rail.getByTestId('review-toggle')).toHaveAttribute('data-fresh');
       expect(await truncated(page)).toBe(false);
       // The keys of the page are all still in the rail, and the rail does not run over.
       await expectNoSideScroll(page);
@@ -84,7 +84,7 @@ test('at 1280×720 the sidebar shows six monsters, a short window draws them den
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/?mock=demo');
   await expect(page.getByTestId('chat-list-nav')).toBeVisible();
-  // The demo opens with a notice that takes a strip of its own at the foot: look at both.
+  // The demo opens with a notice; it is a band at the top and takes a strip from the rows: look at both.
   const withNotice = await visibleRows(page);
   expect(withNotice).toBeGreaterThanOrEqual(5);
   await page.getByTestId('notice').getByRole('button').last().click();
@@ -99,13 +99,13 @@ test('at 1280×720 the sidebar shows six monsters, a short window draws them den
     .toBeGreaterThan(64);
 });
 
-test('phone home: "To review" says its word; inside a page the tray and its count are enough (R2)', async ({
+test('phone home: the Inbox says its word; inside a page the tray and its count are enough (R2)', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/?mock=demo#/');
   const key = page.getByTestId('toolbar').getByTestId('review-toggle');
-  await expect(key).toContainText('To review');
+  await expect(key).toContainText('Inbox');
   await expect(key.getByTestId('review-count')).toBeVisible();
   const kill = page.getByTestId('toolbar').getByTestId('kill');
   await expect(kill).toBeInViewport({ ratio: 1 });
@@ -114,10 +114,10 @@ test('phone home: "To review" says its word; inside a page the tray and its coun
   await expect(
     page.getByTestId('toolbar').getByRole('heading', { name: 'Settings' }),
   ).toBeVisible();
-  await expect(key).not.toContainText('To review');
+  await expect(key).not.toContainText('Inbox');
   // A wide phone has room for the word inside a page too.
   await page.setViewportSize({ width: 640, height: 360 });
-  await expect(key).toContainText('To review');
+  await expect(key).toContainText('Inbox');
   await expectNoSideScroll(page);
 });
 

@@ -70,8 +70,11 @@ describe('the words of the drafts and of a project’s page', () => {
     );
     // The file name is on the card in small mono, not in the first-layer words.
     expect(s.docsSubject('Instructions of Social (CLAUDE.md)')).toBe('Social');
-    expect(s.docsTitle('Instructions of Social (AGENTS.md)')).toBe('Instructions of Social');
-    expect(s.docsTitle('Instructions of Social')).toBe('Instructions of Social');
+    expect(s.docs.sentence('Iapetus', 'Social', false)).toBe(
+      'Iapetus wants to change the instructions of Social',
+    );
+    expect(s.docs.sentence(null, 'Social', true)).toBe('Create the instructions of Social');
+    expect(s.docs.reason('I’m adding the hashtags.')).toBe('“I’m adding the hashtags”');
     expect(s.memorySubject('Memory of Rhea')).toBe('Rhea’s memory');
     expect(s.card.proposes('Rhea', s.kindWords.memory)).toBe('Rhea proposes to remember');
     expect(s.grant(false)).toBe(
@@ -90,7 +93,9 @@ describe('the words of the drafts and of a project’s page', () => {
       expect(s.projectReady('Social', 1)).toContain('La sua prima automazione aspetta');
       expect(s.projectReady('Social', 3)).toContain('Le sue 3 automazioni aspettano');
       expect(s.docsSubject('Istruzioni di Social (CLAUDE.md)')).toBe('Social');
-      expect(s.docsTitle('Istruzioni di Social (AGENTS.md)')).toBe('Istruzioni di Social');
+      expect(s.docs.sentence('Iapetus', 'Social', false)).toBe(
+        'Iapetus vuole cambiare le istruzioni di Social',
+      );
       expect(s.memorySubject('Memoria di Rhea')).toBe('la memoria di Rhea');
       expect(s.card.proposes('Rhea', s.kindWords.monster)).toBe('Rhea propone un nuovo mostro');
       expect(viewStrings().stop.stopped('Social', 1, 2, 1)).toBe(

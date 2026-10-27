@@ -8,7 +8,6 @@ import { chatAgentOf, useDockFollowsPage, usePreviewEvents } from '../dock/follo
 import { usePreview } from '../../store/preview.ts';
 import { Meter } from '../ui/Meter.tsx';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
-import { NewsSheet } from './NewsSheet.tsx';
 import { ReviewSheet } from './ReviewSheet.tsx';
 import { shellStrings } from './shell.strings.ts';
 import { Sidebar } from './Sidebar.tsx';
@@ -169,6 +168,7 @@ export default function ReadyShell({ route }: { route: Route }) {
         />
         <LinkBand />
         <HaltBanner />
+        <NoticeBar />
         <div className="flex min-h-0 flex-1">
           {showSidebar && <Sidebar route={route} phone={phone} />}
           {showContent && (
@@ -197,10 +197,8 @@ export default function ReadyShell({ route }: { route: Route }) {
           )}
           <DockSlot />
         </div>
-        <NoticeBar />
       </ToolbarProvider>
       <ReviewSheet />
-      <NewsSheet />
       <CommandPalette />
     </div>
   );

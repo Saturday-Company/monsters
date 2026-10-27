@@ -95,11 +95,12 @@ export function LinkBand() {
 }
 
 /**
- * One message at a time, the others in line behind it (store/notice-queue.ts). Once the shell is
- * up it sits in the flow under the page (`NoticeBar`, in ReadyShell): the page above it gets
- * shorter and nothing is covered, not the writing field, not the answers of a question, not
- * "Invia" (a failed send puts the text back there). Before that (login, boot) it floats at the
- * bottom (`NoticeToast`).
+ * One message at a time, the others in line behind it (store/notice-queue.ts). In the shell it is a
+ * band at the top, under the rail (`NoticeBar`), the card at the right on a desktop and across the
+ * screen on a phone; before the shell (login, boot) it floats in the same corner (`NoticeToast`).
+ * It is in the flow, so nothing is covered: not the keys at the top of the page, not the writing
+ * field, Send/Stop or the answers of a question (a failed send puts the text back in the field), and
+ * on a phone not the bottom bar.
  *
  * A message goes away by itself, but the timer waits while the pointer is over it or the focus is
  * in it. One with a key ("Annulla", "Alza il tetto") stays a long while (30 s at least), and
@@ -211,14 +212,25 @@ function NoticeCard({ notice }: { notice: Notice }) {
   );
 }
 
-/** The message in the flow, at the foot of the shell: the page above it shrinks. */
+/**
+ * The message of the shell: a band of its own just under the rail (and under the bands of a stop or
+ * a lost link), the card at the right on a desktop and across the screen on a phone. It is in the
+ * flow, so the page below it gets shorter and nothing is covered: not the keys at the top of the
+ * page (the monster's monitor, the right-hand pane's tabs, "Resume"), and never the writing field,
+ * Send/Stop, the answers of a question or the phone's bottom bar, where it used to sit. Stop is in
+ * the rail, above it.
+ */
 export function NoticeBar() {
   const notice = useApp((s) => s.notice);
+  // The Inbox sheet is fixed at the same corner: on a desktop the card steps to its left (on a phone the
+  // sheet is the whole screen and, like the palette, it covers the band: its own keys come first).
+  const inbox = useApp((s) => s.reviewOpen);
   return (
     <div
       className={cn(
-        'pointer-events-none flex shrink-0 justify-center px-4',
-        notice && 'pt-2 pb-2.5',
+        'pointer-events-none flex shrink-0 justify-center px-3 sm:justify-end',
+        notice && 'pt-0.5 pb-2',
+        inbox && 'sm:pr-[392px]',
       )}
       aria-live="polite"
       data-layer-exempt
@@ -230,7 +242,7 @@ export function NoticeBar() {
   );
 }
 
-/** The floating message of the screens before the shell (login, boot, errors). */
+/** The floating message of the screens before the shell (login, boot, errors): at the top right. */
 export function NoticeToast() {
   const phase = useApp((s) => s.phase);
   const notice = useApp((s) => s.notice);
@@ -240,7 +252,7 @@ export function NoticeToast() {
   if (phase === 'ready') return null;
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
+      className="pointer-events-none fixed inset-x-3 top-[60px] z-50 flex justify-center sm:inset-x-auto sm:right-3 sm:justify-end"
       aria-live="polite"
       data-layer-exempt
     >

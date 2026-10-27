@@ -1,10 +1,11 @@
 import { Tray, X } from '@phosphor-icons/react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { useApp, setReviewOpen } from '../../store/app.ts';
 import { useMediaQuery } from '../../store/hooks.ts';
 import { setPrefs, usePrefs } from '../../store/prefs.ts';
 import { useDrafts } from '../../store/projects.ts';
-import { markSeen, seenOf, useReads } from '../../store/reads.ts';
+import { inboxCount, setInboxTab } from '../../store/inbox.ts';
+import { hasNews, useNews } from '../../store/news.ts';
 import { cn } from '../../lib/utils.ts';
 import {
   hashParam,
@@ -17,21 +18,20 @@ import {
 import { hideDock, usePreview } from '../../store/preview.ts';
 import { pausedToolEvents } from '../log/activity.ts';
 import { REVIEW_WITH_DOCK_FROM } from '../dock/layout.ts';
-import { ActivityPanel, latestNoteChanges } from '../log/ActivityPanel.tsx';
+import { useChats } from '../chat/useChats.ts';
+import { ActivityPanel } from '../log/ActivityPanel.tsx';
 import { LabeledKey } from '../ui/button.tsx';
 import { useLayer } from '../ui/layers.ts';
 import { shellStrings } from './shell.strings.ts';
 
 /*
- * "Da rivedere" (docs/design.md, "La chat"): the drafts of the monsters to
- * confirm (D-100), the open questions and the notes touched lately, with their undo. On windows of 1280 px and more it is a
- * column next to the chat (a preference); on narrower windows and on phones a
- * sheet on the right, like "Dietro le quinte" (full screen on a phone). The
- * key in the rail says how many things wait there.
+ * The Inbox (docs/design.md, "The top rail"): "To review" (the drafts of the monsters to confirm,
+ * D-100, the open questions, the paused tools and the notes touched lately, with their undo) and the
+ * news of the updates, as two tabs of one panel. On windows of 1280 px and more the panel is a column
+ * next to the chat (a preference); on narrower windows and on phones a sheet on the right, like
+ * "Behind the scenes" (full screen on a phone). One key in the rail opens it and carries one number:
+ * what waits for the user (`inboxCount`), the same everywhere.
  */
-
-/** The marker of what "Da rivedere" was last looked at (the reads of the chats, one more key). */
-const REVIEW = '__review';
 
 /** Wide enough for the column next to the chat. */
 export const REVIEW_COLUMN_QUERY = '(min-width: 1280px)';
@@ -63,27 +63,26 @@ export function useReviewColumn(): boolean {
   return column && on && (!dock || both);
 }
 
-/** The drafts to confirm and the open questions, plus the notes touched since "Da rivedere" was last looked at. */
-export function useReviewCount(): number {
+/**
+ * What waits for the user: the drafts to confirm, the open questions of the chats and the paused
+ * tools (`inboxCount`). It does not depend on what was seen, on the page or on the width.
+ */
+export function useInboxCount(): number {
   const drafts = useDrafts();
   const events = useApp((s) => s.events);
-  const questions = useApp((s) => s.questions);
-  const seen = useReads((r) => seenOf(r, REVIEW));
-  const notes = useMemo(() => latestNoteChanges(events), [events]);
-  const open = Object.values(questions).filter((q) => q.status === 'open').length;
+  const { waiting } = useChats();
   const paused = useMemo(() => pausedToolEvents(events).length, [events]);
-  return (drafts?.length ?? 0) + open + paused + notes.filter((e) => e.id > seen).length;
+  return inboxCount({ drafts: drafts?.length ?? 0, waiting, paused });
 }
 
-/** While "Da rivedere" is on screen, what it shows counts as seen. */
-function useMarkReviewed(on: boolean) {
-  const last = useApp((s) => s.events.at(-1)?.id ?? '');
-  useEffect(() => {
-    if (on && last) markSeen(REVIEW, last);
-  }, [on, last]);
+/** Whether the version in use has news that were not looked at. */
+function useFreshNews(): boolean {
+  const version = useApp((s) => s.version);
+  const seen = useNews((s) => s.seen);
+  return hasNews(version, seen);
 }
 
-/** Opens "Da rivedere" the way this window can show it (the palette, the rail). */
+/** Opens the Inbox the way this window can show it (the palette, the rail). */
 export function showReview(): void {
   const hash = window.location.hash;
   if (
@@ -99,8 +98,23 @@ export function showReview(): void {
   setReviewOpen(true);
 }
 
-/** The key of the rail: the column on wide windows, the sheet elsewhere; the number of what waits. */
-export function ReviewKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' }) {
+/** Opens the Inbox on the news tab (the palette's "What's new"). */
+export function showNews(): void {
+  setInboxTab('news');
+  showReview();
+}
+
+/** Opens the Inbox on "To review" (the palette). */
+export function showToReview(): void {
+  setInboxTab('review');
+  showReview();
+}
+
+/**
+ * Where the Inbox is on this page and whether it is on screen: `column` (this page has a place for
+ * the column), `shown` (the column is on screen) and `on` (the column or the sheet is open).
+ */
+export function useInboxPlace(): { column: boolean; shown: boolean; on: boolean } {
   const route = useRoute();
   const project = useHashParam('id');
   const tab = useHashParam('section');
@@ -108,10 +122,19 @@ export function ReviewKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' })
   const column = useMediaQuery(REVIEW_COLUMN_QUERY) && reviewColumnPage(route, project, tab);
   const shown = useReviewColumn() && column;
   const sheetOn = useApp((s) => s.reviewOpen);
-  const count = useReviewCount();
-  const s = shellStrings().review;
-  const on = column ? shown : sheetOn;
-  useMarkReviewed(shown);
+  return { column, shown, on: column ? shown : sheetOn };
+}
+
+/**
+ * The key of the rail: the column on wide windows, the sheet elsewhere. One number, what waits for
+ * the user; the light of the news is beside it (or alone when nothing waits).
+ */
+export function InboxKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' }) {
+  const { column, shown, on } = useInboxPlace();
+  const sheetOn = useApp((s) => s.reviewOpen);
+  const count = useInboxCount();
+  const fresh = useFreshNews();
+  const s = shellStrings().inbox;
   // The column hidden by the right-hand pane comes back in its place.
   const toggleColumn = () => {
     if (shown) setPrefs({ activityPanel: false });
@@ -120,23 +143,37 @@ export function ReviewKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' })
       if (!window.matchMedia(WITH_DOCK_QUERY).matches) hideDock();
     }
   };
+  const onClick = () => {
+    // Opened by the key it starts where something waits: "To review", or the news when only they do.
+    if (!on) setInboxTab(count === 0 && fresh ? 'news' : 'review');
+    if (column) toggleColumn();
+    else setReviewOpen(!sheetOn);
+  };
   return (
     <LabeledKey
       label={s.label}
       layout={layout}
       pressed={on}
       data-testid="review-toggle"
-      title={count > 0 ? s.count(count) : on ? s.hide : s.show}
-      aria-label={count > 0 ? s.withCount(count) : s.label}
-      onClick={() => (column ? toggleColumn() : setReviewOpen(!sheetOn))}
+      data-fresh={fresh ? '' : undefined}
+      title={s.title(count, on)}
+      aria-label={s.named(count, fresh)}
+      onClick={onClick}
       badge={
-        count > 0 ? (
-          <span
-            aria-hidden
-            data-testid="review-count"
-            className="inline-flex h-4 min-w-4 items-center justify-center rounded-[4px] bg-signal px-1 font-mono text-micro leading-none font-medium text-on-signal tabular-nums"
-          >
-            {count > 9 ? '9+' : count}
+        count > 0 || fresh ? (
+          <span className="inline-flex items-center gap-1">
+            {count > 0 && (
+              <span
+                aria-hidden
+                data-testid="review-count"
+                className="inline-flex h-4 min-w-4 items-center justify-center rounded-[4px] bg-signal px-1 font-mono text-micro leading-none font-medium text-on-signal tabular-nums"
+              >
+                {count > 9 ? '9+' : count}
+              </span>
+            )}
+            {fresh && (
+              <span aria-hidden data-testid="news-led" className="led" data-tone="signal" />
+            )}
           </span>
         ) : undefined
       }
@@ -148,9 +185,8 @@ export function ReviewKey({ layout }: { layout: 'inline' | 'stacked' | 'icon' })
 
 /** The sheet: mounted by the shell, shown while `reviewOpen`. */
 export function ReviewSheet() {
-  const s = shellStrings().review;
+  const s = shellStrings().inbox;
   const open = useApp((s) => s.reviewOpen);
-  useMarkReviewed(open);
   const sheet = useRef<HTMLElement>(null);
   const closeKey = useRef<HTMLButtonElement>(null);
   // Not modal (the chat stays usable beside it): Escape closes it only when it is the top layer,

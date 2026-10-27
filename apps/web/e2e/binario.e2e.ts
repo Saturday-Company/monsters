@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { expect, expectNoSideScroll, test } from './fixtures.ts';
 
 /*
- * The shell of wave B1: "To review" and "What's new" in the rail of every page (U2-28), the foot of
+ * The shell of wave B1: "To review" and "What's new" (one Inbox key since wave I) in the rail of every page (U2-28), the foot of
  * the sidebar that leaves the chats their room (V-7), the phone's rail with words (V-9), the clock
  * written as the chat writes it (V-4), a page that says it is loading (V-6) and the unreachable
  * screen that tries again by itself (W-27).
@@ -67,7 +67,7 @@ test('the chat keeps "To review" as a column on a wide window, once, in the rail
   await expect(key).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('"NEWS" is lit only for news not yet seen, and quiet otherwise (U2-28, V-9)', async ({
+test('the news light of the Inbox is on only for news not yet seen (U2-28, V-9)', async ({
   page,
 }) => {
   await page.addInitScript((key) => {
@@ -78,23 +78,22 @@ test('"NEWS" is lit only for news not yet seen, and quiet otherwise (U2-28, V-9)
   }, SEEN);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?mock=demo#/impostazioni');
-  const news = page.getByTestId('toolbar').getByTestId('news-toggle');
-  await expect(news).toHaveAttribute('data-fresh', '');
-  await expect(news.getByTestId('news-led')).toBeVisible();
-  await news.click();
-  await expect(page.getByTestId('news-sheet')).toBeVisible();
-  await page.keyboard.press('Escape');
-  // Seen: the same key stays, quiet and readable (an ordinary key, not a greyed-out block).
-  await expect(news).not.toHaveAttribute('data-fresh', /.*/);
-  await expect(news).toHaveText('NEWS');
-  const color = await news
-    .locator('span')
-    .first()
-    .evaluate((el) => getComputedStyle(el).fontStyle);
-  expect(color).toBe('normal');
-  // Below 1100 px there is no room for a quiet key: it is not drawn (the palette still opens it).
-  await page.setViewportSize({ width: 1024, height: 768 });
+  const inbox = page.getByTestId('toolbar').getByTestId('review-toggle');
+  // One key for everything that arrives: the news are a light on it, not a key of their own.
   await expect(page.getByTestId('news-toggle')).toHaveCount(0);
+  await expect(inbox).toHaveAttribute('data-fresh', '');
+  await expect(inbox.getByTestId('news-led')).toBeVisible();
+  await inbox.click();
+  await page.getByRole('tab', { name: 'News' }).click();
+  await expect(page.getByTestId('news-panel')).toBeVisible();
+  await page.keyboard.press('Escape');
+  // Seen: the light goes out and the key keeps its word and its number.
+  await expect(inbox).not.toHaveAttribute('data-fresh', /.*/);
+  await expect(inbox.getByTestId('news-led')).toHaveCount(0);
+  await expect(inbox).toContainText('Inbox');
+  // Below 1100 px the word gives way to the icon; the key is still the only one.
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await expect(page.getByTestId('toolbar').getByTestId('review-toggle')).toHaveCount(1);
 });
 
 test('the foot of the sidebar leaves the chats their room: the project monsters show at 1440×900 (V-7)', async ({

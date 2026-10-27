@@ -24,8 +24,6 @@ const en = {
   monsterReady: (title: string) => `${title} is on the squad: message it from its chat.`,
   /** The subject of a docs draft from its title ("Instructions of Saturday (CLAUDE.md)"). */
   docsSubject: (title: string) => docsName(title),
-  /** The card's title: the core's, without the file name (it is on the card, in small mono). */
-  docsTitle: (title: string) => title.replace(DOCS_FILE, ''),
   /** The subject of a memory draft from its title ("Memory of Rhea"). */
   memorySubject: (title: string) => title.replace(/^(?:Memory of|Memoria di) (.+)$/, '$1’s memory'),
   docsDone: (title: string) => `I updated the instructions: ${title}.`,
@@ -67,7 +65,15 @@ const en = {
     folderMoved:
       'The project’s folder changed after the proposal: it can’t be applied. Ask the monster to propose it again.',
     tooLarge: (file: string) => `${file} is now larger than 1 MB: it can’t be changed from here.`,
-    changes: (added: number, removed: number) => `What changes · +${added} −${removed}`,
+    /** The card's sentence: who wants what to the instructions of which project. */
+    sentence: (who: string | null, subject: string, create: boolean) =>
+      who
+        ? `${who} wants to ${create ? 'create' : 'change'} the instructions of ${subject}`
+        : `${create ? 'Create' : 'Change'} the instructions of ${subject}`,
+    /** The monster's own reason, as it said it. */
+    reason: (text: string) => `“${text.trim().replace(/\.$/, '')}”`,
+    showChanges: (added: number, removed: number) => `Show changes · +${added} −${removed}`,
+    hideChanges: 'Hide changes',
     blockedStale: 'The file changed after the proposal',
     blockedFolder: 'The project’s folder changed after the proposal',
     blockedLarge: 'The file is larger than 1 MB',
@@ -106,7 +112,6 @@ const it: typeof en = {
       : `${title} è pronto: scrivi al suo capo dalla pagina del progetto.`,
   monsterReady: (title) => `${title} è nella squadra: scrivigli dalla sua chat.`,
   docsSubject: (title) => docsName(title),
-  docsTitle: (title) => title.replace(DOCS_FILE, ''),
   memorySubject: (title) => title.replace(/^(?:Memory of|Memoria) /, 'la memoria '),
   docsDone: (title) => `Ho aggiornato le istruzioni: ${title}.`,
   memoryDone: (subject) => `Fatto: ${subject} ha le righe nuove.`,
@@ -146,7 +151,13 @@ const it: typeof en = {
     folderMoved:
       'La cartella del progetto è cambiata dopo la proposta: non si può applicare. Chiedi al mostro di riproporla.',
     tooLarge: (file) => `${file} adesso è più grande di 1 MB: non si cambia da qui.`,
-    changes: (added, removed) => `Cosa cambia · +${added} −${removed}`,
+    sentence: (who, subject, create) =>
+      who
+        ? `${who} vuole ${create ? 'creare' : 'cambiare'} le istruzioni di ${subject}`
+        : `${create ? 'Crea' : 'Cambia'} le istruzioni di ${subject}`,
+    reason: (text) => `«${text.trim().replace(/\.$/, '')}»`,
+    showChanges: (added, removed) => `Mostra le modifiche · +${added} −${removed}`,
+    hideChanges: 'Nascondi le modifiche',
     blockedStale: 'Il file è cambiato dopo la proposta',
     blockedFolder: 'La cartella del progetto è cambiata dopo la proposta',
     blockedLarge: 'Il file è più grande di 1 MB',

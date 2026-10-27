@@ -7,10 +7,16 @@ import { cn, domId, formatDay } from '../../lib/utils.ts';
 import { errorText, HISTORY_PAGE, loadOlder, notify, useApp } from '../../store/app.ts';
 import { withoutRepeatedStops, type EventCategory } from '../../store/derive.ts';
 import { useAgents, useMediaQuery, useOrchestrator } from '../../store/hooks.ts';
+import { useDrafts } from '../../store/projects.ts';
 import { ToolbarContent, ToolbarTitle } from '../shell/Toolbar.tsx';
 import { Button } from '../ui/button.tsx';
 import { joinedKey, KeyLight, Segmented } from '../ui/controls.tsx';
-import { mainTypes as mainTypeList, matchesActivity, otherTypes } from './activity.ts';
+import {
+  firstWaitingRow,
+  mainTypes as mainTypeList,
+  matchesActivity,
+  otherTypes,
+} from './activity.ts';
 import { ArchiveNote } from './ArchiveNote.tsx';
 import { EventRow } from './EventRow.tsx';
 import { logStrings } from './log.strings.ts';
@@ -196,6 +202,13 @@ export function LogView() {
   const [cap, setCap] = useState(LOG_CAP);
   const filtered = useMemo(() => matching.slice(0, cap), [matching, cap]);
   const hidden = matching.length - filtered.length;
+  // The one row with the solid orange key: the newest that still waits for you.
+  const questions = useApp((s) => s.questions);
+  const drafts = useDrafts();
+  const urgent = useMemo(
+    () => firstWaitingRow(filtered, { events, questions, drafts }),
+    [filtered, events, questions, drafts],
+  );
 
   const groups = useMemo(() => {
     const out: { day: string; items: LogEvent[] }[] = [];
@@ -419,7 +432,7 @@ export function LogView() {
               </h2>
               <ol className="tape">
                 {g.items.map((e) => (
-                  <EventRow key={e.id} e={e} />
+                  <EventRow key={e.id} e={e} primary={e.id === urgent} />
                 ))}
               </ol>
             </section>
