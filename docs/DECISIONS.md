@@ -6265,3 +6265,25 @@ Measured on the dev build at 1440×900 with a 1,500-turn chat (`?mock=demo&mockC
 **Consequence:** the same chat opens in 0.09 s with 883 nodes and streams at 57 fps. Accepted: find-in-page sees only
 the rendered rows in long chats; a very fast flick still drops frames (18% over 25 ms at 9,600 px/s), to measure again
 on a production build; about 7 ms per chunk still goes into `buildChat` over all events.
+
+### D-206 · One Inbox with one number, notices in the top rail, a single orange action in Activity
+**Status:** done · 27/10/2026
+**Context:** the signals half of the chat review of 27/10 (F and I of the plan). "To review" said 5 in the chat rail
+and 9+ elsewhere, because each place counted a different set; "To review" and "NEWS" were two keys with two counters
+for one question ("is anything waiting for me?"); notices sat at the bottom and covered the writing field; in Activity
+every row had an orange key; an instructions draft opened on a raw diff with absolute paths.
+**Choices:**
+- One entry in the top rail, "Inbox" (IT "In arrivo"), with two tabs: To review and What's new. The number counts only
+  what waits on the user, the same everywhere and at every width: drafts, questions of the chats, paused tools. Notes
+  touched stay in the tab with Undo but do not count; news is a light, not a number. No "seen" state: a count that
+  drops when you look would hide work that is still waiting. The NEWS key is gone.
+- Notices: from 900 px wide they live inside the top rail, one 32 px line between the view title and the Inbox (tone
+  light, truncated sentence with the full text as tooltip and for screen readers, action, ✕), so the page never moves
+  when one comes or goes. Several queued: "+N" opens a popover with all of them; with less than 240 px free only the
+  light and "1 notice". Under 900 px, and as a fallback, a band right under the rail. A first version put the band
+  under the rail on desktop too: it pushed the page down about 70 px on every notice.
+- Activity: one filled orange key per screen (the first "Review"/"Answer"), the others ordinary keys with a light.
+- The rail clock's unlit digits at 7% (they read as a second time).
+- An instructions draft opens on the monster's sentence and words; the diff is behind "Show changes"; paths are written
+  `~/…` and shortened in the middle.
+- The sidebar foot is a 3 + 2 grid on the same columns under 960 px of height.
