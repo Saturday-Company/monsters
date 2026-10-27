@@ -127,6 +127,12 @@ describe('POST /api/agents/:id/stop (F-1)', () => {
     const report = await t.json<AgentStopResponse>('POST', '/api/agents/dione/stop');
     expect(report).toMatchObject({ stopped: 0, parts: 2 });
     expect((await t.runEnded(sent.runId)).data.status).toBe('completed');
+    // Titan's turn can end before Dione's question to Rhea logs its own end (the two parts settle
+    // in separate ticks): wait for it rather than read the log once.
+    await t.waitEvent(
+      (e): e is LogEvent<'delegation'> =>
+        e.type === 'delegation' && e.data.to === 'rhea' && e.data.status !== 'started',
+    );
     const ended = delegations(t.events(sent.runId)).filter((e) => e.data.status !== 'started');
     expect(ended.map((e) => [e.data.from, e.data.to, e.data.status]).sort()).toEqual([
       ['dione', 'rhea', 'aborted'],
