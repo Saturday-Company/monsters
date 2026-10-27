@@ -273,7 +273,7 @@ test('Draft discard: Undo brings the draft back; left alone it goes through afte
   await page.goto('/?mock=demo#/progetto?id=social-di-saturday&sezione=cartella');
   const list = page.getByTestId('project-docs-drafts');
   await expect(list.getByTestId('draft-card')).toHaveCount(2);
-  const calypso = list.getByTestId('draft-card').filter({ hasText: 'AGENTS.md' });
+  const calypso = list.getByTestId('draft-card').filter({ hasText: 'Calypso wants' });
 
   // Discard, then Undo: the card is back and nothing was told to the core.
   await calypso.getByTestId('draft-discard').click();

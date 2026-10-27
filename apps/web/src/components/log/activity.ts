@@ -194,6 +194,45 @@ export function pausedToolEvents(events: readonly LogEvent[]): LogEvent<'securit
     .sort((a, b) => (a.id < b.id ? -1 : 1));
 }
 
+/** The events that can leave a choice waiting: only these rows look for a "Review". */
+export const REVIEW_TYPES: ReadonlySet<string> = new Set([
+  'security',
+  'monster_proposal',
+  'project_change',
+  'automation_change',
+  'project_docs_proposal',
+  'memory',
+]);
+
+/**
+ * The row that gets the one solid orange key of Activity: the first of the list (the newest) that
+ * still waits for the user, that is a question still open, a tool still paused or a draft still
+ * listed. With five rows waiting the action colour would mean nothing; the other waiting rows keep
+ * a normal key with the orange light. Null when nothing waits.
+ */
+export function firstWaitingRow(
+  rows: readonly LogEvent[],
+  state: {
+    events: readonly LogEvent[];
+    questions: Readonly<Record<string, { status: string } | undefined>>;
+    drafts: readonly DraftView[] | null;
+  },
+): string | null {
+  let paused: ReadonlySet<string> | null = null;
+  for (const e of rows) {
+    if (e.type === 'question') {
+      if (state.questions[e.data.questionId]?.status === 'open') return e.id;
+    } else if (REVIEW_TYPES.has(e.type)) {
+      if (e.type === 'security' && e.data.action === 'mcp_tools_changed') {
+        paused ??= new Set(pausedToolEvents(state.events).map((x) => x.id));
+        if (paused.has(e.id)) return e.id;
+      }
+      if (pendingDraftOf(e, state.drafts)) return e.id;
+    }
+  }
+  return null;
+}
+
 /** Events about one note (`#/log?note=…`). */
 export function touchesNote(e: LogEvent, key: string): boolean {
   const is = (p: unknown) => typeof p === 'string' && noteKey(p) === key;

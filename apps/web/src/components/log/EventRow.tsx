@@ -27,11 +27,19 @@ import {
   runOwners,
   undoConflictText,
 } from '../../store/derive.ts';
-import { canUndo, pausedToolEvents, pendingDraftOf, typeLabel, undoState } from './activity.ts';
+import {
+  canUndo,
+  pausedToolEvents,
+  pendingDraftOf,
+  REVIEW_TYPES,
+  typeLabel,
+  undoState,
+} from './activity.ts';
 import { detailsOf } from './details.ts';
 import { logStrings } from './log.strings.ts';
 import { useAgent, useNameOf } from '../../store/hooks.ts';
 import { cn, domId, formatTime, prettyJson } from '../../lib/utils.ts';
+import { setInboxTab } from '../../store/inbox.ts';
 import { useDrafts } from '../../store/projects.ts';
 import { Button } from '../ui/button.tsx';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
@@ -196,8 +204,16 @@ export function unbroken(text: string): ReactNode[] {
   );
 }
 
+/**
+ * The light of a row that waits for you but does not have the one solid orange key (the action
+ * colour is for a single key at a time, the first of the list): the same orange, as a light.
+ */
+function WaitingLight() {
+  return <span aria-hidden className="led" data-tone="signal" />;
+}
+
 /** "Answer" on a question still open: to the chat where it waits (where its run started). */
-function AnswerKey({ e }: { e: LogEvent<'question'> }) {
+function AnswerKey({ e, primary }: { e: LogEvent<'question'>; primary: boolean }) {
   // Only an open question looks for its chat (the owners of the runs cost a pass on the log).
   const home = useApp((s) => {
     if (s.questions[e.data.questionId]?.status !== 'open') return null;
@@ -208,11 +224,11 @@ function AnswerKey({ e }: { e: LogEvent<'question'> }) {
   return (
     <Button
       size="sm"
-      variant="primary"
+      variant={primary ? 'primary' : 'secondary'}
       onClick={() => openChat(home)}
       data-testid="answer-question"
     >
-      <ArrowBendUpLeft size={16} weight="bold" aria-hidden />
+      {primary ? <ArrowBendUpLeft size={16} weight="bold" aria-hidden /> : <WaitingLight />}
       {s.answer}
     </Button>
   );
@@ -223,7 +239,7 @@ function AnswerKey({ e }: { e: LogEvent<'question'> }) {
  * stays paused until it is accepted goes to where its change is read and accepted (Settings),
  * a draft opens "To review", where its card has Confirm, Edit and Discard.
  */
-function ReviewKey({ e }: { e: LogEvent }) {
+function ReviewKey({ e, primary }: { e: LogEvent; primary: boolean }) {
   const s = logStrings().row;
   const pausedTool = useApp((st) =>
     e.type === 'security' && e.data.action === 'mcp_tools_changed'
@@ -236,11 +252,17 @@ function ReviewKey({ e }: { e: LogEvent }) {
   return (
     <Button
       size="sm"
-      variant="primary"
-      onClick={() => (pausedTool ? openPage(MCP_PAUSED_PATH) : setReviewOpen(true))}
+      variant={primary ? 'primary' : 'secondary'}
+      onClick={() => {
+        if (pausedTool) openPage(MCP_PAUSED_PATH);
+        else {
+          setInboxTab('review');
+          setReviewOpen(true);
+        }
+      }}
       data-testid="review-row"
     >
-      <ArrowRight size={16} weight="bold" aria-hidden />
+      {primary ? <ArrowRight size={16} weight="bold" aria-hidden /> : <WaitingLight />}
       {s.review}
     </Button>
   );
@@ -320,23 +342,16 @@ export function SendHeldButton({ e }: { e: LogEvent }) {
   );
 }
 
-/** The events that can leave a choice waiting: only these rows look for a "Review". */
-const REVIEW_TYPES: ReadonlySet<string> = new Set([
-  'security',
-  'monster_proposal',
-  'project_change',
-  'automation_change',
-  'project_docs_proposal',
-  'memory',
-]);
-
 /** One event of Attività in plain language, with details on demand. */
 export const EventRow = memo(function EventRow({
   e,
   compact = false,
+  primary = false,
 }: {
   e: LogEvent;
   compact?: boolean;
+  /** The row that waits for you and gets the one solid orange key of the list. */
+  primary?: boolean;
 }) {
   const nameOf = useNameOf();
   const [open, setOpen] = useState(false);
@@ -418,12 +433,12 @@ export const EventRow = memo(function EventRow({
       )}
       {!compact && e.type === 'question' && (
         <div className="flex empty:hidden max-sm:col-start-3 max-sm:mt-2.5 sm:justify-end">
-          <AnswerKey e={e} />
+          <AnswerKey e={e} primary={primary} />
         </div>
       )}
       {!compact && REVIEW_TYPES.has(e.type) && (
         <div className="flex empty:hidden max-sm:col-start-3 max-sm:mt-2.5 sm:justify-end">
-          <ReviewKey e={e} />
+          <ReviewKey e={e} primary={primary} />
         </div>
       )}
     </li>

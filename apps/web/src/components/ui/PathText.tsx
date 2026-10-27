@@ -4,21 +4,27 @@ import { notify } from '../../store/app.ts';
 import { cn } from '../../lib/utils.ts';
 import { uiStrings } from './ui.strings.ts';
 
+/** The home folder at the start of a path: "/home/andrea", "/Users/andrea", "C:\Users\andrea". */
+const HOME = /^(?:\/home\/[^/]+|\/Users\/[^/]+|[A-Za-z]:[\\/]Users[\\/][^\\/]+)(?=[\\/]|$)/;
+
 /**
- * A path shortened in the middle: "/home/andrea/…/Sito di Saturday" keeps the start (where it
- * lives) and the end (what it is). Short paths stay whole.
+ * A path in words a person reads: the home folder is "~" (never "/home/andrea/…"), and a long path
+ * is cut in the middle: "~/…/Saturday website" keeps where it lives and what it is. Short paths
+ * stay whole (the full one is in the tooltip and for screen readers).
  */
 export function middleEllipsis(path: string, max = 40): string {
-  if (path.length <= max) return path;
-  const parts = path.split('/');
+  const short = path.replace(HOME, '~');
+  if (short.length <= max) return short;
+  const sep = short.includes('/') ? '/' : '\\';
+  const parts = short.split(sep);
   const last = parts.at(-1) ?? '';
-  // Start: the first two segments ("/home/andrea"); end: the last one, or two when they fit.
-  const head = parts.slice(0, parts[0] === '' ? 3 : 2).join('/');
-  const tail = [parts.at(-2), last].filter(Boolean).join('/');
+  // Start: "~", or the first two segments ("/opt/work"); end: the last one, or two when they fit.
+  const head = parts.slice(0, parts[0] === '~' ? 1 : parts[0] === '' ? 3 : 2).join(sep);
+  const tail = [parts.at(-2), last].filter(Boolean).join(sep);
   const tailShown = head.length + 2 + tail.length <= max ? tail : last;
-  if (head.length + 1 + tailShown.length >= path.length) return path;
+  if (head.length + 1 + tailShown.length >= short.length) return short;
   const room = Math.max(16, max - head.length - 4);
-  return `${head}/…/${tailShown.length > room ? `${tailShown.slice(0, room - 1)}…` : tailShown}`;
+  return `${head}${sep}…${sep}${tailShown.length > room ? `${tailShown.slice(0, room - 1)}…` : tailShown}`;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describeSchedule, draftTaint, type DraftView, type ProjectView } from '@monsters/shared';
-import { Warning } from '@phosphor-icons/react';
+import { CaretRight, Warning } from '@phosphor-icons/react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { describeError } from '../../lib/api.ts';
 import { crewOf } from '../../lib/automations.ts';
@@ -287,28 +287,50 @@ function Caution({ children, testId }: { children: ReactNode; testId: string }) 
   );
 }
 
-/** A change to CLAUDE.md or AGENTS.md (D-113): the file, the warnings and the diff (who and why: the summary). */
+/**
+ * A change to CLAUDE.md or AGENTS.md (D-113): the warnings first (they decide whether to apply it),
+ * then the file and the diff behind "Show changes". Who and why are the card's sentence above.
+ */
 function DocsLines({ d }: { d: DocsDraft }) {
   const s = draftStrings().docs;
   const project = useProject(d.project ?? null);
+  const [open, setOpen] = useState(false);
   const x = d.docs;
   const diff = docsDiff(x.diff);
   return (
     <div className="grid gap-2.5" data-testid="docs-draft">
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-footnote">
-        <dt className="label pt-0.5 text-ink-muted">{s.file}</dt>
-        <dd className="text-ink">
-          <span className="font-mono text-micro leading-5">{x.file}</span>
-          {x.current === null && <span className="text-ink-muted">{s.isNew}</span>}
-          {project?.folder && <PathText path={project.folder} max={30} className="block" />}
-        </dd>
-      </dl>
       {x.tainted && <Caution testId="docs-tainted">{s.tainted(x.source ?? null)}</Caution>}
       {x.stale && <Caution testId="docs-stale">{s.stale}</Caution>}
       {x.folderMoved && <Caution testId="docs-folder-moved">{s.folderMoved}</Caution>}
       {x.tooLarge && <Caution testId="docs-too-large">{s.tooLarge(x.file)}</Caution>}
-      <p className="label text-ink-muted">{s.changes(diff.added, diff.removed)}</p>
-      <DiffLines lines={diff.lines} testId="docs-diff" />
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        data-testid="docs-changes-toggle"
+        className="row-key label -mx-1 flex min-h-9 items-center gap-2 rounded-[10px] px-1 text-left text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
+      >
+        <CaretRight
+          size={12}
+          weight="bold"
+          aria-hidden
+          className={cn('turn shrink-0', open && 'rotate-90')}
+        />
+        {open ? s.hideChanges : s.showChanges(diff.added, diff.removed)}
+      </button>
+      {open && (
+        <>
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-footnote">
+            <dt className="label pt-0.5 text-ink-muted">{s.file}</dt>
+            <dd className="text-ink">
+              <span className="font-mono text-micro leading-5">{x.file}</span>
+              {x.current === null && <span className="text-ink-muted">{s.isNew}</span>}
+              {project?.folder && <PathText path={project.folder} max={30} className="block" />}
+            </dd>
+          </dl>
+          <DiffLines lines={diff.lines} testId="docs-diff" />
+        </>
+      )}
     </div>
   );
 }
@@ -395,7 +417,9 @@ function DraftCard({ d, primary }: { d: DraftView; primary: boolean }) {
             className="text-large leading-6 font-semibold break-words text-ink"
             data-testid="draft-title"
           >
-            {d.kind === 'docs' ? s.docsTitle(d.title) : d.title}
+            {d.kind === 'docs'
+              ? s.docs.sentence(who, s.docsSubject(d.title), d.docs.current === null)
+              : d.title}
           </p>
           <p
             className={cn(
@@ -403,7 +427,7 @@ function DraftCard({ d, primary }: { d: DraftView; primary: boolean }) {
               d.kind === 'project' && 'line-clamp-2',
             )}
           >
-            {d.summary}
+            {d.kind === 'docs' && d.docs.reason ? s.docs.reason(d.docs.reason) : d.summary}
           </p>
         </div>
       </div>

@@ -16,8 +16,8 @@ import { hideDock, usePreview } from '../../store/preview.ts';
 import { closeByBack } from '../dock/back.ts';
 import { useMediaQuery } from '../../store/hooks.ts';
 import { KillSwitch } from './KillSwitch.tsx';
-import { NewsKey } from './NewsSheet.tsx';
-import { ReviewKey } from './ReviewSheet.tsx';
+import { NoticeRailSlot } from './NoticeRail.tsx';
+import { InboxKey } from './ReviewSheet.tsx';
 import { shellStrings } from './shell.strings.ts';
 import { StatusDisplay } from './StatusDisplay.tsx';
 
@@ -26,7 +26,7 @@ import { StatusDisplay } from './StatusDisplay.tsx';
  * across the whole window, and the window's title bar. On the left, as wide as
  * the sidebar, room for the traffic lights (macOS) and the monsters wordmark;
  * a seam; the title of the view and its keys; on the right the status display
- * and Ferma, always there, and before them the keys "Da rivedere" and "Novità" of every page; on Windows and Linux the room of the system
+ * and Stop, always there, and before them the Inbox key of every page; on Windows and Linux the room of the system
  * buttons. The shell owns the rail, so the stop stays even when a view is
  * loading or broken; each view puts its title and keys in it through
  * `<ToolbarContent>` (a portal). Until it does, the rail shows the page's name.
@@ -197,6 +197,9 @@ export function Toolbar({
   mock?: boolean;
 }) {
   const wide = useMediaQuery('(min-width: 1100px)');
+  // From 900 px the message of the shell lives in the rail (NoticeRailSlot); below it, a band.
+  const noticeInRail = useMediaQuery('(min-width: 900px)');
+  const middle = useRef<HTMLDivElement>(null);
   // The status display gives way before anything else: its words need 1440 px, its short form
   // 1000, below that a light with the number. The page's title and keys keep their room (R2).
   const ample = useMediaQuery('(min-width: 1440px)');
@@ -234,6 +237,7 @@ export function Toolbar({
         </div>
       )}
       <div
+        ref={middle}
         className={cn(
           'flex min-w-0 flex-1 items-center gap-3',
           phone ? 'px-2' : 'px-4',
@@ -257,23 +261,22 @@ export function Toolbar({
           {title}
         </p>
       </div>
+      {/* The message of the shell, between the view's title and keys and the Inbox key (≥ 900 px). */}
+      <NoticeRailSlot middleRef={middle} wide={noticeInRail && !phone} />
       <div className="flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-3">
         {/*
-          "To review" and "What's new" are in the rail of every page: the drafts and the paused
-          tools wait there whatever page is open. The news key is quiet until there is news.
+          The Inbox ("To review" and the news in one) is in the rail of every page: the drafts, the
+          questions and the paused tools wait there whatever page is open. One number; a light for
+          news that were not seen.
         */}
         <div className="flex shrink-0 items-center">
           {/*
             Without room for the word (a narrow window, or a phone inside a page) the tray with its
             count says how many things wait; on the phone's home, or a wide phone, the word goes under it.
           */}
-          <ReviewKey
+          <InboxKey
             layout={phone ? (atHome || roomy ? 'stacked' : 'icon') : wide ? 'inline' : 'icon'}
           />
-          {/* On a phone inside a page the title needs the room: the news key waits for the home. */}
-          {(!phone || atHome) && (
-            <NewsKey layout={phone ? 'icon' : 'inline'} hideQuiet={phone || !wide} />
-          )}
         </div>
         <StatusDisplay
           size={phone ? (roomy ? 'compact' : 'dot') : ample ? 'full' : tablet ? 'dot' : 'compact'}

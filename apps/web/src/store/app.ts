@@ -112,10 +112,8 @@ export interface AppState {
    * (store/preview.ts says whether that tab is on screen); null: the open chat's.
    */
   terminalAgent: string | null;
-  /** "Da rivedere" open as a sheet (windows too narrow for its column, phones). */
+  /** The Inbox ("To review" and news) open as a sheet (windows too narrow for its column, phones). */
   reviewOpen: boolean;
-  /** "Novità" as a sheet. */
-  newsOpen: boolean;
   notice: Notice | null;
   /** The messages waiting behind the one on screen (store/notice-queue.ts). */
   noticeQueue: readonly Notice[];
@@ -151,7 +149,6 @@ const INITIAL: AppState = {
   pending: [],
   terminalAgent: null,
   reviewOpen: false,
-  newsOpen: false,
   notice: null,
   noticeQueue: [],
   ownerPrompt: false,
@@ -1242,7 +1239,7 @@ export async function retryRun(runId: string): Promise<boolean> {
 
 /** "Dietro le quinte" of a monster: the tab of the right-hand pane (D-075). */
 export function openTerminal(agentId: string): void {
-  useApp.setState({ terminalAgent: agentId, reviewOpen: false, newsOpen: false });
+  useApp.setState({ terminalAgent: agentId, reviewOpen: false });
   usePreview.getState().showTab('terminal');
 }
 
@@ -1254,17 +1251,11 @@ export function closeTerminal(): void {
 }
 
 /**
- * "Da rivedere" as a sheet (the column of wide windows is a preference,
+ * The Inbox ("To review" and the news) as a sheet (the column of wide windows is a preference,
  * `activityPanel`): one thing on the right at a time, so it hides the pane.
  */
 export function setReviewOpen(open: boolean): void {
-  useApp.setState(open ? { reviewOpen: true, newsOpen: false } : { reviewOpen: false });
-  if (open) usePreview.getState().hide();
-}
-
-/** "Novità" as a sheet, in the same place as "Da rivedere": one of the two at a time. */
-export function setNewsOpen(open: boolean): void {
-  useApp.setState(open ? { newsOpen: true, reviewOpen: false } : { newsOpen: false });
+  useApp.setState({ reviewOpen: open });
   if (open) usePreview.getState().hide();
 }
 

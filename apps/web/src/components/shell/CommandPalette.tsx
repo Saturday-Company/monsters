@@ -49,9 +49,8 @@ import { useLayer } from '../ui/layers.ts';
 import { vaultApi } from '../vault/api.ts';
 import { isMac } from '../chat/ChatList.tsx';
 import { armKillSwitch } from './KillSwitch.tsx';
-import { showNews } from './NewsSheet.tsx';
 import { focusNotice } from './StatusLayer.tsx';
-import { showReview } from './ReviewSheet.tsx';
+import { showNews, showToReview } from './ReviewSheet.tsx';
 import { shellStrings } from './shell.strings.ts';
 
 /*
@@ -191,7 +190,7 @@ function useCommands(): Item[] {
         label: c.review.label,
         detail: c.review.detail,
         icon: Tray,
-        run: showReview,
+        run: showToReview,
       },
       {
         id: 'cmd-news',

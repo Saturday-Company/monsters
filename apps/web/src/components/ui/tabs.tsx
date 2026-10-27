@@ -6,6 +6,8 @@ export interface TabItem<T extends string> {
   value: T;
   label: string;
   icon?: ReactNode;
+  /** Something after the label (a light that says there is news). */
+  badge?: ReactNode;
 }
 
 /** DOM ids that tie a tab to its panel (`aria-controls` / `aria-labelledby`). */
@@ -106,6 +108,7 @@ export function Tabs<T extends string>({
           </span>
         )}
         {item.label}
+        {item.badge}
       </button>
     );
   };

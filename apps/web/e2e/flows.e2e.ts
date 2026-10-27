@@ -147,7 +147,7 @@ test('agents’ memories stay out of the recent notes', async ({ page }) => {
   await page.goto('/?mock=demo');
   // The "Activity" column is off by default, and remembered once on.
   await expect(page.getByTestId('activity-panel')).toHaveCount(0);
-  await page.getByRole('button', { name: 'To review' }).click();
+  await page.getByRole('button', { name: 'Inbox' }).click();
   await expect(page.getByTestId('note-row').first()).toBeVisible();
   await page.reload();
   await expect(page.getByTestId('activity-panel')).toBeVisible();

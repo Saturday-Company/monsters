@@ -2,8 +2,8 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
 
 /*
- * Open points of the interface after the stability waves: the notice never over the
- * page's content (it sits in the flow), every squad in Squadra, the hierarchy in one
+ * Open points of the interface after the stability waves: the notice (in the rail, or a band under it on a phone) never over the
+ * writing field or the answers, every squad in Squadra, the hierarchy in one
  * line, "costo stimato" on the project's card, who restarts after Ferma, and the changed
  * parts in the dark theme. `SCREENSHOTS=<folder>` writes the pictures.
  */

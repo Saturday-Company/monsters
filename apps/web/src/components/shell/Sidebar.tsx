@@ -49,7 +49,8 @@ function shortcut(key: string): { shown: string; aria: string } {
 
 /**
  * A section as a small key for the compact foot (windows under 960 px tall): the icon with its name
- * under it, in a grid of three, so the squads keep their room. On a very short window (`bare`) the
+ * under it, in a grid of three equal columns (3 + 2: the second row sits on the same columns as the
+ * first), so the squads keep their room. On a very short window (`bare`) the
  * five of them sit in one row with the icon only; the name is still the accessible name and the
  * tooltip, with the shortcut.
  */
@@ -61,7 +62,6 @@ function NavTile({
   keys,
   waiting = 0,
   bare = false,
-  span,
   testId,
 }: {
   href: string;
@@ -71,8 +71,6 @@ function NavTile({
   keys?: string;
   waiting?: number;
   bare?: boolean;
-  /** Columns of the six-column grid this key takes (2 in the first row of three, 3 in the second). */
-  span: 2 | 3;
   testId?: string;
 }) {
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
@@ -95,7 +93,7 @@ function NavTile({
       data-testid={testId}
       className={cn(
         'relative flex min-w-0 flex-col items-center justify-center gap-px rounded-[10px] text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink',
-        bare ? 'col-span-1 h-10' : cn('h-[46px]', span === 2 ? 'col-span-2' : 'col-span-3'),
+        bare ? 'h-10' : 'h-[46px]',
         current ? 'bg-panel shadow-[inset_0_0_0_1.5px_var(--ink)]' : 'row-key',
       )}
     >
@@ -327,7 +325,7 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
         {short ? (
           <nav
             aria-label={t.sections}
-            className={cn('grid gap-0.5', bare ? 'grid-cols-5' : 'grid-cols-6')}
+            className={cn('grid gap-0.5', bare ? 'grid-cols-5' : 'grid-cols-3')}
             data-testid="sidebar-tiles"
           >
             <NavTile
@@ -338,7 +336,6 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
               keys="2"
               waiting={waitingGiri}
               bare={bare}
-              span={2}
             />
             <NavTile
               href={PATHS.vault}
@@ -347,7 +344,6 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
               current={route === 'vault'}
               keys="3"
               bare={bare}
-              span={2}
             />
             <NavTile
               href={PATHS.files}
@@ -356,7 +352,6 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
               current={route === 'files'}
               keys="4"
               bare={bare}
-              span={2}
             />
             <NavTile
               href={PATHS.log}
@@ -365,7 +360,6 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
               current={route === 'log'}
               keys="5"
               bare={bare}
-              span={3}
             />
             <NavTile
               href={PATHS.settings}
@@ -374,7 +368,6 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
               current={route === 'settings'}
               keys=","
               bare={bare}
-              span={3}
             />
           </nav>
         ) : (
