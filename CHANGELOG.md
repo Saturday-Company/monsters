@@ -2,6 +2,35 @@
 
 The Italian version is in [`CHANGELOG.it.md`](CHANGELOG.it.md).
 
+## 0.1.0-alpha.26 · 27 October 2026
+
+### What you’ll see
+- **The chat reads like a conversation.** Each reply is a turn: while a monster works, one live strip says what it is
+  doing; when it finishes, the strip closes into one sentence you can open. Files it made sit inside its reply, and
+  the service lines and the black receipt are gone from the chat (they are still in Behind the scenes).
+- **Stop one monster.** While a monster works, Send becomes Stop: it stops only that monster (also its part in
+  others’ jobs), not the whole app. Also with ⌘/Ctrl+Shift+Backspace or `monsters stop <monster>`.
+- **A better writing field.** A message written while the monster works waits and says so; an open question sits in
+  a bar above the field; `/` opens the commands (`/new`, `/stop`, `/behind`, `/attach`).
+- **Actions on messages.** Every bubble has Copy, your last one Again and Edit; code blocks have their language and
+  Copy. On a phone the monsters’ bubbles use the whole width.
+- **Earlier conversations.** “New conversation” is one click, and Conversations brings back the earlier ones to read.
+- **The context in words.** When a conversation gets long, a note above the field suggests a new one; the token meter
+  is only shown with technical details on.
+- **One Inbox.** “To review” and “What’s new” are one entry, with the same number everywhere: only what waits for
+  you. Notices sit in the top bar and no longer cover the writing field.
+- **Long chats stay fast**: a chat of weeks opens at once and replies stream smoothly.
+- **Squad mates ask each other**: a monster can ask a teammate a quick question instead of guessing or stopping.
+
+### More reliable
+- **Monsters look before asking**: a gap in the data is looked for in your past work (notes, earlier jobs, the
+  project’s folder) before it becomes a question.
+- **No more cuts at a hidden step cap**: a job is bounded by its own limits, and when it reaches one it writes its
+  report first. A follow-up like “go on” keeps the job’s level and what it had read.
+- **Apps explain themselves again**: the injection check removes only orders that don’t come from you, not an app’s
+  guidance on its own tools; images from services are never touched, and a monster sees its own work.
+- **The Monsters server also works with claude.ai connectors.**
+
 ## 0.1.0-alpha.25 · 26 October 2026
 
 ### What you’ll see

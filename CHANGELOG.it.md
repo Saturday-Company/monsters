@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.1.0-alpha.26 · 27 ottobre 2026
+
+### Cosa si vede
+- **La chat si legge come una conversazione.** Ogni risposta è un turno: mentre un mostro lavora una striscia viva
+  dice cosa sta facendo; alla fine la striscia si chiude in una frase che puoi aprire. I file che ha fatto stanno
+  dentro la sua risposta; le righe di servizio e la ricevuta nera escono dalla chat (restano in Dietro le quinte).
+- **Ferma un solo mostro.** Mentre un mostro lavora, Invia diventa Ferma: ferma solo quel mostro (anche la sua parte
+  nei lavori degli altri), non tutta l’app. Anche con ⌘/Ctrl+Maiusc+Backspace o `monsters stop <mostro>`.
+- **Un campo di scrittura migliore.** Un messaggio scritto mentre il mostro lavora aspetta e lo dice; una domanda
+  aperta sta in una barra sopra il campo; `/` apre i comandi (`/new`, `/stop`, `/behind`, `/attach`).
+- **Azioni sui messaggi.** Ogni bolla ha Copia, l’ultima tua anche Di nuovo e Modifica; i blocchi di codice hanno il
+  linguaggio e Copia. Sul telefono le bolle dei mostri usano tutta la larghezza.
+- **Conversazioni precedenti.** «Nuova conversazione» è un clic, e Conversazioni riporta quelle di prima da leggere.
+- **Il contesto a parole.** Quando una conversazione si allunga, una nota sopra il campo ne propone una nuova; il
+  metro dei token si vede solo con i dettagli tecnici.
+- **Una sola In arrivo.** «Da rivedere» e «Novità» sono un solo ingresso, con lo stesso numero dappertutto: solo ciò
+  che aspetta te. Gli avvisi stanno nella barra in alto e non coprono più il campo di scrittura.
+- **Le chat lunghe restano veloci**: una chat di settimane si apre subito e le risposte scorrono fluide.
+- **I mostri della squadra si chiedono le cose**: un mostro può fare una domanda veloce a un compagno invece di
+  tirare a indovinare o fermarsi.
+
+### Più affidabile
+- **I mostri cercano prima di chiedere**: un dato che manca si cerca nel tuo lavoro passato (note, lavori di prima,
+  cartella del progetto) prima di diventare una domanda.
+- **Niente più tagli a un tetto di passi nascosto**: un lavoro ha i suoi limiti e, quando ne raggiunge uno, scrive
+  prima il rapporto. Un seguito come «vai pure» tiene il livello del lavoro e quello che aveva letto.
+- **Le app tornano a spiegarsi**: il controllo delle iniezioni toglie solo gli ordini che non vengono da te, non le
+  istruzioni di un’app sui suoi strumenti; le immagini dei servizi non si toccano più e il mostro vede il suo lavoro.
+- **Il server di Monsters funziona anche con i connettori di claude.ai.**
+
 ## 0.1.0-alpha.25 · 26 ottobre 2026
 
 ### Cosa si vede

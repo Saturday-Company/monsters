@@ -1,6 +1,6 @@
 # Roadmap
 
-Where Monsters has been and where it is going. The project is in **alpha** (0.1.0-alpha.25). Phases close only when all
+Where Monsters has been and where it is going. The project is in **alpha** (0.1.0-alpha.26). Phases close only when all
 their completion criteria are verified: green automated tests plus a working end-to-end demo. Design rationale for each
 choice lives in [`DECISIONS.md`](DECISIONS.md) (decision ids like D-045 below), the structure in
 [`ARCHITECTURE.md`](ARCHITECTURE.md). Contributions to the open items are welcome: see
