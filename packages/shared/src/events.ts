@@ -344,9 +344,13 @@ export const QuestionExpiredDataSchema = z.object({
   questionId: z.string().min(1),
   /**
    * `kill`: kill switch; `run_aborted`: its run was stopped; `restart`: left open by a
-   * previous core; `agent_archived`: the monster that asked was archived.
+   * previous core; `agent_archived`: the monster that asked was archived; `stopped`: the user
+   * stopped the monster that asked, or the monster whose turn it belonged to
+   * (`POST /api/agents/:id/stop`, F-1).
    */
-  reason: z.enum(['kill', 'run_aborted', 'restart', 'agent_archived', 'run_ended']).optional(),
+  reason: z
+    .enum(['kill', 'run_aborted', 'restart', 'agent_archived', 'run_ended', 'stopped'])
+    .optional(),
 });
 
 /**
@@ -475,9 +479,18 @@ export type NoticeData = z.infer<typeof NoticeDataSchema>;
 export const KillScopeSchema = z.enum(['global', 'run', 'agent', 'tool']);
 export type KillScope = z.infer<typeof KillScopeSchema>;
 
+/**
+ * A stop. `global`: the kill switch (`agent: 'system'`, no run). `run`: one run (`agent:
+ * 'system'`, `runId` = `target` = the run; "Ferma progetto"). `agent`: the user stopped one
+ * monster (`POST /api/agents/:id/stop`, F-1): one event per run it touched, with `agent` =
+ * `target` = the monster and `runId` = the run. `runsAborted: 1` when the whole run (a turn of
+ * the monster's chat, an automation's run) ended: its `run aborted` follows; `runsAborted: 0`
+ * when only the monster's part inside another monster's run stopped (a task delegated to it, a
+ * teammate's question): that run goes on, and the `delegation` event closes as `aborted`.
+ */
 export const KillDataSchema = z.object({
   scope: KillScopeSchema,
-  /** Id of the run/agent/tool call when the scope is not global. */
+  /** Id of the run/agent/tool call when the scope is not global (`agent`: the monster's id). */
   target: z.string().optional(),
   reason: z.string().optional(),
   by: ChannelSchema,

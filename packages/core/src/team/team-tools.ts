@@ -361,6 +361,17 @@ class TouchedNotes {
   }
 }
 
+/** The scope of one delegation in its run: the monster it went to, and its `started` event. */
+export function delegationScopeId(to: string, startedId: string): string {
+  return `${to}:${startedId}`;
+}
+
+/** The monster and the `started` event of a delegation's scope id; null for any other id. */
+export function parseDelegationScope(id: string): { to: string; startedId: string } | null {
+  const at = id.lastIndexOf(':');
+  return at > 0 && at < id.length - 1 ? { to: id.slice(0, at), startedId: id.slice(at + 1) } : null;
+}
+
 /**
  * Who or what stopped a delegated run that did not complete (D-160), from the facts the core
  * has: the run's own cause, its status (a limit), the error, the reason of the stopped scope.
@@ -456,7 +467,7 @@ async function runDelegation(
       }
     : undefined;
 
-  const scope = run.child('agent', `${to}:${started.id}`);
+  const scope = run.child('agent', delegationScopeId(to, started.id));
   let result: AgentRunResult | undefined;
   let failure: unknown;
   try {

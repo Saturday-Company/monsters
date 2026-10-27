@@ -334,6 +334,27 @@ describe('automations in the core', () => {
     expect((await t.runEnded(now.runId)).data.status).toBe('completed');
   });
 
+  it('Stop in the lead’s chat (F-1) stops its giro; the message typed meanwhile then starts', async () => {
+    const { t } = await hub((call) =>
+      isAutomationPrompt(call) ? fake.text('Mai scritto.', { gate: never }) : fake.text('Eccomi.'),
+    );
+    await t.json('POST', '/api/automations', draft());
+    const giro = await t.json<{ runId: string }>(
+      'POST',
+      '/api/automations/post-della-settimana/run',
+    );
+    await t.waitEvent(isType('run', (e) => e.runId === giro.runId && e.data.status === 'started'));
+    const typed = await t.json<{ runId: string; queued: boolean }>('POST', '/api/messages', {
+      text: 'domanda veloce',
+    });
+    expect(typed.queued).toBe(true);
+    const report = await t.json<{ runs: string[] }>('POST', '/api/agents/titan/stop');
+    expect(report.runs).toEqual([giro.runId]);
+    expect((await t.runEnded(giro.runId)).data.status).toBe('aborted');
+    // The user's own message is not the giro's work: it starts once Titan is free.
+    expect((await t.runEnded(typed.runId)).data.status).toBe('completed');
+  });
+
   it('a busy capo: the giro waits, never joins the user run; a message meanwhile waits for the giro', async () => {
     const userGate = deferred();
     const autoGate = deferred();

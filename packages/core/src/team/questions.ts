@@ -357,7 +357,8 @@ export type QuestionKind = 'ask' | 'brake';
 export type ParkReason = 'harness' | 'timeout' | 'run_ended' | 'restart';
 
 /** Why open questions expired (see `question_expired`). */
-export type ExpireReason = 'kill' | 'run_aborted' | 'restart' | 'agent_archived' | 'run_ended';
+export type ExpireReason =
+  'kill' | 'run_aborted' | 'restart' | 'agent_archived' | 'run_ended' | 'stopped';
 
 /** What `answer` did, for the listeners. */
 export interface AnswerInfo {

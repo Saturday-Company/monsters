@@ -1,4 +1,9 @@
-import { CHAT_PAGE, type ChatHistoryResponse, type LogEvent } from '@monsters/shared';
+import {
+  CHAT_PAGE,
+  type ChatConversationsResponse,
+  type ChatHistoryResponse,
+  type LogEvent,
+} from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
 import { startTestHub } from './hub-helpers.ts';
 
@@ -82,5 +87,93 @@ describe('GET /api/chats/:agent/history', () => {
     const res = await t.api('GET', path);
     expect(res.status).toBe(status);
     if (status === 200) expect(await res.json()).toMatchObject({ floor: null, own: 0 });
+  });
+});
+
+describe('the previous conversations of a chat', () => {
+  /** Titan's chat: two closed conversations, a span with nothing of it, the current one. */
+  async function chat() {
+    const t = await startTestHub({});
+    const log = t.core.log;
+    const say = (to: string, text: string) =>
+      log.append({ agent: 'user', type: 'message', data: { role: 'user', text, to } });
+    const reply = (agent: string, text: string) =>
+      log.append({ agent, type: 'message', data: { role: 'agent', text } });
+    const reset = (to?: string) =>
+      log.append({
+        agent: 'user',
+        type: 'new_conversation',
+        data: { ...(to ? { to } : {}), channel: 'ui' },
+      });
+    const first = say('titan', `Plan the Lisbon trip:\n${'three days, '.repeat(20)}by train`);
+    const firstReply = reply('titan', 'Here is the plan');
+    say('titan', 'And the hotels?');
+    const one = reset('titan');
+    const second = say('titan', 'Posts for the week');
+    reply('titan', 'Three posts');
+    // Another chat's boundary is not Titan's; a span with nothing of Titan is left out.
+    const rhea = reset('rhea');
+    const two = reset();
+    say('rhea', 'Sources for Rhea only');
+    reset();
+    const current = say('titan', 'Hello again');
+    return { t, first, firstReply, second, one, two, rhea, current };
+  }
+
+  it('lists them newest first, with their first message and how many the user wrote', async () => {
+    const { t, first, one, two } = await chat();
+    const page = await t.json<ChatConversationsResponse>('GET', '/api/chats/titan/conversations');
+    expect(page.next).toBeNull();
+    expect(page.conversations.map((c) => [c.id, c.openedBy, c.messages])).toEqual([
+      [two.id, one.id, 1],
+      [one.id, null, 2],
+    ]);
+    const oldest = page.conversations[1]!;
+    expect(oldest.title).toHaveLength(120);
+    expect(oldest.title.startsWith('Plan the Lisbon trip: three days,')).toBe(true);
+    expect(oldest.title.endsWith('…')).toBe(true);
+    expect(oldest.startedAt).toBe(first.ts);
+    expect(oldest.closedAt).toBe(one.ts);
+    expect(page.conversations[0]!.title).toBe('Posts for the week');
+  });
+
+  it('pages with `before` and `limit`', async () => {
+    const { t, one, two } = await chat();
+    const page = await t.json<ChatConversationsResponse>(
+      'GET',
+      '/api/chats/titan/conversations?limit=1',
+    );
+    expect(page.conversations.map((c) => c.id)).toEqual([two.id]);
+    expect(page.next).toBe(two.id);
+    const older = await t.json<ChatConversationsResponse>(
+      'GET',
+      `/api/chats/titan/conversations?limit=1&before=${page.next}`,
+    );
+    expect(older.conversations.map((c) => c.id)).toEqual([one.id]);
+    expect(older.next).toBeNull();
+  });
+
+  it('reads one of them: only its span, in the shape of the chat’s history', async () => {
+    const { t, first, firstReply, second, one, current } = await chat();
+    const page = await t.json<Page>('GET', `/api/chats/titan/conversations/${one.id}/history`);
+    const ids = page.events.map((e) => e.id);
+    expect(ids).toEqual(expect.arrayContaining([first.id, firstReply.id]));
+    expect(ids).not.toContain(second.id);
+    expect(ids).not.toContain(current.id);
+    expect(ids).not.toContain(one.id);
+    expect(page.floor).toBeNull();
+  });
+
+  it('refuses what is not one of its conversations', async () => {
+    const { t, first, rhea } = await chat();
+    const path = (id: string) => `/api/chats/titan/conversations/${id}/history`;
+    // Not a boundary, a boundary of another monster's chat, not an id.
+    for (const id of [first.id, rhea.id]) {
+      const res = await t.api('GET', path(id));
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: 'unknown_conversation' });
+    }
+    expect((await t.api('GET', path('x'))).status).toBe(400);
+    expect((await t.api('GET', '/api/chats/titan/conversations?limit=0')).status).toBe(400);
   });
 });

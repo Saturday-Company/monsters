@@ -340,13 +340,14 @@ test('new conversation: clean chat, open question still answerable, old one on r
   await expect(page.getByTestId('greeting')).toContainText(/I’m Titan\./i);
   await expect(page.getByTestId('earlier-toggle')).toContainText('Show the previous conversations');
 
-  // The action log keeps everything.
+  // The action log keeps everything: these two, and the three that closed the demo's previous
+  // conversations of Titan and Dione weeks ago.
   await page.evaluate(() => {
     window.location.hash = '#/log';
   });
   await expect(
     page.getByTestId('event-row').filter({ hasText: 'You started a new conversation' }),
-  ).toHaveCount(2);
+  ).toHaveCount(5);
 });
 
 test('kill switch and resume', async ({ page }) => {

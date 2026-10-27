@@ -186,6 +186,9 @@ export type StreamMessage = z.infer<typeof StreamMessageSchema>;
  *   POST /api/conversations               NewConversationRequest → NewConversationResponse (201)
  *                                         (logs `new_conversation`: older turns stay in the log
  *                                         but no longer reach the model; allowed while halted)
+ *   POST /api/agents/:id/stop             → AgentStopResponse ("Stop" in one monster's chat, F-1:
+ *                                         its work stops, not the kill switch; 200 with
+ *                                         `stopped: 0` when nothing ran)
  *   POST /api/vault/undo                  UndoRequest → UndoResponse
  *   POST /api/vault/reindex               → { ok: true, files, ms, vault }
  *   POST /api/vault/tools/:name           { input, client? } → { ok, output | error } (MCP server)
@@ -303,6 +306,29 @@ export const NewConversationResponseSchema = z.object({
   to: z.string().optional(),
 });
 export type NewConversationResponse = z.infer<typeof NewConversationResponseSchema>;
+
+/**
+ * `POST /api/agents/:id/stop` (F-1): what stopped of one monster's work. Its runs (the turn of
+ * its chat with the delegations and teammate questions it started, a run of its automations,
+ * the chat of its Telegram bot) end as `aborted`, each after a `kill` event with `scope:
+ * 'agent'`; its part in the runs of other monsters (a task delegated to it, a question a
+ * teammate asked it) stops while those runs go on. Not the kill switch: the next message starts
+ * a new run at once. Errors: 404 `unknown_agent`.
+ */
+export const AgentStopResponseSchema = z.object({
+  /** Runs of the monster that ended (0: nothing of it was running). */
+  stopped: z.number().int().nonnegative(),
+  /** Their ids. */
+  runs: z.array(z.string()),
+  /** Its parts stopped inside the runs of other monsters (those runs go on). */
+  parts: z.number().int().nonnegative(),
+  processesKilled: z.number().int().nonnegative(),
+  /** Messages other monsters wrote to it (`project_send`) that waited and will not start. */
+  sendsDropped: z.number().int().nonnegative(),
+  /** Giri of its automations that waited for it to be free and are skipped. */
+  giriSkipped: z.number().int().nonnegative(),
+});
+export type AgentStopResponse = z.infer<typeof AgentStopResponseSchema>;
 
 export const QuestionOptionViewSchema = z.object({
   id: z.string(),

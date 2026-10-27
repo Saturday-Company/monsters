@@ -302,6 +302,73 @@ export class RunController {
     return true;
   }
 
+  /**
+   * "Stop" in one monster's chat (F-1), not the kill switch: nothing stays halted. Its runs end
+   * (the turn of its chat with the delegations and teammate questions it started, a run of its
+   * automations, a chat of its Telegram bot); its part in the runs of other monsters (a child
+   * scope of such a run for which `partOf` is true: a task delegated to it) stops while those
+   * runs go on. One `kill` event (`scope: 'agent'`, `target` the monster) per run touched:
+   * `runsAborted: 1` before the `run aborted` of a run that ended, `0` for a part. Resolves when
+   * their processes are gone.
+   */
+  async stopAgent(
+    agentId: string,
+    params: {
+      by: Channel;
+      reason?: string | undefined;
+      partOf?: ((scope: ControlScope) => boolean) | undefined;
+    },
+  ): Promise<{ runs: string[]; parts: number; processesKilled: number }> {
+    const pending: Promise<unknown>[] = [];
+    const runs: string[] = [];
+    let parts = 0;
+    let processesKilled = 0;
+    const kill = (runId: string, runsAborted: 0 | 1, processes: number) =>
+      this.#log.append({
+        agent: agentId,
+        runId,
+        type: 'kill',
+        data: {
+          scope: 'agent',
+          target: agentId,
+          by: params.by,
+          ...(params.reason !== undefined ? { reason: params.reason } : {}),
+          runsAborted,
+          processesKilled: processes,
+        },
+      });
+    for (const run of [...this.#runs.values()]) {
+      if (run.agentId === agentId) {
+        this.#runs.delete(run.id);
+        const processes = run.countProcesses();
+        // Aborted first, as in `killRun`: the calls in flight log their result inside the abort.
+        pending.push(run.abort(new KilledError('run', params.reason)));
+        kill(run.id, 1, processes);
+        this.#log.append({
+          agent: run.agentId,
+          runId: run.id,
+          type: 'run',
+          data: { status: 'aborted', ...this.#facts(run) },
+        });
+        runs.push(run.id);
+        processesKilled += processes;
+        continue;
+      }
+      const mine = params.partOf ? run.children().filter(params.partOf) : [];
+      if (mine.length === 0) continue;
+      let processes = 0;
+      for (const scope of mine) {
+        processes += scope.countProcesses();
+        pending.push(scope.abort(new KilledError('agent', params.reason)));
+      }
+      kill(run.id, 0, processes);
+      parts += mine.length;
+      processesKilled += processes;
+    }
+    await Promise.all(pending);
+    return { runs, parts, processesKilled };
+  }
+
   /** Clears the halted state. Returns false if the core was not halted. */
   resume(params: { by: Channel }): boolean {
     if (!this.#halt) return false;

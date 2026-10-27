@@ -109,6 +109,12 @@ describe('monsters CLI', () => {
     expect(missing.errors.join('\n')).toMatch(/automazion|automation/i);
     expect(await run(['automations', 'explode', '--home', h], missing)).toBe(2);
 
+    // One monster's stop (F-1): an unknown one is the core's error, no name is a usage error.
+    const nobody = capture();
+    expect(await run(['stop', 'nessuno', '--home', h], nobody)).toBe(1);
+    expect(nobody.errors.join('\n')).toMatch(/nessuno/);
+    expect(await run(['stop', '--home', h], nobody)).toBe(2);
+
     expect(await run(['kill', '--home', h, '--reason', 'cli test'], io)).toBe(0);
     expect(io.lines.join('\n')).toMatch(/Stopped\. Runs aborted: 0/);
 

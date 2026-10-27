@@ -1,5 +1,8 @@
 import {
   AnswerRequestSchema,
+  ChatConversationsQuerySchema,
+  chatConversations,
+  chatConversationSpan,
   chatHistoryPage,
   KillRequestSchema,
   LoginRequestSchema,
@@ -14,7 +17,9 @@ import {
   haltedWork,
   resumeText,
   ulid,
+  type AgentStopResponse,
   type AgentSummary,
+  type ChatHistoryQuery,
   type EventInput,
   type LogEvent,
   type Question,
@@ -46,7 +51,7 @@ import { MockDecisions } from './decisions.ts';
 import { MockInstinct, mockReceipt } from './instinct.ts';
 import { MockRunLimits } from './limits.ts';
 import { MockSpend } from './spend.ts';
-import { handleUsage, MOCK_MODEL, mockContext, turnsOf } from './usage.ts';
+import { handleUsage, MOCK_MODEL, MOCK_WINDOW, mockContext, turnsOf } from './usage.ts';
 import { MockVault } from './vault.ts';
 import { MockFiles } from './files.ts';
 import { MockAutomations } from './automations.ts';
@@ -223,6 +228,11 @@ export class MockCore {
   /** Work held back by `hold()`, in order: scripted steps and request replies. */
   private held: (() => void)[] | null = null;
   private readonly onAnswer = new Map<string, (choice: string) => void>();
+  /**
+   * Stopped from a monster's chat (F-1): the runs that ended, and `run:agent` for a monster's
+   * part in another's run. The scripted steps still due there are dropped (`append`).
+   */
+  private readonly stoppedWork = new Set<string>();
   private halted: { at: number; reason: string | null } | null = null;
   private keyLabel: string | null = null;
   private braveKey = false;
@@ -340,6 +350,9 @@ export class MockCore {
       demo: opts.mode === 'demo',
     });
     if (opts.mode === 'demo') {
+      // Earlier conversations of Titan and Dione, closed by "New conversation" weeks ago: first,
+      // so their ids (monotonic) come before everything else of the demo.
+      this.seedPastConversations();
       // "Social di Saturday" with its monsters, and the orchestrator's draft (D-097, D-098).
       this.projects.seedDemo();
       // Giulio's example (the giri of the last two Sundays): before the rest, the log stays in order.
@@ -382,6 +395,21 @@ export class MockCore {
   }
 
   append<T extends EventInput>(input: T, ts = Date.now()): LogEvent {
+    // A scripted step of work stopped from a monster's chat (F-1): it never happens.
+    if (
+      input.runId &&
+      (this.stoppedWork.has(input.runId) || this.stoppedWork.has(`${input.runId}:${input.agent}`))
+    ) {
+      return {
+        id: ulid(ts),
+        ts,
+        agent: input.agent,
+        runId: input.runId,
+        parentId: input.parentId ?? null,
+        type: input.type,
+        data: input.data,
+      } as LogEvent;
+    }
     // The core writes the receipt of a turn before the run ends (D-067).
     if (input.type === 'run' && input.runId && input.data.status !== 'started') {
       const status =
@@ -495,6 +523,38 @@ export class MockCore {
   /** Test hook: the monster has a direct key priced by OpenRouter's list, so its cost is estimated (D-114). */
   estimateCost(agentId: string, label: string): void {
     this.spend.estimate(agentId, label);
+  }
+
+  /**
+   * Test hook: the monster's latest step (in its latest run) held `share` of its window, so its
+   * usage says how long the conversation is (`contextLevel`: long from 0.6, full from 0.75).
+   */
+  fillContext(agentId: string, share: number): void {
+    const runId = this.events.findLast(
+      (e) => e.type === 'run' && e.agent === agentId && e.data.status === 'started',
+    )?.runId;
+    if (!runId) return;
+    const total = Math.round(share * MOCK_WINDOW);
+    this.append({
+      agent: agentId,
+      runId,
+      type: 'provider_usage',
+      data: {
+        provider: 'openrouter',
+        model: MOCK_MODEL,
+        inputTokens: total,
+        outputTokens: 120,
+        costUsd: 0,
+        durationMs: 1800,
+        step: 0,
+        context: {
+          total,
+          window: MOCK_WINDOW,
+          parts: { instructions: 1830, conversation: total - 1830 },
+          source: 'measured',
+        },
+      },
+    });
   }
 
   /** A model step of a monster with its context (Consumi, D-075): on its plan or a free model. */
@@ -715,17 +775,37 @@ export class MockCore {
     const chat = /^\/api\/chats\/([^/]+)\/history$/.exec(path);
     if (method === 'GET' && chat && !this.withoutChatHistory) {
       const before = url.searchParams.get('before') ?? undefined;
+      return ok(chatHistoryPage(decodeURIComponent(chat[1]!), before, this.chatQuery));
+    }
+    // The previous conversations of a chat and one of them, read-only (same rule as the core).
+    const conversations = /^\/api\/chats\/([^/]+)\/conversations$/.exec(path);
+    if (method === 'GET' && conversations) {
+      const p = ChatConversationsQuerySchema.safeParse(Object.fromEntries(url.searchParams));
+      if (!p.success) return fail(400, 'invalid_request');
+      return ok(chatConversations(decodeURIComponent(conversations[1]!), p.data, this.chatQuery));
+    }
+    const past = /^\/api\/chats\/([^/]+)\/conversations\/([^/]+)\/history$/.exec(path);
+    if (method === 'GET' && past) {
+      const agent = decodeURIComponent(past[1]!);
+      const span = chatConversationSpan(
+        agent,
+        decodeURIComponent(past[2]!),
+        (id) => this.events.find((e) => e.id === id),
+        this.chatQuery,
+      );
+      if (!span) return fail(404, 'unknown_conversation');
+      const before = url.searchParams.get('before');
       return ok(
-        chatHistoryPage(decodeURIComponent(chat[1]!), before, (q) => {
-          const params = new URLSearchParams({ limit: String(q.limit), order: q.order });
-          if (q.agent) params.set('agent', q.agent.join(','));
-          if (q.type) params.set('type', q.type.join(','));
-          if (q.before) params.set('before', q.before);
-          if (q.after) params.set('after', q.after);
-          return this.queryEvents(params);
-        }),
+        chatHistoryPage(
+          agent,
+          before && before < span.before ? before : span.before,
+          this.chatQuery,
+          span.after,
+        ),
       );
     }
+    const stop = /^\/api\/agents\/([^/]+)\/stop$/.exec(path);
+    if (method === 'POST' && stop) return this.stopAgent(decodeURIComponent(stop[1]!));
 
     switch (route) {
       case 'GET /api/me':
@@ -961,6 +1041,16 @@ export class MockCore {
     });
   }
 
+  /** A query of the chat's history (shared/src/chat-history.ts) over the mock's log. */
+  private readonly chatQuery = (q: ChatHistoryQuery): LogEvent[] => {
+    const params = new URLSearchParams({ limit: String(q.limit), order: q.order });
+    if (q.agent) params.set('agent', q.agent.join(','));
+    if (q.type) params.set('type', q.type.join(','));
+    if (q.before) params.set('before', q.before);
+    if (q.after) params.set('after', q.after);
+    return this.queryEvents(params);
+  };
+
   private queryEvents(q: URLSearchParams): LogEvent[] {
     const agents = q.get('agent')?.split(',').filter(Boolean);
     const types = q.get('type')?.split(',').filter(Boolean);
@@ -980,6 +1070,132 @@ export class MockCore {
     );
     if (q.get('order') === 'desc') list = list.slice().reverse();
     return list.slice(0, limit);
+  }
+
+  /**
+   * "Stop" in one monster's chat (F-1), like the core: its open runs end (`kill` with `scope:
+   * 'agent'` and `runsAborted: 1`, then `run aborted`); its open tasks in another monster's run
+   * stop (`runsAborted: 0`, the delegation closes as aborted) while that run goes on. The
+   * questions they asked close as `stopped`, a reply cut while it streamed as `aborted`.
+   */
+  private stopAgent(id: string): RawResponse {
+    const agent = this.agents.find((a) => a.id === id);
+    if (!agent) return fail(404, 'unknown_agent', `no agent called "${id}"`);
+    const reason = tr(`You stopped ${agent.name}`, `Hai fermato ${agent.name}`);
+    const runs = new Map<string, string>();
+    const tasks = new Map<string, LogEvent<'delegation'>>();
+    for (const e of this.events) {
+      if (!e.runId) continue;
+      if (e.type === 'run') {
+        if (e.data.status === 'started') runs.set(e.runId, e.agent);
+        else runs.delete(e.runId);
+      } else if (e.type === 'delegation' && e.data.to === id) {
+        const key = `${e.runId}:${e.data.from}`;
+        if (e.data.status === 'started') tasks.set(key, e);
+        else tasks.delete(key);
+      }
+    }
+    const kill = (runId: string, runsAborted: 0 | 1) =>
+      this.append({
+        agent: id,
+        runId,
+        type: 'kill',
+        data: {
+          scope: 'agent',
+          target: id,
+          by: 'ui',
+          reason,
+          runsAborted,
+          processesKilled: 0,
+        },
+      });
+    /** What the monster left halfway in the run: its cut reply, its questions. */
+    const closeOwn = (runId: string) => {
+      const mine = this.events.filter(
+        (e): e is LogEvent<'message'> =>
+          e.type === 'message' && e.runId === runId && e.agent === id && e.data.role === 'agent',
+      );
+      const cut: string[] = [];
+      for (const m of mine) {
+        if (m.data.partial) cut.push(m.data.text);
+        else cut.length = 0;
+      }
+      if (cut.length > 0) {
+        this.append({
+          agent: id,
+          runId,
+          type: 'message',
+          data: { role: 'agent', text: cut.join(''), status: 'aborted' },
+        });
+      }
+      for (const q of this.questions.values()) {
+        if (q.status !== 'open' || q.runId !== runId || q.from !== id) continue;
+        q.status = 'expired';
+        this.onAnswer.delete(q.id);
+        this.append({
+          agent: id,
+          runId,
+          type: 'question_expired',
+          data: { questionId: q.id, reason: 'stopped' },
+        });
+      }
+    };
+    const stopped: string[] = [];
+    for (const [runId, owner] of runs) {
+      if (owner !== id) continue;
+      kill(runId, 1);
+      closeOwn(runId);
+      // Its whole run: the questions of whoever worked in it too.
+      for (const q of this.questions.values()) {
+        if (q.status !== 'open' || q.runId !== runId) continue;
+        q.status = 'expired';
+        this.onAnswer.delete(q.id);
+        this.append({
+          agent: q.from,
+          runId,
+          type: 'question_expired',
+          data: { questionId: q.id, reason: 'stopped' },
+        });
+      }
+      this.append({ agent: id, runId, type: 'run', data: { status: 'aborted' } });
+      this.stoppedWork.add(runId);
+      stopped.push(runId);
+    }
+    let parts = 0;
+    for (const task of tasks.values()) {
+      const runId = task.runId!;
+      if (!runs.has(runId) || stopped.includes(runId)) continue;
+      kill(runId, 0);
+      closeOwn(runId);
+      this.append({
+        agent: task.data.from,
+        runId,
+        type: 'delegation',
+        data: {
+          from: task.data.from,
+          to: id,
+          goal: task.data.goal,
+          status: 'aborted',
+          error: tr(`The user stopped ${agent.name}.`, `L’utente ha fermato ${agent.name}.`),
+        },
+      });
+      this.stoppedWork.add(`${runId}:${id}`);
+      parts++;
+    }
+    // Nothing else is running: the scripted steps still due are all of this work.
+    if ([...runs].every(([runId, owner]) => owner === id || stopped.includes(runId))) {
+      for (const t of this.timers) clearTimeout(t);
+      this.timers.clear();
+    }
+    const report: AgentStopResponse = {
+      stopped: stopped.length,
+      runs: stopped,
+      parts,
+      processesKilled: 0,
+      sendsDropped: 0,
+      giriSkipped: 0,
+    };
+    return ok(report);
   }
 
   private kill(reason: string | undefined): StatusResponse {
@@ -2341,6 +2557,95 @@ export class MockCore {
       );
     }
     this.append({ agent: 'enceladus', runId, type: 'run', data: { status: 'completed' } }, step());
+  }
+
+  /**
+   * The previous conversations of the demo (the chat plan of 27/10): two of Titan's and one
+   * of Dione's, weeks before the rest, each closed by a "New conversation" of its chat.
+   */
+  private seedPastConversations(): void {
+    const day = 24 * 3_600_000;
+    const talk = (
+      agent: string,
+      runId: string,
+      start: number,
+      turns: [user: string, reply: string][],
+    ): number => {
+      let t = start;
+      for (const [i, [asked, answer]] of turns.entries()) {
+        const run = `${runId}_${i}`;
+        this.append(
+          {
+            agent: 'user',
+            runId: run,
+            type: 'message',
+            data: { role: 'user', text: asked, to: agent, channel: 'ui' },
+          },
+          (t += 60_000),
+        );
+        this.append(
+          { agent, runId: run, type: 'run', data: { status: 'started', goal: asked } },
+          (t += 500),
+        );
+        this.append(
+          { agent, runId: run, type: 'message', data: { role: 'agent', text: answer } },
+          (t += 40_000),
+        );
+        this.append({ agent, runId: run, type: 'run', data: { status: 'completed' } }, (t += 100));
+      }
+      this.append(
+        { agent: 'user', type: 'new_conversation', data: { to: agent, channel: 'ui' } },
+        (t += 3 * 3_600_000),
+      );
+      return t;
+    };
+    const now = Date.now();
+    talk('titan', 'run_past_porto', now - 26 * day, [
+      [
+        tr(
+          'Can you plan a weekend in Porto for two? We leave Friday evening, train or plane, whichever is easier.',
+          'Mi organizzi un weekend a Porto per due? Partiamo venerdì sera, treno o aereo, quello che è più comodo.',
+        ),
+        tr(
+          'The plane is easier: a direct flight on Friday at 19:40, back on Sunday at 21:10. I’ve put three days of walks, two dinners and a port cellar in **Viaggi/Porto**.',
+          'Meglio l’aereo: un volo diretto venerdì alle 19:40, ritorno domenica alle 21:10. Ho messo tre giorni di passeggiate, due cene e una cantina di porto in **Viaggi/Porto**.',
+        ),
+      ],
+      [
+        tr(
+          'Don’t book anything yet: just a list of hotels near Ribeira.',
+          'Non prenotare niente: solo una lista di hotel vicino a Ribeira.',
+        ),
+        tr(
+          'Here are five, from 95 to 180 € a night, in the same note. None booked.',
+          'Eccone cinque, da 95 a 180 € a notte, nella stessa nota. Nessuno prenotato.',
+        ),
+      ],
+    ]);
+    talk('dione', 'run_past_captions', now - 21 * day, [
+      [
+        tr(
+          'Dione, three captions for the Lisbon photos: short and a bit ironic.',
+          'Dione, tre didascalie per le foto di Lisbona: brevi e un po’ ironiche.',
+        ),
+        tr(
+          '1. *Uphill, always uphill.*\n2. *The tram was full, so was I (of pastéis).*\n3. *Seven hills, zero regrets.*',
+          '1. *In salita, sempre in salita.*\n2. *Il tram era pieno, io pure (di pastéis).*\n3. *Sette colli, zero rimpianti.*',
+        ),
+      ],
+    ]);
+    talk('titan', 'run_past_newsletter', now - 18 * day, [
+      [
+        tr(
+          'Remind me what we decided for the Saturday newsletter: weekly or monthly?',
+          'Ricordami cosa avevamo deciso per la newsletter di Saturday: settimanale o mensile?',
+        ),
+        tr(
+          'Monthly, on the first Monday: it’s in **Progetti/Newsletter** since the 3rd.',
+          'Mensile, il primo lunedì del mese: è in **Progetti/Newsletter** dal 3.',
+        ),
+      ],
+    ]);
   }
 
   private seedDemo(): void {

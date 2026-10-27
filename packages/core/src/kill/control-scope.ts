@@ -295,6 +295,11 @@ export class ControlScope {
     this.#settled = Promise.all(pending).then(detach);
   }
 
+  /** The live child scopes, not closed (a monster's stop looks for its part in a run, F-1). */
+  children(): ControlScope[] {
+    return [...this.#children].filter((c) => !c.#closed && !c.aborted);
+  }
+
   /** Number of live descendant scopes of a given kind. */
   countDescendants(kind: ScopeKind): number {
     let n = 0;

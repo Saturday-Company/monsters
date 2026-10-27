@@ -1,7 +1,10 @@
 import {
   appLang,
+  chatConversations,
+  chatConversationSpan,
   chatHistoryPage,
   vaultLayout,
+  ChatConversationsQuerySchema,
   ChatHistoryQuerySchema,
   ConfirmRequestSchema,
   EventTypeSchema,
@@ -16,7 +19,10 @@ import {
   ResumeRequestSchema,
   SESSION_SECRET_HEADER,
   SetupRequestSchema,
+  UlidSchema,
   type Channel,
+  type ChatConversationsResponse,
+  type ChatHistoryQuery,
   type ChatHistoryResponse,
   type EventType,
   type StatusResponse,
@@ -758,6 +764,33 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const page = chatHistoryPage(agent, parsed.data.before, (q) =>
       log.query({ ...q, type: q.type as EventType[] | undefined }),
     );
+    return c.json(page satisfies ChatHistoryResponse);
+  });
+
+  // The previous conversations of a chat, newest first, and the history of one of them,
+  // read-only (the chat plan of 27/10; contract in shared/src/chat-history.ts).
+  const chatQuery = (q: ChatHistoryQuery) =>
+    log.query({ ...q, type: q.type as EventType[] | undefined });
+  app.get('/api/chats/:agent/conversations', requireAuth, (c) => {
+    const agent = c.req.param('agent');
+    const parsed = ChatConversationsQuerySchema.safeParse(c.req.query());
+    if (!parsed.success || agent.length > 64) return c.json({ error: 'invalid_request' }, 400);
+    const page = chatConversations(agent, parsed.data, chatQuery);
+    return c.json(page satisfies ChatConversationsResponse);
+  });
+
+  app.get('/api/chats/:agent/conversations/:id/history', requireAuth, (c) => {
+    const agent = c.req.param('agent');
+    const parsed = ChatHistoryQuerySchema.safeParse(c.req.query());
+    const id = UlidSchema.safeParse(c.req.param('id'));
+    if (!parsed.success || !id.success || agent.length > 64) {
+      return c.json({ error: 'invalid_request' }, 400);
+    }
+    const span = chatConversationSpan(agent, id.data, (x) => log.get(x), chatQuery);
+    if (!span) return c.json({ error: 'unknown_conversation' }, 404);
+    const before =
+      parsed.data.before && parsed.data.before < span.before ? parsed.data.before : span.before;
+    const page = chatHistoryPage(agent, before, chatQuery, span.after);
     return c.json(page satisfies ChatHistoryResponse);
   });
 
