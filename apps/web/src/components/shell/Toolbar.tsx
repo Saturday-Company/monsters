@@ -16,6 +16,7 @@ import { hideDock, usePreview } from '../../store/preview.ts';
 import { closeByBack } from '../dock/back.ts';
 import { useMediaQuery } from '../../store/hooks.ts';
 import { KillSwitch } from './KillSwitch.tsx';
+import { NoticeRailSlot } from './NoticeRail.tsx';
 import { InboxKey } from './ReviewSheet.tsx';
 import { shellStrings } from './shell.strings.ts';
 import { StatusDisplay } from './StatusDisplay.tsx';
@@ -196,6 +197,9 @@ export function Toolbar({
   mock?: boolean;
 }) {
   const wide = useMediaQuery('(min-width: 1100px)');
+  // From 900 px the message of the shell lives in the rail (NoticeRailSlot); below it, a band.
+  const noticeInRail = useMediaQuery('(min-width: 900px)');
+  const middle = useRef<HTMLDivElement>(null);
   // The status display gives way before anything else: its words need 1440 px, its short form
   // 1000, below that a light with the number. The page's title and keys keep their room (R2).
   const ample = useMediaQuery('(min-width: 1440px)');
@@ -233,6 +237,7 @@ export function Toolbar({
         </div>
       )}
       <div
+        ref={middle}
         className={cn(
           'flex min-w-0 flex-1 items-center gap-3',
           phone ? 'px-2' : 'px-4',
@@ -256,6 +261,8 @@ export function Toolbar({
           {title}
         </p>
       </div>
+      {/* The message of the shell, between the view's title and keys and the Inbox key (≥ 900 px). */}
+      <NoticeRailSlot middleRef={middle} wide={noticeInRail && !phone} />
       <div className="flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-3">
         {/*
           The Inbox ("To review" and the news in one) is in the rail of every page: the drafts, the

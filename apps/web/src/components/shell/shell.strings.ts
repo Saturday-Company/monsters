@@ -166,6 +166,13 @@ const en = {
     news: 'News',
     newNews: 'new',
   },
+  /** The messages of the shell when they live in the rail (a chip, or a key with a popover). */
+  notices: {
+    label: 'Notices',
+    count: (n: number) => (n === 1 ? '1 notice' : `${n} notices`),
+    more: (n: number) => (n === 1 ? '1 more notice' : `${n} more notices`),
+    close: 'Close the list',
+  },
   errors: {
     stillBroken:
       'A part of Monsters still won’t load after reloading: check that Monsters is running and up to date on that computer.',
@@ -344,6 +351,12 @@ const it: typeof en = {
     review: 'Da rivedere',
     news: 'Novità',
     newNews: 'nuove',
+  },
+  notices: {
+    label: 'Avvisi',
+    count: (n) => (n === 1 ? '1 avviso' : `${n} avvisi`),
+    more: (n) => (n === 1 ? '1 altro avviso' : `altri ${n} avvisi`),
+    close: 'Chiudi l’elenco',
   },
   errors: {
     stillBroken:

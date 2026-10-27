@@ -1,7 +1,14 @@
 import { CheckCircle, Info, WarningCircle, X } from '@phosphor-icons/react';
-import { useEffect, useMemo, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FocusEvent as ReactFocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { dismissNotice, retryLinkNow, useApp, type Notice } from '../../store/app.ts';
 import { isSticky, noticeDuration } from '../../store/notice-queue.ts';
+import { useNoticePlace } from '../../store/notice-rail.ts';
 import { haltedResumeText, haltedWork, haltedWorkText } from '../../store/derive.ts';
 import { useConnection, useNameOf } from '../../store/hooks.ts';
 import { Button } from '../ui/button.tsx';
@@ -95,12 +102,12 @@ export function LinkBand() {
 }
 
 /**
- * One message at a time, the others in line behind it (store/notice-queue.ts). In the shell it is a
- * band at the top, under the rail (`NoticeBar`), the card at the right on a desktop and across the
- * screen on a phone; before the shell (login, boot) it floats in the same corner (`NoticeToast`).
- * It is in the flow, so nothing is covered: not the keys at the top of the page, not the writing
- * field, Send/Stop or the answers of a question (a failed send puts the text back in the field), and
- * on a phone not the bottom bar.
+ * One message at a time, the others in line behind it (store/notice-queue.ts). On a desktop (900 px
+ * and more) it lives in the top rail (`NoticeRailSlot`); on a phone and a narrow window it is a band
+ * under the rail (`NoticeBar`); before the shell (login, boot) it floats in the top right corner
+ * (`NoticeToast`). Wherever it is, nothing is covered: not the keys at the top of the page, not the
+ * writing field, Send/Stop or the answers of a question (a failed send puts the text back in the
+ * field), and on a phone not the bottom bar.
  *
  * A message goes away by itself, but the timer waits while the pointer is over it or the focus is
  * in it. One with a key ("Annulla", "Alza il tetto") stays a long while (30 s at least), and
@@ -124,12 +131,16 @@ function giveFocusBack() {
 
 /** Puts the focus on the message on screen (its key, or else its close key); false when there is none. */
 export function focusNotice(): boolean {
-  const card = document.querySelector<HTMLElement>('[data-testid="notice"]');
+  // The message itself, or its key in the rail when there is no room for the sentence.
+  const card = document.querySelector<HTMLElement>(
+    '[data-testid="notice"], [data-testid="notice-key"]',
+  );
   if (!card) return false;
   if (!card.contains(document.activeElement)) rememberFocus();
   const key =
     card.querySelector<HTMLElement>('[data-testid="notice-action"]') ??
-    card.querySelector<HTMLElement>('button');
+    card.querySelector<HTMLElement>('button') ??
+    card;
   key?.focus({ preventScroll: true });
   return true;
 }
@@ -146,11 +157,31 @@ function useNoticeShortcut() {
   }, []);
 }
 
-function NoticeCard({ notice }: { notice: Notice }) {
+/** The icon of a message by its tone. */
+export function NoticeIcon({
+  tone,
+  size,
+  className,
+}: {
+  tone: Notice['tone'];
+  size: number;
+  className?: string;
+}) {
+  const props = { size, weight: 'fill', 'aria-hidden': true, className } as const;
+  if (tone === 'error') return <WarningCircle {...props} />;
+  if (tone === 'success') return <CheckCircle {...props} />;
+  return <Info {...props} />;
+}
+
+/**
+ * The life of the message on screen, wherever it is drawn (a card, the rail's chip, the key's
+ * popover): it goes away by itself unless the pointer is over it, the focus is in it or `hold` is
+ * set (the popover is open); `close` gives the focus back to where it was, then dismisses it.
+ */
+export function useNoticeLife(notice: Notice, hold = false) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  const sticky = isSticky(notice);
-  const waiting = hovered || focused;
+  const waiting = hovered || focused || hold;
   const duration = noticeDuration(notice);
   useEffect(() => {
     // Waits while the pointer is over the message or the focus is in it.
@@ -158,34 +189,40 @@ function NoticeCard({ notice }: { notice: Notice }) {
     const t = setTimeout(() => dismissNotice(notice.id), duration);
     return () => clearTimeout(t);
   }, [notice.id, duration, waiting]);
-  const Icon =
-    notice.tone === 'error' ? WarningCircle : notice.tone === 'success' ? CheckCircle : Info;
   const close = () => {
     giveFocusBack();
     dismissNotice(notice.id);
   };
+  const handlers = {
+    onPointerEnter: () => setHovered(true),
+    onPointerLeave: () => setHovered(false),
+    onFocus: () => setFocused(true),
+    onBlur: (e: ReactFocusEvent<HTMLElement>) => {
+      if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false);
+    },
+    onKeyDown: (e: ReactKeyboardEvent<HTMLElement>) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      close();
+    },
+  };
+  return { handlers, close, sticky: isSticky(notice) };
+}
+
+function NoticeCard({ notice }: { notice: Notice }) {
+  const { handlers, close, sticky } = useNoticeLife(notice);
   return (
     <div
       role={notice.tone === 'error' ? 'alert' : 'status'}
       data-testid="notice"
       data-sticky={sticky || undefined}
-      onPointerEnter={() => setHovered(true)}
-      onPointerLeave={() => setHovered(false)}
-      onFocus={() => setFocused(true)}
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false);
-      }}
-      onKeyDown={(e) => {
-        if (e.key !== 'Escape') return;
-        e.preventDefault();
-        close();
-      }}
+      {...handlers}
       className={cn(
         'rise-in pointer-events-auto flex max-w-[460px] items-center gap-2.5 rounded-[12px] py-2 pr-2 pl-4 text-body font-medium shadow-[0_6px_0_-2px_rgba(var(--shadow-rgb),0.18),0_18px_40px_-16px_rgba(var(--shadow-rgb),0.45)]',
         notice.tone === 'error' ? 'bg-stop text-on-stop' : 'bg-ink text-panel',
       )}
     >
-      <Icon size={20} weight="fill" aria-hidden className="shrink-0" />
+      <NoticeIcon tone={notice.tone} size={20} className="shrink-0" />
       <span>{notice.text}</span>
       {notice.action && (
         <button
@@ -213,15 +250,17 @@ function NoticeCard({ notice }: { notice: Notice }) {
 }
 
 /**
- * The message of the shell: a band of its own just under the rail (and under the bands of a stop or
- * a lost link), the card at the right on a desktop and across the screen on a phone. It is in the
- * flow, so the page below it gets shorter and nothing is covered: not the keys at the top of the
- * page (the monster's monitor, the right-hand pane's tabs, "Resume"), and never the writing field,
- * Send/Stop, the answers of a question or the phone's bottom bar, where it used to sit. Stop is in
- * the rail, above it.
+ * The message of the shell on a phone and on a narrow window (under 900 px), or when the rail has
+ * no room for it (`NoticeRailSlot` says where it lives): a band of its own just under the rail (and
+ * under the bands of a stop or a lost link), the card at the right or across the screen. It is in
+ * the flow, so the page below it gets shorter and nothing is covered: not the keys at the top of the
+ * page, and never the writing field, Send/Stop, the answers of a question or the phone's bottom
+ * bar, where it used to sit. Stop is in the rail, above it.
  */
 export function NoticeBar() {
-  const notice = useApp((s) => s.notice);
+  const shown = useApp((s) => s.notice);
+  // In the rail the band is not drawn at all (the page does not move).
+  const notice = useNoticePlace((s) => s.place) === 'band' ? shown : null;
   // The Inbox sheet is fixed at the same corner: on a desktop the card steps to its left (on a phone the
   // sheet is the whole screen and, like the palette, it covers the band: its own keys come first).
   const inbox = useApp((s) => s.reviewOpen);

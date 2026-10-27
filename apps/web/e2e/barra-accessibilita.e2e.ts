@@ -84,7 +84,7 @@ test('at 1280×720 the sidebar shows six monsters, a short window draws them den
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/?mock=demo');
   await expect(page.getByTestId('chat-list-nav')).toBeVisible();
-  // The demo opens with a notice; it is a band at the top and takes a strip from the rows: look at both.
+  // The demo opens with a notice; in the rail (900 px and more) it takes no room from the rows: look at both.
   const withNotice = await visibleRows(page);
   expect(withNotice).toBeGreaterThanOrEqual(5);
   await page.getByTestId('notice').getByRole('button').last().click();

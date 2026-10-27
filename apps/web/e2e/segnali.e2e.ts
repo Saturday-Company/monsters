@@ -149,35 +149,157 @@ test('phone: the Inbox key is one key with its word on the home, and Back closes
   await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
 });
 
-for (const phone of [false, true]) {
-  test(`a notice sits at the top under the rail and covers neither Stop, the composer nor the bottom bar (${phone ? 'phone' : 'desktop'})`, async ({
-    page,
-  }) => {
-    await page.setViewportSize(phone ? { width: 390, height: 844 } : { width: 1440, height: 900 });
-    await page.goto('/?mock=demo#/?chat=titan');
-    await expect(page.getByTestId('composer')).toBeVisible();
-    // The demo opens with a notice of its own (a tool of GitHub was paused): the toast of the shell.
-    const notice = page.getByTestId('notice');
-    await expect(notice.first()).toBeVisible();
-    const n = (await notice.first().boundingBox())!;
-    const rail = (await page.getByTestId('toolbar').boundingBox())!;
-    expect(n.y).toBeGreaterThanOrEqual(rail.y + rail.height - 1);
-    expect(n.y).toBeLessThan(rail.y + rail.height + 24);
-    const composer = (await page.getByTestId('composer').boundingBox())!;
-    expect(n.y + n.height).toBeLessThanOrEqual(composer.y + 1);
-    const win = page.viewportSize()!;
-    // At the right on a desktop, across the screen on a phone; whole inside the window.
-    expect(n.x + n.width).toBeLessThanOrEqual(win.width + 0.5);
-    expect(n.x).toBeGreaterThanOrEqual(0);
-    if (!phone) expect(n.x + n.width).toBeGreaterThan(win.width - 24);
-    // It is in the flow: the page starts under it, so no key of the page is covered (the monster's
-    // monitor with "Behind the scenes", the tabs of the right-hand pane…).
-    const contentCard = (await page.locator('[data-content-card]').boundingBox())!;
-    expect(contentCard.y).toBeGreaterThanOrEqual(n.y + n.height - 1);
-    // Stop is in the rail, above it, and still reachable.
-    await expect(page.getByTestId('kill')).toBeInViewport({ ratio: 1 });
+type AppModule = {
+  notify(
+    text: string,
+    tone: 'info' | 'error',
+    extra: { fromEvent?: boolean; ms?: number; action?: { label: string; run: () => void } },
+  ): void;
+};
+
+/** Queues two more messages behind the demo's own (through the app's store). */
+async function queueMore(page: Page) {
+  await page.evaluate(async () => {
+    const path = '/src/store/app.ts';
+    const app = (await import(/* @vite-ignore */ path)) as AppModule;
+    app.notify('The spending cap for today was reached: raise it to go on.', 'error', {
+      fromEvent: true,
+      ms: 600_000,
+      action: { label: 'Raise the cap', run: () => {} },
+    });
+    app.notify('Rhea finished the report', 'info', {
+      fromEvent: true,
+      action: { label: 'Open', run: () => {} },
+    });
   });
 }
+
+const apart = (a: { x: number; width: number }, b: { x: number; width: number }) =>
+  a.x + a.width <= b.x + 0.5 || b.x + b.width <= a.x + 0.5;
+
+test('desktop: the notice lives inside the rail, in one line, and the page does not move', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?mock=demo#/?chat=titan');
+  await expect(page.getByTestId('composer')).toBeVisible();
+  // The demo opens with a notice of its own (a tool of GitHub was paused): the toast of the shell.
+  const notice = page.getByTestId('notice');
+  await expect(notice).toBeVisible();
+  const n = (await notice.boundingBox())!;
+  const rail = (await page.getByTestId('toolbar').boundingBox())!;
+  // Inside the rail, whole, in a line (32 px) and with its tooltip and key.
+  expect(n.y).toBeGreaterThanOrEqual(rail.y);
+  expect(n.y + n.height).toBeLessThanOrEqual(rail.y + rail.height);
+  expect(n.height).toBeLessThanOrEqual(34);
+  await expect(notice).toHaveAttribute('title', /GitHub changed a tool/);
+  await expect(notice.getByTestId('notice-action')).toHaveText('View');
+  // Never over the Inbox, the status display or Stop.
+  for (const id of ['review-toggle', 'status-display', 'kill']) {
+    const b = (await page.getByTestId(id).boundingBox())!;
+    expect(apart(n, b), `${id} is not covered by the notice`).toBe(true);
+  }
+  // The page starts where it always did, and there is no band.
+  const card = (await page.locator('[data-content-card]').boundingBox())!;
+  expect(card.y).toBe(52);
+  await expect(page.getByTestId('notice-bar').getByTestId('notice')).toHaveCount(0);
+  // Closing it moves nothing either.
+  await notice.getByRole('button', { name: 'Close' }).click();
+  await expect(notice).toHaveCount(0);
+  expect((await page.locator('[data-content-card]').boundingBox())!.y).toBe(52);
+});
+
+test('desktop: with more notices in line the newest has a "+N" tile that opens them whole', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?mock=demo#/?chat=titan');
+  await expect(page.getByTestId('notice')).toBeVisible();
+  await queueMore(page);
+  // The error comes first; the other two wait behind it.
+  const notice = page.getByTestId('notice');
+  await expect(notice).toContainText('The spending cap for today was reached');
+  const more = notice.getByTestId('notice-more');
+  await expect(more).toHaveText('+2');
+  await expect(more).toHaveAccessibleName('2 more notices');
+  await more.click();
+  const pop = page.getByTestId('notice-popover');
+  const rows = pop.getByTestId('notice-row');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('The spending cap for today was reached');
+  await expect(pop).toContainText('GitHub changed a tool');
+  await expect(pop).toContainText('Rhea finished the report');
+  // Dismissing one from the list takes it out of the line; Escape closes only the list.
+  await rows.nth(2).getByRole('button', { name: 'Close' }).click();
+  await expect(rows).toHaveCount(2);
+  await page.keyboard.press('Escape');
+  await expect(pop).toHaveCount(0);
+  await expect(notice).toBeVisible();
+  await expect(notice.getByTestId('notice-more')).toHaveText('+1');
+});
+
+test('desktop: without room for the sentence the rail keeps a light and "1 notice", with a popover', async ({
+  page,
+}) => {
+  // Notes has its own keys, and at 1024 px they leave the message less than 240 px.
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('/?mock=demo#/note');
+  const key = page.getByTestId('notice-key');
+  await expect(key).toBeVisible();
+  await expect(page.getByTestId('notice')).toHaveCount(0);
+  await expect(key).toHaveAccessibleName('1 notice');
+  await expect(key).toContainText('1 notice');
+  const rail = (await page.getByTestId('toolbar').boundingBox())!;
+  const k = (await key.boundingBox())!;
+  expect(k.y + k.height).toBeLessThanOrEqual(rail.y + rail.height);
+  // The title and the keys of the page keep their room.
+  const title = page.getByTestId('toolbar').getByRole('heading', { name: 'Notes', level: 1 });
+  expect(await title.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await expectNoSideScroll(page);
+  await key.click();
+  const pop = page.getByTestId('notice-popover');
+  await expect(pop.getByTestId('notice-row')).toHaveCount(1);
+  await expect(pop).toContainText('GitHub changed a tool: I’m keeping it paused until you decide.');
+  await page.keyboard.press('Escape');
+  await expect(pop).toHaveCount(0);
+  // The key's own press goes through to the same list, and "Close" in it clears the notice.
+  await key.click();
+  await pop.getByRole('button', { name: 'Close' }).click();
+  await expect(key).toHaveCount(0);
+});
+
+test('phone and narrow windows (under 900 px): the notice is a band under the rail', async ({
+  page,
+}) => {
+  for (const [width, height] of [
+    [390, 844],
+    [899, 800],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/?mock=demo#/?chat=titan');
+    await expect(page.getByTestId('composer')).toBeVisible();
+    const notice = page.getByTestId('notice');
+    await expect(notice).toBeVisible();
+    await expect(page.getByTestId('notice-bar').getByTestId('notice')).toHaveCount(1);
+    const n = (await notice.boundingBox())!;
+    const rail = (await page.getByTestId('toolbar').boundingBox())!;
+    expect(n.y).toBeGreaterThanOrEqual(rail.y + rail.height - 1);
+    const composer = (await page.getByTestId('composer').boundingBox())!;
+    expect(n.y + n.height).toBeLessThanOrEqual(composer.y + 1);
+    expect(n.x).toBeGreaterThanOrEqual(0);
+    expect(n.x + n.width).toBeLessThanOrEqual(width + 0.5);
+    // In the flow: the page starts under it, so nothing of the page is covered.
+    const card = (await page.locator('[data-content-card]').boundingBox())!;
+    expect(card.y).toBeGreaterThanOrEqual(n.y + n.height - 1);
+    await expect(page.getByTestId('kill')).toBeInViewport({ ratio: 1 });
+  }
+  // From 900 px it goes into the rail.
+  await page.setViewportSize({ width: 900, height: 800 });
+  await expect(page.getByTestId('notice-bar').getByTestId('notice')).toHaveCount(0);
+  await expect(
+    page.getByTestId('toolbar').locator('[data-testid="notice"], [data-testid="notice-key"]'),
+  ).toHaveCount(1);
+});
 
 for (const [width, height] of [
   [1440, 900],

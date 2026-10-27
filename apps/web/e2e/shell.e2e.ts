@@ -9,17 +9,6 @@ import { expect, test } from './fixtures.ts';
  * overlay buttons).
  */
 
-/**
- * The demo opens with a notice, which is a band of its own under the rail (the page starts below it):
- * closed before measuring where the module starts.
- */
-async function closeNotice(page: Page) {
-  const notice = page.getByTestId('notice');
-  await expect(notice).toBeVisible();
-  await notice.getByRole('button', { name: 'Close' }).click();
-  await expect(notice).toHaveCount(0);
-}
-
 test('sidebar: monsters, Note, Attività and Impostazioni; the toolbar names the page', async ({
   page,
 }) => {
@@ -51,7 +40,6 @@ test('sidebar: monsters, Note, Attività and Impostazioni; the toolbar names the
     }),
   );
   expect(bars).toEqual([[0, 0, page.viewportSize()!.width, 52]]);
-  await closeNotice(page);
   const module = await page.locator('[data-content-card]').boundingBox();
   expect(module!.x).toBe(300);
   expect(module!.y).toBe(52);
@@ -194,7 +182,6 @@ test('overlay chrome: the rail leaves room for the system buttons, all chassis',
   expect(
     await page.getByTestId('toolbar').evaluate((el) => getComputedStyle(el).backgroundColor),
   ).toBe(await page.evaluate(() => getComputedStyle(document.body).backgroundColor));
-  await closeNotice(page);
   const box = await page.locator('[data-content-card]').boundingBox();
   expect(box!.y).toBe(52);
   expect(Math.round(box!.x + box!.width)).toBe(width);

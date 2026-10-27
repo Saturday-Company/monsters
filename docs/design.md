@@ -8,6 +8,7 @@
 > monsters and clear keys, an expert sees instrumentation, numbers and shortcuts.
 
 ## Principles
+
 1. **Neutral chassis, color only from the monsters.** Warm aluminium (light) or graphite (dark). A single action
    color, **signal orange**; red only for Stop and for errors. Every other color is a monster's light on its black
    screen.
@@ -27,6 +28,7 @@
    the system bar and on Telegram.
 
 ## Window structure
+
 ```
 ┌─ top rail 52 px = integrated title bar (chassis) ───────────────────────────────────────────────────────────────┐
 │ ● ● ●  monsters        │ View title  [view keys]                  ▐ ● 2 AT WORK · 1 QUESTION    17:42 ▌  STOP [▤] │ ← (— □ ✕ on Win/Linux)
@@ -46,6 +48,7 @@
 │ ● THIS COMPUTER    ▾   │                                                                                      │
 └────────────────────────┴──────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
 - **Top rail (52 px)**: it is the title bar, and it is part of the instrument, not a system frame. A single band of
   chassis across the whole width, draggable (`-webkit-app-region: drag`, controls `no-drag`). From the left: the macOS
   traffic lights (92 px reserved: they end at 76 px since macOS 26) and the **monsters** wordmark (lowercase) in Doto,
@@ -66,6 +69,7 @@
 - Sign-in and first start: the same rail on top (without the display), the chassis below with their content.
 
 ## Integrated title bar (desktop app)
+
 - **macOS** (`inset`): `titleBarStyle: 'hidden'`, traffic lights centered in the 52 px row at 16 px from the edge
   (`trafficLightPosition` `{ x: 16, y: 18 }`: no more floating panel with an 8 px margin).
 - **Windows and Linux** (`overlay`): a `titleBarOverlay` 52 px tall in the `--chassis` color with `--ink` symbols; the
@@ -79,29 +83,30 @@
   device: a big screen while waiting, the monitor strip when there is a problem.
 
 ## Colors (tokens in `apps/web/src/theme/tokens.ts`)
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| `--chassis` | `#e3e1db` | `#151514` | window, rail, sidebar |
-| `--panel` | `#f2f1ec` | `#1c1c1a` | content module |
-| `--raised` | `#fbfaf7` | `#252523` | monsters' bubbles, cards, menus, dialogs, key caps |
-| `--well` | `#d8d5ce` | `#0f0f0e` | fields and search (recessed), switch tracks |
-| `--seam` | `rgba(0,0,0,.13)` | `rgba(0,0,0,.6)` | dark line of the seams |
-| `--seam-light` | `rgba(255,255,255,.65)` | `rgba(255,255,255,.05)` | light line below the seam |
-| `--key-edge` | `#b5b2a9` | `#0a0a09` | thickness of the keys (solid shadow at the bottom) |
-| `--lever` / `--lever-edge` | `#fbfaf7` / `#78756d` | `#64635e` / `#0a0a09` | switch lever: edge (light) or cap (dark) ≥ 3:1 on the track |
-| `--ink` | `#1a1a18` | `#ecebe5` | text |
-| `--ink-muted` | `#5c5a54` | `#a3a19a` | secondary text (≥ 4.5:1 on chassis, panel, raised, well) |
-| `--ink-faint` | `#6b6963` | `#8d8b85` | labels and times only on panel and raised |
-| `--signal` | `#ff4f00` | `#ff5e14` | the main action and the "something to do" lights: a fill under dark text |
-| `--on-signal` | `#170800` | `#170800` | text on the signal |
-| `--signal-ink` | `#a83500` | `#ff8a4c` | the signal as text, links, focus ring (≥ 4.5:1) |
-| `--stop` / `--on-stop` | `#d8231a` / `#ffffff` | `#ff3b2f` / `#1a0302` | Stop, serious errors |
-| `--stop-ink` | `#b51c14` | `#ff7b72` | red text |
-| `--ok` | `#1f8f4e` | `#4fd98a` | green light (connected, done) |
-| `--screen` | `#0d0d0c` | `#050505` | all screens (the same in both themes, they are objects) |
-| `--screen-ink` | `#efe9dc` | `#efe9dc` | main text on screens |
-| `--screen-muted` | `#8f8b81` | `#8f8b81` | secondary text on screens (≥ 4.5:1 on black) |
-| `--screen-off` | `rgba(255,255,255,.07)` | `rgba(255,255,255,.07)` | unlit dots |
+
+| Token                      | Light                   | Dark                    | Use                                                                      |
+| -------------------------- | ----------------------- | ----------------------- | ------------------------------------------------------------------------ |
+| `--chassis`                | `#e3e1db`               | `#151514`               | window, rail, sidebar                                                    |
+| `--panel`                  | `#f2f1ec`               | `#1c1c1a`               | content module                                                           |
+| `--raised`                 | `#fbfaf7`               | `#252523`               | monsters' bubbles, cards, menus, dialogs, key caps                       |
+| `--well`                   | `#d8d5ce`               | `#0f0f0e`               | fields and search (recessed), switch tracks                              |
+| `--seam`                   | `rgba(0,0,0,.13)`       | `rgba(0,0,0,.6)`        | dark line of the seams                                                   |
+| `--seam-light`             | `rgba(255,255,255,.65)` | `rgba(255,255,255,.05)` | light line below the seam                                                |
+| `--key-edge`               | `#b5b2a9`               | `#0a0a09`               | thickness of the keys (solid shadow at the bottom)                       |
+| `--lever` / `--lever-edge` | `#fbfaf7` / `#78756d`   | `#64635e` / `#0a0a09`   | switch lever: edge (light) or cap (dark) ≥ 3:1 on the track              |
+| `--ink`                    | `#1a1a18`               | `#ecebe5`               | text                                                                     |
+| `--ink-muted`              | `#5c5a54`               | `#a3a19a`               | secondary text (≥ 4.5:1 on chassis, panel, raised, well)                 |
+| `--ink-faint`              | `#6b6963`               | `#8d8b85`               | labels and times only on panel and raised                                |
+| `--signal`                 | `#ff4f00`               | `#ff5e14`               | the main action and the "something to do" lights: a fill under dark text |
+| `--on-signal`              | `#170800`               | `#170800`               | text on the signal                                                       |
+| `--signal-ink`             | `#a83500`               | `#ff8a4c`               | the signal as text, links, focus ring (≥ 4.5:1)                          |
+| `--stop` / `--on-stop`     | `#d8231a` / `#ffffff`   | `#ff3b2f` / `#1a0302`   | Stop, serious errors                                                     |
+| `--stop-ink`               | `#b51c14`               | `#ff7b72`               | red text                                                                 |
+| `--ok`                     | `#1f8f4e`               | `#4fd98a`               | green light (connected, done)                                            |
+| `--screen`                 | `#0d0d0c`               | `#050505`               | all screens (the same in both themes, they are objects)                  |
+| `--screen-ink`             | `#efe9dc`               | `#efe9dc`               | main text on screens                                                     |
+| `--screen-muted`           | `#8f8b81`               | `#8f8b81`               | secondary text on screens (≥ 4.5:1 on black)                             |
+| `--screen-off`             | `rgba(255,255,255,.07)` | `rgba(255,255,255,.07)` | unlit dots                                                               |
 
 - The user's bubble is solid `--ink` with `--panel` text (dark in light, light in dark): like the instrument, the
   user's voice is the sharpest. The monsters' bubbles are `--raised` with a tint of the monster's color at 7-9%.
@@ -115,16 +120,18 @@
   `text-on-danger-soft` → `--stop-ink`…), to be removed when nobody uses them anymore.
 
 ## Typefaces (local, with `@fontsource`, OFL license; no fonts from the internet)
-| Role | Typeface | Use |
-|---|---|---|
-| Text | **Instrument Sans** (variable) | everything that is read: messages, fields, buttons, titles |
-| Labels and instrumentation | **Martian Mono** | spaced uppercase labels (`.label`: 11 px, +0.06em), instrumentation rows, times, shortcuts, log |
-| Display | **Doto** (dotted) | wordmark, monsters' names on the monitors, display clock, big numbers. Never below 18 px, never for sentences |
+
+| Role                       | Typeface                       | Use                                                                                                           |
+| -------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Text                       | **Instrument Sans** (variable) | everything that is read: messages, fields, buttons, titles                                                    |
+| Labels and instrumentation | **Martian Mono**               | spaced uppercase labels (`.label`: 11 px, +0.06em), instrumentation rows, times, shortcuts, log               |
+| Display                    | **Doto** (dotted)              | wordmark, monsters' names on the monitors, display clock, big numbers. Never below 18 px, never for sentences |
 
 Scale (existing Tailwind classes, same names): `micro` 12/16, `caption` 13/18, `footnote` 14/20, `body` 15/22,
 `large` 16/24, `title3` 18/24, `title2` 22/28, `title1` 24/30, `display` 30/36. Numbers always `tabular-nums`.
 
 ## Materials and components
+
 - **Seam** (`.seam-*`): 1 px `--seam` + 1 px `--seam-light`, between rail and content, between sidebar and content,
   between groups. Never gray borders around things.
 - **Key** (`Button`): `--raised` cap, 1 px `--key-edge` border, thickness `box-shadow: 0 3px 0 var(--key-edge)`,
@@ -154,10 +161,12 @@ Scale (existing Tailwind classes, same names): `micro` 12/16, `caption` 13/18, `
   plus a light soft one; radius 14. The terminal sheet is a large screen.
 
 ## Motion (D-084)
+
 Every animation answers "what does it say?". If it says nothing, it isn't there. A frame is 40 ms (a 25 fps display);
 everything runs in `steps()`, only `transform`, `opacity` and `visibility` change. Tokens in `styles.css`
 (`--dur-press` 80 ms, `--dur-ui` 120 ms, `--dur-sheet` 160 ms, `--steps-*`, `--sink-*`, `--row-hover`,
 `--screen-hover`), the lengths for timers in `lib/motion.ts`. No animation library.
+
 - **Press** ("I heard you"): every key sinks until 1 px of thickness is left, in two frames (80 ms): the keys (3 px)
   sink by 2, the tiles (2 px) by 1; the keys without a cap (ghost, light keys on screens, panel tabs, the home of Stop)
   sink by 1 px like a membrane, because they have no thickness to compress. Released, it comes straight back up. Rows
@@ -195,6 +204,7 @@ everything runs in `steps()`, only `transform`, `opacity` and `visibility` chang
   is left running.
 
 ## The top rail
+
 - **Wordmark**: "monsters", lowercase, in Doto 20 px, spacing 0.08em. On the phone the wordmark stays at home; inside a
   view it becomes "‹ Back".
 - **View title**: Instrument Sans 17 px semibold. In the chat the title is only for screen readers (the name is on the
@@ -205,7 +215,7 @@ everything runs in `steps()`, only `transform`, `opacity` and `visibility` chang
   state in this order: `STOPPED` (red) · `NOT CONNECTED` (red) · `RECONNECTING…` (a steady orange light and a meter: it
   is a wait) · `● TITAN ASKS` (a question: the name first, it is the useful information) or `● N QUESTIONS · TITAN`
   (the orange light blinks: it is waiting for you; if someone is working meanwhile, the meter beside it) · `N AT
-  WORK` (with a meter; `RHEA IS CHANGING COURSE` if a monster at work is spinning its wheels, D-068) · `ALL QUIET`.
+WORK` (with a meter; `RHEA IS CHANGING COURSE` if a monster at work is spinning its wheels, D-068) · `ALL QUIET`.
   Below 300 px of display the meter gives way to words. The connection state comes before questions and work (which,
   without a connection, are old), and "quiet" is last. Click: it goes to the chat that is waiting, otherwise to
   Activity. Below 1100 px only light and number; on the phone only the light.
@@ -237,13 +247,24 @@ everything runs in `steps()`, only `transform`, `opacity` and `visibility` chang
   same panel on their tab. The same question is said by different places that say different things: the display and
   the god's bar say **who** waits, inside the chat the bar above the writing field says it, and the Inbox says
   **how many things** need you; it never adds a second number for the same question.
-- **Notices** (toasts): a band of its own at the top, just under the rail (and under the bands of a stop or a lost
-  link), the card (max 460 wide) at the right on a desktop and across the screen on a phone. They are in the flow:
-  the page below gets shorter while one is there, and nothing is covered, not the keys at the top of the page (the
-  monster's monitor, the right-hand pane's tabs, "Resume"), not the writing field, Send/Stop and the answers of a
-  question, and on a phone not the bottom bar, where they used to sit. Never over Stop (it is in the rail, above
-  them). With the Inbox sheet open the card steps to its left (on a phone the full-screen sheet covers the band, like the
-  palette does: its own keys come first).
+- **Notices** (toasts), one at a time with the others in line behind it. Never at the foot (where the writing field,
+  Send/Stop, the answers of a question and the phone's bottom bar are), never covering a key of the page, and the page
+  never moves for them.
+  - **From 900 px they live inside the rail** (`NoticeRailSlot`), in the free space between the view's title and keys
+    and the Inbox key (12 px of air before it). The slot measures what the view leaves (its title at its whole length,
+    its keys) and picks the form that fits: a **chip** from 240 px, a **key** from 104 px, **the light alone** from
+    36 px, and below that the band. The chip is a 32 px line (inside the 52 px rail, no layout shift) in the colors of
+    the old card (`--ink` with `--panel` words, red for an error): the light of its kind (info, done, warning), the
+    sentence in 13 px cut with an ellipsis (the whole sentence is the tooltip and what a screen reader reads, in a live
+    region), its key ("Undo", "View") and ✕. With more in line, a "+N" tile (outlined, `Martian Mono`) before the ✕. The
+    key is the light (orange, blinking; red for an error) with "1 notice" / "3 notices", and the sentence only for
+    screen readers. The tile and the key open the same small popover under the rail (right, 400 wide): every message
+    whole with its key and ✕; Esc, a press elsewhere or the last ✕ close it, and while it is open the message on screen
+    keeps its time. It never covers Stop, the Inbox or the status display, which are in the rail beside it.
+  - **Under 900 px and on a phone** (and when the rail has no room even for the light) they are a band under the rail
+    (and under the bands of a stop or a lost link), the card at the right or across the screen: in the flow, so the
+    page gets shorter while one is there and nothing is covered. With the Inbox sheet open the card steps to its left
+    (the full-screen sheet of a phone covers the band, like the palette does: its own keys come first).
 - Below the rail, when the monsters are stopped, a band (`HaltBanner`) "The monsters are stopped", with what the stop
   left half done ("Pending: Titan's question and Rhea's work", `haltedWork`) and the keys "Resume" (only resume: Stop
   is a safety switch, nothing restarts by itself) and, when there is something to restart, "Resume and continue"
@@ -253,6 +274,7 @@ everything runs in `steps()`, only `transform`, `opacity` and `visibility` chang
   monsters' screens go to "asleep" (just the word: the band says why).
 
 ## The sidebar
+
 - **Search**: a recessed key 40 tall like a field, "Search monsters and notes" and the `⌘K` tile on the right: it
   opens the palette (below). The squad is never filtered: the monsters stay in their place.
 - **Squads** (D-100): below the god's bar and the search, one per group: the `.label` "PERSONAL SQUAD · 4" or the
@@ -279,6 +301,7 @@ everything runs in `steps()`, only `transform`, `opacity` and `visibility` chang
   "THIS COMPUTER" or the computer's name in `.label`, and the little triangle. It opens Computers.
 
 ## The god's bar (D-101)
+
 - **Where**: at the top of the sidebar, above the search and the squads (margins 12, like the strips); on the phone at
   the top of the home screen, full width. It is the **god's chat** (the orchestrator, head of the Personal squad and of
   the projects) in the sidebar: a link to its chat, and the god has no strip of its own (D-102).
@@ -309,6 +332,7 @@ everything runs in `steps()`, only `transform`, `opacity` and `visibility` chang
   (outside the choice's outline).
 
 ## The palette (⌘K)
+
 `⌘K` / `Ctrl K` from anywhere, or the sidebar's search key (on the phone too): a `--raised` popover up to 640 px wide,
 below the rail (Stop stays uncovered), with no veil over the rest. At the top a recessed field with the "esc" tile;
 below, the results in groups with the `.label`: **Monsters** (name or role, on their small screen), **Notes** (the
@@ -320,10 +344,11 @@ then it closes); at the bottom "↑↓ choose · ↵ open · esc close". It open
 changes.
 
 ## The chat
+
 - **Monster monitor** at the top of the chat, fixed (it doesn't scroll), 76 tall: a black screen of full width
   (margins 16), with the big dot monster (height 60), the name in Doto 26 in the monster's color, below the role and
   what it is doing in Martian Mono 11 `--screen-muted`; on the right, on wide screens, the conversation summary (`N
-  TOOLS · TIME · COST`: that monster's runs since the last "New conversation", from 1180 px of chat), the **CONTEXT**
+TOOLS · TIME · COST`: that monster's runs since the last "New conversation", from 1180 px of chat), the **CONTEXT**
   key (see "Usage") and the "Behind the scenes" and "New conversation" keys (light ghost keys on the screen, with
   the `.label` from 860 px of chat, below only the icon): the monster's state takes precedence and is never cut. When
   the monster starts working the name flickers like a screen lighting up (520 ms in steps) and the meter starts; a
@@ -333,7 +358,7 @@ changes.
   message of a group, still on the first frame (it talks only while it writes). Reading column up to 760 px. What
   arrives with the chat open (a bubble, a question, a receipt, a file) rises in three frames (4 px and opacity); when
   opening a chat the rows that were there stay still, and your message rises once, when you send it.
-- **Drawn blocks** (D-162): a reply can hold a fence ```` ```ui ```` of OpenUI Lang (`ui-blocks.ts` in `@monsters/shared` is the
+- **Drawn blocks** (D-162): a reply can hold a fence ` ```ui ` of OpenUI Lang (`ui-blocks.ts` in `@monsters/shared` is the
   library) that the bubble draws with our own components (`components/chat/ui-block/`, a chunk loaded when a reply has one):
   key numbers as tiles (the change has an arrow and a word, never only a colour), a table (numbers on the right,
   scrolling sideways), bar, line and donut charts in plain SVG (values in the tooltip and in a table for screen readers;
@@ -428,6 +453,7 @@ changes.
   (`AgentSummary.confusedSince`, D-072): after a reload the confused face stays, with the same start.
 
 ## Right-hand pane (Preview, Behind the scenes, Usage; D-075)
+
 - **A single screen on the right**, black, recessed in the chassis like the monitors, with three tabs at the top
   (light keys `.label`, the chosen one lit in `--screen-ink`, ← → arrows between the tabs) and ✕. In place of the
   overlapping sheets: Preview, **Behind the scenes** (the terminal) and **Usage**. "Behind the scenes", the
@@ -448,16 +474,16 @@ changes.
   and the light keys **Open in the system** and **Show in folder** (desktop app only, only on the monsters' computer;
   never for HTML pages: outside the box they would run free), **Copy** (text, code, pages, images as PNG) and
   **Download**. A note has **Open in Notes** and Copy.
-- **By type**: an *image* fitted on a static checkerboard (the transparency), a click takes it to real size (double if
+- **By type**: an _image_ fitted on a static checkerboard (the transparency), a click takes it to real size (double if
   it is already whole) and it moves by dragging, a click or Esc fits it again, at the bottom `FITTED · 52% · 960×640`;
-  a *PDF* drawn by pdf.js on white sheets (pages are drawn as they come close, `PAGE 1 / 2`); a *note* on its
-  `--raised` sheet with the Notes reader (links open here, `⌘` click goes to Notes); *text, code, JSON, CSV* in Martian
+  a _PDF_ drawn by pdf.js on white sheets (pages are drawn as they come close, `PAGE 1 / 2`); a _note_ on its
+  `--raised` sheet with the Notes reader (links open here, `⌘` click goes to Notes); _text, code, JSON, CSV_ in Martian
   Mono 12.5 with line numbers in a dim margin and a few colors of light (strings, numbers, comments, keywords), the
-  JSON indented, the CSV as a table (or text); an *HTML page* made by a monster on white in a **closed box** (below:
+  JSON indented, the CSV as a table (or text); an _HTML page_ made by a monster on white in a **closed box** (below:
   "in a closed box: no network, no access to Monsters"); if the monster made it after reading external content it
   arrives with scripts off, a line above ("Page with scripts turned off: it was made after reading external
   content") and the **Turn the scripts on** key, which asks a second time ("Yes, turn them on" / "Leave them off"), and
-  never opens by itself; *other* (archives, Office documents): icon, name, type, size and what to do with it.
+  never opens by itself; _other_ (archives, Office documents): icon, name, type, size and what to do with it.
 - **Where it opens from**: the attachment cards, the images in the chat (the computer's own show in the bubble, up to
   320 px tall; those from the internet stay a card with the address and "Show image": they load only on click,
   without referrer), the links to files, the notes cited (`[[note]]`), the files made by the tools in Behind the
@@ -469,6 +495,7 @@ changes.
   short solid shadow only for the sheet.
 
 ## Behind the scenes (a monster's live log)
+
 A tab of the right-hand pane that is a **large screen**: `--screen` background, static scan lines, Martian Mono 12.5
 text in `--screen-ink`, the tools' names in the monster's color, errors in light red, times in `--screen-muted`. At
 the top the small dot monster and the name in Doto. It opens from "Behind the scenes" and from the instrumentation
@@ -478,6 +505,7 @@ cut at the edge). On the phone it goes full screen below the rail (Stop stays un
 that monster; Esc, ✕ or `⌘J` close the pane.
 
 ## Usage (a monster's context and spending, D-075)
+
 - **CONTEXT key** on the monster's monitor, before "Behind the scenes": 20 dashes like those of the meter (3×10 px, one
   for every 5% of the model's window) and the percentage in Martian Mono 11; the word "CONTEXT" only from 1320 px of
   chat, the dashes down to 520 px (below, the percentage stays). Before the conversation's first step, "–"; with no
@@ -502,6 +530,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   `GET /api/agents/:id/usage` when a monster event arrives.
 
 ## Plan usage (Claude and ChatGPT limits, D-111)
+
 - **Block** (`components/usage/PlanLimitsBlock.tsx`): a small screen (`.screen`, black in both themes) with a row per
   plan window. Above, on the left the name in `.label` ("SESSION", "WEEK", "OPUS WEEK"; for ChatGPT the length: "5
   HOURS", "WEEK"), on the right the percentage in 14 tabular; below a bar of **20 dashes** (one every 5%, 14 tall,
@@ -520,6 +549,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   and "updated 20 min ago" ages.
 
 ## Attachments and Files (D-075)
+
 - **Paperclip** in the writing field, on the left: a 40 ghost key with the icon (name "Attach a file"). Also paste (an
   image from the clipboard) and drag onto the chat: a `--panel` veil with a dashed `--signal-ink` border says "DROP
   THE FILES HERE TO ATTACH THEM".
@@ -544,6 +574,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   ("NO FILES YET" and how to add some).
 
 ## Notes, Activity, Settings
+
 - **Notes**: a list on the left with title, date in `.label` (uppercase, like the sidebar's times) and tags as small
   tiles; the open note on `--raised`, Instrument Sans 17/28, a 68-character column, the `[[links]]` in `--signal-ink`
   underlined (dashed if the note doesn't exist yet). Who wrote it is a small screen with the monster. The keys (Graph,
@@ -635,6 +666,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   network) the field is already open.
 
 ## Automations (D-094, D-096)
+
 - **Section** `#/automations` (`⌘2`), above Notes in the sidebar. A column up to 920 px, three levels that on the phone
   open one above the other (the rail says "‹ Automations", "‹ Runs"): list, automation, run. In the rail "New
   automation".
@@ -664,6 +696,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   answer") with "See".
 
 ## Projects (D-097, D-098, D-100)
+
 - **Page** `#/project?id=…&section=…` (rail title: the project's name). Below the rail a row of joined keys: **Chat · Squad ·
   Notes · Automations · Settings** (on the phone it scrolls sideways, the chosen tab stays in view). A column up to
   920 px for the tabs that are not the chat. The old tab names (`section=folder`, `apps`, `spending`,
@@ -715,6 +748,7 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   below "PROPOSALS FOR THE INSTRUCTIONS · N".
 
 ## Sign-in and first start
+
 - **Sign-in**: at the top (not centered: an error or a new pane grows downward, nothing jumps) a "device" (`.device`: a
   `--raised` cap with four screws in the corners): at the top the `.label` "SIGN-IN" (or "FIRST POWER-ON") and a light
   with the state word (waiting, checking, refused, awake; during the check the dashes run in place of the light); then
@@ -743,14 +777,17 @@ that monster; Esc, ✕ or `⌘J` close the pane.
   monster lit is "AWAKE". With "Reduce motion" the monsters are already lit. Then the lead says hello.
 
 ## Sounds (off by default)
+
 Synthesized with WebAudio, no files: key click (8 ms filtered noise), lever (two lower clicks), question light (two
 short tones 880/1320 Hz), task done (three flat ascending tones). Low volume, no sounds if the window isn't in the
 foreground, never more than one sound every 120 ms.
 
 ## The dot monsters
+
 The drawing is generated by `packages/monster-kit` (`renderDots`) from the **same genome** as today: the monsters
 already created change their look without migrations. Rules in numbers in the "Dot creatures" section of
 `docs/monsters/STYLE.md`.
+
 - A grid of dots (a fixed size for all, an odd width to have a central column), three levels of light: full, dimmed
   (belly, spots, shadows), off. The eyes are unlit "holes" with a white reflection dot. Parts with a second color
   (horns, crests) from `palette.accent`.
@@ -765,56 +802,58 @@ already created change their look without migrations. Rules in numbers in the "D
 - In the terminal: `renderDotsText` prints the same monster with half blocks and 24-bit ANSI colors.
 
 ## Text glossary
+
 One word per concept, everywhere (UI, core messages, desktop app notifications, Telegram). The Italian column is what
 the app says in Italian. Wave D swept every dictionary to these words.
-| Concept | Say (English) | In Italian | Don't say |
-|---|---|---|---|
-| Who coordinates | **lead** ("Your lead", "Project lead") | capo («il tuo capo») | squad lead, orchestrator, coordinator |
-| History of what happens | **Activity** | Attività | Log, Action log, record |
-| The user's memory | **notes** (Obsidian only for compatibility) | note | vault, second brain |
-| The stop | **Stop** / **Resume** (never "kill switch" in the UI) | Stop / Riprendi | Kill, Halt, kill switch |
-| A stopped monster | **stopped** (its mood) | fermo | paused |
-| Where Monsters runs | **computer** ("This computer", "Home PC"); "Monsters" or "the app on that computer" | computer | PC, core, engine, server |
-| Settings window of the desktop app listing other computers | **Computers** | Computer | Connections |
-| Claude / ChatGPT subscriptions | **plan** ("Your Claude plan"); "subscription" only in legal text | piano | subscription, abbonamento |
-| A monster's live log pane | **Behind the scenes** (never "(terminal)") | Dietro le quinte | Terminal as a label |
-| "terminal" | only the operating system's terminal | terminale | the permission or the log pane |
-| Permission to run commands | **Run commands** | Eseguire comandi | Terminal |
-| The model that thinks | **model** | modello | LLM |
-| Adding a model provider | **Add a model** | Aggiungi un modello | Connect a model |
-| A model provider account | **account** ("OpenRouter account") | account | service, provider |
-| Third-party integrations (MCP) | **Apps** ("MCP" only in Advanced and tooltips) | App | services, programs, connections |
-| Settings tab with Telegram, apps and web search | **Apps and Telegram** | App e Telegram | Connections |
-| A project's tab with its folder, apps, spending and archive | **Settings** | Impostazioni | Connections, Folder, Spending |
-| Credential an app asks for | **key** ("Personal key"); "token" only in technical details | chiave | token (BotFather's token is the exception) |
-| Language of the app | **App language** | Lingua dell'app | Language |
-| Language the monsters write in | **Monsters' writing language** | Lingua in cui scrivono i mostri | Language |
-| Model tiers | **Quick / Balanced / Thorough** | Veloce / Bilanciato / Accurato | Light / Medium / Strong |
-| The monsters' quick decisions (System 1) | **Monsters' decisions** ("the instinct" in D-067 and the code) | Decisioni dei mostri | System 1, DecisionGate, gate, classifier |
-| The monsters' results per model | **scorecard** ("Monster scorecard") | pagella | benchmark |
-| A use of the decisions that for now only takes notes | **on trial** | in prova | trial, beta, shadow |
-| A use that looks and writes what it would have done, changing nothing | **only notes** | | shadow, shadow mode |
-| What a monster does on a request | **job** ("Limits of each job", "Job receipt", "job started") | lavoro | run, task, turn |
-| One time an automation runs | **run**, only for automations ("Cap per automation run", "Run now") | giro | execution, job |
-| A monster handing work to another | **task** ("Task from Titan to Rhea"), only for delegations | incarico | duty, job |
-| A monster's list of duties | **What it does** | Cosa fa | Tasks, Duties |
-| The account of a job | **receipt** ("Undo the whole job") | ricevuta | report, log of the run |
-| A checked and complete job | **really done** | | verified |
-| A monster that repeats the same actions | **going in circles** / **changing course** | | stuck, loop |
-| The actions that leave the computer, stopped to ask | **brake** (in Activity) | freno | outbound, gate |
-| Undoing every note a job touched | **Undo the whole job** | | undo run, rollback |
-| How much the monsters can spend | **spending cap** ("Raise the cap"); the top of the chain is **All monsters** | tetto di spesa; Tutti i mostri | budget, cost limit, whole squad |
-| The limits of a job | **Safety net** (in euros; the rate is in the spending cap) | Rete di sicurezza | limit in dollars |
-| How much of the model's working memory the conversation takes up | **context** ("Context", "compacts here") | contesto | context window, token budget |
-| A monster's tokens, costs and cap | **usage** ("Titan's usage") | consumi | consumption, metrics |
-| A program's tools that changed and are held | **paused** ("Paused tools", "Accept"), for tools only | in pausa | rug pull, quarantine, pin |
-| The space on the right with preview, behind the scenes and usage | **right-hand pane** ("Preview", "Behind the scenes", "Usage" tabs) | pannello a destra | dock, inspector, right sidebar |
-| An HTML page made by a monster, closed | **page** "in a closed box" | pagina | artifact, sandbox, iframe |
-| Work the squad does by itself at a set time | **automation** ("New automation") | automazione | routine, cron |
-| A squad with its own lead, folder, notes and cap | **project** ("New project", "Stop project") | progetto | workspace, team |
-| Where what arrives for the user is (questions, drafts, paused tools, notes touched, news) | **Inbox** (tabs "To review" and "News") | In arrivo (tabs Da rivedere, Novità) | NEWS (as a key of its own), Notifications |
-| What a monster proposes and waits for a tap | **draft** ("To confirm", "Confirm", "Discard") | bozza | pending proposal |
-| Images and documents sent or created | **files**, **attachments** ("Attach a file", the "Files" section) | file, allegati | upload, asset |
+
+| Concept                                                                                   | Say (English)                                                                       | In Italian                           | Don't say                                  |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------ |
+| Who coordinates                                                                           | **lead** ("Your lead", "Project lead")                                              | capo («il tuo capo»)                 | squad lead, orchestrator, coordinator      |
+| History of what happens                                                                   | **Activity**                                                                        | Attività                             | Log, Action log, record                    |
+| The user's memory                                                                         | **notes** (Obsidian only for compatibility)                                         | note                                 | vault, second brain                        |
+| The stop                                                                                  | **Stop** / **Resume** (never "kill switch" in the UI)                               | Stop / Riprendi                      | Kill, Halt, kill switch                    |
+| A stopped monster                                                                         | **stopped** (its mood)                                                              | fermo                                | paused                                     |
+| Where Monsters runs                                                                       | **computer** ("This computer", "Home PC"); "Monsters" or "the app on that computer" | computer                             | PC, core, engine, server                   |
+| Settings window of the desktop app listing other computers                                | **Computers**                                                                       | Computer                             | Connections                                |
+| Claude / ChatGPT subscriptions                                                            | **plan** ("Your Claude plan"); "subscription" only in legal text                    | piano                                | subscription, abbonamento                  |
+| A monster's live log pane                                                                 | **Behind the scenes** (never "(terminal)")                                          | Dietro le quinte                     | Terminal as a label                        |
+| "terminal"                                                                                | only the operating system's terminal                                                | terminale                            | the permission or the log pane             |
+| Permission to run commands                                                                | **Run commands**                                                                    | Eseguire comandi                     | Terminal                                   |
+| The model that thinks                                                                     | **model**                                                                           | modello                              | LLM                                        |
+| Adding a model provider                                                                   | **Add a model**                                                                     | Aggiungi un modello                  | Connect a model                            |
+| A model provider account                                                                  | **account** ("OpenRouter account")                                                  | account                              | service, provider                          |
+| Third-party integrations (MCP)                                                            | **Apps** ("MCP" only in Advanced and tooltips)                                      | App                                  | services, programs, connections            |
+| Settings tab with Telegram, apps and web search                                           | **Apps and Telegram**                                                               | App e Telegram                       | Connections                                |
+| A project's tab with its folder, apps, spending and archive                               | **Settings**                                                                        | Impostazioni                         | Connections, Folder, Spending              |
+| Credential an app asks for                                                                | **key** ("Personal key"); "token" only in technical details                         | chiave                               | token (BotFather's token is the exception) |
+| Language of the app                                                                       | **App language**                                                                    | Lingua dell'app                      | Language                                   |
+| Language the monsters write in                                                            | **Monsters' writing language**                                                      | Lingua in cui scrivono i mostri      | Language                                   |
+| Model tiers                                                                               | **Quick / Balanced / Thorough**                                                     | Veloce / Bilanciato / Accurato       | Light / Medium / Strong                    |
+| The monsters' quick decisions (System 1)                                                  | **Monsters' decisions** ("the instinct" in D-067 and the code)                      | Decisioni dei mostri                 | System 1, DecisionGate, gate, classifier   |
+| The monsters' results per model                                                           | **scorecard** ("Monster scorecard")                                                 | pagella                              | benchmark                                  |
+| A use of the decisions that for now only takes notes                                      | **on trial**                                                                        | in prova                             | trial, beta, shadow                        |
+| A use that looks and writes what it would have done, changing nothing                     | **only notes**                                                                      |                                      | shadow, shadow mode                        |
+| What a monster does on a request                                                          | **job** ("Limits of each job", "Job receipt", "job started")                        | lavoro                               | run, task, turn                            |
+| One time an automation runs                                                               | **run**, only for automations ("Cap per automation run", "Run now")                 | giro                                 | execution, job                             |
+| A monster handing work to another                                                         | **task** ("Task from Titan to Rhea"), only for delegations                          | incarico                             | duty, job                                  |
+| A monster's list of duties                                                                | **What it does**                                                                    | Cosa fa                              | Tasks, Duties                              |
+| The account of a job                                                                      | **receipt** ("Undo the whole job")                                                  | ricevuta                             | report, log of the run                     |
+| A checked and complete job                                                                | **really done**                                                                     |                                      | verified                                   |
+| A monster that repeats the same actions                                                   | **going in circles** / **changing course**                                          |                                      | stuck, loop                                |
+| The actions that leave the computer, stopped to ask                                       | **brake** (in Activity)                                                             | freno                                | outbound, gate                             |
+| Undoing every note a job touched                                                          | **Undo the whole job**                                                              |                                      | undo run, rollback                         |
+| How much the monsters can spend                                                           | **spending cap** ("Raise the cap"); the top of the chain is **All monsters**        | tetto di spesa; Tutti i mostri       | budget, cost limit, whole squad            |
+| The limits of a job                                                                       | **Safety net** (in euros; the rate is in the spending cap)                          | Rete di sicurezza                    | limit in dollars                           |
+| How much of the model's working memory the conversation takes up                          | **context** ("Context", "compacts here")                                            | contesto                             | context window, token budget               |
+| A monster's tokens, costs and cap                                                         | **usage** ("Titan's usage")                                                         | consumi                              | consumption, metrics                       |
+| A program's tools that changed and are held                                               | **paused** ("Paused tools", "Accept"), for tools only                               | in pausa                             | rug pull, quarantine, pin                  |
+| The space on the right with preview, behind the scenes and usage                          | **right-hand pane** ("Preview", "Behind the scenes", "Usage" tabs)                  | pannello a destra                    | dock, inspector, right sidebar             |
+| An HTML page made by a monster, closed                                                    | **page** "in a closed box"                                                          | pagina                               | artifact, sandbox, iframe                  |
+| Work the squad does by itself at a set time                                               | **automation** ("New automation")                                                   | automazione                          | routine, cron                              |
+| A squad with its own lead, folder, notes and cap                                          | **project** ("New project", "Stop project")                                         | progetto                             | workspace, team                            |
+| Where what arrives for the user is (questions, drafts, paused tools, notes touched, news) | **Inbox** (tabs "To review" and "News")                                             | In arrivo (tabs Da rivedere, Novità) | NEWS (as a key of its own), Notifications  |
+| What a monster proposes and waits for a tap                                               | **draft** ("To confirm", "Confirm", "Discard")                                      | bozza                                | pending proposal                           |
+| Images and documents sent or created                                                      | **files**, **attachments** ("Attach a file", the "Files" section)                   | file, allegati                       | upload, asset                              |
 
 Technical words (tokens, MCP, OAuth, environment variable names, `CLAUDE.md`, commands such as
 `monsters log read --month`) live only in "Details" or "Advanced", or when the technical details are on. A description
