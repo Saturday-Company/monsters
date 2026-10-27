@@ -81,9 +81,13 @@ test('sending a message shows the reply while it streams', async ({ page }) => {
   await releaseMock(page);
   await expect(bubble).toHaveAttribute('data-streaming', 'false');
   await expect(bubble).toHaveText(/I’ll ask Rhea to gather a few tips on Lisbon/);
-  await expect(page.getByTestId('delegation').filter({ hasText: 'finished' }).last()).toBeVisible({
+  // The work of the turn is one strip between the request and the reply: closed into a sentence
+  // once the turn is over.
+  const strip = page.getByTestId('work-strip').last();
+  await expect(strip.getByTestId('receipt-summary')).toContainText(/asked Rhea/i, {
     timeout: 15_000,
   });
+  await expect(strip).toHaveAttribute('data-alive', 'false');
 });
 
 test('answering a question with options', async ({ page }) => {

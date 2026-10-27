@@ -24,7 +24,9 @@ async function firstAnswer(page: Page): Promise<void> {
   await input.press('Enter');
   // The mock's lead asks a question before it answers; the card waits for the answer, as it
   // would not interrupt a question on a real core.
-  await expect(page.getByText('What tone should we give the posts?')).toBeVisible({
+  await expect(
+    page.getByRole('heading', { name: /What tone should we give the posts\?/ }),
+  ).toBeVisible({
     timeout: 20_000,
   });
   await expect(page.getByTestId('first-steps')).toHaveCount(0);

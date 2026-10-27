@@ -6,7 +6,6 @@ import {
   CaretUp,
   ClockCounterClockwise,
   Plugs,
-  TelegramLogo,
   TerminalWindow,
 } from '@phosphor-icons/react';
 import { useStill } from '../../lib/motion.ts';
@@ -20,10 +19,10 @@ import {
   useState,
   type DragEvent,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import {
   chatHistoryOf,
-  dropHeld,
   errorText,
   loadChatOlder,
   notify,
@@ -38,8 +37,6 @@ import {
   CONFUSED_TEXT,
   conversationLine,
   countMessages,
-  groupDelegations,
-  instrumentationLine,
   questionsClosedAt,
   retryOf,
   runOwners,
@@ -63,18 +60,15 @@ import {
 } from '../../store/hooks.ts';
 import { usePrefs } from '../../store/prefs.ts';
 import { markSeen } from '../../store/reads.ts';
-import { accentInk, bubbleColors } from '../../theme/bubbles.ts';
-import { THEMES } from '../../theme/tokens.ts';
+import { accentInk } from '../../theme/bubbles.ts';
 import { playSound } from '../../lib/sound.ts';
 import { cn, dayKey, formatDay, formatTime } from '../../lib/utils.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
 import { ToolbarActions, ToolbarContent, ToolbarTitle } from '../shell/Toolbar.tsx';
 import { openTerminalAt } from '../terminal/focus.ts';
 import { Button, buttonVariants } from '../ui/button.tsx';
-import { Markdown } from '../ui/Markdown.tsx';
 import { Meter } from '../ui/Meter.tsx';
 import {
-  DelegationGroup,
   DelegationRow,
   ErrorRow,
   FileRow,
@@ -84,297 +78,49 @@ import {
   SystemRow,
 } from './ChatEvents.tsx';
 import { chatStrings } from './chat.strings.ts';
-import { ReceiptBlock } from './Receipt.tsx';
 import { behindTheScenes, ChatMonitor } from './ChatMonitor.tsx';
 import { Composer, prefillComposer, type ComposerQuestion } from './Composer.tsx';
 import { FirstSteps } from './FirstSteps.tsx';
 import { Greeting } from './Greeting.tsx';
-import {
-  answeredIds,
-  replyGate,
-  UiReplyContext,
-  type ReplyGate,
-  type UiReply,
-} from './ui-block/reply.ts';
+import { answeredIds, replyGate, type ReplyGate } from './ui-block/reply.ts';
 import { ActiveKeypad, QuestionCard } from './QuestionCard.tsx';
+import {
+  AgentBubble,
+  CarriedCaption,
+  RelayedBubble,
+  TelegramBubble,
+  UserBubble,
+} from './Bubbles.tsx';
+import { TurnBlock, turnAlive, type ReplyBase } from './TurnBlock.tsx';
+import {
+  buildTurns,
+  stableBlocks,
+  runStepsIndex,
+  type ChatBlock,
+  type Turn,
+} from '../../store/turn.ts';
+import { clipText, plainText } from '../../lib/markdown.ts';
 import { PreviewRow } from '../preview/PreviewRow.tsx';
 import { ProposalCard } from './ProposalCard.tsx';
 import { MODELS_PATH, useNoModel } from './useModel.ts';
-import { FileById } from '../files/FileChip.tsx';
 import { attachToComposer } from './attachments.ts';
 import { automationPath, SPEND_CAP_PATH, useHashParam } from '../../lib/router.ts';
 import './chat.css';
 
 /*
- * One chat (docs/design.md, "La chat"): the monster's monitor on top, fixed;
- * below a reading column of 760 px with the bubbles grouped by sender under one
- * small screen, the instrumentation line under each turn of the monster, the
- * events among monsters as labels between seams, a question as a keypad. The
- * messages scroll under the composer, set into the panel at the bottom.
+ * One chat (docs/design.md, "The chat"): the monster's monitor on top, fixed;
+ * below a reading column of 760 px made of turns (TurnBlock: your request, the
+ * work strip under the monster's small screen, the replies with their files, a
+ * question as a keypad) and of the few events that belong to no turn, as labels
+ * between seams. The messages scroll under the composer, set into the panel at
+ * the bottom.
  */
 
 /** A pause this long between two messages of the same day shows the time again. */
 const GAP_MS = 30 * 60_000;
 
-/** Width of the avatar column (the 34 px screen and its gap): questions align to the bubbles. */
-const AVATAR_COL = 'pl-[44px]';
-
 /** A question this recent, when it shows up in the open chat, rings (if the sounds are on). */
 const FRESH_QUESTION_MS = 15_000;
-
-function AgentBubble({
-  item,
-  first,
-  instr,
-  action,
-  reply,
-  sendReply,
-}: {
-  item: Extract<ChatItem, { kind: 'agent' }>;
-  /** First bubble of a run of the same monster: the avatar goes here. */
-  first: boolean;
-  /** The instrumentation line of the turn, under its last bubble. */
-  instr: string | null;
-  /** Something to do, inside the bubble (the greeting without a model). */
-  action?: ReactNode;
-  /** Whether the buttons of a drawn block here can be pressed (D-162), and how they send. */
-  reply: ReplyGate;
-  sendReply: (label: string) => Promise<void>;
-}) {
-  const agent = useAgent(item.agent);
-  const uiReply = useMemo<UiReply>(() => ({ gate: reply, send: sendReply }), [reply, sendReply]);
-  const theme = useResolvedTheme();
-  const s = chatStrings().panel;
-  const lit = useMemo(
-    () => (agent ? dotPalette(agent.genome).lit : THEMES[theme].screenMuted),
-    [agent, theme],
-  );
-  const c = bubbleColors(lit, theme);
-  return (
-    <div className="pr-8 sm:pr-16">
-      {first && item.via && (
-        <p className={cn(AVATAR_COL, 'label mb-1 text-ink-muted')} data-testid="agent-via">
-          {item.via}
-        </p>
-      )}
-      <div className="flex items-start gap-2.5">
-        <div className="w-[34px] shrink-0">
-          {first && agent && (
-            <button
-              type="button"
-              onClick={() => openTerminalAt(agent.id, item.runId)}
-              aria-label={behindTheScenes(agent.name)}
-              title={s.behindTitle}
-              className="block rounded-[8px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
-            >
-              <MonsterScreen
-                genome={agent.genome}
-                mood={item.streaming ? 'talking' : 'idle'}
-                width={34}
-                height={30}
-                pad={2}
-                animated={item.streaming}
-              />
-            </button>
-          )}
-        </div>
-        <span className="sr-only">
-          {agent?.name ?? item.agent}, {formatTime(item.ts)}:
-        </span>
-        <div
-          data-testid="agent-bubble"
-          data-streaming={item.streaming ? 'true' : 'false'}
-          title={formatTime(item.ts)}
-          className="bubble bubble-agent w-fit max-w-full min-w-0 px-4 py-2.5 text-large leading-[1.55] break-words"
-          style={{ background: c.bg, color: c.fg }}
-        >
-          <UiReplyContext.Provider value={uiReply}>
-            <Markdown text={item.text} codeBg={c.codeBg} streaming={item.streaming} />
-          </UiReplyContext.Provider>
-          {action}
-        </div>
-      </div>
-      {instr && agent && (
-        <div className={cn(AVATAR_COL, 'mt-1.5')}>
-          <button
-            type="button"
-            className="instr"
-            onClick={() => openTerminalAt(agent.id, item.runId)}
-            title={s.turnTitle}
-            data-testid="instrumentation"
-          >
-            {instr}
-            <span aria-hidden className="instr-go">
-              {' ↗'}
-            </span>
-            <span className="sr-only">{s.turnSr}</span>
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * A message another monster wrote here for the user (the orchestrator's
- * `project_send` in a lead's chat, D-102): on the monsters' side, under the
- * small screen of who wrote it and in its tint, with "DA TITAN" above. The
- * user did not type it.
- */
-function RelayedBubble({
-  item,
-  first,
-}: {
-  item: Extract<ChatItem, { kind: 'relayed' }>;
-  first: boolean;
-}) {
-  const from = useAgent(item.from);
-  const theme = useResolvedTheme();
-  const s = chatStrings().panel;
-  const lit = useMemo(
-    () => (from ? dotPalette(from.genome).lit : THEMES[theme].screenMuted),
-    [from, theme],
-  );
-  const c = bubbleColors(lit, theme);
-  const name = from?.name ?? capitalize(item.from);
-  return (
-    <div className="pr-8 sm:pr-16" data-testid="relayed" data-from={item.from}>
-      {first && (
-        <p className={cn(AVATAR_COL, 'label mb-1 text-ink-muted')} aria-hidden>
-          {s.from(name)}
-        </p>
-      )}
-      <div className="flex items-start gap-2.5">
-        <div className="w-[34px] shrink-0">
-          {first && from && (
-            <MonsterScreen genome={from.genome} mood="idle" width={34} height={30} pad={2} />
-          )}
-        </div>
-        <span className="sr-only">
-          {s.from(name)}, {formatTime(item.ts)}:
-        </span>
-        <div
-          data-testid="relayed-bubble"
-          title={s.writtenBy(name, formatTime(item.ts))}
-          className="bubble bubble-agent w-fit max-w-full min-w-0 px-4 py-2.5 text-large leading-[1.55] break-words"
-          style={{ background: c.bg, color: c.fg }}
-        >
-          <Markdown text={item.text} codeBg={c.codeBg} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * A message written to the monster's own bot on Telegram (D-107): on the
- * monsters' side, neutral (`--raised`), under a Telegram mark, with the sender
- * and "da Telegram · <gruppo>" above. Never the user's ink bubble: it was
- * written there, by someone in the group.
- */
-function TelegramBubble({
-  item,
-  first,
-}: {
-  item: Extract<ChatItem, { kind: 'telegram' }>;
-  first: boolean;
-}) {
-  const where = telegramWhere(item);
-  const who = item.owner ? `${item.sender.name}${chatStrings().panel.youSuffix}` : item.sender.name;
-  return (
-    <div
-      className="pr-8 sm:pr-16"
-      data-testid="telegram-message"
-      data-sender={item.sender.id}
-      data-owner={item.owner ? 'true' : undefined}
-    >
-      {first && (
-        <p className={cn(AVATAR_COL, 'label mb-1 text-ink-muted')} aria-hidden>
-          {who} · {where}
-        </p>
-      )}
-      <div className="flex items-start gap-2.5">
-        <div className="w-[34px] shrink-0">
-          {first && (
-            <span
-              className="well flex h-[30px] w-[34px] items-center justify-center rounded-[8px] text-ink-muted"
-              aria-hidden
-            >
-              <TelegramLogo size={18} />
-            </span>
-          )}
-        </div>
-        <span className="sr-only">
-          {who}, {where}, {formatTime(item.ts)}:
-        </span>
-        <div
-          data-testid="telegram-bubble"
-          title={`${who} · ${where} · ${formatTime(item.ts)}`}
-          className="bubble bubble-agent w-fit max-w-full min-w-0 bg-raised px-4 py-2.5 text-large leading-[1.55] whitespace-pre-wrap break-words text-ink"
-        >
-          {item.text}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function UserBubble({ item }: { item: Extract<ChatItem, { kind: 'user' }> }) {
-  const s = chatStrings().panel;
-  const files = item.attachments ?? [];
-  return (
-    <div className="flex flex-col items-end pl-12 sm:pl-24">
-      <span className="sr-only">{s.you(formatTime(item.ts))}</span>
-      {files.length > 0 && (
-        <ul
-          aria-label={s.attachments(files.length)}
-          data-testid="bubble-attachments"
-          className={cn('mb-1.5 flex flex-wrap justify-end gap-2', item.pending && 'opacity-70')}
-        >
-          {files.map((id) => (
-            <li key={id} className="min-w-0">
-              <FileById id={id} image />
-            </li>
-          ))}
-        </ul>
-      )}
-      {(item.text.trim() || files.length === 0) && (
-        <div
-          data-testid="user-bubble"
-          data-held={item.held ? 'true' : undefined}
-          title={formatTime(item.ts)}
-          className={cn(
-            'bubble bubble-user w-fit max-w-full px-4 py-2.5 text-large leading-[1.55] whitespace-pre-wrap break-words',
-            item.pending && 'opacity-70',
-          )}
-        >
-          {item.text}
-        </div>
-      )}
-      {item.held ? (
-        <p className="mt-1.5 pr-1 text-caption text-ink-muted" data-testid="held-note">
-          {s.heldBefore}
-          <button
-            type="button"
-            onClick={() => dropHeld(item.id)}
-            className="font-medium text-signal-ink hover:underline"
-          >
-            {s.dontSend}
-          </button>
-        </p>
-      ) : (
-        item.pending && <p className="label mt-1.5 pr-1 text-ink-muted">{s.sending}</p>
-      )}
-    </div>
-  );
-}
-
-/** Above a question carried over from a previous conversation. */
-function CarriedCaption({ questionId }: { questionId: string }) {
-  const open = useApp((s) => s.questions[questionId]?.status === 'open');
-  const t = chatStrings().panel;
-  return <p className="label pl-1 text-ink-muted">{open ? t.carriedOpen : t.carried}</p>;
-}
 
 /** Shows or hides the conversations before the latest "New conversation". */
 function EarlierToggle({
@@ -434,12 +180,6 @@ function OlderKey({ loading, onLoad }: { loading: boolean; onLoad: () => void })
   );
 }
 
-interface Shown {
-  item: ChatItem;
-  /** An open question of a previous conversation, shown in the current one. */
-  carried: boolean;
-}
-
 /** Same sender as the item before, with no pause: the bubbles stay together. */
 function sameRun(item: ChatItem, prev: ChatItem | undefined): boolean {
   if (!prev || item.ts - prev.ts > GAP_MS) return false;
@@ -461,19 +201,17 @@ const Row = memo(function Row({
   carried,
   chat,
   first,
-  instr,
   action,
-  latest,
   reply,
   sendReply,
-}: Shown & {
+}: {
+  item: ChatItem;
+  /** An open question of a previous conversation, shown in the current one. */
+  carried: boolean;
   chat: string;
   /** First bubble of its run of bubbles. */
   first: boolean;
-  instr: string | null;
   action?: ReactNode;
-  /** The latest receipt of the chat (it opens by itself). */
-  latest: boolean;
   reply: ReplyGate;
   sendReply: (label: string) => Promise<void>;
 }) {
@@ -483,7 +221,6 @@ const Row = memo(function Row({
         <AgentBubble
           item={item}
           first={first}
-          instr={instr}
           action={action}
           reply={reply}
           sendReply={sendReply}
@@ -505,11 +242,6 @@ const Row = memo(function Row({
       {item.kind === 'reset' && <ResetRow item={item} />}
       {item.kind === 'instinct' && <InstinctRow item={item} />}
       {item.kind === 'file' && <FileRow item={item} />}
-      {item.kind === 'receipt' && (
-        <div className="sm:pl-[44px]">
-          <ReceiptBlock item={item} latest={latest} />
-        </div>
-      )}
       {item.kind === 'proposal' && (
         <div className="sm:pl-[44px]">
           <ProposalCard item={item} />
@@ -544,70 +276,77 @@ function rises(item: ChatItem, present: Pick<ReadonlySet<string>, 'has'>): boole
   return item.kind !== 'user' || item.pending === true;
 }
 
-/** The rows of the chat: days and pauses as separators, runs of bubbles, folded events. */
+/** The first item of a block: where it sits in time. */
+function firstOf(block: ChatBlock): ChatItem | null {
+  if (block.kind === 'item') return block.item;
+  return block.request ?? block.received[0] ?? block.column[0] ?? block.tasks[0] ?? null;
+}
+
+/** The rows of the chat: days and pauses as separators, the turns, the items of no turn. */
 function Rows({
-  shown,
+  blocks,
   chat,
-  present,
-  actionFor,
-  instrFor,
-  replyFor,
+  rise,
+  greetingId,
+  greetingAction,
+  replyBase,
+  answered,
   sendReply,
 }: {
-  shown: Shown[];
+  blocks: readonly ChatBlock[];
   chat: string;
-  /** The ids on screen when the chat opened. */
-  present: Pick<ReadonlySet<string>, 'has'>;
-  actionFor: (id: string) => ReactNode;
-  instrFor: (item: ChatItem) => string | null;
-  /** Whether the buttons of a drawn block in this message can be pressed now. */
-  replyFor: (item: ChatItem) => ReplyGate;
+  /** Whether an item arrived with the chat open (it rises in). */
+  rise: (item: ChatItem) => boolean;
+  greetingId: string | null;
+  greetingAction: ReactNode;
+  replyBase: ReplyBase;
+  answered: ReadonlySet<string>;
   sendReply: (label: string) => Promise<void>;
 }) {
-  // What needs a look stays in sight: the task you are asked in this chat, one the instinct
-  // doubted or that failed, an instinct line that warns. The rest folds when it comes in a row.
-  const grouped = groupDelegations(
-    shown,
-    (s) => s.item,
-    undefined,
-    (item) =>
-      item.kind === 'delegation'
-        ? !(chat === item.to && item.from !== item.to) &&
-          !item.checks?.length &&
-          item.status !== 'failed'
-        : item.kind === 'instinct' && item.tone === null,
-  );
   const nodes: ReactNode[] = [];
-  const latestReceipt = shown.findLast((s) => s.item.kind === 'receipt')?.item.id;
+  let prevTs: number | null = null;
   let prevItem: ChatItem | undefined;
-  for (let i = 0; i < grouped.length; i++) {
-    const g = grouped[i]!;
-    const first = g.kind === 'one' ? g.row.item : g.rows[0]!.item;
-    const newDay = !prevItem || dayKey(prevItem.ts) !== dayKey(first.ts);
-    const gap = !newDay && !!prevItem && first.kind !== 'reset' && first.ts - prevItem.ts > GAP_MS;
+  for (const block of blocks) {
+    const ts = block.kind === 'turn' ? block.ts : block.item.ts;
+    const newDay = prevTs === null || dayKey(prevTs) !== dayKey(ts);
+    const first = firstOf(block);
+    const gap = !newDay && prevTs !== null && first?.kind !== 'reset' && ts - prevTs > GAP_MS;
     if (newDay)
       nodes.push(
-        <li key={`day-${first.id}`} className="mt-2 first:mt-0">
-          <DaySeparator ts={first.ts} />
+        <li key={`day-${block.id}`} className="mt-2 first:mt-0">
+          <DaySeparator ts={ts} />
         </li>,
       );
     else if (gap)
       nodes.push(
-        <li key={`gap-${first.id}`} className="mt-4">
-          <p className="label text-center text-ink-muted">{formatTime(first.ts)}</p>
+        <li key={`gap-${block.id}`} className="mt-4">
+          <p className="label text-center text-ink-muted">{formatTime(ts)}</p>
         </li>,
       );
-    if (g.kind === 'group') {
+    if (block.kind === 'turn') {
+      const hasGreeting = !!greetingId && block.column.some((c) => c.id === greetingId);
       nodes.push(
-        // The key of its first row: a row that becomes a group stays the same element (no rise-in again).
-        <li key={g.id} className={cn('mt-4', rises(first, present) && 'rise-in')}>
-          <DelegationGroup items={g.rows.map((r) => r.item)} chat={chat} />
+        <li
+          key={block.id}
+          className={cn(newDay || gap ? 'mt-2' : 'mt-5', first && rise(first) && 'rise-in')}
+        >
+          <TurnBlock
+            turn={block}
+            chat={chat}
+            rises={rise}
+            greetingId={hasGreeting ? greetingId : null}
+            greetingAction={hasGreeting ? greetingAction : null}
+            replyBase={replyBase}
+            answered={answered}
+            sendReply={sendReply}
+          />
         </li>,
       );
-      prevItem = g.rows.at(-1)!.item;
+      prevTs = lastTs(block);
+      prevItem = undefined;
       continue;
     }
-    const { item, carried } = g.row;
+    const { item, carried } = block;
     const continues = !newDay && !gap && sameRun(item, prevItem);
     const event =
       item.kind === 'delegation' ||
@@ -621,7 +360,7 @@ function Rows({
         key={item.id}
         className={cn(
           continues ? 'mt-1' : newDay || gap ? 'mt-2' : event ? 'mt-4' : 'mt-5',
-          rises(item, present) && 'rise-in',
+          rise(item) && 'rise-in',
         )}
       >
         <Row
@@ -629,14 +368,21 @@ function Rows({
           carried={carried}
           chat={chat}
           first={!continues}
-          instr={instrFor(item)}
-          action={actionFor(item.id)}
-          latest={item.id === latestReceipt}
-          reply={replyFor(item)}
+          action={item.id === greetingId ? greetingAction : undefined}
+          reply={
+            item.kind === 'agent'
+              ? replyGate({
+                  ...replyBase,
+                  streaming: item.streaming,
+                  answered: answered.has(item.id),
+                })
+              : 'open'
+          }
           sendReply={sendReply}
         />
       </li>,
     );
+    prevTs = item.ts;
     prevItem = item;
   }
   return (
@@ -644,6 +390,13 @@ function Rows({
       {nodes}
     </ol>
   );
+}
+
+/** The time of the latest thing a turn said: a pause after it shows the time again. */
+function lastTs(turn: Turn): number {
+  let ts = turn.ts;
+  for (const c of turn.column) if (c.ts > ts) ts = c.ts;
+  return ts;
 }
 
 /** At the bottom while the monster works and has not started writing yet. */
@@ -817,6 +570,42 @@ function conversationRuns(
   return out;
 }
 
+/** How much of a finished reply the screen reader hears at once. */
+const ANNOUNCE_MAX = 400;
+
+/**
+ * What a screen reader hears of the chat (F-8): a finished reply and a new question, once each,
+ * from a hidden live region; not the service lines, the strip, a reply in pieces or the whole
+ * transcript. What was there when the chat opened, or came with a page of history, is not news.
+ */
+function useAnnouncement(
+  thread: readonly ChatItem[],
+  still: Pick<ReadonlySet<string>, 'has'>,
+): RefObject<HTMLParagraphElement | null> {
+  const nameOf = useNameOf();
+  const questions = useApp((s) => s.questions);
+  const region = useRef<HTMLParagraphElement>(null);
+  const told = useRef(new Set<string>());
+  useEffect(() => {
+    let say: string | null = null;
+    for (const it of thread) {
+      if (told.current.has(it.id) || still.has(it.id)) continue;
+      if (it.kind === 'agent' && !it.streaming) {
+        told.current.add(it.id);
+        say = `${nameOf(it.agent)}: ${clipText(plainText(it.text), ANNOUNCE_MAX)}`;
+      } else if (it.kind === 'question') {
+        const q = questions[it.questionId];
+        if (!q) continue;
+        told.current.add(it.id);
+        say = chatStrings().strip.asks(nameOf(it.agent), q.question);
+      }
+    }
+    // Written into the region itself: a change of its text is what the screen reader reads.
+    if (say !== null && region.current) region.current.textContent = say;
+  }, [thread, still, questions, nameOf]);
+  return region;
+}
+
 export function ChatPanel({
   agentId,
   thread,
@@ -880,14 +669,25 @@ export function ChatPanel({
   // Previous conversations stay folded; a newer "New conversation" folds them again.
   const [earlierOpenFor, setEarlierOpenFor] = useState<string | null>(null);
   const showEarlier = !!view.boundary && earlierOpenFor === view.boundary.id;
-  const shown: Shown[] =
-    !view.boundary || showEarlier
-      ? thread.map((item) => ({ item, carried: false }))
-      : [
-          ...view.carried.map((item) => ({ item, carried: true })),
-          { item: view.boundary, carried: false },
-          ...view.current.map((item) => ({ item, carried: false })),
-        ];
+  const { boundary: viewBoundary, carried: viewCarried, current: viewCurrent } = view;
+  const { shownItems, carriedIds } = useMemo(
+    () =>
+      !viewBoundary || showEarlier
+        ? { shownItems: thread, carriedIds: new Set<string>() }
+        : {
+            shownItems: [...viewCarried, viewBoundary, ...viewCurrent],
+            carriedIds: new Set(viewCarried.map((q) => q.id)),
+          },
+    [viewBoundary, viewCarried, viewCurrent, showEarlier, thread],
+  );
+  // The turns of the chat (store/turn.ts), keeping the identity of those that did not change
+  // between two chunks of a streamed reply: their rows do not render again.
+  const steps = useMemo(() => runStepsIndex(events), [events]);
+  const [keepBlocks] = useState(stableBlocks);
+  const blocks = useMemo(
+    () => keepBlocks(buildTurns(shownItems, agentId, { stats, steps, carried: carriedIds })),
+    [keepBlocks, shownItems, agentId, stats, steps, carriedIds],
+  );
   const fresh =
     thread.length === 0 ||
     (!!view.boundary && !showEarlier && view.current.length === 0 && view.carried.length === 0);
@@ -901,12 +701,12 @@ export function ChatPanel({
   // The open question of this chat the composer answers (the oldest, as a queue).
   let openQuestion: (typeof questions)[string] | null = null;
   let openQuestionTs = 0;
-  for (const s of shown) {
-    if (s.item.kind !== 'question') continue;
-    const q = questions[s.item.questionId];
+  for (const item of shownItems) {
+    if (item.kind !== 'question') continue;
+    const q = questions[item.questionId];
     if (q?.status === 'open') {
       openQuestion = q;
-      openQuestionTs = s.item.ts;
+      openQuestionTs = item.ts;
       break;
     }
   }
@@ -926,10 +726,11 @@ export function ChatPanel({
   const userWrote = current.some(
     (it) => it.kind === 'user' || it.kind === 'relayed' || it.kind === 'telegram',
   );
-  const lastItem = shown.at(-1)?.item;
-  // After the lead's first answer: first jobs to try and the "Tell me more about you" card.
+  const lastItem = shownItems.at(-1);
+  // After the lead's first answer, once: first jobs to try and the "Tell me more about you" card
+  // (F-12: not after every reply). Counted over the whole chat, not the conversation: a new one
+  // does not bring them back; it has the greeting and its first suggestions instead.
   const tellMe = useHashParam('profile') === '1';
-  // Counted over the whole chat, not the conversation: a new one does not bring the first jobs back.
   const userCount = thread.filter((it) => it.kind === 'user').length;
   const firstUser = current.findIndex((it) => it.kind === 'user');
   const answeredOnce =
@@ -940,14 +741,25 @@ export function ChatPanel({
     !fresh &&
     !noModel &&
     (tellMe ||
-      (answeredOnce && userCount <= 3 && lastItem?.kind !== 'error' && !openQuestion && !working));
+      (answeredOnce && userCount === 1 && lastItem?.kind !== 'error' && !openQuestion && !working));
   // Without a model the greeting carries the way out (audit 2.4), else a bar above the composer.
   const greetingId =
     noModel && lastItem?.kind === 'agent' && !lastItem.streaming ? lastItem.id : null;
 
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
-  const [showJump, setShowJump] = useState(false);
+  /** New items below while the chat is scrolled up (F-3): counted by id, not by chunk. */
+  const [jumpCount, setJumpCount] = useState(0);
+  /** The ids the user has seen at the bottom (or that were there when scrolling up). */
+  const seenIds = useRef<Set<string>>(new Set(thread.map((i) => i.id)));
+  const threadIds = useRef<readonly ChatItem[]>(thread);
+  useLayoutEffect(() => {
+    threadIds.current = thread;
+  }, [thread]);
+  const markAllSeen = useCallback(() => {
+    seenIds.current = new Set(threadIds.current.map((i) => i.id));
+    setJumpCount(0);
+  }, []);
   /** The open question whose card is out of sight (then the bar above the composer shows). */
   const [hiddenQuestion, setHiddenQuestion] = useState<string | null>(null);
   const reduce = useStill();
@@ -1007,11 +819,25 @@ export function ChatPanel({
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    // (the scroll to the bottom then takes the "New messages" key away)
     if (ownSend) pinned.current = true;
-    if (pinned.current) el.scrollTop = el.scrollHeight;
-    else setShowJump(true);
-  }, [lastKey, ownSend]);
+    if (pinned.current) {
+      el.scrollTop = el.scrollHeight;
+      markAllSeen();
+      return;
+    }
+    // Scrolled up: only items that were not there count as new, never a chunk of a reply already
+    // seen or the monster starting to work (F-3); a page of older history is not news either.
+    let n = 0;
+    for (const it of thread)
+      if (
+        !seenIds.current.has(it.id) &&
+        !still.has(it.id) &&
+        it.kind !== 'user' &&
+        it.kind !== 'reset'
+      )
+        n++;
+    setJumpCount(n);
+  }, [lastKey, ownSend, thread, still, markAllSeen]);
 
   // Whatever grows after the first layout (a card, a picture, the bar above the composer) keeps
   // a chat that sits at the bottom at the very bottom (V-2).
@@ -1033,8 +859,9 @@ export function ChatPanel({
     const el = scroller.current;
     if (!el || !boundaryId) return;
     pinned.current = true;
-    setShowJump(false);
+    markAllSeen();
     el.scrollTop = fresh ? 0 : el.scrollHeight;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when a conversation starts
   }, [boundaryId, fresh]);
 
   useEffect(() => {
@@ -1043,11 +870,11 @@ export function ChatPanel({
     const onScroll = () => {
       const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
       pinned.current = near;
-      if (near) setShowJump(false);
+      if (near) markAllSeen();
     };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [markAllSeen]);
 
   // Scrolled up to the top: the earlier messages come by themselves (the key above says so too).
   useEffect(() => {
@@ -1063,7 +890,7 @@ export function ChatPanel({
 
   // Whether the card of the open question is on screen (else the bar above the composer).
   const questionId = openQuestion?.id ?? null;
-  const shownCount = shown.length;
+  const shownCount = shownItems.length;
   useEffect(() => {
     const root = scroller.current;
     if (!root || !questionId) return;
@@ -1119,22 +946,14 @@ export function ChatPanel({
     el.scrollTo({ top: el.scrollHeight, behavior: reduce ? 'auto' : 'smooth' });
   };
 
-  const actionFor = (id: string) =>
-    id === greetingId ? (
+  const greetingAction = useMemo(
+    () => (
       <div className="mt-2.5 mb-0.5" data-testid="no-model">
         <ConnectModel />
       </div>
-    ) : null;
-
-  // The instrumentation line goes under the last bubble of each turn (run) shown.
-  const lastOfRun = new Map<string, string>();
-  for (const s of shown)
-    if (s.item.kind === 'agent' && s.item.runId) lastOfRun.set(s.item.runId, s.item.id);
-  const instrFor = (item: ChatItem): string | null => {
-    if (!showDetails || item.kind !== 'agent' || item.streaming || !item.runId) return null;
-    if (lastOfRun.get(item.runId) !== item.id) return null;
-    return instrumentationLine(stats.get(item.runId), nameOf(item.agent), item.agent);
-  };
+    ),
+    [],
+  );
 
   const since = view.boundary?.ts ?? 0;
   const summary = useMemo(
@@ -1145,24 +964,41 @@ export function ChatPanel({
     [showDetails, stats, owners, agentId, since],
   );
 
+  // The same set while it holds the same ids: a chunk of a reply does not render every turn again.
+  const answeredKey = [...answeredIds(shownItems)].join('\n');
+  const answeredSet = useMemo(
+    () => new Set(answeredKey ? answeredKey.split('\n') : []),
+    [answeredKey],
+  );
+  const busyNow = live.mood !== 'idle' && live.mood !== 'done';
+  const asking = !!openQuestion;
+  const replyBase = useMemo<ReplyBase>(
+    () => ({
+      question: asking,
+      working: busyNow || streaming || !!busyWith,
+      halted,
+      noModel,
+      offline,
+    }),
+    [asking, busyNow, streaming, busyWith, halted, noModel, offline],
+  );
+  // The work shows in a live strip: no "at work" bubble at the bottom too.
+  const liveAll = useApp((s) => s.live);
+  const stripAtWork = useMemo(
+    () => blocks.some((b) => b.kind === 'turn' && turnAlive(b, liveAll)),
+    [blocks, liveAll],
+  );
+  const rise = useCallback((item: ChatItem) => rises(item, still), [still]);
+
+  // F-8: screen readers hear the finished replies and the new questions, not the whole transcript.
+  const announcement = useAnnouncement(thread, still);
+
   if (!agent) return null;
   const busy = live.mood !== 'idle' && live.mood !== 'done';
   const waitingForYou = !!openQuestion && !halted;
   // The buttons of a drawn block: only on the last word of the chat (nothing from the user after
   // it), with the monster idle and no question open.
-  const answered = answeredIds(shown.map((s) => s.item));
-  const replyFor = (item: ChatItem): ReplyGate =>
-    item.kind === 'agent'
-      ? replyGate({
-          streaming: item.streaming,
-          answered: answered.has(item.id),
-          question: !!openQuestion,
-          working: busy || streaming || !!busyWith,
-          halted,
-          noModel,
-          offline,
-        })
-      : 'open';
+  const answered = answeredSet;
   const status = waitingForYou
     ? t.statusWaiting
     : noModel && !busy
@@ -1262,15 +1098,14 @@ export function ChatPanel({
         />
         <ActiveKeypad.Provider value={waitingForYou ? (openQuestion?.id ?? null) : null}>
           <div className="mx-auto flex min-h-full w-full max-w-[824px] flex-col px-4 sm:px-8">
-            <div
-              ref={content}
-              className="flex flex-1 flex-col"
+            <p
+              ref={announcement}
+              className="sr-only"
               aria-live="polite"
-              aria-relevant="additions"
-              // A reply that is still being written is not read in pieces: the region waits (busy)
-              // and gives the finished message when the stream ends (W-26).
-              aria-busy={loadingOlder || streaming || undefined}
-            >
+              role="status"
+              data-testid="chat-announce"
+            />
+            <div ref={content} className="flex flex-1 flex-col">
               {canLoadOlder && (thread.length > 0 || !loadingOlder) && (
                 <OlderKey
                   loading={loadingOlder}
@@ -1323,18 +1158,21 @@ export function ChatPanel({
                 </Greeting>
               ) : (
                 <Rows
-                  shown={shown}
+                  blocks={blocks}
                   chat={agent.id}
-                  present={still}
-                  actionFor={actionFor}
-                  instrFor={instrFor}
-                  replyFor={replyFor}
+                  rise={rise}
+                  greetingId={greetingId}
+                  greetingAction={greetingAction}
+                  replyBase={replyBase}
+                  answered={answered}
                   sendReply={sendReply}
                 />
               )}
               {!fresh && lastItem?.kind === 'error' && !working && !streaming ? (
                 <ErrorActions key={lastItem.id} item={lastItem} />
               ) : (
+                // Nothing from you yet (the lead's first greeting, a new conversation with a
+                // question carried over): the first things to ask. Never after a reply (F-12).
                 !fresh &&
                 !userWrote &&
                 !noModel &&
@@ -1351,17 +1189,19 @@ export function ChatPanel({
                   <FirstSteps forceOpen={tellMe} />
                 </div>
               )}
-              {working && !busyWith && <WorkingRow agent={agent} />}
+              {working && !busyWith && !stripAtWork && <WorkingRow agent={agent} />}
             </div>
             {/* The composer floats on the messages, which scroll under it. */}
             <div className="composer-dock sticky bottom-0 z-10 -mx-1 px-1 pt-3 pb-3 sm:pb-4">
-              {showJump && (
+              {jumpCount > 0 && (
                 <button
                   type="button"
                   onClick={jump}
+                  data-testid="new-messages"
                   className="popover rise-in label absolute -top-11 left-1/2 z-10 flex h-9 -translate-x-1/2 items-center gap-2 rounded-[10px] px-3.5 text-ink"
                 >
-                  <ArrowDown size={14} weight="bold" aria-hidden /> {t.newMessages}
+                  <ArrowDown size={14} weight="bold" aria-hidden />{' '}
+                  {chatStrings().strip.newCount(jumpCount)}
                 </button>
               )}
               {busyWith && (

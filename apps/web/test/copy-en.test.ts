@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { draftStrings } from '../src/components/projects/draft.strings.ts';
 import { shellStrings } from '../src/components/shell/shell.strings.ts';
 import { telegramStrings } from '../src/components/settings/telegram.strings.ts';
-import { deriveStrings } from '../src/store/derive.strings.ts';
 import { toNameIt } from '../src/lib/utils.strings.ts';
 
 /*
@@ -33,21 +32,6 @@ describe('agreement by count', () => {
     expect(s.again('i messaggi per Titan e Rhea', 2)).toBe(
       'Con «Riprendi e continua» ripartono i messaggi per Titan e Rhea.',
     );
-  });
-
-  it('groups of events and tasks read right with one item', () => {
-    const g = deriveStrings().group;
-    expect(g.events(1)).toBe('1 event among the monsters');
-    expect(g.done(1)).toBe('1 task completed');
-    expect(g.done(3)).toBe('3 tasks completed');
-    setAppLang('it');
-    const gi = deriveStrings().group;
-    expect(gi.events(1)).toBe('1 evento tra i mostri');
-    expect(gi.events(4)).toBe('4 eventi tra i mostri');
-    expect(gi.done(1)).toBe('1 incarico completato');
-    expect(gi.done(4)).toBe('4 incarichi completati');
-    expect(gi.open(1)).toBe('1 incarico passato alla squadra');
-    expect(gi.open(2)).toBe('2 incarichi passati alla squadra');
   });
 });
 

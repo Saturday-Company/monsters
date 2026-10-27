@@ -11,11 +11,14 @@ import {
   type PendingSend,
 } from '../../store/derive.ts';
 import { useAgents, useOrchestrator, type AgentView } from '../../store/hooks.ts';
+import { keepStable } from '../../store/turn.ts';
 
 /*
  * The chats of the monsters, shared by the sidebar (one row per monster, on
  * every page) and the chat view: the thread of each monster and the questions
  * waiting in it. Both ask at once, so the result is kept for the last inputs.
+ * A rebuild (each chunk of a streamed reply is one) keeps the identity of the
+ * items and threads that did not change, so their rows do not render again.
  */
 
 export interface ChatData {
@@ -34,6 +37,7 @@ let last: {
   ids: string;
   orchestrator: string;
   data: ChatData;
+  items: readonly ChatItem[];
 } | null = null;
 
 export function chatData(
@@ -59,14 +63,22 @@ export function chatData(
   // The giri of the automations are not part of the chat (D-094): the Automazioni menu shows them.
   const auto = automationWork(events).runs;
   const chat = withoutAutomationRuns(events, auto);
-  const items = buildChat(chat, pending, (id) => names.get(id) ?? capitalize(id));
+  const items = keepStable(
+    last?.items,
+    buildChat(chat, pending, (id) => names.get(id) ?? capitalize(id)),
+  );
   const owners = runOwners(chat);
   const scope = { orchestrator, owners };
-  const threads = chatThreads(
+  const threads = new Map<string, ChatItem[]>();
+  for (const [id, thread] of chatThreads(
     items,
     agents.map((a) => a.id),
     scope,
-  );
+  ))
+    threads.set(
+      id,
+      keepStable(last?.data.threads.get(id), thread, (a, b) => a === b) as ChatItem[],
+    );
   const waiting = new Map<string, Question[]>();
   for (const q of Object.values(questions)) {
     if (q.status !== 'open' || auto.has(q.runId)) continue;
@@ -75,7 +87,7 @@ export function chatData(
   }
   for (const list of waiting.values()) list.sort((a, b) => a.createdAt - b.createdAt);
   const data = { threads, waiting };
-  last = { events, pending, questions, ids, orchestrator, data };
+  last = { events, pending, questions, ids, orchestrator, data, items };
   return data;
 }
 

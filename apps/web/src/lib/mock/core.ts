@@ -2795,8 +2795,8 @@ export class MockCore {
         data: {
           role: 'agent',
           text: tr(
-            'Great light! I’ll use it for Saturday. The menu is on a page: open it above.',
-            'Bella luce! La uso per sabato. Il menu è in una pagina: aprila qui sopra.',
+            'Great light! I’ll use it for Saturday. The menu is on a page: here it is.',
+            'Bella luce! La uso per sabato. Il menu è in una pagina: eccola.',
           ),
         },
       },

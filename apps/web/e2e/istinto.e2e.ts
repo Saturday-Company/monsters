@@ -139,38 +139,60 @@ test('the scorecard stays hidden until a model has the checked jobs it needs', a
   await expect(page.getByTestId('scorecard')).toHaveCount(0);
 });
 
-test('the receipt of a job, and "Annulla tutto il lavoro" in two presses', async ({ page }) => {
+test('the receipt of a job is the strip of its turn, and "Undo the whole job" takes two presses', async ({
+  page,
+}) => {
   await page.goto('/?mock=demo#/?chat=titan');
-  const receipt = page.getByTestId('receipt').first();
-  await expect(receipt).toHaveAttribute('data-open', 'true');
-  await expect(receipt.getByTestId('receipt-request')).toContainText(
-    'summarize yesterday’s meeting',
+  const turn = page.locator('[data-testid="turn"][data-run="run_seed_meeting"]');
+  await expect(turn.getByTestId('user-bubble')).toContainText('summarize yesterday’s meeting');
+  // Closed, one sentence in the chat's tone; no black screen, no service lines in the column.
+  const strip = turn.getByTestId('work-strip');
+  await expect(strip).toHaveAttribute('data-open', 'false');
+  await expect(strip.getByTestId('receipt-summary')).toHaveText(
+    'Worked 1 min · asked Dione and Rhea · 1 note · $0.0001',
   );
-  const jobs = receipt.getByTestId('receipt-delegation');
+  await expect(page.getByTestId('receipt')).toHaveCount(0);
+  await expect(page.getByTestId('delegation')).toHaveCount(0);
+  // What needs a check stays under the reply: the doubt in orange, the orders removed in red.
+  await expect(turn.getByTestId('turn-flag')).toHaveCount(2);
+  await expect(turn.getByTestId('turn-flag').first()).toHaveAttribute('data-tone', 'warn');
+  await expect(turn.getByTestId('turn-flag').first()).toContainText('in doubt');
+  await expect(turn.getByTestId('turn-flag').last()).toHaveAttribute('data-tone', 'stop');
+
+  await strip.getByRole('button', { name: /Worked 1 min/ }).click();
+  await expect(strip).toHaveAttribute('data-open', 'true');
+  const jobs = strip.getByTestId('receipt-delegation');
   await expect(jobs).toHaveCount(2);
   await expect(jobs.first()).toContainText('really finished');
   await expect(jobs.last()).toContainText('in doubt');
+  await expect(strip.getByTestId('receipt-criterion').filter({ hasText: 'guide' })).toHaveAttribute(
+    'data-ok',
+    'false',
+  );
+  await expect(strip.getByTestId('receipt-note')).toHaveText('Summary of the meeting with Bruno');
   await expect(
-    receipt.getByTestId('receipt-criterion').filter({ hasText: 'guide' }),
-  ).toHaveAttribute('data-ok', 'false');
-  await expect(receipt.getByTestId('receipt-note')).toHaveText('Summary of the meeting with Bruno');
-  await expect(receipt).toContainText('One text with orders for the monsters removed');
-  await expect(receipt.getByTestId('receipt-cost')).toContainText('steps');
+    strip.getByTestId('instinct-line').filter({ hasText: 'I removed text' }),
+  ).toBeVisible();
+  await expect(strip.getByTestId('receipt-cost')).toContainText('steps');
+  // The lines of the instinct: who does it, and what it said of a task.
+  await expect(
+    strip.getByTestId('instinct-line').filter({ hasText: 'Dione will handle it' }),
+  ).toBeVisible();
+  await expect(
+    strip.getByTestId('task-check').filter({ hasText: 'hadn’t finished' }),
+  ).toBeVisible();
+  // Without the technical details, no model names (D-181).
+  await expect(strip.getByTestId('receipt-model')).toHaveCount(0);
 
-  const undo = receipt.getByTestId('receipt-undo');
+  const undo = strip.getByTestId('receipt-undo');
   await undo.click();
   await expect(undo).toHaveAttribute('data-state', 'armed');
   await expect(undo).toHaveAccessibleName('Press again to undo the whole job');
   await expect(undo).toContainText('Again');
   await undo.click();
-  await expect(receipt.getByTestId('receipt-undone')).toContainText('Undone · 3 changes');
-  await expect(receipt.getByTestId('receipt-undo')).toHaveCount(0);
-  await expect(receipt.getByTestId('receipt-summary')).toHaveText('Job undone');
-  // The lines of the instinct in the chat: who does it, and what it said of a task.
-  await expect(
-    page.getByTestId('instinct-line').filter({ hasText: 'Dione will handle it' }),
-  ).toBeVisible();
-  await expect(page.getByTestId('task-check').filter({ hasText: 'in doubt' })).toBeVisible();
+  await expect(strip.getByTestId('receipt-undone')).toContainText('Undone · 3 changes');
+  await expect(strip.getByTestId('receipt-undo')).toHaveCount(0);
+  await expect(strip.getByTestId('receipt-summary')).toContainText('job undone');
 });
 
 test('Attività: an order removed is important, the hint of the instinct is under Tutto', async ({

@@ -141,7 +141,10 @@ test('technical details: off by default and after the old stored choice, on when
   await page.goto('/?mock=demo');
   await expect(page.getByTestId('chat-monitor')).toContainText('Titan');
   await expect(page.getByTestId('agent-bubble').first()).toBeVisible();
-  await expect(page.getByTestId('instrumentation')).toHaveCount(0);
+  // The strip of a turn names no model, and the monitor no sum (D-181).
+  const sentence = page.getByTestId('receipt-summary').first();
+  await expect(sentence).toBeVisible();
+  await expect(sentence).not.toContainText('llama');
   await expect(page.getByTestId('chat-summary')).toHaveCount(0);
   const stored = await page.evaluate(
     () => JSON.parse(localStorage.getItem('monsters-prefs') ?? '{}') as Record<string, unknown>,
@@ -150,9 +153,9 @@ test('technical details: off by default and after the old stored choice, on when
   expect(stored['theme']).toBe('light');
   // Turned on afterwards, it stays on across a reload.
   await setTechnicalDetails(page, true);
-  await expect(page.getByTestId('instrumentation').last()).toBeVisible();
+  await expect(sentence).toContainText('llama 3.3 70b');
   await page.reload();
-  await expect(page.getByTestId('instrumentation').last()).toBeVisible();
+  await expect(page.getByTestId('receipt-summary').first()).toContainText('llama 3.3 70b');
 });
 
 test('one model for the whole squad up front, one per monster in Advanced', async ({ page }) => {

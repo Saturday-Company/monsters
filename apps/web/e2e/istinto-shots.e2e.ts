@@ -99,11 +99,14 @@ for (const size of SIZES) {
 
       test('chat: receipt, undo, lines of the instinct', async ({ page }) => {
         await page.goto('/?mock=demo#/?chat=titan');
-        await page.getByTestId('receipt').first().waitFor();
-        await scrollTo(page.getByTestId('receipt'), 'end');
+        // The receipt is the strip of its turn, opened.
+        const strip = page.locator('[data-testid="work-strip"][data-run="run_seed_meeting"]');
+        await strip.getByRole('button', { expanded: false }).click();
+        await strip.getByTestId('strip-details').waitFor();
+        await scrollTo(strip, 'end');
         await page.waitForTimeout(250);
         await shot(page, '06-ricevuta');
-        await scrollTo(page.getByTestId('receipt'), 'start');
+        await scrollTo(strip, 'start');
         await page.waitForTimeout(150);
         await shot(page, '07-ricevuta-inizio');
         await page.getByTestId('receipt-undo').click();
@@ -189,7 +192,7 @@ test.describe('fps', () => {
       await page.goto(`/?mock=demo&vita=1${hash}`);
       await page.getByTestId('chat-panel').waitFor();
       if (hash.endsWith('titan')) {
-        await scrollTo(page.getByTestId('receipt'), 'center');
+        await scrollTo(page.getByTestId('work-strip').first(), 'center');
       }
       await page.waitForTimeout(1500);
       const value = await measure(page);

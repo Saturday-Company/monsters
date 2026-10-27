@@ -59,7 +59,7 @@ test('the preview on the monitor and the panel it opens', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(sheet).toHaveCount(0);
   await key(page).click();
-  // (Under the sheet on this width: the terminal opens as from the instrumentation line.)
+  // (Under the sheet on this width: the terminal opens as from a turn’s work strip.)
   await page.evaluate(async (src) => {
     const { openTerminal } = (await import(/* @vite-ignore */ src)) as {
       openTerminal: (id: string) => void;

@@ -555,6 +555,8 @@ export type ChatItem =
       held?: boolean;
       /** Ids of the files attached (shared/src/files.ts). */
       attachments?: string[] | undefined;
+      /** The run the message started: the turn it is the request of (store/turn.ts). */
+      runId?: string | undefined;
     }
   | {
       kind: 'agent';
@@ -581,6 +583,8 @@ export type ChatItem =
       notes?: string[] | undefined;
       /** What the instinct said of this task ("hadn’t finished…", "in doubt"), D-068. */
       checks?: { text: string; tone: 'warn' | 'stop' | null }[] | undefined;
+      /** The run it was given in: the turn of who gave it (store/turn.ts). */
+      runId?: string | undefined;
     }
   | {
       kind: 'question';
@@ -675,6 +679,8 @@ export type ChatItem =
       /** Whose chat it is in (the lead). */
       to: string;
       text: string;
+      /** The run it started in the lead's chat: the request of that turn. */
+      runId?: string | undefined;
     }
   /**
    * A message written to a bot dedicated to a monster (D-107): by someone in a
@@ -694,6 +700,8 @@ export type ChatItem =
       owner: boolean;
       chatType: 'private' | 'group' | 'supergroup';
       chatTitle?: string | undefined;
+      /** The run it started: the request of that turn. */
+      runId?: string | undefined;
     }
   /** A lead's report back to who sent it the work (`project_report`, D-097): in that chat (D-102). */
   | {
@@ -827,6 +835,7 @@ export function buildChat(
             owner: o.owner,
             chatType: o.chatType,
             ...(o.chatTitle ? { chatTitle: o.chatTitle } : {}),
+            ...(e.runId ? { runId: e.runId } : {}),
           });
           break;
         }
@@ -839,6 +848,7 @@ export function buildChat(
             from: d.from,
             to: d.to ?? d.from,
             text: d.text,
+            ...(e.runId ? { runId: e.runId } : {}),
           });
           break;
         }
@@ -850,6 +860,7 @@ export function buildChat(
             text: d.text,
             to: d.to,
             ...(d.attachments?.length ? { attachments: d.attachments } : {}),
+            ...(e.runId ? { runId: e.runId } : {}),
           });
           seenUserTexts.push(sentKey(d.text, d.attachments));
           break;
@@ -947,6 +958,7 @@ export function buildChat(
             goal: d.goal,
             status: d.status,
             summary: d.summary,
+            ...(e.runId ? { runId: e.runId } : {}),
           };
           delegations.set(key, item);
           byStart.set(e.id, item);
@@ -1180,23 +1192,97 @@ export interface ChatScope {
   owners: ReadonlyMap<string, string>;
 }
 
+/** How far back a list of events may differ from the one it grew from (store/event-cap.ts). */
+const GROW_LOOKBACK = 300;
+
 /**
- * A derivation of the log computed once per list of events: the chat, the sidebar, a question
- * card and the Activity page all ask for the same thing at every new event. What it returns is
- * shared, so it is only read.
+ * True when `next` is `prev` with events added at the end. The store only appends, except a
+ * chunk of an answer folded into the latest chunk of its run (`appendFolding`: same id, longer
+ * text, within the last few hundred events); a page of history or a trim changes the first
+ * event, an event out of order shifts the tail.
  */
-function onceFor<T>(
-  derive: (events: readonly LogEvent[]) => T,
+export function grewFrom(prev: readonly LogEvent[], next: readonly LogEvent[]): boolean {
+  const n = prev.length;
+  if (n === 0 || next.length < n || next[0] !== prev[0]) return false;
+  for (let i = Math.max(1, n - GROW_LOOKBACK); i < n; i++) {
+    const a = prev[i]!;
+    const b = next[i]!;
+    if (a === b) continue;
+    if (a.id !== b.id || b.type !== 'message' || b.data.role !== 'agent' || !b.data.partial)
+      return false;
+  }
+  return true;
+}
+
+/** The state of a derivation that grows with the log: what it gives (`value`) and what it keeps. */
+interface Growing<T> {
+  value: T;
+  /** `value` is a copy made in this pass: it may change in place until the pass ends. */
+  copied: boolean;
+}
+
+/**
+ * A derivation of the log that follows it as it grows: the chat, the sidebar, a question card and
+ * the Activity page all ask for the same thing at every new event, so it is computed once per list
+ * of events and what it returns is shared, only read. A new event (or a streamed chunk) costs
+ * the events added, not a pass over the whole log, and what did not change keeps its identity,
+ * so the memos of the chat and the sidebar hold. `add` reads one event; what it changes of
+ * `value` it copies first, once per pass (`copied`), never the objects already handed out. A list
+ * that does not continue a known one (a page of history, a trim) is read from the start.
+ * The chunks folded in place (`grewFrom`) are words of an answer: no derivation here reads them.
+ */
+export function growing<T, S extends Growing<T>>(
+  start: () => S,
+  add: (state: S, e: LogEvent) => void,
+  /** Before each pass that continues a list. */
+  begin?: (state: S) => void,
 ): (events: readonly LogEvent[]) => T {
   const done = new WeakMap<readonly LogEvent[], T>();
+  let slots: { events: readonly LogEvent[]; state: S }[] = [];
   return (events) => {
-    let out = done.get(events);
-    if (out === undefined) {
-      out = derive(events);
-      done.set(events, out);
+    const hit = done.get(events);
+    if (hit !== undefined) return hit;
+    const at = slots.findIndex((s) => grewFrom(s.events, events));
+    let state: S;
+    let from = 0;
+    if (at >= 0) {
+      state = slots[at]!.state;
+      from = slots[at]!.events.length;
+      slots.splice(at, 1);
+      state.copied = false;
+      begin?.(state);
+    } else {
+      state = start();
+      state.copied = true;
     }
-    return out;
+    for (let i = from; i < events.length; i++) add(state, events[i]!);
+    // A few lists side by side (the whole log, the chats' one without the automations).
+    slots = [{ events, state }, ...slots].slice(0, 3);
+    done.set(events, state.value);
+    return state.value;
   };
+}
+
+/** `state.value`, copied once in this pass, ready to change. */
+function own<K, V>(state: Growing<Map<K, V>>): Map<K, V> {
+  if (!state.copied) {
+    state.value = new Map(state.value);
+    state.copied = true;
+  }
+  return state.value;
+}
+
+/** A map keyed by run (or question) that only ever learns the first value of each key. */
+function firstOf(
+  pick: (e: LogEvent) => [string, string] | null,
+): (events: readonly LogEvent[]) => Map<string, string> {
+  return growing<Map<string, string>, Growing<Map<string, string>>>(
+    () => ({ value: new Map(), copied: true }),
+    (state, e) => {
+      const kv = pick(e);
+      if (kv && !state.value.has(kv[0])) own(state).set(kv[0], kv[1]);
+    },
+  );
 }
 
 /**
@@ -1204,16 +1290,12 @@ function onceFor<T>(
  * of its first message, else who delegates in it (a delegated monster works in
  * the run of who asked, D-021).
  */
-export const runOwners = onceFor((events): Map<string, string> => {
-  const out = new Map<string, string>();
-  for (const e of events) {
-    if (!e.runId || out.has(e.runId)) continue;
-    if (e.type === 'run' && e.data.status === 'started') out.set(e.runId, e.agent);
-    else if (e.type === 'message' && e.data.role === 'user' && e.data.to)
-      out.set(e.runId, e.data.to);
-    else if (e.type === 'delegation' && e.data.status === 'started') out.set(e.runId, e.data.from);
-  }
-  return out;
+export const runOwners = firstOf((e) => {
+  if (!e.runId) return null;
+  if (e.type === 'run' && e.data.status === 'started') return [e.runId, e.agent];
+  if (e.type === 'message' && e.data.role === 'user' && e.data.to) return [e.runId, e.data.to];
+  if (e.type === 'delegation' && e.data.status === 'started') return [e.runId, e.data.from];
+  return null;
 });
 
 /**
@@ -1438,14 +1520,9 @@ export function splitConversation(
 }
 
 /** Id of the event that closed each question (its answer or its expiry). */
-export const questionsClosedAt = onceFor((events): Map<string, string> => {
-  const out = new Map<string, string>();
-  for (const e of events) {
-    if ((e.type === 'answer' || e.type === 'question_expired') && !out.has(e.data.questionId))
-      out.set(e.data.questionId, e.id);
-  }
-  return out;
-});
+export const questionsClosedAt = firstOf((e) =>
+  e.type === 'answer' || e.type === 'question_expired' ? [e.data.questionId, e.id] : null,
+);
 
 /** Messages (bubbles) in a list of chat items. */
 export function countMessages(items: readonly ChatItem[]): number {
@@ -1519,69 +1596,6 @@ export function doneSummary(goal: string, summary: string | undefined): string |
   const g = comparable(goal);
   if (s === g || (g.length > 0 && g.startsWith(s))) return null;
   return taskText(rest);
-}
-
-/** One row of the chat: an item, or a run of events among monsters folded into one line. */
-export type ChatRow<T> = { kind: 'one'; row: T } | { kind: 'group'; id: string; rows: T[] };
-
-/** The rows that fold when they come in a row: tasks among monsters and what the instinct said. */
-const FOLDABLE = new Set<ChatItem['kind']>(['delegation', 'instinct']);
-
-/** How many events among monsters in a row fold into one line ("4 compiti completati"). */
-export const GROUP_MIN = 3;
-
-/**
- * Folds runs of at least `min` event rows in a row (tasks among monsters, instinct lines; nothing
- * else between them) into one group; everything else stays as it is, in order.
- */
-export function groupDelegations<T>(
-  rows: readonly T[],
-  itemOf: (row: T) => ChatItem,
-  min = GROUP_MIN,
-  /** Which rows may fold: by default every task and instinct line (a chat can say "not this one"). */
-  canFold: (item: ChatItem) => boolean = (item) => FOLDABLE.has(item.kind),
-): ChatRow<T>[] {
-  const out: ChatRow<T>[] = [];
-  let run: T[] = [];
-  const flush = () => {
-    if (run.length >= min) out.push({ kind: 'group', id: itemOf(run[0]!).id, rows: run });
-    else for (const r of run) out.push({ kind: 'one', row: r });
-    run = [];
-  };
-  for (const r of rows) {
-    if (canFold(itemOf(r))) run.push(r);
-    else {
-      flush();
-      out.push({ kind: 'one', row: r });
-    }
-  }
-  flush();
-  return out;
-}
-
-/** The line of a group of delegations: "4 tasks completed", "3 tasks: 2 completed and 1 in progress". */
-export function delegationGroupLabel(items: readonly ChatItem[]): string {
-  const g = deriveStrings().group;
-  let done = 0;
-  let open = 0;
-  let other = 0;
-  for (const it of items) {
-    if (it.kind !== 'delegation') continue;
-    if (it.status === 'completed') done++;
-    else if (it.status === 'started') open++;
-    else other++;
-  }
-  const total = done + open + other;
-  // Lines of the instinct among the tasks: said as events, not counted as tasks.
-  if (items.some((it) => it.kind === 'instinct')) return g.events(items.length);
-  if (done === total) return g.done(total);
-  if (open === total) return g.open(total);
-  const parts = [
-    done > 0 ? g.partDone(done) : '',
-    open > 0 ? g.partOpen(open) : '',
-    other > 0 ? g.partOther(other) : '',
-  ].filter(Boolean);
-  return g.mixed(total, listText(parts));
 }
 
 /* ------------------------------------------------------------------ notes */
@@ -2399,6 +2413,8 @@ export interface RunStats {
   searchEngine?: string | undefined;
   /** The run ended (completed, failed, stopped). */
   ended: boolean;
+  /** How it ended, when it did. */
+  status?: 'completed' | 'failed' | 'aborted' | 'waiting_user' | undefined;
   /** Time of its first event: which conversation it belongs to. */
   firstTs: number;
 }
@@ -2430,39 +2446,70 @@ function isFreeModel(id: string | undefined): boolean {
   return !!id && (id === 'openrouter/free' || id.endsWith(':free'));
 }
 
-/** Stats of every run in the log, in one pass. */
-export const runStatsIndex = onceFor((events): Map<string, RunStats> => {
-  const out = new Map<string, RunStats>();
-  const started = new Map<string, number>();
-  const requests = new Map<string, number>();
-  const get = (runId: string, ts: number): RunStats => {
-    let s = out.get(runId);
-    if (!s) {
-      s = { runId, tools: [], toolCalls: 0, free: false, models: {}, ended: false, firstTs: ts };
-      out.set(runId, s);
-    }
-    return s;
-  };
-  for (const e of events) {
+interface StatsState extends Growing<Map<string, RunStats>> {
+  started: Map<string, number>;
+  requests: Map<string, number>;
+  /** The stats copied in this pass: they may change in place. */
+  mine: Set<RunStats>;
+}
+
+/**
+ * Stats of every run in the log, following it as it grows (`growing`): the stats of a run that
+ * did not change keep their identity.
+ */
+export const runStatsIndex = growing<Map<string, RunStats>, StatsState>(
+  () => ({
+    value: new Map(),
+    copied: true,
+    started: new Map(),
+    requests: new Map(),
+    mine: new Set(),
+  }),
+  (state, e) => {
     const runId = e.runId;
-    if (!runId) continue;
-    get(runId, e.ts);
+    if (!runId) return;
+    const { started, requests } = state;
+    const fresh = (ts: number): RunStats => ({
+      runId,
+      tools: [],
+      toolCalls: 0,
+      free: false,
+      models: {},
+      ended: false,
+      firstTs: ts,
+    });
+    if (!state.value.has(runId)) {
+      const s = fresh(e.ts);
+      own(state).set(runId, s);
+      state.mine.add(s);
+    }
+    /** The stats of the run, ready to change. */
+    const edit = (): RunStats => {
+      const cur = state.value.get(runId)!;
+      if (state.mine.has(cur)) return cur;
+      const next = { ...cur, tools: cur.tools.map((t) => ({ ...t })), models: { ...cur.models } };
+      own(state).set(runId, next);
+      state.mine.add(next);
+      return next;
+    };
     switch (e.type) {
       case 'run': {
-        const s = get(runId, e.ts);
+        const s = edit();
         if (e.data.status === 'started') {
           if (!started.has(runId)) started.set(runId, e.ts);
           s.ended = false;
           s.durationMs = undefined;
+          s.status = undefined;
         } else {
           s.ended = true;
+          s.status = e.data.status;
           const t0 = started.get(runId);
           if (t0 !== undefined) s.durationMs = Math.max(0, e.ts - t0);
         }
         break;
       }
       case 'tool_call': {
-        const s = get(runId, e.ts);
+        const s = edit();
         const name = toolShort(e.data.tool);
         const hit = s.tools.find((t) => t.name === name);
         if (hit) hit.count++;
@@ -2473,11 +2520,11 @@ export const runStatsIndex = onceFor((events): Map<string, RunStats> => {
       case 'tool_result': {
         if (e.data.tool !== 'web_search' || !e.data.ok) break;
         const engine = searchEngineOf(e.data.output);
-        if (engine) get(runId, e.ts).searchEngine = engine;
+        if (engine && state.value.get(runId)!.searchEngine !== engine) edit().searchEngine = engine;
         break;
       }
       case 'provider_usage': {
-        const s = get(runId, e.ts);
+        const s = edit();
         const d = e.data;
         // A question of the instinct (Jev) or a paid web search (D-071): its cost
         // counts, it is not the model of the turn.
@@ -2501,9 +2548,9 @@ export const runStatsIndex = onceFor((events): Map<string, RunStats> => {
       default:
         break;
     }
-  }
-  return out;
-});
+  },
+  (state) => state.mine.clear(),
+);
 
 /** The cost as the instrument says it: "free" on free models (or a reported 0), else dollars. */
 export function costText(s: { costUsd?: number | undefined; free: boolean }): string | null {
@@ -2655,14 +2702,34 @@ export interface AutomationWork {
  * (its chat says so: a message written now starts after it), and how many
  * giri wait for an answer.
  */
-export const automationWork = onceFor((events): AutomationWork => {
-  const runs = new Set<string>();
-  const open = new Map<string, { agent: string; busy: AutomationBusy }>();
-  const giri = new Map<string, 'running' | 'waiting' | 'done'>();
-  for (const e of events) {
+interface AutomationState extends Growing<AutomationWork> {
+  runs: Set<string>;
+  open: Map<string, { agent: string; busy: AutomationBusy }>;
+  giri: Map<string, 'running' | 'waiting' | 'done'>;
+}
+
+/** What `automationWork` gives, from what it keeps. */
+function automationValue(state: AutomationState): AutomationWork {
+  const busy = new Map<string, AutomationBusy>();
+  for (const { agent, busy: b } of state.open.values()) busy.set(agent, b);
+  let waiting = 0;
+  for (const s of state.giri.values()) if (s === 'waiting') waiting++;
+  return { runs: new Set(state.runs), busy, waiting };
+}
+
+export const automationWork = growing<AutomationWork, AutomationState>(
+  () => ({
+    value: { runs: new Set(), busy: new Map(), waiting: 0 },
+    copied: true,
+    runs: new Set(),
+    open: new Map(),
+    giri: new Map(),
+  }),
+  (state, e) => {
+    // Only these events change it: the rest of the log keeps the same value.
     if (e.type === 'automation_run_started' && e.runId) {
-      runs.add(e.runId);
-      open.set(e.runId, {
+      state.runs.add(e.runId);
+      state.open.set(e.runId, {
         agent: e.agent,
         busy: {
           automationId: e.data.automationId,
@@ -2671,20 +2738,21 @@ export const automationWork = onceFor((events): AutomationWork => {
           giro: e.data.giro,
         },
       });
-      giri.set(e.data.giro, 'running');
+      state.giri.set(e.data.giro, 'running');
     } else if (e.type === 'automation_run_finished') {
-      if (e.runId) open.delete(e.runId);
-      giri.set(e.data.giro, e.data.status === 'waiting_user' ? 'waiting' : 'done');
-    } else if (e.type === 'run' && e.runId && e.data.status !== 'started') {
-      open.delete(e.runId);
-    }
-  }
-  const busy = new Map<string, AutomationBusy>();
-  for (const { agent, busy: b } of open.values()) busy.set(agent, b);
-  let waiting = 0;
-  for (const s of giri.values()) if (s === 'waiting') waiting++;
-  return { runs, busy, waiting };
-});
+      if (e.runId) state.open.delete(e.runId);
+      state.giri.set(e.data.giro, e.data.status === 'waiting_user' ? 'waiting' : 'done');
+    } else if (
+      e.type === 'run' &&
+      e.runId &&
+      e.data.status !== 'started' &&
+      state.open.has(e.runId)
+    ) {
+      state.open.delete(e.runId);
+    } else return;
+    state.value = automationValue(state);
+  },
+);
 
 /** The events of the chats: everything but the giri of the automations. */
 export function withoutAutomationRuns(

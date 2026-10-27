@@ -332,7 +332,13 @@ test('Progetti: Ferma progetto stops its monsters with two presses, not the kill
   const input = page.getByTestId('composer-input');
   await input.fill('Prepare the Halloween posts');
   await input.press('Enter');
-  await stepMockUntil(page, () => page.getByTestId('working-row').isVisible());
+  // At work: the live strip of its turn (or, before the run starts, the line at the bottom).
+  await stepMockUntil(page, () =>
+    page
+      .locator('[data-testid="working-row"], [data-testid="work-strip"][data-alive="true"]')
+      .first()
+      .isVisible(),
+  );
   const stop = page.getByTestId('project-stop');
   await stop.click();
   await expect(stop).toHaveAttribute('data-armed', 'true');

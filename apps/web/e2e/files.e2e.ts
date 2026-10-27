@@ -173,17 +173,21 @@ test('paste an image in the field and drop files on the chat', async ({ page }) 
   await expect(page.getByTestId('drop-zone')).toHaveCount(0);
 });
 
-test('the monsters’ files show as chips: a screenshot of Rhea, a page of Dione', async ({
+test('the monsters’ files ride on the reply of their turn: a screenshot of Rhea, a page of Dione', async ({
   page,
 }) => {
   await page.goto('/?mock=demo');
-  const shotRow = page.getByTestId('file-row').filter({ hasText: 'Rhea saved a screenshot' });
-  await expect(shotRow).toHaveCount(1);
-  await expect(shotRow.getByTestId('image-tile')).toBeVisible();
+  // Inside the reply of the turn that made them (F-7), not a row of their own in the middle.
+  const reply = page.getByTestId('agent-bubble').filter({ hasText: 'I’ll ask Rhea' });
+  const shot = reply.getByTestId('turn-attachments').getByTestId('file-row');
+  await expect(shot).toHaveCount(1);
+  await expect(shot.getByTestId('image-tile')).toBeVisible();
   await page.goto('/?mock=demo#/?chat=dione');
-  const page_ = page.getByTestId('file-row').filter({ hasText: 'Dione created a page' });
-  await expect(page_).toContainText('Weekly menu');
-  await expect(page_.getByTestId('file-chip')).toContainText('Weekly menu.html');
+  const page_ = page.getByTestId('turn-attachments').getByTestId('file-chip');
+  await expect(page_).toContainText('Weekly menu.html');
+  await expect(
+    page.getByTestId('agent-bubble').filter({ has: page.getByTestId('turn-attachments') }),
+  ).toContainText('The menu is on a page');
   // The user's photo rides on the bubble.
   await expect(
     page.getByTestId('bubble-attachments').first().getByTestId('image-tile'),

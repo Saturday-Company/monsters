@@ -9,7 +9,6 @@ import {
   ASKED_ACTIVITY,
   CONFUSED_TEXT,
   buildChat,
-  delegationGroupLabel,
   describeEvent,
   describeTool,
   errorSentence,
@@ -372,21 +371,6 @@ describe('tool names', () => {
 });
 
 describe('the chat in both languages', () => {
-  it('groups tasks with plurals and lists', () => {
-    const task = (status: 'started' | 'completed' | 'failed') =>
-      ({ kind: 'delegation', id: status, ts: 1, from: 'a', to: 'b', goal: 'g', status }) as never;
-    const done = [task('completed'), task('completed'), task('completed')];
-    expect(both(() => delegationGroupLabel(done))).toEqual([
-      '3 tasks completed',
-      '3 incarichi completati',
-    ]);
-    const mixed = [task('completed'), task('started'), task('failed'), task('failed')];
-    expect(both(() => delegationGroupLabel(mixed))).toEqual([
-      '4 tasks: 1 completed, 1 in progress, and 2 stopped',
-      '4 incarichi: 1 completato, 1 in corso e 2 fermati',
-    ]);
-  });
-
   it('lists names with the right "and"', () => {
     expect(both(() => listText(['Bruno', 'Rhea', 'Dione']))).toEqual([
       'Bruno, Rhea, and Dione',

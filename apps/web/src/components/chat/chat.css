@@ -52,58 +52,64 @@
     color: var(--on-signal);
   }
 
-  /* -------------------------------------------------- instrumentation */
+  /* ------------------------------------------------------- work strip */
 
-  /* "TITAN › DELEGA ×2 · RICERCA WEB ×3 · 4,1 S · GRATIS" under a turn. */
-  .instr {
-    display: block;
-    position: relative;
-    max-width: 100%;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    line-height: 16px;
-    font-weight: 500;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    font-variant-numeric: tabular-nums;
-    color: var(--ink-muted);
-    text-align: left;
-    border-radius: 4px;
+  /*
+   * The work of a turn (docs/design.md, "The chat"): closed, one muted sentence that lights like a
+   * row under the pointer; alive or open, a raised card set in by a seam, like the bubbles.
+   */
+  .work-strip {
+    border-radius: 12px;
   }
 
-  /* The line is 16 px tall: the target is 24 px (WCAG 2.5.8), the look does not change. */
-  .instr::after {
-    content: '';
-    position: absolute;
-    inset-inline: 0;
-    top: 50%;
-    height: max(100%, 24px);
-    transform: translateY(-50%);
-  }
-
-  /* The arrow says where a press goes: shown under the pointer, always on a touch screen. */
-  .instr-go {
-    opacity: 0;
+  .work-strip:is([data-open='true'], [data-alive='true']) {
+    background-color: var(--raised);
+    box-shadow:
+      0 0 0 1px var(--seam),
+      0 1px 0 1px var(--seam-light);
   }
 
   @media (hover: hover) {
-    .instr:hover {
+    .work-strip[data-open='false'][data-alive='false'] .strip-head:hover {
+      background-color: var(--raised);
+    }
+
+    .strip-head:hover > span,
+    .strip-link:hover {
       color: var(--ink);
     }
-
-    .instr:hover .instr-go {
-      opacity: 1;
-    }
   }
 
-  @media (hover: none) {
-    .instr-go {
-      opacity: 1;
-    }
+  .strip-head:active {
+    box-shadow: inset 0 0 0 1.5px var(--seam);
   }
 
-  .instr:focus-visible .instr-go {
-    opacity: 1;
+  .strip-head:focus-visible,
+  .strip-link:focus-visible {
+    outline: 2px solid var(--signal-ink);
+    outline-offset: 1px;
+  }
+
+  /* The foot of the open strip: cost and time, Behind the scenes, Undo; split by a seam. */
+  .strip-foot {
+    box-shadow:
+      inset 0 1px 0 var(--seam),
+      inset 0 2px 0 var(--seam-light);
+  }
+
+  .strip-key {
+    display: inline-flex;
+    align-items: center;
+    height: 36px;
+    padding: 0 12px;
+    color: var(--ink);
+  }
+
+  .strip-key-armed {
+    color: var(--stop-ink);
+    box-shadow:
+      inset 0 0 0 1.5px var(--stop),
+      0 2px 0 var(--key-edge);
   }
 
   /* -------------------------------------------- events among monsters */
@@ -188,26 +194,6 @@
   /* The question light on a screen: the signal orange as text (≥ 4.5:1 on black). */
   .text-screen-signal {
     color: var(--signal);
-  }
-
-  /* ------------------------------------------------------------ receipt */
-
-  /* The receipt of a job (D-068): a display, its foot split by a line of light. */
-  .receipt {
-    border-radius: 12px;
-  }
-
-  .receipt-foot {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  }
-
-  .receipt-undo {
-    height: 36px;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
-  }
-
-  .receipt-undo[data-state='armed'] {
-    box-shadow: inset 0 0 0 1px var(--screen-stop);
   }
 
   /* ------------------------------------------------------------ keypad */
@@ -332,7 +318,7 @@
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   }
 
-  /* The run the instrumentation line asked for: a bar of the monster's light on the left. */
+  /* The run the work strip asked for: a bar of the monster's light on the left. */
   .term-row[data-focus] {
     box-shadow: inset 2px 0 0 var(--lit, var(--screen-ink));
     background-color: rgba(255, 255, 255, 0.035);
