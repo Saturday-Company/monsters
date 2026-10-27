@@ -6168,3 +6168,50 @@ a member in its own chat could not ask anyone.
 question counts as a delegation of the run (at most 4 at once, 12 per task by default), so a lead running four
 parallel delegations leaves no room for a question until one ends: the asker gets the limit error and goes on.
 
+
+### D-202 · The chat is made of turns: one work strip instead of service lines, instrumentation and receipt
+**Status:** done · 27/10/2026
+**Context:** the UX review of 27/10 (plan in the internal repo) found that the chat read like a log: in a normal turn
+of the orchestrator there were more service lines ("RHEA FINISHED", "TITAN → RHEA", "SAVED A SCREENSHOT", instinct
+lines, files in the middle) than words, then an open black receipt with model, tier, cost and steps. `buildChat` made a
+flat, time-sorted list of about twelve row kinds; grouping came afterwards, only for delegations and instinct, only
+from three rows in a row. Every 250 ms stream chunk rebuilt every item and re-rendered every row.
+**Choices:**
+- A `Turn` (`store/turn.ts`): the items of one run (`runId`). Reports, stops, resets and questions carried over from
+  another run stay on their own; a second request inside the same run opens a second turn. In the chat of a monster
+  that received a task, the strip shows only that monster's steps, not the run's cost and time.
+- The **work strip** (`WorkStrip.tsx`) replaces the centred service lines, the instrumentation line and the receipt
+  display (`Receipt.tsx` removed): open and alive while the turn runs (the current step in words, the last three
+  steps), one closed sentence when it ends ("Worked 1 min · asked Dione and Rhea · 1 note · free"). Open, it holds the
+  timeline with the task checks and their reasons, notes, what left the computer, security, cost, "Behind the scenes"
+  on that run and the two-press "Undo the whole job". Model and tier names only with technical details on. The black
+  screen stays for Behind the scenes only.
+- In the column stay only what is read or asks for an action: requests, replies with their files (attachments of the
+  last bubble of the run, not centred rows), questions, errors with "Try again", drafts, messages from other monsters
+  and Telegram, leads' reports, and the orange/red flag lines (in doubt, orders removed).
+- Item, thread and turn objects keep their identity between chunks; `runStatsIndex`, `runOwners`, `questionsClosedAt`,
+  `automationWork` and the new `runStepsIndex` read only the events appended since the last pass (a history page or a
+  trim rebuilds them). Only the streaming turn re-renders.
+- "New messages" counts new items only (it was relit by every chunk and by the working state); the transcript is no
+  longer `aria-live`: a visually hidden region announces finished replies and new questions only. The suggestions and
+  "Tell me more about you" appear only after the lead's first reply, not after every reply.
+**Consequence:** a turn reads as request → one line of work → reply. Accepted: details that used to be visible at a
+glance (each delegation's line) now take one click on the strip.
+
+### D-203 · Stop one monster, previous conversations, the context in words (core)
+**Status:** done · 27/10/2026
+**Context:** the only way to stop was the global Stop (D-018), which stops every monster; "New conversation" had no way
+back; the chat monitor showed the context as a token gauge (`CONTEXT 17%`), meaningless for most users.
+**Choices:**
+- `POST /api/agents/:id/stop` (and `monsters stop <monster>`): aborts every run owned by that monster (its chat turn
+  with the delegations and teammate questions it started, its automation run, its Telegram chats) and its part inside
+  other monsters' runs, which go on with the delegation closed as aborted ("The user stopped Dione"). Otherwise Stop in
+  Dione's chat would do nothing while she works for the orchestrator. Like "Stop project" it also drops what other
+  monsters wrote to it and was waiting, and skips automation runs waiting for it; the user's own waiting messages still
+  start. Not a kill: the core is not halted and the next message starts a new run. One `kill` event per touched run
+  with `scope: 'agent'`; open questions close with the reason `stopped`.
+- `GET /api/chats/:agent/conversations` (newest first, capped at 50, `before` cursor; the title is the first message
+  typed to the monster) and `GET /api/chats/:agent/conversations/:id/history`, a dedicated route rather than a
+  `?conversation=` parameter: an older core would ignore the parameter and silently return the current chat.
+- `contextLevel()` in `@monsters/shared`: `long` from 60% of the window, `full` from 75% (the compaction mark) or once
+  older turns were summarised. The sentence must appear before compaction, hence 60%.
