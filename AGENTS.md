@@ -9,7 +9,7 @@ in `docs/security-model.md`. The guides in `docs/` are in English; `docs/DECISIO
 ## Commands (Node 24, pnpm 12)
 
 - `pnpm install` · `pnpm typecheck` · `pnpm lint` · `pnpm test` · `pnpm format` · `pnpm build`
-- CLI: `pnpm --filter @monsters/cli exec monsters start|status|kill|resume|chat|answer|vault reindex|mcp|password`.
+- CLI: `pnpm --filter @monsters/cli exec monsters start|status|kill|stop|resume|chat|answer|vault reindex|mcp|password`. `stop <monster>` stops one monster's work (its runs and its part in others'), not the whole core;
   `password` sets a new account password on the machine running the core (asked twice, closes all sessions); `mcp` is
   the vault's stdio MCP server for Claude Desktop and other clients (`docs/mcp-vault.md`); `chat` without text opens the
   interactive terminal chat, also over SSH. The Telegram bot lives in `packages/core/src/channels/telegram/`, with
