@@ -6215,3 +6215,31 @@ back; the chat monitor showed the context as a token gauge (`CONTEXT 17%`), mean
   `?conversation=` parameter: an older core would ignore the parameter and silently return the current chat.
 - `contextLevel()` in `@monsters/shared`: `long` from 60% of the window, `full` from 75% (the compaction mark) or once
   older turns were summarised. The sentence must appear before compaction, hence 60%.
+
+### D-204 · The writing field and the monitor: Stop for one monster, a docked question, commands, earlier conversations
+**Status:** done · 27/10/2026
+**Context:** the second half of the chat review of 27/10, on the turn of D-202 and the core of D-203. Send could not
+stop anything, the "waiting for your answer" pill floated over the text (its observer used a fixed 120 px margin),
+`/new` existed but nobody could find it, bubbles had no actions, the @ menu offered the chat's own monster, and the
+monitor showed a token gauge and a second sum of the run.
+**Choices:**
+- While that monster works, Stop takes Send's place (both keys with words in the field: the message waits). It calls
+  `POST /api/agents/:id/stop`; `⌘/Ctrl+Shift+Backspace` does the same, Esc never does (too easy to press by mistake).
+  Hidden while a question waits on the user, shown for automation work too. In `derive.ts` a `kill` with
+  `scope: 'agent'` closes the event's `runId` (not `target`); with `runsAborted: 0` only that monster's part closes.
+  `RunStats.stoppedAgent` gives the strip its sentence ("You stopped Dione after 12 s").
+- A message written while the monster works says "Will read it after this step" until it does. The log has no
+  "inbox read" event, so it is derived (`store/queued.ts`): a model step that was running has ended and no later action
+  of the monster is logged.
+- One element on the writing field's dock for an open question: the question with its option keys and "Show" when the
+  card is out of view (measured against the dock's real height), "Answering Titan's question" when writing.
+- `/` opens commands like `@` (`/new`, `/stop`, `/behind`, `/attach`; `/nuova` still works); `@` leaves out the chat's
+  own monster and says when nothing matches.
+- Each bubble has a small bar (time, Copy, Again, Edit) on hover or on a tap of the time; code blocks have the language
+  and Copy. A turn shows its time after 5 minutes of silence (it was 30). Under 480 px the monsters' bubbles take the
+  full width.
+- The monitor drops the run's sum (it repeated the strip and Usage); the CONTEXT meter only with technical details. For
+  everyone a note above the field when `contextLevel` is `long` or `full`, with "New conversation", dismissed per
+  conversation and level in this browser. "Conversations" lists the current one and the earlier ones; an earlier one is
+  read into local state (never into the chat's events) and shown read-only with a band and "Back to current". "New
+  conversation" stays one click, with no confirm: the list is the way back.
