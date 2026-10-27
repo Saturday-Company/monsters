@@ -364,9 +364,9 @@ test('a code block says its language and has a Copy key', async ({ page, context
   await expect(key).toHaveAccessibleName('Copy the code');
   expect(Math.round((await key.boundingBox())!.height)).toBeGreaterThanOrEqual(32);
   await key.click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-    'for f in *.md; do\n  echo "$f"\ndone',
-  );
+  // The Windows clipboard keeps text with CRLF line ends.
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied.replace(/\r\n/g, '\n')).toBe('for f in *.md; do\n  echo "$f"\ndone');
 });
 
 test('the time shows at the head of a turn after 5 minutes of silence (F-10)', async ({ page }) => {
