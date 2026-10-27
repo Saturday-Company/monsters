@@ -236,6 +236,35 @@ const COMPONENTS: Components = {
   },
 };
 
+/** How many finished texts keep their parsed tree (a long chat mounts its rows again, stream J). */
+const TREES_MAX = 300;
+const trees = new Map<string, ReactNode>();
+
+/**
+ * The elements of a finished text, parsed once: a row of a long chat that scrolls away and back
+ * mounts again (the transcript renders only the rows near the screen), and parsing is most of
+ * the cost of a bubble. `ReactMarkdown` is a plain function of its options (no hooks), and its
+ * options here are constants, so its elements depend on the text alone; the flags of the
+ * renderer reach the components by context, at render.
+ */
+function markdownTree(text: string): ReactNode {
+  const hit = trees.get(text);
+  if (hit !== undefined) {
+    trees.delete(text);
+    trees.set(text, hit);
+    return hit;
+  }
+  const tree = ReactMarkdown({
+    remarkPlugins: PLUGINS,
+    urlTransform: safeUrl,
+    components: COMPONENTS,
+    children: text,
+  });
+  trees.set(text, tree);
+  if (trees.size > TREES_MAX) trees.delete(trees.keys().next().value!);
+  return tree;
+}
+
 export interface MarkdownProps {
   text: string;
   className?: string;
@@ -275,9 +304,13 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
         className={cn('md', streaming && 'md-streaming', className)}
         style={codeBg ? { ...style, ['--md-code-bg' as string]: codeBg } : style}
       >
-        <ReactMarkdown remarkPlugins={PLUGINS} urlTransform={safeUrl} components={COMPONENTS}>
-          {prepareMarkdown(text)}
-        </ReactMarkdown>
+        {streaming ? (
+          <ReactMarkdown remarkPlugins={PLUGINS} urlTransform={safeUrl} components={COMPONENTS}>
+            {prepareMarkdown(text)}
+          </ReactMarkdown>
+        ) : (
+          markdownTree(prepareMarkdown(text))
+        )}
       </div>
     </MdFlagsContext.Provider>
   );

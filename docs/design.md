@@ -314,9 +314,9 @@ changes.
 - **What can be done with a message and its time**: on the corner of every bubble a small bar (a `popover`, 36 tall,
   over the bubble's top edge, by its right corner so it covers the strip's sentence, which is short and on the left, as little as it can) with the **time** in Martian Mono 11
   and the keys **Copy** (every bubble, monster's and yours; the icon turns into a tick for 1.6 s), **Again** (your
-  messages: sends the same words once more) and **Edit** (only your last message: puts it back in the field). Keys 32
+  last message of a turn: sends the same words once more) and **Edit** (only your last message: puts it back in the field). Keys 32
   px, their name as tooltip and accessible name. It shows under a hovering pointer (desktop) or with the focus inside
-  it, and **on a tap on the bubble** on touch (a tap elsewhere puts it away; no hover is relied on); a reply that is
+  it, and **on a tap on the bubble or a long press** (450 ms) on touch (a tap elsewhere puts it away; no hover is relied on); a reply that is
   still streaming has none. An earlier conversation shown for reading has Copy only. **Code blocks** have a head line
   with the language (`.label` 11, "Code" when it has none) and a Copy key (32 px) that copies the whole block.
 - **Time in the flow**: the time (a centered `.label`) shows at the head of a turn when **more than 5 minutes** have
@@ -381,6 +381,14 @@ changes.
 - **Events outside a turn** (a stop, "Resumed", a new conversation, a lead's report, older events without a run): a
   centered `.label` line between two seam dashes ("YOU STOPPED ALL THE MONSTERS · 00:02"); below 480 px no dashes and
   the line wraps. The full sentence is the accessible name.
+- **A long chat** (stream J): past 80 rows the transcript renders only the rows near the screen (about one screen
+  above and one below; `VirtualList.tsx`, heights measured once a row has been on screen, guessed by kind before),
+  the rest stands in as the list's padding. It still opens at the bottom and follows a streaming reply, a page of
+  "Earlier messages" keeps the line being read in place (so does a picture or a strip that grows above it),
+  "Show" on the question bar and "To review" bring a far card in (a jump, not a glide), the focused row stays, the
+  rows keep their place in the list for screen readers (`aria-setsize`, `aria-posinset`) and only what arrived with
+  the chat open rises in, once. Find-in-page sees only the rendered rows. Budget at 1440×900 on `?mockChat=1500`
+  (`apps/web/scripts/chat-perf.ts`): open < 500 ms, scrolling and streaming ≥ 55 fps.
 - **Screen readers and "New messages"**: the transcript is not a live region; a hidden one says each finished reply
   ("Titan: …") and each new question once. Scrolled up, "N new messages" counts new items only, never a chunk of a
   reply already there or the monster starting to work.

@@ -429,7 +429,7 @@ function Details({ turn, id, undone }: { turn: Turn; id: string; undone: boolean
             <Entry key={n.path} mark={toneLed('ok')}>
               <a
                 href={notePath(n.path)}
-                className="font-medium text-ink underline decoration-ink-faint underline-offset-[3px] hover:decoration-ink"
+                className="hit-32 font-medium text-ink underline decoration-ink-faint underline-offset-[3px] hover:decoration-ink"
                 data-testid="receipt-note"
               >
                 {baseName(n.path)}
