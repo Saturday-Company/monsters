@@ -37,6 +37,7 @@ import { SetupBodySchema } from '../api.ts';
 import type { RawResponse, SocketLike, Transport } from '../transport.ts';
 import { applyLive, type LiveState } from '../../store/derive.ts';
 import { MOCK_DEMO_USER, MOCK_SETUP_CODE } from './constants.ts';
+import { seedLongChat } from './long-chat.ts';
 
 import { mockTeam } from './team.ts';
 import { ambientJobs, type AmbientJob } from './ambient.ts';
@@ -96,6 +97,11 @@ export interface MockOptions {
    * the chats' own history lies beyond the first page of the log (W-1).
    */
   noise?: number;
+  /**
+   * Turns of mixed content seeded into the orchestrator's chat before the demo's own
+   * (`?mockChat=1500`): the long chat the transcript is measured on (stream J).
+   */
+  chatTurns?: number;
 }
 
 interface AuthState {
@@ -353,6 +359,21 @@ export class MockCore {
       // Earlier conversations of Titan and Dione, closed by "New conversation" weeks ago: first,
       // so their ids (monotonic) come before everything else of the demo.
       this.seedPastConversations();
+      // A long chat to measure the transcript on: after the earlier conversations, before today.
+      if (opts.chatTurns) {
+        const day = 24 * 3_600_000;
+        seedLongChat(
+          {
+            append: (input, ts) => this.append(input, ts),
+            screenshot: (agent, runId, ts) => this.files.seedScreenshot(agent, runId, ts),
+            questions: this.questions,
+          },
+          this.orchestrator.id,
+          opts.chatTurns,
+          Date.now() - 17 * day,
+          Date.now() - 2 * 3_600_000,
+        );
+      }
       // "Social di Saturday" with its monsters, and the orchestrator's draft (D-097, D-098).
       this.projects.seedDemo();
       // Giulio's example (the giri of the last two Sundays): before the rest, the log stays in order.

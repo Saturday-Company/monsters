@@ -8,7 +8,8 @@ import { httpTransport, type Transport } from './transport.ts';
  * replies faster. `?squadra=7` brings the whole roster, `?vita=1` keeps the monsters
  * busy with small jobs, `?anteprima=1` adds a turn of Titan with files and notes to open in
  * the right-hand pane (D-075), `?mockNoise=500` logs a long job after the history (the chats
- * then load their own, W-1). The build served by the core never contains the mock.
+ * then load their own, W-1), `?mockChat=1500` seeds a long chat of Titan (the transcript's
+ * measurement, `scripts/chat-perf.ts`). The build served by the core never contains the mock.
  */
 export function mockModeFrom(search: string, envFlag: string | undefined): MockMode | null {
   const q = new URLSearchParams(search).get('mock') ?? envFlag ?? null;
@@ -48,6 +49,7 @@ export async function createRuntime(): Promise<Runtime> {
         vaultNotes: Math.min(5000, Math.max(0, Number(params.get('mockNotes')) || 0)),
         previewScene: params.get('anteprima') === '1',
         noise: Math.min(5000, Math.max(0, Number(params.get('mockNoise')) || 0)),
+        chatTurns: Math.min(5000, Math.max(0, Number(params.get('mockChat')) || 0)),
       });
       // Dev-only hook for the e2e tests: events "from the agents" (e.g. a note changed meanwhile).
       (window as unknown as { __monstersMock?: MockCore }).__monstersMock = mock;

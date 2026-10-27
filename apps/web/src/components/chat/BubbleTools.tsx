@@ -7,15 +7,18 @@ import { chatStrings } from './chat.strings.ts';
 /*
  * What can be done with a message (docs/design.md, "The chat"): a small bar of keys on the corner
  * of a bubble with its time, shown under the pointer or with the focus inside (desktop) and on a
- * tap on the bubble (touch, where there is no hover). Copy on every bubble; "Again" on the
- * user's messages (sends the same message once more); "Edit" on the user's last one (puts it
- * back in the writing field). Keys are 32 px with their name as tooltip and accessible name.
+ * tap on the bubble or a long press (touch, where there is no hover). Copy on every bubble;
+ * "Again" on the user's last message of a turn (sends the same message once more); "Edit" on the
+ * user's last one (puts it back in the writing field). Keys are 32 px with their name as tooltip
+ * and accessible name.
  */
 
 /** What the chat lets its bubbles do besides copying. */
 export interface BubbleTools {
   /** The user's latest message in this chat: the only one that can be edited. */
   lastUserId: string | null;
+  /** The user's messages that can be sent again: the last one of each turn (rows.ts). */
+  againIds: ReadonlySet<string>;
   /** A message can be sent now (a model is connected, the app reaches the core). */
   canResend: boolean;
   again: (text: string, files?: readonly string[]) => void;
@@ -26,6 +29,12 @@ export const BubbleToolsContext = createContext<BubbleTools | null>(null);
 
 /** The ids of the user's messages that wait in a run for the monster's next step (store/queued.ts). */
 export const QueuedContext = createContext<ReadonlySet<string>>(new Set());
+
+/** How long a finger rests on a bubble before its bar opens (a long press, as on a phone). */
+export const LONG_PRESS_MS = 450;
+
+/** How far the finger may move during a long press before it counts as a scroll. */
+const LONG_PRESS_SLOP = 10;
 
 const KEY =
   'key-ghost inline-flex size-8 shrink-0 items-center justify-center rounded-[8px] text-ink-muted select-none hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-signal-ink disabled:opacity-50';
@@ -58,6 +67,19 @@ export function BubbleFrame({
   const s = chatStrings().panel;
   const [open, setOpen] = useState(false);
   const frame = useRef<HTMLDivElement>(null);
+  const press = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
+  /** The long press opened the bar: the finger's lifting does not close it again. */
+  const pressed = useRef(false);
+  const endPress = () => {
+    if (press.current) clearTimeout(press.current.timer);
+    press.current = null;
+  };
+  useEffect(
+    () => () => {
+      if (press.current) clearTimeout(press.current.timer);
+    },
+    [],
+  );
   // A tap elsewhere puts the bar away again.
   useEffect(() => {
     if (!open) return;
@@ -74,9 +96,38 @@ export function BubbleFrame({
       ref={frame}
       className={cn('bubble-frame relative w-fit max-w-full min-w-0', className)}
       data-open={open ? '' : undefined}
+      onPointerDown={(e) => {
+        if (e.pointerType !== 'touch') return;
+        if ((e.target as Element).closest('a, button, input, textarea, [role="toolbar"]')) return;
+        endPress();
+        pressed.current = false;
+        press.current = {
+          x: e.clientX,
+          y: e.clientY,
+          timer: setTimeout(() => {
+            press.current = null;
+            pressed.current = true;
+            setOpen(true);
+          }, LONG_PRESS_MS),
+        };
+      }}
+      onPointerMove={(e) => {
+        const p = press.current;
+        if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > LONG_PRESS_SLOP) endPress();
+      }}
+      onPointerCancel={endPress}
+      onContextMenu={(e) => {
+        // The phone's own menu on a long press would cover the bar that just opened.
+        if (pressed.current) e.preventDefault();
+      }}
       onPointerUp={(e) => {
         // Touch only: a mouse click selects text, the pointer already shows the bar.
         if (e.pointerType !== 'touch') return;
+        endPress();
+        if (pressed.current) {
+          pressed.current = false;
+          return;
+        }
         if ((e.target as Element).closest('a, button, input, textarea, [role="toolbar"]')) return;
         setOpen((o) => !o);
       }}
@@ -132,7 +183,7 @@ export function useUserTools(
   const tools = useContext(BubbleToolsContext);
   if (!tools || pending || !text.trim()) return {};
   return {
-    ...(tools.canResend ? { again: () => tools.again(text, files) } : {}),
+    ...(tools.canResend && tools.againIds.has(id) ? { again: () => tools.again(text, files) } : {}),
     ...(tools.lastUserId === id ? { edit: () => tools.edit(text) } : {}),
   };
 }

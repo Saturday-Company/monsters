@@ -11,10 +11,10 @@ import {
   runOwners,
 } from '../../store/derive.ts';
 import { useNameOf } from '../../store/hooks.ts';
-import { still } from '../../lib/motion.ts';
 import { plainText } from '../../lib/markdown.ts';
 import { MCP_PAUSED_PATH, openChat, PATHS, vaultPath } from '../../lib/router.ts';
 import { cn, formatAgo } from '../../lib/utils.ts';
+import { revealInChat } from '../chat/reveal.ts';
 import { DraftsSection } from '../projects/DraftCards.tsx';
 import { canUndo, pausedToolEvents } from './activity.ts';
 import { ActorAvatar, ActorLight, UndoButton } from './EventRow.tsx';
@@ -149,15 +149,9 @@ export function ActivityPanel({ className }: { className?: string }) {
                     type="button"
                     onClick={() => {
                       openChat(owners.get(q.runId) ?? q.from);
-                      // The chat may have to mount first.
-                      setTimeout(() =>
-                        document
-                          .querySelector(`[data-question="${CSS.escape(q.id)}"]`)
-                          ?.scrollIntoView({
-                            behavior: still() ? 'auto' : 'smooth',
-                            block: 'center',
-                          }),
-                      );
+                      // The chat brings the card in, also from far up a long chat (and once it
+                      // has mounted).
+                      revealInChat({ questionId: q.id });
                     }}
                     className="row-key flex w-full items-start gap-3 rounded-[10px] px-1.5 py-2.5 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
                     data-testid="pending-question"

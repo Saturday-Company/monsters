@@ -371,6 +371,22 @@
     transform: translateY(-50%);
   }
 
+  /* The same for a link in running text that the chat's rows want at 32 px (a note's name). */
+  .hit-32,
+  .md-note {
+    position: relative;
+  }
+
+  .hit-32::after,
+  .md-note::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    height: max(100%, 32px);
+    transform: translateY(-50%);
+  }
+
   /*
    * The chosen one (chip, segment, tab, option card): besides the sunk cap, a
    * 1.5 px inner outline in --ink, so the state is not told by a tone of the
