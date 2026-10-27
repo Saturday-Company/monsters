@@ -152,7 +152,16 @@ function TaskEntry({
   return (
     <Entry mark={<Light agent={task.to} />}>
       <p data-testid="receipt-delegation" data-verdict={d?.verdict} data-status={task.status}>
-        <span className="font-medium text-ink">{s.strip.asked(nameOf(task.to))}</span>
+        {/* The task's monster: its own Behind the scenes, on this turn. */}
+        <button
+          type="button"
+          onClick={() => openTerminalAt(task.to, turn.runId)}
+          className="font-medium text-ink underline-offset-2 hover:underline"
+          title={s.strip.behindLabel(nameOf(task.to))}
+          data-testid="receipt-delegation-behind"
+        >
+          {s.strip.asked(nameOf(task.to))}
+        </button>
         <span className="text-ink-muted">: {task.goal}</span>{' '}
         <span
           className={cn(

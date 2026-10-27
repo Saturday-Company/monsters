@@ -138,7 +138,8 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     await expect(
       page.getByTestId('agent-bubble').filter({ hasText: 'I’ll ask Rhea' }),
     ).toBeVisible();
-    await expect(page.getByTestId('delegation').filter({ hasText: 'Enceladus' })).toBeVisible();
+    // The task handed to Rhea is in the turn's work strip, which works live.
+    await expect(page.locator('[data-testid="work-strip"][data-alive="true"]')).toBeVisible();
 
     const card = page.getByTestId('question-card').first();
     await expect(card).toContainText('Shall I save the three facts in a note?');
@@ -160,8 +161,12 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
   });
 
   await test.step('the delegation in Rhea’s terminal', async () => {
-    // The delegation in Titan's chat opens the terminal of who did the work.
-    await page.getByTestId('delegation').filter({ hasText: 'Enceladus' }).first().click();
+    // The task in the turn's work strip opens the terminal of who did the work.
+    const strip = page.getByTestId('work-strip').last();
+    await strip.getByRole('button', { expanded: false }).first().click();
+    const task = strip.getByTestId('receipt-delegation').filter({ hasText: 'Enceladus' });
+    await expect(task).toContainText('Asked Rhea');
+    await task.getByTestId('receipt-delegation-behind').click();
     const term = page.getByTestId('agent-terminal');
     await expect(term.getByRole('heading', { name: 'Behind the scenes of Rhea' })).toBeVisible();
     const log = term.getByTestId('terminal-log');
@@ -336,10 +341,19 @@ test('setup, chat, delegation, question, undo, kill and resume against a real co
     await page.reload();
     await expect(page.getByTestId('conversation-divider')).toBeVisible();
     await expect(page.getByTestId('agent-bubble')).toHaveCount(0);
-    await page.getByTestId('earlier-toggle').click();
+    // The earlier conversation comes back from the core's conversations API, read-only.
+    await page.getByTestId('conversations-key').click();
+    const earlier = page
+      .getByTestId('conversation-item')
+      .filter({ hasText: 'Find me three facts about Enceladus' });
+    await earlier.click();
+    await expect(page.getByTestId('earlier-band')).toContainText('Earlier conversation · ');
     await expect(
       page.getByTestId('agent-bubble').filter({ hasText: 'Here I am again' }),
     ).toBeVisible();
+    await expect(page.getByTestId('composer-input')).toBeDisabled();
+    await page.getByTestId('earlier-back').click();
+    await expect(page.getByTestId('composer-input')).toBeEnabled();
 
     await page.getByRole('link', { name: 'Activity', exact: true }).click();
     await expect(
