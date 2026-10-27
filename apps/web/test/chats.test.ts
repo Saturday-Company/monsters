@@ -44,7 +44,7 @@ describe('composer', () => {
   const base = { name: 'Titan', halted: false, noModel: false, question: null, wide: true };
 
   it('says what the field does now', () => {
-    expect(composerPlaceholder(base)).toBe('Message Titan… (@ for another monster)');
+    expect(composerPlaceholder(base)).toBe('Message Titan… (@ for a monster, / for commands)');
     expect(composerPlaceholder({ ...base, name: 'Atlas', wide: false })).toBe('Message Atlas…');
     // A keypad: with a keyboard a letter and Enter answer; on a phone, the keys.
     expect(composerPlaceholder({ ...base, question: { id: 'q', from: 'Rhea', options: 3 } })).toBe(
@@ -68,7 +68,7 @@ describe('composer', () => {
 
   it('agrees with the name in Italian ("a" / "ad")', () => {
     setAppLang('it');
-    expect(composerPlaceholder(base)).toBe('Scrivi a Titan… (@ per un altro mostro)');
+    expect(composerPlaceholder(base)).toBe('Scrivi a Titan… (@ per un mostro, / per i comandi)');
     expect(composerPlaceholder({ ...base, name: 'Atlas', wide: false })).toBe('Scrivi ad Atlas…');
     expect(composerPlaceholder({ ...base, question: { id: 'q', from: 'Rhea', options: 3 } })).toBe(
       'Scrivi a Rhea, oppure digita A, B o C e premi Invio',

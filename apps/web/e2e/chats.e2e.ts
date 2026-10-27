@@ -80,7 +80,7 @@ test('one chat per monster, in the team order, the orchestrator open', async ({ 
   await expect(page.getByTestId('question-card')).toHaveCount(0);
   await expect(page.getByTestId('composer-input')).toHaveAttribute(
     'placeholder',
-    'Message Dione… (@ for another monster)',
+    'Message Dione… (@ for a monster, / for commands)',
   );
 });
 
@@ -269,8 +269,8 @@ test('the monitor of the monster, the strip of a turn and "Behind the scenes" on
   const monitor = page.getByTestId('chat-monitor');
   await expect(monitor).toContainText('Titan');
   await expect(monitor).toContainText('waiting for your answer');
-  // The conversation also holds the finished job of the morning, whose instinct cost a little.
-  await expect(page.getByTestId('chat-summary')).toContainText(/\d+ tools · .*(free|\$)/i);
+  // The sum of the conversation is not on the monitor any more: the strips say it, per turn.
+  await expect(page.getByTestId('chat-summary')).toHaveCount(0);
   // The strip of the Lisbon turn: closed, one sentence; open, what the run did, from its events.
   const strip = page.locator('[data-testid="work-strip"][data-run="run_seed_lisbon"]');
   await expect(strip).toHaveAttribute('data-open', 'false');

@@ -30,6 +30,7 @@ import { noteIndex } from '../../store/derive.ts';
 import { openPreview } from '../../store/preview.ts';
 import { ChatImage, FileLink, RemoteImage } from '../preview/ChatMedia.tsx';
 import { fileIdOf } from '../preview/files.ts';
+import { CopyKey } from './CopyKey.tsx';
 import { uiStrings } from './ui.strings.ts';
 
 /* Minimal mdast shapes for the soft-break plugin (no extra type packages). */
@@ -148,7 +149,8 @@ const startsUiFence = (lang: string) =>
 
 function Pre({ node, children }: { node: unknown; children?: ReactNode }) {
   const flags = useContext(MdFlagsContext);
-  const fence = flags.drawBlocks ? fenceOf(node) : null;
+  const code = fenceOf(node);
+  const fence = flags.drawBlocks ? code : null;
   if (fence && isUiFence(fence.lang)) {
     return (
       <Suspense fallback={<BlockSkeleton />}>
@@ -163,7 +165,23 @@ function Pre({ node, children }: { node: unknown; children?: ReactNode }) {
   if (fence && flags.streaming && !fence.text.trim() && startsUiFence(fence.lang)) {
     return <BlockSkeleton />;
   }
-  return <pre>{children}</pre>;
+  // Code: its language on top and a key to copy it (the whole block, without the last newline).
+  return (
+    <div className="md-code" data-testid="code-block">
+      <div className="md-code-head">
+        <span className="md-code-lang" data-testid="code-lang">
+          {code?.lang || uiStrings().codeBlock}
+        </span>
+        <CopyKey
+          text={() => (code?.text ?? '').replace(/\n$/, '')}
+          label={uiStrings().copyCode}
+          testId="copy-code"
+          className="md-code-copy"
+        />
+      </div>
+      <pre>{children}</pre>
+    </div>
+  );
 }
 
 const COMPONENTS: Components = {

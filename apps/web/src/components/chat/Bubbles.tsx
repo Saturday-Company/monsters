@@ -1,6 +1,6 @@
 import { dotPalette } from '@monsters/monster-kit';
 import { TelegramLogo } from '@phosphor-icons/react';
-import { useMemo, type ReactNode } from 'react';
+import { useContext, useMemo, type ReactNode } from 'react';
 import { cn, formatTime } from '../../lib/utils.ts';
 import { dropHeld, useApp } from '../../store/app.ts';
 import { capitalize, telegramWhere, type ChatItem } from '../../store/derive.ts';
@@ -15,6 +15,7 @@ import { openTerminalAt } from '../terminal/focus.ts';
 import { Markdown } from '../ui/Markdown.tsx';
 import { chatStrings } from './chat.strings.ts';
 import { behindTheScenes } from './ChatMonitor.tsx';
+import { BubbleFrame, QueuedContext, useUserTools } from './BubbleTools.tsx';
 import { UiReplyContext, type ReplyGate, type UiReply } from './ui-block/reply.ts';
 
 /*
@@ -24,7 +25,12 @@ import { UiReplyContext, type ReplyGate, type UiReply } from './ui-block/reply.t
  */
 
 /** Width of the avatar column (the 34 px screen and its gap): questions align to the bubbles. */
-export const AVATAR_COL = 'pl-[44px]';
+export const AVATAR_COL = 'pl-[44px] max-[479px]:pl-0';
+
+/*
+ * On a phone (under 480 px) the monsters' bubbles use the whole width: the avatar sits above the
+ * first bubble of a group instead of beside it, so a table or a drawn block has room.
+ */
 
 export function AgentBubble({
   item,
@@ -55,21 +61,21 @@ export function AgentBubble({
   );
   const c = bubbleColors(lit, theme);
   return (
-    <div className="pr-8 sm:pr-16">
+    <div className="pr-8 max-[479px]:pr-0 sm:pr-16">
       {first && item.via && (
         <p className={cn(AVATAR_COL, 'label mb-1 text-ink-muted')} data-testid="agent-via">
           {item.via}
         </p>
       )}
-      <div className="flex items-start gap-2.5">
-        <div className="w-[34px] shrink-0">
+      <div className="flex items-start gap-2.5 max-[479px]:flex-col max-[479px]:gap-1.5">
+        <div className={cn('w-[34px] shrink-0', !first && 'max-[479px]:hidden')}>
           {first && agent && (
             <button
               type="button"
               onClick={() => openTerminalAt(agent.id, item.runId)}
               aria-label={behindTheScenes(agent.name)}
               title={s.behindTitle}
-              className="block rounded-[8px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
+              className="flex h-8 items-center rounded-[8px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
             >
               <MonsterScreen
                 genome={agent.genome}
@@ -85,19 +91,26 @@ export function AgentBubble({
         <span className="sr-only">
           {agent?.name ?? item.agent}, {formatTime(item.ts)}:
         </span>
-        <div
-          data-testid="agent-bubble"
-          data-streaming={item.streaming ? 'true' : 'false'}
-          title={formatTime(item.ts)}
-          className="bubble bubble-agent w-fit max-w-full min-w-0 px-4 py-2.5 text-large leading-[1.55] break-words"
-          style={{ background: c.bg, color: c.fg }}
+        <BubbleFrame
+          ts={item.ts}
+          text={item.text}
+          side="start"
+          className="max-[479px]:w-full"
+          streaming={item.streaming}
         >
-          <UiReplyContext.Provider value={uiReply}>
-            <Markdown text={item.text} codeBg={c.codeBg} streaming={item.streaming} />
-          </UiReplyContext.Provider>
-          {attachments && attachments.length > 0 && <Attachments items={attachments} />}
-          {action}
-        </div>
+          <div
+            data-testid="agent-bubble"
+            data-streaming={item.streaming ? 'true' : 'false'}
+            className="bubble bubble-agent w-fit max-w-full min-w-0 px-4 py-2.5 text-large leading-[1.55] break-words max-[479px]:w-full"
+            style={{ background: c.bg, color: c.fg }}
+          >
+            <UiReplyContext.Provider value={uiReply}>
+              <Markdown text={item.text} codeBg={c.codeBg} streaming={item.streaming} />
+            </UiReplyContext.Provider>
+            {attachments && attachments.length > 0 && <Attachments items={attachments} />}
+            {action}
+          </div>
+        </BubbleFrame>
       </div>
     </div>
   );
@@ -126,14 +139,14 @@ export function RelayedBubble({
   const c = bubbleColors(lit, theme);
   const name = from?.name ?? capitalize(item.from);
   return (
-    <div className="pr-8 sm:pr-16" data-testid="relayed" data-from={item.from}>
+    <div className="pr-8 max-[479px]:pr-0 sm:pr-16" data-testid="relayed" data-from={item.from}>
       {first && (
         <p className={cn(AVATAR_COL, 'label mb-1 text-ink-muted')} aria-hidden>
           {s.from(name)}
         </p>
       )}
-      <div className="flex items-start gap-2.5">
-        <div className="w-[34px] shrink-0">
+      <div className="flex items-start gap-2.5 max-[479px]:flex-col max-[479px]:gap-1.5">
+        <div className={cn('w-[34px] shrink-0', !first && 'max-[479px]:hidden')}>
           {first && from && (
             <MonsterScreen genome={from.genome} mood="idle" width={34} height={30} pad={2} />
           )}
@@ -141,14 +154,16 @@ export function RelayedBubble({
         <span className="sr-only">
           {s.from(name)}, {formatTime(item.ts)}:
         </span>
-        <div
-          data-testid="relayed-bubble"
-          title={s.writtenBy(name, formatTime(item.ts))}
-          className="bubble bubble-agent w-fit max-w-full min-w-0 px-4 py-2.5 text-large leading-[1.55] break-words"
-          style={{ background: c.bg, color: c.fg }}
-        >
-          <Markdown text={item.text} codeBg={c.codeBg} />
-        </div>
+        <BubbleFrame ts={item.ts} text={item.text} side="start" className="max-[479px]:w-full">
+          <div
+            data-testid="relayed-bubble"
+            title={s.writtenBy(name, formatTime(item.ts))}
+            className="bubble bubble-agent w-fit max-w-full min-w-0 px-4 py-2.5 text-large leading-[1.55] break-words max-[479px]:w-full"
+            style={{ background: c.bg, color: c.fg }}
+          >
+            <Markdown text={item.text} codeBg={c.codeBg} />
+          </div>
+        </BubbleFrame>
       </div>
     </div>
   );
@@ -171,7 +186,7 @@ export function TelegramBubble({
   const who = item.owner ? `${item.sender.name}${chatStrings().panel.youSuffix}` : item.sender.name;
   return (
     <div
-      className="pr-8 sm:pr-16"
+      className="pr-8 max-[479px]:pr-0 sm:pr-16"
       data-testid="telegram-message"
       data-sender={item.sender.id}
       data-owner={item.owner ? 'true' : undefined}
@@ -181,8 +196,8 @@ export function TelegramBubble({
           {who} · {where}
         </p>
       )}
-      <div className="flex items-start gap-2.5">
-        <div className="w-[34px] shrink-0">
+      <div className="flex items-start gap-2.5 max-[479px]:flex-col max-[479px]:gap-1.5">
+        <div className={cn('w-[34px] shrink-0', !first && 'max-[479px]:hidden')}>
           {first && (
             <span
               className="well flex h-[30px] w-[34px] items-center justify-center rounded-[8px] text-ink-muted"
@@ -195,13 +210,15 @@ export function TelegramBubble({
         <span className="sr-only">
           {who}, {where}, {formatTime(item.ts)}:
         </span>
-        <div
-          data-testid="telegram-bubble"
-          title={`${who} · ${where} · ${formatTime(item.ts)}`}
-          className="bubble bubble-agent w-fit max-w-full min-w-0 bg-raised px-4 py-2.5 text-large leading-[1.55] whitespace-pre-wrap break-words text-ink"
-        >
-          {item.text}
-        </div>
+        <BubbleFrame ts={item.ts} text={item.text} side="start" className="max-[479px]:w-full">
+          <div
+            data-testid="telegram-bubble"
+            title={`${who} · ${where}`}
+            className="bubble bubble-agent w-fit max-w-full min-w-0 bg-raised px-4 py-2.5 text-large leading-[1.55] whitespace-pre-wrap break-words text-ink max-[479px]:w-full"
+          >
+            {item.text}
+          </div>
+        </BubbleFrame>
       </div>
     </div>
   );
@@ -210,6 +227,8 @@ export function TelegramBubble({
 export function UserBubble({ item }: { item: Extract<ChatItem, { kind: 'user' }> }) {
   const s = chatStrings().panel;
   const files = item.attachments ?? [];
+  const queued = useContext(QueuedContext).has(item.id);
+  const tools = useUserTools(item.id, item.text, item.attachments, item.pending === true);
   return (
     <div className="flex flex-col items-end pl-12 sm:pl-24">
       <span className="sr-only">{s.you(formatTime(item.ts))}</span>
@@ -227,17 +246,19 @@ export function UserBubble({ item }: { item: Extract<ChatItem, { kind: 'user' }>
         </ul>
       )}
       {(item.text.trim() || files.length === 0) && (
-        <div
-          data-testid="user-bubble"
-          data-held={item.held ? 'true' : undefined}
-          title={formatTime(item.ts)}
-          className={cn(
-            'bubble bubble-user w-fit max-w-full px-4 py-2.5 text-large leading-[1.55] whitespace-pre-wrap break-words',
-            item.pending && 'opacity-70',
-          )}
-        >
-          {item.text}
-        </div>
+        <BubbleFrame ts={item.ts} text={item.text} side="end" {...tools}>
+          <div
+            data-testid="user-bubble"
+            data-held={item.held ? 'true' : undefined}
+            data-queued={queued ? 'true' : undefined}
+            className={cn(
+              'bubble bubble-user w-fit max-w-full px-4 py-2.5 text-large leading-[1.55] whitespace-pre-wrap break-words',
+              item.pending && 'opacity-70',
+            )}
+          >
+            {item.text}
+          </div>
+        </BubbleFrame>
       )}
       {item.held ? (
         <p className="mt-1.5 pr-1 text-caption text-ink-muted" data-testid="held-note">
@@ -250,8 +271,14 @@ export function UserBubble({ item }: { item: Extract<ChatItem, { kind: 'user' }>
             {s.dontSend}
           </button>
         </p>
+      ) : item.pending ? (
+        <p className="label mt-1.5 pr-1 text-ink-muted">{s.sending}</p>
       ) : (
-        item.pending && <p className="label mt-1.5 pr-1 text-ink-muted">{s.sending}</p>
+        queued && (
+          <p className="mt-1.5 pr-1 text-caption text-ink-muted" data-testid="queued-note">
+            {s.queued}
+          </p>
+        )
       )}
     </div>
   );

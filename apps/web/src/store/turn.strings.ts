@@ -8,6 +8,9 @@ const en = {
   /** The turn ended without a known start: only that it is done. */
   done: 'Done',
   stopped: (time: string | null) => (time ? `Stopped after ${time}` : 'Stopped'),
+  /** The outcome of a turn the user stopped from the chat ("Stop" in the writing field, F-1). */
+  youStopped: (name: string, time: string | null) =>
+    time ? `You stopped ${name} after ${time}` : `You stopped ${name}`,
   failed: (time: string | null) => (time ? `Couldn’t finish · ${time}` : 'Couldn’t finish'),
   asked: (names: string) => `asked ${names}`,
   searches: (n: number) => (n === 1 ? '1 web search' : `${n} web searches`),
@@ -35,6 +38,7 @@ const it: typeof en = {
   worked: (time) => `${time} di lavoro`,
   done: 'Fatto',
   stopped: (time) => (time ? `Fermato dopo ${time}` : 'Fermato'),
+  youStopped: (name, time) => (time ? `Hai fermato ${name} dopo ${time}` : `Hai fermato ${name}`),
   failed: (time) => (time ? `Non finito · ${time}` : 'Non finito'),
   asked: (names) => `chiesto a ${names}`,
   searches: (n) => (n === 1 ? '1 ricerca sul web' : `${n} ricerche sul web`),

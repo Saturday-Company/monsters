@@ -480,8 +480,10 @@ export function turnSentence(
   const ms = turnDuration(turn);
   const time = ms !== undefined && end !== 'open' ? roughDuration(ms) : null;
   const parts: string[] = [];
-  if (end === 'stopped') parts.push(s.stopped(time));
-  else if (end === 'failed') parts.push(s.failed(time));
+  if (end === 'stopped') {
+    const by = turn.stats?.stoppedAgent;
+    parts.push(by ? s.youStopped(opts.nameOf(by), time) : s.stopped(time));
+  } else if (end === 'failed') parts.push(s.failed(time));
   else if (time) parts.push(s.worked(time));
   const helpers = turnHelpers(turn);
   if (helpers.length > 0) parts.push(s.asked(listText(helpers.map(opts.nameOf))));

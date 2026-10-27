@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, expectNoSideScroll, test } from './fixtures.ts';
+import { expect, expectNoSideScroll, showTechnicalDetails, test } from './fixtures.ts';
 
 /*
  * Utilizzo del piano (D-111) on the mock core: the block under the Claude and
@@ -99,6 +99,7 @@ test('ChatGPT plan: the two windows named by their length, the week warns at 81%
 });
 
 test('Consumi of a monster on the Claude plan carries the same block', async ({ page }) => {
+  await showTechnicalDetails(page);
   await page.goto('/?mock=demo&mockSpeed=0.3#/?chat=mimas');
   const key = page.getByTestId('chat-monitor').getByTestId('context-key');
   await expect(key).toBeVisible();
@@ -129,6 +130,7 @@ test('Consumi of a monster on the Claude plan carries the same block', async ({ 
 });
 
 test('a monster on a free model has no plan block', async ({ page }) => {
+  await showTechnicalDetails(page);
   await page.goto('/?mock=demo#/?chat=titan');
   const key = page.getByTestId('chat-monitor').getByTestId('context-key');
   await expect(key.getByTestId('context-amount')).toHaveText(/^\d+%$/);

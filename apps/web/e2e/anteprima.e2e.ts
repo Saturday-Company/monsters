@@ -4,7 +4,7 @@ import { STUN_PROBE_PORT } from '../src/lib/mock/files-data.ts';
 import type * as VaultApi from '../src/components/vault/api.ts';
 import type * as PreviewStore from '../src/store/preview.ts';
 import type { MockCore } from '../src/lib/mock/core.ts';
-import { expect, test } from './fixtures.ts';
+import { expect, showTechnicalDetails, test } from './fixtures.ts';
 
 /*
  * The right-hand pane (D-075) on the mock core with `?anteprima=1`: Titan's
@@ -305,6 +305,8 @@ test('a remote image loads only when asked, without a referrer', async ({ page }
 });
 
 test('the tabs: Dietro le quinte and Consumi in the pane, following the chat', async ({ page }) => {
+  // CONTESTO, the meter on the monitor, is a technical detail.
+  await showTechnicalDetails(page);
   await page.goto(SCENE);
   await page.getByTestId('behind-the-scenes').click();
   await expect(dock(page).getByTestId('dock-tab-terminal')).toHaveAttribute(

@@ -1056,6 +1056,15 @@ export async function startNewConversation(to?: string): Promise<void> {
   );
 }
 
+/**
+ * "Stop" in one monster's chat (F-1): its work ends (the turn of its chat with what it asked of
+ * the others, its automation run, its Telegram chats), the other monsters go on. Not the kill
+ * switch: the next message starts again at once. The events come on the stream.
+ */
+export async function stopAgent(id: string): Promise<void> {
+  await client().stopAgent(id);
+}
+
 export async function answerQuestion(id: string, body: AnswerRequest): Promise<void> {
   const q = await client().answer(id, body);
   useApp.setState((s) => ({ questions: { ...s.questions, [q.id]: q } }));

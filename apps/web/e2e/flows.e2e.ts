@@ -192,8 +192,8 @@ test('an open question out of sight: a bar above the composer brings it back', a
     .evaluate((el) => {
       el.scrollTop = 0;
     });
-  await expect(bar).toContainText('Titan is waiting for your answer');
-  await bar.click();
+  await expect(bar).toContainText('Titan asks:');
+  await bar.getByTestId('question-bar-show').click();
   await expect(card).toBeInViewport({ ratio: 0.5 });
   await expect(bar).toHaveCount(0);
 });
@@ -324,13 +324,13 @@ test('new conversation: clean chat, open question still answerable, old one on r
   const posts = page.getByTestId('agent-bubble').filter({ hasText: 'friendly tone' });
   await expect(posts).toHaveAttribute('data-streaming', 'false', { timeout: 15_000 });
 
-  // The previous conversation is one click away.
-  const toggle = page.getByTestId('earlier-toggle');
-  await expect(toggle).toContainText('Show the previous conversations');
-  await toggle.click();
+  // The previous conversation is one click away: the newest of the Conversations list, read-only.
+  await expect(old).toBeHidden();
+  await page.getByTestId('conversations-key').click();
+  await page.getByTestId('conversation-item').first().click();
+  await expect(page.getByTestId('earlier-band')).toBeVisible();
   await expect(old).toBeVisible();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  await toggle.click();
+  await page.getByTestId('earlier-back').click();
   await expect(old).toBeHidden();
 
   // `/nuova` in the composer does the same (once the work in progress has ended).
@@ -342,7 +342,10 @@ test('new conversation: clean chat, open question still answerable, old one on r
     await expect(page.getByTestId('agent-bubble')).toHaveCount(0, { timeout: 1000 });
   }).toPass();
   await expect(page.getByTestId('greeting')).toContainText(/I’m Titan\./i);
-  await expect(page.getByTestId('earlier-toggle')).toContainText('Show the previous conversations');
+  // Closed, they go to the list: the demo's two of weeks ago and today's.
+  await page.getByTestId('conversations-key').click();
+  await expect(page.getByTestId('conversation-item').nth(2)).toBeVisible();
+  await page.keyboard.press('Escape');
 
   // The action log keeps everything: these two, and the three that closed the demo's previous
   // conversations of Titan and Dione weeks ago.

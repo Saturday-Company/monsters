@@ -53,7 +53,7 @@ function FlagLine({ flag, runId }: { flag: TurnFlag; runId: string }) {
       data-testid="turn-flag"
       data-tone={flag.tone}
       className={cn(
-        'flex min-h-6 max-w-full items-start gap-2 rounded-[6px] text-left text-footnote leading-snug hover:underline focus-visible:outline-2 focus-visible:outline-signal-ink',
+        'flex min-h-8 max-w-full items-start gap-2 rounded-[6px] py-1 text-left text-footnote leading-snug hover:underline focus-visible:outline-2 focus-visible:outline-signal-ink',
         flag.tone === 'stop' ? 'text-stop-ink' : 'text-signal-ink',
       )}
     >
@@ -80,7 +80,7 @@ function Avatar({ agentId, runId, talking }: { agentId: string; runId: string; t
       onClick={() => openTerminalAt(agent.id, runId)}
       aria-label={behindTheScenes(agent.name)}
       title={chatStrings().panel.behindTitle}
-      className="block w-[34px] shrink-0 rounded-[8px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
+      className="flex h-8 w-[34px] shrink-0 items-center rounded-[8px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink"
     >
       <MonsterScreen
         genome={agent.genome}
@@ -139,7 +139,11 @@ export const TurnBlock = memo(function TurnBlock({
           ? 'mt-1.5'
           : 'mt-4';
   const flags = turn.flags.length > 0 && (
-    <div key="flags" className="mt-1.5 grid gap-1 pr-8 pl-[44px] sm:pr-16" data-testid="turn-flags">
+    <div
+      key="flags"
+      className="mt-1.5 grid gap-1 pr-8 pl-[44px] max-[479px]:pr-0 max-[479px]:pl-0 sm:pr-16"
+      data-testid="turn-flags"
+    >
       {turn.flags.map((f) => (
         <FlagLine key={f.id} flag={f} runId={turn.runId} />
       ))}
@@ -148,7 +152,7 @@ export const TurnBlock = memo(function TurnBlock({
 
   if (strip) {
     nodes.push(
-      <div key="strip" className="flex items-start gap-2.5 pr-8 sm:pr-16">
+      <div key="strip" className="flex items-start gap-2.5 pr-8 max-[479px]:pr-0 sm:pr-16">
         <Avatar agentId={turn.agent} runId={turn.runId} talking={alive} />
         <div className="min-w-0 flex-1">
           <WorkStrip turn={turn} alive={alive} activity={activity} color={color} />
@@ -160,7 +164,7 @@ export const TurnBlock = memo(function TurnBlock({
   // The files of a turn with no reply in this chat (a task received): under the strip.
   if (bubbles.length === 0 && turn.attachments.length > 0) {
     nodes.push(
-      <div key="files" className={cn('pl-[44px]', strip ? 'mt-1.5' : '')}>
+      <div key="files" className={cn('pl-[44px] max-[479px]:pl-0', strip ? 'mt-1.5' : '')}>
         <Attachments items={turn.attachments} />
       </div>,
     );
