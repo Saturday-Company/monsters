@@ -21,24 +21,24 @@ async function send(page: Page, text: string) {
   await input.press('Enter');
 }
 
-test('the preview on the monitor and the panel it opens', async ({ page }) => {
-  await page.goto('/?mock=demo#/?chat=titan');
-  await expect(key(page).getByTestId('context-amount')).toHaveText(/^\d+%$/);
-  await expect(key(page)).toHaveAccessibleName(
-    /^Context and usage of Titan: \d+% of the model’s window$/,
-  );
-  // 20 lineette, some lit by part, the rest free.
-  const bar = key(page).getByTestId('context-bar');
-  await expect(bar.locator('i')).toHaveCount(20);
-  await expect(bar.locator('i[data-part]').first()).toBeAttached();
+/** Usage without the key: Behind the scenes opens the pane and its Usage tab says it. */
+async function openUsageFromTheTabs(page: Page) {
+  await page.getByTestId('behind-the-scenes').click();
+  await page.getByTestId('dock-tab-usage').click();
+  return page.getByTestId('usage-sheet');
+}
 
-  await key(page).click();
-  const sheet = page.getByTestId('usage-sheet');
+test('the meter is a technical detail; the panel in words is one tab away without it', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/?chat=titan');
+  await expect(page.getByTestId('chat-monitor')).toBeVisible();
+  await expect(key(page)).toHaveCount(0);
+  const sheet = await openUsageFromTheTabs(page);
   await expect(sheet.getByRole('heading', { name: 'Usage of Titan' })).toBeVisible();
   // The first line is in words: the share of the model's memory and what the conversation cost.
-  const amount = (await key(page).getByTestId('context-amount').textContent())!;
   await expect(sheet.getByTestId('usage-sentence')).toHaveText(
-    `This conversation uses ${amount} of the model’s memory; it cost less than €0.01.`,
+    /^This conversation uses \d+% of the model’s memory; it cost less than €0\.01\.$/,
   );
   await expect(sheet.getByTestId('context-bar')).toBeVisible();
   await expect(sheet.getByTestId('usage-day')).toContainText('of €10');
@@ -54,11 +54,37 @@ test('the preview on the monitor and the panel it opens', async ({ page }) => {
 
   // Esc closes it; the terminal takes its place on the right.
   await page.goto('/?mock=demo#/?chat=titan');
-  await key(page).click();
+  await openUsageFromTheTabs(page);
   await expect(sheet).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(sheet).toHaveCount(0);
+});
+
+test('the preview on the monitor and the panel it opens, with the details on', async ({ page }) => {
+  await showTechnicalDetails(page);
+  await page.goto('/?mock=demo#/?chat=titan');
+  await expect(key(page).getByTestId('context-amount')).toHaveText(/^\d+%$/);
+  await expect(key(page)).toHaveAccessibleName(
+    /^Context and usage of Titan: \d+% of the model’s window$/,
+  );
+  // 20 lineette, some lit by part, the rest free.
+  const bar = key(page).getByTestId('context-bar');
+  await expect(bar.locator('i')).toHaveCount(20);
+  await expect(bar.locator('i[data-part]').first()).toBeAttached();
+
   await key(page).click();
+  const sheet = page.getByTestId('usage-sheet');
+  await expect(sheet.getByRole('heading', { name: 'Usage of Titan' })).toBeVisible();
+  const amount = (await key(page).getByTestId('context-amount').textContent())!;
+  await expect(sheet.getByTestId('usage-sentence')).toHaveText(
+    `This conversation uses ${amount} of the model’s memory; it cost less than €0.01.`,
+  );
+  await expect(sheet.getByTestId('context-bar')).toBeVisible();
+  // The key opens the panel; Esc closes it and the terminal takes its place on the right.
+  await page.keyboard.press('Escape');
+  await expect(sheet).toHaveCount(0);
+  await key(page).click();
+  await expect(sheet).toBeVisible();
   // (Under the sheet on this width: the terminal opens as from a turn’s work strip.)
   await page.evaluate(async (src) => {
     const { openTerminal } = (await import(/* @vite-ignore */ src)) as {
@@ -153,6 +179,7 @@ test('a monster on the Claude plan: its base apart, no money', async ({ page }) 
 });
 
 test('"Riduci movimento": the lineette light up without frames', async ({ page }) => {
+  await showTechnicalDetails(page);
   await page.goto('/?mock=demo#/?chat=titan');
   const lit = key(page).locator('.ctx-bar > i[data-part]').first();
   await expect(lit).toBeAttached();
@@ -168,6 +195,7 @@ test.describe('phone', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test('the key and the panel fit a phone', async ({ page }) => {
+    await showTechnicalDetails(page);
     await page.goto('/?mock=demo#/?chat=titan');
     await expect(key(page).getByTestId('context-amount')).toHaveText(/^\d+%$/);
     await key(page).click();

@@ -515,6 +515,17 @@ export function applyLive(
           close(id, () => true);
           set(id, 'stopped');
         }
+      } else if (e.data.scope === 'agent') {
+        // One monster stopped from its chat (F-1): `target` is the monster, the run is the event's.
+        // When the whole run ends (`runsAborted: 1`) what was given within it stops too; else only
+        // the monster's part in another monster's run, which goes on.
+        const runId = e.runId;
+        const who = e.data.runsAborted === 0 ? [e.data.target ?? e.agent] : agentIds;
+        if (runId) {
+          for (const id of who) {
+            if (close(id, (k) => workOfRun(k, runId)) && !atWork(id)) set(id, 'stopped');
+          }
+        }
       } else if (e.data.target) {
         // One run stopped (its `run aborted` follows): what was given within it stops too.
         const runId = e.data.target;
@@ -2415,6 +2426,8 @@ export interface RunStats {
   ended: boolean;
   /** How it ended, when it did. */
   status?: 'completed' | 'failed' | 'aborted' | 'waiting_user' | undefined;
+  /** The monster the user stopped from its chat, when that is what ended the run (F-1). */
+  stoppedAgent?: string | undefined;
   /** Time of its first event: which conversation it belongs to. */
   firstTs: number;
 }
@@ -2500,11 +2513,19 @@ export const runStatsIndex = growing<Map<string, RunStats>, StatsState>(
           s.ended = false;
           s.durationMs = undefined;
           s.status = undefined;
+          s.stoppedAgent = undefined;
         } else {
           s.ended = true;
           s.status = e.data.status;
           const t0 = started.get(runId);
           if (t0 !== undefined) s.durationMs = Math.max(0, e.ts - t0);
+        }
+        break;
+      }
+      case 'kill': {
+        // "Stop" in a monster's chat ended the whole run (`runsAborted: 1`): its outcome says who.
+        if (e.data.scope === 'agent' && e.data.runsAborted) {
+          edit().stoppedAgent = e.data.target ?? e.agent;
         }
         break;
       }

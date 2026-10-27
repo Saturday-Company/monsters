@@ -294,19 +294,33 @@ changes.
 ## The chat
 - **Monster monitor** at the top of the chat, fixed (it doesn't scroll), 76 tall: a black screen of full width
   (margins 16), with the big dot monster (height 60), the name in Doto 26 in the monster's color, below the role and
-  what it is doing in Martian Mono 11 `--screen-muted`; on the right, on wide screens, the conversation summary (`N
-  TOOLS · TIME · COST`: that monster's runs since the last "New conversation", from 1180 px of chat), the **CONTEXT**
-  key (see "Usage") and the "Behind the scenes" and "New conversation" keys (light ghost keys on the screen, with
-  the `.label` from 860 px of chat, below only the icon): the monster's state takes precedence and is never cut. When
-  the monster starts working the name flickers like a screen lighting up (520 ms in steps) and the meter starts; a
-  waiting question lights the orange light. The title in the rail is only for screen readers.
+  what it is doing in Martian Mono 11 `--screen-muted`; on the right the light keys, **40 tall** (ghost keys on the
+  screen, with the `.label` from 860 px of chat, below only the icon): the **CONTEXT** key (see "Usage") **only with
+  "Show technical details" on**, "Behind the scenes", **"Conversations"** (clock-arrow icon, see below) and "New
+  conversation"; the monster's state takes precedence and is never cut. The `N TOOLS · TIME · COST` sum of the
+  conversation is gone (the strip and Usage say it). When the monster starts working the name flickers like a screen
+  lighting up (520 ms in steps) and the meter starts; a waiting question lights the orange light. The title in the
+  rail is only for screen readers. **"New conversation" asks nothing**: one click starts it, and the Conversations list
+  is the way back to the one just closed (the core has no undo for it, so no "Undo" notice).
 - **Bubbles**: the monsters' `--raised` with the monster's tint, radius 4/14/14/14, the seam as border; the user's
   `--ink` with `--panel` text, radius 14/4/14/14. Avatar: a small 34×30 screen with the monster, once per turn (beside
   its strip, else on the first bubble), still on the first frame (it talks only while the turn works). Reading column up
   to 760 px. The files a turn made sit **inside its last bubble** as attachments (an image as a picture, the rest as
-  chips, what the monster showed in the preview as the card that opens it), never as rows of their own. What arrives
+  chips, what the monster showed in the preview as the card that opens it), never as rows of their own. **On a phone
+  (under 480 px)** the monsters' bubbles use the whole width, with no avatar indent: the avatar sits above the first
+  bubble of a group (beside the strip when the turn has one), so tables and drawn blocks breathe. What arrives
   with the chat open rises in three frames (4 px and opacity); when opening a chat the rows that were there stay still,
   and your message rises once, when you send it.
+- **What can be done with a message and its time**: on the corner of every bubble a small bar (a `popover`, 36 tall,
+  over the bubble's top edge, by its right corner so it covers the strip's sentence, which is short and on the left, as little as it can) with the **time** in Martian Mono 11
+  and the keys **Copy** (every bubble, monster's and yours; the icon turns into a tick for 1.6 s), **Again** (your
+  messages: sends the same words once more) and **Edit** (only your last message: puts it back in the field). Keys 32
+  px, their name as tooltip and accessible name. It shows under a hovering pointer (desktop) or with the focus inside
+  it, and **on a tap on the bubble** on touch (a tap elsewhere puts it away; no hover is relied on); a reply that is
+  still streaming has none. An earlier conversation shown for reading has Copy only. **Code blocks** have a head line
+  with the language (`.label` 11, "Code" when it has none) and a Copy key (32 px) that copies the whole block.
+- **Time in the flow**: the time (a centered `.label`) shows at the head of a turn when **more than 5 minutes** have
+  passed since the previous one on the same day; a new day shows the day and the time.
 - **Drawn blocks** (D-162): a reply can hold a fence ```` ```ui ```` of OpenUI Lang (`ui-blocks.ts` in `@monsters/shared` is the
   library) that the bubble draws with our own components (`components/chat/ui-block/`, a chunk loaded when a reply has one):
   key numbers as tiles (the change has an arrow and a word, never only a colour), a table (numbers on the right,
@@ -343,6 +357,9 @@ changes.
   "Undone · N changes rolled back"). Models and levels ("Hard → llama 3.3 70b") and the tools line of the run (`TITAN ›
   DELEGATE ×2 · WEB SEARCH ×3 (OPENROUTER) · 4.1 S · FREE`, D-071) only with "Show technical details" on (D-181); the
   sum of the conversation stays on the monitor. The black screen is for Behind the scenes only.
+- **A turn you stopped** (the "Stop" key of the writing field): its closed sentence starts with the outcome, "You
+  stopped Dione after 12 s", then the rest as usual; the questions of that work close with "You didn't answer: you
+  stopped the work". Only the monster you stopped (and what it asked of the others) stops, never the other chats.
 - **Message written by another monster** (D-102): what the god sends to a project's lead with `project_send` sits in
   the lead's chat on the monsters' side, not as a bubble of yours: the `.label` "FROM TITAN" above, the god's small
   screen as avatar and the bubble in its tint; for screen readers "From Titan, 10:32:". In the list the lead's strip
@@ -381,11 +398,45 @@ changes.
   again" key (resends the job's request, or asks the monster to ask the question again). When stopped it isn't
   there: "Resume and continue" does it.
 - **Writing field**: recessed, radius 14, at least 52 tall; on the right the "SEND ↵" key (`.label`), a normal key
-  while the field is empty and `primary` (orange) as soon as there is something to send; on the phone only "↵". `@`
-  menu as a popover. With an open question, as soon as there are real words (not just a mention in progress), above
-  the field "↳ Answer to Titan's question"; if the question doesn't block the work, a small ✕ turns it into a normal
-  message ("It's an answer" goes back). The placeholder suggests the keys when there is a question ("Write to Titan, or
-  press A, B or C").
+  while the field is empty and `primary` (orange) as soon as there is something to send; on the phone only "↵". The
+  placeholder says "(@ for a monster, / for commands)" when the field is wide enough, and suggests the keys when there
+  is a question ("Write to Titan, or press A, B or C").
+  - **Stop in the place of Send** (F-1) while that monster works or writes in this chat: same position and height, a
+    normal key with a red square and "STOP" in `--stop-ink` (red is for Stop and errors), accessible name "Stop
+    Titan". One click stops it (`POST /api/agents/:id/stop`: that monster's work, with what it asked of the others, not
+    the kill switch) and the key goes back to Send when the work has ended. With words in the field both keys are
+    there and the message waits. Keyboard: **⌘/Ctrl+Shift+Backspace** from anywhere in the chat; **Esc never stops**
+    (too easy to hit); `/stop` too. Not shown while a question waits for you (the card is the point then).
+  - **A message written while the monster works** joins its run: under the user's bubble, "Will read it after this
+    step" (`--ink-muted`, 13) until the monster's next step has started (`store/queued.ts`; the log has no event for
+    the moment, it is read from the steps).
+  - **`@` menu** (a popover, rows 44 tall): the other monsters, never the chat's own; with no match "No monster called
+    “zz”".
+  - **`/` menu** (same popover) when the field starts with `/` and a command word: `/new` (a new conversation, when
+    there is something to close), `/stop` (while it works), `/behind` (Behind the scenes), `/attach`; named in the
+    language of the app and in the other one (`/nuova` works); ↑ ↓ Enter/Tab, Esc closes it keeping the text. A command
+    being typed is never an answer to the open question.
+  - **The question bar** (F-4), one element on the top edge of the composer dock (never over the field or the text):
+    with an open question it shows **only while the question's card is out of sight** (measured against the real
+    height of the dock, not a fixed margin): "● Titan asks: What tone…?" with its option keys A, B, C (36 px, they
+    answer like the keypad) and "SHOW", which scrolls to the card. When there are real words in the field (not just a
+    mention or a command in progress) the same element says "↳ Answering Titan's question" (and, if the card is out of
+    sight, keeps "SHOW"); if the question doesn't block the work, a small ✕ turns it into a normal message ("It's an
+    answer" goes back).
+  - **Long conversation**: above the composer, in words and not in the monitor, one line that wraps on a phone: from
+    60% of the window "This conversation is getting long — a new one keeps answers sharp." and, when the older
+    messages are summarized (or from 75%), "Older messages are summarized, so the monster no longer reads them word for
+    word. A new conversation starts clean.", each with "New conversation" and a ✕ that puts it away for that
+    conversation and level (`contextLevel` in `@monsters/shared`; remembered in the browser).
+- **Conversations** (F-5): the "Conversations" key on the monitor opens a list that hangs under it (a `popover`, up to
+  440 wide and 420 tall, Esc or a press outside closes it): **"Current conversation"** on top ("Since Oct 9, 7:04 AM"),
+  then the earlier ones, newest first, each a row of at least 44 with its title (the first thing you wrote, one line),
+  the day and the number of messages; "Earlier ones" loads more. A pick shows that conversation **read-only** in the
+  chat area (the chat's own events are untouched; Copy is the only key on its bubbles, a drawn block's buttons and
+  "Undo the whole job" are off), with a band under the monitor, "Earlier conversation · Oct 9", and **"Back to
+  current"**; the composer is disabled ("Earlier conversation · read only") with the line "The monster no longer reads
+  this conversation. Go back to the current one to write." and "New conversation" is off. This is the only way to see
+  the earlier conversations: there is no "Show the previous conversations" toggle at the top of the chat any more.
 - **Empty chat**: the monster on a big screen that talks for a moment and the greeting in Martian Mono with a blinking
   cursor, in its own words (livelier if the genome has a high `bounce`); the name in Doto is only on the monitor,
   once is enough. Below, the first suggestions as keys, until you write; after "New conversation" the same. "More

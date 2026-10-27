@@ -74,7 +74,7 @@ export function ContextKey({ agentId, name }: { agentId: string; name: string })
   return (
     <button
       type="button"
-      className="screen-key gap-2.5 px-2.5 @max-[460px]:px-0.5"
+      className="screen-key h-10 gap-2.5 px-2.5 @max-[460px]:px-0.5"
       onClick={() => openUsage(agentId)}
       aria-label={s.aria(name, said)}
       aria-expanded={open}

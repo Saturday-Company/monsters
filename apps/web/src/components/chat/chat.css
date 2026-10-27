@@ -52,6 +52,46 @@
     color: var(--on-signal);
   }
 
+  /*
+   * The bar of keys on the corner of a bubble (BubbleTools.tsx): the time and Copy / Again / Edit,
+   * shown under a pointer that hovers (desktop), with the focus inside, or after a tap on the
+   * bubble (touch). It hangs half over the bubble's top edge, from the far side of where it speaks.
+   */
+  .bubble-tools {
+    position: absolute;
+    top: -26px;
+    right: 10px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 36px;
+    padding: 0 4px 0 10px;
+    border-radius: 10px;
+    visibility: hidden;
+  }
+
+  .bubble-time {
+    margin-right: 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .bubble-frame:focus-within > .bubble-tools,
+  .bubble-frame[data-open] > .bubble-tools {
+    visibility: visible;
+  }
+
+  @media (hover: hover) {
+    .bubble-frame:hover > .bubble-tools {
+      visibility: visible;
+    }
+  }
+
   /* ------------------------------------------------------- work strip */
 
   /*

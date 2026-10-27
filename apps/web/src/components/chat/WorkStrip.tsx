@@ -1,7 +1,7 @@
 import { dotPalette } from '@monsters/monster-kit';
 import { ArrowUpRight, CaretDown, CaretUp } from '@phosphor-icons/react';
 import type { UndoRunResult } from '@monsters/shared';
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { notePath } from '../../lib/router.ts';
 import { cn, domId, formatTime, formatUsd } from '../../lib/utils.ts';
 import { errorText, undoRun, useApp } from '../../store/app.ts';
@@ -46,6 +46,7 @@ import { THEMES } from '../../theme/tokens.ts';
 import { Meter } from '../ui/Meter.tsx';
 import { openTerminalAt } from '../terminal/focus.ts';
 import { chatStrings } from './chat.strings.ts';
+import { ReadOnlyContext } from './readonly.ts';
 
 /*
  * The work strip of a turn (docs/design.md, "The chat"): one row in the chat's own tone between
@@ -316,6 +317,8 @@ function Details({ turn, id, undone }: { turn: Turn; id: string; undone: boolean
   const s = chatStrings();
   const nameOf = useNameOf();
   const details = usePrefs((p) => p.showDetails);
+  // An earlier conversation is for reading: nothing in it can be undone from here.
+  const readOnly = useContext(ReadOnlyContext);
   const [result, setResult] = useState<UndoRunResult | null>(null);
   const [allSteps, setAllSteps] = useState(false);
   const data = turn.receipt?.data;
@@ -497,7 +500,7 @@ function Details({ turn, id, undone }: { turn: Turn; id: string; undone: boolean
               {s.strip.behind}
               <ArrowUpRight size={13} weight="bold" aria-hidden />
             </button>
-            {data?.undoable && !undone && !result && turn.receipt && (
+            {data?.undoable && !undone && !result && turn.receipt && !readOnly && (
               <UndoAll runId={turn.receipt.runId} onDone={setResult} />
             )}
           </div>
