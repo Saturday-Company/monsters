@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -13,7 +14,7 @@ import { KeyedMutex } from '../src/concurrency.ts';
 import { probePathIdentity } from '../src/fsutil.ts';
 import { EXACT_PATHS, lockKeyOf, pathId, type PathIdentity } from '../src/paths.ts';
 import { VaultService } from '../src/index.ts';
-import { actor, newVault, tempDir, track } from './helpers.ts';
+import { actor, newVault, PERMISSIONS, tempDir, track } from './helpers.ts';
 
 /*
  * Review of 28/10 (vault, D-219): on macOS and Windows `Idee.md` and `idee.md` (and an NFC and
@@ -259,4 +260,40 @@ describe('probing the real file system', () => {
     const linux = process.platform !== 'darwin' && process.platform !== 'win32';
     expect(identity).toEqual(linux ? EXACT_PATHS : expect.objectContaining({ foldCase: true }));
   });
+
+  it('keeps what the index was built with when the folder cannot be written', async () => {
+    const gone = join(tempDir(), 'does', 'not', 'exist');
+    // A recorded identity beats the platform's guess, both ways.
+    expect(await probePathIdentity(gone, FOLDING)).toEqual(FOLDING);
+    expect(await probePathIdentity(gone, EXACT_PATHS)).toEqual(EXACT_PATHS);
+    expect(await probePathIdentity(gone, { foldCase: true, foldUnicode: false })).toEqual({
+      foldCase: true,
+      foldUnicode: false,
+    });
+    // ... but never over what the folder says when it can be asked.
+    const dir = tempDir();
+    expect(
+      await probePathIdentity(dir, { foldCase: !FOLDING.foldCase, foldUnicode: true }),
+    ).toEqual(await probePathIdentity(dir));
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'a vault reopened on a folder that cannot be written keeps its index, no rebuild',
+    async () => {
+      const indexPath = join(tempDir(), 'index.db');
+      const vault = await newVault({ pathIdentity: FOLDING, indexPath });
+      const { root } = vault;
+      await vault.write(titan(), { path: 'Inbox/Idee.md', content: 'uno' });
+      await vault.close();
+      chmodSync(root, 0o555);
+      try {
+        const again = track(await VaultService.open({ root, indexPath, permissions: PERMISSIONS }));
+        // The probe could not write: the identity of the index stays, so nothing was rebuilt.
+        expect(again.index.identity).toEqual(FOLDING);
+        expect(again.index.reindexPending).toBe(false);
+      } finally {
+        chmodSync(root, 0o755);
+      }
+    },
+  );
 });

@@ -157,6 +157,21 @@ function summaryOf(note: ParsedNote): string {
   return lines.replace(/\s+/g, ' ').trim().slice(0, 240);
 }
 
+/** How an identity is recorded in `vault_meta` (`path_identity`): `cu`, `c-`, `-u` or `--`. */
+export function identityMode(identity: PathIdentity): string {
+  return `${identity.foldCase ? 'c' : '-'}${identity.foldUnicode ? 'u' : '-'}`;
+}
+
+/** The identity the index was built with, or null for a new index (or a value nobody wrote). */
+export function recordedIdentity(db: Db): PathIdentity | null {
+  const value = db.get<{ value: string }>(
+    `SELECT value FROM vault_meta WHERE key = 'path_identity'`,
+  )?.value;
+  return value !== undefined && /^[c-][u-]$/.test(value)
+    ? { foldCase: value[0] === 'c', foldUnicode: value[1] === 'u' }
+    : null;
+}
+
 export class VaultIndex {
   readonly db: Db;
   /** Hashes of chunks replaced or removed since the last `takeDroppedChunks()`. */
@@ -191,7 +206,7 @@ export class VaultIndex {
    * index is rebuilt from the files. Returns true when a rebuild was asked for.
    */
   adoptIdentity(): boolean {
-    const mode = `${this.identity.foldCase ? 'c' : '-'}${this.identity.foldUnicode ? 'u' : '-'}`;
+    const mode = identityMode(this.identity);
     const known = this.db.get<{ value: string }>(
       `SELECT value FROM vault_meta WHERE key = 'path_identity'`,
     )?.value;

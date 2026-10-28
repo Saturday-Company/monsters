@@ -17,6 +17,7 @@ import {
   errorMessage,
   isAbortError,
   isFallbackError,
+  mentionsMedia,
   ProviderRemovedError,
   statusOf,
   StreamInterruptedError,
@@ -717,8 +718,13 @@ export class ModelSession implements LanguageModelV4 {
         }
         // A 400 for a request that carried an image or a PDF is most likely this model's: the
         // next link (which gets what it can read) may take it, and the provider's other
-        // models are not disabled by it (D-218).
-        const inputRefused = kind === 'bad_request' && hasMediaParts(sent.prompt);
+        // models are not disabled by it (D-218). The file must be in what this request adds (the
+        // turn since the model last spoke) or be what the error talks about: a bad tool schema
+        // in a run that once had an image is not the image's fault, and stays the provider's.
+        const inputRefused =
+          kind === 'bad_request' &&
+          (hasMediaParts(sent.prompt, { latestTurn: true }) ||
+            (hasMediaParts(sent.prompt) && mentionsMedia(err)));
         const providerRefused = !inputRefused && isProviderError(err);
         if (providerRefused) refused.add(ref.provider);
         // A refused provider: the next link on another provider. Otherwise the next link.

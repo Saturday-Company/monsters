@@ -2,6 +2,7 @@ import { APICallError, streamText } from 'ai';
 import { describe, expect, it } from 'vitest';
 import {
   classifyProviderError,
+  fallbackTextOptions,
   hasMediaParts,
   isProviderError,
   ProviderRegistry,
@@ -52,6 +53,39 @@ describe('withReadableInput', () => {
     expect(withReadableInput(withImage, { images: true, pdf: true }, note)).toBe(withImage);
     // The original is untouched.
     expect(hasMediaParts(withImage)).toBe(true);
+  });
+});
+
+describe('a PDF that carries its text', () => {
+  const pdf = (extra = {}) => [
+    {
+      role: 'user' as const,
+      content: [
+        {
+          type: 'file' as const,
+          data: { type: 'data' as const, data: new Uint8Array([4]) },
+          mediaType: 'application/pdf',
+          filename: 'scheda.pdf',
+          ...extra,
+        },
+      ],
+    },
+  ];
+
+  it('gives the link that cannot read PDFs that text, not a note', () => {
+    const prompt = pdf({ providerOptions: fallbackTextOptions('TESTO ESTRATTO') });
+    const out = withReadableInput(
+      prompt,
+      { images: true, pdf: false },
+      (kind, name, text) => text ?? note(kind, name),
+    );
+    expect(JSON.stringify(out)).toContain('TESTO ESTRATTO');
+    expect(hasMediaParts(out)).toBe(false);
+    // Without text, the note; a link that reads PDFs gets the file untouched.
+    expect(JSON.stringify(withReadableInput(pdf(), { images: true, pdf: false }, note))).toContain(
+      '[pdf scheda.pdf left out]',
+    );
+    expect(withReadableInput(prompt, { images: true, pdf: true }, note)).toBe(prompt);
   });
 });
 
@@ -110,6 +144,65 @@ describe('a chain with a model that cannot read the images', () => {
       kind: 'bad_request',
       to: { model: 'blind' },
     });
+  });
+
+  it('a 400 after the image turn (a bad tool schema) is still the provider’s', async () => {
+    const provider = new FakeProvider({
+      models: {
+        sees: [{ kind: 'http-error', status: 400, message: 'tools.0.input_schema: invalid' }],
+        blind: [fake.text('non deve arrivare')],
+      },
+    });
+    const session = new ProviderRegistry().register(provider).session([
+      { provider: 'fake', model: 'sees' },
+      { provider: 'fake', model: 'blind' },
+    ]);
+    const image = {
+      type: 'file' as const,
+      data: new Uint8Array([1, 2, 3]),
+      mediaType: 'image/png',
+    };
+    await expect(
+      streamText({
+        model: session,
+        maxRetries: 0,
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: 'Cosa vedi?' }, image] },
+          { role: 'assistant', content: 'Un gatto.' },
+          { role: 'user', content: 'E ora cerca sul web.' },
+        ],
+      }).text,
+    ).rejects.toThrow();
+    expect(provider.calls.map((c) => c.model)).toEqual(['sees']);
+  });
+
+  it('a 400 that names the image, after the image turn, is still the model’s', async () => {
+    const provider = new FakeProvider({
+      models: {
+        sees: [{ kind: 'http-error', status: 400, message: 'Bad Request: too many images' }],
+        blind: [fake.text('Senza immagine.')],
+      },
+    });
+    const session = new ProviderRegistry().register(provider).session([
+      { provider: 'fake', model: 'sees' },
+      { provider: 'fake', model: 'blind' },
+    ]);
+    const image = {
+      type: 'file' as const,
+      data: new Uint8Array([1, 2, 3]),
+      mediaType: 'image/png',
+    };
+    const text = await streamText({
+      model: session,
+      maxRetries: 0,
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: 'Cosa vedi?' }, image] },
+        { role: 'assistant', content: 'Un gatto.' },
+        { role: 'user', content: 'E ora?' },
+      ],
+    }).text;
+    expect(text).toBe('Senza immagine.');
+    expect(provider.calls.map((c) => c.model)).toEqual(['sees', 'blind']);
   });
 
   it('a 400 without media is still the provider’s: its other models are skipped', async () => {

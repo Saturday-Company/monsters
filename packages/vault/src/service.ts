@@ -49,6 +49,7 @@ import { vaultMigrations } from './index-db/schema.ts';
 import {
   VaultIndex,
   localIso,
+  recordedIdentity,
   type NoteRow,
   type ProposalRecord,
   type SearchFilters,
@@ -548,7 +549,7 @@ export class VaultService {
     const service = new VaultService({
       root,
       realRoot,
-      identity: opts.pathIdentity ?? (await probePathIdentity(realRoot)),
+      identity: opts.pathIdentity ?? (await probePathIdentity(realRoot, recordedIdentity(db))),
       db,
       ownsDb,
       vcs,

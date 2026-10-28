@@ -96,16 +96,23 @@ export async function resolveInVault(
  * Finds out how the file system under `root` compares names, by asking it: a probe file is
  * created in the vault's root (hidden and temporary, so neither the index nor Obsidian nor git
  * sees it) and looked up with another case and another Unicode form. Never assumed from the
- * platform. When the folder cannot be written, the usual behaviour of the platform is assumed:
- * wider than needed is safe (more serialization, no duplicates), narrower is not.
+ * platform. When the folder cannot be written (a read-only mount, a full disk), what the index
+ * was built with (`recorded`) stands: a guess from the platform may differ from it and would
+ * rebuild the index with the wrong folding, and again when the probe works. Without a record,
+ * the usual behaviour of the platform is assumed: wider than needed is safe (more serialization,
+ * no duplicates), narrower is not.
  */
-export async function probePathIdentity(root: string): Promise<PathIdentity> {
+export async function probePathIdentity(
+  root: string,
+  recorded?: PathIdentity | null,
+): Promise<PathIdentity> {
   const guess: PathIdentity =
-    process.platform === 'darwin'
+    recorded ??
+    (process.platform === 'darwin'
       ? { foldCase: true, foldUnicode: true }
       : process.platform === 'win32'
         ? { foldCase: true, foldUnicode: false }
-        : EXACT_PATHS;
+        : EXACT_PATHS);
   // Mixed case and a letter with a composed accent (e acute, U+00E9) that has a decomposed form.
   const accent = String.fromCodePoint(0xe9);
   const name = `.monsters-names-${randomBytes(4).toString('hex')}-aB${accent}${TMP_SUFFIX}`;
