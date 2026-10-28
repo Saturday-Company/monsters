@@ -6472,6 +6472,10 @@ no longer counts chunks). The HTTP `/api/events` keeps its 1–1000 limit and it
 **Consequence:** a reader can no longer ask for more than a page and quietly get less. Readers of whole runs cost what
 the run holds. `shared/src/chat-history.ts` keeps a documented 1000 cap for counting the messages of a previous
 conversation (display only).
+**Amended after the review of the fixes (28/10):** `scan` and `find` start with a page of 50 rows and double up to
+`MAX_QUERY_LIMIT`, so a lookup that finds its event early parses a few rows; `all` reads full pages. The notes of a job
+join the streamed chunks between two tool calls into one step instead of skipping them (the text written before a tool
+call exists only as chunks). `MemoryProposals.open` reads the `memory` events once.
 
 ### D-216 · A message read by a failed turn is not lost; a stopped delegation ends without its delegate
 **Status:** done · 28/10/2026
@@ -6534,6 +6538,10 @@ server allocates its own (4096 unless configured): nothing was compacted and Oll
   maximum.
 **Consequence:** a fallback that cannot see images gets a note and says so; the reverse (first link blind, fallback
 seeing) still sees only the note. An Ollama model with unknown details shows 4096 and is compacted accordingly.
+**Amended after the review of the fixes (28/10):** a PDF sent as a file also carries its extracted text (same per-file
+and per-message limits), which a link that cannot read PDFs receives instead of the note. A 400 counts as the link's
+input problem only if the turn since the model last spoke carries an image or PDF, or the history has one and the error
+text mentions it; any other 400 stays the provider's.
 
 ### D-219 · One identity for vault paths, read from the file system under the vault
 **Status:** done · 28/10/2026
@@ -6551,6 +6559,11 @@ hint (two steps, via a temporary name): a plain move would write and then delete
 would record both spellings.
 **Consequence:** the first start after the upgrade rebuilds the index once. Open: a real case-only rename on
 case-insensitive volumes, and an atomic `fs_write` overwrite (it opens in place on purpose, for the no-follow check).
+On HFS+ (which stores NFD) a note created with an NFC name is later written and committed under its NFD on-disk
+spelling, so git can hold two paths for one file; APFS keeps the created spelling and is not affected.
+**Amended after the review of the fixes (28/10):** when the name probe cannot write (read-only mount, full disk), the
+identity recorded in `vault_meta` is used before the platform default, so the index is not rebuilt with the wrong
+folding.
 
 ### D-220 · Onboarding and settings: shared password path, proposals tied to their answers, lists that retry
 **Status:** done · 28/10/2026
