@@ -2063,6 +2063,7 @@ export function isUndoable(e: LogEvent): boolean {
   return (
     e.type === 'vault_change' &&
     !!e.data.actionId &&
+    !e.data.unrecorded &&
     ['create', 'edit', 'move', 'delete'].includes(e.data.action)
   );
 }

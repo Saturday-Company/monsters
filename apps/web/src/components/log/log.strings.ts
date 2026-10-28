@@ -182,6 +182,7 @@ const en = {
       notShown: 'Not shown',
       wasIn: 'Was in',
       filesTouched: 'Files touched',
+      history: 'History',
       requested: 'Requested',
       tokens: 'Tokens',
       wait: 'Wait',
@@ -239,6 +240,8 @@ const en = {
     summaryTurns: 'more messages than fit',
     summaryWindow: 'the context was nearing the model’s window',
     allMonsters: 'all the monsters',
+    notInHistory:
+      'Not in the history, so it can’t be undone: the folder is ignored by the vault’s .gitignore, or the file is too large to record',
     olderChars: (n: string) => `${n} older characters`,
     tokens: (read: string, cached: string | null, written: string) =>
       `${read} read${cached ? ` (${cached} from the cache)` : ''}, ${written} written`,
@@ -433,6 +436,7 @@ const it: typeof en = {
       notShown: 'Non mostrati',
       wasIn: 'Prima era in',
       filesTouched: 'File toccati',
+      history: 'Cronologia',
       requested: 'Chiesto',
       tokens: 'Token',
       wait: 'Attesa',
@@ -489,6 +493,8 @@ const it: typeof en = {
     summaryTurns: 'più messaggi di quanti ne entrano',
     summaryWindow: 'il contesto si avvicinava alla finestra del modello',
     allMonsters: 'tutti i mostri',
+    notInHistory:
+      'Non è nella cronologia, quindi non si può annullare: la cartella è ignorata dal .gitignore del vault, oppure il file è troppo grande per essere registrato',
     olderChars: (n) => `${n} caratteri più vecchi`,
     tokens: (read, cached, written) =>
       `${read} letti${cached ? ` (${cached} dalla cache)` : ''}, ${written} scritti`,

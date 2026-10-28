@@ -371,6 +371,11 @@ export const VaultChangeDataSchema = z.object({
   fromPath: z.string().optional(),
   /** Git commit SHA recording the change, when available. */
   commit: z.string().optional(),
+  /**
+   * The vault keeps a history but this change is not in it (the folder is ignored by the vault's
+   * own ignore file, or the file is too big to record): no commit, so no undo (D-214).
+   */
+  unrecorded: z.boolean().optional(),
   actionId: z.string().optional(),
   /** Every file touched when the action changed more than one (move with links, undo, proposals). */
   files: z.array(z.string()).optional(),

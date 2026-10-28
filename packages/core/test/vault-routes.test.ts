@@ -7,6 +7,8 @@ import type {
   VaultVersion,
   VaultWriteResponse,
 } from '@monsters/shared';
+import { appendFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { BROWSER_HEADERS, browserSession, setupUser } from './helpers.ts';
 import { startTestHub } from './hub-helpers.ts';
@@ -281,6 +283,35 @@ describe('vault routes: changes by the user', () => {
     });
     const again = await json<VaultNote>('GET', '/api/vault/note?path=Risorse/Lisbona.md');
     expect(again.content).toContain('Alfama');
+  });
+
+  it('says a note in a folder the .gitignore excludes is not in the history (D-214)', async () => {
+    const { json, api, events, core } = await hubWithNotes();
+    const root = core.hub.vault.root;
+    appendFileSync(join(root, '.gitignore'), 'Ignorata/\n');
+    const created = await json<VaultWriteResponse>('POST', '/api/vault/note', {
+      folder: 'Ignorata',
+      title: 'Privata',
+      content: 'solo qui\n',
+    });
+    expect(created).toMatchObject({ ok: true, path: 'Ignorata/Privata.md', commit: null });
+    expect(created.unrecorded).toBe(true);
+    const change = events().find(
+      (e) => e.type === 'vault_change' && e.data.path === 'Ignorata/Privata.md',
+    );
+    expect(change?.data).toMatchObject({ action: 'create', unrecorded: true });
+    // The undo says why, instead of failing as "changed no files".
+    const undo = await api('POST', '/api/vault/undo', { actionId: created.actionId });
+    expect(undo.status).toBe(400);
+    expect(((await undo.json()) as { message: string }).message).toMatch(/\.gitignore/);
+    // A normal note still has its commit and no flag.
+    const normal = await json<VaultWriteResponse>('POST', '/api/vault/note', {
+      folder: 'Risorse',
+      title: 'Registrata',
+      content: 'x\n',
+    });
+    expect(normal.commit).toBeTruthy();
+    expect(normal.unrecorded).toBeUndefined();
   });
 
   it('creates a new note in a folder as the user, with a commit, never over another', async () => {

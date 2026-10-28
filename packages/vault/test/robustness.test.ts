@@ -11,7 +11,8 @@ import { actor, newVault, tempDir, track } from './helpers.ts';
 /*
  * Review of 28/10 (stability): a file over 2 GiB made the core fail to start, two headings
  * of the same name were edited at the first, a folder in the user's .gitignore was
- * "recorded" without its files, and a sync could drop a note written meanwhile.
+ * "recorded" without its files, and a sync could drop a note written meanwhile. Refined
+ * (D-214): what the user ignores stays out of history, and one big file never fails an action.
  */
 
 const titan = () => actor('titan');
@@ -222,46 +223,176 @@ describe('sections with the same heading', () => {
   });
 });
 
-describe('folders ignored by the .gitignore of the user', () => {
-  for (const backend of ['isomorphic', 'system'] as const) {
-    it(`are recorded in the history, so undo works (${backend} git)`, async () => {
-      if (backend === 'system') {
-        try {
-          execFileSync('git', ['--version'], { stdio: 'ignore' });
-        } catch {
-          return;
-        }
-      }
+/** Backends under test: the system git only where it is installed. */
+function backends(): ('isomorphic' | 'system')[] {
+  try {
+    execFileSync('git', ['--version'], { stdio: 'ignore' });
+    return ['isomorphic', 'system'];
+  } catch {
+    return ['isomorphic'];
+  }
+}
+
+const commitCount = async (dir: string): Promise<number> => (await isogit.log({ fs, dir })).length;
+
+describe('folders ignored by the .gitignore of the user (D-214)', () => {
+  for (const backend of backends()) {
+    const ignoredVault = async () => {
       const vault = await newVault({ git: backend });
-      const root = vault.root;
-      const gitignore = join(root, '.gitignore');
+      const gitignore = join(vault.root, '.gitignore');
       writeFileSync(gitignore, `${readFileSync(gitignore, 'utf8')}Ignorata/\n*.tmpdata\n`);
+      return vault;
+    };
+
+    it(`are written but never recorded: no commit, a warning, no empty commit (${backend} git)`, async () => {
+      const vault = await ignoredVault();
       const a = titan();
+      const before = await commitCount(vault.root);
 
-      const created = await vault.write(a, {
-        path: 'Ignorata/Nota',
-        content: 'prima versione\n',
-      });
-      expect(created.commit).toBeTruthy();
-      const changed = await vault.history(a, { path: 'Ignorata/Nota.md' });
-      expect(changed.map((c) => c.action_id)).toContain(created.action_id);
+      const created = await vault.write(a, { path: 'Ignorata/Nota', content: 'prima versione\n' });
+      expect(existsSync(join(vault.root, 'Ignorata/Nota.md'))).toBe(true);
+      expect(created.commit).toBeNull();
+      expect(created.warning).toMatch(/not in the history/);
+      expect(created.warning).toMatch(/Ignorata\/Nota\.md is ignored by the vault's \.gitignore/);
+      expect(created.warning).toMatch(/cannot be undone/);
+      // No empty commit either, and the file is not in the history of the repository.
+      expect(await commitCount(vault.root)).toBe(before);
+      expect(await isogit.listFiles({ fs, dir: vault.root, ref: 'HEAD' })).not.toContain(
+        'Ignorata/Nota.md',
+      );
+      const change = a.events.find((e) => e.type === 'vault_change');
+      expect(change?.data).toMatchObject({ action: 'create', path: 'Ignorata/Nota.md' });
+      expect(change?.data).toMatchObject({ unrecorded: true });
+      expect(change?.data).not.toHaveProperty('commit');
 
-      const original = readFileSync(join(root, 'Ignorata/Nota.md'), 'utf8');
+      // A later edit and a deletion are the same: done, not recorded.
       const first = await vault.read(a, { path: 'Ignorata/Nota' });
       const edited = await vault.edit(a, {
         path: 'Ignorata/Nota',
         base_hash: first.hash,
         ops: [{ str_replace: { old: 'prima', new: 'seconda' } }],
       });
-      expect(readFileSync(join(root, 'Ignorata/Nota.md'), 'utf8')).toContain('seconda');
-      await vault.undo(a, { action_id: edited.action_id });
-      expect(readFileSync(join(root, 'Ignorata/Nota.md'), 'utf8')).toBe(original);
-
-      // Deleting and bringing it back.
+      expect(readFileSync(join(vault.root, 'Ignorata/Nota.md'), 'utf8')).toContain('seconda');
+      expect(edited.commit).toBeNull();
+      expect(edited.warning).toMatch(/ignored by the vault's \.gitignore/);
       const deleted = await vault.delete(a, { path: 'Ignorata/Nota', reason: 'test' });
-      expect(existsSync(join(root, 'Ignorata/Nota.md'))).toBe(false);
-      await vault.undo(a, { action_id: deleted.action_id });
-      expect(readFileSync(join(root, 'Ignorata/Nota.md'), 'utf8')).toBe(original);
+      expect(existsSync(join(vault.root, 'Ignorata/Nota.md'))).toBe(false);
+      expect(deleted.commit).toBeNull();
+      expect(await commitCount(vault.root)).toBe(before);
+      // Nothing in the history: no tracked file of the ignored folder.
+      const tracked = await isogit.listFiles({ fs, dir: vault.root, ref: 'HEAD' });
+      expect(tracked.filter((f) => f.startsWith('Ignorata/'))).toEqual([]);
+    });
+
+    it(`undo of such an action says why, not "changed no files" (${backend} git)`, async () => {
+      const vault = await ignoredVault();
+      const a = titan();
+      const created = await vault.write(a, { path: 'Ignorata/Nota', content: 'testo\n' });
+      const err = await expectToolError(
+        vault.undo(a, { action_id: created.action_id }),
+        'INVALID_INPUT',
+      );
+      expect(err.message).toContain(created.action_id);
+      expect(err.message).toMatch(/not recorded in the history/);
+      expect(err.message).toMatch(/Ignorata\/Nota\.md is ignored by the vault's \.gitignore/);
+      expect(err.message).not.toMatch(/changed no files/);
+      expect(err.hint).toMatch(/\.gitignore/);
+      // The note is still there.
+      expect(readFileSync(join(vault.root, 'Ignorata/Nota.md'), 'utf8')).toContain('testo');
+    });
+
+    it(`an action that touches both is recorded for the rest and warns (${backend} git)`, async () => {
+      const vault = await ignoredVault();
+      const a = titan();
+      const note = await vault.write(a, { path: 'Inbox/Spostata', content: 'ciao\n' });
+      const before = await commitCount(vault.root);
+      const moved = await vault.move(a, { from: 'Inbox/Spostata', to: 'Ignorata/Spostata' });
+      expect(moved.commit).toBeTruthy();
+      expect(moved.warning).toMatch(/Part of this change is not in the history/);
+      expect(moved.warning).toMatch(/Ignorata\/Spostata\.md/);
+      expect(await commitCount(vault.root)).toBe(before + 1);
+      expect(note.commit).toBeTruthy();
+      const tracked = await isogit.listFiles({ fs, dir: vault.root, ref: 'HEAD' });
+      expect(tracked).not.toContain('Ignorata/Spostata.md');
+      expect(tracked).not.toContain('Inbox/Spostata.md');
+    });
+
+    it(`a file the history already tracks stays followed, even if the .gitignore now lists it (${backend} git)`, async () => {
+      const vault = await newVault({ git: backend });
+      const a = titan();
+      const created = await vault.write(a, { path: 'Inbox/Seguita', content: 'uno\n' });
+      expect(created.commit).toBeTruthy();
+      const gitignore = join(vault.root, '.gitignore');
+      writeFileSync(gitignore, `${readFileSync(gitignore, 'utf8')}Inbox/Seguita.md\n`);
+      const first = await vault.read(a, { path: 'Inbox/Seguita' });
+      const edited = await vault.edit(a, {
+        path: 'Inbox/Seguita',
+        base_hash: first.hash,
+        ops: [{ str_replace: { old: 'uno', new: 'due' } }],
+      });
+      expect(edited.commit).toBeTruthy();
+      expect(edited.warning).toBeUndefined();
+      await vault.undo(a, { action_id: edited.action_id });
+      expect(readFileSync(join(vault.root, 'Inbox/Seguita.md'), 'utf8')).toContain('uno');
+    });
+  }
+});
+
+describe('big files are listed, moved and deleted without being read (D-214)', () => {
+  const BIG = 300 * 1024 * 1024;
+
+  for (const backend of backends()) {
+    it(`delete, move and the trash list work with a file over 256 MiB (${backend} git)`, async () => {
+      const vault = await newVault({ git: backend });
+      const a = titan();
+      sparse(join(vault.root, 'Risorse/film.mov'), BIG);
+      sparse(join(vault.root, 'Risorse/altro.mov'), BIG);
+      await vault.sync();
+      await vault.write(a, { path: 'Inbox/Piccola', content: 'testo\n' });
+      const small = await vault.delete(a, { path: 'Inbox/Piccola', reason: 'prova' });
+      const before = await commitCount(vault.root);
+
+      // Move: a rename, with a warning and no commit for the file.
+      const moved = await vault.move(a, { from: 'Risorse/film.mov', to: 'Inbox/film.mov' });
+      expect(moved.path).toBe('Inbox/film.mov');
+      expect(existsSync(join(vault.root, 'Risorse/film.mov'))).toBe(false);
+      expect(existsSync(join(vault.root, 'Inbox/film.mov'))).toBe(true);
+      expect(vault.index.get('Inbox/film.mov')?.size).toBe(BIG);
+      expect(vault.index.get('Risorse/film.mov')).toBeUndefined();
+      expect(moved.commit).toBeNull();
+      expect(moved.warning).toMatch(/over 256 MiB/);
+      expect(moved.warning).toMatch(/cannot be undone/);
+
+      // Delete: to the trash, without reading it.
+      const deleted = await vault.delete(a, { path: 'Risorse/altro.mov', reason: 'prova' });
+      expect(existsSync(join(vault.root, 'Risorse/altro.mov'))).toBe(false);
+      expect(existsSync(join(vault.root, deleted.trash_path))).toBe(true);
+      expect(deleted.commit).toBeNull();
+      expect(deleted.warning).toMatch(/over 256 MiB/);
+      expect(await commitCount(vault.root)).toBe(before);
+
+      // Undo says why.
+      const err = await expectToolError(
+        vault.undo(a, { action_id: deleted.action_id }),
+        'INVALID_INPUT',
+      );
+      expect(err.message).toMatch(/not recorded in the history/);
+      expect(err.message).not.toMatch(/changed no files/);
+
+      // The trash lists the big file by name and size, next to the small note that was trashed.
+      const items = await vault.trash(a);
+      const big = items.find((i) => i.trash_path === deleted.trash_path);
+      expect(big?.size).toBe(BIG);
+      expect(big?.original_path).toBeNull();
+      const note = items.find((i) => i.action_id === small.action_id);
+      expect(note?.original_path).toBe('Inbox/Piccola.md');
+    });
+
+    it(`isUntouched is false, not an error, when a big file is there (${backend} git)`, async () => {
+      const vault = await newVault({ git: backend });
+      expect(await vault.isUntouched()).toBe(true);
+      sparse(join(vault.root, 'Risorse/film.mov'), BIG);
+      expect(await vault.isUntouched()).toBe(false);
     });
   }
 });

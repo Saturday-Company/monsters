@@ -67,6 +67,8 @@ const en = {
     folderInvalid: 'The name isn’t valid.',
     folderAgents: 'This folder belongs to the monsters: pick another one.',
     created: 'Note created. You’ll find it in Activity, and it can be undone.',
+    createdNoHistory:
+      'Note created. This folder is ignored by the vault’s .gitignore, so it is not in the history and can’t be undone.',
     goesIn: (folder: string | null) => `Goes in ${folder ?? 'a new folder'}`,
     heading: 'New note',
     title: 'Title',
@@ -186,6 +188,8 @@ const it: typeof en = {
     folderInvalid: 'Il nome non è valido.',
     folderAgents: 'Questa cartella è dei mostri: scegline un’altra.',
     created: 'Nota creata. La trovi in Attività e si può annullare.',
+    createdNoHistory:
+      'Nota creata. Questa cartella è ignorata dal .gitignore del vault, quindi non è nella cronologia e non si può annullare.',
     goesIn: (folder) => `Va in ${folder ?? 'una cartella nuova'}`,
     heading: 'Nuova nota',
     title: 'Titolo',

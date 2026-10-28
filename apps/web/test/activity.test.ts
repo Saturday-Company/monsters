@@ -1,6 +1,7 @@
 import { setAppLang, ulid, type DraftView, type EventInput, type LogEvent } from '@monsters/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  canUndo,
   hasEffect,
   matchesActivity,
   otherTypes,
@@ -173,6 +174,16 @@ describe('undo and redo', () => {
     expect(rootChange([a, u1, u2], u2 as LogEvent<'vault_change'>)?.data.actionId).toBe('act_a');
     // Restored after the undo: the row tells the restore (4.2).
     expect(latestNoteChanges([a, u1, restore]).map((e) => e.data.action)).toEqual(['restore']);
+  });
+
+  it('offers no undo for a change that is not in the history (D-214)', () => {
+    const unrecorded = ev({
+      agent: 'titan',
+      type: 'vault_change',
+      data: { action: 'create', path: 'Ignorata/Nota.md', actionId: 'act_i', unrecorded: true },
+    });
+    expect(canUndo(a)).toBe(true);
+    expect(canUndo(unrecorded)).toBe(false);
   });
 });
 

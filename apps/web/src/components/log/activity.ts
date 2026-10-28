@@ -281,6 +281,8 @@ export function canUndo(e: LogEvent): boolean {
   return (
     e.type === 'vault_change' &&
     !!e.data.actionId &&
+    // Not in the history (an ignored folder, a file too big): nothing to undo from.
+    !e.data.unrecorded &&
     ['create', 'edit', 'move', 'delete', 'restore'].includes(e.data.action)
   );
 }

@@ -131,6 +131,29 @@ export async function readIfExists(
   }
 }
 
+/** What is at a path before an action touches it. */
+export interface Peeked {
+  /** The content; null when there is no file, or when it is too big to be read (`big`). */
+  bytes: Buffer | null;
+  /** A file over `WHOLE_FILE_MAX_BYTES`: it exists and is never read, only renamed (D-214). */
+  big: boolean;
+}
+
+/**
+ * `readIfExists` that does not fail on a big file but reports it, so deleting or moving a big
+ * attachment (a rename, no content needed) and listing a folder that holds one keep working.
+ */
+export async function peekFile(abs: string): Promise<Peeked> {
+  try {
+    const st = await stat(abs);
+    if (st.isFile() && st.size > WHOLE_FILE_MAX_BYTES) return { bytes: null, big: true };
+    return { bytes: await readFile(abs), big: false };
+  } catch (err) {
+    if (isNotFound(err)) return { bytes: null, big: false };
+    throw err;
+  }
+}
+
 /** What the index needs to know about a file on disk, without holding its content. */
 export interface DiskFile {
   size: number;
