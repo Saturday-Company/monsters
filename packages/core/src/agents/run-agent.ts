@@ -1026,7 +1026,13 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
    * The model's stream of the current step while it has not finished: a stream
    * broken halfway, asked again or stopped is billed all the same (F-A4).
    */
-  let attempt: { chars: number; started: number } | null = null;
+  let attempt: {
+    chars: number;
+    started: number;
+    /** Who serves this stream, taken when it starts: a retry may be served by another link. */
+    ref: ModelRef | undefined;
+    keyId: string | undefined;
+  } | null = null;
   /** Input tokens of the current step as measured before it (what a cut request read). */
   let stepInput = 0;
   /**
@@ -1094,12 +1100,14 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     const open = attempt;
     attempt = null;
     if (!open) return;
-    const served = session.lastServed;
-    const ref = served?.ref ?? session.pinned ?? session.effectiveChain()[0];
+    // The model that sent this stream, not the one serving now: the retry of a broken stream
+    // may have moved on to another link, and the cost is its sender's (provider, key, price).
+    const ref =
+      open.ref ?? session.lastServed?.ref ?? session.pinned ?? session.effectiveChain()[0];
     if (!ref) return;
     logPartial({
       ref,
-      keyId: served?.keyId,
+      keyId: open.ref ? open.keyId : session.lastServed?.keyId,
       chars: open.chars,
       durationMs: Date.now() - open.started,
       partial,
@@ -1328,7 +1336,13 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
               stepText = '';
               pending = '';
             }
-            attempt = { chars: 0, started: Date.now() };
+            // The session marks a stream after serving it: `lastServed` is this stream's model.
+            attempt = {
+              chars: 0,
+              started: Date.now(),
+              ref: session.lastServed?.ref,
+              keyId: session.lastServed?.keyId,
+            };
             break;
           case 'text-delta':
             pending += part.text;

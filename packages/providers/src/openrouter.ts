@@ -187,6 +187,8 @@ export class OpenRouterProvider implements ModelProvider {
       // The windows are OpenRouter's limits of the free models: paid requests are not in them.
       counts: (model) => isOpenRouterFreeModel(model),
       ...(options.maxWaitMs !== undefined ? { maxWaitMs: options.maxWaitMs } : {}),
+      // At midnight UTC the count is gone but the account's limit is not: read the new day's count.
+      onDailyQuotaExpired: () => void this.syncDailyQuota(),
       now: this.#now,
     });
     this.#sdk = createOpenRouter({

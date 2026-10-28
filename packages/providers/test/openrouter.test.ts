@@ -1,5 +1,5 @@
 import { streamText } from 'ai';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { setAppLang } from '@monsters/shared';
 import {
   classifyProviderError,
@@ -325,6 +325,31 @@ describe('OpenRouter daily counter', () => {
     );
     expect(await inFlight.p.syncDailyQuota()).toMatchObject({ used: 42, at: MIDNIGHT + 1000 });
     expect(inFlight.day()).toMatchObject({ used: 43 });
+  });
+
+  it('keeps the account limit after midnight UTC and reads the new count by itself', async () => {
+    const MIDNIGHT = Math.floor(1_800_000_000_000 / DAY_MS) * DAY_MS + DAY_MS;
+    const c = { t: MIDNIGHT - 1000 };
+    let used = 900;
+    const { p, seen, day } = provider(
+      () =>
+        Promise.resolve(
+          Response.json({
+            data: { free_model_daily_requests: { used, limit: 1000, remaining: 1000 - used } },
+          }),
+        ),
+      true,
+      { now: () => c.t, followAccountRpd: true },
+    );
+    await p.syncDailyQuota();
+    expect(day()).toMatchObject({ used: 900, limit: 1000 });
+    // Midnight: OpenRouter's count restarts, and the limit is still the account's, not 50.
+    c.t = MIDNIGHT + 1000;
+    used = 0;
+    expect(day()).toMatchObject({ used: 0, limit: 1000 });
+    await p.budget.acquire(undefined, 'meta-llama/llama-3.3-70b-instruct:free');
+    await vi.waitFor(() => expect(seen).toHaveLength(2));
+    expect(day()).toMatchObject({ used: 1, limit: 1000 });
   });
 
   it('has a short fingerprint of the key that does not reveal it', () => {
