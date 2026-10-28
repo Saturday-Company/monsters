@@ -39,6 +39,11 @@ export interface ConnectionsFile {
   theme?: 'light' | 'dark';
   /** The app's language as the web UI last said it (D-153); absent: the system's. */
   language?: Lang;
+  /**
+   * The port the app's own core last listened on: asked for again at the next start, so the
+   * window keeps its origin and the web UI keeps what it stored for it (drafts, preferences).
+   */
+  corePort?: number;
 }
 
 export const PROFILE_FIELDS = [
@@ -206,6 +211,7 @@ export function readConnectionsFile(raw: string | null): {
     last?: unknown;
     theme?: unknown;
     language?: unknown;
+    corePort?: unknown;
   };
   const newer = typeof d.version === 'number' && d.version > 1;
   let dropped = !Array.isArray(d.profiles);
@@ -221,6 +227,13 @@ export function readConnectionsFile(raw: string | null): {
   // call the file damaged.
   const theme = d.theme === 'light' || d.theme === 'dark' ? d.theme : null;
   const language = isLang(d.language) ? d.language : null;
+  const corePort =
+    typeof d.corePort === 'number' &&
+    Number.isInteger(d.corePort) &&
+    d.corePort >= 1024 &&
+    d.corePort <= 65535
+      ? d.corePort
+      : null;
   return {
     data: {
       version: 1,
@@ -228,6 +241,7 @@ export function readConnectionsFile(raw: string | null): {
       last,
       ...(theme ? { theme } : {}),
       ...(language ? { language } : {}),
+      ...(corePort ? { corePort } : {}),
     },
     state: newer ? 'newer' : dropped ? 'damaged' : 'ok',
   };
@@ -345,6 +359,19 @@ export class ProfileStore {
   setLanguage(lang: Lang): void {
     if (lang === this.#data.language) return;
     this.#data.language = lang;
+    // As the theme: before the first choice the file does not exist yet.
+    if (this.firstStart && !this.#written) return;
+    this.#write();
+  }
+
+  /** The port the app's core last listened on; null: never started. */
+  get corePort(): number | null {
+    return this.#data.corePort ?? null;
+  }
+
+  setCorePort(port: number): void {
+    if (port === this.#data.corePort) return;
+    this.#data.corePort = port;
     // As the theme: before the first choice the file does not exist yet.
     if (this.firstStart && !this.#written) return;
     this.#write();

@@ -6,6 +6,7 @@ import { prepareNetwork } from './network.ts';
 import { applyLoginShellPath } from './path.ts';
 
 export * from './network.ts';
+export * from './lock-holder.ts';
 export * from './path.ts';
 export * from './runtime.ts';
 export * from './tunnel-proof.ts';

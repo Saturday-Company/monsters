@@ -1,24 +1,37 @@
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import {
+  linkSync,
+  mkdirSync,
+  readFileSync,
+  rmdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
+import {
+  holderIsStale,
+  systemHolderProbes,
+  type HolderProbes,
+  type LockHolder,
+} from '@monsters/shared/node';
 import { FILE_MODE } from './config.ts';
-import { selfStartTime, startTimeOf, START_TOLERANCE } from './kill/proc.ts';
+import { selfStartTime } from './kill/proc.ts';
 import { coreStrings } from './core.strings.ts';
 
 /*
  * One core per data directory: `MONSTERS_HOME/core.lock` holds the pid of the
- * core that owns it (and its start time, to tell a reused pid apart). It is
- * taken before anything in the directory is touched and removed on close; a
- * lock left by a core that crashed is stale and taken over.
+ * core that owns it, its start time and the boot id of the computer (to tell a
+ * reused pid apart, `@monsters/shared/node` lock-holder.ts). It is taken before
+ * anything in the directory is touched and removed on close; a lock left by a
+ * core that crashed, or by a computer that was switched off, is stale and taken
+ * over. Taking over is serialized (`core.lock.takeover`), so that two cores that
+ * find the same stale lock never both end up with it.
  */
 
 export const LOCK_FILE = 'core.lock';
 
-interface LockInfo {
-  pid: number;
-  /** Start time of the process, in the unit of `kill/proc.ts`. */
-  start: number | null;
-  acquiredAt: number;
-}
+type LockInfo = LockHolder;
 
 /** Another live core owns the data directory. */
 export class HomeLockedError extends Error {
@@ -37,6 +50,17 @@ export interface HomeLock {
   release(): void;
 }
 
+/** What `acquireHomeLock` asks the system; replaced in tests. */
+export interface HomeLockOptions {
+  /** The pid written in the lock (default: this process). */
+  pid?: number;
+  /** The start time written in the lock (default: of this process). */
+  start?: number | null;
+  probes?: HolderProbes;
+  /** How long to wait for another core that is taking over a stale lock (default 2 s). */
+  takeoverWaitMs?: number;
+}
+
 /** Homes locked by this process: a second core in the same process is refused too. */
 const heldHere = new Set<string>();
 
@@ -47,6 +71,7 @@ function readLock(path: string): LockInfo | null {
     return {
       pid: info.pid,
       start: typeof info.start === 'number' ? info.start : null,
+      boot: typeof info.boot === 'string' && info.boot ? info.boot : null,
       acquiredAt: typeof info.acquiredAt === 'number' ? info.acquiredAt : 0,
     };
   } catch {
@@ -54,19 +79,66 @@ function readLock(path: string): LockInfo | null {
   }
 }
 
-function isAlive(info: LockInfo, home: string): boolean {
-  if (info.pid === process.pid) return heldHere.has(home);
+/**
+ * Writes the lock with its content already in it (a temporary file linked into place), and only
+ * if there is none: a core that finds the file never reads it half written. Without hard links
+ * (some file systems) it falls back to an exclusive create. False: a lock is there.
+ */
+function publish(path: string, content: string): boolean {
+  const tmp = `${path}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
   try {
-    process.kill(info.pid, 0);
+    writeFileSync(tmp, content, { flag: 'wx', mode: FILE_MODE });
+    try {
+      linkSync(tmp, path);
+      return true;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'EEXIST') return false;
+      if (!['EPERM', 'ENOSYS', 'ENOTSUP', 'EOPNOTSUPP', 'EXDEV', 'EACCES'].includes(code ?? '')) {
+        throw err;
+      }
+    }
+  } finally {
+    rmSync(tmp, { force: true });
+  }
+  try {
+    writeFileSync(path, content, { flag: 'wx', mode: FILE_MODE });
+    return true;
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'EPERM') return false;
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST') return false;
+    throw err;
   }
-  // Same pid, other process (pid reused after a crash): stale.
-  if (info.start !== null) {
-    const start = startTimeOf(info.pid);
-    if (start !== null && START_TOLERANCE === 0 && start !== info.start) return false;
+}
+
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** A takeover that has been going on for longer than this was abandoned (its core died). */
+const TAKEOVER_ABANDONED_MS = 10_000;
+
+/** Enters the takeover section (a directory: `mkdir` is atomic). False if another core stays in it. */
+function enterTakeover(guard: string, waitMs: number): boolean {
+  const deadline = Date.now() + waitMs;
+  for (;;) {
+    try {
+      mkdirSync(guard);
+      return true;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+    }
+    try {
+      if (Date.now() - statSync(guard).mtimeMs > TAKEOVER_ABANDONED_MS) {
+        rmdirSync(guard);
+        continue;
+      }
+    } catch {
+      // Gone meanwhile: try again.
+      continue;
+    }
+    if (Date.now() >= deadline) return false;
+    sleepSync(25);
   }
-  return true;
 }
 
 function serverUrl(home: string): string | undefined {
@@ -82,23 +154,36 @@ function serverUrl(home: string): string | undefined {
  * Takes the lock of a data directory (which must exist). Throws
  * `HomeLockedError` when a live core already owns it.
  */
-export function acquireHomeLock(home: string): HomeLock {
+export function acquireHomeLock(home: string, options: HomeLockOptions = {}): HomeLock {
   const path = join(home, LOCK_FILE);
-  const mine: LockInfo = { pid: process.pid, start: selfStartTime(), acquiredAt: Date.now() };
+  const probes = options.probes ?? systemHolderProbes();
+  const pid = options.pid ?? process.pid;
+  const mine: LockInfo = {
+    pid,
+    start: options.start === undefined ? selfStartTime() : options.start,
+    boot: probes.bootId(),
+    acquiredAt: Date.now(),
+  };
   const content = `${JSON.stringify(mine)}\n`;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      writeFileSync(path, content, { flag: 'wx', mode: FILE_MODE });
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+  const isLive = (info: LockInfo): boolean =>
+    info.pid === pid ? heldHere.has(home) : !holderIsStale(info, probes);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (!publish(path, content)) {
       const other = readLock(path);
-      if (other && isAlive(other, home))
-        throw new HomeLockedError(home, other.pid, serverUrl(home));
-      // Stale (crashed core) or unreadable: take it over.
-      rmSync(path, { force: true });
+      if (other && isLive(other)) throw new HomeLockedError(home, other.pid, serverUrl(home));
+      // Stale (crashed core, reused pid, other boot) or unreadable: take it over. Alone, and
+      // judged again inside: another core may have done it just before.
+      const guard = `${path}.takeover`;
+      if (enterTakeover(guard, options.takeoverWaitMs ?? 2000)) {
+        try {
+          const now = readLock(path);
+          if (!now || !isLive(now)) rmSync(path, { force: true });
+        } finally {
+          rmSync(guard, { recursive: true, force: true });
+        }
+      }
       continue;
     }
-    // Two cores taking over the same stale lock: only the last writer keeps it.
     const written = readLock(path);
     if (written?.pid !== mine.pid || written.acquiredAt !== mine.acquiredAt) continue;
     heldHere.add(home);

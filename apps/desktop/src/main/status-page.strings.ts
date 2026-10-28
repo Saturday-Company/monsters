@@ -32,6 +32,11 @@ const en = {
     body: 'I tried several times without success. Try again; if that doesn’t help, the log says what happened.',
     detail: (logPath: string) => `The log is at ${logPath}`,
   },
+  startFailed: {
+    title: 'Monsters couldn’t start',
+    body: 'Something stopped it before it was ready. Here is what it said; once that is fixed, try again.',
+    detail: (logPath: string) => `The log is at ${logPath}`,
+  },
   locked: {
     title: 'Monsters is already running, but not responding',
     body: (home: string) =>
@@ -69,6 +74,7 @@ const en = {
     restartingLine: (attempt: number, max: number) => `Attempt ${attempt} / ${max}`,
     stoppedState: 'Stopped',
     failedLine: 'Won’t restart',
+    startFailedLine: 'Couldn’t start',
     lockedState: 'Busy',
     lockedLine: 'Data already in use',
     missingState: 'Incomplete',
@@ -116,6 +122,11 @@ const it: typeof en = {
     body: 'Ho provato più volte senza riuscirci. Riprova; se non basta, nel log c’è cosa è successo.',
     detail: (logPath) => `Il log è in ${logPath}`,
   },
+  startFailed: {
+    title: 'Monsters non è riuscito a partire',
+    body: 'Qualcosa l’ha fermato prima che fosse pronto. Ecco cosa ha detto; quando l’hai sistemato, riprova.',
+    detail: (logPath) => `Il log è in ${logPath}`,
+  },
   locked: {
     title: 'Monsters è già acceso, ma non risponde',
     body: (home) =>
@@ -153,6 +164,7 @@ const it: typeof en = {
     restartingLine: (attempt, max) => `Tentativo ${attempt} / ${max}`,
     stoppedState: 'Fermo',
     failedLine: 'Non riparte',
+    startFailedLine: 'Non è partito',
     lockedState: 'Occupato',
     lockedLine: 'Dati già in uso',
     missingState: 'Incompleto',

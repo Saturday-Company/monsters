@@ -76,6 +76,10 @@ describe('the app in Italian', () => {
     expect(statusPageHtml({ kind: 'missing', path: '/opt/m/core.js', dev: false })).toContain(
       'installa di nuovo Monsters',
     );
+    const refused = statusPageHtml({ kind: 'start-failed', message: 'motivo', logPath: '/l' });
+    expect(refused).toContain('Monsters non è riuscito a partire');
+    expect(refused).toContain('<p>motivo</p>');
+    expect(refused).toContain('Il log è in /l');
     expect(statusPageHtml({ kind: 'remote-connecting', name: 'casa' })).toContain(
       'Mi collego a casa…',
     );

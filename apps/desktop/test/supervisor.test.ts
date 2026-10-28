@@ -179,6 +179,65 @@ describe('core supervisor', () => {
     expect(children).toHaveLength(1);
   });
 
+  it('any start the core reports as failed is final: no restarts, the reason is passed on', async () => {
+    const s = new CoreSupervisor(spawn);
+    const refused = vi.fn();
+    const crashed = vi.fn();
+    s.on('start-failed', refused);
+    s.on('crash', crashed);
+    s.start();
+    children[0]!.emit('message', {
+      type: 'start-failed',
+      code: 'start_failed',
+      message: 'settings.json is not valid JSON',
+    });
+    children[0]!.exit(1);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(refused).toHaveBeenCalledWith({
+      code: 'start_failed',
+      message: 'settings.json is not valid JSON',
+    });
+    expect(crashed).not.toHaveBeenCalled();
+    expect(s.state).toBe('failed');
+    expect(children).toHaveLength(1);
+    // "Try again" is a fresh start with a clean count.
+    s.retry();
+    expect(children).toHaveLength(2);
+    expect(s.state).toBe('starting');
+  });
+
+  it('a core that dies without saying why is still restarted', async () => {
+    const s = new CoreSupervisor(spawn);
+    const refused = vi.fn();
+    s.on('start-failed', refused);
+    s.start();
+    children[0]!.exit(1);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(refused).not.toHaveBeenCalled();
+    expect(children).toHaveLength(2);
+  });
+
+  it('terminates a running core that stopped answering, then restarts it like after a crash', async () => {
+    const forceKill = vi.fn();
+    const s = new CoreSupervisor(spawn, { forceKill });
+    const crashed = vi.fn();
+    s.on('crash', crashed);
+    expect(s.terminateUnresponsive()).toBe(false);
+    s.start();
+    // Not ready yet: the ready timeout is what watches a core that is starting.
+    expect(s.terminateUnresponsive()).toBe(false);
+    children[0]!.ready();
+    expect(s.terminateUnresponsive()).toBe(true);
+    expect(children[0]!.killed).toBe(1);
+    // It does not hear SIGTERM (a wedged event loop): killed after 3 s.
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(forceKill).toHaveBeenCalledWith(children[0]!.pid);
+    children[0]!.exit(137);
+    expect(crashed).toHaveBeenCalledWith(expect.objectContaining({ code: 137, attempt: 1 }));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(children).toHaveLength(2);
+  });
+
   it('a stop while waiting to restart cancels the restart', async () => {
     const s = new CoreSupervisor(spawn);
     s.start();

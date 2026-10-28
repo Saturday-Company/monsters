@@ -70,7 +70,7 @@ import { desktopLogPath, ensurePrivateDir, homeFile, readTextFile, resolveHome }
 import { LinkBanner } from './link-banner.ts';
 import { LoginItem, relaunchArgs, startsHidden, type LoginItemState } from './login-item.ts';
 import { KeychainHost, keyringNativePath } from './keychain-host.ts';
-import { coreChildEnv, CORE_TAMPERED, LocalCore, type CoreTarget } from './local-core.ts';
+import { coreArgs, coreChildEnv, CORE_TAMPERED, LocalCore, type CoreTarget } from './local-core.ts';
 import { LOCAL_CHOICE, ProfileStore, type StoredProfile, type TargetChoice } from './profiles.ts';
 import {
   bannerText,
@@ -293,7 +293,7 @@ function appLanguage(): Lang {
 }
 
 function spawnCore(): CoreChild {
-  const child = utilityProcess.fork(coreEntry(), ['start', '--home', home, '--port', '0'], {
+  const child = utilityProcess.fork(coreEntry(), coreArgs(home, store?.corePort ?? null), {
     serviceName: 'Monsters core',
     stdio: 'pipe',
     env: {
@@ -1209,6 +1209,11 @@ function createHost(choice: TargetChoice): CoreHost {
       fileExists: existsSync,
       log: (line) => log.info(line),
       logPath: log.path,
+      rememberPort: (port) => {
+        if (store?.corePort === port) return;
+        log.info(`core: port ${port} kept for the next start`);
+        store?.setCorePort(port);
+      },
       dev: !app.isPackaged,
       supervisor: {
         keychain: keychainHost,

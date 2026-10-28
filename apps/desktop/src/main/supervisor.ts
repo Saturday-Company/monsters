@@ -57,7 +57,11 @@ export interface SupervisorEvents {
   crash: [CrashInfo];
   /** Died too many times in a row: no more restarts until `retry()`. */
   failed: [{ code: number; attempts: number }];
-  /** Refused to start (e.g. `home_locked`: another core owns the directory). Not retried. */
+  /**
+   * The core said why it will not start (`start-failed` over the port: `home_locked`, a bad
+   * settings.json, a migration…) or the check before the start refused it. Not retried: it would
+   * fail the same way, and the reason is what the user needs to see.
+   */
   'start-failed': [{ code: string; message: string }];
 }
 
@@ -264,7 +268,7 @@ export class CoreSupervisor extends EventEmitter<SupervisorEvents> {
       this.#onStopped = null;
       return;
     }
-    if (this.#startFailure?.code === 'home_locked') {
+    if (this.#startFailure) {
       this.#state = 'failed';
       this.emit('start-failed', this.#startFailure);
       return;
@@ -304,6 +308,20 @@ export class CoreSupervisor extends EventEmitter<SupervisorEvents> {
       });
       child.postMessage({ type: 'login-token', id });
     });
+  }
+
+  /**
+   * The running core no longer answers (health check, local-core.ts): ends it. Its exit is
+   * handled like any crash, so it restarts after the pause of the backoff, and gives up after
+   * too many in a row. SIGTERM, then (3 s later) `forceKill`: a wedged process does not hear the
+   * first. False if there is no running core.
+   */
+  terminateUnresponsive(): boolean {
+    const child = this.#child;
+    if (!child || this.#state !== 'running') return false;
+    this.#log('core: not answering, terminating it');
+    this.#terminate(child);
+    return true;
   }
 
   /** Stops the core (runs aborted and files closed by the core itself); idempotent. */

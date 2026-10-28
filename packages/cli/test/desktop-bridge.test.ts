@@ -1,4 +1,5 @@
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LOGIN_EXCHANGE_PATH, type CoreToDesktopMessage } from '@monsters/shared';
@@ -47,6 +48,15 @@ class FakePort implements ParentPort {
       await new Promise((r) => setTimeout(r, 20));
     }
   }
+}
+
+/** A port nobody listens on (briefly bound, then released). */
+async function freePort(): Promise<number> {
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = (server.address() as { port: number }).port;
+  await new Promise((resolve) => server.close(resolve));
+  return port;
 }
 
 describe('desktop bridge', () => {
@@ -167,6 +177,70 @@ describe('desktop bridge', () => {
     port.send({ type: 'keychain', id: 99, ok: true, value: 'x' });
     expect(port.listeners.size).toBe(0);
   });
+
+  it('--prefer-port: the same port as the last time when it is free, any free one when it is not', async () => {
+    const preferred = await freePort();
+    const first = new FakePort();
+    (process as { parentPort?: unknown }).parentPort = first;
+    const h = home();
+    const started = run(['start', '--home', h, '--prefer-port', String(preferred)], quiet);
+    expect((await first.next('ready')).port).toBe(preferred);
+    first.send({ type: 'stop' });
+    expect(await started).toBe(0);
+
+    // Someone else took the port meanwhile: the core starts anyway, on another one.
+    const squatter = createServer();
+    await new Promise<void>((resolve) => squatter.listen(preferred, '127.0.0.1', resolve));
+    try {
+      const second = new FakePort();
+      (process as { parentPort?: unknown }).parentPort = second;
+      const lines: string[] = [];
+      const again = run(['start', '--home', h, '--prefer-port', String(preferred)], {
+        out: (line) => lines.push(line),
+        err: () => {},
+      });
+      const ready = await second.next('ready');
+      expect(ready.port).not.toBe(preferred);
+      expect(ready.port).toBeGreaterThan(0);
+      expect(lines).toContain(`Port ${preferred} is in use, taking a free one.`);
+      second.send({ type: 'stop' });
+      expect(await again).toBe(0);
+    } finally {
+      await new Promise((resolve) => squatter.close(resolve));
+    }
+  });
+
+  it('--port stays strict: a port that is taken is a failed start, reported to the app', async () => {
+    const squatter = createServer();
+    await new Promise<void>((resolve) => squatter.listen(0, '127.0.0.1', resolve));
+    const port = (squatter.address() as { port: number }).port;
+    try {
+      const fake = new FakePort();
+      (process as { parentPort?: unknown }).parentPort = fake;
+      expect(await run(['start', '--home', home(), '--port', String(port)], quiet)).toBe(1);
+      expect(fake.sent).toEqual([
+        expect.objectContaining({ type: 'start-failed', code: 'EADDRINUSE' }),
+      ]);
+    } finally {
+      await new Promise((resolve) => squatter.close(resolve));
+    }
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'a hang-up (the SSH session dropped) stops the core cleanly, like SIGTERM',
+    async () => {
+      const h = home();
+      const started = run(['start', '--home', h, '--port', '0'], quiet);
+      while (!existsSync(join(h, 'server.json'))) await new Promise((r) => setTimeout(r, 20));
+      expect(process.listenerCount('SIGHUP')).toBeGreaterThan(0);
+      process.emit('SIGHUP');
+      expect(await started).toBe(0);
+      // Closed: the lock and server.json are gone, and our handler with them.
+      expect(existsSync(join(h, 'server.json'))).toBe(false);
+      expect(existsSync(join(h, 'core.lock'))).toBe(false);
+      expect(process.listenerCount('SIGHUP')).toBe(0);
+    },
+  );
 
   it('reports why the core did not start', async () => {
     const h = home();
