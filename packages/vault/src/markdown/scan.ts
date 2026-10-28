@@ -339,7 +339,9 @@ export function findSectionLoose(scan: Scan, heading: string): LooseSection | nu
   const sameNumber = (c: { forms: string[] }) => c.forms.some((f) => leadingNumber(f) === number);
   const hit =
     candidates.find((c) => c.forms.includes(wanted)) ??
-    candidates.find((c) => c.forms.some((f) => f.startsWith(wanted))) ??
+    candidates.find((c) =>
+      c.forms.some((f) => f.length > wanted.length && prefixMatch(f, wanted)),
+    ) ??
     (number && candidates.filter(sameNumber).length === 1
       ? candidates.find(sameNumber)
       : undefined);
