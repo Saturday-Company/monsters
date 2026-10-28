@@ -125,7 +125,8 @@ describe('lock on MONSTERS_HOME', CORE_TIMEOUT, () => {
       await new Promise((r) => other.once('spawn', r));
       writeFileSync(
         join(home, LOCK_FILE),
-        JSON.stringify({ pid: other.pid, start: null, acquiredAt: 1 }),
+        // Taken now: on macOS and Windows a holder that started after the lock is someone else.
+        JSON.stringify({ pid: other.pid, start: null, acquiredAt: Date.now() }),
       );
       await expect(start(home)).rejects.toThrow(new RegExp(`process ${other.pid}`));
       expect(existsSync(join(home, 'monsters.db'))).toBe(false);
