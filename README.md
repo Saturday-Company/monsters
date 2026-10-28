@@ -23,7 +23,7 @@ Website: <https://getmonsters.dev>
 
 ## Status
 
-**Alpha, version 0.1.0-alpha.26** (27 October 2026). It works and is used every day, but expect rough edges and
+**Alpha, version 0.1.0-alpha.27** (28 October 2026). It works and is used every day, but expect rough edges and
 changes. What changed in each version is in [`CHANGELOG.md`](CHANGELOG.md); where it is going is in
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 

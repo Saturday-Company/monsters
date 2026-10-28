@@ -23,7 +23,7 @@ Sito: <https://getmonsters.dev>
 
 ## Stato
 
-**Alpha, versione 0.1.0-alpha.26** (27 ottobre 2026). Funziona e si usa ogni giorno, ma aspettati spigoli e
+**Alpha, versione 0.1.0-alpha.27** (28 ottobre 2026). Funziona e si usa ogni giorno, ma aspettati spigoli e
 cambiamenti. Cosa cambia a ogni versione è in [`CHANGELOG.it.md`](CHANGELOG.it.md); dove sta andando è in
 [`docs/ROADMAP.md`](docs/ROADMAP.md) (in inglese).
 

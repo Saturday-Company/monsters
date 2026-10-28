@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.1.0-alpha.27 · 28 ottobre 2026
+
+Una versione di stabilità: abbiamo passato tutta l’app cercando quello che poteva rompersi, e l’abbiamo corretto. Sul
+Mac porta anche tutto quello che c’era nella alpha.26.
+
+### Cosa si vede
+- **I messaggi non si perdono più.** Un messaggio scritto mentre i mostri lavorano, o trattenuto mentre sono fermi,
+  esce solo quando Monsters l’ha ricevuto; se l’invio fallisce dice «Non ancora inviato · Invia ora», e non parte mai
+  due volte. Un messaggio con le stesse parole di uno precedente si vede in attesa come gli altri.
+- **L’app si accorge di una connessione morta.** Dopo la sospensione o un cambio di Wi-Fi si ricollega da sola; se la
+  sessione è scaduta ti porta al login invece di riprovare all’infinito.
+- **Le bozze sopravvivono al riavvio dell’app**: Monsters tiene sempre lo stesso indirizzo locale (il primo avvio di
+  questa versione riparte ancora da bozze vuote, un’ultima volta).
+- **Dubbi e rifiuti più chiari.** Quando un mostro non può scrivere in una nota, una frase dice perché, con il link
+  alle sue impostazioni; un lavoro «in dubbio» mostra il punto, le note consegnate e «Va bene così» o «Chiedi al capo
+  di ricontrollare».
+- **Un primo avvio che non si blocca**: chiede la password quando serve, puoi smettere di aspettare la proposta della
+  squadra, e Indietro non mescola più due proposte.
+- **Elenchi che riprovano**: un elenco che non si carica lo dice e ha «Riprova», invece di restare vuoto.
+- **Modelli**: un’alternativa aggiunta prima che la sua lista arrivi si riempie e si salva; uno spazio incollato non
+  rompe più la catena; Codex compare subito nei selettori.
+
+### Più affidabile
+- **I lavori lunghi tengono la risposta** nelle chat di Telegram e nelle automazioni (la storia non si ferma più ai
+  primi mille eventi), e un messaggio letto da un turno poi fallito ha un run suo.
+- **Ferma arriva dappertutto**: fermare un capo ferma anche i mostri a cui ha delegato; niente di nuovo parte mentre
+  Monsters si chiude; una delega fermata finisce sempre nel registro.
+- **I modelli di riserva ricevono quello che sanno leggere**: per un modello che non le legge le immagini diventano una
+  nota e i PDF il loro testo, e questo non spegne più tutto l’account.
+- **La quota gratuita di OpenRouter non si dimentica più a mezzanotte**, un tentativo interrotto è addebitato al
+  modello giusto, e Ollama viene compattato sul contesto che ha davvero.
+- **Il vault su Mac e Windows**: `Idee.md` e `idee.md` sono la stessa nota (niente doppioni né modifiche perse; il
+  primo avvio ricostruisce l’indice una volta); i file enormi non bloccano più l’avvio, e le lettere accentate nelle
+  risposte di Claude Code e Codex non si rompono più.
+- **Più sicuro**: aggiungere o cambiare un programma avviato da un’app (MCP), o dare strumenti agli altri su un bot
+  Telegram, chiede la password recente; una richiesta malformata non può più fermare Monsters.
+- **Un solo Monsters per cartella di dati, anche dopo un crash** su Mac e Windows: un blocco rimasto viene riconosciuto
+  e ripreso.
+
 ## 0.1.0-alpha.26 · 27 ottobre 2026
 
 ### Cosa si vede

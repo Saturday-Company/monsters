@@ -1,6 +1,6 @@
 {
   "name": "@monsters/desktop",
-  "version": "0.1.0-alpha.26",
+  "version": "0.1.0-alpha.27",
   "description": "Monsters desktop app (Electron): the core in a utility process, the web UI in a hardened window",
   "license": "Apache-2.0",
   "author": "Giulio Banchini and Saturday Company",

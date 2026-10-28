@@ -2,6 +2,44 @@
 
 The Italian version is in [`CHANGELOG.it.md`](CHANGELOG.it.md).
 
+## 0.1.0-alpha.27 · 28 October 2026
+
+A version about stability: we went through the whole app looking for what could break, and fixed it. On a Mac it
+also brings everything in alpha.26.
+
+### What you’ll see
+- **Messages are never lost.** A message written while monsters work, or kept while they are stopped, leaves only
+  once Monsters has it; if sending fails it says “Not sent yet · Send now”, and it is never sent twice. A message
+  with the same words as an earlier one shows as waiting like any other.
+- **The app notices a dead connection.** After sleep or a Wi-Fi change it reconnects by itself; if your session
+  expired it takes you to the login instead of trying forever.
+- **Your drafts survive a restart of the app**: Monsters now keeps the same local address (the first start of this
+  version still begins from empty drafts, one last time).
+- **Clearer doubts and refusals.** When a monster can’t write in a note, one sentence says why, with a link to its
+  settings; a job “in doubt” shows the point, the notes it handed in, and “Fine as it is” or “Ask the lead to
+  check”.
+- **Onboarding that doesn’t get stuck**: it asks for your password when needed, you can stop waiting for the squad
+  proposal, and Back no longer mixes two proposals.
+- **Lists that try again**: a list that failed to load says so and has “Try again”, instead of staying empty.
+- **Models**: an alternative added before its list loaded is filled in and saved; a pasted space no longer breaks
+  the chain; Codex shows up in the pickers at once.
+
+### More reliable
+- **Long jobs keep their answer** in Telegram chats and automations (history no longer stops at the first
+  thousand events), and a message read by a turn that then failed gets its own run.
+- **Stop reaches everything**: stopping a lead also stops the monsters it delegated to; nothing new starts while
+  Monsters is closing; a stopped delegation always ends in the log.
+- **Fallback models get what they can read**: images become a note and PDFs their text for a model that can’t read
+  them, and that doesn’t switch off the whole account.
+- **OpenRouter’s free quota is no longer forgotten at midnight**, an interrupted attempt is billed to the right
+  model, and Ollama is compacted to the context it really has.
+- **The vault on Mac and Windows**: `Ideas.md` and `ideas.md` are the same note (no more duplicates or lost edits;
+  the first start rebuilds the index once); huge files no longer stop the start, and accented letters in Claude
+  Code and Codex replies are no longer broken.
+- **Safer**: adding or changing a program run by an app (MCP), or giving tools to others on a Telegram bot, asks for
+  your recent password; a malformed request can no longer stop Monsters.
+- **One Monsters per data folder, also after a crash** on Mac and Windows: a stale lock is recognised and taken over.
+
 ## 0.1.0-alpha.26 · 27 October 2026
 
 ### What you’ll see
