@@ -28,6 +28,16 @@ export interface CommitRequest {
   author: GitAuthor;
 }
 
+export interface CommitResult {
+  /** The new commit, or null when nothing was recorded (every path is ignored). */
+  commit: string | null;
+  /**
+   * Paths left out because the repository's own ignore rules exclude them and history does
+   * not track them yet: Monsters never puts files the user chose to ignore into history (D-214).
+   */
+  ignored: string[];
+}
+
 export interface VaultVcs {
   readonly kind: 'isomorphic' | 'system';
   isRepo(): Promise<boolean>;
@@ -38,7 +48,13 @@ export interface VaultVcs {
   readFile(commit: string, path: string): Promise<Uint8Array | null>;
   /** Blob id of a file at a commit, or null. */
   fileOid(commit: string, path: string): Promise<string | null>;
-  commit(req: CommitRequest): Promise<string>;
+  /** The paths the repository's ignore rules exclude and history does not track (a tracked file is never ignored). */
+  ignoredPaths(paths: readonly string[]): Promise<string[]>;
+  /**
+   * Records the paths of `req` in one commit. Paths the repository ignores (and does not
+   * track) are skipped and reported in `ignored`; with nothing left no commit is created.
+   */
+  commit(req: CommitRequest): Promise<CommitResult>;
   /** Commits reachable from `ref` (default HEAD), newest first. */
   log(opts?: { ref?: string; depth?: number }): Promise<CommitInfo[]>;
   /** Paths changed by a commit compared to its first parent. */

@@ -16,6 +16,8 @@ const en = {
   },
   editor: {
     saved: 'Saved. You’ll find it in Activity, and it can be undone.',
+    savedNoHistory:
+      'Saved. This folder is ignored by the vault’s .gitignore, so the change is not in the history and can’t be undone.',
     label: 'Note text',
     brokenProps:
       'This note’s properties aren’t written correctly: I only save the text and leave them exactly as they are. To fix them, open it in Obsidian.',
@@ -119,6 +121,8 @@ const it: typeof en = {
   },
   editor: {
     saved: 'Salvata. La trovi in Attività e si può annullare.',
+    savedNoHistory:
+      'Salvata. Questa cartella è ignorata dal .gitignore del vault, quindi la modifica non è nella cronologia e non si può annullare.',
     label: 'Testo della nota',
     brokenProps:
       'Le proprietà di questa nota non sono scritte bene: salvo solo il testo e le lascio esattamente come sono. Per correggerle aprila in Obsidian.',

@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { CommitInfo, CommitRequest, VaultVcs } from './vcs.ts';
+import type { CommitInfo, CommitRequest, CommitResult, VaultVcs } from './vcs.ts';
 
 interface GitResult {
   stdout: Buffer;
@@ -92,19 +92,32 @@ export class SystemVcs implements VaultVcs {
     return r.code === 0 ? r.stdout.toString('utf8').trim() : null;
   }
 
-  async commit(req: CommitRequest): Promise<string> {
+  async ignoredPaths(paths: readonly string[]): Promise<string[]> {
+    const out: string[] = [];
+    for (const path of paths) {
+      // `check-ignore` already leaves out what the index tracks; exit 0 means ignored.
+      const r = await runGit(this.#dir, ['check-ignore', '-q', '--', path]);
+      if (r.code === 0) out.push(path);
+    }
+    return out;
+  }
+
+  async commit(req: CommitRequest): Promise<CommitResult> {
     const env = {
       GIT_AUTHOR_NAME: req.author.name,
       GIT_AUTHOR_EMAIL: req.author.email,
       GIT_COMMITTER_NAME: req.author.name,
       GIT_COMMITTER_EMAIL: req.author.email,
     };
-    const paths = [...req.paths];
+    // A path the user's .gitignore excludes stays out of history (D-214): no `add --force`.
+    const ignored = await this.ignoredPaths(req.paths);
+    const paths = req.paths.filter((p) => !ignored.includes(p));
+    if (paths.length === 0 && req.paths.length > 0) return { commit: null, ignored };
     if (paths.length > 0) {
       // Stage new/changed files; drop removed ones from the index.
       const present = paths.filter((p) => existsSync(join(this.#dir, p)));
       const missing = paths.filter((p) => !existsSync(join(this.#dir, p)));
-      if (present.length > 0) await git(this.#dir, ['add', '--force', '--', ...present]);
+      if (present.length > 0) await git(this.#dir, ['add', '--', ...present]);
       if (missing.length > 0) {
         await git(this.#dir, ['rm', '-q', '--cached', '--ignore-unmatch', '--', ...missing]);
       }
@@ -118,7 +131,8 @@ export class SystemVcs implements VaultVcs {
     }
     const args = ['commit', '-q', '--no-verify', '--allow-empty', '-m', req.message];
     await git(this.#dir, tracked.length > 0 ? [...args, '--only', '--', ...tracked] : args, env);
-    return (await git(this.#dir, ['rev-parse', 'HEAD'])).toString('utf8').trim();
+    const commit = (await git(this.#dir, ['rev-parse', 'HEAD'])).toString('utf8').trim();
+    return { commit, ignored };
   }
 
   async log(opts: { ref?: string; depth?: number } = {}): Promise<CommitInfo[]> {

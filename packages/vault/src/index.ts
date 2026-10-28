@@ -61,7 +61,7 @@ export { applyOps, applyOp, type EditOp } from './markdown/edit.ts';
 export { EditOpSchema, EditOpsSchema } from './schemas.ts';
 export { lineDiff } from './diff.ts';
 export { contentHash } from './fsutil.ts';
-export type { VaultVcs, VcsKind, CommitInfo, GitAuthor } from './git/vcs.ts';
+export type { VaultVcs, VcsKind, CommitInfo, CommitResult, GitAuthor } from './git/vcs.ts';
 export { VAULT_FOLDERS, VAULT_GITIGNORE, vaultFolders, scaffoldFiles } from './scaffold.ts';
 export {
   WorkerEmbedder,

@@ -237,8 +237,8 @@ function Editor({
     setBusy(true);
     setError(null);
     try {
-      await vaultApi.save(from.path, text, from.hash);
-      notify(s.saved, 'success');
+      const res = await vaultApi.save(from.path, text, from.hash);
+      notify(res.unrecorded ? s.savedNoHistory : s.saved, 'success');
       onSaved();
       return true;
     } catch (err) {

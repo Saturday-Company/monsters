@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import { join } from 'node:path';
 import * as git from 'isomorphic-git';
-import type { CommitInfo, CommitRequest, VaultVcs } from './vcs.ts';
+import type { CommitInfo, CommitRequest, CommitResult, VaultVcs } from './vcs.ts';
 
 function isNotFound(err: unknown): boolean {
   const e = err as { code?: unknown; name?: unknown } | null;
@@ -54,10 +54,27 @@ export class IsomorphicVcs implements VaultVcs {
     }
   }
 
-  async commit(req: CommitRequest): Promise<string> {
-    for (const filepath of req.paths) {
+  async ignoredPaths(paths: readonly string[]): Promise<string[]> {
+    const head = await this.head();
+    const out: string[] = [];
+    for (const filepath of paths) {
+      if (!(await git.isIgnored({ fs, dir: this.#dir, filepath }))) continue;
+      // A file history already tracks is followed whatever the .gitignore says (as git does).
+      if (head !== null && (await this.fileOid(head, filepath)) !== null) continue;
+      out.push(filepath);
+    }
+    return out;
+  }
+
+  async commit(req: CommitRequest): Promise<CommitResult> {
+    // A path the user's .gitignore excludes stays out of history (D-214); only what is left is added.
+    const ignored = await this.ignoredPaths(req.paths);
+    const paths = req.paths.filter((p) => !ignored.includes(p));
+    if (paths.length === 0 && req.paths.length > 0) return { commit: null, ignored };
+    for (const filepath of paths) {
       if (fs.existsSync(join(this.#dir, filepath))) {
-        // force: a folder the user's .gitignore lists is recorded too, or undo could not restore it.
+        // `force` only matters for a tracked file the .gitignore also matches (isomorphic-git
+        // would skip it silently): an ignored, untracked file never gets here.
         await git.add({ fs, dir: this.#dir, filepath, force: true });
       } else {
         try {
@@ -67,13 +84,14 @@ export class IsomorphicVcs implements VaultVcs {
         }
       }
     }
-    return git.commit({
+    const commit = await git.commit({
       fs,
       dir: this.#dir,
       message: req.message,
       author: req.author,
       committer: req.author,
     });
+    return { commit, ignored };
   }
 
   async log(opts: { ref?: string; depth?: number } = {}): Promise<CommitInfo[]> {

@@ -159,6 +159,7 @@ export function detailsOf(e: LogEvent, nameOf: (id: string) => string = capitali
       add(l.note, e.data.path, true);
       add(l.wasIn, e.data.fromPath, true);
       if (e.data.files && e.data.files.length > 1) add(l.filesTouched, e.data.files, true);
+      if (e.data.unrecorded) add(l.history, d.notInHistory);
       break;
     case 'provider_usage':
       add(l.model, modelLabel(e.data.model));

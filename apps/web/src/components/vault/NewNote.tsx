@@ -79,7 +79,7 @@ export function NewNote({
     setError(null);
     try {
       const res = await vaultApi.create(folder, title.trim(), text);
-      notify(s.created, 'success');
+      notify(res.unrecorded ? s.createdNoHistory : s.created, 'success');
       allow();
       onCreated(res.path);
       return true;

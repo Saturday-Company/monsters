@@ -189,5 +189,7 @@ export const VaultWriteResponseSchema = z.object({
   hash: z.string(),
   commit: z.string().nullable(),
   actionId: z.string(),
+  /** The change is not in the history (no commit, no undo), though the vault keeps one (D-214). */
+  unrecorded: z.boolean().optional(),
 });
 export type VaultWriteResponse = z.infer<typeof VaultWriteResponseSchema>;

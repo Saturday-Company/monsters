@@ -25,6 +25,8 @@ import {
   hashOnDisk,
   isNotFound,
   NOTE_INDEX_MAX_BYTES,
+  peekFile,
+  WHOLE_FILE_MAX_BYTES,
   readIfExists,
   type DiskFile,
   renameWithRetry,
@@ -91,6 +93,7 @@ import type { EmbedderLoader } from './semantic/embedder.ts';
 import { RELATED_LIMIT, pickRelated, relationBonus } from './semantic/related.ts';
 import { rrfFuse } from './semantic/rrf.ts';
 import { currentVaultScope } from './scope.ts';
+import { historyPrompts } from './tools.prompts.ts';
 import { vaultStrings } from './vault.strings.ts';
 import {
   SemanticIndex,
@@ -214,10 +217,16 @@ export interface VaultCreateOptions extends VaultOpenOptions {
 
 export interface WriteResult {
   action_id: string;
-  /** Commit recording the action; null when the vault has no git. */
+  /**
+   * Commit recording the action. Null when the vault has no history, or when everything the
+   * action wrote stays out of it (a folder the vault's own ignore file excludes, a file too big
+   * to record): then `warning` says so and the action cannot be undone (D-214).
+   */
   commit: string | null;
   path: string;
   hash: string;
+  /** Something the caller must know about the result, e.g. that the change is not in the history. */
+  warning?: string;
 }
 
 /** A later commit that keeps `vault_undo` from running without `force`. */
@@ -233,10 +242,15 @@ export interface LaterChange {
 
 interface FileChange {
   path: string;
-  /** New content, or null to remove the file. */
+  /** New content, or null to remove the file (null with `renameFrom`: nothing to write). */
   content: string | Uint8Array | null;
   /** When removing: move the file here instead of deleting it (the Obsidian trash). */
   trashTo?: string;
+  /**
+   * The file at this path is renamed to `path` without being read: for a file too big to hold
+   * in memory (`WHOLE_FILE_MAX_BYTES`), which stays out of the history.
+   */
+  renameFrom?: string;
 }
 
 interface ActionPlan<R> {
@@ -251,7 +265,7 @@ interface ActionPlan<R> {
     /** For `undo`: the action undone. */
     undoneActionId?: string;
   };
-  result: (base: { action_id: string; commit: string | null }) => R;
+  result: (base: { action_id: string; commit: string | null; warning?: string }) => R;
   /** Runs after the commit (index updated). */
   after?: () => Promise<void> | void;
 }
@@ -261,8 +275,14 @@ interface WriteStep {
   /** Resolved absolute path (checked to be inside the vault). */
   abs: string;
   trashAbs: string | null;
-  /** Content before the action, to put back if the commit fails. */
+  /** Source of a rename (`FileChange.renameFrom`), resolved. */
+  fromAbs: string | null;
+  /** Content before the action, to put back if the commit fails (null for a big file). */
   previous: Buffer | null;
+  /** A file is there. */
+  existed: boolean;
+  /** The file there is too big to be read: it can only be moved back. */
+  big: boolean;
   done: boolean;
 }
 
@@ -992,7 +1012,7 @@ export class VaultService {
             }
             if (!(await walk(rel))) return false;
           } else if (e.isFile()) {
-            const bytes = await readIfExists(join(this.root, rel));
+            const { bytes } = await peekFile(join(this.root, rel));
             if (!bytes || (await vcs.fileOid(commit, rel)) !== gitBlobOid(bytes)) return false;
           } else {
             return false;
@@ -1145,7 +1165,9 @@ export class VaultService {
       const p = await plan();
       throwIfAborted(actor.signal);
       const actionId = ulid();
-      const paths = [...new Set(p.changes.map((c) => c.path))];
+      const paths = [
+        ...new Set(p.changes.flatMap((c) => (c.renameFrom ? [c.path, c.renameFrom] : [c.path]))),
+      ];
       const unlocked = paths.filter((path) => !lockPaths.includes(path));
       if (this.#vcs && unlocked.length > 0) await this.#snapshotUserChanges(unlocked);
 
@@ -1154,11 +1176,21 @@ export class VaultService {
       const steps: WriteStep[] = [];
       for (const change of p.changes) {
         const abs = await this.#abs(change.path);
+        const before = await peekFile(abs);
+        // A file too big to read can be moved to the trash, never replaced: its bytes are not held.
+        if (before.big && !(change.content === null && change.trashTo && !change.renameFrom)) {
+          throw new ToolError('INVALID_INPUT', `${change.path} is too large to be replaced`, {
+            hint: 'Files over 256 MiB can be moved or deleted, not overwritten.',
+          });
+        }
         steps.push({
           change,
           abs,
           trashAbs: change.trashTo ? await this.#abs(change.trashTo) : null,
-          previous: await readIfExists(abs),
+          fromAbs: change.renameFrom ? await this.#abs(change.renameFrom) : null,
+          previous: before.bytes,
+          existed: before.bytes !== null || before.big,
+          big: before.big,
           done: false,
         });
       }
@@ -1169,10 +1201,19 @@ export class VaultService {
       try {
         for (const step of steps) {
           const { change, abs } = step;
-          if (change.content === null) {
+          if (step.fromAbs && change.renameFrom) {
+            // Too big to read: renamed whole, never held in memory.
+            if (this.#watcher) {
+              this.#ownWrites.set(change.path, (await hashOnDisk(step.fromAbs))?.hash ?? null);
+              this.#ownWrites.set(change.renameFrom, null);
+            }
+            await mkdir(dirname(abs), { recursive: true });
+            await renameWithRetry(step.fromAbs, abs);
+            pathsChanged = true;
+          } else if (change.content === null) {
             if (this.#watcher) this.#ownWrites.set(change.path, null);
             if (step.trashAbs) {
-              if (step.previous) {
+              if (step.existed) {
                 // Native path: `posix.dirname` of a Windows path would be ".".
                 await mkdir(dirname(step.trashAbs), { recursive: true });
                 await renameWithRetry(abs, step.trashAbs);
@@ -1196,6 +1237,7 @@ export class VaultService {
       }
 
       let commit: string | null = null;
+      const warnings: string[] = [];
       if (this.#vcs) {
         const vcs = this.#vcs;
         const message = [
@@ -1206,10 +1248,28 @@ export class VaultService {
           `${TRAILER_AGENT}: ${actor.agentId}`,
           '',
         ].join('\n');
+        // A file too big to read stays out of the history whole, both ends of a move: half a move
+        // recorded would not undo. Everything else the vault's own ignore file excludes stays out too.
+        const tooBig = new Set<string>();
+        for (const step of steps) {
+          if (step.big) tooBig.add(step.change.path);
+          if (step.change.renameFrom) {
+            tooBig.add(step.change.path);
+            tooBig.add(step.change.renameFrom);
+          }
+        }
+        const record = paths.filter((x) => !tooBig.has(x));
         try {
-          commit = await this.#git.run(() =>
-            vcs.commit({ paths, message, author: authorFor(actor.agentId) }),
-          );
+          let ignored: string[] = [];
+          if (record.length > 0) {
+            const done = await this.#git.run(() =>
+              vcs.commit({ paths: record, message, author: authorFor(actor.agentId) }),
+            );
+            commit = done.commit;
+            ignored = done.ignored;
+          }
+          if (ignored.length > 0) warnings.push(historyPrompts.notRecorded(ignored, !commit));
+          if (tooBig.size > 0) warnings.push(historyPrompts.tooLarge([...tooBig], !commit));
         } catch (err) {
           await this.#revert(steps);
           throw new ToolError(
@@ -1222,7 +1282,10 @@ export class VaultService {
 
       for (const step of steps) {
         const { change } = step;
-        if (change.content === null) {
+        if (change.renameFrom) {
+          this.#unindex(change.renameFrom);
+          await this.#indexFromDisk(change.path, true);
+        } else if (change.content === null) {
           this.#unindex(change.path);
         } else {
           const bytes =
@@ -1244,10 +1307,16 @@ export class VaultService {
           ...p.vaultChange,
           actionId,
           ...(commit ? { commit } : {}),
+          // The vault keeps a history but this change is not in it: the UI offers no undo.
+          ...(this.#vcs && !commit ? { unrecorded: true } : {}),
           ...(paths.length > 1 ? { files: paths } : {}),
         },
       });
-      return p.result({ action_id: actionId, commit });
+      return p.result({
+        action_id: actionId,
+        commit,
+        ...(warnings.length > 0 ? { warning: warnings.join(' ') } : {}),
+      });
     });
   }
 
@@ -1256,10 +1325,18 @@ export class VaultService {
     for (const step of [...steps].reverse()) {
       if (!step.done) continue;
       const { change, abs, previous } = step;
+      if (step.fromAbs && change.renameFrom) {
+        if (this.#watcher) {
+          this.#ownWrites.set(change.renameFrom, (await hashOnDisk(abs))?.hash ?? null);
+          this.#ownWrites.set(change.path, null);
+        }
+        await renameWithRetry(abs, step.fromAbs);
+        continue;
+      }
       if (this.#watcher) {
         this.#ownWrites.set(change.path, previous ? contentHash(previous) : null);
       }
-      if (change.content === null && step.trashAbs && previous) {
+      if (change.content === null && step.trashAbs && step.existed) {
         await mkdir(dirname(abs), { recursive: true });
         await renameWithRetry(step.trashAbs, abs);
       } else if (previous) {
@@ -1297,11 +1374,13 @@ export class VaultService {
         if (diskOid !== headOid) changed.push(path);
       }
       if (changed.length === 0) return null;
-      return vcs.commit({
+      // Files the user's ignore file excludes are left out, quietly: they are theirs.
+      const done = await vcs.commit({
         paths: changed,
         message: `${scaffoldStrings(this.layout.id).commitSnapshot(changed.join(', '))}\n\n${TRAILER_AGENT}: user\n`,
         author: USER_AUTHOR,
       });
+      return done.commit;
     });
   }
 
@@ -1858,7 +1937,10 @@ export class VaultService {
         changes: [{ path, content: text }],
         summary: path,
         vaultChange: { action: mode === 'create' ? meta.action : 'edit', path },
-        result: (base) => ({ ...base, path, hash, ...(warning ? { warning } : {}) }),
+        result: (base) => {
+          const notes = [warning, base.warning].filter((w): w is string => !!w);
+          return { ...base, path, hash, ...(notes.length > 0 ? { warning: notes.join(' ') } : {}) };
+        },
       };
     });
   }
@@ -2023,19 +2105,26 @@ export class VaultService {
     const sources = fromRow && updateLinks ? this.index.backlinkPaths(fromRow.nid) : [];
 
     return this.#act(actor, 'vault_move', input, [from, to, ...sources], async () => {
-      const current = await this.#readText(from);
-      if (!current) throw new ToolError('NOT_FOUND', `note not found: ${input.from}`);
+      // A file too big to read is renamed as it is (no links to rewrite inside it).
+      const peeked = await peekFile(await this.#abs(from));
+      const current = peeked.big ? null : await this.#readText(from);
+      if (!current && !peeked.big)
+        throw new ToolError('NOT_FOUND', `note not found: ${input.from}`);
       if (await existsFile(await this.#abs(to))) {
         throw new ToolError('EXISTS', `${to} already exists`, {
           hint: `Choose another name, e.g. "${await this.#freeName(to)}".`,
         });
       }
-      const note = isMarkdown(from) ? parseNote(from, current.text) : null;
+      const note = current && isMarkdown(from) ? parseNote(from, current.text) : null;
       this.permissions.assertMove(actor.agentId, from, to, note?.author ?? null);
 
       const changes: FileChange[] = [];
       const updated: string[] = [];
-      let movedContent: string | Uint8Array = isMarkdown(from) ? current.text : current.bytes;
+      let movedContent: string | Uint8Array | null = current
+        ? isMarkdown(from)
+          ? current.text
+          : current.bytes
+        : null;
       if (updateLinks && fromRow) {
         // Name taken by another file after the move → links must use the path.
         const othersWithName =
@@ -2057,8 +2146,15 @@ export class VaultService {
           }
         }
       }
-      changes.unshift({ path: to, content: movedContent }, { path: from, content: null });
-      const hash = contentHash(movedContent);
+      if (movedContent === null) {
+        changes.unshift({ path: to, content: null, renameFrom: from });
+      } else {
+        changes.unshift({ path: to, content: movedContent }, { path: from, content: null });
+      }
+      const hash =
+        movedContent === null
+          ? ((await hashOnDisk(await this.#abs(from)))?.hash ?? '')
+          : contentHash(movedContent);
       return {
         changes,
         summary: `${from} → ${to}${updated.length ? ` (+${updated.length} link)` : ''}`,
@@ -2110,17 +2206,20 @@ export class VaultService {
   ): Promise<WriteResult & { trash_path: string }> {
     const path = await this.resolveExisting(input.path);
     return this.#act(actor, 'vault_delete', input, [path], async () => {
-      const current = await this.#readText(path);
-      if (!current) throw new ToolError('NOT_FOUND', `note not found: ${input.path}`);
-      const note = isMarkdown(path) ? parseNote(path, current.text) : null;
+      // A file too big to read goes to the trash as it is (D-214).
+      const big = (await peekFile(await this.#abs(path))).big;
+      const current = big ? null : await this.#readText(path);
+      if (!current && !big) throw new ToolError('NOT_FOUND', `note not found: ${input.path}`);
+      const note = current && isMarkdown(path) ? parseNote(path, current.text) : null;
       this.permissions.assertDelete(actor.agentId, path, note?.author ?? null);
+      const hash = current?.hash ?? (await hashOnDisk(await this.#abs(path)))?.hash ?? '';
       const trashPath = await this.#trashPath(path);
       return {
         changes: [{ path, content: null, trashTo: trashPath }],
         summary: path,
         body: input.reason,
         vaultChange: { action: 'delete', path },
-        result: (base) => ({ ...base, path, hash: current.hash, trash_path: trashPath }),
+        result: (base) => ({ ...base, path, hash, trash_path: trashPath }),
       };
     });
   }
@@ -2158,8 +2257,8 @@ export class VaultService {
       if (entry !== base && !(entry.startsWith(`${name} `) && entry.endsWith(ext))) continue;
       const abs = await this.#absOrNull(`${TRASH}/${entry}`);
       if (abs === null) continue;
-      const data = await readIfExists(abs);
-      if (data && contentHash(data) === hash) await rm(abs, { force: true });
+      // Streamed; a big file only has a size-and-time fingerprint, which never matches.
+      if ((await hashOnDisk(abs))?.hash === hash) await rm(abs, { force: true });
     }
   }
 
@@ -2358,14 +2457,17 @@ export class VaultService {
     const dir = await this.#absOrNull(TRASH);
     if (dir === null) return [];
     const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
-    const files: { name: string; bytes: Buffer; mtime: number }[] = [];
+    // `bytes` is null for a file too big to read: listed by name and size only.
+    const files: { name: string; bytes: Buffer | null; size: number; mtime: number }[] = [];
     for (const e of entries) {
       if (!e.isFile() || e.name.startsWith('.')) continue;
       const abs = await this.#absOrNull(`${TRASH}/${e.name}`);
       if (abs === null) continue;
-      const bytes = await readIfExists(abs);
-      if (!bytes) continue;
-      files.push({ name: e.name, bytes, mtime: (await stat(abs)).ctimeMs });
+      const st = await stat(abs).catch(() => null);
+      if (!st?.isFile()) continue;
+      const bytes = st.size > WHOLE_FILE_MAX_BYTES ? null : await readIfExists(abs);
+      if (st.size <= WHOLE_FILE_MAX_BYTES && !bytes) continue;
+      files.push({ name: e.name, bytes, size: st.size, mtime: st.ctimeMs });
     }
     files.sort((a, b) => b.mtime - a.mtime);
 
@@ -2404,7 +2506,7 @@ export class VaultService {
     const out = [];
     for (const f of files) {
       const s = stem(f.name);
-      const hash = contentHash(f.bytes);
+      const hash = f.bytes ? contentHash(f.bytes) : null;
       const candidates = deletions
         .map((d, i) => ({ d, i }))
         .filter(({ d, i }) => {
@@ -2414,7 +2516,7 @@ export class VaultService {
         });
       let match = candidates[0];
       // The deletion whose content is the one in the trash (same name deleted more than once).
-      if (this.#vcs) {
+      if (this.#vcs && hash !== null) {
         for (const c of candidates) {
           const parent = c.d.commit.parents[0];
           const old = parent ? await this.#vcs.readFile(parent, c.d.path) : null;
@@ -2429,7 +2531,9 @@ export class VaultService {
       const isPrivate =
         (original !== null &&
           (isInside(original, this.layout.private) || inAnyPrivateFolder(original))) ||
-        (isMarkdown(f.name) && parseNote(f.name, f.bytes.toString('utf8')).private);
+        (f.bytes !== null &&
+          isMarkdown(f.name) &&
+          parseNote(f.name, f.bytes.toString('utf8')).private);
       if (!this.permissions.canRead(actor.agentId, original ?? f.name, isPrivate)) continue;
       out.push({
         trash_path: `${TRASH}/${f.name}`,
@@ -2439,7 +2543,7 @@ export class VaultService {
         deleted_by: match?.d.agent ?? null,
         action_id: match?.d.action ?? null,
         private: isPrivate,
-        size: f.bytes.length,
+        size: f.size,
       });
     }
     return out;
@@ -2486,7 +2590,8 @@ export class VaultService {
     if (isSystemPath(path) || isHidden(path))
       throw new ToolError('BLOCKED_BY_POLICY', `${path} is managed by the system`);
     return this.#act(actor, 'vault_restore', input, [path], async () => {
-      const current = await readIfExists(await this.#abs(path));
+      const peeked = await peekFile(await this.#abs(path));
+      const current = peeked.bytes;
       let commit = input.commit;
       let bytes: Uint8Array | null = null;
       if (commit) {
@@ -2503,7 +2608,7 @@ export class VaultService {
             hint: 'Use vault_history to list the versions.',
           });
       } else {
-        if (current) {
+        if (current || peeked.big) {
           throw new ToolError(
             'INVALID_INPUT',
             `${path} exists: pass the commit of the version to restore`,
@@ -2575,11 +2680,23 @@ export class VaultService {
     const trashAbs = await this.#absOrNull(wanted);
     if (trashAbs === null) throw new ToolError('NOT_FOUND', `${trashPath} is not in the trash`);
     return this.#act(actor, 'vault_restore', { trash_path: wanted }, [original], async () => {
-      const bytes = await readIfExists(trashAbs);
-      if (!bytes) throw new ToolError('NOT_FOUND', `${trashPath} is not in the trash`);
+      const { bytes, big } = await peekFile(trashAbs);
+      if (!bytes && !big) throw new ToolError('NOT_FOUND', `${trashPath} is not in the trash`);
       const target = (await existsFile(await this.#abs(original)))
         ? await this.#freeName(original)
         : original;
+      if (!bytes) {
+        // Too big to read: renamed back as it is.
+        this.permissions.assertRead(actor.agentId, target, item.private);
+        this.permissions.assertWrite(actor.agentId, target, null);
+        const hash = (await hashOnDisk(trashAbs))?.hash ?? '';
+        return {
+          changes: [{ path: target, content: null, renameFrom: wanted }],
+          summary: `${target} ← ${wanted}`,
+          vaultChange: { action: 'restore', path: target },
+          result: (base) => ({ ...base, path: target, hash, restored_from: wanted }),
+        };
+      }
       const note = isMarkdown(target) ? parseNote(target, bytes.toString('utf8')) : null;
       this.permissions.assertRead(actor.agentId, target, item.private || !!note?.private);
       this.permissions.assertWrite(actor.agentId, target, note?.author ?? null);
@@ -2611,6 +2728,22 @@ export class VaultService {
     const recorded = this.index.getAction(input.action_id);
     if (recorded?.status === 'undone') {
       throw new ToolError('INVALID_INPUT', `action ${input.action_id} was already undone`);
+    }
+    if (recorded && recorded.commit === null) {
+      // The action was done but never recorded: say why, not "changed no files".
+      const ignored = await vcs.ignoredPaths(recorded.paths);
+      throw new ToolError(
+        'INVALID_INPUT',
+        ignored.length > 0
+          ? historyPrompts.undoNotRecorded(input.action_id, ignored)
+          : historyPrompts.undoNoCommit(input.action_id),
+        {
+          hint:
+            ignored.length > 0
+              ? historyPrompts.undoNotRecordedHint
+              : historyPrompts.undoNoCommitHint,
+        },
+      );
     }
     let info: CommitInfo | undefined;
     if (recorded?.commit) {
@@ -2650,10 +2783,11 @@ export class VaultService {
       for (const f of files) {
         const after = await vcs.readFile(target, f);
         const before = parent ? await vcs.readFile(parent, f) : null;
-        const disk = await readIfExists(await this.#abs(f));
+        const { bytes: disk, big } = await peekFile(await this.#abs(f));
         const diskOid = disk ? gitBlobOid(disk) : null;
         const afterOid = after ? gitBlobOid(after) : null;
-        if (diskOid !== afterOid) changedSince.push(f);
+        // A file too big to read cannot be compared: it counts as changed.
+        if (big || diskOid !== afterOid) changedSince.push(f);
         // Permissions on every file touched: as it is now, after the action and before it.
         const notes = isMarkdown(f)
           ? [disk, after, before].flatMap((b) =>
@@ -2673,7 +2807,7 @@ export class VaultService {
           changes.push({
             path: f,
             content: null,
-            ...(disk ? { trashTo: await this.#trashPath(f, reservedTrash) } : {}),
+            ...(disk || big ? { trashTo: await this.#trashPath(f, reservedTrash) } : {}),
           });
         }
       }

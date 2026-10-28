@@ -304,7 +304,9 @@ export function vaultRestoreTool(vault: VaultService) {
 export function vaultUndoTool(vault: VaultService) {
   return defineTool({
     name: 'vault_undo',
-    description: 'Undo a whole write action (all its files) by action_id, with a new change.',
+    description:
+      'Undo a whole write action (all its files) by action_id, with a new change. ' +
+      "A write whose result has commit: null (folder ignored by the vault's .gitignore) is not in the history and cannot be undone.",
     inputSchema: UndoInput,
     destructive: true,
     execute: (input, ctx) => vault.undo(actor(ctx), input),

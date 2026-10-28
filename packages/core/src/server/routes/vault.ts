@@ -71,8 +71,15 @@ const SearchQuerySchema = z.object({
 const PathQuerySchema = z.object({ path, limit: limit(200) });
 const VersionQuerySchema = z.object({ path, commit: z.string().trim().min(4).max(64) });
 
-function writeResponse(r: WriteResult): VaultWriteResponse {
-  return { ok: true, path: r.path, hash: r.hash, commit: r.commit, actionId: r.action_id };
+function writeResponse(r: WriteResult, hasHistory: boolean): VaultWriteResponse {
+  return {
+    ok: true,
+    path: r.path,
+    hash: r.hash,
+    commit: r.commit,
+    actionId: r.action_id,
+    ...(hasHistory && r.commit === null ? { unrecorded: true } : {}),
+  };
 }
 
 function hitOf(h: SearchHit): VaultSearchResponse['hits'][number] {
@@ -87,6 +94,7 @@ export function registerVaultRoutes(
 ): void {
   const { requireAuth, parseBody } = h;
   const vault = () => deps.hub.vault;
+  const respond = (r: WriteResult) => writeResponse(r, vault().hasGit);
   const user: VaultActor = {
     agentId: 'user',
     emit: (e) =>
@@ -258,7 +266,7 @@ export function registerVaultRoutes(
     const refused = target === null ? null : notForToken(c, target);
     if (refused) return refused;
     return run(c, async () =>
-      writeResponse(
+      respond(
         await vault().restore(
           user,
           'trashPath' in req
@@ -275,7 +283,7 @@ export function registerVaultRoutes(
     const refused = notForToken(c, body.data.path);
     if (refused) return refused;
     return run(c, async () =>
-      writeResponse(
+      respond(
         await vault().delete(user, {
           path: body.data.path,
           reason: body.data.reason?.trim() || serverStrings().trashedFromUi,
@@ -300,7 +308,7 @@ export function registerVaultRoutes(
     // Checked by the vault: hidden and system folders, outside the vault, names
     // Obsidian cannot open, an existing note (`exists`, never overwritten).
     return run(c, async () =>
-      writeResponse(
+      respond(
         await vault().write(user, {
           path: folder ? `${folder}/${title}.md` : `${title}.md`,
           content: body.data.content,
@@ -320,7 +328,7 @@ export function registerVaultRoutes(
     const refused = notForToken(c, body.data.path);
     if (refused) return refused;
     return run(c, async () =>
-      writeResponse(
+      respond(
         await vault().write(user, {
           path: body.data.path,
           content: body.data.content,
