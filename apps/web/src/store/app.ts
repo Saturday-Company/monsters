@@ -688,13 +688,28 @@ async function sessionLost(): Promise<void> {
   await boot();
 }
 
-async function checkSession(): Promise<void> {
-  try {
-    const me = await client().me();
-    if (!me) await sessionLost();
-  } catch {
-    // core unreachable: the stream keeps retrying
-  }
+let sessionCheck: Promise<void> | null = null;
+
+/**
+ * The stream keeps failing: is the session still good? A refusal at the upgrade looks like any
+ * other failure to the browser, so this is the only way to the login for an expired session. The
+ * stream asks again every few attempts while the outage lasts; one check runs at a time.
+ */
+function checkSession(): Promise<void> {
+  if (sessionCheck) return sessionCheck;
+  const run = (async () => {
+    try {
+      const me = await client().me();
+      if (!me) await sessionLost();
+    } catch {
+      // core unreachable: the stream keeps retrying
+    }
+  })();
+  sessionCheck = run;
+  void run.then(() => {
+    sessionCheck = null;
+  });
+  return run;
 }
 
 /** The language the core said at boot (D-153); null for an older core. */
@@ -1059,7 +1074,10 @@ export async function startNewConversation(to?: string): Promise<void> {
  * switch: the next message starts again at once. The events come on the stream.
  */
 export async function stopAgent(id: string): Promise<void> {
-  await client().stopAgent(id);
+  const res = await client().stopAgent(id);
+  // Nothing of it was running on the core, yet the UI showed it at work: the picture is stale
+  // (an event lost, a core that restarted), so it is read again instead of staying "working".
+  if (res.stopped === 0 && res.parts === 0) await refreshAgents().catch(() => {});
 }
 
 export async function answerQuestion(id: string, body: AnswerRequest): Promise<void> {
@@ -1270,6 +1288,7 @@ onAppLang(() => {
 
 /** Test helper: back to a blank store. */
 export function resetForTests(): void {
+  sessionCheck = null;
   clearModuleState();
   useApp.setState({ ...INITIAL });
 }

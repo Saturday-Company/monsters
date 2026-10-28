@@ -1,6 +1,7 @@
 import type { IncomingMessage, Server } from 'node:http';
 import type { Duplex } from 'node:stream';
 import {
+  STREAM_HEARTBEAT_MS,
   StreamAuthMessageSchema,
   ULID_REGEX,
   type LogEvent,
@@ -19,7 +20,9 @@ export const STREAM_PATH = '/api/stream';
 const REPLAY_PAGE = 500;
 /** A replay waits for the socket to drain below this before sending the next page. */
 const REPLAY_LOW_WATER_BYTES = 1024 * 1024;
-const HEARTBEAT_MS = 30_000;
+/** Protocol ping (half-open sockets) and application `ping` message (the page's watchdog). */
+const HEARTBEAT_MS = STREAM_HEARTBEAT_MS;
+const APP_PING = JSON.stringify({ kind: 'ping' } satisfies StreamMessage);
 /** Slow clients are dropped instead of buffering the whole log in memory. */
 const MAX_BUFFERED_BYTES = 8 * 1024 * 1024;
 /** How long a browser's socket may wait before its first message, the session's secret. */
@@ -41,10 +44,25 @@ export interface StreamHandle {
   readonly clientCount: number;
 }
 
+type Credentials = { cookie: string | undefined; authorization: string | undefined };
+
+/** The request target of an upgrade as a URL, or null when it is not one (`http://a:99999/x`, `http://[::1/x`). */
+function parseTarget(target: string | undefined): URL | null {
+  try {
+    return new URL(target ?? '/', 'http://localhost');
+  } catch {
+    return null;
+  }
+}
+
 function reject(socket: Duplex, status: number, message: string): void {
-  socket.write(
-    `HTTP/1.1 ${status} ${message}\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: ${message.length}\r\n\r\n${message}`,
-  );
+  try {
+    socket.write(
+      `HTTP/1.1 ${status} ${message}\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: ${message.length}\r\n\r\n${message}`,
+    );
+  } catch {
+    // the socket is gone already
+  }
   socket.destroy();
 }
 
@@ -65,8 +83,25 @@ export function attachStream(server: Server, deps: StreamDeps): StreamHandle {
   /** Sockets of a browser's session waiting for the secret (closed with the stream). */
   const waiting = new Set<WebSocket>();
 
+  /**
+   * Outside Hono nothing turns a throw into a 500: whatever a client sends here must end in a
+   * status and a closed socket, never in an uncaught exception (the process guard counts those
+   * and stops the core after a few: it would be a switch for anyone who can open a socket).
+   */
   const onUpgrade = (req: IncomingMessage, socket: Duplex, head: Buffer) => {
-    const url = new URL(req.url ?? '/', 'http://localhost');
+    // Node removes its own error listener from an upgraded socket: a reset before (or during) the
+    // handshake would be an uncaught 'error' event.
+    socket.on('error', () => {});
+    try {
+      upgrade(req, socket, head);
+    } catch {
+      reject(socket, 400, 'Bad Request');
+    }
+  };
+
+  const upgrade = (req: IncomingMessage, socket: Duplex, head: Buffer) => {
+    const url = parseTarget(req.url);
+    if (!url) return reject(socket, 400, 'Bad Request');
     if (url.pathname !== STREAM_PATH) return reject(socket, 404, 'Not Found');
     if (!isAllowedHost(req.headers.host, deps.config)) return reject(socket, 403, 'Forbidden');
     if (!isAllowedOrigin(req.headers.origin, deps.config)) return reject(socket, 403, 'Forbidden');
@@ -76,48 +111,77 @@ export function attachStream(server: Server, deps: StreamDeps): StreamHandle {
 
     const after = url.searchParams.get('after');
     wss.handleUpgrade(req, socket, head, (ws) => {
-      if (first !== 'secret_required') {
-        serve(ws, first, credentials, {}, after);
-        return;
+      try {
+        accept(ws, first, credentials, after);
+      } catch {
+        ws.terminate();
       }
-      waiting.add(ws);
-      const timer = setTimeout(
-        () => ws.close(UNAUTHORIZED_CLOSE, 'secret required'),
-        AUTH_TIMEOUT_MS,
-      );
-      const stopWaiting = () => {
-        clearTimeout(timer);
-        waiting.delete(ws);
-      };
-      ws.once('close', stopWaiting);
-      ws.on('error', stopWaiting);
-      ws.once('message', (data: Buffer, isBinary: boolean) => {
-        stopWaiting();
-        let secret: string | undefined;
-        if (!isBinary) {
-          try {
-            const msg = StreamAuthMessageSchema.safeParse(JSON.parse(data.toString('utf8')));
-            if (msg.success) secret = msg.data.secret;
-          } catch {
-            // not JSON: no secret
-          }
-        }
-        const proof: SessionProof = { secret };
-        const ctx = secret ? authenticate(deps.auth, credentials, proof) : null;
-        if (!ctx) {
-          ws.close(UNAUTHORIZED_CLOSE, 'unauthorized');
-          return;
-        }
-        serve(ws, ctx, credentials, proof, after);
-      });
     });
+  };
+
+  /** The socket is open: serves it at once, or waits for the secret of a browser's session. */
+  const accept = (
+    ws: WebSocket,
+    first: AuthContext | 'secret_required',
+    credentials: Credentials,
+    after: string | null,
+  ) => {
+    if (first !== 'secret_required') {
+      serve(ws, first, credentials, {}, after);
+      return;
+    }
+    waiting.add(ws);
+    const timer = setTimeout(
+      () => ws.close(UNAUTHORIZED_CLOSE, 'secret required'),
+      AUTH_TIMEOUT_MS,
+    );
+    const stopWaiting = () => {
+      clearTimeout(timer);
+      waiting.delete(ws);
+    };
+    ws.once('close', stopWaiting);
+    ws.on('error', stopWaiting);
+    ws.once('message', (data: Buffer, isBinary: boolean) => {
+      stopWaiting();
+      try {
+        firstMessage(ws, data, isBinary, credentials, after);
+      } catch {
+        ws.close(1011, 'error');
+      }
+    });
+  };
+
+  /** The first message of a browser's socket: its session's secret, or the end of it. */
+  const firstMessage = (
+    ws: WebSocket,
+    data: Buffer,
+    isBinary: boolean,
+    credentials: Credentials,
+    after: string | null,
+  ) => {
+    let secret: string | undefined;
+    if (!isBinary) {
+      try {
+        const msg = StreamAuthMessageSchema.safeParse(JSON.parse(data.toString('utf8')));
+        if (msg.success) secret = msg.data.secret;
+      } catch {
+        // not JSON: no secret
+      }
+    }
+    const proof: SessionProof = { secret };
+    const ctx = secret ? authenticate(deps.auth, credentials, proof) : null;
+    if (!ctx) {
+      ws.close(UNAUTHORIZED_CLOSE, 'unauthorized');
+      return;
+    }
+    serve(ws, ctx, credentials, proof, after);
   };
 
   /** Streams the log to an authenticated socket (`proof`: what its session needed besides the cookie). */
   const serve = (
     ws: WebSocket,
     ctx: AuthContext,
-    credentials: { cookie: string | undefined; authorization: string | undefined },
+    credentials: Credentials,
     proof: SessionProof,
     after: string | null,
   ) => {
@@ -146,8 +210,14 @@ export function attachStream(server: Server, deps: StreamDeps): StreamHandle {
       send({ kind: 'event', event });
     };
     const unsubscribe = deps.log.subscribe((event) => {
-      if (replaying) queue.push(event);
-      else forward(event);
+      // Called from inside `EventLog.append`: a failing socket never fails the action that logged.
+      try {
+        if (replaying) queue.push(event);
+        else forward(event);
+      } catch {
+        closed = true;
+        ws.terminate();
+      }
     });
 
     // Replays everything after the cursor, page by page, until it reaches the
@@ -194,17 +264,25 @@ export function attachStream(server: Server, deps: StreamDeps): StreamHandle {
   server.on('upgrade', onUpgrade);
 
   const heartbeat = setInterval(() => {
-    for (const ws of sessions.keys()) {
-      if (alive.get(ws) === false) {
+    for (const ws of [...sessions.keys()]) {
+      // A throw in a timer is an uncaught exception: one bad socket is dropped, the others go on.
+      try {
+        if (alive.get(ws) === false) {
+          ws.terminate();
+          continue;
+        }
+        if (stillAuthorized.get(ws)?.() === false) {
+          ws.close(UNAUTHORIZED_CLOSE, 'session expired');
+          continue;
+        }
+        alive.set(ws, false);
+        ws.ping();
+        // For the page: a browser answers the protocol ping by itself and never tells the app.
+        if (ws.readyState === WebSocket.OPEN) ws.send(APP_PING);
+      } catch {
+        sessions.delete(ws);
         ws.terminate();
-        continue;
       }
-      if (stillAuthorized.get(ws)?.() === false) {
-        ws.close(UNAUTHORIZED_CLOSE, 'session expired');
-        continue;
-      }
-      alive.set(ws, false);
-      ws.ping();
     }
   }, HEARTBEAT_MS);
   heartbeat.unref();

@@ -295,7 +295,13 @@ export async function startCore(options: StartCoreOptions = {}): Promise<CoreSer
   // lightweight classes for the whole process, and then a native `fetch` Response is no longer
   // `instanceof Response` (the MCP SDK's OAuth error parsing relies on that check).
   const listener = getRequestListener(app.fetch, { overrideGlobalObjects: false });
-  const httpServer = createServer((req, res) => void listener(req, res));
+  // Outside Hono (the listener's own setup, a socket gone): a failure ends this request, never the process.
+  const httpServer = createServer((req, res) => {
+    listener(req, res).catch(() => {
+      if (res.headersSent) res.destroy();
+      else res.writeHead(500).end();
+    });
+  });
   const stream: StreamHandle = attachStream(httpServer, { config, auth, log, runs });
   hub.setAppPresence(() => stream.clientCount > 0);
 
