@@ -147,7 +147,7 @@ describe('the Monsters card', () => {
       - squadra: deleghi agli altri mostri (\`delegate\`)
       - domande all’utente (\`ask_user\`)
       - nuovi mostri: proponi una bozza (\`team_propose_monster\`), l’utente la crea
-      - app collegate, già tue (mai chiedere all’utente accessi, chiavi o indirizzi per questi): notion, Gmail, Google Calendar
+      - app collegate, già tue (mai chiedere all’utente accessi, chiavi o indirizzi per questi; usali quando il compito richiede i loro dati o il loro lavoro, e nel rapporto dici cosa hai preso da loro): notion, Gmail, Google Calendar
       Solo l’utente, in Impostazioni: Squadra (creare, cambiare e archiviare mostri; chi è lui per voi), Modelli (modelli e spesa; tu non la vedi), Permessi, App e Telegram. Nella barra a sinistra anche Note, File (allegati e pagine) e Attività. Se te lo chiede, usa questi nomi e rispondi da qui, non dai file."
     `);
   });
@@ -157,7 +157,7 @@ describe('the Monsters card', () => {
       toolNames: [...ALL_VAULT_TOOLS, 'mcp__Anteiku_Prod__list_tasks', 'mcp__my-db__query'],
     });
     expect(card).toContain(
-      '- app collegate, già tue (mai chiedere all’utente accessi, chiavi o indirizzi per questi): Anteiku_Prod, my-db',
+      '- app collegate, già tue (mai chiedere all’utente accessi, chiavi o indirizzi per questi; usali quando il compito richiede i loro dati o il loro lavoro, e nel rapporto dici cosa hai preso da loro): Anteiku_Prod, my-db',
     );
     expect(card).not.toContain('app collegate.');
   });

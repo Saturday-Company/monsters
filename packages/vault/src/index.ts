@@ -43,6 +43,8 @@ export {
 export {
   scanMarkdown,
   findSection,
+  findSectionLoose,
+  normalizeHeading,
   type Scan,
   type Heading,
   type Section,

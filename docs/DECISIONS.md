@@ -6287,3 +6287,22 @@ every row had an orange key; an instructions draft opened on a raw diff with abs
 - An instructions draft opens on the monster's sentence and words; the diff is behind "Show changes"; paths are written
   `~/…` and shortened in the middle.
 - The sidebar foot is a 3 + 2 grid on the same columns under 960 px of height.
+
+### D-207 · Reading a section is forgiving, writing stays exact
+**Status:** done · 28/10/2026
+**Context:** a lead monster asked `vault_read` for the section "4.3 Struttura indicativa (…)" of a note where that
+text was a bold line, not a heading; the call failed with NOT_FOUND and the monster gave up. Models quote titles
+loosely (numbers dropped, emphasis markers, escaped underscores, other dashes), so a strict match fails again and again.
+**Choices:**
+- `findSection` compares normalized headings for every caller: case, Unicode NFKC, `#`, emphasis and code markers,
+  backslash escapes, link syntax, dash and quote variants, spacing, trailing `:` or `.`.
+- Only `vault_read` goes further, in order: a unique heading that starts with the wanted text (or the reverse, on a word
+  boundary, also without its number) or has the same section number; a body line outside code and comments that reads
+  as a title (bold line, list item, quoted heading), running to the next real heading; else the whole note with
+  `section_not_found` and the list of `sections`. It is never an error, and `section_matched` says what was used.
+- The edit operations (`append` with a section, `replace_section`) stay on the normalized equality and never use a
+  pseudo-heading: guessing is harmless when reading and wrong when writing.
+- The permission hints of `vault_edit` / `vault_write` / delete / move now also say what to do when the task needs the
+  change: do not retry or work around it, say in the report what should be added where. The permissions did not change.
+- The card line about connected apps adds "use them when the task needs their data or their work, and your report says
+  what you took from them" (EN and IT); the Italian hash fixture was updated without a new eval.

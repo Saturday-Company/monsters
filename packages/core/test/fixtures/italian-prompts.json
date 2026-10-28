@@ -47,7 +47,7 @@
   "core/src/agents/monsters-card.prompts.ts#monstersCardPrompts.projectSend": "ddf165b02ef84c020db1b41031a6e9212ea8f7066de437019f2b43b27b902076",
   "core/src/agents/monsters-card.prompts.ts#monstersCardPrompts.projects()": "b4bf12d58fc256a1841988225832842350633186b20f62d771260cbc100410d3",
   "core/src/agents/monsters-card.prompts.ts#monstersCardPrompts.searchElsewhere()": "1dee59b71fc45e14c94d768e8780eaabfa721479505bc674c83daecb1394cc93",
-  "core/src/agents/monsters-card.prompts.ts#monstersCardPrompts.services()": "4cc8143e4b5cd85660d767b6a03091e70cb58ae30d4ceefef6cb3f4830f9abd7",
+  "core/src/agents/monsters-card.prompts.ts#monstersCardPrompts.services()": "3a7957f6180b0633eb827e478bea41c7c0e72fc435163a7c71d2565fa3a3e277",
   "core/src/agents/monsters-card.prompts.ts#monstersCardPrompts.sidebar": "839120fc9b6535e7fd5c1be086f453b6a87a148093201dc40bf8f48c96e9d0b5",
   "core/src/agents/monsters-card.prompts.ts#monstersCardPrompts.teamMonster": "206ca668f9957cd8b39ce12d090f8112e060a2864040b87d723c90e321a47276",
   "core/src/agents/monsters-card.prompts.ts#monstersCardPrompts.terminalGranted": "882c4091090ddb1cf64af43470bc217748c87396fe3975beccc2b0348c70dc5d",

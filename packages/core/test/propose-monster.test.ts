@@ -471,7 +471,7 @@ describe('team_propose_monster on a harness', () => {
     expect(instructions).toContain('nuovi mostri: proponi una bozza (`team_propose_monster`)');
     expect(instructions).toContain('comandi e file: nella cartella di questo lavoro');
     expect(instructions).toContain(
-      'già tue (mai chiedere all’utente accessi, chiavi o indirizzi per questi): Gmail',
+      'già tue (mai chiedere all’utente accessi, chiavi o indirizzi per questi; usali quando il compito richiede i loro dati o il loro lavoro, e nel rapporto dici cosa hai preso da loro): Gmail',
     );
     db.close();
   });

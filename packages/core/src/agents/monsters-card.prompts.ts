@@ -40,7 +40,7 @@ const en = {
     `accesses the squad is missing (the web for a monster, an app already connected to the account, the browser): you ask the user for them with \`access_request\`, and the user taps “${grant}”`,
   teamMonster: 'new monsters: you propose a draft (`team_propose_monster`), the user creates it',
   services: (names: string) =>
-    `connected apps, already yours (never ask the user for access, keys or addresses for them): ${names}`,
+    `connected apps, already yours (never ask the user for access, keys or addresses for them; use them when the task needs their data or their work, and your report says what you took from them): ${names}`,
   catalog: (example: string) =>
     `. Call their tools by the full name, e.g. \`${example}\`: one not loaded yet loads and runs at its first call; \`tools_search\` tells what they do and their parameters`,
   // Codex (D-163): its tool list cannot change in a session, so the waiting tools are called through
@@ -124,7 +124,7 @@ const it: typeof en = {
     `accessi che mancano alla squadra (il web a un mostro, un’app già collegata all’account, il browser): li chiedi all’utente con \`access_request\`, lui tocca «${grant}»`,
   teamMonster: 'nuovi mostri: proponi una bozza (`team_propose_monster`), l’utente la crea',
   services: (names) =>
-    `app collegate, già tue (mai chiedere all’utente accessi, chiavi o indirizzi per questi): ${names}`,
+    `app collegate, già tue (mai chiedere all’utente accessi, chiavi o indirizzi per questi; usali quando il compito richiede i loro dati o il loro lavoro, e nel rapporto dici cosa hai preso da loro): ${names}`,
   catalog: (example) =>
     `. Chiama i loro strumenti col nome completo, es. \`${example}\`: uno non ancora caricato si carica e si esegue alla prima chiamata; \`tools_search\` dice cosa fanno e i loro parametri`,
   catalogCall: (example) =>

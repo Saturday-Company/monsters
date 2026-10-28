@@ -268,6 +268,92 @@ describe('write, read and search', () => {
   });
 });
 
+describe('read with a section', () => {
+  const body = [
+    '# Z_One – application e pitch deck',
+    '',
+    '## 1. Chi è Z_One',
+    'uno',
+    '',
+    '## 4. Struttura',
+    'intro',
+    '',
+    '**4.3 Struttura indicativa (convenzione di mercato, da adattare)**',
+    'corpo del 4.3',
+    '',
+    '## 7. Da decidere (Mirko)',
+    'fine',
+    '',
+  ].join('\n');
+  const asked = '4.3 Struttura indicativa (convenzione di mercato, da adattare)';
+  const setup = async () => {
+    const vault = await newVault();
+    await vault.write(titan(), { path: 'Commerciale/Pitch', content: body });
+    return vault;
+  };
+
+  it('returns a bold title line as the section, and says what matched', async () => {
+    const vault = await setup();
+    const r = await vault.read(titan(), { path: 'Commerciale/Pitch', section: asked });
+    expect(r.content).toBe(`**${asked}**\ncorpo del 4.3\n\n`);
+    expect(r.section_matched).toBe(`**${asked}**`);
+    expect(r.section_not_found).toBeUndefined();
+  });
+
+  it('reads a heading under another spelling without a note', async () => {
+    const vault = await newVault();
+    await vault.write(titan(), {
+      path: 'Risorse/A',
+      content: '# T\n## Z\\_One – Pitch\ncontenuto\n',
+    });
+    const r = await vault.read(titan(), { path: 'Risorse/A', section: 'z_one - pitch' });
+    expect(r.content).toBe('## Z\\_One – Pitch\ncontenuto\n');
+    expect(r.section_matched).toBeUndefined();
+  });
+
+  it('matches by section number or prefix and says so', async () => {
+    const vault = await setup();
+    const r = await vault.read(titan(), { path: 'Commerciale/Pitch', section: '7. Cosa decidere' });
+    expect(r.content).toBe('## 7. Da decidere (Mirko)\nfine\n');
+    expect(r.section_matched).toBe('7. Da decidere (Mirko)');
+  });
+
+  it('with no match returns the whole note and the headings, not an error', async () => {
+    const vault = await setup();
+    const r = await vault.read(titan(), { path: 'Commerciale/Pitch', section: 'Budget 2027' });
+    expect(r.content).toContain('corpo del 4.3');
+    expect(r.content).toContain('fine');
+    expect(r.section_not_found).toBe('Budget 2027');
+    expect(r.sections).toEqual([
+      'Z_One – application e pitch deck',
+      '1. Chi è Z_One',
+      '4. Struttura',
+      '7. Da decidere (Mirko)',
+    ]);
+    expect(r.truncated).toBeUndefined();
+    const cut = await vault.read(titan(), {
+      path: 'Commerciale/Pitch',
+      section: 'Budget 2027',
+      max_chars: 40,
+    });
+    expect(cut.truncated).toBe(true);
+    expect(cut.section_not_found).toBe('Budget 2027');
+  });
+
+  it('edits stay strict: a pseudo-heading is not a section to replace', async () => {
+    const vault = await setup();
+    const { hash } = await vault.read(titan(), { path: 'Commerciale/Pitch' });
+    await expectToolError(
+      vault.edit(titan(), {
+        path: 'Commerciale/Pitch',
+        base_hash: hash,
+        ops: [{ replace_section: { heading: asked, text: 'x' } }],
+      }),
+      'NOT_FOUND',
+    );
+  });
+});
+
 describe('move, delete, restore and undo', () => {
   it('renames a note and updates every backlink in a single commit', async () => {
     const vault = await newVault();

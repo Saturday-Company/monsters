@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   applyOps,
   findSection,
+  findSectionLoose,
+  normalizeHeading,
   lineDiff,
   parseNote,
   readFrontmatter,
@@ -161,6 +163,105 @@ describe('scan and sections', () => {
     expect(scan.headings.map((h) => `${h.level}:${h.text}`)).toEqual(['1:T', '2:A', '3:A1', '2:B']);
     const a = findSection(scan, '## a')!;
     expect(text.slice(a.contentStart, a.end)).toBe('a1\n```\n## finto\n```\n### A1\nx\n');
+  });
+});
+
+describe('tolerant section names', () => {
+  it('normalizes case, emphasis, escapes, dashes, quotes, spacing and trailing punctuation', () => {
+    const same = [
+      'Z_One – application e pitch deck',
+      '## Z\\_One - application   e pitch DECK:',
+      '**Z_One** — _application_ e `pitch` deck.',
+      'Z_One ~~–~~ application e pitch deck',
+    ];
+    for (const h of same) {
+      expect(normalizeHeading(h)).toBe(normalizeHeading(same[0]!));
+    }
+    expect(normalizeHeading('“Cos’è”')).toBe(normalizeHeading('"Cos\'è"'));
+    expect(normalizeHeading('Ｆｕｌｌ')).toBe('full');
+    expect(normalizeHeading('[Roma](https://x.it) e [[Note|Milano]]')).toBe('roma e milano');
+  });
+
+  it('findSection uses the normalized equality only', () => {
+    const text = '# T\n## Z\\_One – Pitch\nx\n## Altro\ny\n';
+    const scan = scanMarkdown(text);
+    expect(findSection(scan, 'z_one - pitch:')?.heading.text).toBe('Z\\_One – Pitch');
+    expect(findSection(scan, 'Z_One')).toBeNull();
+    expect(findSection(scan, '**Altro**')?.heading.text).toBe('Altro');
+  });
+
+  const note = [
+    '---',
+    'id: X',
+    '---',
+    '# Z_One – application e pitch deck',
+    '',
+    '## 1. Chi è Z_One',
+    'uno',
+    '',
+    '## 4. Struttura',
+    'intro',
+    '',
+    '**4.3 Struttura indicativa (convenzione di mercato, da adattare)**',
+    'riga a',
+    '',
+    '- riga b',
+    '',
+    '> ### 4.5 Citata',
+    '> dentro la citazione',
+    '',
+    '## 7. Da decidere (Mirko)',
+    'fine',
+    '',
+  ].join('\n');
+  const scan = scanMarkdown(note);
+  const loose = (h: string) => {
+    const f = findSectionLoose(scan, h);
+    return f ? { matched: f.matched, text: note.slice(f.start, f.end) } : null;
+  };
+
+  it('finds a bold title line as a pseudo-heading up to the next real heading', () => {
+    const f = loose('4.3 Struttura indicativa (convenzione di mercato, da adattare)')!;
+    expect(f.matched).toBe('**4.3 Struttura indicativa (convenzione di mercato, da adattare)**');
+    expect(f.text).toBe(
+      '**4.3 Struttura indicativa (convenzione di mercato, da adattare)**\nriga a\n\n- riga b\n\n> ### 4.5 Citata\n> dentro la citazione\n\n',
+    );
+  });
+
+  it('finds a heading inside a blockquote and a list item', () => {
+    expect(loose('4.5 Citata')?.text).toBe('> ### 4.5 Citata\n> dentro la citazione\n\n');
+    expect(loose('riga b')?.text.startsWith('- riga b')).toBe(true);
+  });
+
+  it('matches a heading by prefix or by section number, when unique', () => {
+    expect(loose('Struttura')?.matched).toBe('4. Struttura');
+    expect(loose('1. Chi è Z_One e perché')?.matched).toBe('1. Chi è Z_One');
+    expect(loose('7. Cosa decidere')?.matched).toBe('7. Da decidere (Mirko)');
+  });
+
+  it('gives up on an ambiguous or unrelated name', () => {
+    expect(loose('9.9 Inesistente')).toBeNull();
+    expect(findSectionLoose(scanMarkdown('## 2. Uno\n## 2. Due\n'), '2. Tre')).toBeNull();
+    expect(loose('')).toBeNull();
+  });
+
+  it('does not take a pseudo-heading from code', () => {
+    const code = scanMarkdown('# T\n```\n**Finta**\n```\n');
+    expect(findSectionLoose(code, 'Finta')).toBeNull();
+  });
+
+  it('keeps the edit ops strict: normalized forms work, pseudo-headings do not', () => {
+    // A normalized form of a real heading appends into that section.
+    const viaForm = applyOps(note, [{ append: { text: 'x', section: '**4. STRUTTURA**:' } }]);
+    expect(viaForm.indexOf('\nx\n')).toBeLessThan(viaForm.indexOf('## 7. Da decidere'));
+    expect(viaForm.match(/^## /gm)).toHaveLength(3);
+    // A pseudo-heading is not a section: append creates a new one, replace_section refuses.
+    const title = '4.3 Struttura indicativa (convenzione di mercato, da adattare)';
+    const created = applyOps(note, [{ append: { text: 'x', section: title } }]);
+    expect(created.endsWith(`## ${title}\nx\n`)).toBe(true);
+    expect(() => applyOps(note, [{ replace_section: { heading: title, text: 'x' } }])).toThrow(
+      /not found/,
+    );
   });
 });
 

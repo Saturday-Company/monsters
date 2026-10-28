@@ -221,18 +221,29 @@ export interface Section {
   end: number;
 }
 
-function normalizeHeading(h: string): string {
+/**
+ * Heading text reduced to what a person means by it: case, Unicode form, markdown
+ * emphasis and code markers, backslash escapes (`Z\_One`), link syntax, dash and quote
+ * variants, spacing and a trailing `:` or `.` do not count.
+ */
+export function normalizeHeading(h: string): string {
   return h
-    .replace(/^#+\s*/, '')
+    .normalize('NFKC')
+    .replace(/\\([\\`*_{}[\]()#+\-.!~|<>])/g, '$1')
+    .replace(/!?\[\[([^\]|]*\|)?([^\]]*)\]\]/g, '$2')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^\s*#+\s*/, '')
+    .replace(/[*_`]|~~/g, '')
+    .replace(/[\u2010-\u2015\u2212]/g, '-')
+    .replace(/[\u2018\u2019\u201A\u201B\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F\u2033]/g, '"')
+    .replace(/\s+/g, ' ')
+    .replace(/[\s:.]+$/, '')
     .trim()
     .toLowerCase();
 }
 
-/** Finds a section by heading text (case-insensitive, leading `#` ignored). */
-export function findSection(scan: Scan, heading: string): Section | null {
-  const wanted = normalizeHeading(heading);
-  const idx = scan.headings.findIndex((h) => normalizeHeading(h.text) === wanted);
-  if (idx === -1) return null;
+function sectionAt(scan: Scan, idx: number): Section {
   const h = scan.headings[idx]!;
   let end = scan.text.length;
   for (const next of scan.headings.slice(idx + 1)) {
@@ -242,4 +253,101 @@ export function findSection(scan: Scan, heading: string): Section | null {
     }
   }
   return { heading: h, contentStart: h.lineEnd, end };
+}
+
+/**
+ * Finds a section by heading text, with the tolerant comparison of `normalizeHeading`.
+ * This is the strict equality used by every caller, edits included.
+ */
+export function findSection(scan: Scan, heading: string): Section | null {
+  const wanted = normalizeHeading(heading);
+  const idx = scan.headings.findIndex((h) => normalizeHeading(h.text) === wanted);
+  return idx === -1 ? null : sectionAt(scan, idx);
+}
+
+/** A part of a note found by a loose match, for reading only. */
+export interface LooseSection {
+  /** Offsets into the original text. */
+  start: number;
+  end: number;
+  /** The heading or the line that matched. */
+  matched: string;
+}
+
+const LEADING_NUMBER = /^(\d+(?:\.\d+)*)(?=[.):]?(?:\s|$))/;
+
+const leadingNumber = (normalized: string): string | null =>
+  LEADING_NUMBER.exec(normalized)?.[1] ?? null;
+
+/** `a` starts with `b` (or the reverse) on a word boundary, the shorter one at least 3 characters. */
+function prefixMatch(a: string, b: string): boolean {
+  const [long, short] = a.length >= b.length ? [a, b] : [b, a];
+  if (short.length < 3 || !long.startsWith(short)) return false;
+  return long.length === short.length || !/[\p{L}\p{N}]/u.test(long.charAt(short.length));
+}
+
+/** The forms a body line can be read as a title: without `>` and `#`, and also without a list marker. */
+function lineForms(line: string): string[] {
+  const quoted = line.replace(/^\s*(?:>\s*)+/, '').replace(/^\s*#{1,6}\s+/, '');
+  const unlisted = quoted.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '');
+  return [...new Set([normalizeHeading(quoted), normalizeHeading(unlisted)])].filter(Boolean);
+}
+
+/**
+ * Looser lookup for reading, when `findSection` found nothing: (1) a unique heading that starts
+ * with the wanted text or the reverse, or that has the same section number; (2) a body line
+ * (outside code and comments) that reads as a title, like `**4.3 Title**`, a list item or a
+ * quoted heading, running to the next real heading. Null if nothing fits clearly.
+ */
+export function findSectionLoose(scan: Scan, heading: string): LooseSection | null {
+  const wanted = normalizeHeading(heading);
+  if (!wanted) return null;
+  const normalized = scan.headings.map((h) => normalizeHeading(h.text));
+
+  const fromHeading = (idx: number): LooseSection => {
+    const s = sectionAt(scan, idx);
+    return { start: s.heading.start, end: s.end, matched: s.heading.text };
+  };
+  const unique = (idxs: number[]): number | null => (idxs.length === 1 ? idxs[0]! : null);
+  const indexes = (test: (n: string) => boolean): number[] =>
+    normalized.flatMap((n, i) => (test(n) ? [i] : []));
+
+  const number = leadingNumber(wanted);
+  // A title is also recognized without its number (`Struttura` for `4. Struttura`).
+  const unnumbered = (n: string) => n.replace(/^\d+(?:\.\d+)*[.):]?\s+/, '');
+  const byPrefix = unique(
+    indexes((n) => n !== '' && (prefixMatch(n, wanted) || prefixMatch(unnumbered(n), wanted))),
+  );
+  if (byPrefix !== null) return fromHeading(byPrefix);
+  if (number) {
+    const byNumber = unique(indexes((n) => leadingNumber(n) === number));
+    if (byNumber !== null) return fromHeading(byNumber);
+  }
+
+  const headingStarts = new Set(scan.headings.map((h) => h.start));
+  const candidates: { start: number; end: number; forms: string[] }[] = [];
+  let pos = scan.bodyStart;
+  while (pos < scan.masked.length) {
+    const nl = scan.masked.indexOf('\n', pos);
+    const lineEnd = nl === -1 ? scan.masked.length : nl;
+    const raw = scan.masked.slice(pos, lineEnd).replace(/\r$/, '');
+    if (raw.trim() !== '' && !headingStarts.has(pos)) {
+      candidates.push({ start: pos, end: lineEnd, forms: lineForms(raw) });
+    }
+    pos = lineEnd + 1;
+  }
+  const sameNumber = (c: { forms: string[] }) => c.forms.some((f) => leadingNumber(f) === number);
+  const hit =
+    candidates.find((c) => c.forms.includes(wanted)) ??
+    candidates.find((c) => c.forms.some((f) => f.startsWith(wanted))) ??
+    (number && candidates.filter(sameNumber).length === 1
+      ? candidates.find(sameNumber)
+      : undefined);
+  if (!hit) return null;
+  const next = scan.headings.find((h) => h.start > hit.start);
+  return {
+    start: hit.start,
+    end: next?.start ?? scan.text.length,
+    matched: scan.text.slice(hit.start, hit.end).replace(/\r$/, '').trim(),
+  };
 }

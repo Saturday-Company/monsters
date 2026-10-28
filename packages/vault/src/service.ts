@@ -55,7 +55,7 @@ import {
   type Props,
 } from './markdown/frontmatter.ts';
 import { parseNote, type ParsedNote } from './markdown/parse.ts';
-import { findFrontmatter, findSection, scanMarkdown } from './markdown/scan.ts';
+import { findFrontmatter, findSection, findSectionLoose, scanMarkdown } from './markdown/scan.ts';
 import { KeyedMutex, SerialQueue } from './concurrency.ts';
 import {
   assertValidNewPath,
@@ -1195,6 +1195,10 @@ export class VaultService {
     backlinks_count: number;
     truncated?: boolean;
     sections?: string[];
+    /** The section asked for was found under another name: the heading or line used. */
+    section_matched?: string;
+    /** The section asked for was not found: `content` is the whole note and `sections` its headings. */
+    section_not_found?: string;
     /** The frontmatter is not valid YAML: the note is read and indexed as text only. */
     frontmatter_error?: string;
   }> {
@@ -1225,14 +1229,23 @@ export class VaultService {
     const note = parseNote(path, file.text);
     this.permissions.assertRead(actor.agentId, path, note.private);
     let content = note.body.replace(/^\n+/, '');
+    let sectionMatched: string | undefined;
+    let sectionNotFound: string | undefined;
     if (input.section) {
-      const section = findSection(note.scan, input.section);
-      if (!section) {
-        throw new ToolError('NOT_FOUND', `section "${input.section}" not found in ${path}`, {
-          hint: `Headings: ${note.headings.map((h) => h.text).join(', ') || 'none'}`,
-        });
+      // Reading is forgiving (a model rarely quotes a title letter for letter): the exact
+      // lookup, then a loose one, then the whole note. Edits only use the exact lookup.
+      const exact = findSection(note.scan, input.section);
+      if (exact) {
+        content = file.text.slice(exact.heading.start, exact.end);
+      } else {
+        const loose = findSectionLoose(note.scan, input.section);
+        if (loose) {
+          content = file.text.slice(loose.start, loose.end);
+          sectionMatched = loose.matched;
+        } else {
+          sectionNotFound = input.section;
+        }
       }
-      content = file.text.slice(section.heading.start, section.end);
     }
     const max = input.max_chars ?? 20_000;
     const truncated = content.length > max;
@@ -1246,7 +1259,11 @@ export class VaultService {
       hash: file.hash,
       outlinks: [...new Set(outlinks)],
       backlinks_count: this.index.backlinkPaths(row.nid).length,
-      ...(truncated ? { truncated: true, sections: note.headings.map((h) => h.text) } : {}),
+      ...(truncated || sectionNotFound
+        ? { ...(truncated ? { truncated: true } : {}), sections: note.headings.map((h) => h.text) }
+        : {}),
+      ...(sectionMatched ? { section_matched: sectionMatched } : {}),
+      ...(sectionNotFound ? { section_not_found: sectionNotFound } : {}),
       ...(note.frontmatterError ? { frontmatter_error: note.frontmatterError } : {}),
     };
   }

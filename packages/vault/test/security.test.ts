@@ -267,7 +267,7 @@ describe('proposals', () => {
     const { vault, proposal } = await setup();
     const dione = actor('dione');
     const read = await vault.read(dione, { path: proposal.proposal_path });
-    await expectToolError(
+    const refused = await expectToolError(
       vault.edit(dione, {
         path: proposal.proposal_path,
         base_hash: read.hash,
@@ -275,6 +275,7 @@ describe('proposals', () => {
       }),
       'SETTING_OFF',
     );
+    expect(refused.hint).toContain('say in your report what should be added where');
     writeFileSync(join(vault.root, 'Inbox/Dell utente.md'), 'nota a mano\n');
     const user = await vault.read(dione, { path: 'Inbox/Dell utente' });
     await expectToolError(

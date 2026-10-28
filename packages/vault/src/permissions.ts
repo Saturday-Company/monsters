@@ -76,6 +76,9 @@ const managedError = (path: string) =>
     `${path}: hidden and system folders are managed by the system`,
   );
 
+const neededHint =
+  ' If the task needs this change, do not retry or work around it: say in your report what should be added where, so the lead or the note author makes it.';
+
 const proposeHint = (inbox: string) =>
   `Use vault_propose to suggest this change: it creates a proposal in ${inbox}/ that the orchestrator can apply.`;
 
@@ -215,7 +218,7 @@ export class VaultPermissions {
     if (out) throw out;
     if (!this.canWrite(agent, path, author, opts)) {
       throw new ToolError('SETTING_OFF', `${agent} cannot write ${path}`, {
-        hint: `${proposeHint(this.layout.inbox)} You can write freely in ${this.areaOf(agent)}/, create new notes in ${this.layout.inbox}/ and edit your own notes there${this.#extraWritable(agent)}. The user can change the note areas of a monster.`,
+        hint: `${proposeHint(this.layout.inbox)} You can write freely in ${this.areaOf(agent)}/, create new notes in ${this.layout.inbox}/ and edit your own notes there${this.#extraWritable(agent)}. The user can change the note areas of a monster.${neededHint}`,
       });
     }
   }
@@ -239,7 +242,7 @@ export class VaultPermissions {
     if (out) throw out;
     if (!this.canDelete(agent, path, author)) {
       throw new ToolError('SETTING_OFF', `${agent} cannot delete or move ${path}`, {
-        hint: `${proposeHint(this.layout.inbox)} You can delete and move only inside ${this.areaOf(agent)}/ and your own notes in ${this.layout.inbox}/. The user can change the note areas of a monster.`,
+        hint: `${proposeHint(this.layout.inbox)} You can delete and move only inside ${this.areaOf(agent)}/ and your own notes in ${this.layout.inbox}/. The user can change the note areas of a monster.${neededHint}`,
       });
     }
   }
@@ -254,7 +257,7 @@ export class VaultPermissions {
     const granted = matchesAnyGlob(to, this.#profile(agent)?.delete ?? []);
     if (!inArea && !granted) {
       throw new ToolError('SETTING_OFF', `${agent} cannot move notes to ${to}`, {
-        hint: `${proposeHint(this.layout.inbox)} Sub-agents move notes only inside ${this.areaOf(agent)}/. The user can change the note areas of a monster.`,
+        hint: `${proposeHint(this.layout.inbox)} Sub-agents move notes only inside ${this.areaOf(agent)}/. The user can change the note areas of a monster.${neededHint}`,
       });
     }
   }

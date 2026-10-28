@@ -59,7 +59,12 @@ const searchInput = (layout: VaultLayout) =>
 
 const ReadInput = z.object({
   path: PathSchema.describe('Path, title or alias of the note (like a wikilink)'),
-  section: z.string().optional().describe('Return only this section (heading text)'),
+  section: z
+    .string()
+    .optional()
+    .describe(
+      'Return only this section (heading text; a close name or a bold title line is found too, and if nothing fits you get the whole note)',
+    ),
   max_chars: z.number().int().min(200).max(100_000).optional().describe('Default 20000'),
 });
 
