@@ -235,6 +235,8 @@ const endedRuns = new Set<string>();
 const localIds = new Set<string>();
 /** Held messages this tab put in storage or took from it (see `flushHeld`). */
 const keptHeld = new Set<string>();
+/** Held messages whose refusal was already shown: said once, not at every `hello` (see `flushOnce`). */
+const reportedHeld = new Set<string>();
 /** The flush of the held messages under way, and whether another was asked meanwhile. */
 let flushing: Promise<void> | null = null;
 let flushAgain = false;
@@ -408,9 +410,16 @@ export function ingest(batch: readonly LogEvent[], opts: IngestOptions = {}): vo
     let pending = s.pending;
     const sent = confirmedSends(fresh, pending);
     if (sent.size > 0) {
-      sentHeld = pending.filter((p) => p.held && sent.has(p.tempId)).map((p) => p.tempId);
+      // Read before `keptHeld` forgets them: a message whose pass already cleared `held` (its
+      // answer on its way) is still in storage, and stays there if that answer is lost.
+      sentHeld = [...sent].filter(
+        (id) => keptHeld.has(id) || pending.some((p) => p.tempId === id && p.held),
+      );
       pending = pending.filter((p) => !sent.has(p.tempId));
-      for (const id of sent) keptHeld.delete(id);
+      for (const id of sent) {
+        keptHeld.delete(id);
+        reportedHeld.delete(id);
+      }
     }
     return { events, live, liveAt, questions, halted, haltedReason, undone, pending, ...trim };
   });
@@ -687,6 +696,7 @@ function clearModuleState(): void {
   endedRuns.clear();
   localIds.clear();
   keptHeld.clear();
+  reportedHeld.clear();
   for (const t of choiceTimers.values()) clearTimeout(t);
   choiceTimers.clear();
   chatLoads.clear();
@@ -1002,10 +1012,12 @@ function dropPending(tempId: string): void {
 
 /**
  * The core took a message (D-217): its bubble stays until the core's own event replaces it
- * (`ingest`, by its id), and goes now if that event came first.
+ * (`ingest`, by its id), and goes now if that event came first or will not come.
  */
 function accepted(tempId: string, messageId: string | undefined): void {
-  if (messageId && seen.has(messageId)) {
+  // Its event is in the store, or older than everything the stream will bring (a repeat answered
+  // with the first answer, a copy older than the first page): nothing will replace the bubble.
+  if (messageId && (seen.has(messageId) || messageId <= streamCursor())) {
     dropPending(tempId);
     return;
   }
@@ -1074,6 +1086,7 @@ function sendBody(
 export function dropHeld(tempId: string): void {
   takeHeld(useApp.getState().email, [tempId]);
   keptHeld.delete(tempId);
+  reportedHeld.delete(tempId);
   dropPending(tempId);
 }
 
@@ -1099,9 +1112,11 @@ function restoreHeld(): void {
 
 /**
  * Sends the messages held while the monsters were stopped, in order: on resume, when the link
- * comes back, with "Send now". One flush at a time; one asked meanwhile runs after it.
+ * comes back, with "Send now". One flush at a time; one asked meanwhile runs after it. `manual`
+ * (the "Send now" key): a refusal is shown again even if it was shown before.
  */
-export function flushHeld(): Promise<void> {
+export function flushHeld(manual = false): Promise<void> {
+  if (manual) reportedHeld.clear();
   if (flushing) {
     flushAgain = true;
     return flushing;
@@ -1120,6 +1135,26 @@ export function flushHeld(): Promise<void> {
 }
 
 /**
+ * The event of a message of ours that is already in the log, found by its id: the core's memory
+ * of answers (D-217) is 256 entries long and does not survive a restart, so a held message
+ * whose copy is older than that, or than the first page, would be logged and run twice. Null
+ * when it is not there, and when the core cannot say (the send that follows would fail the same).
+ */
+async function loggedCopy(clientId: string): Promise<LogEvent | null> {
+  try {
+    const found = await client().events({ type: ['message'], clientId, limit: 1 });
+    // A core that does not know the filter answers with any message: only ours counts.
+    return (
+      found.find(
+        (e) => e.type === 'message' && e.data.role === 'user' && e.data.clientId === clientId,
+      ) ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
  * One pass over the held messages. Each leaves storage only once the core took it (D-217): a
  * refusal or a lost link keeps it held, in this tab and across a reload, and the same id sent
  * again is never logged twice by the core (a retry whose first answer was lost, two tabs).
@@ -1127,14 +1162,25 @@ export function flushHeld(): Promise<void> {
 async function flushOnce(): Promise<void> {
   const at = sessionSeq;
   const email = useApp.getState().email;
+  const waiting = (id: string) => useApp.getState().pending.some((x) => x.tempId === id && x.held);
   for (const p of useApp.getState().pending.filter((x) => x.held)) {
     if (at !== sessionSeq || useApp.getState().halted) return;
     // Dropped meanwhile ("Don’t send it"), or confirmed by its event.
-    if (!useApp.getState().pending.some((x) => x.tempId === p.tempId && x.held)) continue;
+    if (!waiting(p.tempId)) continue;
     // Gone from storage: another tab sent it (its event will show it) or dropped it.
     if (keptHeld.has(p.tempId) && !storedHeld(email).some((h) => h.tempId === p.tempId)) {
       keptHeld.delete(p.tempId);
       dropPending(p.tempId);
+      continue;
+    }
+    // Already in the log (sent before a restart, or by a tab that never saw the answer)?
+    const copy = await loggedCopy(p.tempId);
+    if (at !== sessionSeq) return;
+    if (!waiting(p.tempId)) continue;
+    if (copy) {
+      takeHeld(email, [p.tempId]);
+      keptHeld.delete(p.tempId);
+      accepted(p.tempId, copy.id);
       continue;
     }
     patchPending(p.tempId, { held: undefined, failed: undefined });
@@ -1143,16 +1189,32 @@ async function flushOnce(): Promise<void> {
       if (at !== sessionSeq) return;
       takeHeld(email, [p.tempId]);
       keptHeld.delete(p.tempId);
+      reportedHeld.delete(p.tempId);
       accepted(p.tempId, res.messageId);
     } catch (err) {
       if (at !== sessionSeq) return;
       const stopped = err instanceof ApiError && err.code === 'halted';
       // Held again: it goes at the next resume, or when the link is back.
       patchPending(p.tempId, { held: true, failed: stopped ? undefined : true });
-      if (!stopped) notify(describeError(err), 'error');
+      // Said once per message: a refusal for good comes back at every `hello`.
+      if (!stopped && !reportedHeld.has(p.tempId)) {
+        reportedHeld.add(p.tempId);
+        notify(describeError(err), 'error');
+      }
       // The core is stopped or out of reach: the next ones would fail the same, and wait in order.
-      if (stopped || err instanceof NetworkError || (err instanceof ApiError && err.status >= 500))
+      if (
+        stopped ||
+        err instanceof NetworkError ||
+        (err instanceof ApiError && err.status >= 500)
+      ) {
+        // The ones behind it were not tried, but they are not waiting for "Resume" either.
+        if (!stopped) {
+          useApp.setState((s) => ({
+            pending: s.pending.map((x) => (x.held && !x.failed ? { ...x, failed: true } : x)),
+          }));
+        }
         return;
+      }
     }
   }
 }

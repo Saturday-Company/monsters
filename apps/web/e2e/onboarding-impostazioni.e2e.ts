@@ -76,6 +76,33 @@ test('"Back" waits while the squad is being written, so two proposals never race
   await expect(back).toBeEnabled();
 });
 
+test('a squad that takes too long can be given up on: Back comes back, and Try again asks anew', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await page.goto('/?mock=1');
+  await createAccount(page, MOCK_SETUP_CODE);
+  await connectOpenRouter(page);
+  await holdMock(page);
+  await page.getByRole('textbox', { name: 'Your name' }).fill('Giulio');
+  await page.getByRole('button', { name: /^Next/ }).click();
+  await stepMockUntil(
+    page,
+    async () => (await page.getByTestId('onboarding').getAttribute('data-step')) === 'team',
+  );
+  const back = page.getByRole('button', { name: 'Back' });
+  await expect(back).toBeDisabled();
+  await page.getByTestId('stop-waiting').click();
+  await expect(back).toBeEnabled();
+  await expect(page.getByText('I stopped waiting for the squad.')).toBeVisible();
+  // The answer that was on its way when the user gave up is not taken.
+  await releaseMock(page);
+  await expect(page.getByTestId('member')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByTestId('member')).toHaveCount(2);
+  await expect(back).toBeEnabled();
+});
+
 test('a first read of the projects that failed says so, and "Try again" fills the sidebar', async ({
   page,
 }) => {
@@ -220,4 +247,26 @@ test('a chain edited in Advanced is saved even if the tab is left within a momen
   await expect(
     page.getByTestId('agent-chain-rhea').getByLabel('Account 1 of Rhea', { exact: true }),
   ).toHaveValue('claude-agent');
+});
+
+test('a chain the core refuses after the tab was left is told in a notice, not lost in silence', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/impostazioni?sezione=modelli');
+  await page.getByRole('button', { name: 'Add a model' }).click();
+  await page.getByTestId('subscription-claude').getByRole('button', { name: 'Connect' }).click();
+  await expect(
+    page.getByTestId('models-connected').getByTestId('subscription-claude'),
+  ).toBeVisible();
+  await page.getByTestId('chains-advanced-toggle').locator(':scope > button').click();
+  await page.getByTestId('chains-per-monster').click();
+  const rhea = page.getByTestId('agent-chain-rhea');
+  await rhea.getByLabel('Account 1 of Rhea', { exact: true }).selectOption('claude-agent');
+  await expect(rhea.getByLabel('Model 1 of Rhea', { exact: true })).toHaveValue('sonnet');
+  await page.evaluate(() =>
+    (window as unknown as MockHooks).__monstersMock.failRequests('PUT /api/agents/rhea/models'),
+  );
+  // Leave at once, well before the autosave's moment: the editor sends from its last breath.
+  await page.evaluate(() => (window.location.hash = '#/'));
+  await expect(page.getByTestId('notice')).toHaveAttribute('role', 'alert');
 });

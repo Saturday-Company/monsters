@@ -21,14 +21,16 @@ const call = <S extends z.ZodType>(
   path: string,
   schema: S,
   body?: unknown,
-): Promise<z.infer<S>> => getApi().send(method, path, schema, body);
+  signal?: AbortSignal,
+): Promise<z.infer<S>> => getApi().send(method, path, schema, body, signal);
 
 export const onboardingApi = {
   state: (): Promise<OnboardingState> => call('GET', '/api/onboarding', OnboardingStateSchema),
   submit: (body: OnboardingAnswersRequest): Promise<OnboardingState> =>
     call('POST', '/api/onboarding/answers', OnboardingStateSchema, body),
-  propose: (): Promise<OnboardingState> =>
-    call('POST', '/api/onboarding/team/propose', OnboardingStateSchema, {}),
+  /** `signal`: the model may take a minute; the user can stop waiting (the core stops writing too). */
+  propose: (signal?: AbortSignal): Promise<OnboardingState> =>
+    call('POST', '/api/onboarding/team/propose', OnboardingStateSchema, {}, signal),
   regenerate: (id: string): Promise<ProposedAgent> =>
     call('POST', '/api/onboarding/monster', ProposedAgentSchema, { id }),
   confirm: (body: TeamConfirmRequest): Promise<TeamConfirmResponse> =>

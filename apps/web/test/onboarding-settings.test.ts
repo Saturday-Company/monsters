@@ -71,6 +71,23 @@ describe('the onboarding goes through the shared client (a limited session gets 
     expect((err as ApiError).code).toBe('confirm_required');
     expect(calls).toHaveLength(1);
   });
+
+  it('the wait for a squad can be abandoned: the signal reaches the transport', async () => {
+    const signals: (AbortSignal | undefined)[] = [];
+    initApp({
+      kind: 'mock',
+      request: (_method, _path, _body, signal) => {
+        signals.push(signal);
+        return Promise.resolve({ status: 200, body: state });
+      },
+      connect: () => {
+        throw new Error('unused');
+      },
+    } satisfies Transport);
+    const ask = new AbortController();
+    await onboardingApi.propose(ask.signal);
+    expect(signals).toEqual([ask.signal]);
+  });
 });
 
 describe('onboardingVerdict: only a real answer settles the first start', () => {

@@ -49,4 +49,23 @@ describe('clientId of a message (D-217)', () => {
     expect(all.at(-1)!.id).toBe(plain.messageId);
     await t.core.close();
   });
+
+  it('the log is asked by clientId, past what the dedupe memory holds (a held message after a restart)', async () => {
+    const t = await startTestHub({ titan: [fake.text('Uno.'), fake.text('Due.')] });
+    const a = await t.json<Sent>('POST', '/api/messages', { text: 'ciao', clientId: 'pending-a' });
+    await t.runEnded(a.runId);
+    const b = await t.json<Sent>('POST', '/api/messages', { text: 'ciao', clientId: 'pending-b' });
+    await t.runEnded(b.runId);
+    const found = await t.json<{ events: LogEvent[] }>(
+      'GET',
+      '/api/events?type=message&clientId=pending-a&limit=1',
+    );
+    expect(found.events.map((e) => e.id)).toEqual([a.messageId]);
+    const none = await t.json<{ events: LogEvent[] }>(
+      'GET',
+      '/api/events?type=message&clientId=pending-zzz',
+    );
+    expect(none.events).toEqual([]);
+    await t.core.close();
+  });
 });

@@ -23,7 +23,8 @@ export interface SocketLike {
 
 export interface Transport {
   readonly kind: 'http' | 'mock';
-  request(method: string, path: string, body?: unknown): Promise<RawResponse>;
+  /** `signal` abandons the request: the promise then rejects (a `NetworkError` over HTTP). */
+  request(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<RawResponse>;
   /** Opens a socket on a path of the core (e.g. `/api/stream?after=…`). */
   connect(path: string): SocketLike;
   /**
@@ -53,12 +54,13 @@ const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 export function httpTransport(origin: string = window.location.origin): Transport {
   return {
     kind: 'http',
-    async request(method, path, body) {
+    async request(method, path, body, signal) {
       const headers: Record<string, string> = { Accept: 'application/json' };
       // The secret of a browser's session (S-B13): the cookie alone is not enough.
       const secret = sessionSecret();
       if (secret) headers[SESSION_SECRET_HEADER] = secret;
       const init: RequestInit = { method, headers, credentials: 'same-origin', cache: 'no-store' };
+      if (signal) init.signal = signal;
       if (MUTATING.has(method)) {
         // Required by the core for cookie-authenticated state changes (anti-CSRF).
         headers['Content-Type'] = 'application/json';

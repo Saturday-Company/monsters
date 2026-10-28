@@ -151,6 +151,8 @@ export const EventsQuerySchema = z.object({
   until: z.coerce.number().int().nonnegative().optional(),
   after: UlidSchema.optional(),
   before: UlidSchema.optional(),
+  /** Only events whose `data.clientId` is this (the sender's id of a message, D-217). */
+  clientId: z.string().min(1).max(64).optional(),
   limit: z.coerce.number().int().min(1).max(1000).optional(),
   order: z.enum(['asc', 'desc']).optional(),
 });

@@ -26,7 +26,7 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 
 import { ApiError, describeError } from '../../lib/api.ts';
 import { settingsPath } from '../../lib/router.ts';
 import { cn, domId } from '../../lib/utils.ts';
-import { getApi, notify, refreshAgents } from '../../store/app.ts';
+import { getApi, notify, refreshAgents, useApp } from '../../store/app.ts';
 import { Button, buttonVariants } from '../ui/button.tsx';
 import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
@@ -463,14 +463,18 @@ function ChainEditor({
 
   /** The save waiting for its moment: sent at once if the editor goes away before that. */
   const due = useRef<(() => void) | null>(null);
-  useEffect(
-    () => () => {
+  /** False once the editor is gone: a refusal then goes to a notice, there is no line to write it in. */
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       const send = due.current;
       due.current = null;
-      send?.();
-    },
-    [],
-  );
+      // Not when the session is over (a logout): the core would ask for a password nobody can give.
+      if (useApp.getState().phase === 'ready') send?.();
+    };
+  }, []);
 
   // Saved by itself, a moment after the last change, when it can be.
   useEffect(() => {
@@ -514,7 +518,9 @@ function ChainEditor({
           setEdit((e) => (sameState(e, sent) ? now : e));
           notify(s.saved(team ? null : agent.name), 'success');
         } else if (saved.length === 0) {
-          setError(errorOf(refused[0]!.reason));
+          const text = errorOf(refused[0]!.reason);
+          if (mounted.current) setError(text);
+          else notify(text, 'error');
         } else {
           // Some saved and some not: the monsters now have different chains, so "same for
           // everyone" gives way to one chain each, which is the truth.
@@ -523,7 +529,7 @@ function ChainEditor({
             refused.map((r) => r.agent.name),
             errorOf(refused[0]!.reason),
           );
-          setError(text);
+          if (mounted.current) setError(text);
           notify(text, 'error');
         }
         // The composer shows which plan an agent uses (M2.7).

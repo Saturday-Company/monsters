@@ -187,6 +187,28 @@ describe('loadAgentDefinition', () => {
     expect(def.genome).toBeUndefined();
   });
 
+  it('drops the blank links of a chain stored by an older version, and trims the rest', async () => {
+    const stored =
+      yaml +
+      '  - provider: openrouter\n    model: "   "\n  - provider: anthropic\n    model: " claude-test "\n';
+    const def = await loadAgentDefinition(
+      folder({ 'AGENTS.md': '# Rhea\n', 'agent.yaml': stored }),
+    );
+    expect(def.config.models).toEqual([
+      { provider: 'openrouter', model: 'openrouter/free' },
+      { provider: 'anthropic', model: 'claude-test' },
+    ]);
+    // Nothing left: the agent cannot run, and the file says so.
+    await expect(
+      loadAgentDefinition(
+        folder({
+          'AGENTS.md': '# R',
+          'agent.yaml': yaml.replace('openrouter/free', '"  "'),
+        }),
+      ),
+    ).rejects.toThrow(/models/);
+  });
+
   it('explains what is wrong', async () => {
     await expect(loadAgentDefinition(folder({ 'agent.yaml': yaml }))).rejects.toThrow(
       /AGENTS\.md: missing/,

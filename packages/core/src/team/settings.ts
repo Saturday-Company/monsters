@@ -22,7 +22,7 @@ import {
   type VaultLayoutId,
 } from '@monsters/shared';
 import { z } from 'zod';
-import { ModelRefSchema } from '../agents/definition.ts';
+import { cleanModelChain, ModelRefSchema } from '../agents/definition.ts';
 import { McpServersSettingSchema } from '../mcp/config.ts';
 import { DecisionRuleSchema } from './decision.ts';
 import { JEV_DEFAULT_MODEL } from './jev.ts';
@@ -189,7 +189,7 @@ export const HubSettingsSchema = z.object({
       /** Minimum confidence for the model to decide without asking. */
       threshold: z.number().min(0).max(1).default(0.8),
       /** Fallback chain of the small model of the gate. Default: the orchestrator's. */
-      models: z.array(ModelRefSchema).optional(),
+      models: z.array(ModelRefSchema).transform(cleanModelChain).optional(),
       /** Rules that replace (same id) or extend the default ones. */
       rules: z.array(DecisionRuleSchema).default([]),
       /** Ids of default rules to turn off. */

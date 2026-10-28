@@ -740,3 +740,140 @@ describe('messages sent from here (D-217)', () => {
     stop();
   });
 });
+
+describe('held messages after the review of the fixes (28/10, D-217)', () => {
+  let store: Map<string, string>;
+  beforeEach(() => {
+    store = new Map();
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+      },
+    });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetForTests();
+  });
+
+  const copyOf = (body: { text: string; to?: string; clientId?: string }) =>
+    ev({
+      agent: 'user',
+      runId: 'r1',
+      type: 'message',
+      data: {
+        role: 'user',
+        text: body.text,
+        to: body.to ?? 'titan',
+        ...(body.clientId ? { clientId: body.clientId } : {}),
+      },
+    });
+  const pendingIds = () => useApp.getState().pending.map((p) => p.tempId);
+
+  it('a copy older than the first page does not leave the bubble waiting for ever', async () => {
+    // The tab that sent it closed before taking it out of storage; the copy is older than the page.
+    keepHeld('g@example.com', { tempId: 'pending-old', text: 'old', to: 'dione', ts: 1 });
+    const old = copyOf({ text: 'old', to: 'dione', clientId: 'pending-old' });
+    const newer = ev({ agent: 'user', type: 'new_conversation', data: { channel: 'ui' } });
+    const sent: unknown[] = [];
+    const core = fakeCore({
+      '/api/events': () => ({ events: [newer] }),
+      // The core answers a repeat with the first answer: the id of an event the stream will not bring.
+      'POST /api/messages': (_q, body) => {
+        sent.push(body);
+        return { runId: 'r1', messageId: old.id };
+      },
+    });
+    initApp(core.transport);
+    await boot();
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    await vi.waitFor(() => expect(pendingIds()).toEqual([]));
+    expect(storedHeld('g@example.com')).toEqual([]);
+  });
+
+  it('a held message already in the log is found by its id before it is sent again', async () => {
+    // Older than the loaded page, and past what the core's memory of answers still holds.
+    keepHeld('g@example.com', { tempId: 'pending-old', text: 'old', to: 'dione', ts: 1 });
+    const old = copyOf({ text: 'old', to: 'dione', clientId: 'pending-old' });
+    const newer = ev({ agent: 'user', type: 'new_conversation', data: { channel: 'ui' } });
+    const sent: unknown[] = [];
+    const core = fakeCore({
+      '/api/events': (q) => ({ events: q.get('clientId') === 'pending-old' ? [old] : [newer] }),
+      'POST /api/messages': (_q, body) => {
+        sent.push(body);
+        return { runId: 'r2', messageId: 'new' };
+      },
+    });
+    initApp(core.transport);
+    await boot();
+    await vi.waitFor(() => expect(pendingIds()).toEqual([]));
+    await tick();
+    expect(sent).toEqual([]);
+    expect(storedHeld('g@example.com')).toEqual([]);
+    expect(core.requests.some((r) => r.path.includes('clientId=pending-old'))).toBe(true);
+  });
+
+  it('a copy that came on the stream before the answer leaves storage even if the answer is lost', async () => {
+    keepHeld('g@example.com', { tempId: 'pending-a', text: 'once', to: 'dione', ts: 1 });
+    let answered = false;
+    const core = fakeCore({
+      'POST /api/messages': () =>
+        new Promise(() => {
+          answered = true;
+        }),
+    });
+    initApp(core.transport);
+    await boot();
+    core.sockets[0]!.socket.onopen?.();
+    core.send({ kind: 'replay_done', count: 0 });
+    await vi.waitFor(() => expect(answered).toBe(true));
+    // Its copy arrives first; then the link drops and the answer never comes.
+    core.send({
+      kind: 'event',
+      event: copyOf({ text: 'once', to: 'dione', clientId: 'pending-a' }),
+    });
+    expect(pendingIds()).toEqual([]);
+    expect(storedHeld('g@example.com')).toEqual([]);
+  });
+
+  it('after a lost link the rest of the queue is "not sent yet" too, with "Send now"', async () => {
+    keepHeld('g@example.com', { tempId: 'pending-1', text: 'first', ts: 1 });
+    keepHeld('g@example.com', { tempId: 'pending-2', text: 'second', ts: 2 });
+    const core = fakeCore({
+      'POST /api/messages': () => ({ status: 503, body: { error: 'unavailable' } }),
+    });
+    initApp(core.transport);
+    await boot();
+    await vi.waitFor(() =>
+      expect(useApp.getState().pending).toMatchObject([
+        { tempId: 'pending-1', held: true, failed: true },
+        { tempId: 'pending-2', held: true, failed: true },
+      ]),
+    );
+    // The pass stopped at the first: the second was never tried.
+    expect(core.requests.filter((r) => r.method === 'POST')).toHaveLength(1);
+  });
+
+  it('a message the core refuses for good is reported once, not at every hello', async () => {
+    keepHeld('g@example.com', { tempId: 'pending-1', text: 'too long', ts: 1 });
+    let posts = 0;
+    const core = fakeCore({
+      'POST /api/messages': () => {
+        posts++;
+        return { status: 400, body: { error: 'invalid_request', message: 'text too long' } };
+      },
+    });
+    initApp(core.transport);
+    await boot();
+    await vi.waitFor(() => expect(posts).toBe(1));
+    await vi.waitFor(() => expect(useApp.getState().notice?.tone).toBe('error'));
+    useApp.setState({ notice: null, noticeQueue: [] });
+    core.send({ kind: 'hello', halted: false });
+    await vi.waitFor(() => expect(posts).toBe(2));
+    await tick();
+    expect(useApp.getState().notice).toBeNull();
+    expect(pendingIds()).toEqual(['pending-1']);
+  });
+});
