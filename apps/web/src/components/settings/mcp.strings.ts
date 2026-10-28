@@ -169,6 +169,7 @@ const en = {
     what: 'your apps',
   },
   gallery: {
+    claudeWhat: 'the apps you can connect through Claude',
     state: {
       soon: 'Soon',
       claude: 'Connect through Claude',
@@ -400,6 +401,7 @@ const it: typeof en = {
     what: 'le tue app',
   },
   gallery: {
+    claudeWhat: 'le app che puoi collegare tramite Claude',
     state: {
       soon: 'Presto',
       claude: 'Collega tramite Claude',

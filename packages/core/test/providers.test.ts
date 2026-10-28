@@ -251,6 +251,16 @@ describe('providers API', () => {
       ).status,
     ).toBe(404);
 
+    // A space pasted around the id would break the whole chain: it is trimmed, and a blank is refused.
+    const padded = await t.json('PUT', '/api/agents/rhea/models', {
+      models: [{ provider: 'anthropic', model: '  claude-test \n' }],
+    });
+    expect(padded).toMatchObject({ models: [{ provider: 'anthropic', model: 'claude-test' }] });
+    const blank = await t.api('PUT', '/api/agents/rhea/models', {
+      models: [{ provider: 'anthropic', model: '   ' }],
+    });
+    expect(blank.status).toBe(400);
+
     const saved = await t.json('PUT', '/api/agents/rhea/models', {
       models: [{ provider: 'anthropic', model: 'claude-test' }],
     });

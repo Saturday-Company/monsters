@@ -475,7 +475,8 @@ export function TeamStep({
         />
         {error && <ErrorLine>{error}</ErrorLine>}
         <div className="flex items-center justify-between gap-3">
-          <Button variant="ghost" onClick={onBack}>
+          {/* Not while the team is being written: the answers would change under it. */}
+          <Button variant="ghost" onClick={onBack} disabled={busy !== null}>
             <ArrowLeft size={18} aria-hidden /> {s.back}
           </Button>
           {error && (
@@ -584,7 +585,7 @@ export function TeamStep({
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
-          <Button variant="ghost" onClick={onBack} disabled={busy === 'confirm'}>
+          <Button variant="ghost" onClick={onBack} disabled={busy !== null}>
             <ArrowLeft size={18} aria-hidden /> {s.back}
           </Button>
           <Button variant="secondary" onClick={() => void propose()} disabled={busy !== null}>

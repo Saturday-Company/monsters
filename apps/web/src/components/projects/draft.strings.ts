@@ -96,6 +96,7 @@ const en = {
     undo: 'Undo',
   },
   toConfirm: (n: number) => `To confirm · ${n}`,
+  what: 'what is waiting for you to review',
   docsProposals: (n: number) => `Proposals for the instructions · ${n}`,
 };
 const it: typeof en = {
@@ -180,6 +181,7 @@ const it: typeof en = {
     undo: 'Annulla',
   },
   toConfirm: (n) => `Da confermare · ${n}`,
+  what: 'quello che aspetta la tua revisione',
   docsProposals: (n) => `Proposte per le istruzioni · ${n}`,
 };
 

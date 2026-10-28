@@ -85,6 +85,14 @@ interface Stored {
   confirming?: Confirming | null;
 }
 
+/**
+ * What a team proposal is made for: the answers, the permissions and the way to a model. A proposal
+ * saved when this is no longer the same would belong to answers the user has since changed.
+ */
+function proposalBasis(s: Stored): string {
+  return JSON.stringify([s.answers, s.permissions, s.access]);
+}
+
 /** The steps of a confirmation, in order: a new attempt does only those not done (review of 19/10). */
 type ConfirmStep = 'folders' | 'models' | 'vault' | 'settings' | 'profile' | 'welcome';
 
@@ -115,6 +123,7 @@ export type OnboardingErrorCode =
   | 'onboarding_done'
   | 'answers_incomplete'
   | 'no_proposal'
+  | 'answers_changed'
   | 'unknown_member'
   | 'invalid_request'
   | 'invalid_name'
@@ -492,6 +501,7 @@ export class OnboardingService {
     const { log, runs } = this.#d;
     if (runs.halted) throw haltedError();
     const s = this.#load();
+    const basis = proposalBasis(s);
     const ctx = await this.#context(s);
     // The ChatGPT plan, when chosen, also proposes the team; a harness cannot
     // (not a chat model): then the free chain if there is a key, or the fixed team.
@@ -538,6 +548,14 @@ export class OnboardingService {
       },
     });
     const fresh = this.#load();
+    // The answers changed while the model was writing (Back, a new name): this team is for the
+    // old ones. Saving it would put it back over the answers it was not made for (review of 28/10).
+    if (proposalBasis(fresh) !== basis) {
+      throw new OnboardingError(
+        'answers_changed',
+        'the answers changed while the team was written',
+      );
+    }
     this.#save({ ...fresh, proposal });
     return this.state();
   }

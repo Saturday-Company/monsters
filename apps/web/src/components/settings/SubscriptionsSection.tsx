@@ -112,6 +112,15 @@ export function ChatGPTWelcome({ onDone }: { onDone: () => void }) {
   );
 }
 
+/**
+ * What the model pickers depend on in the plans: when it changes, the services of the chains
+ * change too (Codex shows once it is `ready`, and not only when it is switched on).
+ */
+export function plansKey(d: SubscriptionsResponse): string {
+  const { chatgpt, claude, codex } = d;
+  return [chatgpt.signedIn, claude.enabled, claude.state, codex.enabled, codex.state].join('|');
+}
+
 /** The plans, read again while a sign-in waits for the browser or a package installs. */
 export function useSubscriptions(onChanged?: () => void) {
   const [data, setData] = useState<SubscriptionsResponse | null>(null);
@@ -129,7 +138,7 @@ export function useSubscriptions(onChanged?: () => void) {
         setData(d);
         setFailed(false);
         // Something set up or removed: the services of the chains change too.
-        const key = `${d.chatgpt.signedIn}|${d.claude.enabled}|${d.codex.enabled}|${d.claude.state}`;
+        const key = plansKey(d);
         if (last.current && last.current !== key) changed.current?.();
         last.current = key;
       })

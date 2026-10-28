@@ -33,8 +33,15 @@ export const useLists = create<Lists>()(() => ({
   held: [],
 }));
 
+/** A component asked for the list: the events keep it fresh (also after a first read that failed). */
 let projectsAsked = false;
 let draftsAsked = false;
+/** The first answer arrived: until then the next component that asks reads again (no list = no Retry). */
+let projectsLoaded = false;
+let draftsLoaded = false;
+/** A read is on its way: a component that appears meanwhile does not start another. */
+let projectsReading = false;
+let draftsReading = false;
 let projectsSeq = 0;
 let draftsSeq = 0;
 
@@ -42,11 +49,17 @@ let draftsSeq = 0;
 export async function refreshProjects(): Promise<void> {
   projectsAsked = true;
   const seq = ++projectsSeq;
+  projectsReading = true;
   try {
     const list = await getApi().projects();
-    if (seq === projectsSeq) useLists.setState({ projects: list, projectsError: null });
+    if (seq === projectsSeq) {
+      projectsLoaded = true;
+      useLists.setState({ projects: list, projectsError: null });
+    }
   } catch (err) {
     if (seq === projectsSeq) useLists.setState({ projectsError: describeError(err) });
+  } finally {
+    if (seq === projectsSeq) projectsReading = false;
   }
 }
 
@@ -54,11 +67,17 @@ export async function refreshProjects(): Promise<void> {
 export async function refreshDrafts(): Promise<void> {
   draftsAsked = true;
   const seq = ++draftsSeq;
+  draftsReading = true;
   try {
     const list = await getApi().drafts();
-    if (seq === draftsSeq) useLists.setState({ drafts: list, draftsError: null });
+    if (seq === draftsSeq) {
+      draftsLoaded = true;
+      useLists.setState({ drafts: list, draftsError: null });
+    }
   } catch (err) {
     if (seq === draftsSeq) useLists.setState({ draftsError: describeError(err) });
+  } finally {
+    if (seq === draftsSeq) draftsReading = false;
   }
 }
 
@@ -90,7 +109,7 @@ export function listsInUse(): { projects: boolean; drafts: boolean } {
 export function useProjects(): ProjectView[] | null {
   const list = useLists((s) => s.projects);
   useEffect(() => {
-    if (!projectsAsked) void refreshProjects();
+    if (!projectsLoaded && !projectsReading) void refreshProjects();
   }, []);
   return list;
 }
@@ -100,7 +119,7 @@ export function useDrafts(): DraftView[] | null {
   const list = useLists((s) => s.drafts);
   const held = useLists((s) => s.held);
   useEffect(() => {
-    if (!draftsAsked) void refreshDrafts();
+    if (!draftsLoaded && !draftsReading) void refreshDrafts();
   }, []);
   return useMemo(
     () =>
@@ -119,6 +138,10 @@ export function useProject(id: string | null): ProjectView | null {
 export function resetLists(): void {
   projectsAsked = false;
   draftsAsked = false;
+  projectsLoaded = false;
+  draftsLoaded = false;
+  projectsReading = false;
+  draftsReading = false;
   projectsSeq++;
   draftsSeq++;
   useLists.setState({

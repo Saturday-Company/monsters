@@ -120,6 +120,7 @@ const en = {
     sections: 'Sections',
     sidebar: 'Sidebar',
     noSquad: 'The squad isn’t here yet.',
+    projectsWhat: 'your projects',
     waitingOne: 'one job is waiting for an answer',
     waitingMany: (n: number) => `${n} jobs are waiting for an answer`,
     nav: {
@@ -309,6 +310,7 @@ const it: typeof en = {
     sections: 'Sezioni',
     sidebar: 'Barra laterale',
     noSquad: 'La squadra non c’è ancora.',
+    projectsWhat: 'i tuoi progetti',
     waitingOne: 'un lavoro aspetta una risposta',
     waitingMany: (n) => `${n} lavori aspettano una risposta`,
     nav: {

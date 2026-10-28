@@ -14,7 +14,7 @@ import { projectPath, settingsPath, vaultPath } from '../../lib/router.ts';
 import { domId } from '../../lib/utils.ts';
 import { genomeFrom } from '../../onboarding/parts.tsx';
 import { getApi, notify, refreshAgents } from '../../store/app.ts';
-import { clearDraft, peekDraft } from '../../store/draft-handoff.ts';
+import { useDraftHandoff } from '../../store/draft-handoff.ts';
 import { useAgents } from '../../store/hooks.ts';
 import { useProjects } from '../../store/projects.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
@@ -357,9 +357,8 @@ export function TeamTab() {
   const [profile, setProfile] = useState<ProfileView | null>(null);
   const [failed, setFailed] = useState(false);
   // "Cambia" on a proposal in the chat (D-075): the form opens with its draft.
-  const [handoff] = useState(peekDraft);
+  const [handoff, consumeHandoff] = useDraftHandoff();
   const [adding, setAdding] = useState(handoff !== null);
-  useEffect(() => clearDraft(), []);
 
   const load = useCallback(() => {
     const api = getApi();
@@ -441,8 +440,12 @@ export function TeamTab() {
         <AddMonster
           initial={handoff}
           taken={(n) => taken(n)}
-          onCancel={() => setAdding(false)}
+          onCancel={() => {
+            consumeHandoff();
+            setAdding(false);
+          }}
           onAdded={() => {
+            consumeHandoff();
             setAdding(false);
             changed();
           }}

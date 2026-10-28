@@ -20,6 +20,7 @@ const STATUS: Record<OnboardingError['code'], 400 | 404 | 409> = {
   onboarding_done: 409,
   answers_incomplete: 409,
   no_proposal: 409,
+  answers_changed: 409,
   busy: 409,
   halted: 409,
   access_unavailable: 409,

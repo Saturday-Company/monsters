@@ -1,4 +1,6 @@
 import { useSettings } from './data.ts';
+import { dataStrings } from './data.strings.ts';
+import { LoadFailed } from './parts.tsx';
 import { McpPausedCard } from './McpPaused.tsx';
 import { McpServersSection, useMcpServers } from './McpServersSection.tsx';
 import { TelegramSection } from './TelegramSection.tsx';
@@ -13,7 +15,7 @@ import { WebSearchSection } from './WebSearchSection.tsx';
  * plans stay in Models; whether a monster may use the web is its permission, in Permissions.
  */
 export function LinksTab() {
-  const [settings, reload] = useSettings();
+  const [settings, reload, failed] = useSettings();
   const mcp = useMcpServers();
   return (
     <>
@@ -22,6 +24,7 @@ export function LinksTab() {
         <TelegramSection />
       </div>
       <McpServersSection mcp={mcp} />
+      {failed && <LoadFailed what={dataStrings().settingsWhat} onRetry={reload} />}
       <WebSearchSection settings={settings} onSaved={reload} />
     </>
   );

@@ -21,6 +21,7 @@ const en = {
       'That name doesn’t work: use letters only, no duplicates, and not User or System.',
     onboarding_done: 'The squad already exists.',
     answers_incomplete: 'Some answers are still missing.',
+    answers_changed: 'Your answers changed while I was thinking. Let me try the squad again.',
   },
   chain: {
     default: 'You can change it or add more whenever you like, in the settings.',
@@ -70,6 +71,7 @@ const it: typeof en = {
     invalid_name: 'Questo nome non va: usa solo lettere, niente doppioni, e non User o System.',
     onboarding_done: 'La squadra esiste già.',
     answers_incomplete: 'Manca ancora qualche risposta.',
+    answers_changed: 'Le tue risposte sono cambiate mentre ci pensavo. Riproviamo con la squadra.',
   },
   chain: {
     default: 'Puoi cambiarlo o aggiungerne altri quando vuoi, nelle impostazioni.',

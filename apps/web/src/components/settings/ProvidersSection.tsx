@@ -461,8 +461,20 @@ function ChainEditor({
     for (const l of links) void needModels(l.provider);
   }, [links, manual, needModels]);
 
+  /** The save waiting for its moment: sent at once if the editor goes away before that. */
+  const due = useRef<(() => void) | null>(null);
+  useEffect(
+    () => () => {
+      const send = due.current;
+      due.current = null;
+      send?.();
+    },
+    [],
+  );
+
   // Saved by itself, a moment after the last change, when it can be.
   useEffect(() => {
+    due.current = null;
     if (!dirty || incomplete || blocked.length > 0) return;
     const sent: ChainState = {
       auto,
@@ -473,7 +485,8 @@ function ChainEditor({
         ...(l.tier ? { tier: l.tier } : {}),
       })),
     };
-    const t = setTimeout(() => {
+    const send = () => {
+      due.current = null;
       const ticket = ++saving.current;
       setError(null);
       const targets = team ?? [agent];
@@ -516,7 +529,9 @@ function ChainEditor({
         // The composer shows which plan an agent uses (M2.7).
         if (saved.length > 0) void refreshAgents().catch(() => {});
       });
-    }, SAVE_AFTER_MS);
+    };
+    due.current = send;
+    const t = setTimeout(send, SAVE_AFTER_MS);
     return () => clearTimeout(t);
     // `edit` carries every change; the rest follows from it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
