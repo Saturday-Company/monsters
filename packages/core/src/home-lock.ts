@@ -10,6 +10,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import {
+  currentImageName,
   holderIsStale,
   systemHolderProbes,
   type HolderProbes,
@@ -26,7 +27,10 @@ import { coreStrings } from './core.strings.ts';
  * anything in the directory is touched and removed on close; a lock left by a
  * core that crashed, or by a computer that was switched off, is stale and taken
  * over. Taking over is serialized (`core.lock.takeover`), so that two cores that
- * find the same stale lock never both end up with it.
+ * find the same stale lock never both end up with it. Inside that section a lock is
+ * removed only if it is there and was judged stale: a missing one just means that
+ * another core has already removed it and is about to publish its own, which is not
+ * ours to delete.
  */
 
 export const LOCK_FILE = 'core.lock';
@@ -59,25 +63,45 @@ export interface HomeLockOptions {
   probes?: HolderProbes;
   /** How long to wait for another core that is taking over a stale lock (default 2 s). */
   takeoverWaitMs?: number;
+  /** The image name written in the lock (default: of this process). */
+  image?: string | null;
+  /**
+   * Test hook inside the takeover section: `entered` before the lock is read, `judged` after it
+   * was and before anything is removed. Lets a test play the other core in between.
+   */
+  onTakeover?: (step: 'entered' | 'judged') => void;
 }
 
 /** Homes locked by this process: a second core in the same process is refused too. */
 const heldHere = new Set<string>();
 
-function readLock(path: string): LockInfo | null {
+/** The text of the lock file, or null if there is none. */
+function readText(path: string): string | null {
   try {
-    const info = JSON.parse(readFileSync(path, 'utf8')) as Partial<LockInfo>;
+    return readFileSync(path, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function parseLock(text: string | null): LockInfo | null {
+  if (text === null) return null;
+  try {
+    const info = JSON.parse(text) as Partial<LockInfo>;
     if (typeof info.pid !== 'number' || !Number.isInteger(info.pid) || info.pid <= 0) return null;
     return {
       pid: info.pid,
       start: typeof info.start === 'number' ? info.start : null,
       boot: typeof info.boot === 'string' && info.boot ? info.boot : null,
       acquiredAt: typeof info.acquiredAt === 'number' ? info.acquiredAt : 0,
+      image: typeof info.image === 'string' && info.image ? info.image : null,
     };
   } catch {
     return null;
   }
 }
+
+const readLock = (path: string): LockInfo | null => parseLock(readText(path));
 
 /**
  * Writes the lock with its content already in it (a temporary file linked into place), and only
@@ -163,6 +187,7 @@ export function acquireHomeLock(home: string, options: HomeLockOptions = {}): Ho
     start: options.start === undefined ? selfStartTime() : options.start,
     boot: probes.bootId(),
     acquiredAt: Date.now(),
+    image: options.image === undefined ? currentImageName() : options.image,
   };
   const content = `${JSON.stringify(mine)}\n`;
   const isLive = (info: LockInfo): boolean =>
@@ -176,8 +201,16 @@ export function acquireHomeLock(home: string, options: HomeLockOptions = {}): Ho
       const guard = `${path}.takeover`;
       if (enterTakeover(guard, options.takeoverWaitMs ?? 2000)) {
         try {
-          const now = readLock(path);
-          if (!now || !isLive(now)) rmSync(path, { force: true });
+          options.onTakeover?.('entered');
+          const text = readText(path);
+          const now = parseLock(text);
+          options.onTakeover?.('judged');
+          // No file: another core removed the stale one and is about to publish (or has): leave it
+          // be, our own publish below fails if it did. A file that is unreadable counts as stale,
+          // but only if it is still the very same text when it is removed.
+          if (text !== null && (!now || !isLive(now)) && readText(path) === text) {
+            rmSync(path, { force: true });
+          }
         } finally {
           rmSync(guard, { recursive: true, force: true });
         }

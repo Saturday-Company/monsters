@@ -62,7 +62,13 @@ describe('core locator', () => {
     // The holder does not answer and is not the process that took the lock: start at once.
     const unanswered = fakeDeps(files, { health: () => Promise.resolve(false), isStale: stale });
     expect(await locateOnce('/h', unanswered)).toEqual({ kind: 'start' });
-    expect(stale).toHaveBeenCalledWith({ pid: 7, start: 1, boot: null, acquiredAt: 1 });
+    expect(stale).toHaveBeenCalledWith({
+      pid: 7,
+      start: 1,
+      boot: null,
+      acquiredAt: 1,
+      image: null,
+    });
     // Also when server.json is not there (it is removed by a clean stop, a crash may leave none).
     expect(await locateOnce('/h', fakeDeps({ 'core.lock': lock(7) }, { isStale: stale }))).toEqual({
       kind: 'start',
@@ -76,7 +82,23 @@ describe('core locator', () => {
         { isStale: withBoot },
       ),
     );
-    expect(withBoot).toHaveBeenCalledWith({ pid: 7, start: 1, boot: 'b-1', acquiredAt: 9 });
+    expect(withBoot).toHaveBeenCalledWith({
+      pid: 7,
+      start: 1,
+      boot: 'b-1',
+      acquiredAt: 9,
+      image: null,
+    });
+  });
+
+  it('waits for an asynchronous staleness check (a child process on Windows and macOS)', async () => {
+    const isStale = vi.fn(
+      () => new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 5)),
+    );
+    const files = { 'core.lock': lock(7), 'server.json': server(7) };
+    const deps = fakeDeps(files, { health: () => Promise.resolve(false), isStale });
+    expect(await locateOnce('/h', deps)).toEqual({ kind: 'start' });
+    expect(isStale).toHaveBeenCalledTimes(1);
   });
 
   it('a core that answers is attached to without asking whether its lock is stale', async () => {
