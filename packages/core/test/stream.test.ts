@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
-import { afterEach, describe, expect, it } from 'vitest';
+import { connect } from 'node:net';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import WebSocket from 'ws';
-import type { StreamMessage } from '@monsters/shared';
+import { STREAM_HEARTBEAT_MS, type StreamMessage } from '@monsters/shared';
 import { startCore, type CoreServer } from '../src/index.ts';
 import { BROWSER_HEADERS, browserSession, sessionCookie, setupUser, tempHome } from './helpers.ts';
 
@@ -224,5 +225,100 @@ describe('WebSocket /api/stream', () => {
     const me = await fetch(`${c.url}/api/me`, { headers: { cookie } });
     expect(me.status).toBe(401);
     expect(await me.json()).toMatchObject({ error: 'session_secret_required' });
+  });
+
+  it('sends an application heartbeat the page can listen for', async () => {
+    // Only the interval is faked: the sockets are real and the timers of the core keep their time.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      const { c, cookie, secret } = await loggedIn();
+      const { ws, messages } = await browserSocket(
+        c,
+        cookie,
+        JSON.stringify({ kind: 'auth', secret }),
+      );
+      await waitFor(() => messages.some((m) => m.kind === 'hello'));
+      expect(messages.some((m) => m.kind === 'ping')).toBe(false);
+      vi.advanceTimersByTime(STREAM_HEARTBEAT_MS);
+      await waitFor(() => messages.some((m) => m.kind === 'ping'));
+      ws.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+/** Sends raw bytes to the core and resolves with what it answers until it closes the socket. */
+function rawRequest(c: CoreServer, text: string): Promise<string> {
+  const { port, hostname } = new URL(c.url);
+  return new Promise((resolve, reject) => {
+    const socket = connect({ port: Number(port), host: hostname.replace(/^\[|\]$/g, '') });
+    let answer = '';
+    socket.setTimeout(3000, () => {
+      socket.destroy();
+      reject(new Error('the core did not close the socket'));
+    });
+    socket.on('data', (chunk: Buffer) => (answer += chunk.toString('latin1')));
+    // A reset after the answer is as good as a clean end.
+    socket.on('error', () => resolve(answer));
+    socket.on('close', () => resolve(answer));
+    socket.on('connect', () => socket.write(text));
+  });
+}
+
+function upgradeTo(target: string): string {
+  return (
+    `GET ${target} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n` +
+    `Sec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n`
+  );
+}
+
+describe('WebSocket /api/stream: whatever a client sends, the core stays up', () => {
+  it('answers a malformed upgrade target with 400 and closes the socket, without an uncaught error', async () => {
+    const uncaught: unknown[] = [];
+    const onUncaught = (err: unknown) => uncaught.push(err);
+    process.on('uncaughtException', onUncaught);
+    try {
+      const { c } = await loggedIn();
+      const targets = [
+        'http://a:99999/api/stream',
+        'http://[::1/x',
+        'http://a b/api/stream',
+        'http://:80/api/stream',
+        'http://%/api/stream',
+      ];
+      // More than the process guard's storm threshold (25 in a minute): none may count.
+      for (let round = 0; round < 6; round++) {
+        for (const target of targets) {
+          const answer = await rawRequest(c, upgradeTo(target));
+          expect(answer.split('\r\n')[0]).toMatch(/^HTTP\/1\.1 (400|404) /);
+        }
+      }
+      expect(await rawRequest(c, upgradeTo('http://a:99999/api/stream'))).toMatch(
+        /^HTTP\/1\.1 400 /,
+      );
+      // The same targets on a plain request (outside the upgrade, Hono's listener has the same job).
+      for (const target of targets) {
+        const answer = await rawRequest(
+          c,
+          `GET ${target} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n`,
+        );
+        expect(answer.split('\r\n')[0]).toMatch(/^HTTP\/1\.1 [45]\d\d /);
+      }
+      // Garbage that is not HTTP at all, and a socket reset in the middle of a handshake.
+      await rawRequest(c, '\x00\x01\x02 not http\r\n\r\n');
+      const half = connect({ port: Number(new URL(c.url).port), host: '127.0.0.1' });
+      half.on('error', () => {});
+      half.write(upgradeTo('/api/stream').slice(0, 40));
+      half.resetAndDestroy();
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(uncaught).toEqual([]);
+      // Still serving, over HTTP and over the stream.
+      expect((await fetch(`${c.url}/api/setup-status`)).status).toBe(200);
+      expect(await handshake(wsUrl(c))).toBe(401);
+    } finally {
+      process.off('uncaughtException', onUncaught);
+    }
   });
 });

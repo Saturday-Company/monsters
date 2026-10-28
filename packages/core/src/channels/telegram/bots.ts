@@ -282,14 +282,19 @@ class DedicatedBot {
       } catch (err) {
         this.status = 'retrying';
         this.error = botsStrings().crashed;
-        this.#m.append({
-          agent: 'system',
-          type: 'error',
-          data: {
-            code: 'telegram_failed',
-            message: `bot ${this.id}: ${err instanceof Error ? err.message : String(err)}`,
-          },
-        });
+        try {
+          this.#m.append({
+            agent: 'system',
+            type: 'error',
+            data: {
+              code: 'telegram_failed',
+              message: `bot ${this.id}: ${err instanceof Error ? err.message : String(err)}`,
+            },
+          });
+        } catch {
+          // The log failed too (closing core): the loop still backs off and goes on, or ends with the signal.
+          // Nobody awaits this promise until the stop: a throw here would be an unhandled rejection.
+        }
         const base = this.#o.retryBaseMs ?? 1000;
         const max = this.#o.retryMaxMs ?? 60_000;
         await sleep(Math.min(max, base * 2 ** Math.min(crashes, 16)), undefined, { signal }).catch(

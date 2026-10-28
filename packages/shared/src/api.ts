@@ -166,11 +166,22 @@ export const ApiErrorSchema = z.object({
 });
 export type ApiError = z.infer<typeof ApiErrorSchema>;
 
-/** Messages sent by the core on the `/api/stream` WebSocket. */
+/**
+ * How often the core sends `{ kind: 'ping' }` on the stream. The protocol-level ping is answered by
+ * the browser on its own and says nothing to the page, so the page listens for this one: silence
+ * for a few of these means the socket is dead (sleep, Wi-Fi change) and it reconnects.
+ */
+export const STREAM_HEARTBEAT_MS = 30_000;
+
+/**
+ * Messages sent by the core on the `/api/stream` WebSocket. `ping` is the application heartbeat
+ * (`STREAM_HEARTBEAT_MS`); a client that does not know it ignores it, like any unknown kind.
+ */
 export const StreamMessageSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('hello'), halted: z.boolean() }),
   z.object({ kind: z.literal('event'), event: LogEventSchema }),
   z.object({ kind: z.literal('replay_done'), count: z.number().int().nonnegative() }),
+  z.object({ kind: z.literal('ping') }),
 ]);
 export type StreamMessage = z.infer<typeof StreamMessageSchema>;
 

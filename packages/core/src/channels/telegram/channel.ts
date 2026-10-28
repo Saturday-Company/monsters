@@ -411,14 +411,19 @@ export class TelegramChannel {
         await this.#run(api, signal);
         return;
       } catch (err) {
-        this.#append({
-          agent: 'system',
-          type: 'error',
-          data: {
-            code: 'telegram_failed',
-            message: err instanceof Error ? err.message : String(err),
-          },
-        });
+        try {
+          this.#append({
+            agent: 'system',
+            type: 'error',
+            data: {
+              code: 'telegram_failed',
+              message: err instanceof Error ? err.message : String(err),
+            },
+          });
+        } catch {
+          // The log failed too (closing core): the loop still backs off and goes on, or ends with the signal.
+          // Nobody awaits this promise until the stop: a throw here would be an unhandled rejection.
+        }
         this.#status = 'retrying';
         this.#error = telegramStrings().crashed;
         const base = this.#o.retryBaseMs ?? 1000;
