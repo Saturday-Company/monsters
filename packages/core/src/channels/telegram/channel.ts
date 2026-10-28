@@ -1233,7 +1233,9 @@ export class TelegramChannel {
         ? t.answerNotOpen
         : err.code === 'not_found'
           ? t.answerNotFound
-          : t.answerNotValid;
+          : err.code === 'closing'
+            ? t.answerClosing
+            : t.answerNotValid;
     }
     throw err;
   }

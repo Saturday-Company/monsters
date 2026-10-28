@@ -157,7 +157,14 @@ export function registerTeamRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: Hub)
       return c.json(hub.answer(c.req.param('id'), body.data, channelOf(c.get('auth'))));
     } catch (err) {
       if (err instanceof QuestionError) {
-        const status = err.code === 'not_found' ? 404 : err.code === 'not_open' ? 409 : 400;
+        const status =
+          err.code === 'not_found'
+            ? 404
+            : err.code === 'not_open'
+              ? 409
+              : err.code === 'closing'
+                ? 503
+                : 400;
         return c.json({ error: err.code, message: err.message }, status);
       }
       throw err;

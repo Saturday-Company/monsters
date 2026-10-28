@@ -193,6 +193,7 @@ import {
   PARKED_ANSWER_WINDOW_MS,
   readsAsAnswer,
   pickedOption,
+  QuestionError,
   QuestionStore,
   teamMigrations,
   type QuestionAnswer,
@@ -655,6 +656,17 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
   // approval): they expire, as every restart did then (D-079).
   if (fromBeforeParking) questions.expireOpen({}, 'restart');
   questions.settleAtStartup();
+  /**
+   * The user's answer to a card (app, CLI, Telegram). Refused once the core is closing: an
+   * answer recorded then would start no run (nothing new starts while closing) and the next
+   * start would not take it up, while the question left open stays parked and answerable.
+   */
+  const answerQuestion = (id: string, answer: QuestionAnswer, channel: Channel, by?: string) => {
+    if (runs.closing) {
+      throw new QuestionError('closing', 'Monsters is closing: answer again after the next start');
+    }
+    return questions.answer(id, answer, channel, by);
+  };
 
   const team = new TeamService({
     dir: join(paths.home, 'agents'),
@@ -3160,7 +3172,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       settings.telegram = prefs;
     },
     send: (params) => dispatcher.send(params),
-    answer: (id, answer, channel) => questions.answer(id, answer, channel),
+    answer: (id, answer, channel) => answerQuestion(id, answer, channel),
     newConversation: (params) => dispatcher.newConversation(params),
     ready: () => onboarding.done,
     // An automation announces its own end; a Telegram chat's run answers in that chat (D-107).
@@ -3202,7 +3214,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     ownerName: () => settings.userName?.trim() || teamStrings().ownerName,
     mainBot: () => telegram.identity(),
     send: (params) => dispatcher.send(params),
-    answer: (id, answer, channel, by) => questions.answer(id, answer, channel, by),
+    answer: (id, answer, channel, by) => answerQuestion(id, answer, channel, by),
     ready: () => onboarding.done,
     spendStop: (agentId) => spend.stopReason(agentId),
     tellOwner: (text, meta, held) => telegram.announce('done', text, meta, held),
@@ -3353,7 +3365,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
     requeueWaiting: () =>
       onboarding.done ? requeueWaiting(log, dispatcher, { halted: runs.halted }) : [],
     newConversation: (params) => dispatcher.newConversation(params),
-    answer: (id, answer, channel) => questions.answer(id, answer, channel),
+    answer: (id, answer, channel) => answerQuestion(id, answer, channel),
     settingsView,
     setLanguage(language) {
       saveAppLanguage(paths.home, language, env);

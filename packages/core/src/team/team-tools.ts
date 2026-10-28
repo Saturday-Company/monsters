@@ -2,6 +2,7 @@ import {
   autoEffort,
   defineTool,
   ToolError,
+  type LogEvent,
   type MonstersTool,
   type Question,
 } from '@monsters/shared';
@@ -388,6 +389,12 @@ export function delegationStop(
   return abortCause(scopeReason) ?? 'unknown';
 }
 
+/** What the end event of a delegation adds to its brief: its status and the facts. */
+type DelegationEnd = Omit<
+  LogEvent<'delegation'>['data'],
+  'from' | 'to' | 'goal' | 'why' | 'doneWhen' | 'contextLinks' | 'filled'
+>;
+
 /** One delegation: logs it, runs the sub-agent in a child scope, returns the short report. */
 async function runDelegation(
   ctx: DelegationContext,
@@ -418,6 +425,18 @@ async function runDelegation(
     type: 'delegation',
     data: { ...delegation, status: 'started' },
   });
+  /** The end of the delegation in the log: exactly once, whatever happens after `started`. */
+  let ended = false;
+  const end = (data: DelegationEnd) => {
+    ended = true;
+    log.append({
+      agent: from,
+      runId: run.id,
+      parentId,
+      type: 'delegation',
+      data: { ...delegation, ...data },
+    });
+  };
 
   // Notes touched by this delegation: vault_change events under its tool calls;
   // the tools it called and what its model calls cost (pagella dei mostri, D-067).
@@ -467,7 +486,9 @@ async function runDelegation(
       }
     : undefined;
 
-  const scope = run.child('agent', delegationScopeId(to, started.id));
+  // A child of the run (the kill switch, `killRun` and a monster's Stop find it there, F-1) that
+  // stops with the call waiting for it: a lead stopped mid-call leaves no delegate at work.
+  const scope = run.child('agent', delegationScopeId(to, started.id)).follow(tc.signal);
   let result: AgentRunResult | undefined;
   let failure: unknown;
   try {
@@ -506,164 +527,152 @@ async function runDelegation(
     // Which cap it was, for the UI to say it in the person's language.
     ...(result?.limit ? { limit: result.limit } : {}),
   };
-  const name = target.config.name;
-  /** What was done before the stop (D-160): the lead says it instead of "did not respond". */
-  const done = { steps_done: result?.steps ?? 0, tools_used: [...toolNames] };
-  const aborted = tc.signal.aborted || scope.aborted || result?.status === 'aborted';
-  if (aborted) {
-    const by = delegationStop(result, scope.signal.reason, false);
-    const reason = teamToolsPrompts().stoppedBy(by, name, '');
-    log.append({
-      agent: from,
-      runId: run.id,
-      parentId,
-      type: 'delegation',
-      data: { ...delegation, status: 'aborted', error: reason, ...facts },
-    });
-    if (tc.signal.aborted) throw tc.signal.reason ?? new KilledError('agent');
-    const partial = truncateSummary(result?.finalText || result?.text || '').text;
-    return {
-      agent: name,
-      status: 'aborted',
-      stopped_by: by,
-      reason,
-      ...done,
-      ...(partial ? { partial } : {}),
-      ...notes.report(name),
-      next: teamToolsPrompts().stoppedNext,
-    };
-  }
-  const failedCheck = { verdict: 'failed' as const, criteria: [] };
-  if (failure !== undefined || result?.status === 'failed') {
-    const error = failure instanceof Error ? failure.message : (result?.error ?? String(failure));
-    const by = delegationStop(failure !== undefined ? undefined : result, undefined, true);
-    log.append({
-      agent: from,
-      runId: run.id,
-      parentId,
-      type: 'delegation',
-      data: { ...delegation, status: 'failed', error, check: failedCheck, ...facts },
-    });
-    const partial = truncateSummary(result?.finalText || result?.text || '').text;
-    return {
-      agent: name,
-      status: 'failed',
-      error,
-      stopped_by: by,
-      reason: teamToolsPrompts().stoppedBy(by, name, error),
-      ...done,
-      ...(partial ? { partial } : {}),
-      ...notes.report(name),
-      next: DELEGATION_FAILED_NEXT,
-    };
-  }
-  // The report is the agent's last message, not the announcements of its steps (D-064).
-  const summary = truncateSummary(result!.finalText || result!.text);
-  if (!summary.text && result!.status !== 'completed') {
-    // Stopped at a limit without a word: nothing to present as a result (AG-03).
-    const error = `${target.config.name} stopped at its limit (${result!.status}) without a report`;
-    log.append({
-      agent: from,
-      runId: run.id,
-      parentId,
-      type: 'delegation',
-      data: { ...delegation, status: 'failed', error, check: failedCheck, ...facts },
-    });
-    const partial = truncateSummary(result!.text).text;
-    const by = delegationStop(result, undefined, false);
-    return {
-      agent: name,
-      status: 'failed',
-      error,
-      stopped_by: by,
-      reason: teamToolsPrompts().stoppedBy(by, name, result!.error ?? ''),
-      ...done,
-      ...(partial ? { partial } : {}),
-      ...notes.report(name),
-      next: DELEGATION_FAILED_NEXT,
-    };
-  }
-  if (result!.status !== 'completed') {
-    /*
-     * Stopped at a limit with something written (D-160): a partial report, never a
-     * completed delegation. The event says "stopped" with the limit (`runStatus`), the
-     * report keeps what was written and says what stopped it.
-     */
-    const by = delegationStop(result, undefined, false);
-    const reason = teamToolsPrompts().stoppedBy(by, name, result!.error ?? '');
-    log.append({
-      agent: from,
-      runId: run.id,
-      parentId,
-      type: 'delegation',
-      data: { ...delegation, status: 'aborted', summary: summary.text, error: reason, ...facts },
-    });
-    return {
-      agent: name,
-      status: result!.status,
-      stopped_by: by,
-      reason,
-      summary: summary.text,
-      partial: true,
-      ...done,
-      ...notes.report(name),
-      ...(summary.truncated ? { truncated: true } : {}),
-      next: teamToolsPrompts().partialNext,
-    };
-  }
+  try {
+    const name = target.config.name;
+    /** What was done before the stop (D-160): the lead says it instead of "did not respond". */
+    const done = { steps_done: result?.steps ?? 0, tools_used: [...toolNames] };
+    const aborted = tc.signal.aborted || scope.aborted || result?.status === 'aborted';
+    if (aborted) {
+      const by = delegationStop(result, scope.signal.reason, false);
+      const reason = teamToolsPrompts().stoppedBy(by, name, '');
+      end({ status: 'aborted', error: reason, ...facts });
+      if (tc.signal.aborted) throw tc.signal.reason ?? new KilledError('agent');
+      const partial = truncateSummary(result?.finalText || result?.text || '').text;
+      return {
+        agent: name,
+        status: 'aborted',
+        stopped_by: by,
+        reason,
+        ...done,
+        ...(partial ? { partial } : {}),
+        ...notes.report(name),
+        next: teamToolsPrompts().stoppedNext,
+      };
+    }
+    const failedCheck = { verdict: 'failed' as const, criteria: [] };
+    if (failure !== undefined || result?.status === 'failed') {
+      const error = failure instanceof Error ? failure.message : (result?.error ?? String(failure));
+      const by = delegationStop(failure !== undefined ? undefined : result, undefined, true);
+      end({ status: 'failed', error, check: failedCheck, ...facts });
+      const partial = truncateSummary(result?.finalText || result?.text || '').text;
+      return {
+        agent: name,
+        status: 'failed',
+        error,
+        stopped_by: by,
+        reason: teamToolsPrompts().stoppedBy(by, name, error),
+        ...done,
+        ...(partial ? { partial } : {}),
+        ...notes.report(name),
+        next: DELEGATION_FAILED_NEXT,
+      };
+    }
+    // The report is the agent's last message, not the announcements of its steps (D-064).
+    const summary = truncateSummary(result!.finalText || result!.text);
+    if (!summary.text && result!.status !== 'completed') {
+      // Stopped at a limit without a word: nothing to present as a result (AG-03).
+      const error = `${target.config.name} stopped at its limit (${result!.status}) without a report`;
+      end({ status: 'failed', error, check: failedCheck, ...facts });
+      const partial = truncateSummary(result!.text).text;
+      const by = delegationStop(result, undefined, false);
+      return {
+        agent: name,
+        status: 'failed',
+        error,
+        stopped_by: by,
+        reason: teamToolsPrompts().stoppedBy(by, name, result!.error ?? ''),
+        ...done,
+        ...(partial ? { partial } : {}),
+        ...notes.report(name),
+        next: DELEGATION_FAILED_NEXT,
+      };
+    }
+    if (result!.status !== 'completed') {
+      /*
+       * Stopped at a limit with something written (D-160): a partial report, never a
+       * completed delegation. The event says "stopped" with the limit (`runStatus`), the
+       * report keeps what was written and says what stopped it.
+       */
+      const by = delegationStop(result, undefined, false);
+      const reason = teamToolsPrompts().stoppedBy(by, name, result!.error ?? '');
+      end({ status: 'aborted', summary: summary.text, error: reason, ...facts });
+      return {
+        agent: name,
+        status: result!.status,
+        stopped_by: by,
+        reason,
+        summary: summary.text,
+        partial: true,
+        ...done,
+        ...notes.report(name),
+        ...(summary.truncated ? { truncated: true } : {}),
+        next: teamToolsPrompts().partialNext,
+      };
+    }
 
-  // The verdict on the final report: again after a reminder, or the first time
-  // when the hook did not run (a harness, a stop at a limit).
-  const retried = Boolean(firstCheck?.reminder && result!.followUp);
-  let check = firstCheck;
-  if (doneCheck && (retried || !check)) check = (await runCheck(summary.text)) ?? check;
-  if (retried) {
-    instinctEvent(ctx, 'retry', target, {
-      message: instinctStrings().retried(target.config.name),
-      parentId: started.id,
-      details: { missing: firstCheck!.missing, after: check?.verdict ?? 'unchecked' },
-    });
+    // The verdict on the final report: again after a reminder, or the first time
+    // when the hook did not run (a harness, a stop at a limit).
+    const retried = Boolean(firstCheck?.reminder && result!.followUp);
+    let check = firstCheck;
+    if (doneCheck && (retried || !check)) check = (await runCheck(summary.text)) ?? check;
+    if (retried) {
+      instinctEvent(ctx, 'retry', target, {
+        message: instinctStrings().retried(target.config.name),
+        parentId: started.id,
+        details: { missing: firstCheck!.missing, after: check?.verdict ?? 'unchecked' },
+      });
+    }
+    if (check?.verdict === 'doubt') {
+      instinctEvent(ctx, 'doubt', target, {
+        message: instinctStrings().inDoubt(target.config.name, check.doubt ?? ''),
+        parentId: started.id,
+        details: {
+          doubt: check.doubt ?? '',
+          // What the person needs to decide (V-doubt): the criteria the check was unsure of,
+          // the notes the monster delivered and the task itself.
+          points: unsureCriteria(check),
+          notes: [...new Set([...notes.created, ...notes.changed])],
+          goal: brief.goal,
+        },
+      });
+    }
+    const logged =
+      check && (check.verdict !== 'unchecked' || check.criteria.length > 0)
+        ? {
+            check: {
+              verdict: check.verdict,
+              criteria: check.criteria,
+              ...(retried ? { retried } : {}),
+            },
+          }
+        : {};
+    end({ status: 'completed', summary: summary.text, ...logged, ...facts });
+    return {
+      agent: target.config.name,
+      status: result!.status,
+      summary: summary.text,
+      ...notes.report(target.config.name),
+      ...(summary.truncated ? { truncated: true } : {}),
+      ...checkReport(check),
+      next: nextAfter(check),
+    };
+  } catch (err) {
+    // Stopped during the final check (D-067), or anything else that throws past `started`:
+    // the delegation still ends in the log before the error goes on.
+    if (!ended) {
+      const stopped = tc.signal.aborted || scope.aborted;
+      // The sub-agent had ended: the stop is the caller's.
+      const why: unknown = scope.aborted ? scope.signal.reason : tc.signal.reason;
+      const by = delegationStop(result, why, !stopped);
+      const error = stopped
+        ? teamToolsPrompts().stoppedBy(by, target.config.name, '')
+        : err instanceof Error
+          ? err.message
+          : String(err);
+      end({ status: stopped ? 'aborted' : 'failed', error, ...facts });
+    }
+    throw err;
   }
-  if (check?.verdict === 'doubt') {
-    instinctEvent(ctx, 'doubt', target, {
-      message: instinctStrings().inDoubt(target.config.name, check.doubt ?? ''),
-      parentId: started.id,
-      details: {
-        doubt: check.doubt ?? '',
-        // What the person needs to decide (V-doubt): the criteria the check was unsure of,
-        // the notes the monster delivered and the task itself.
-        points: unsureCriteria(check),
-        notes: [...new Set([...notes.created, ...notes.changed])],
-        goal: brief.goal,
-      },
-    });
-  }
-  const logged =
-    check && (check.verdict !== 'unchecked' || check.criteria.length > 0)
-      ? {
-          check: {
-            verdict: check.verdict,
-            criteria: check.criteria,
-            ...(retried ? { retried } : {}),
-          },
-        }
-      : {};
-  log.append({
-    agent: from,
-    runId: run.id,
-    parentId,
-    type: 'delegation',
-    data: { ...delegation, status: 'completed', summary: summary.text, ...logged, ...facts },
-  });
-  return {
-    agent: target.config.name,
-    status: result!.status,
-    summary: summary.text,
-    ...notes.report(target.config.name),
-    ...(summary.truncated ? { truncated: true } : {}),
-    ...checkReport(check),
-    next: nextAfter(check),
-  };
 }
 
 /** The texts of the criteria the check was unsure of (the middle band of the instinct). */

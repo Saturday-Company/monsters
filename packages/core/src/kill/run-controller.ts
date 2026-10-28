@@ -6,10 +6,24 @@ import type { ProcessRegistry } from './process-registry.ts';
 
 /** Thrown by `startRun` while the kill switch is engaged. */
 export class HaltedError extends Error {
-  readonly code = 'halted';
-  constructor() {
-    super('Monsters is stopped: resume it before starting new work');
+  readonly code: 'halted' | 'closing' = 'halted';
+  constructor(message = 'Monsters is stopped: resume it before starting new work') {
+    super(message);
     this.name = 'HaltedError';
+  }
+}
+
+/**
+ * Thrown by `startRun` (and `serviceScope`) once the core is closing (D-098): nothing new
+ * starts that the shutdown would then wait for. A `HaltedError`, so every caller that
+ * already refuses work while halted refuses it now too; what the user sent stays in the
+ * log and the next start picks it up.
+ */
+export class ClosingError extends HaltedError {
+  override readonly code = 'closing';
+  constructor() {
+    super('Monsters is closing: new work starts at the next start');
+    this.name = 'ClosingError';
   }
 }
 
@@ -133,7 +147,16 @@ export class RunController {
     return this.#root.signal;
   }
 
-  /** Starts a run. Throws `HaltedError` while the kill switch is engaged. */
+  /** Nothing new may start: the kill switch is engaged, or the core is closing. */
+  #refuseNewWork(): void {
+    if (this.#halt) throw new HaltedError();
+    if (this.#closing) throw new ClosingError();
+  }
+
+  /**
+   * Starts a run. Throws `HaltedError` while the kill switch is engaged, `ClosingError` (a
+   * `HaltedError`) once the core is closing: the one gate every new job passes.
+   */
   startRun(params: {
     agent: string;
     goal?: string;
@@ -141,7 +164,7 @@ export class RunController {
     /** The Telegram chat of a dedicated bot the run works for (D-107). */
     thread?: string;
   }): RunHandle {
-    if (this.#halt) throw new HaltedError();
+    this.#refuseNewWork();
     const id = params.runId ?? ulid();
     if (this.#runs.has(id)) throw new Error(`run ${id} already exists`);
     const run = new RunHandle(
@@ -179,10 +202,10 @@ export class RunController {
   /**
    * Scope of a long-lived helper process that belongs to no run (an MCP
    * server): a child of the global scope, so the kill switch and the shutdown
-   * stop it with its descendants. Throws `HaltedError` while halted.
+   * stop it with its descendants. Throws `HaltedError` while halted or closing.
    */
   serviceScope(id: string): ControlScope {
-    if (this.#halt) throw new HaltedError();
+    this.#refuseNewWork();
     return this.#root.child('tool', id);
   }
 
@@ -398,12 +421,12 @@ export class RunController {
     return closed;
   }
 
-  /** Aborts everything without engaging the kill switch (used on shutdown). */
   /** True once `shutdown` started: nothing waiting should start any more (D-098). */
   get closing(): boolean {
     return this.#closing;
   }
 
+  /** Aborts everything without engaging the kill switch (used on shutdown). */
   async shutdown(): Promise<void> {
     this.#closing = true;
     const runs = [...this.#runs.values()];

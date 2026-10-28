@@ -981,7 +981,9 @@ class DedicatedBot {
           ? t.answerNotOpen
           : err.code === 'not_found'
             ? t.answerNotFound
-            : t.answerNotValid;
+            : err.code === 'closing'
+              ? t.answerClosing
+              : t.answerNotValid;
       if (!button) this.outbox.send(chatId, text);
       if (err.code === 'not_open') this.closeQuestion(questionId, t.noAnswerNeeded);
       return text;

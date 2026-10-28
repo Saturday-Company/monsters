@@ -23,7 +23,7 @@ import {
 import { LANGS, type LimitReason, type MonstersTool } from '@monsters/shared';
 import { isStepCount, streamText, type ModelMessage, type StopCondition, type ToolSet } from 'ai';
 import type { UserPart } from '../files/model-input.ts';
-import { KilledError, type ControlScope } from '../kill/control-scope.ts';
+import { CallerStoppedError, KilledError, type ControlScope } from '../kill/control-scope.ts';
 import type { EventLog } from '../log/event-log.ts';
 import {
   agentTokenLimit,
@@ -255,11 +255,14 @@ export type RunStopCause =
   /** The harness could not reach Monsters' own tools (the `monsters` MCP server). */
   | 'tools_unavailable'
   /** The harness program reported an interruption Monsters did not ask for. */
-  | 'harness';
+  | 'harness'
+  /** The work it was for stopped or ended: the lead that delegated it, the monster that asked. */
+  | 'caller';
 
 /** The cause of an abort, from the reason of the scope that stopped the run. */
 export function abortCause(reason: unknown): RunStopCause | undefined {
   if (!(reason instanceof KilledError)) return undefined;
+  if (reason instanceof CallerStoppedError) return 'caller';
   if (reason.scope === 'global')
     return /shutdown/.test(reason.message) ? 'shutdown' : 'kill_switch';
   return 'user';
