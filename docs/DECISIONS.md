@@ -6397,8 +6397,11 @@ working, so the kill switch and `activeRuns()` lost them. `startRun` checked `ha
 - `startRun`/`serviceScope` throw `ClosingError` (a `HaltedError`) once closing: a message then is logged in a run
   never started and `requeueWaiting` runs it at the next start; a card answer is refused (`QuestionError 'closing'`)
   and the question stays parked.
-**Consequence:** no orphaned delegate spends tokens unseen. A delegation longer than the harness's 1 h MCP call
-timeout now stops with the call.
+**Consequence:** no orphaned delegate spends tokens unseen.
+**Amended after the review of the fixes (28/10):** a delegation follows `ToolContext.ownerSignal` (the caller's run,
+scope and harness end), not the MCP request of the call: a harness that drops the request (a transport timeout) no
+longer kills a long delegate, whose notes still land, and its end is logged as completed. The browser preset's
+variables count as new code for D-211 (`NODE_OPTIONS`).
 
 ### D-213 · Stable local origin, a lock tied to the boot, final start failures
 **Status:** done · 28/10/2026
@@ -6417,6 +6420,13 @@ retried five times with the message dropped; a wedged core was never restarted; 
 - A `start-failed` the core reports is final and shown with its message, Retry and the log path. The owned core is
   health-checked every 10 s and terminated after about a minute without answers, so the crash path restarts it.
   SIGHUP stops `monsters start` like SIGTERM.
+- Amended after the review of the fixes: on Windows the holder is read through CIM (`Win32_Process`, creation time
+  as epoch ms plus `Name`), which works without elevation where `Get-Process .StartTime` fails for protected
+  processes; the lock records the core's image name and a pid with another image is stale; `LastBootUpTime` is only a
+  fallback when the start time is unknown (10 min margin, a corrected clock moves it). The app probes asynchronously;
+  the core keeps a blocking variant (3 s, `windowsHide`). In the takeover section a lock is removed only if it exists,
+  is stale and is unchanged. A preferred port refused with `EACCES`/`EADDRNOTAVAIL` (Windows reserved ranges) falls
+  back like `EADDRINUSE`. SIGHUP is handled only on a terminal, so `nohup monsters start` keeps ignoring it.
 **Consequence:** to try by hand on macOS and Windows: the probes (no console flash, no delay), a real crash, the port
 across a restart.
 
@@ -6434,5 +6444,12 @@ heading, listing the matches, and accept `Parent > Child`; reads stay forgiving 
 `sync` re-checks the disk under the path lock before un-indexing; `reindex` locks each path and ends with a sync.
 Output of child processes is decoded with `StringDecoder` (harness, MCP stderr, installs, remote, login shell, desktop
 logs).
-**Consequence:** a file between 64 and 256 MiB is hashed but kept out of the automatic snapshot. A read of a plain
-repeated heading still returns the first match.
+**Amended after the review of the fixes (28/10):** `git add` no longer forces: in a vault that is the user's own repo
+it would have put folders they ignore (and may push) into history. A path the vault's `.gitignore` excludes, and that
+history doesn't track, is written but not recorded: the action returns `commit: null` and a `warning`, the
+`vault_change` event carries `unrecorded`, no empty commit is made, undo fails with a specific error and the UI offers
+no undo. A file over 256 MiB is never read by delete or move (renamed, kept out of history with the same warning;
+trash listings show name and size) and is never overwritten.
+**Consequence:** changes in ignored folders and to huge files can't be undone, and the model and the UI are told so.
+A file between 64 and 256 MiB is kept out of the automatic snapshot. A read of a plain repeated heading still returns
+the first match.
