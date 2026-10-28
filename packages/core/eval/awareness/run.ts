@@ -273,7 +273,7 @@ async function main(): Promise<void> {
         });
       });
       await hub.dispatcher.idle();
-      const events = log.query({ runId, limit: 5000 });
+      const events = log.all({ runId });
       const usage = events.filter(
         (e): e is LogEvent<'provider_usage'> =>
           e.type === 'provider_usage' && e.agent === capo.config.id,

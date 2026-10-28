@@ -238,9 +238,13 @@ export class AccessRequests {
 
   /** The answer's channel, from its event: the grant is the user's in person. */
   #answerChannel(q: Question): Channel | undefined {
-    const e = this.#o.log
-      .query({ runId: q.runId, type: 'answer', order: 'desc', limit: 20 })
-      .find((x) => x.type === 'answer' && x.data.questionId === q.id);
+    const [e] = this.#o.log.query({
+      runId: q.runId,
+      type: 'answer',
+      data: { questionId: q.id },
+      order: 'desc',
+      limit: 1,
+    });
     return e?.type === 'answer' ? e.data.channel : undefined;
   }
 

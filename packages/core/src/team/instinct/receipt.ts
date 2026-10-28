@@ -304,7 +304,7 @@ export function undoableActions(log: EventLog, runId: string): string[] {
     }
   }
   // Undo actions logged outside the run (by the user, after it) count too.
-  for (const e of log.query({ type: 'vault_change', agent: 'user', order: 'desc', limit: 1000 })) {
+  for (const e of log.scan({ type: 'vault_change', agent: 'user', data: { action: 'undo' } })) {
     if (e.type === 'vault_change' && e.data.action === 'undo' && e.data.undoneActionId) {
       undone.add(e.data.undoneActionId);
     }

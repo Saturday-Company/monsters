@@ -1,4 +1,3 @@
-import type { LogEvent } from '@monsters/shared';
 import type { EventLog } from '../log/event-log.ts';
 import { continuationPrompts, PREVIOUS_JOB_TAGS } from './continuation.prompts.ts';
 import type { TierLevel } from './instinct/triage.ts';
@@ -86,40 +85,42 @@ const ASKS = /\?[\s*_)\]»"”'’.!\p{Extended_Pictographic}]*$/u;
  * run left nothing of the agent's in the log.
  */
 export function previousJob(log: EventLog, agentId: string, runId: string): PreviousJob | null {
-  const ends = log.query({ runId, type: 'run', limit: 50 });
-  const end = ends.find((e) => e.type === 'run' && e.data.status !== 'started');
+  // Every reading goes on past a page (D-215): a long job streams thousands of chunks.
+  const end = log.find(
+    { runId, type: 'run' },
+    (e) => e.type === 'run' && e.data.status !== 'started',
+  );
   const cut =
     (end?.type === 'run' && (end.data.status === 'aborted' || end.data.status === 'failed')) ||
-    log
-      .query({ runId, type: 'error', agent: agentId, limit: 1000 })
-      .some((e) => e.type === 'error' && CUT_CODES.has(e.data.code ?? ''));
-  const answer = log
-    .query({ runId, type: 'message', agent: agentId, order: 'desc', limit: 500 })
-    .find(
-      (e) =>
-        e.type === 'message' &&
-        e.data.role === 'agent' &&
-        !e.data.partial &&
-        e.parentId === null &&
-        e.data.text.trim() !== '',
-    );
+    log.find(
+      { runId, type: 'error', agent: agentId },
+      (e) => e.type === 'error' && CUT_CODES.has(e.data.code ?? ''),
+    ) !== undefined;
+  const answer = log.find(
+    {
+      runId,
+      type: 'message',
+      agent: agentId,
+      data: { role: 'agent' },
+      partials: false,
+      order: 'desc',
+    },
+    (e) => e.type === 'message' && e.parentId === null && e.data.text.trim() !== '',
+  );
   // The request's level: the first `tier` event of the run about this monster, not a delegation's.
-  const tierEvent = log
-    .query({ runId, type: 'instinct', agent: 'system', limit: 1000 })
-    .find(
-      (e) =>
-        e.type === 'instinct' &&
-        e.data.use === 'tier' &&
-        e.data.subject === agentId &&
-        e.parentId === null,
-    );
+  const tierEvent = log.find(
+    { runId, type: 'instinct', agent: 'system', data: { use: 'tier', subject: agentId } },
+    (e) => e.parentId === null,
+  );
   const level = tierEvent?.type === 'instinct' ? tierEvent.data.details?.['level'] : undefined;
   const tier = level === 'simple' || level === 'medium' || level === 'hard' ? level : undefined;
-  const usage = log
-    .query({ runId, type: 'provider_usage', agent: agentId, order: 'desc', limit: 50 })
-    .find((e) => e.type === 'provider_usage' && e.data.context && e.data.purpose === undefined);
+  const usage = log.find(
+    { runId, type: 'provider_usage', agent: agentId, data: { purpose: null }, order: 'desc' },
+    (e) => e.type === 'provider_usage' && e.data.context !== undefined,
+  );
   const measured = usage?.type === 'provider_usage' ? usage.data.context : undefined;
-  const last = end ?? answer ?? ends.at(-1) ?? usage;
+  const last =
+    end ?? answer ?? log.query({ runId, type: 'run', order: 'desc', limit: 1 })[0] ?? usage;
   if (!last) return null;
   return {
     runId,
@@ -240,24 +241,6 @@ type Step =
   | { kind: 'said'; text: string }
   | { kind: 'call'; tool: string; input: string; ok: boolean | null; result: string };
 
-/** Every event of a type in a run, oldest first (pages of the log). */
-function allOf<T extends LogEvent['type']>(
-  log: EventLog,
-  runId: string,
-  type: T[],
-  pages = 5,
-): LogEvent[] {
-  const out: LogEvent[] = [];
-  let after: string | undefined;
-  for (let p = 0; p < pages; p++) {
-    const page = log.query({ runId, type, after, limit: 1000 });
-    out.push(...page);
-    if (page.length < 1000) break;
-    after = page.at(-1)!.id;
-  }
-  return out;
-}
-
 /**
  * The notes of a job for its continuation when its harness session cannot be resumed (another
  * harness, the API path, a restart, a session gone from the harness's disk): the request, how it
@@ -273,7 +256,8 @@ export function jobNotes(
   max = JOB_NOTES_MAX_CHARS,
 ): string | null {
   const p = continuationPrompts();
-  const events = allOf(log, runId, ['message', 'tool_call', 'tool_result', 'error']);
+  // All of them: the latest steps are the ones a continuation needs most (D-215).
+  const events = log.all({ runId, type: ['message', 'tool_call', 'tool_result', 'error'] });
   const request = events.find(
     (e) => e.type === 'message' && e.agent === 'user' && e.data.role === 'user',
   );

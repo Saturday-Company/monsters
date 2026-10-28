@@ -51,18 +51,17 @@ export class MemoryProposals {
     return next;
   }
 
-  /** `memory` events of the log, oldest first. */
-  #events(): MemoryEvent[] {
-    return this.#log
-      .query({ type: 'memory', limit: 2000, order: 'desc' })
-      .reverse() as MemoryEvent[];
-  }
-
-  /** Drafts nobody answered yet, oldest first. */
+  /**
+   * Drafts nobody answered yet, oldest first: every draft of the log, each without an answer
+   * that names it (in SQL, not among a page of `memory` events, D-215).
+   */
   open(): MemoryEvent[] {
-    const events = this.#events();
-    const closed = new Set(events.map((e) => e.data.proposalId).filter(Boolean));
-    return events.filter((e) => e.data.action === 'proposed' && !closed.has(e.id));
+    const drafts = this.#log.all({ type: 'memory', data: { action: 'proposed' } }) as MemoryEvent[];
+    return drafts.filter(
+      (d) =>
+        this.#log.query({ type: 'memory', after: d.id, data: { proposalId: d.id }, limit: 1 })
+          .length === 0,
+    );
   }
 
   /** A `proposed` event of the log, open or not. */

@@ -197,10 +197,11 @@ function notesOfAnswers(
   const out = new Map<string, string>();
   const runs = new Set(answers.map((a) => a.runId).filter((r): r is string => r !== null));
   for (const runId of runs) {
+    // Every page of the run (D-215): a long one has more than any page holds.
     const finals = log
-      .query({ runId, type: 'message', agent: agentId, limit: 5000 })
+      .all({ runId, type: 'message', agent: agentId, partials: false })
       .filter((e) => isFinalAnswer(e, agentId));
-    const changes = log.query({ runId, type: 'vault_change', limit: 5000 });
+    const changes = log.all({ runId, type: 'vault_change' });
     let from = '';
     for (const answer of finals) {
       const paths: string[] = [];
@@ -304,6 +305,8 @@ export function conversationTurns(
         'project_docs_proposal',
       ],
       agent: ['user', 'system', opts.agentId],
+      // The streamed chunks are never a turn, and a long answer has thousands (D-215).
+      partials: false,
       after: from,
       before,
       order: opts.oldest ? 'asc' : 'desc',
@@ -339,32 +342,41 @@ export function conversationTurns(
   return opts.oldest ? picked : picked.reverse();
 }
 
-/** The turns of some runs only (a giro of an automation), oldest first, the newest `turns`. */
+/**
+ * The turns of some runs only (a giro of an automation, a Telegram chat), oldest first, the
+ * newest `turns`. Each run is read from its end, without the streamed chunks, until it gave
+ * `turns` turns: its final answer is never past a page of chunks (D-215).
+ */
 function turnsOfRuns(
   log: EventLog,
   questions: QuestionStore | undefined,
   opts: ConversationTurnsOptions,
   runs: ReadonlySet<string>,
 ): ConversationTurn[] {
-  const events = [...runs]
-    .flatMap((runId) =>
-      log.query({ runId, type: ['message', 'answer', 'monster_proposal'], limit: 1000 }),
-    )
-    .filter((e) => e.agent === 'user' || e.agent === opts.agentId)
-    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const picked: ConversationTurn[] = [];
-  for (const e of events) {
-    if (opts.exclude?.has(e.id)) continue;
-    if (opts.before !== undefined && e.id >= opts.before) continue;
-    const m = toTurn(e, { ...opts, isOrchestrator: true }, questions);
-    if (!m) continue;
-    picked.push({
-      id: e.id,
-      role: m.role as 'user' | 'assistant',
-      content: m.content as string,
-      runId: e.runId,
-    });
+  for (const runId of runs) {
+    let taken = 0;
+    for (const e of log.scan({
+      runId,
+      type: ['message', 'answer', 'monster_proposal'],
+      agent: ['user', opts.agentId],
+      partials: false,
+      before: opts.before,
+      order: 'desc',
+    })) {
+      if (opts.exclude?.has(e.id)) continue;
+      const m = toTurn(e, { ...opts, isOrchestrator: true }, questions);
+      if (!m) continue;
+      picked.push({
+        id: e.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content as string,
+        runId: e.runId,
+      });
+      if (++taken >= opts.turns) break;
+    }
   }
+  picked.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return picked.slice(-opts.turns);
 }
 

@@ -1325,9 +1325,13 @@ export class AutomationService {
     for (const q of this.#o.questions.list({ status: 'answered' })) {
       const ref = automationRunOf(this.#o.log, q.runId);
       if (!ref || asked.has(ref.giro) || !q.answer) continue;
-      const answer = this.#o.log
-        .query({ runId: q.runId, type: 'answer', order: 'desc', limit: 20 })
-        .find((e) => e.type === 'answer' && e.data.questionId === q.id);
+      const [answer] = this.#o.log.query({
+        runId: q.runId,
+        type: 'answer',
+        data: { questionId: q.id },
+        order: 'desc',
+        limit: 1,
+      });
       if (!answer) continue;
       const lastRun = runsOfGiro(this.#o.log, ref.giro).at(-1) ?? ref.giro;
       const last = this.#o.log
@@ -1692,15 +1696,18 @@ export class AutomationService {
   /** The capo's last final answer in the runs. */
   #lastAnswer(runs: readonly string[], lead: string): string | undefined {
     for (const runId of [...runs].reverse()) {
-      const found = this.#o.log
-        .query({ runId, type: 'message', agent: lead, order: 'desc', limit: 200 })
-        .find(
-          (e) =>
-            e.type === 'message' &&
-            e.data.role === 'agent' &&
-            !e.data.partial &&
-            e.parentId === null,
-        );
+      // Without the streamed chunks, past any page of them (D-215).
+      const found = this.#o.log.find(
+        {
+          runId,
+          type: 'message',
+          agent: lead,
+          data: { role: 'agent' },
+          partials: false,
+          order: 'desc',
+        },
+        (e) => e.parentId === null,
+      );
       if (found?.type === 'message' && found.data.text.trim()) return found.data.text;
     }
     return undefined;

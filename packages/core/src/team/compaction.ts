@@ -192,12 +192,14 @@ export function readsThirdParty(tool: string): boolean {
  */
 export function runsTainted(log: EventLog, runIds: Iterable<string>): boolean {
   for (const runId of new Set(runIds)) {
-    for (const e of log.query({ runId, type: 'run', limit: 50 })) {
-      if (e.type === 'run' && e.data.tainted === true) return true;
-    }
-    for (const e of log.query({ runId, type: 'tool_call', limit: 5000 })) {
-      if (e.type === 'tool_call' && readsThirdParty(e.data.tool)) return true;
-    }
+    if (log.query({ runId, type: 'run', data: { tainted: true }, limit: 1 }).length > 0)
+      return true;
+    // Every call of the run, not a page of them (D-215): a taint missed is a security hole.
+    const reads = log.find(
+      { runId, type: 'tool_call' },
+      (e) => e.type === 'tool_call' && readsThirdParty(e.data.tool),
+    );
+    if (reads) return true;
   }
   return false;
 }
@@ -454,12 +456,13 @@ export class ConversationCompactor {
  * undefined before its first step.
  */
 export function fixedContextTokens(log: EventLog, agentId: string): number | undefined {
-  for (const e of log.query({ agent: agentId, type: 'provider_usage', order: 'desc', limit: 30 })) {
-    if (e.type !== 'provider_usage' || !e.data.context) continue;
-    const p = e.data.context.parts;
-    return (p.base ?? 0) + (p.instructions ?? 0) + (p.memory ?? 0) + (p.tools ?? 0);
-  }
-  return undefined;
+  const e = log.find(
+    { agent: agentId, type: 'provider_usage', order: 'desc' },
+    (x) => x.type === 'provider_usage' && x.data.context !== undefined,
+  );
+  if (e?.type !== 'provider_usage' || !e.data.context) return undefined;
+  const p = e.data.context.parts;
+  return (p.base ?? 0) + (p.instructions ?? 0) + (p.memory ?? 0) + (p.tools ?? 0);
 }
 
 /** Sections of a summary given up first when it is too long: what was delivered, then the requests. */
