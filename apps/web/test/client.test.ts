@@ -194,6 +194,33 @@ describe('ApiClient: "Conferma che sei tu" (review of 18/10, M1)', () => {
     expect(calls).toEqual(['POST /api/logout', 'POST /api/logout']);
   });
 
+  it('the MCP and Telegram settings ask for a recent password the same way (review of 28/10)', async () => {
+    const calls: string[] = [];
+    const recent = { status: 403, body: { error: 'confirm_required', message: 'Password again' } };
+    const api = new ApiClient(transportOf(() => recent, calls));
+    const reasons: string[] = [];
+    api.confirmOwner = (reason) => {
+      reasons.push(reason);
+      return Promise.resolve(true);
+    };
+    // Every call goes through the same prompt, then once more; the core answering the same
+    // again (here it always does) is the error the screen shows.
+    for (const send of [
+      () => api.saveMcpServer('fake', { transport: 'stdio', command: 'node', args: ['x.js'] }),
+      () => api.updateTelegramBot('222', { agent: 'dione' }),
+      () => api.updateTelegramBot('222', { fullTools: true }),
+      () => api.addTelegramBotPerson('222', { id: 1001 }),
+      () => api.approveTelegramBotPerson('222', 1001),
+      () => api.approveTelegramBotChat('222', -100),
+    ]) {
+      const err: unknown = await send().catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).code).toBe('confirm_required');
+    }
+    expect(reasons).toEqual(Array(6).fill('recent'));
+    expect(calls).toHaveLength(12);
+  });
+
   it('cancelled: the request fails with the reason, sent only once', async () => {
     const calls: string[] = [];
     const api = new ApiClient(transportOf(() => ownerRequired, calls));

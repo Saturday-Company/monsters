@@ -33,6 +33,7 @@ import {
 import { expandHome, mayBeInside, realPathOf } from '@monsters/tools';
 import type { VaultService } from '@monsters/vault';
 import type { AgentDefinition } from '../agents/definition.ts';
+import { assertRecent, type RecentProof } from '../auth/recent.ts';
 import type { AutomationService } from '../automations/service.ts';
 import type { RunController } from '../kill/run-controller.ts';
 import { agentId } from '../onboarding/proposal.ts';
@@ -793,8 +794,8 @@ export class ProjectService {
    * the monsters archived with it (its lead first). Without its lead it stays
    * archived.
    */
-  restore(id: string, by: Channel): Promise<ProjectView> {
-    return this.#serial(id, () => this.#restore(id, by));
+  restore(id: string, by: Channel, proof: RecentProof | undefined): Promise<ProjectView> {
+    return this.#serial(id, () => this.#restore(id, by, proof));
   }
 
   /** The monsters an archived project would bring back with it (empty when it is not archived). */
@@ -813,7 +814,7 @@ export class ProjectService {
       );
   }
 
-  async #restore(id: string, by: Channel): Promise<ProjectView> {
+  async #restore(id: string, by: Channel, proof: RecentProof | undefined): Promise<ProjectView> {
     const current = this.#require(id);
     if (current.archivedAt === undefined) {
       throw new ProjectError('not_archived', projectStrings().notArchived(current.name));
@@ -822,12 +823,14 @@ export class ProjectService {
     this.#checkArea(current.vaultArea, current.id);
     const archived = this.#archivedEvent(current.id);
     const ids = archived?.data.agents ?? [...(current.lead ? [current.lead] : [])];
+    // Its monsters back with the Terminal they had: a recent confirmation, before anything moves.
+    if (this.#o.squad.restoreGivesShell(ids)) assertRecent(proof);
     const { archivedAt: _at, ...rest } = current;
     this.#o.team.projectStore.save({ ...rest, updatedAt: this.#now() });
     await this.#reload();
     let back: string[];
     try {
-      back = await this.#o.squad.restoreSquad(current.id, ids, by);
+      back = await this.#o.squad.restoreSquad(current.id, ids, by, proof);
     } catch (err) {
       this.#o.team.projectStore.save(current);
       await this.#reload();

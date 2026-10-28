@@ -5,6 +5,7 @@ import {
   McpServerRequestSchema,
 } from '@monsters/shared';
 import type { Context, Hono } from 'hono';
+import { recentProofOf } from '../../auth/recent.ts';
 import { HaltedError } from '../../kill/run-controller.ts';
 import { McpError, type McpManager } from '../../mcp/manager.ts';
 import { OAUTH_CALLBACK_PATH, oauthCallbackOrigin } from '../../mcp/oauth.ts';
@@ -73,7 +74,12 @@ export function registerMcpRoutes(app: Hono<AppEnv>, h: RouteHelpers, mcp: McpMa
   app.put('/api/mcp-servers/:name', requireAuth, async (c) => {
     const body = await parseBody(c, McpServerRequestSchema);
     if (!body.ok) return body.res;
-    return guard(c, () => mcp.upsert(c.req.param('name'), body.data, channelOf(c.get('auth'))));
+    // A stdio server is a program the core launches: adding one or changing what it runs wants a
+    // recent confirmation, which the manager decides (`ConfirmRequiredError`, app.ts).
+    const auth = c.get('auth');
+    return guard(c, () =>
+      mcp.upsert(c.req.param('name'), body.data, channelOf(auth), recentProofOf(auth)),
+    );
   });
 
   app.delete('/api/mcp-servers/:name', requireAuth, (c) =>

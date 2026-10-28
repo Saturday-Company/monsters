@@ -20,6 +20,7 @@ export * from './log/redact.ts';
 export { restoreRateBudgets } from './log/rate-history.ts';
 export * from './auth/auth-service.ts';
 export { hashPassword, verifyPassword } from './auth/password.ts';
+export * from './auth/recent.ts';
 export { resetPasswordOffline } from './auth/reset.ts';
 export * from './kill/control-scope.ts';
 export * from './kill/run-controller.ts';

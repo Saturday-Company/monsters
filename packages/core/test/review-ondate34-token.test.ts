@@ -62,7 +62,6 @@ const TOKEN_OPEN: Record<string, string> = {
   'POST /api/projects/:id/archive': 'takes the folder away from the monsters',
   'POST /api/projects/:id/stop': 'stops a project’s work',
   'POST /api/claude-connections/:id/check': 'reads whether a connector answers',
-  'POST /api/mcp-servers/:name/test': 'starts a server the user configured and lists its tools',
   // The harnesses call back the core with a per-run secret of their own.
   'POST /api/harness/hook': 'authenticated by the session of the harness run',
 };
@@ -116,6 +115,7 @@ describe('the CLI token is not the user in person, every route (review of ondate
       ['DELETE', '/api/team/agents/rhea'],
       ['DELETE', '/api/projects/p1'],
       ['DELETE', '/api/mcp-servers/gmail'],
+      ['POST', '/api/mcp-servers/gmail/test'],
       ['DELETE', '/api/claude-connections/c1'],
       ['POST', '/api/subscriptions/claude/activate'],
       ['POST', '/api/team/agents/rhea/memory/own'],

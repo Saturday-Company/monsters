@@ -9,6 +9,7 @@ import {
   TeamRestoreRequestSchema,
 } from '@monsters/shared';
 import type { Context, Hono } from 'hono';
+import { recentProofOf } from '../../auth/recent.ts';
 import { TeamError, type TeamManager } from '../../team/team-manager.ts';
 import type { AppEnv, RouteHelpers } from '../app.ts';
 
@@ -113,12 +114,12 @@ export function registerSquadRoutes(app: Hono<AppEnv>, h: RouteHelpers, team: Te
   app.post('/api/team/archived/:id/restore', requireAuth, async (c) => {
     const body = await parseBody(c, TeamRestoreRequestSchema);
     if (!body.ok) return body.res;
-    // Back with the Terminal it had: the same recent confirmation as giving it (n. 6, 19/10).
-    if (team.restoreGivesShell([c.req.param('id')])) {
-      const refused = h.requireRecent(c);
-      if (refused) return refused;
-    }
-    return guard(c, () => team.restore(c.req.param('id'), body.data, channelOf(c.get('auth'))));
+    // Back with the Terminal it had: the same recent confirmation as giving it (n. 6, 19/10),
+    // which `restore` decides.
+    const auth = c.get('auth');
+    return guard(c, () =>
+      team.restore(c.req.param('id'), body.data, channelOf(auth), recentProofOf(auth)),
+    );
   });
 
   app.get('/api/profile', requireAuth, (c) => guard(c, () => team.profile()));

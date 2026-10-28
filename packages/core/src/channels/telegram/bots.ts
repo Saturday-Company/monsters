@@ -17,6 +17,7 @@ import {
 } from '@monsters/shared';
 import { Api, GrammyError, HttpError } from 'grammy';
 import type { CallbackQuery, InlineKeyboardMarkup, Message, Update } from 'grammy/types';
+import { assertRecent, type RecentProof } from '../../auth/recent.ts';
 import { migrate } from '../../db/migrations.ts';
 import type { Db } from '../../db/sqlite.ts';
 import type { StateStore } from '../../db/state-store.ts';
@@ -774,11 +775,14 @@ class DedicatedBot {
       { agent, runId: null },
     );
     // Sent even though the person is not allowed yet: the one answer of a request.
-    this.outbox.enqueue(chatId, (api, chat) =>
-      api.sendMessage(chat, escapeHtml(botsStrings().askedOwner(owner)), {
-        parse_mode: 'HTML',
-        reply_parameters: { message_id: m.message_id, allow_sending_without_reply: true },
-      }),
+    this.outbox.enqueue(
+      chatId,
+      (api, chat) =>
+        api.sendMessage(chat, escapeHtml(botsStrings().askedOwner(owner)), {
+          parse_mode: 'HTML',
+          reply_parameters: { message_id: m.message_id, allow_sending_without_reply: true },
+        }),
+      { anyone: true },
     );
   }
 
@@ -1403,6 +1407,13 @@ export class TelegramBots {
     return row;
   }
 
+  /**
+   * "Strumenti per gli altri" (D-114): the people of the bot act with the monster's whole toolset,
+   * the Terminal included. Whatever gives that to someone wants a recent confirmation (`proof`,
+   * auth/recent.ts): turning it on, pointing a bot that has it at another monster (it would
+   * hand strangers that monster's toolset), and, in the approvals below, letting one more chat
+   * or person in.
+   */
   update(
     id: string,
     patch: {
@@ -1410,9 +1421,14 @@ export class TelegramBots {
       dailyLimit?: number | null | undefined;
       fullTools?: boolean | undefined;
     },
+    proof: RecentProof | undefined,
   ) {
+    if (patch.fullTools === true) assertRecent(proof);
     const row = this.#bot(id);
     const agent = patch.agent !== undefined ? this.#agentFor(patch.agent) : undefined;
+    if (agent && agent !== row.agent && (patch.fullTools ?? row.fullTools === true)) {
+      assertRecent(proof);
+    }
     this.store.updateBot(id, {
       ...(agent ? { agent } : {}),
       ...(patch.dailyLimit !== undefined ? { dailyLimit: patch.dailyLimit } : {}),
@@ -1454,8 +1470,9 @@ export class TelegramBots {
     return this.views();
   }
 
-  approveChat(id: string, chatId: number) {
+  approveChat(id: string, chatId: number, proof: RecentProof | undefined) {
     this.#bot(id);
+    this.#assertCanLetIn(id, proof);
     const chat = this.store.chat(id, chatId);
     if (!chat || !this.store.approveChat(id, chatId)) {
       throw new TelegramBotsError('not_found', botsStrings().noSuchGroup);
@@ -1486,8 +1503,13 @@ export class TelegramBots {
     return this.views();
   }
 
-  addPerson(id: string, person: { id: number; name?: string | undefined }) {
+  addPerson(
+    id: string,
+    person: { id: number; name?: string | undefined },
+    proof: RecentProof | undefined,
+  ) {
     this.#bot(id);
+    this.#assertCanLetIn(id, proof);
     const name = person.name?.trim() || botsStrings().user(person.id);
     this.store.putPerson(id, { id: person.id, name }, 'approved', this.now());
     this.store.approvePerson(id, person.id);
@@ -1495,13 +1517,19 @@ export class TelegramBots {
     return this.views();
   }
 
-  approvePerson(id: string, userId: number) {
+  approvePerson(id: string, userId: number, proof: RecentProof | undefined) {
     this.#bot(id);
+    this.#assertCanLetIn(id, proof);
     const p = this.store.person(id, userId);
     if (!p) throw new TelegramBotsError('not_found', botsStrings().noSuchPerson);
     this.store.approvePerson(id, userId);
     this.#approved(id, userId, p.username ? `@${p.username}` : p.name);
     return this.views();
+  }
+
+  /** On a bot with the whole toolset for others, one more chat or person is one more who can use it. */
+  #assertCanLetIn(id: string, proof: RecentProof | undefined): void {
+    if (this.store.bot(id)?.fullTools === true) assertRecent(proof);
   }
 
   #approved(id: string, userId: number, name: string): void {

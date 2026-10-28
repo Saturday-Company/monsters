@@ -25,6 +25,7 @@ import {
   type CoreServer,
   type HubOptions,
 } from '../src/index.ts';
+import { recentProofOf } from '../src/auth/recent.ts';
 import { generateToken, hashToken } from '../src/auth/tokens.ts';
 import { ownerOnly } from '../src/server/app.ts';
 import { tempHome } from './helpers.ts';
@@ -60,6 +61,9 @@ export function ownerCookie(core: CoreServer): string {
   );
   return `${SESSION_COOKIE}=${token}`;
 }
+
+/** The proof of the user in person who typed the password a moment ago, for calling a service directly. */
+export const RECENT = recentProofOf({ owner: true, recent: true });
 
 /** What only the user in person may do: approvals, grants, Telegram (see `OWNER_ONLY`). */
 const ANSWER_PATH = /^\/api\/questions\/[^/]+\/answer$/;
