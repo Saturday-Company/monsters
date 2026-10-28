@@ -148,9 +148,12 @@ describe('S2 · hidden files are no note, for anybody', () => {
       expect(inAnyPrivateFolder(path), path).toBe(true);
     }
     expect(await vault.search({ agentId: 'rhea' }, { query: 'code' })).toEqual([]);
+    // On macOS and Windows `privato/Codici` goes into the `Privato/` that exists (D-219).
     expect(
-      (await vault.search({ agentId: 'titan' }, { query: 'code' })).map((h) => h.path).sort(),
-    ).toEqual(['Private/Accounts.md', 'Privato/Conti.md', 'privato/Codici.md']);
+      (await vault.search({ agentId: 'titan' }, { query: 'code' }))
+        .map((h) => h.path.toLowerCase())
+        .sort(),
+    ).toEqual(['private/accounts.md', 'privato/codici.md', 'privato/conti.md']);
     expect(vault.tags({ agentId: 'rhea' }, {}).map((t) => t.tag)).not.toContain('secret');
     expect(vault.tags({ agentId: 'titan' }, {}).map((t) => t.tag)).toContain('secret');
     const listed = await vault.list({ agentId: 'rhea' }, {});

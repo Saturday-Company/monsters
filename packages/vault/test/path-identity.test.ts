@@ -127,7 +127,8 @@ describe('a vault on a file system that ignores case and accents', () => {
     const written = await vault.write(titan(), { path: 'progetti/ALFA/Altra.md', content: 'due' });
     expect(written.path).toBe('Progetti/ALFA/Altra.md'.replace('ALFA', 'Alfa'));
     expect(existsSync(join(vault.root, 'Progetti/Alfa/Altra.md'))).toBe(true);
-    expect(existsSync(join(vault.root, 'progetti'))).toBe(false);
+    // Listed, not looked up: on a real case-insensitive volume `progetti` is found too.
+    expect(readdirSync(vault.root)).not.toContain('progetti');
     // A part that does not exist yet keeps the spelling asked for.
     const deeper = await vault.write(titan(), {
       path: 'progetti/alfa/Nuova/Nota.md',
@@ -229,7 +230,9 @@ describe('a vault on a file system that ignores case and accents', () => {
 });
 
 describe('a file system that tells names apart (Linux)', () => {
-  it('keeps `Idee.md` and `idee.md` as two notes', async () => {
+  it('keeps `Idee.md` and `idee.md` as two notes', async (ctx) => {
+    // Only where the disk under the test tells them apart too (not macOS, not Windows).
+    if ((await probePathIdentity(tempDir())).foldCase) ctx.skip();
     const vault = await newVault({ pathIdentity: EXACT_PATHS });
     await vault.write(titan(), { path: 'Inbox/Idee.md', content: 'uno' });
     await vault.write(titan(), { path: 'Inbox/idee.md', content: 'due' });
