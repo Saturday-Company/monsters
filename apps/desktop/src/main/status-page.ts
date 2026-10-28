@@ -28,6 +28,8 @@ export type StatusView =
   | { kind: 'restarting'; attempt: number; maxAttempts: number; delayMs: number }
   | { kind: 'failed'; logPath: string }
   | { kind: 'locked'; home: string }
+  /** The core said why it will not start (not tampered, not locked): `message` is its words. */
+  | { kind: 'start-failed'; message: string; logPath: string }
   /** `dev`: an app run from the sources, where the bundle comes from `pnpm build:core`. */
   | { kind: 'missing'; path: string; dev?: boolean }
   /** resources/core is not the one of the package (S-M9): `detail` says which file. */
@@ -105,6 +107,16 @@ export function statusCopy(view: Exclude<StatusView, { kind: 'welcome' }>): Copy
         busy: false,
         actions: ['open-log', 'connections'],
         detail: t.failed.detail(view.logPath),
+      };
+    case 'start-failed':
+      return {
+        title: t.startFailed.title,
+        body: [t.startFailed.body, ...(view.message ? [view.message] : [])],
+        expression: 'error',
+        retry: true,
+        busy: false,
+        actions: ['open-log', 'connections'],
+        detail: t.startFailed.detail(view.logPath),
       };
     case 'locked':
       return {
@@ -281,6 +293,14 @@ function faceOf(view: StatusView): Face {
         state: f.lockedState,
         light: 'stop',
         line: f.lockedLine,
+        lineTone: 'stop',
+      };
+    case 'start-failed':
+      return {
+        section: f.startupSection,
+        state: f.stoppedState,
+        light: 'stop',
+        line: f.startFailedLine,
         lineTone: 'stop',
       };
     case 'missing':

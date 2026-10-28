@@ -89,6 +89,46 @@ describe('first start', () => {
     expect(isStatusAction('evil')).toBe(false);
   });
 
+  it('a start the core refused: its words, the log, "Try again"; it is not the "already running" page', () => {
+    const html = statusPageHtml({
+      kind: 'start-failed',
+      message: 'settings.json: unexpected token <at line 3>',
+      logPath: '/h/logs/desktop.log',
+    });
+    expect(html).toContain('Monsters couldn’t start');
+    expect(html).toContain('data-status="start-failed"');
+    // The core's message is on the page (escaped), the log path behind "Details".
+    expect(html).toContain('settings.json: unexpected token &#60;at line 3&#62;');
+    expect(html).toContain('The log is at /h/logs/desktop.log');
+    expect(html).toContain('id="retry"');
+    expect(html).toContain('data-action="open-log"');
+    expect(html).toContain('data-action="connections"');
+    expect(html).not.toContain('already running');
+    expect(statusPageHtml({ kind: 'start-failed', message: '', logPath: '/l' })).toContain(
+      'id="retry"',
+    );
+  });
+
+  it('a start the core refused: its words, the log, "Try again"; not the "already running" page', () => {
+    const html = statusPageHtml({
+      kind: 'start-failed',
+      message: 'settings.json: unexpected token <at line 3>',
+      logPath: '/h/logs/desktop.log',
+    });
+    expect(html).toContain('Monsters couldn’t start');
+    expect(html).toContain('data-status="start-failed"');
+    // The core's message is on the page (escaped), the log path behind "Details".
+    expect(html).toContain('settings.json: unexpected token &#60;at line 3&#62;');
+    expect(html).toContain('The log is at /h/logs/desktop.log');
+    expect(html).toContain('id="retry"');
+    expect(html).toContain('data-action="open-log"');
+    expect(html).toContain('data-action="connections"');
+    expect(html).not.toContain('already running');
+    expect(statusPageHtml({ kind: 'start-failed', message: '', logPath: '/l' })).toContain(
+      'id="retry"',
+    );
+  });
+
   it('no developer commands in a packaged app, no "engine" anywhere', () => {
     const packaged = statusPageHtml({ kind: 'missing', path: '/opt/m/core.js', dev: false });
     expect(packaged).not.toContain('pnpm');

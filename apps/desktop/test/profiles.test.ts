@@ -134,6 +134,56 @@ describe('profile store', () => {
     expect(new ProfileStore(path).list()).toHaveLength(1);
   });
 
+  it('remembers the port of the core between runs, ignores a value that is not a port', () => {
+    const path = storePath();
+    const store = new ProfileStore(path);
+    expect(store.corePort).toBeNull();
+    // First start: the file does not exist yet, the port waits for the first choice.
+    store.setCorePort(51234);
+    expect(store.corePort).toBe(51234);
+    expect(new ProfileStore(path).corePort).toBeNull();
+    store.setLast(LOCAL_CHOICE);
+    expect(new ProfileStore(path).corePort).toBe(51234);
+    // A new port (the old one was taken) replaces it; the same one writes nothing.
+    store.setCorePort(52000);
+    expect(new ProfileStore(path).corePort).toBe(52000);
+    for (const bad of [0, 80, 70000, 5.5, '4747', null]) {
+      expect(parseConnectionsFile(JSON.stringify({ version: 1, corePort: bad })).corePort).toBe(
+        undefined,
+      );
+    }
+    // Other changes do not lose it.
+    const other = new ProfileStore(path);
+    other.setTheme('dark');
+    other.save({ name: 'Casa', host: 'casa.local' });
+    expect(new ProfileStore(path).corePort).toBe(52000);
+  });
+
+  it('remembers the port of the core between runs, ignores a value that is not a port', () => {
+    const path = storePath();
+    const store = new ProfileStore(path);
+    expect(store.corePort).toBeNull();
+    // First start: the file does not exist yet, the port waits for the first choice.
+    store.setCorePort(51234);
+    expect(store.corePort).toBe(51234);
+    expect(new ProfileStore(path).corePort).toBeNull();
+    store.setLast(LOCAL_CHOICE);
+    expect(new ProfileStore(path).corePort).toBe(51234);
+    // A new port (the old one was taken) replaces it.
+    store.setCorePort(52000);
+    expect(new ProfileStore(path).corePort).toBe(52000);
+    for (const bad of [0, 80, 70000, 5.5, '4747', null]) {
+      expect(parseConnectionsFile(JSON.stringify({ version: 1, corePort: bad })).corePort).toBe(
+        undefined,
+      );
+    }
+    // Other changes do not lose it.
+    const other = new ProfileStore(path);
+    other.setTheme('dark');
+    other.save({ name: 'Casa', host: 'casa.local' });
+    expect(new ProfileStore(path).corePort).toBe(52000);
+  });
+
   it('survives a broken or tampered file: bad entries are dropped', () => {
     const path = storePath();
     writeFileSync(path, '{ not json');

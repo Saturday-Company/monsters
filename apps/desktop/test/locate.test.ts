@@ -11,7 +11,8 @@ import {
   type LocatorDeps,
 } from '../src/main/core-locator.ts';
 import { HOME_FILES, homeFile } from '../src/main/home.ts';
-import { coreChildEnv, LocalCore } from '../src/main/local-core.ts';
+import { coreArgs, coreChildEnv, CORE_TAMPERED, LocalCore } from '../src/main/local-core.ts';
+import type { StatusView } from '../src/main/status-page.ts';
 import type { CoreChild } from '../src/main/supervisor.ts';
 import { tempDir } from './helpers.ts';
 
@@ -20,6 +21,7 @@ function fakeDeps(files: Record<string, string>, opts: Partial<LocatorDeps> = {}
   return {
     readFile: (p) => files[p.split(/[\\/]/).pop()!] ?? null,
     isAlive: () => true,
+    isStale: () => false,
     health: () => Promise.resolve(true),
     sleep: (ms) => {
       t += ms;
@@ -52,6 +54,36 @@ describe('core locator', () => {
     );
     expect(await locateOnce('/h', dead)).toEqual({ kind: 'start' });
     expect(await locateOnce('/h', fakeDeps({ 'core.lock': 'garbage' }))).toEqual({ kind: 'start' });
+  });
+
+  it('starts when the lock is stale: a pid reused after a crash or a restart is no core to wait for', async () => {
+    const stale = vi.fn(() => true);
+    const files = { 'core.lock': lock(7), 'server.json': server(7) };
+    // The holder does not answer and is not the process that took the lock: start at once.
+    const unanswered = fakeDeps(files, { health: () => Promise.resolve(false), isStale: stale });
+    expect(await locateOnce('/h', unanswered)).toEqual({ kind: 'start' });
+    expect(stale).toHaveBeenCalledWith({ pid: 7, start: 1, boot: null, acquiredAt: 1 });
+    // Also when server.json is not there (it is removed by a clean stop, a crash may leave none).
+    expect(await locateOnce('/h', fakeDeps({ 'core.lock': lock(7) }, { isStale: stale }))).toEqual({
+      kind: 'start',
+    });
+    // The boot id of the lock reaches the check.
+    const withBoot = vi.fn(() => false);
+    await locateOnce(
+      '/h',
+      fakeDeps(
+        { 'core.lock': JSON.stringify({ pid: 7, start: 1, boot: 'b-1', acquiredAt: 9 }) },
+        { isStale: withBoot },
+      ),
+    );
+    expect(withBoot).toHaveBeenCalledWith({ pid: 7, start: 1, boot: 'b-1', acquiredAt: 9 });
+  });
+
+  it('a core that answers is attached to without asking whether its lock is stale', async () => {
+    const stale = vi.fn(() => true);
+    const deps = fakeDeps({ 'core.lock': lock(7), 'server.json': server(7) }, { isStale: stale });
+    expect((await locateOnce('/h', deps)).kind).toBe('attach');
+    expect(stale).not.toHaveBeenCalled();
   });
 
   it('attaches to a live core that answers', async () => {
@@ -114,6 +146,7 @@ describe('core locator', () => {
         ...systemLocatorDeps(fetchImpl),
         readFile: (p) => f[p.split(/[\\/]/).pop()!] ?? null,
         isAlive: () => true,
+        isStale: () => false,
       });
     expect(await via(answers(KEY))).toMatchObject({ kind: 'attach', pid: 7 });
     // A process on the port that answers `ok` without the proof, or with another key.
@@ -128,12 +161,21 @@ describe('core locator', () => {
   it('reads real files and pids', async () => {
     const home = tempDir();
     mkdirSync(home, { recursive: true });
-    writeFileSync(join(home, 'core.lock'), lock(process.pid));
+    // Taken by this very process, as a core does (a lock of the core itself is never stale).
+    writeFileSync(
+      join(home, 'core.lock'),
+      JSON.stringify({ pid: process.pid, start: null, boot: null, acquiredAt: Date.now() }),
+    );
     const deps = {
       ...systemLocatorDeps(() => Promise.reject(new Error('down'))),
       sleep: () => Promise.resolve(),
     };
     expect(await locateOnce(home, deps)).toEqual({ kind: 'wait', reason: 'starting' });
+    // Our pid, but not the start time the lock says (a pid reused after a crash): no core to wait for.
+    if (process.platform === 'linux') {
+      writeFileSync(join(home, 'core.lock'), lock(process.pid));
+      expect(await locateOnce(home, deps)).toEqual({ kind: 'start' });
+    }
     writeFileSync(join(home, 'core.lock'), lock(2 ** 30));
     expect(await locateOnce(home, deps)).toEqual({ kind: 'start' });
   });
@@ -210,6 +252,183 @@ describe('local core: attach or start', () => {
     lc.on('down', (v) => views.push(v));
     await lc.connect();
     expect(views).toEqual([{ kind: 'missing', path: '/bundle/monsters.js', dev: false }]);
+  });
+});
+
+describe('local core: the core the app starts', () => {
+  const ready = (child: Child, port = 9) => {
+    for (const l of child.messages)
+      l({
+        type: 'ready',
+        url: `http://127.0.0.1:${port}`,
+        port,
+        home: '/h',
+        pid: 42,
+        version: '0',
+        setupCode: null,
+      });
+  };
+  const startFailed = (child: Child, code: string, message: string) => {
+    for (const l of child.messages) l({ type: 'start-failed', code, message });
+    for (const l of child.exits) l(1);
+  };
+  const create = (
+    spawn: () => CoreChild,
+    extra: Partial<ConstructorParameters<typeof LocalCore>[0]> = {},
+  ) =>
+    new LocalCore({
+      home: '/h',
+      coreEntry: '/bundle/monsters.js',
+      spawn,
+      locator: fakeDeps({}),
+      fileExists: () => true,
+      logPath: '/h/logs/desktop.log',
+      locate: { waitMs: 0 },
+      ...extra,
+      // Never a real SIGKILL to the pid of a fake child.
+      supervisor: { forceKill: () => {}, ...extra.supervisor },
+    });
+
+  it('asks for the port it had, and any free one the first time', () => {
+    expect(coreArgs('/h', null)).toEqual(['start', '--home', '/h', '--port', '0']);
+    expect(coreArgs('/h', 51234)).toEqual(['start', '--home', '/h', '--prefer-port', '51234']);
+  });
+
+  it('tells which port the core listens on, to ask for it again next time', async () => {
+    const child = new Child();
+    const remembered: number[] = [];
+    const lc = create(() => child, { rememberPort: (p) => remembered.push(p) });
+    await lc.connect();
+    expect(remembered).toEqual([]);
+    ready(child, 51234);
+    expect(remembered).toEqual([51234]);
+  });
+
+  it('a start the core reports as failed is final: its words and the log, no retries', async () => {
+    const children: Child[] = [];
+    const spawn = vi.fn(() => {
+      const c = new Child();
+      children.push(c);
+      return c;
+    });
+    const lc = create(spawn);
+    const views: StatusView[] = [];
+    lc.on('down', (v) => views.push(v));
+    await lc.connect();
+    startFailed(children[0]!, 'ERR_BAD_SETTINGS', '  settings.json: unexpected token at line 3 ');
+    expect(spawn).toHaveBeenCalledTimes(1);
+    expect(views.at(-1)).toEqual({
+      kind: 'start-failed',
+      message: 'settings.json: unexpected token at line 3',
+      logPath: '/h/logs/desktop.log',
+    });
+    expect(lc.supervisor.state).toBe('failed');
+    // "Try again" starts it once more.
+    lc.retry();
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(2));
+  });
+
+  it('a core refused by the integrity check keeps its own view; a locked home is still "locked"', async () => {
+    const check = vi.fn(() => Promise.resolve({ code: CORE_TAMPERED, message: 'a file changed' }));
+    const tampered = create(() => new Child(), { supervisor: { check } });
+    const views: StatusView[] = [];
+    tampered.on('down', (v) => views.push(v));
+    await tampered.connect();
+    await vi.waitFor(() => expect(views.at(-1)?.kind).toBe('tampered'));
+
+    const children: Child[] = [];
+    const locked = create(() => {
+      const c = new Child();
+      children.push(c);
+      return c;
+    });
+    const lockedViews: StatusView[] = [];
+    locked.on('down', (v) => lockedViews.push(v));
+    await locked.connect();
+    // Someone else holds the directory: the app looks again (twice), then says so.
+    for (let i = 0; i < 3; i++) {
+      await vi.waitFor(() => expect(children).toHaveLength(i + 1));
+      startFailed(children[i]!, 'home_locked', 'x');
+    }
+    await vi.waitFor(() => expect(lockedViews.at(-1)).toEqual({ kind: 'locked', home: '/h' }));
+  });
+
+  /** The app quits: the core is asked to stop and does. */
+  const quit = async (lc: LocalCore, child: Child) => {
+    const done = lc.shutdown();
+    for (const l of child.exits) l(0);
+    await done;
+  };
+
+  describe('a core that stops answering', () => {
+    const wedged = async (health: LocatorDeps['health']) => {
+      vi.useFakeTimers();
+      const child = new Child();
+      const kill = vi.spyOn(child, 'kill');
+      const lc = create(() => child, {
+        locator: fakeDeps({ 'server.json': server(42) }, { health }),
+        ownedMonitor: { intervalMs: 1000, failures: 3 },
+      });
+      const views: StatusView[] = [];
+      lc.on('down', (v) => views.push(v));
+      await lc.connect();
+      ready(child, 4747);
+      return { child, kill, lc, views };
+    };
+
+    it('is terminated after N failed checks, then restarted by the crash path', async () => {
+      try {
+        const { child, kill, lc, views } = await wedged(() => Promise.resolve(false));
+        await vi.advanceTimersByTimeAsync(2000);
+        expect(kill).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(kill).toHaveBeenCalledTimes(1);
+        // The process goes away: an unexpected exit, so a restart is scheduled.
+        for (const l of child.exits) l(1);
+        expect(views.at(-1)).toMatchObject({ kind: 'restarting', attempt: 1 });
+        await lc.shutdown();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('one answer in between starts the count again; a core that answers is left alone', async () => {
+      try {
+        const answers = [false, false, true, false, false, true];
+        let i = 0;
+        const { child, kill, lc } = await wedged(() =>
+          Promise.resolve(answers[i++ % answers.length]!),
+        );
+        await vi.advanceTimersByTimeAsync(20_000);
+        expect(kill).not.toHaveBeenCalled();
+        await quit(lc, child);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('is not judged without the key of server.json, and not after the app quits', async () => {
+      vi.useFakeTimers();
+      try {
+        const health = vi.fn(() => Promise.resolve(false));
+        const child = new Child();
+        const kill = vi.spyOn(child, 'kill');
+        const lc = create(() => child, {
+          locator: fakeDeps({}, { health }),
+          ownedMonitor: { intervalMs: 1000, failures: 2 },
+        });
+        await lc.connect();
+        ready(child);
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(health).not.toHaveBeenCalled();
+        expect(kill).not.toHaveBeenCalled();
+        await quit(lc, child);
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(health).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });
 

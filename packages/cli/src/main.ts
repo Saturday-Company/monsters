@@ -97,6 +97,8 @@ Commands:
 Options:
   --home <dir>            Data directory (default: $MONSTERS_HOME or ~/.monsters)
   --port <n>              Port of the core (default: ${DEFAULT_PORT})
+  --prefer-port <n>       Try this port first; if it is taken, take any free one (start only;
+                          the desktop app uses it to keep the same address between launches)
   --host <addr>           Address to bind (start only, default: ${DEFAULT_HOST})
   --allow-non-loopback    Allow binding to a non-loopback address (start only)
   --dev                   Also trust the web UI dev server on port 5173 (start only;
@@ -114,6 +116,7 @@ Options:
 const OPTIONS = {
   home: { type: 'string' },
   port: { type: 'string' },
+  'prefer-port': { type: 'string' },
   host: { type: 'string' },
   'allow-non-loopback': { type: 'boolean' },
   dev: { type: 'boolean' },
@@ -299,8 +302,17 @@ async function cmdStart(values: Values, io: Io, signal?: AbortSignal): Promise<n
   const starting = new AbortController();
   let onStop: () => void = () => starting.abort();
   const requestStop = () => onStop();
+  // SIGHUP: the terminal or the SSH session that started the core went away. A stop like SIGTERM,
+  // but only once: a second signal (Ctrl+C twice) is what forces the exit, not a repeated hang-up.
+  let hungUp = false;
+  const onHangup = () => {
+    if (hungUp) return;
+    hungUp = true;
+    requestStop();
+  };
   process.on('SIGINT', requestStop);
   process.on('SIGTERM', requestStop);
+  process.on('SIGHUP', onHangup);
   signal?.addEventListener('abort', requestStop, { once: true });
   if (signal?.aborted) requestStop();
   const earlyStop = (event: { data: unknown }) => {
@@ -310,6 +322,7 @@ async function cmdStart(values: Values, io: Io, signal?: AbortSignal): Promise<n
   const cleanup = () => {
     process.off('SIGINT', requestStop);
     process.off('SIGTERM', requestStop);
+    process.off('SIGHUP', onHangup);
     signal?.removeEventListener('abort', requestStop);
     desktop?.off('message', earlyStop);
   };
@@ -326,10 +339,10 @@ async function cmdStart(values: Values, io: Io, signal?: AbortSignal): Promise<n
   const prepared = await prepareCoreProcess();
   if (starting.signal.aborted) return stoppedWhileStarting();
   let core: Awaited<ReturnType<typeof startCore>>;
-  try {
-    core = await startCore({
+  const startOn = (port: number | undefined) =>
+    startCore({
       home: values.home,
-      port: parsePort(values.port),
+      port,
       host: values.host,
       allowNonLoopback: values['allow-non-loopback'] ?? false,
       dev: values.dev,
@@ -341,6 +354,23 @@ async function cmdStart(values: Values, io: Io, signal?: AbortSignal): Promise<n
         },
       },
     });
+  try {
+    const preferred = parsePort(values['prefer-port']);
+    if (preferred === undefined) {
+      core = await startOn(parsePort(values.port));
+    } else {
+      try {
+        core = await startOn(preferred);
+      } catch (err) {
+        // Taken by someone else: any free port rather than no core (the failed start has
+        // released the lock and everything else it had opened).
+        if ((err as NodeJS.ErrnoException).code !== 'EADDRINUSE' || starting.signal.aborted) {
+          throw err;
+        }
+        io.out(`Port ${preferred} is in use, taking a free one.`);
+        core = await startOn(0);
+      }
+    }
   } catch (err) {
     if (starting.signal.aborted) return stoppedWhileStarting();
     cleanup();

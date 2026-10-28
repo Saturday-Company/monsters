@@ -64,6 +64,7 @@ describe('M3.6 review: quitting', () => {
             ? JSON.stringify({ pid: 7, url: 'http://127.0.0.1:4747' })
             : null,
       isAlive: () => true,
+      isStale: () => false,
       // A CLI core holds the lock but does not answer (stopped with SIGSTOP, swapping…).
       health: () => Promise.resolve(false),
       sleep: () => {

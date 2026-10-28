@@ -14,6 +14,9 @@ import { CoreSupervisor, type SpawnCore, type SupervisorOptions } from './superv
  * tunnel) and reuses the window, the session and the login handoff unchanged.
  */
 
+/** Longest message of a failed start shown in the window (the full one is in the log). */
+const START_FAILED_MESSAGE_MAX = 600;
+
 /** The `start-failed` code of a core whose files are not those of the package (S-M9). */
 export const CORE_TAMPERED = 'core_tampered';
 
@@ -69,6 +72,22 @@ export function coreChildEnv(
   return out;
 }
 
+/**
+ * Arguments of `monsters start` for the core the app starts. A port the core used before is asked
+ * for again (`--prefer-port`: if it is taken the core takes any free one), so the window's origin
+ * is the same at every launch and what the web UI keeps for it (localStorage: drafts, messages
+ * held while the kill switch is on, preferences) survives a restart or an update. The first time
+ * any free port (`--port 0`).
+ */
+export function coreArgs(home: string, preferredPort: number | null): string[] {
+  return [
+    'start',
+    '--home',
+    home,
+    ...(preferredPort === null ? ['--port', '0'] : ['--prefer-port', String(preferredPort)]),
+  ];
+}
+
 export interface LocalCoreEvents {
   /** A core is ready (first time, after a restart, after re-attaching). */
   target: [CoreTarget];
@@ -86,11 +105,20 @@ export interface LocalCoreDeps {
   fetch?: typeof fetch;
   log?: (line: string) => void;
   logPath: string;
+  /** Told the port the app's own core listens on (to ask for it again next time). */
+  rememberPort?(port: number): void;
   /** Run from the sources (not packaged): a missing bundle comes from `pnpm build:core`. */
   dev?: boolean;
   supervisor?: Omit<SupervisorOptions, 'log'>;
   /** Health polling of an attached core. */
   monitor?: { intervalMs?: number; failures?: number };
+  /**
+   * Health polling of the core the app started: one that stops answering (wedged event loop, a
+   * deadlock) is terminated and restarted like one that crashed. Slower and more patient than the
+   * attached one (default: 6 failed checks 10 s apart, a minute without any answer): ending a
+   * core that is only busy would lose its work.
+   */
+  ownedMonitor?: { intervalMs?: number; failures?: number };
   locate?: { waitMs?: number; pollMs?: number };
 }
 
@@ -112,17 +140,22 @@ export class LocalCore extends EventEmitter<LocalCoreEvents> {
     this.supervisor = new CoreSupervisor(deps.spawn, { ...deps.supervisor, log: this.#log });
     this.supervisor.on('ready', (info) => {
       this.#lockedRetries = 0;
+      this.#d.rememberPort?.(info.port);
       this.#setTarget(this.#ownedTarget(info.url));
+      this.#startOwnedMonitor(info.url);
     });
     this.supervisor.on('crash', (c) => {
+      this.#stopMonitor();
       this.#target = null;
       this.emit('down', { kind: 'restarting', ...c });
     });
     this.supervisor.on('failed', () => {
+      this.#stopMonitor();
       this.#target = null;
       this.emit('down', { kind: 'failed', logPath: deps.logPath });
     });
     this.supervisor.on('start-failed', ({ code, message }) => {
+      this.#stopMonitor();
       this.#target = null;
       // resources/core is not the one of the package (S-M9): the core does not start.
       if (code === CORE_TAMPERED) {
@@ -134,7 +167,17 @@ export class LocalCore extends EventEmitter<LocalCoreEvents> {
         void this.connect();
         return;
       }
-      this.emit('down', { kind: 'locked', home: deps.home });
+      if (code === 'home_locked') {
+        this.emit('down', { kind: 'locked', home: deps.home });
+        return;
+      }
+      // Whatever else the core reported (a bad settings.json, a migration that failed…): it
+      // would fail the same way again, so say why instead of retrying.
+      this.emit('down', {
+        kind: 'start-failed',
+        message: message.trim().slice(0, START_FAILED_MESSAGE_MAX),
+        logPath: deps.logPath,
+      });
     });
   }
 
@@ -220,23 +263,46 @@ export class LocalCore extends EventEmitter<LocalCoreEvents> {
   }
 
   #startMonitor(url: string): void {
-    const intervalMs = this.#d.monitor?.intervalMs ?? 5000;
-    const maxFailures = this.#d.monitor?.failures ?? 3;
+    this.#poll(url, this.#d.monitor, { intervalMs: 5000, failures: 3 }, () => {
+      // The core started from the terminal went away: find (or start) another one.
+      this.#log(`attached core at ${url} stopped answering`);
+      this.#target = null;
+      this.#stopMonitor();
+      void this.connect();
+    });
+  }
+
+  /** Watches the core the app started: if it stops answering, ends it and lets the restart policy act. */
+  #startOwnedMonitor(url: string): void {
+    this.#stopMonitor();
+    this.#poll(url, this.#d.ownedMonitor, { intervalMs: 10_000, failures: 6 }, () => {
+      this.#log(`own core at ${url} stopped answering`);
+      this.#stopMonitor();
+      this.supervisor.terminateUnresponsive();
+    });
+  }
+
+  #poll(
+    url: string,
+    given: { intervalMs?: number; failures?: number } | undefined,
+    defaults: { intervalMs: number; failures: number },
+    onDead: () => void,
+  ): void {
+    const intervalMs = given?.intervalMs ?? defaults.intervalMs;
+    const maxFailures = given?.failures ?? defaults.failures;
     let failures = 0;
     let checking = false;
     this.#monitor = setInterval(() => {
       if (checking) return;
       checking = true;
-      void this.#d.locator
-        .health(url, readProofKey(this.#d.home, this.#d.locator))
+      const proofKey = readProofKey(this.#d.home, this.#d.locator);
+      // Without the key of server.json there is no way to tell: neither an answer nor a failure.
+      void (proofKey === null ? Promise.resolve(null) : this.#d.locator.health(url, proofKey))
         .then((ok) => {
+          if (ok === null) return;
           failures = ok ? 0 : failures + 1;
           if (failures < maxFailures || this.#closed) return;
-          // The core started from the terminal went away: find (or start) another one.
-          this.#log(`attached core at ${url} stopped answering`);
-          this.#target = null;
-          this.#stopMonitor();
-          void this.connect();
+          onDead();
         })
         .finally(() => {
           checking = false;

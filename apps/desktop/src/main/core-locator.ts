@@ -1,4 +1,10 @@
-import { checkTunnelProof, newTunnelProofNonce } from '@monsters/shared/node';
+import {
+  checkTunnelProof,
+  holderIsStale,
+  newTunnelProofNonce,
+  systemHolderProbes,
+  type LockHolder,
+} from '@monsters/shared/node';
 import { homeFile, readTextFile } from './home.ts';
 
 /*
@@ -15,6 +21,12 @@ export interface LocatorDeps {
   readFile(path: string): string | null;
   /** True if a process with this pid exists (even if owned by another user). */
   isAlive(pid: number): boolean;
+  /**
+   * True if the lock was left by a core that is gone and its pid now belongs to another process
+   * (or the computer restarted since): the same judgment the core makes before it takes the lock
+   * over. Only asked of a lock whose core does not answer.
+   */
+  isStale(holder: LockHolder): boolean;
   /** True if the Monsters core of this data directory answers at this URL (proof for `proofKey`). */
   health(url: string, proofKey: string | null): Promise<boolean>;
   sleep(ms: number): Promise<void>;
@@ -47,11 +59,17 @@ export function isLocalCoreUrl(raw: string): boolean {
   return ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
 }
 
-function parsePid(text: string | null): number | null {
+function parseLock(text: string | null): LockHolder | null {
   if (!text) return null;
   try {
-    const pid = (JSON.parse(text) as { pid?: unknown }).pid;
-    return typeof pid === 'number' && Number.isInteger(pid) && pid > 0 ? pid : null;
+    const l = JSON.parse(text) as Partial<Record<keyof LockHolder, unknown>>;
+    if (typeof l.pid !== 'number' || !Number.isInteger(l.pid) || l.pid <= 0) return null;
+    return {
+      pid: l.pid,
+      start: typeof l.start === 'number' ? l.start : null,
+      boot: typeof l.boot === 'string' && l.boot ? l.boot : null,
+      acquiredAt: typeof l.acquiredAt === 'number' ? l.acquiredAt : 0,
+    };
   } catch {
     return null;
   }
@@ -79,13 +97,17 @@ export function readProofKey(home: string, deps: Pick<LocatorDeps, 'readFile'>):
 }
 
 export async function locateOnce(home: string, deps: LocatorDeps): Promise<LocateOnce> {
-  const lockPid = parsePid(deps.readFile(homeFile(home, 'lock')));
-  if (lockPid === null || !deps.isAlive(lockPid)) return { kind: 'start' };
+  const lock = parseLock(deps.readFile(homeFile(home, 'lock')));
+  if (lock === null || !deps.isAlive(lock.pid)) return { kind: 'start' };
   const info = parseServerInfo(deps.readFile(homeFile(home, 'serverInfo')));
+  if (info && info.pid === lock.pid && (await deps.health(info.url, info.proofKey))) {
+    return { kind: 'attach', url: info.url, pid: lock.pid };
+  }
+  // Nobody answers. A crash or a restart of the computer leaves the lock behind and the pid may
+  // since belong to another process (macOS and Windows reuse them quickly): not a core to wait for.
+  if (deps.isStale(lock)) return { kind: 'start' };
   // Lock taken, server.json not written yet (or left by an older core): it is starting.
-  if (!info || info.pid !== lockPid) return { kind: 'wait', reason: 'starting' };
-  if (await deps.health(info.url, info.proofKey))
-    return { kind: 'attach', url: info.url, pid: lockPid };
+  if (!info || info.pid !== lock.pid) return { kind: 'wait', reason: 'starting' };
   return { kind: 'wait', reason: 'not_responding' };
 }
 
@@ -120,8 +142,9 @@ export async function locateCore(
   }
 }
 
-/** Real dependencies: files, `kill(pid, 0)`, `GET /api/health`. */
+/** Real dependencies: files, `kill(pid, 0)`, the lock's holder, `GET /api/health`. */
 export function systemLocatorDeps(fetchImpl: typeof fetch = fetch): LocatorDeps {
+  const probes = systemHolderProbes();
   return {
     readFile: readTextFile,
     isAlive(pid) {
@@ -132,6 +155,7 @@ export function systemLocatorDeps(fetchImpl: typeof fetch = fetch): LocatorDeps 
         return (err as NodeJS.ErrnoException).code === 'EPERM';
       }
     },
+    isStale: (holder) => holderIsStale(holder, probes),
     async health(url, proofKey) {
       if (proofKey === null) return false;
       try {
