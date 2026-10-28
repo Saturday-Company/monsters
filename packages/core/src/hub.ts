@@ -433,6 +433,8 @@ export interface Hub {
     telegram?: TelegramOrigin | undefined;
     /** Through the CLI token (review of 18/10, M1): see `Dispatcher.send`. */
     notOwner?: boolean | undefined;
+    /** The sender's id for the message (D-217): see `Dispatcher.send`. */
+    clientId?: string | undefined;
   }): ReturnType<Dispatcher['send']>;
   /**
    * "Stop" in one monster's chat (F-1): its work stops, not the kill switch. Throws

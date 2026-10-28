@@ -2,7 +2,7 @@ import { dotPalette } from '@monsters/monster-kit';
 import { TelegramLogo } from '@phosphor-icons/react';
 import { useContext, useMemo, type ReactNode } from 'react';
 import { cn, formatTime } from '../../lib/utils.ts';
-import { dropHeld, useApp } from '../../store/app.ts';
+import { dropHeld, flushHeld, useApp } from '../../store/app.ts';
 import { capitalize, telegramWhere, type ChatItem } from '../../store/derive.ts';
 import { useAgent, useResolvedTheme } from '../../store/hooks.ts';
 import type { TurnAttachment } from '../../store/turn.ts';
@@ -229,6 +229,7 @@ export function UserBubble({ item }: { item: Extract<ChatItem, { kind: 'user' }>
   const files = item.attachments ?? [];
   const queued = useContext(QueuedContext).has(item.id);
   const tools = useUserTools(item.id, item.text, item.attachments, item.pending === true);
+  const halted = useApp((st) => st.halted);
   return (
     <div className="flex flex-col items-end pl-12 sm:pl-24">
       <span className="sr-only">{s.you(formatTime(item.ts))}</span>
@@ -262,7 +263,21 @@ export function UserBubble({ item }: { item: Extract<ChatItem, { kind: 'user' }>
       )}
       {item.held ? (
         <p className="mt-1.5 pr-1 text-caption text-ink-muted" data-testid="held-note">
-          {s.heldBefore}
+          {item.failed && !halted ? (
+            <>
+              {s.notSent}
+              <button
+                type="button"
+                onClick={() => void flushHeld()}
+                className="font-medium text-signal-ink hover:underline"
+              >
+                {s.sendNow}
+              </button>
+              {' · '}
+            </>
+          ) : (
+            s.heldBefore
+          )}
           <button
             type="button"
             onClick={() => dropHeld(item.id)}

@@ -281,6 +281,13 @@ export const SendMessageRequestSchema = z
     resumeOf: z.string().min(1).max(128).optional(),
     /** Ids of files uploaded with `POST /api/files` (files.ts); the text may then be empty. */
     attachments: z.array(z.string().min(1).max(64)).max(MESSAGE_MAX_ATTACHMENTS).optional(),
+    /**
+     * The sender's own id for this message (the UI's pending bubble, D-217): logged on the
+     * `message` event, so the sender recognises its copy whatever the text. A second request with
+     * the same id (a retry after a lost answer, another tab) is not logged again: the core answers
+     * as it did the first time.
+     */
+    clientId: z.string().min(1).max(64).optional(),
   })
   .refine((m) => m.resumeOf !== undefined || m.text.length <= MESSAGE_MAX_CHARS, {
     message: `Too big: expected string to have <=${MESSAGE_MAX_CHARS} characters`,
@@ -300,6 +307,8 @@ export const SendMessageResponseSchema = z.object({
   queued: z.boolean().optional(),
   /** Id of the blocking question the message answered (the agent was waiting for it). */
   answered: z.string().optional(),
+  /** The `message` event logged for it. */
+  messageId: z.string().optional(),
 });
 export type SendMessageResponse = z.infer<typeof SendMessageResponseSchema>;
 

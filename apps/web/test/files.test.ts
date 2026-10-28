@@ -100,7 +100,7 @@ describe('files in the chat', () => {
       agent: 'user',
       runId: 'r1',
       type: 'message',
-      data: { role: 'user', text: '', to: 'dione', attachments: ['f1'] },
+      data: { role: 'user', text: '', to: 'dione', attachments: ['f1'], clientId: 'p1' },
     });
     const items = buildChat(
       [sent],

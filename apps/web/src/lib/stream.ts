@@ -1,4 +1,9 @@
-import { STREAM_HEARTBEAT_MS, StreamMessageSchema, type LogEvent } from '@monsters/shared';
+import {
+  STREAM_HEARTBEAT_MS,
+  StreamMessageSchema,
+  ULID_REGEX,
+  type LogEvent,
+} from '@monsters/shared';
 import { parseEvents } from './api.ts';
 import type { SocketLike, Transport } from './transport.ts';
 
@@ -7,6 +12,12 @@ export type ConnectionState = 'idle' | 'connecting' | 'open' | 'reconnecting' | 
 export interface StreamHandlers {
   onHello(halted: boolean): void;
   onEvent(event: LogEvent): void;
+  /**
+   * The events the core replayed after the cursor, in one batch once the replay is done (or the
+   * socket closed during it): thousands after a long time away would be as many renders one by
+   * one. Without it they go to `onEvent`, one by one.
+   */
+  onReplay?(events: LogEvent[]): void;
   onState(state: ConnectionState): void;
   /** The core closed the stream because the session is no longer valid. */
   onUnauthorized(): void;
@@ -25,6 +36,9 @@ export interface StreamOptions {
   maxDelayMs?: number;
   random?: () => number;
 }
+
+/** A cursor before every event id (ULIDs sort by time): the core replays its whole log. */
+export const LOG_START = '0'.repeat(26);
 
 /** Codes the core uses to end a stream for auth reasons (see core/server/stream.ts). */
 const AUTH_CLOSE_CODES = new Set([4401, 1008]);
@@ -57,6 +71,8 @@ export class StreamClient {
   /** The core sends the application heartbeat: an older one does not, and its silence is normal. */
   private heartbeats = false;
   private troubleAt: number | null = null;
+  /** The replay of this socket (it was opened with a cursor) until `replay_done`: its events. */
+  private replay: LogEvent[] | null = null;
   private readonly transport: Transport;
   private readonly handlers: StreamHandlers;
   private readonly opts: StreamOptions;
@@ -96,8 +112,26 @@ export class StreamClient {
     this.open();
   }
 
+  /** Hands over the events of the replay gathered so far. */
+  private endReplay(): void {
+    const events = this.replay;
+    this.replay = null;
+    if (!events?.length) return;
+    if (this.handlers.onReplay) this.handlers.onReplay(events);
+    else for (const e of events) this.handlers.onEvent(e);
+  }
+
+  /** An event of the core: gathered while the replay lasts, else handed over at once. */
+  private deliver(e: LogEvent): void {
+    if (this.replay) this.replay.push(e);
+    else this.handlers.onEvent(e);
+  }
+
   /** Lets go of the current socket without its handlers firing, and of its watchdog. */
   private discard(code: number, reason: string): void {
+    // What the replay brought before the socket went is real: it is not lost with the socket.
+    if (this.stopped) this.replay = null;
+    else this.endReplay();
     if (this.watchdog) clearTimeout(this.watchdog);
     this.watchdog = null;
     this.opened = false;
@@ -187,6 +221,8 @@ export class StreamClient {
       return;
     }
     this.socket = socket;
+    // The core replays (and ends with `replay_done`) only after a cursor it takes for an id.
+    this.replay = after && ULID_REGEX.test(after) ? [] : null;
     socket.onopen = () => {
       this.attempt = 0;
       this.troubleAt = null;
@@ -209,8 +245,7 @@ export class StreamClient {
       if (!msg.success) {
         // A newer event type the UI does not know yet: try the event alone.
         const raw = (json as { kind?: unknown; event?: unknown } | null) ?? null;
-        if (raw?.kind === 'event')
-          for (const e of parseEvents([raw.event])) this.handlers.onEvent(e);
+        if (raw?.kind === 'event') for (const e of parseEvents([raw.event])) this.deliver(e);
         return;
       }
       const m = msg.data;
@@ -218,9 +253,10 @@ export class StreamClient {
         this.heartbeats = true;
         this.armWatchdog();
       } else if (m.kind === 'hello') this.handlers.onHello(m.halted);
+      else if (m.kind === 'replay_done') this.endReplay();
       else if (m.kind === 'event') {
         const [e] = parseEvents([m.event]);
-        if (e) this.handlers.onEvent(e);
+        if (e) this.deliver(e);
       }
     };
     socket.onerror = () => {};

@@ -917,11 +917,14 @@ export function ChatPanel({
     : `${working}`;
   // The user's own message just sent: it comes into view even when scrolled up (W-21).
   const ownSend = last?.kind === 'user' && last.pending === true ? last.id : null;
+  // Once: a message held until Resume stays last for long, and the history above stays readable.
+  const ownSendShown = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    if (ownSend) pinned.current = true;
+    if (ownSend && ownSend !== ownSendShown.current) pinned.current = true;
+    ownSendShown.current = ownSend;
     if (pinned.current) {
       el.scrollTop = el.scrollHeight;
       markAllSeen();

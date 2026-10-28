@@ -588,6 +588,8 @@ export type ChatItem =
       pending?: boolean;
       /** Written while the monsters were stopped: it goes when the user presses "Resume". */
       held?: boolean;
+      /** Held, and its last attempt failed with the monsters running (no link, a refusal). */
+      failed?: boolean;
       /** Ids of the files attached (shared/src/files.ts). */
       attachments?: string[] | undefined;
       /** The run the message started: the turn it is the request of (store/turn.ts). */
@@ -770,19 +772,46 @@ export type ChatItem =
     };
 
 export interface PendingSend {
+  /** Its own id, sent as the message's `clientId` (D-217): the core's copy carries it back. */
   tempId: string;
   text: string;
   to?: string | undefined;
   ts: number;
   /** Held in the UI while the monsters are stopped (the core refuses messages then). */
   held?: boolean | undefined;
+  /**
+   * Held, and its last attempt failed while the monsters were not stopped (no link, a refusal):
+   * it goes again when the link is back, or with "Send now".
+   */
+  failed?: boolean | undefined;
   /** Ids of the files attached. */
   attachments?: string[] | undefined;
+  /** The `message` event the core logged for it (its answer), for a core that drops `clientId`. */
+  eventId?: string | undefined;
 }
 
-/** What tells a sent message apart from the others while it waits for its event. */
-const sentKey = (text: string, attachments: readonly string[] | undefined) =>
-  attachments?.length ? `${text}\u0000${attachments.join(',')}` : text;
+/**
+ * The pending messages whose own event is among `events` (D-217): matched by the id this UI gave
+ * them, or by the event the core said it logged; never by the words, which another message (to
+ * another monster, "Di nuovo") may share.
+ */
+export function confirmedSends(
+  events: readonly LogEvent[],
+  pending: readonly PendingSend[],
+): Set<string> {
+  const out = new Set<string>();
+  if (pending.length === 0) return out;
+  const ids = new Set(pending.map((p) => p.tempId));
+  const byEvent = new Map<string, string>();
+  for (const p of pending) if (p.eventId) byEvent.set(p.eventId, p.tempId);
+  for (const e of events) {
+    if (e.type !== 'message' || e.data.role !== 'user') continue;
+    const id = e.data.clientId;
+    const own = id && ids.has(id) ? id : byEvent.get(e.id);
+    if (own) out.add(own);
+  }
+  return out;
+}
 
 /**
  * The final answer of a turn without the parts the chat already shows as
@@ -820,7 +849,6 @@ export function buildChat(
   const working = new Map<string, Extract<ChatItem, { kind: 'delegation' }>>();
   /** Text bubbles of the current turn closed by a tool call, per agent and run. */
   const closed = new Map<string, string[]>();
-  const seenUserTexts: string[] = [];
   /** The first monster at work in each run; who made each tool call (by its event id). */
   const runAgent = new Map<string, string>();
   const caller = new Map<string, string>();
@@ -900,7 +928,6 @@ export function buildChat(
             ...(d.attachments?.length ? { attachments: d.attachments } : {}),
             ...(e.runId ? { runId: e.runId } : {}),
           });
-          seenUserTexts.push(sentKey(d.text, d.attachments));
           break;
         }
         if (d.role !== 'agent' || e.parentId) break;
@@ -1199,12 +1226,10 @@ export function buildChat(
     }
   }
 
+  // The store drops a pending message when its event comes; this covers a render in between.
+  const confirmed = confirmedSends(events, pending);
   for (const p of pending) {
-    const idx = seenUserTexts.indexOf(sentKey(p.text, p.attachments));
-    if (idx >= 0) {
-      seenUserTexts.splice(idx, 1);
-      continue;
-    }
+    if (confirmed.has(p.tempId)) continue;
     items.push({
       kind: 'user',
       id: p.tempId,
@@ -1213,6 +1238,7 @@ export function buildChat(
       to: p.to,
       pending: true,
       ...(p.held ? { held: true } : {}),
+      ...(p.held && p.failed ? { failed: true } : {}),
       ...(p.attachments?.length ? { attachments: p.attachments } : {}),
     });
   }

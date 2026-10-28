@@ -12,6 +12,7 @@ import {
   applyLive,
   buildChat,
   chatSummary,
+  confirmedSends,
   chatThread,
   countMessages,
   describeEvent,
@@ -361,9 +362,45 @@ describe('buildChat', () => {
   it('shows pending sends until the core echoes them', () => {
     const pending = [{ tempId: 'p1', text: 'ehi', ts: clock }];
     expect(buildChat([], pending)[0]).toMatchObject({ kind: 'user', pending: true });
-    const echoed = [ev({ agent: 'user', type: 'message', data: { role: 'user', text: 'ehi' } })];
+    const echoed = [
+      ev({
+        agent: 'user',
+        type: 'message',
+        data: { role: 'user', text: 'ehi', clientId: 'p1' },
+      }),
+    ];
     expect(buildChat(echoed, pending)).toHaveLength(1);
     expect(buildChat(echoed, pending)[0]).not.toHaveProperty('pending');
+  });
+
+  it('matches a pending send by its own id, never by its words (D-217)', () => {
+    // The same words, earlier, to another monster and to this one: the new bubble still shows.
+    const earlier = [
+      ev({ agent: 'user', type: 'message', data: { role: 'user', text: 'ok', to: 'rhea' } }),
+      ev({ agent: 'user', type: 'message', data: { role: 'user', text: 'ok', to: 'titan' } }),
+    ];
+    const pending = [{ tempId: 'p1', text: 'ok', to: 'titan', ts: clock }];
+    const shown = buildChat(earlier, pending);
+    expect(shown).toHaveLength(3);
+    expect(shown.at(-1)).toMatchObject({ id: 'p1', pending: true });
+    // Its copy comes with its id: one bubble, the core's.
+    const copy = ev({
+      agent: 'user',
+      type: 'message',
+      data: { role: 'user', text: 'ok', to: 'titan', clientId: 'p1' },
+    });
+    expect(buildChat([...earlier, copy], pending).map((i) => i.id)).toEqual([
+      earlier[0]!.id,
+      earlier[1]!.id,
+      copy.id,
+    ]);
+    // A core that drops the id: the event it said it logged stands for it.
+    const bare = ev({ agent: 'user', type: 'message', data: { role: 'user', text: 'ok' } });
+    expect(
+      buildChat([...earlier, bare], [{ ...pending[0]!, eventId: bare.id }]).map((i) => i.id),
+    ).toEqual([earlier[0]!.id, earlier[1]!.id, bare.id]);
+    // Matched by its event, not by a later message with the same words.
+    expect(confirmedSends([bare], [{ ...pending[0]!, eventId: 'other' }]).size).toBe(0);
   });
 });
 
