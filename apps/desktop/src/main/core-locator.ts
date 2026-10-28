@@ -1,8 +1,8 @@
 import {
   checkTunnelProof,
-  holderIsStale,
+  holderIsStaleAsync,
   newTunnelProofNonce,
-  systemHolderProbes,
+  systemHolderProbesAsync,
   type LockHolder,
 } from '@monsters/shared/node';
 import { homeFile, readTextFile } from './home.ts';
@@ -24,9 +24,10 @@ export interface LocatorDeps {
   /**
    * True if the lock was left by a core that is gone and its pid now belongs to another process
    * (or the computer restarted since): the same judgment the core makes before it takes the lock
-   * over. Only asked of a lock whose core does not answer.
+   * over. Only asked of a lock whose core does not answer. Asynchronous: on Windows and macOS
+   * it starts a child process, which must not block the main thread.
    */
-  isStale(holder: LockHolder): boolean;
+  isStale(holder: LockHolder): boolean | Promise<boolean>;
   /** True if the Monsters core of this data directory answers at this URL (proof for `proofKey`). */
   health(url: string, proofKey: string | null): Promise<boolean>;
   sleep(ms: number): Promise<void>;
@@ -69,6 +70,7 @@ function parseLock(text: string | null): LockHolder | null {
       start: typeof l.start === 'number' ? l.start : null,
       boot: typeof l.boot === 'string' && l.boot ? l.boot : null,
       acquiredAt: typeof l.acquiredAt === 'number' ? l.acquiredAt : 0,
+      image: typeof l.image === 'string' && l.image ? l.image : null,
     };
   } catch {
     return null;
@@ -105,7 +107,7 @@ export async function locateOnce(home: string, deps: LocatorDeps): Promise<Locat
   }
   // Nobody answers. A crash or a restart of the computer leaves the lock behind and the pid may
   // since belong to another process (macOS and Windows reuse them quickly): not a core to wait for.
-  if (deps.isStale(lock)) return { kind: 'start' };
+  if (await deps.isStale(lock)) return { kind: 'start' };
   // Lock taken, server.json not written yet (or left by an older core): it is starting.
   if (!info || info.pid !== lock.pid) return { kind: 'wait', reason: 'starting' };
   return { kind: 'wait', reason: 'not_responding' };
@@ -144,7 +146,7 @@ export async function locateCore(
 
 /** Real dependencies: files, `kill(pid, 0)`, the lock's holder, `GET /api/health`. */
 export function systemLocatorDeps(fetchImpl: typeof fetch = fetch): LocatorDeps {
-  const probes = systemHolderProbes();
+  const probes = systemHolderProbesAsync();
   return {
     readFile: readTextFile,
     isAlive(pid) {
@@ -155,7 +157,7 @@ export function systemLocatorDeps(fetchImpl: typeof fetch = fetch): LocatorDeps 
         return (err as NodeJS.ErrnoException).code === 'EPERM';
       }
     },
-    isStale: (holder) => holderIsStale(holder, probes),
+    isStale: (holder) => holderIsStaleAsync(holder, probes),
     async health(url, proofKey) {
       if (proofKey === null) return false;
       try {

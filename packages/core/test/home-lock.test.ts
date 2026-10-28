@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  rmSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
@@ -268,6 +269,56 @@ describe('lock left behind: who holds it now', () => {
       }),
     ).toThrow(/process 303/);
     expect(readLockFile(home)).toMatchObject({ pid: 303 });
+  });
+
+  it('a lock that is gone when the takeover looks is not deleted again when the other core publishes', () => {
+    const home = tempHome();
+    written(home, { pid: 111, start: null, boot: null, acquiredAt: T0 });
+    const live = JSON.stringify({ pid: 303, start: null, boot: null, acquiredAt: T0 + 1 });
+    // Core A took the stale lock over and removed it ('entered'); core B reads: nothing there. Then
+    // A publishes its own, before B does anything about what it read ('judged').
+    expect(() =>
+      acquireHomeLock(home, {
+        pid: 201,
+        probes: probes({ alive: (pid) => pid !== 111 }),
+        onTakeover(step) {
+          if (step === 'entered') rmSync(lockFile(home));
+          else writeFileSync(lockFile(home), live);
+        },
+      }),
+    ).toThrow(/process 303/);
+    // A's lock stands; B did not remove it and did not publish over it.
+    expect(readLockFile(home)).toMatchObject({ pid: 303 });
+    expect(existsSync(`${lockFile(home)}.takeover`)).toBe(false);
+  });
+
+  it('a lock that is gone when the takeover looks is simply published', () => {
+    const home = tempHome();
+    written(home, { pid: 111, start: null, boot: null, acquiredAt: T0 });
+    const lock = acquireHomeLock(home, {
+      pid: 201,
+      probes: probes({ alive: (pid) => pid !== 111 }),
+      onTakeover: (step) => step === 'entered' && rmSync(lockFile(home)),
+    });
+    expect(readLockFile(home)).toMatchObject({ pid: 201 });
+    lock.release();
+  });
+
+  it('records the image name of the core, and a pid that now has another image is taken over', () => {
+    const home = tempHome();
+    ensureHome(home);
+    acquireHomeLock(home, { pid: 201, image: 'monsters.exe', probes: probes() }).release();
+    written(home, { pid: 4242, start: null, boot: null, acquiredAt: T0, image: 'monsters.exe' });
+    const lock = acquireHomeLock(home, {
+      pid: 201,
+      image: 'node.exe',
+      probes: {
+        ...probes(),
+        startOf: () => ({ value: T0 - 100, unit: 'ms', image: 'svchost.exe' }),
+      },
+    });
+    expect(readLockFile(home)).toMatchObject({ pid: 201, image: 'node.exe' });
+    lock.release();
   });
 
   it('a takeover abandoned by a core that died does not block the next one', () => {
