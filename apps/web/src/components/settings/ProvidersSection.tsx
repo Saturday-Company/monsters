@@ -741,10 +741,22 @@ function ChainEditor({
             disabled={links.length >= 6 || configured.length === 0}
             onClick={() => {
               const first = configured[0]!.id;
+              const at = links.length;
               setLinks((ls) => [
                 ...ls,
                 { provider: first, model: firstModel(first, models[first]) },
               ]);
+              // As in `pickProvider`: a list not loaded yet fills the new link when it arrives,
+              // or the link stays empty and the chain is never saved.
+              void needModels(first).then((loaded) => {
+                const model = firstModel(first, loaded ?? undefined);
+                if (!model) return;
+                setLinks((ls) =>
+                  ls.map((l, j) =>
+                    j === at && l.provider === first && !l.model ? { ...l, model } : l,
+                  ),
+                );
+              });
             }}
           >
             <Plus size={16} aria-hidden /> {s.addAlternative}
