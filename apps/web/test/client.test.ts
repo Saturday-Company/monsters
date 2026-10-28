@@ -83,6 +83,89 @@ describe('StreamClient', () => {
   });
 });
 
+describe('StreamClient replay (D-217)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const event = (n: number) =>
+    ({
+      id: `01JZZZZZZZZZZZZZZZZZZZZZ${String(n).padStart(2, '0')}`,
+      ts: n,
+      agent: 'titan',
+      runId: null,
+      parentId: null,
+      type: 'resume',
+      data: { by: 'ui' },
+    }) satisfies LogEvent;
+
+  function setup(cursor: () => string | undefined) {
+    const sockets: SocketLike[] = [];
+    const transport: Transport = {
+      kind: 'mock',
+      request: () => Promise.reject(new Error('unused')),
+      connect: () => {
+        const s: SocketLike = {
+          onopen: null,
+          onmessage: null,
+          onclose: null,
+          onerror: null,
+          close: () => {},
+        };
+        sockets.push(s);
+        return s;
+      },
+    };
+    const one: string[] = [];
+    const batches: string[][] = [];
+    const client = new StreamClient(
+      transport,
+      {
+        onHello: () => {},
+        onEvent: (e) => one.push(e.id),
+        onReplay: (events) => batches.push(events.map((e) => e.id)),
+        onState: () => {},
+        onUnauthorized: () => {},
+      },
+      { cursor, random: () => 0.5 },
+    );
+    const send = (i: number, msg: unknown) =>
+      sockets[i]!.onmessage?.({ data: JSON.stringify(msg) });
+    return { client, sockets, one, batches, send };
+  }
+
+  it('hands over the replay in one batch, then live events one by one', () => {
+    const t = setup(() => event(0).id);
+    t.client.start();
+    t.sockets[0]!.onopen?.();
+    t.send(0, { kind: 'hello', halted: false });
+    for (let n = 1; n <= 3; n++) t.send(0, { kind: 'event', event: event(n) });
+    expect(t.batches).toEqual([]);
+    t.send(0, { kind: 'replay_done', count: 3 });
+    expect(t.batches).toEqual([[event(1).id, event(2).id, event(3).id]]);
+    t.send(0, { kind: 'event', event: event(4) });
+    expect(t.one).toEqual([event(4).id]);
+  });
+
+  it('a socket that closes during the replay keeps what it brought', () => {
+    const t = setup(() => event(0).id);
+    t.client.start();
+    t.sockets[0]!.onopen?.();
+    t.send(0, { kind: 'event', event: event(1) });
+    t.sockets[0]!.onclose?.({ code: 1006, reason: '' });
+    expect(t.batches).toEqual([[event(1).id]]);
+    t.client.stop();
+  });
+
+  it('without a cursor there is no replay to wait for', () => {
+    const t = setup(() => undefined);
+    t.client.start();
+    t.sockets[0]!.onopen?.();
+    t.send(0, { kind: 'event', event: event(1) });
+    expect(t.one).toEqual([event(1).id]);
+    expect(t.batches).toEqual([]);
+  });
+});
+
 describe('ApiClient against the mock core', () => {
   it('runs setup with the one-time code, then login', async () => {
     const core = new MockCore({ mode: 'team', speed: 0.01 });

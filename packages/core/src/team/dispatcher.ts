@@ -168,7 +168,11 @@ interface Logged {
   from?: string | undefined;
   fromRun?: string | undefined;
   telegram?: TelegramOrigin | undefined;
+  clientId?: string | undefined;
 }
+
+/** How many senders' ids `Dispatcher.send` remembers to answer a repeated request (D-217). */
+const SENT_BY_CLIENT = 256;
 
 export class Dispatcher {
   readonly #log: EventLog;
@@ -189,6 +193,8 @@ export class Dispatcher {
    */
   readonly #deferred = new Map<string, DeferredRun[]>();
   readonly #loops = new Set<Promise<void>>();
+  /** The answers to the latest messages sent with a `clientId`, by channel and id (D-217). */
+  readonly #sentByClient = new Map<string, SendResult>();
 
   constructor(options: DispatcherOptions) {
     this.#log = options.log;
@@ -262,7 +268,28 @@ export class Dispatcher {
      * answer to a card of the brake, which only the user in person gives.
      */
     notOwner?: boolean | undefined;
+    /**
+     * The sender's id for this message (D-217), logged with it. The same id again on the same
+     * channel (a retry after an answer lost on the way, a held message sent by two tabs) gets the
+     * first answer back: the message is not logged nor run twice.
+     */
+    clientId?: string | undefined;
   }): SendResult {
+    const key = params.clientId ? `${params.channel}|${params.clientId}` : null;
+    const prior = key ? this.#sentByClient.get(key) : undefined;
+    if (prior) return prior;
+    const sent = this.#send(params);
+    if (key) {
+      this.#sentByClient.set(key, sent);
+      if (this.#sentByClient.size > SENT_BY_CLIENT) {
+        const oldest = this.#sentByClient.keys().next().value;
+        if (oldest !== undefined) this.#sentByClient.delete(oldest);
+      }
+    }
+    return sent;
+  }
+
+  #send(params: Parameters<Dispatcher['send']>[0]): SendResult {
     if (this.#runs.halted) throw new HaltedError();
     const origin = params.telegram;
     // A dedicated bot speaks for its monster only: never a leading `@Name` (D-107).
@@ -286,6 +313,7 @@ export class Dispatcher {
       from: writer?.config.id,
       fromRun: writer ? params.fromRun : undefined,
       telegram: origin,
+      clientId: params.clientId,
     };
     if (!this.#canRun(agent)) {
       throw new DispatchError('no_provider', teamStrings().noModelHint(agent.config.name));
@@ -707,7 +735,7 @@ export class Dispatcher {
   }
 
   #logMessage(to: string, runId: string, channel: Channel, m: Logged) {
-    const { text, resumeOf, attachments, from, fromRun, telegram } = m;
+    const { text, resumeOf, attachments, from, fromRun, telegram, clientId } = m;
     const event = this.#log.append({
       agent: 'user',
       runId,
@@ -722,6 +750,7 @@ export class Dispatcher {
         ...(from ? { from } : {}),
         ...(from && fromRun ? { fromRun } : {}),
         ...(telegram ? { telegram } : {}),
+        ...(clientId ? { clientId } : {}),
       },
     });
     if (attachments) this.#onAttachments(attachments, event.id, to);

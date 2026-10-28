@@ -855,7 +855,7 @@ export class MockCore {
           this.append({ agent: 'system', type: 'resume', data: { by: 'ui' } });
         }
         const continued = pending.map((r) => ({
-          runId: this.receive({ text: resumeText(r.text), to: r.agent, resumeOf: r.runId }),
+          runId: this.receive({ text: resumeText(r.text), to: r.agent, resumeOf: r.runId }).runId,
           agent: r.agent,
           resumeOf: r.runId,
         }));
@@ -894,7 +894,12 @@ export class MockCore {
             ),
           );
         }
-        return ok({ runId: this.receive(p.data) });
+        // Like the core (D-217): the same sender's id again is answered as the first time.
+        const prior = p.data.clientId ? this.sentByClient.get(p.data.clientId) : undefined;
+        if (prior) return ok(prior);
+        const sent = this.receive(p.data);
+        if (p.data.clientId) this.sentByClient.set(p.data.clientId, sent);
+        return ok(sent);
       }
       case 'POST /api/conversations': {
         const p = NewConversationRequestSchema.safeParse(body ?? {});
@@ -1360,10 +1365,16 @@ export class MockCore {
 
   /* ------------------------------------------------------------ scenarios */
 
-  private receive(req: z.infer<typeof SendMessageRequestSchema>): string {
+  /** The answers to the messages sent with a `clientId` (D-217). */
+  private sentByClient = new Map<string, { runId: string; messageId: string }>();
+
+  private receive(req: z.infer<typeof SendMessageRequestSchema>): {
+    runId: string;
+    messageId: string;
+  } {
     const runId = `run_${ulid().slice(-12).toLowerCase()}`;
     const orch = this.orchestrator.id;
-    this.append({
+    const logged = this.append({
       agent: 'user',
       runId,
       type: 'message',
@@ -1375,6 +1386,7 @@ export class MockCore {
         to: req.to && this.agents.some((a) => a.id === req.to) ? req.to : orch,
         ...(req.resumeOf ? { resumeOf: req.resumeOf } : {}),
         ...(req.attachments?.length ? { attachments: req.attachments } : {}),
+        ...(req.clientId ? { clientId: req.clientId } : {}),
       },
     });
     const target = req.to && this.agents.some((a) => a.id === req.to) ? req.to : orch;
@@ -1405,7 +1417,7 @@ export class MockCore {
     } else {
       this.mainScenario(orch, runId, req.text);
     }
-    return runId;
+    return { runId, messageId: logged.id };
   }
 
   private attachmentReply(agent: string, runId: string, count: number): void {

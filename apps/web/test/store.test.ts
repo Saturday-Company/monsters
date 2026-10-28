@@ -454,7 +454,9 @@ describe('store: undo of a note changed afterwards', () => {
     ]);
     dropHeld(useApp.getState().pending[0]!.tempId);
     ingest([ev({ agent: 'user', type: 'resume', data: { by: 'ui' } })]);
-    await vi.waitFor(() => expect(sent).toEqual([{ text: 'seconda', to: 'rhea' }]));
+    // It goes with the id of its bubble (D-217).
+    const id = useApp.getState().pending.find((p) => p.text === 'seconda')!.tempId;
+    await vi.waitFor(() => expect(sent).toEqual([{ text: 'seconda', to: 'rhea', clientId: id }]));
     expect(useApp.getState().pending.some((p) => p.held)).toBe(false);
   });
 

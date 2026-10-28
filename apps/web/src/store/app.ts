@@ -18,11 +18,11 @@ import {
 } from '@monsters/shared';
 import { create } from 'zustand';
 import { ApiClient, ApiError, describeError, type SetupBody } from '../lib/api.ts';
-import { StreamClient, type ConnectionState } from '../lib/stream.ts';
+import { LOG_START, StreamClient, type ConnectionState } from '../lib/stream.ts';
 import { desktop } from '../lib/desktop.ts';
 import { applyLang } from '../lib/i18n.ts';
 import { joinTabs, recoverSessionSecret, sessionSecret } from '../lib/session-secret.ts';
-import type { Transport } from '../lib/transport.ts';
+import { NetworkError, type Transport } from '../lib/transport.ts';
 import { automationPath, MCP_SIGN_IN_PATH, PATHS, SPEND_CAP_PATH } from '../lib/router.ts';
 import { appStrings } from './app.strings.ts';
 import { keepHeld, storedHeld, takeHeld } from './drafts.ts';
@@ -32,6 +32,7 @@ import { listsInUse, refreshDrafts, refreshProjects, resetLists } from './projec
 import {
   applyLive,
   ASKED_ACTIVITY,
+  confirmedSends,
   moodFromState,
   requestsOf,
   resumeText,
@@ -234,6 +235,9 @@ const endedRuns = new Set<string>();
 const localIds = new Set<string>();
 /** Held messages this tab put in storage or took from it (see `flushHeld`). */
 const keptHeld = new Set<string>();
+/** The flush of the held messages under way, and whether another was asked meanwhile. */
+let flushing: Promise<void> | null = null;
+let flushAgain = false;
 /** The timers of the options picked with the keypad, by question (`chooseOption`). */
 const choiceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 /** A chat's page of history being loaded, by monster. */
@@ -304,6 +308,8 @@ export function ingest(batch: readonly LogEvent[], opts: IngestOptions = {}): vo
   if (fresh.length === 0 && confirmed.length === 0) return;
   fresh.sort(byId);
   const news = opts.local ? [] : [...fresh, ...confirmed].sort(byId);
+  /** Held messages whose copy came (sent by another tab): out of storage too. */
+  let sentHeld: string[] = [];
 
   useApp.setState((s) => {
     let events = s.events;
@@ -397,8 +403,18 @@ export function ingest(batch: readonly LogEvent[], opts: IngestOptions = {}): vo
         liveAt = e.id;
       }
     }
-    return { events, live, liveAt, questions, halted, haltedReason, undone, ...trim };
+    // The core's copy of a message sent from here takes the place of its bubble, in the same
+    // render (D-217): found by its own id, whatever its words.
+    let pending = s.pending;
+    const sent = confirmedSends(fresh, pending);
+    if (sent.size > 0) {
+      sentHeld = pending.filter((p) => p.held && sent.has(p.tempId)).map((p) => p.tempId);
+      pending = pending.filter((p) => !sent.has(p.tempId));
+      for (const id of sent) keptHeld.delete(id);
+    }
+    return { events, live, liveAt, questions, halted, haltedReason, undone, pending, ...trim };
   });
+  if (sentHeld.length > 0) takeHeld(useApp.getState().email, sentHeld);
   if (opts.history) return;
   // The spending cap (D-070): a warning or a stop that just happened is a toast too.
   const spend = fresh.findLast(
@@ -634,6 +650,8 @@ export function initApp(transport: Transport): void {
         void resync();
       },
       onEvent: (e) => ingest([e]),
+      // The events missed while away come in one batch: one render, not one per event.
+      onReplay: (events) => ingest(events),
       onState: streamState,
       onUnauthorized: () => void sessionLost(),
       onTrouble: () => {
@@ -645,18 +663,25 @@ export function initApp(transport: Transport): void {
   );
 }
 
-/** Where the stream resumes: the newest event, not one this UI added ahead of it (W-24). */
-function streamCursor(): string | undefined {
+/**
+ * Where the stream resumes: the newest event, not one this UI added ahead of it (W-24). The
+ * stream opens only once the first page is in: with no event yet (a new install, the
+ * onboarding) everything the core logged since that page came after it, so the stream starts
+ * from the beginning of the log rather than from the moment it connects (D-217).
+ */
+function streamCursor(): string {
   const events = useApp.getState().events;
   for (let i = events.length - 1; i >= 0; i--) {
     const id = events[i]!.id;
     if (!localIds.has(id)) return id;
   }
-  return undefined;
+  return LOG_START;
 }
 
 /** The module's own memory of a session (the store's state is reset by the callers). */
 function clearModuleState(): void {
+  flushing = null;
+  flushAgain = false;
   seen.clear();
   pagedIn = 0;
   endedRuns.clear();
@@ -814,6 +839,8 @@ async function resync(): Promise<void> {
   } catch {
     // core unreachable again: the next hello retries
   }
+  // The link is back: messages held because it was not go now (a stop keeps them held).
+  if (useApp.getState().phase === 'ready' && !useApp.getState().halted) void flushHeld();
 }
 
 /* --------------------------------------------------------------- actions */
@@ -952,6 +979,42 @@ export function loadChatOlder(agentId: string): Promise<number> {
 let tempSeq = 0;
 
 /**
+ * The id of a message this UI sends (D-217): its bubble's while it waits, and the `clientId` the
+ * core logs on its event. Unique across reloads and tabs too: a held message kept in storage
+ * comes back with its id, and another tab may send it.
+ */
+function newClientId(): string {
+  return `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}-${++tempSeq}`;
+}
+
+/** Changes one pending message (nothing when it is gone meanwhile). */
+function patchPending(tempId: string, patch: Partial<PendingSend>): void {
+  useApp.setState((s) =>
+    s.pending.some((p) => p.tempId === tempId)
+      ? { pending: s.pending.map((p) => (p.tempId === tempId ? { ...p, ...patch } : p)) }
+      : {},
+  );
+}
+
+function dropPending(tempId: string): void {
+  useApp.setState((s) => ({ pending: s.pending.filter((p) => p.tempId !== tempId) }));
+}
+
+/**
+ * The core took a message (D-217): its bubble stays until the core's own event replaces it
+ * (`ingest`, by its id), and goes now if that event came first.
+ */
+function accepted(tempId: string, messageId: string | undefined): void {
+  if (messageId && seen.has(messageId)) {
+    dropPending(tempId);
+    return;
+  }
+  patchPending(tempId, { held: undefined, failed: undefined, eventId: messageId });
+  // A core that tells neither the id nor the event: the bubble cannot be matched, it goes later.
+  if (!messageId) setTimeout(() => dropPending(tempId), 15_000);
+}
+
+/**
  * Sends a message to a monster (to the orchestrator without `to`). While the
  * monsters are stopped the core refuses messages: the UI holds it instead, and
  * it goes when they are resumed (`flushHeld`).
@@ -962,8 +1025,7 @@ export async function sendMessage(
   /** Ids of files already uploaded (`POST /api/files`). */
   attachments?: readonly string[],
 ): Promise<void> {
-  // Unique across reloads too: a held message kept in storage comes back with its id.
-  const tempId = `pending-${Date.now().toString(36)}-${++tempSeq}`;
+  const tempId = newClientId();
   const files = attachments?.length ? [...attachments] : undefined;
   if (useApp.getState().halted) {
     const held: PendingSend = {
@@ -986,32 +1048,46 @@ export async function sendMessage(
     ],
   }));
   try {
-    await client().sendMessage({
-      text,
-      ...(to ? { to } : {}),
-      ...(files ? { attachments: files } : {}),
-    });
-    // The bubble stays until the core's own event replaces it (see buildChat).
-    setTimeout(() => {
-      useApp.setState((s) => ({ pending: s.pending.filter((p) => p.tempId !== tempId) }));
-    }, 15_000);
+    const res = await client().sendMessage(sendBody(tempId, text, to, files));
+    accepted(tempId, res.messageId);
   } catch (err) {
-    useApp.setState((s) => ({ pending: s.pending.filter((p) => p.tempId !== tempId) }));
+    dropPending(tempId);
     throw err;
   }
+}
+
+function sendBody(
+  clientId: string,
+  text: string,
+  to: string | undefined,
+  files: readonly string[] | undefined,
+) {
+  return {
+    text,
+    clientId,
+    ...(to ? { to } : {}),
+    ...(files?.length ? { attachments: [...files] } : {}),
+  };
 }
 
 /** Drops a message held while the monsters are stopped. */
 export function dropHeld(tempId: string): void {
   takeHeld(useApp.getState().email, [tempId]);
   keptHeld.delete(tempId);
-  useApp.setState((s) => ({ pending: s.pending.filter((p) => p.tempId !== tempId) }));
+  dropPending(tempId);
 }
 
 /** The messages held before a reload (or in another tab), back in their chats (W-6). */
 function restoreHeld(): void {
-  const stored = storedHeld(useApp.getState().email);
+  const email = useApp.getState().email;
+  let stored = storedHeld(email);
   if (stored.length === 0) return;
+  // Already in the log (the tab that sent it closed before taking it out): never sent twice.
+  const sent = confirmedSends(useApp.getState().events, stored);
+  if (sent.size > 0) {
+    takeHeld(email, [...sent]);
+    stored = stored.filter((p) => !sent.has(p.tempId));
+  }
   for (const p of stored) keptHeld.add(p.tempId);
   useApp.setState((s) => {
     const have = new Set(s.pending.map((p) => p.tempId));
@@ -1021,21 +1097,62 @@ function restoreHeld(): void {
   if (!useApp.getState().halted) void flushHeld();
 }
 
-/** Sends the messages held while the monsters were stopped, in order. */
-async function flushHeld(): Promise<void> {
-  const all = useApp.getState().pending.filter((p) => p.held);
-  if (all.length === 0) return;
-  const ids = new Set(all.map((p) => p.tempId));
-  useApp.setState((s) => ({ pending: s.pending.filter((p) => !ids.has(p.tempId)) }));
-  // Those kept in storage that are gone from it were sent by another tab first.
-  const gone = takeHeld(useApp.getState().email, [...ids]);
-  const held = all.filter((p) => !(keptHeld.has(p.tempId) && gone.has(p.tempId)));
-  for (const id of ids) keptHeld.delete(id);
-  for (const p of held) {
+/**
+ * Sends the messages held while the monsters were stopped, in order: on resume, when the link
+ * comes back, with "Send now". One flush at a time; one asked meanwhile runs after it.
+ */
+export function flushHeld(): Promise<void> {
+  if (flushing) {
+    flushAgain = true;
+    return flushing;
+  }
+  const run = (async () => {
+    do {
+      flushAgain = false;
+      await flushOnce();
+    } while (flushAgain && !useApp.getState().halted);
+  })();
+  flushing = run;
+  void run.finally(() => {
+    if (flushing === run) flushing = null;
+  });
+  return run;
+}
+
+/**
+ * One pass over the held messages. Each leaves storage only once the core took it (D-217): a
+ * refusal or a lost link keeps it held, in this tab and across a reload, and the same id sent
+ * again is never logged twice by the core (a retry whose first answer was lost, two tabs).
+ */
+async function flushOnce(): Promise<void> {
+  const at = sessionSeq;
+  const email = useApp.getState().email;
+  for (const p of useApp.getState().pending.filter((x) => x.held)) {
+    if (at !== sessionSeq || useApp.getState().halted) return;
+    // Dropped meanwhile ("Don’t send it"), or confirmed by its event.
+    if (!useApp.getState().pending.some((x) => x.tempId === p.tempId && x.held)) continue;
+    // Gone from storage: another tab sent it (its event will show it) or dropped it.
+    if (keptHeld.has(p.tempId) && !storedHeld(email).some((h) => h.tempId === p.tempId)) {
+      keptHeld.delete(p.tempId);
+      dropPending(p.tempId);
+      continue;
+    }
+    patchPending(p.tempId, { held: undefined, failed: undefined });
     try {
-      await sendMessage(p.text, p.to, p.attachments);
+      const res = await client().sendMessage(sendBody(p.tempId, p.text, p.to, p.attachments));
+      if (at !== sessionSeq) return;
+      takeHeld(email, [p.tempId]);
+      keptHeld.delete(p.tempId);
+      accepted(p.tempId, res.messageId);
     } catch (err) {
-      notify(describeError(err), 'error');
+      if (at !== sessionSeq) return;
+      const stopped = err instanceof ApiError && err.code === 'halted';
+      // Held again: it goes at the next resume, or when the link is back.
+      patchPending(p.tempId, { held: true, failed: stopped ? undefined : true });
+      if (!stopped) notify(describeError(err), 'error');
+      // The core is stopped or out of reach: the next ones would fail the same, and wait in order.
+      if (stopped || err instanceof NetworkError || (err instanceof ApiError && err.status >= 500))
+        return;
     }
   }
 }

@@ -7,6 +7,7 @@ import {
   type Question,
 } from '@monsters/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { LOG_START } from '../src/lib/stream.ts';
 import type { RawResponse, SocketLike, Transport } from '../src/lib/transport.ts';
 import {
   ANSWER_UNDO_MS,
@@ -141,6 +142,9 @@ describe('a late snapshot never takes back what the stream said (W-2)', () => {
     initApp(core.transport);
     await boot();
     core.sockets[0]!.socket.onopen?.();
+    // Nothing in the log yet: the stream asks for all of it (D-217), and the core says it is done.
+    expect(core.sockets[0]!.path).toBe(`/api/stream?after=${LOG_START}`);
+    core.send({ kind: 'replay_done', count: 0 });
     const start = ev({ agent: 'titan', runId: 'run_1', type: 'run', data: { status: 'started' } });
     core.send({ kind: 'event', event: start });
     expect(useApp.getState().live['titan']?.mood).toBe('working');
@@ -220,6 +224,7 @@ describe('a new conversation added ahead of the stream (W-24)', () => {
     initApp(core.transport);
     await boot();
     core.sockets[0]!.socket.onopen?.();
+    core.send({ kind: 'replay_done', count: 0 });
     core.send({ kind: 'event', event: start });
     await startNewConversation();
     expect(useApp.getState().events.at(-1)?.id).toBe(later.id);
@@ -230,8 +235,9 @@ describe('a new conversation added ahead of the stream (W-24)', () => {
     core.sockets[0]!.socket.onclose?.({ code: 1006, reason: '' });
     await vi.waitFor(() => expect(core.sockets.length).toBe(2), { timeout: 3000 });
     expect(core.sockets[1]!.path).toContain(`after=${end.id}`);
-    // The stream's copy: now it counts, once.
+    // The stream's copy, in the replay: now it counts, once.
     core.send({ kind: 'event', event: later });
+    core.send({ kind: 'replay_done', count: 1 });
     expect(useApp.getState().liveAt).toBe(later.id);
     expect(useApp.getState().events.filter((e) => e.id === later.id)).toHaveLength(1);
   });
@@ -514,6 +520,8 @@ describe('what is written and not sent yet (W-6, W-7)', () => {
     await sendMessage('when you are back', 'dione');
     expect(sent).toEqual([]);
     expect(storedHeld('g@example.com').map((h) => h.text)).toEqual(['when you are back']);
+    // Its id goes with it: the core logs it, and the bubble finds its copy by it (D-217).
+    const heldId = storedHeld('g@example.com')[0]!.tempId;
 
     // The page reloads: a new store, still stopped. The message is back, held.
     resetForTests();
@@ -527,7 +535,208 @@ describe('what is written and not sent yet (W-6, W-7)', () => {
     halted = false;
     initApp(core.transport);
     await boot();
-    await vi.waitFor(() => expect(sent).toEqual([{ text: 'when you are back', to: 'dione' }]));
+    await vi.waitFor(() =>
+      expect(sent).toEqual([{ text: 'when you are back', to: 'dione', clientId: heldId }]),
+    );
+    await vi.waitFor(() => expect(storedHeld('g@example.com')).toEqual([]));
+  });
+});
+
+describe('messages sent from here (D-217)', () => {
+  let store: Map<string, string>;
+  beforeEach(() => {
+    store = new Map();
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+      },
+    });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetForTests();
+  });
+
+  /** The core's copy of a message sent with `body`. */
+  const copyOf = (body: unknown) => {
+    const b = body as { text: string; to?: string; clientId?: string };
+    return ev({
+      agent: 'user',
+      runId: 'r1',
+      type: 'message',
+      data: {
+        role: 'user',
+        text: b.text,
+        to: b.to ?? 'titan',
+        ...(b.clientId ? { clientId: b.clientId } : {}),
+      },
+    });
+  };
+  const pendingTexts = () => useApp.getState().pending.map((p) => p.text);
+
+  it('the bubble waits for its own copy, whatever its words; the answer may come first or last', async () => {
+    const answers: ((messageId: string) => void)[] = [];
+    const bodies: unknown[] = [];
+    const core = fakeCore({
+      'POST /api/messages': (_q, body) => {
+        bodies.push(body);
+        return new Promise((res) => answers.push((messageId) => res({ runId: 'r1', messageId })));
+      },
+    });
+    initApp(core.transport);
+    await boot();
+    core.sockets[0]!.socket.onopen?.();
+    core.send({ kind: 'replay_done', count: 0 });
+    // The same words, earlier, to another monster.
+    core.send({ kind: 'event', event: copyOf({ text: 'ok', to: 'rhea' }) });
+
+    const first = sendMessage('ok');
+    await vi.waitFor(() => expect(bodies).toHaveLength(1));
+    expect(pendingTexts()).toEqual(['ok']);
+    // The answer first: the bubble stays until its copy comes.
+    const copy = copyOf(bodies[0]);
+    answers[0]!(copy.id);
+    await first;
+    expect(pendingTexts()).toEqual(['ok']);
+    core.send({ kind: 'event', event: copy });
+    expect(pendingTexts()).toEqual([]);
+
+    // "Again": the same words to the same monster; the copy first, then the answer.
+    const again = sendMessage('ok');
+    await vi.waitFor(() => expect(bodies).toHaveLength(2));
+    expect(pendingTexts()).toEqual(['ok']);
+    const second = copyOf(bodies[1]);
+    core.send({ kind: 'event', event: second });
+    expect(pendingTexts()).toEqual([]);
+    answers[1]!(second.id);
+    await again;
+    expect(pendingTexts()).toEqual([]);
+    expect(
+      useApp.getState().events.filter((e) => e.type === 'message' && e.data.text === 'ok'),
+    ).toHaveLength(3);
+  });
+
+  it('a held message leaves storage only once the core took it, and goes when the link is back', async () => {
+    let halted = true;
+    let refuse: RawResponse | null = { status: 503, body: { error: 'unavailable' } };
+    const sent: unknown[] = [];
+    const core = fakeCore({
+      '/api/status': () => ({
+        version: '0',
+        halted,
+        haltedAt: null,
+        haltedReason: null,
+        runs: [],
+        uptimeMs: 1,
+      }),
+      'POST /api/messages': (_q, body) => {
+        sent.push(body);
+        return refuse ?? { runId: 'r1', messageId: 'm1' };
+      },
+    });
+    initApp(core.transport);
+    await boot();
+    await sendMessage('when you are back', 'dione');
+    const id = useApp.getState().pending[0]!.tempId;
+    // Resumed, and the core does not answer: still held, still kept, with an error.
+    halted = false;
+    core.sockets[0]!.socket.onopen?.();
+    core.send({ kind: 'replay_done', count: 0 });
+    ingest([ev({ agent: 'user', type: 'resume', data: { by: 'ui' } })]);
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    await vi.waitFor(() =>
+      expect(useApp.getState().pending).toMatchObject([{ tempId: id, held: true, failed: true }]),
+    );
+    expect(storedHeld('g@example.com').map((h) => h.tempId)).toEqual([id]);
+    expect(useApp.getState().notice?.tone).toBe('error');
+
+    // Stopped again before it went: held, as promised, with no error.
+    refuse = { status: 409, body: { error: 'halted', message: 'stopped' } };
+    useApp.setState({ notice: null });
+    core.send({ kind: 'hello', halted: false });
+    await vi.waitFor(() => expect(sent).toHaveLength(2));
+    await vi.waitFor(() =>
+      expect(useApp.getState().pending).toMatchObject([{ tempId: id, held: true }]),
+    );
+    expect(useApp.getState().pending[0]!.failed).toBeUndefined();
+    expect(useApp.getState().notice).toBeNull();
+
+    // The link is back (a hello): it goes, with its own id each time, and only then leaves storage.
+    refuse = null;
+    core.send({ kind: 'hello', halted: false });
+    await vi.waitFor(() => expect(sent).toHaveLength(3));
+    await vi.waitFor(() => expect(storedHeld('g@example.com')).toEqual([]));
+    expect(sent.map((b) => (b as { clientId: string }).clientId)).toEqual([id, id, id]);
+    expect(useApp.getState().pending).toMatchObject([{ tempId: id, eventId: 'm1' }]);
+    expect(useApp.getState().pending[0]!.held).toBeUndefined();
+  });
+
+  it('a held message whose copy is already in the log is not sent again after a reload', async () => {
+    // Another tab sent it and closed before taking it out of storage.
+    keepHeld('g@example.com', { tempId: 'pending-x', text: 'once', to: 'dione', ts: 1 });
+    const copy = copyOf({ text: 'once', to: 'dione', clientId: 'pending-x' });
+    const sent: unknown[] = [];
+    const core = fakeCore({
+      '/api/events': () => ({ events: [copy] }),
+      'POST /api/messages': (_q, body) => {
+        sent.push(body);
+        return { runId: 'r1', messageId: 'm1' };
+      },
+    });
+    initApp(core.transport);
+    await boot();
+    await tick();
+    expect(sent).toEqual([]);
+    expect(useApp.getState().pending).toEqual([]);
     expect(storedHeld('g@example.com')).toEqual([]);
+  });
+
+  it('with nothing in the log yet, what the core logs before the stream opens is not lost', async () => {
+    const core = fakeCore({});
+    initApp(core.transport);
+    await boot();
+    expect(useApp.getState().events).toEqual([]);
+    // Logged between the first page and the socket (the onboarding, a new install).
+    const early = ev({ agent: 'user', type: 'new_conversation', data: { channel: 'ui' } });
+    expect(core.sockets[0]!.path).toBe(`/api/stream?after=${LOG_START}`);
+    core.sockets[0]!.socket.onopen?.();
+    core.send({ kind: 'hello', halted: false });
+    core.send({ kind: 'event', event: early });
+    core.send({ kind: 'replay_done', count: 1 });
+    expect(useApp.getState().events.map((e) => e.id)).toEqual([early.id]);
+  });
+
+  it('a long replay is one update of the store, not one per event', async () => {
+    const known = ev({ agent: 'user', type: 'new_conversation', data: { channel: 'ui' } });
+    const core = fakeCore({ '/api/events': () => ({ events: [known] }) });
+    initApp(core.transport);
+    await boot();
+    expect(core.sockets[0]!.path).toBe(`/api/stream?after=${known.id}`);
+    core.sockets[0]!.socket.onopen?.();
+    core.send({ kind: 'hello', halted: false });
+    let updates = 0;
+    const stop = useApp.subscribe((s, prev) => {
+      if (s.events !== prev.events) updates++;
+    });
+    for (let i = 0; i < 500; i++)
+      core.send({
+        kind: 'event',
+        event: ev({
+          agent: 'titan',
+          runId: 'run_r',
+          type: 'message',
+          data: { role: 'agent', text: `${i}` },
+        }),
+      });
+    expect(updates).toBe(0);
+    core.send({ kind: 'replay_done', count: 500 });
+    expect(updates).toBe(1);
+    expect(useApp.getState().events).toHaveLength(501);
+    // Live events after it go one by one, as they come.
+    core.send({ kind: 'event', event: ev({ agent: 'user', type: 'resume', data: { by: 'ui' } }) });
+    expect(updates).toBe(2);
+    stop();
   });
 });

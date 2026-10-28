@@ -78,6 +78,11 @@ export const MessageDataSchema = z.object({
   /** User messages only: ids of the files attached (see files.ts). */
   attachments: z.array(z.string().min(1)).optional(),
   /**
+   * User messages only: the id the sender gave it (`SendMessageRequest.clientId`, D-217): the UI
+   * that sent it puts its copy in place of its pending bubble by this id, never by the text.
+   */
+  clientId: z.string().min(1).max(64).optional(),
+  /**
    * The objective of a run of this automation (channel `automation`, D-094):
    * the run is not part of the monster's chat.
    */
