@@ -202,7 +202,7 @@ describe('desktop bridge', () => {
       const ready = await second.next('ready');
       expect(ready.port).not.toBe(preferred);
       expect(ready.port).toBeGreaterThan(0);
-      expect(lines).toContain(`Port ${preferred} is in use, taking a free one.`);
+      expect(lines).toContain(`Port ${preferred} is not available, taking a free one.`);
       second.send({ type: 'stop' });
       expect(await again).toBe(0);
     } finally {
@@ -230,15 +230,42 @@ describe('desktop bridge', () => {
     'a hang-up (the SSH session dropped) stops the core cleanly, like SIGTERM',
     async () => {
       const h = home();
-      const started = run(['start', '--home', h, '--port', '0'], quiet);
-      while (!existsSync(join(h, 'server.json'))) await new Promise((r) => setTimeout(r, 20));
-      expect(process.listenerCount('SIGHUP')).toBeGreaterThan(0);
-      process.emit('SIGHUP');
-      expect(await started).toBe(0);
+      const tty = process.stdout.isTTY;
+      process.stdout.isTTY = true;
+      try {
+        const started = run(['start', '--home', h, '--port', '0'], quiet);
+        while (!existsSync(join(h, 'server.json'))) await new Promise((r) => setTimeout(r, 20));
+        expect(process.listenerCount('SIGHUP')).toBeGreaterThan(0);
+        process.emit('SIGHUP');
+        expect(await started).toBe(0);
+      } finally {
+        process.stdout.isTTY = tty;
+      }
       // Closed: the lock and server.json are gone, and our handler with them.
       expect(existsSync(join(h, 'server.json'))).toBe(false);
       expect(existsSync(join(h, 'core.lock'))).toBe(false);
       expect(process.listenerCount('SIGHUP')).toBe(0);
+    },
+  );
+
+  it.skipIf(process.platform === 'win32')(
+    'without a terminal (nohup, a service) the hang-up is left alone',
+    async () => {
+      const h = home();
+      const tty = [process.stdin.isTTY, process.stdout.isTTY];
+      process.stdin.isTTY = false;
+      process.stdout.isTTY = false;
+      try {
+        const before = process.listenerCount('SIGHUP');
+        const ctl = new AbortController();
+        const started = run(['start', '--home', h, '--port', '0'], quiet, ctl.signal);
+        while (!existsSync(join(h, 'server.json'))) await new Promise((r) => setTimeout(r, 20));
+        expect(process.listenerCount('SIGHUP')).toBe(before);
+        ctl.abort();
+        expect(await started).toBe(0);
+      } finally {
+        [process.stdin.isTTY, process.stdout.isTTY] = tty as [boolean, boolean];
+      }
     },
   );
 

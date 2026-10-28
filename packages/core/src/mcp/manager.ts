@@ -125,7 +125,8 @@ import { ChildStdioTransport } from './stdio-transport.ts';
 /**
  * True when saving `next` over `prev` (undefined: a new server) makes the core launch a program
  * the user has not confirmed: a stdio server added, a server that becomes stdio, or a stdio server
- * whose command, arguments or variables changed. The browser preset runs what the core chose.
+ * whose command, arguments or variables changed. The browser preset runs what the core chose,
+ * with the variables of the request: new or changed ones count too.
  */
 export function runsNewCode(
   prev: McpServerSetting | undefined,
@@ -133,9 +134,13 @@ export function runsNewCode(
   env: Record<string, string>,
   prevEnv: Record<string, string>,
 ): boolean {
-  if (next.transport !== 'stdio' || next.preset === 'browser') return false;
-  if (!prev || prev.transport !== 'stdio' || prev.preset === 'browser') return true;
   const sorted = (e: Record<string, string>) => JSON.stringify(Object.entries(e).sort());
+  if (next.transport !== 'stdio') return false;
+  // The browser runs the core's program, but its variables reach it (`NODE_OPTIONS` is code).
+  if (next.preset === 'browser') {
+    return sorted(env) !== sorted(prev?.preset === 'browser' ? prevEnv : {});
+  }
+  if (!prev || prev.transport !== 'stdio' || prev.preset === 'browser') return true;
   return (
     prev.command !== next.command ||
     JSON.stringify(prev.args ?? []) !== JSON.stringify(next.args ?? []) ||

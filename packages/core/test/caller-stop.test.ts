@@ -144,6 +144,25 @@ describe('a delegation follows the call that waits for it', () => {
     });
   });
 
+  it('the harness drops the MCP request only (a transport timeout): the delegate goes on', async () => {
+    inLang('en');
+    const seen: { scope?: ControlScope } = {};
+    const { ctx, caller, tc } = setup(untilStopped(seen));
+    const transport = new AbortController();
+    const call = tc as { signal: AbortSignal; ownerSignal?: AbortSignal };
+    call.ownerSignal = caller.signal;
+    call.signal = AbortSignal.any([caller.signal, transport.signal]);
+    const report = delegateTool(ctx).execute({ agent: 'Rhea', goal: 'Find the moons' }, tc);
+    await vi.waitFor(() => expect(seen.scope).toBeDefined());
+    transport.abort(new Error('MCP request timed out'));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(seen.scope!.aborted).toBe(false);
+    // The lead itself stops: now the delegate does (the dropped call answers nobody).
+    caller.abort(new KilledError('agent', 'token limit 1000'));
+    await expect(report).rejects.toThrow();
+    expect(seen.scope!.signal.reason).toBeInstanceOf(CallerStoppedError);
+  });
+
   it('a caller already stopped when the delegate starts: it never works', async () => {
     const { ctx, caller, tc } = setup(() => Promise.reject(new Error('never called')));
     caller.abort(new KilledError('agent', 'stopped'));

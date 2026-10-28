@@ -312,7 +312,9 @@ async function cmdStart(values: Values, io: Io, signal?: AbortSignal): Promise<n
   };
   process.on('SIGINT', requestStop);
   process.on('SIGTERM', requestStop);
-  process.on('SIGHUP', onHangup);
+  // Only on a terminal: `nohup monsters start` ignores the hang-up, and a listener would undo it.
+  const onTerminal = process.stdin.isTTY === true || process.stdout.isTTY === true;
+  if (onTerminal) process.on('SIGHUP', onHangup);
   signal?.addEventListener('abort', requestStop, { once: true });
   if (signal?.aborted) requestStop();
   const earlyStop = (event: { data: unknown }) => {
@@ -362,12 +364,15 @@ async function cmdStart(values: Values, io: Io, signal?: AbortSignal): Promise<n
       try {
         core = await startOn(preferred);
       } catch (err) {
-        // Taken by someone else: any free port rather than no core (the failed start has
-        // released the lock and everything else it had opened).
-        if ((err as NodeJS.ErrnoException).code !== 'EADDRINUSE' || starting.signal.aborted) {
+        // Taken by someone else, or reserved since (Windows excludes port ranges for Hyper-V and
+        // WSL, EACCES): any free port rather than no core (the failed start has released the
+        // lock and everything else it had opened).
+        const code = (err as NodeJS.ErrnoException).code;
+        const refused = code === 'EADDRINUSE' || code === 'EACCES' || code === 'EADDRNOTAVAIL';
+        if (!refused || starting.signal.aborted) {
           throw err;
         }
-        io.out(`Port ${preferred} is in use, taking a free one.`);
+        io.out(`Port ${preferred} is not available, taking a free one.`);
         core = await startOn(0);
       }
     }

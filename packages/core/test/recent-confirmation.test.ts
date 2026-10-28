@@ -155,6 +155,12 @@ describe('MCP servers: a program the core launches wants the recent password', (
     const browser = McpServerSettingSchema.parse({ transport: 'stdio', preset: 'browser' });
     expect(runsNewCode(undefined, browser, {}, {})).toBe(false);
     expect(runsNewCode(browser, browser, {}, {})).toBe(false);
+    // Its variables reach the program: `NODE_OPTIONS` is code.
+    const hook = { NODE_OPTIONS: '--import=data:text/javascript,0' };
+    expect(runsNewCode(undefined, browser, hook, {})).toBe(true);
+    expect(runsNewCode(browser, browser, hook, {})).toBe(true);
+    expect(runsNewCode(browser, browser, hook, hook)).toBe(false);
+    expect(runsNewCode(prev, browser, {}, { A: '1' })).toBe(false);
     expect(runsNewCode(undefined, prev, {}, {})).toBe(true);
     const http = McpServerSettingSchema.parse({ transport: 'http', url: 'https://example.com' });
     expect(runsNewCode(undefined, http, {}, {})).toBe(false);

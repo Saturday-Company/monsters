@@ -166,6 +166,12 @@ export interface ToolContext {
   callEventId?: string;
   /** Aborted by the kill switch or when the run ends: long work must honour it. */
   signal: AbortSignal;
+  /**
+   * The caller's own work only (its run, its scope, the end of its harness), without the
+   * transport of this one call (an MCP request a harness dropped). Work that outlives a
+   * transport hiccup but not its caller follows this one (a delegation, D-212). Absent: `signal`.
+   */
+  ownerSignal?: AbortSignal;
   /** Appends a domain event to the action log, attributed to this agent and run. */
   emit(event: ToolEmittedEvent): void;
   /**

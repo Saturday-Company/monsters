@@ -434,6 +434,7 @@ export function adaptTool(t: MonstersTool, ctx: ToolAdapterContext, sources?: So
         runId: ctx.runId,
         callEventId: call.id,
         signal,
+        ownerSignal: ctx.signal,
         ...(sources ? { linkTitle: (url: string) => sources.titleOf(url) } : {}),
         emit: (event: ToolEmittedEvent) => {
           const input = {

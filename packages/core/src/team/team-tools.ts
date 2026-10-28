@@ -487,8 +487,12 @@ async function runDelegation(
     : undefined;
 
   // A child of the run (the kill switch, `killRun` and a monster's Stop find it there, F-1) that
-  // stops with the call waiting for it: a lead stopped mid-call leaves no delegate at work.
-  const scope = run.child('agent', delegationScopeId(to, started.id)).follow(tc.signal);
+  // stops with the work that called it: a lead stopped mid-call leaves no delegate at work. Not
+  // with the transport of the call (a harness that dropped the MCP request): the delegate's notes
+  // still land, as before D-212.
+  const scope = run
+    .child('agent', delegationScopeId(to, started.id))
+    .follow(tc.ownerSignal ?? tc.signal);
   let result: AgentRunResult | undefined;
   let failure: unknown;
   try {
@@ -531,7 +535,9 @@ async function runDelegation(
     const name = target.config.name;
     /** What was done before the stop (D-160): the lead says it instead of "did not respond". */
     const done = { steps_done: result?.steps ?? 0, tools_used: [...toolNames] };
-    const aborted = tc.signal.aborted || scope.aborted || result?.status === 'aborted';
+    // A dropped transport alone is no stop: the delegate finished, its end says so.
+    const callerStopped = (tc.ownerSignal ?? tc.signal).aborted;
+    const aborted = callerStopped || scope.aborted || result?.status === 'aborted';
     if (aborted) {
       const by = delegationStop(result, scope.signal.reason, false);
       const reason = teamToolsPrompts().stoppedBy(by, name, '');
