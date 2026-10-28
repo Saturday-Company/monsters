@@ -6,6 +6,7 @@ import {
 } from 'node:child_process';
 import { accessSync, constants } from 'node:fs';
 import { posix, win32 } from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 
 /** `child_process.spawn`, injectable so the tests can fake `ssh`. */
 export type SpawnFn = (
@@ -157,8 +158,10 @@ export function runCapture(
     if (deps.signal?.aborted) onAbort();
     deps.signal?.addEventListener('abort', onAbort, { once: true });
     child.once('close', () => deps.signal?.removeEventListener('abort', onAbort));
-    child.stdout?.on('data', (d: Buffer) => (stdout += d.toString()));
-    child.stderr?.on('data', (d: Buffer) => (stderr += d.toString()));
+    const outDecoder = new StringDecoder('utf8');
+    const errDecoder = new StringDecoder('utf8');
+    child.stdout?.on('data', (d: Buffer) => (stdout += outDecoder.write(d)));
+    child.stderr?.on('data', (d: Buffer) => (stderr += errDecoder.write(d)));
     child.on('error', (error: NodeJS.ErrnoException) => done({ code: null, error }));
     child.on('close', (code) => done({ code }));
   });

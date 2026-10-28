@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 import { fileURLToPath } from 'node:url';
 import {
   locateOpenSsh,
@@ -313,8 +314,10 @@ function spawnCore(): CoreChild {
   // For the next start: the network may have changed meanwhile.
   void refreshCoreProxy();
   child.on('spawn', () => log.info(`core: pid ${child.pid ?? '?'}`));
-  child.stdout?.on('data', (d: Buffer) => log.write('core', d.toString('utf8')));
-  child.stderr?.on('data', (d: Buffer) => log.write('core', d.toString('utf8')));
+  const outDecoder = new StringDecoder('utf8');
+  const errDecoder = new StringDecoder('utf8');
+  child.stdout?.on('data', (d: Buffer) => log.write('core', outDecoder.write(d)));
+  child.stderr?.on('data', (d: Buffer) => log.write('core', errDecoder.write(d)));
   return {
     get pid() {
       return child.pid;
@@ -340,7 +343,8 @@ const keychainHost = new KeychainHost({
       serviceName: 'Monsters keychain',
       stdio: 'pipe',
     });
-    child.stderr?.on('data', (d: Buffer) => log.write('keychain', d.toString('utf8')));
+    const decoder = new StringDecoder('utf8');
+    child.stderr?.on('data', (d: Buffer) => log.write('keychain', decoder.write(d)));
     return {
       get pid() {
         return child.pid;

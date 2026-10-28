@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import { lstat, mkdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -92,13 +93,78 @@ export async function resolveInVault(realRoot: string, path: string): Promise<st
   });
 }
 
-export async function readIfExists(abs: string): Promise<Buffer | null> {
+/**
+ * Largest file the vault reads whole into memory (reading a note or an attachment to edit,
+ * move or restore it) or hashes by content. Above this a file is only ever seen by its size
+ * and modification time: `readFile` would fail past 2 GiB anyway (ERR_FS_FILE_TOO_LARGE).
+ */
+export const WHOLE_FILE_MAX_BYTES = 256 * 1024 * 1024;
+
+/**
+ * Largest file the history records on its own (the first commit of an existing vault, the
+ * snapshot of what the user changed outside Monsters): isomorphic-git reads and compresses a
+ * file whole in memory. Bigger ones (videos) stay out of the history.
+ */
+export const GIT_AUTO_MAX_BYTES = 64 * 1024 * 1024;
+
+/** Largest Markdown file whose content is parsed and indexed (links, tags, full text, vectors). */
+export const NOTE_INDEX_MAX_BYTES = 8 * 1024 * 1024;
+
+/** Reads a file whole; null if it does not exist. A file over `maxBytes` is refused, not read. */
+export async function readIfExists(
+  abs: string,
+  maxBytes = WHOLE_FILE_MAX_BYTES,
+): Promise<Buffer | null> {
   try {
+    const st = await stat(abs);
+    if (st.isFile() && st.size > maxBytes) {
+      throw new ToolError(
+        'INVALID_INPUT',
+        `the file is too large to be read (${Math.round(st.size / 1024 / 1024)} MiB, the limit is ${Math.round(maxBytes / 1024 / 1024)} MiB)`,
+        { hint: 'Large files such as videos are kept in the vault but never read by Monsters.' },
+      );
+    }
     return await readFile(abs);
   } catch (err) {
     if (isNotFound(err)) return null;
     throw err;
   }
+}
+
+/** What the index needs to know about a file on disk, without holding its content. */
+export interface DiskFile {
+  size: number;
+  mtimeMs: number;
+  /** Content hash (`contentHash`); for a file over `WHOLE_FILE_MAX_BYTES` a fingerprint of size and time. */
+  hash: string;
+}
+
+/**
+ * Size, time and hash of a file, or null if it does not exist (or is not a file). The content is
+ * streamed through the hash, never held whole, so a video costs time but not memory; past
+ * `WHOLE_FILE_MAX_BYTES` it is not read at all and the hash is `~size-mtime`.
+ */
+export async function hashOnDisk(abs: string): Promise<DiskFile | null> {
+  let st;
+  try {
+    st = await stat(abs);
+  } catch (err) {
+    if (isNotFound(err)) return null;
+    throw err;
+  }
+  if (!st.isFile()) return null;
+  const base = { size: st.size, mtimeMs: st.mtimeMs };
+  if (st.size > WHOLE_FILE_MAX_BYTES) {
+    return { ...base, hash: `~${st.size.toString(16)}-${Math.round(st.mtimeMs).toString(16)}` };
+  }
+  const sha = createHash('sha256');
+  try {
+    for await (const chunk of createReadStream(abs)) sha.update(chunk as Buffer);
+  } catch (err) {
+    if (isNotFound(err)) return null;
+    throw err;
+  }
+  return { ...base, hash: sha.digest('hex').slice(0, 16) };
 }
 
 export async function existsFile(abs: string): Promise<boolean> {

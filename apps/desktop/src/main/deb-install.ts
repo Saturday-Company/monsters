@@ -31,6 +31,7 @@ import { execFile, spawn as nodeSpawn, type ChildProcess } from 'node:child_proc
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 import { SIGNATURE_HEADER, UPDATE_KEYS_DIR } from './update-signature.ts';
 import { debInstallStrings } from './deb-install.strings.ts';
 
@@ -500,11 +501,13 @@ export function startDebInstall(update: DebUpdate, o: DebInstallOptions = {}): D
     child.on('error', (err) => r({ code: null, error: err.message }));
     child.on('close', (code) => r({ code }));
   });
+  const errDecoder = new StringDecoder('utf8');
+  const outDecoder = new StringDecoder('utf8');
   child.stderr?.on('data', (d: Buffer) => {
-    if (stderr.length < 65_536) stderr += d.toString('utf8');
+    if (stderr.length < 65_536) stderr += errDecoder.write(d);
   });
   child.stdout?.on('data', (d: Buffer) => {
-    stdout += d.toString('utf8');
+    stdout += outDecoder.write(d);
     if (!isReady && stdout.split('\n').includes(READY_LINE)) {
       isReady = true;
       resolveReady(null);

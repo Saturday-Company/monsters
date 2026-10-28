@@ -18,7 +18,9 @@ export const EditOpSchema: z.ZodType<EditOp> = z.union([
         section: z
           .string()
           .optional()
-          .describe('Heading of the section to append to (created at the end if missing)'),
+          .describe(
+            'Heading of the section to append to (created at the end if missing). With two headings of the same name use "Parent > Child"',
+          ),
       }),
     })
     .strict(),
@@ -26,7 +28,12 @@ export const EditOpSchema: z.ZodType<EditOp> = z.union([
   z
     .object({
       replace_section: z.object({
-        heading: z.string().min(1),
+        heading: z
+          .string()
+          .min(1)
+          .describe(
+            'Heading of the section. With two headings of the same name use "Parent > Child"',
+          ),
         text: z.string().describe('New content of the section, heading line excluded'),
       }),
     })

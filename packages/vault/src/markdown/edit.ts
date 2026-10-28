@@ -1,6 +1,6 @@
 import { ToolError } from '@monsters/shared';
 import { updateFrontmatter, type Props } from './frontmatter.ts';
-import { findSection, scanMarkdown } from './scan.ts';
+import { lookupSections, scanMarkdown, type Scan, type Section } from './scan.ts';
 
 /*
  * Surgical edits by text range: the note is never re-serialized, only the
@@ -57,12 +57,39 @@ function strReplace(text: string, old: string, replacement: string): string {
   return text.slice(0, at) + replacement + text.slice(at + old.length);
 }
 
+/**
+ * The one section a heading names, for an edit: none gives null, two or more are refused
+ * (an edit never guesses which of two headings of the same name is meant).
+ */
+function uniqueSection(scan: Scan, heading: string): Section | null {
+  const matches = lookupSections(scan, heading);
+  if (matches.length === 0) return null;
+  if (matches.length === 1) return matches[0]!.section;
+  const list = matches.map((m) => `line ${m.line}: ${m.path}`).join('; ');
+  const distinct = new Set(matches.map((m) => m.path)).size === matches.length;
+  throw new ToolError(
+    'INVALID_INPUT',
+    `section "${heading}" is ambiguous: ${matches.length} headings have that name (${list})`,
+    {
+      hint: distinct
+        ? 'Name the heading with its parents, like "Parent > Child", so that only one matches.'
+        : 'The headings cannot be told apart by their parents: change the text of one of them (str_replace on the heading line), then repeat the edit.',
+      details: { matches: matches.map((m) => ({ path: m.path, line: m.line })) },
+    },
+  );
+}
+
 function append(text: string, raw: string, section: string | undefined): string {
   const t = trimNewlines(raw);
   if (!section) return `${ensureTrailingNewline(text)}${t}\n`;
   const scan = scanMarkdown(text);
-  const found = findSection(scan, section);
+  const found = uniqueSection(scan, section);
   if (!found) {
+    if (section.includes('>') && section.split('>').every((p) => p.trim() !== '')) {
+      throw new ToolError('NOT_FOUND', `section "${section}" not found`, {
+        hint: `Available headings: ${scan.headings.map((h) => h.text).join(', ') || 'none'}. A path (Parent > Child) is never created: append to the parent or to a plain heading name.`,
+      });
+    }
     const heading = section.replace(/^#+\s*/, '').trim();
     const base = ensureTrailingNewline(text);
     const sep = base === '' || base.endsWith('\n\n') ? '' : '\n';
@@ -97,7 +124,7 @@ function prepend(text: string, raw: string): string {
 
 function replaceSection(text: string, heading: string, raw: string): string {
   const scan = scanMarkdown(text);
-  const found = findSection(scan, heading);
+  const found = uniqueSection(scan, heading);
   if (!found) {
     const available = scan.headings.map((h) => h.text).join(', ') || 'none';
     throw new ToolError('NOT_FOUND', `section "${heading}" not found`, {

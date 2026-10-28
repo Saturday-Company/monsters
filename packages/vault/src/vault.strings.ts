@@ -10,6 +10,11 @@ const en = {
   unreadable: (path: string, code: string) => `${path}: not readable (${code}), skipped`,
   /** `code` of an unreadable file with no error code. */
   permissions: 'permissions',
+  tooLarge: (path: string, mb: number) =>
+    `${path}: ${mb} MiB is too large to be indexed as a note, kept as a file (no search inside it)`,
+  indexFailed: (path: string, message: string) => `${path}: not indexed (${message}), skipped`,
+  notRecorded: (path: string, mb: number) =>
+    `${path}: ${mb} MiB is too large to be recorded in the history, left out of it`,
   notesFolder: '(notes folder)',
   watchLimit: (code: string) =>
     `system limit on watched files reached (${code}): changes made outside Monsters in some folders will show up at the next start`,
@@ -21,6 +26,11 @@ const en = {
 const it: typeof en = {
   unreadable: (path, code) => `${path}: non leggibile (${code}), saltato`,
   permissions: 'permessi',
+  tooLarge: (path, mb) =>
+    `${path}: ${mb} MiB sono troppi per indicizzarlo come nota, resta come file (nessuna ricerca al suo interno)`,
+  indexFailed: (path, message) => `${path}: non indicizzato (${message}), saltato`,
+  notRecorded: (path, mb) =>
+    `${path}: ${mb} MiB sono troppi per entrare nella cronologia, lasciato fuori`,
   notesFolder: '(cartella del vault)',
   watchLimit: (code) =>
     `limite del sistema sui file osservati raggiunto (${code}): le modifiche fatte fuori da Monsters in alcune cartelle si vedranno al prossimo avvio`,

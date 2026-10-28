@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { mkdir, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, posix, join, resolve as resolvePath } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { migrate, openDb, type Db } from '@monsters/db';
@@ -20,9 +20,13 @@ import {
   atomicWrite,
   contentHash,
   existsFile,
+  GIT_AUTO_MAX_BYTES,
   gitBlobOid,
+  hashOnDisk,
   isNotFound,
+  NOTE_INDEX_MAX_BYTES,
   readIfExists,
+  type DiskFile,
   renameWithRetry,
   resolveInVault,
   throwIfAborted,
@@ -55,7 +59,12 @@ import {
   type Props,
 } from './markdown/frontmatter.ts';
 import { parseNote, type ParsedNote } from './markdown/parse.ts';
-import { findFrontmatter, findSection, findSectionLoose, scanMarkdown } from './markdown/scan.ts';
+import {
+  findFrontmatter,
+  findSectionLoose,
+  lookupSections,
+  scanMarkdown,
+} from './markdown/scan.ts';
 import { KeyedMutex, SerialQueue } from './concurrency.ts';
 import {
   assertValidNewPath,
@@ -98,9 +107,11 @@ const WATCH_PROBE_PREFIX = '.monsters-watch-';
 export interface VaultWarning {
   /**
    * `vault_unreadable`: a folder or file without permission, skipped. `vault_watch_error`:
-   * the watcher failed (limit of watched files…).
+   * the watcher failed (limit of watched files…). `vault_too_large`: a note or file over a size
+   * limit, kept as a file but not indexed (or not recorded in the history). `vault_index_failed`:
+   * a file that could not be indexed for another reason, skipped (the next sync tries again).
    */
-  code: 'vault_unreadable' | 'vault_watch_error';
+  code: 'vault_unreadable' | 'vault_watch_error' | 'vault_too_large' | 'vault_index_failed';
   message: string;
   path?: string;
 }
@@ -467,7 +478,25 @@ export class VaultService {
           if (!(await existsFile(join(root, '.gitignore')))) {
             await writeFile(join(root, '.gitignore'), VAULT_GITIGNORE);
           }
-          const paths = ['.gitignore', ...(await scanFiles(root, '', () => {}, opts.filesDir))];
+          // Files too big to be read whole (videos) stay out of the first commit.
+          const paths = ['.gitignore'];
+          for (const file of await scanFiles(root, '', () => {}, opts.filesDir)) {
+            const size = (await stat(join(root, file)).catch(() => null))?.size ?? 0;
+            if (size <= GIT_AUTO_MAX_BYTES) {
+              paths.push(file);
+              continue;
+            }
+            const message = vaultStrings().notRecorded(file, Math.round(size / 1024 / 1024));
+            try {
+              (opts.onWarning ?? ((w) => console.warn(`vault: ${w.message}`)))({
+                code: 'vault_too_large',
+                path: file,
+                message,
+              });
+            } catch {
+              // a logger must not break the vault
+            }
+          }
           await vcs.commit({
             paths,
             message: `${scaffoldStrings(layout.id).commitInit}\n\n${TRAILER_AGENT}: system\n`,
@@ -526,6 +555,11 @@ export class VaultService {
 
   /** Incremental sync of the index with the files on disk (mtime/size, then hash). */
   async sync(): Promise<{ indexed: number; removed: number; frontmatter_errors: string[] }> {
+    this.#frontmatterErrors = [];
+    return this.#syncIndex();
+  }
+
+  async #syncIndex(): Promise<{ indexed: number; removed: number; frontmatter_errors: string[] }> {
     const skipped: string[] = [];
     const files = await scanFiles(
       this.root,
@@ -541,7 +575,6 @@ export class VaultService {
     for (const path of known.keys()) {
       if (skipped.some((f) => path.startsWith(`${f}/`))) known.delete(path);
     }
-    this.#frontmatterErrors = [];
     let indexed = 0;
     let removed = 0;
     let pathsChanged = false;
@@ -557,7 +590,14 @@ export class VaultService {
       if (!prev) pathsChanged = true;
     }
     for (const path of known.keys()) {
-      await this.#locks.withLocks([path], () => Promise.resolve(this.#unindex(path)));
+      // The scan is older than this loop: a note written (by an action or by the watcher) in
+      // between is on disk now, so it is judged again under the lock before it is dropped.
+      const gone = await this.#locks.withLocks([path], async () => {
+        if (await this.#appearedSinceScan(path)) return false;
+        this.#unindex(path);
+        return true;
+      });
+      if (!gone) continue;
       removed++;
       pathsChanged = true;
     }
@@ -578,7 +618,13 @@ export class VaultService {
     );
     this.index.clear();
     this.#frontmatterErrors = [];
-    for (const path of files) await this.#indexReadable(path, true);
+    // Under the lock of each path, like a sync: an action writing the note meanwhile is not undone.
+    for (const path of files) {
+      await this.#locks.withLocks([path], () => this.#indexReadable(path, true));
+    }
+    // The index was empty while the loop ran, and the list of files is older than the clear:
+    // a note written in between is on disk but in neither, so one last sync picks it up.
+    await this.#syncIndex();
     this.index.resolveLinks();
     this.index.reindexPending = false;
     this.#semantic?.collectGarbage();
@@ -587,6 +633,21 @@ export class VaultService {
       ms: Date.now() - started,
       frontmatter_errors: this.#frontmatterErrors,
     };
+  }
+
+  /**
+   * True when `path`, which the index knows but a scan did not list, is a listable file on disk
+   * now: it was written after the scan (it is kept, and brought up to date). A file the scan would
+   * never list (hidden, temporary, in the files folder, a link) or one that is gone is not.
+   */
+  async #appearedSinceScan(path: string): Promise<boolean> {
+    if (isHidden(path) || isTmpPath(path) || isFilesPath(path, this.#filesDir)) return false;
+    const abs = await this.#absOrNull(path);
+    if (abs === null) return false;
+    const st = await lstat(abs).catch(() => null);
+    if (!st?.isFile()) return false;
+    await this.#indexReadable(path);
+    return true;
   }
 
   /**
@@ -626,13 +687,27 @@ export class VaultService {
   }
 
   /** (Re)indexes a file from disk; returns false when it was already up to date. */
-  /** `#indexFromDisk` for a sync: a file without permission is skipped with a warning. */
+  /**
+   * `#indexFromDisk` for a sync or a reindex: a file that cannot be indexed (no permission, too
+   * large, vanished mid-way, anything else) is skipped with a warning, never a failed start.
+   * The next sync tries it again.
+   */
   async #indexReadable(path: string, force = false): Promise<boolean> {
     try {
       return await this.#indexFromDisk(path, force);
     } catch (err) {
-      if (!isPermissionError(err)) throw err;
-      this.#warnUnreadable(path, err);
+      if (isPermissionError(err)) {
+        this.#warnUnreadable(path, err);
+      } else {
+        this.#warn({
+          code: 'vault_index_failed',
+          path,
+          message: vaultStrings().indexFailed(
+            path,
+            err instanceof Error ? err.message : String(err),
+          ),
+        });
+      }
       return false;
     }
   }
@@ -656,6 +731,12 @@ export class VaultService {
     });
   }
 
+  /**
+   * (Re)indexes a file from disk. Only a Markdown note of reasonable size is read whole and
+   * parsed; any other file (an image, a video) and a huge note are hashed in a stream, or by
+   * size and time when they are enormous, and indexed as a file without content. The class
+   * of failure "a big file makes the start fail" cannot come from here.
+   */
   async #indexFromDisk(path: string, force = false): Promise<boolean> {
     const abs = await this.#absOrNull(path);
     if (abs === null) {
@@ -663,34 +744,69 @@ export class VaultService {
       this.#unindex(path);
       return false;
     }
-    const bytes = await readIfExists(abs);
-    if (!bytes) {
+    const st = await stat(abs).then(
+      (s) => (s.isFile() ? s : null),
+      (err: unknown) => {
+        if (isNotFound(err)) return null;
+        throw err;
+      },
+    );
+    if (st === null) {
       this.#unindex(path);
       return true;
     }
-    const st = await stat(abs);
-    const hash = contentHash(bytes);
+    const size = st.size;
+    const parse = isMarkdown(path) && size <= NOTE_INDEX_MAX_BYTES;
+    let bytes: Buffer | null = null;
+    let disk: DiskFile | null;
+    if (parse) {
+      bytes = await readIfExists(abs);
+      // The time taken before the read: a file changed meanwhile is indexed again next time.
+      disk = bytes
+        ? { size: bytes.byteLength, mtimeMs: st.mtimeMs, hash: contentHash(bytes) }
+        : null;
+    } else {
+      disk = await hashOnDisk(abs);
+    }
+    if (!disk) {
+      this.#unindex(path);
+      return true;
+    }
+    if (!parse && isMarkdown(path)) {
+      this.#warn({
+        code: 'vault_too_large',
+        path,
+        message: vaultStrings().tooLarge(path, Math.round(size / 1024 / 1024)),
+      });
+    }
     const prev = this.index.get(path);
-    if (!force && prev?.hash === hash) {
-      if (prev.mtime !== Math.round(st.mtimeMs)) {
+    if (!force && prev?.hash === disk.hash) {
+      if (prev.mtime !== Math.round(disk.mtimeMs)) {
         this.index.db.run(
           'UPDATE vault_notes SET mtime = ? WHERE nid = ?',
-          Math.round(st.mtimeMs),
+          Math.round(disk.mtimeMs),
           prev.nid,
         );
       }
       return false;
     }
-    this.#indexContent(path, bytes, hash, st.mtimeMs);
+    this.#indexContent(path, bytes, disk.size, disk.hash, disk.mtimeMs);
     return true;
   }
 
-  #indexContent(path: string, bytes: Uint8Array, hash: string, mtime: number): number {
-    const md = isMarkdown(path);
+  /** Records a file in the index; `bytes` is null for a file whose content is not indexed. */
+  #indexContent(
+    path: string,
+    bytes: Uint8Array | null,
+    size: number,
+    hash: string,
+    mtime: number,
+  ): number {
+    const md = bytes !== null && isMarkdown(path);
     const text = md ? Buffer.from(bytes).toString('utf8') : '';
     const note = md ? parseNote(path, text) : null;
     if (note?.frontmatterError) this.#frontmatterErrors.push(path);
-    const nid = this.index.upsert(path, { hash, mtime, size: bytes.byteLength }, note);
+    const nid = this.index.upsert(path, { hash, mtime, size }, note);
     const dropped = this.index.takeDroppedChunks();
     if (md || dropped.length > 0) this.#semantic?.changed(dropped);
     return nid;
@@ -821,8 +937,8 @@ export class VaultService {
   async #onWatchEvent(kind: ExternalChange['kind'], path: string): Promise<void> {
     await this.#locks.withLocks([path], async () => {
       const abs = await this.#absOrNull(path);
-      const bytes = abs === null ? null : await readIfExists(abs);
-      const hash = bytes ? contentHash(bytes) : null;
+      // Streamed: an attachment added to the vault is never read whole.
+      const hash = abs === null ? null : ((await hashOnDisk(abs))?.hash ?? null);
       if (this.#ownWrites.has(path) && this.#ownWrites.get(path) === hash) {
         this.#ownWrites.delete(path);
         return;
@@ -1114,7 +1230,7 @@ export class VaultService {
           const st = await stat(step.abs);
           const hash = contentHash(bytes);
           if (typeof change.content === 'string') this.#remember(hash, change.content);
-          const nid = this.#indexContent(change.path, bytes, hash, st.mtimeMs);
+          const nid = this.#indexContent(change.path, bytes, bytes.byteLength, hash, st.mtimeMs);
           if (!pathsChanged) this.index.resolveLinks(nid);
         }
       }
@@ -1165,6 +1281,16 @@ export class VaultService {
         if (isSystemPath(path)) continue;
         const abs = await this.#absOrNull(path);
         if (abs === null) continue;
+        const size = (await stat(abs).catch(() => null))?.size ?? 0;
+        if (size > GIT_AUTO_MAX_BYTES) {
+          // Too big to be read whole: not recorded on its own (it is when an action touches it).
+          this.#warn({
+            code: 'vault_too_large',
+            path,
+            message: vaultStrings().notRecorded(path, Math.round(size / 1024 / 1024)),
+          });
+          continue;
+        }
         const disk = await readIfExists(abs);
         const diskOid = disk ? gitBlobOid(disk) : null;
         const headOid = head ? await vcs.fileOid(head, path) : null;
@@ -1233,8 +1359,9 @@ export class VaultService {
     let sectionNotFound: string | undefined;
     if (input.section) {
       // Reading is forgiving (a model rarely quotes a title letter for letter): the exact
-      // lookup, then a loose one, then the whole note. Edits only use the exact lookup.
-      const exact = findSection(note.scan, input.section);
+      // lookup (the first of two headings of the same name, or `Parent > Child`), then a loose
+      // one, then the whole note. Edits only use the exact lookup and refuse a repeated name.
+      const exact = lookupSections(note.scan, input.section)[0]?.section;
       if (exact) {
         content = file.text.slice(exact.heading.start, exact.end);
       } else {

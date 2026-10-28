@@ -44,10 +44,12 @@ export {
   scanMarkdown,
   findSection,
   findSectionLoose,
+  lookupSections,
   normalizeHeading,
   type Scan,
   type Heading,
   type Section,
+  type SectionMatch,
 } from './markdown/scan.ts';
 export {
   readFrontmatter,
