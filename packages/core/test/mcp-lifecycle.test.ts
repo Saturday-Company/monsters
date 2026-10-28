@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { MonstersTool } from '@monsters/shared';
 import { describe, expect, it } from 'vitest';
-import { startTestHub, type TestHub } from './hub-helpers.ts';
+import { RECENT, startTestHub, type TestHub } from './hub-helpers.ts';
 
 /*
  * The life of an MCP connection under concurrent use: changes and removals
@@ -79,6 +79,7 @@ describe.skipIf(!POSIX)('MCP connections under concurrent use', () => {
       'fake',
       { ...stdio(['--ignore-sigint', 'NEW'], 'B') } as never,
       'ui',
+      RECENT,
     );
     await Promise.resolve();
     const during = pidsOf(await run(pids));

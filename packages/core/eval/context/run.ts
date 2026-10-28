@@ -287,6 +287,7 @@ async function once(key: string, n: number, def: CaseDef): Promise<Row> {
         agents: [capo.config.id],
       },
       'cli',
+      undefined, // an http server: nothing it launches
     );
     hub.newConversation({ channel: 'cli' });
     const sent = hub.send({ text: def.task, channel: 'cli' });

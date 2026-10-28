@@ -13,6 +13,7 @@ import {
   setAppLang,
 } from '@monsters/shared';
 import { z } from 'zod';
+import { ConfirmRequiredError } from '../src/auth/recent.ts';
 import { telegramLine } from '../src/channels/telegram/lines.ts';
 import { afterEach, describe, expect, it } from 'vitest';
 import { inFileScope } from '../src/files/tools.ts';
@@ -1619,5 +1620,112 @@ describe('dedicated bots: the app’s language (D-153)', () => {
     await tg.waitMessage((m) => inGroup(m) && m.text.includes('<b>Rhea è libero.</b>'));
     tg.text(LIVIO, '/help', { chat: GROUP, token: RHEA_TOKEN });
     await tg.waitMessage((m) => inGroup(m) && m.text.startsWith('Sono Rhea.'));
+  });
+});
+
+describe('dedicated bots: the whole toolset for others wants the recent password (review of 28/10)', () => {
+  const stale = (t: TestHub) =>
+    t.core.db.run('UPDATE sessions SET confirmed_at = ?', Date.now() - 16 * 60_000);
+  const fresh = (t: TestHub) => t.core.db.run('UPDATE sessions SET confirmed_at = ?', Date.now());
+  const bot = async (t: TestHub) => (await t.json<TelegramView>('GET', '/api/telegram')).bots[0]!;
+  const refused = async (res: Response) => {
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: 'confirm_required' });
+  };
+
+  it('pointing a bot that has it at another monster is refused to an old session', async () => {
+    const { t } = await startBots({});
+    const patch = (body: unknown) => t.api('PATCH', `/api/telegram/bots/${RHEA}`, body);
+    await t.json('PATCH', `/api/telegram/bots/${RHEA}`, { fullTools: true });
+    stale(t);
+
+    // Strangers in its chats would get Dione's tools (her Terminal) with no password.
+    await refused(await patch({ agent: 'dione' }));
+    await refused(await patch({ agent: 'dione', fullTools: true }));
+    await refused(await patch({ fullTools: true }));
+    expect(await bot(t)).toMatchObject({ agent: 'rhea', fullTools: true });
+    // Nothing is granted: the same monster, the limit, less power.
+    expect((await patch({ agent: 'rhea', dailyLimit: 50 })).status).toBe(200);
+    expect((await patch({ fullTools: false })).status).toBe(200);
+    // With the tools reduced, another monster gets the reduced toolset: no password for it…
+    expect((await patch({ agent: 'dione' })).status).toBe(200);
+    expect(await bot(t)).toMatchObject({ agent: 'dione', fullTools: false });
+    // …and turning them on, with or without the new monster, is the sensitive step.
+    await refused(await patch({ fullTools: true }));
+    await refused(await patch({ agent: 'rhea', fullTools: true }));
+
+    fresh(t);
+    expect((await patch({ agent: 'rhea', fullTools: true })).status).toBe(200);
+    expect(await bot(t)).toMatchObject({ agent: 'rhea', fullTools: true });
+    stale(t);
+    await refused(await patch({ agent: 'dione' }));
+    fresh(t);
+    expect((await patch({ agent: 'dione' })).status).toBe(200);
+  });
+
+  it('one more person or group on a bot that has it asks it; on a reduced one, it does not', async () => {
+    const { t, tg } = await startBots({});
+    tg.addedToGroup(RHEA_TOKEN, GROUP, GIULIO);
+    await t.waitEvent(isChannel('chat_pending', (e) => e.data.bot === RHEA));
+    tg.text(LIVIO, '/join', { token: RHEA_TOKEN });
+    await t.waitEvent(isChannel('person_pending', (e) => e.data.userId === String(LIVIO.id)));
+    stale(t);
+
+    // Reduced tools: letting them in is the user's call, as it has always been.
+    const people = (await bot(t)).people.map((p) => p.id);
+    expect(
+      (await t.api('POST', `/api/telegram/bots/${RHEA}/people`, { id: ETTORE.id })).status,
+    ).toBe(200);
+    expect((await bot(t)).people.map((p) => p.id)).toEqual([...people, ETTORE.id]);
+
+    fresh(t);
+    await t.json('PATCH', `/api/telegram/bots/${RHEA}`, { fullTools: true });
+    stale(t);
+    await refused(await t.api('POST', `/api/telegram/bots/${RHEA}/people`, { id: MALLORY.id }));
+    await refused(await t.api('POST', `/api/telegram/bots/${RHEA}/people/${LIVIO.id}/approve`));
+    await refused(await t.api('POST', `/api/telegram/bots/${RHEA}/chats/${GROUP.id}/approve`));
+    const now = await bot(t);
+    expect(now.people.find((p) => p.id === LIVIO.id)?.status).toBe('pending');
+    expect(now.people.some((p) => p.id === MALLORY.id)).toBe(false);
+    expect(now.chats.find((c) => c.id === GROUP.id)?.status).toBe('pending');
+    // Taking people out is never refused.
+    expect((await t.api('DELETE', `/api/telegram/bots/${RHEA}/people/${ETTORE.id}`)).status).toBe(
+      200,
+    );
+
+    fresh(t);
+    expect(
+      (await t.api('POST', `/api/telegram/bots/${RHEA}/people/${LIVIO.id}/approve`)).status,
+    ).toBe(200);
+    expect(
+      (await t.api('POST', `/api/telegram/bots/${RHEA}/chats/${GROUP.id}/approve`)).status,
+    ).toBe(200);
+  });
+
+  it('the main bot: a token or a pairing is the same refusal, from the service', async () => {
+    const { t } = await startBots({}, { rheaBot: false });
+    stale(t);
+    await refused(await t.api('POST', '/api/telegram/pairing'));
+    await refused(await t.api('PUT', '/api/telegram/token', { token: FAKE_TOKEN }));
+    expect(() => t.core.hub.telegram.startPairing(undefined)).toThrow(ConfirmRequiredError);
+  });
+});
+
+describe('dedicated bots: /join in private (review of 28/10)', () => {
+  it('a stranger who asks gets the one answer, though they are not allowed yet', async () => {
+    const { t, tg } = await startBots({});
+    tg.text(ETTORE, '/join', { token: RHEA_TOKEN });
+    await t.waitEvent(isChannel('person_pending', (e) => e.data.userId === String(ETTORE.id)));
+    const reply = await tg.waitMessage(
+      (m) => m.token === RHEA_TOKEN && m.chat_id === ETTORE.id && m.text.includes('asked Giulio'),
+    );
+    expect(reply.text).toContain('I’ve asked Giulio to approve you.');
+
+    // Anything else stays closed to them: nothing more is sent to a chat that may not receive.
+    const before = tg.sentTo(ETTORE.id).length;
+    tg.text(ETTORE, 'ciao', { token: RHEA_TOKEN });
+    tg.text(ETTORE, '/join', { token: RHEA_TOKEN });
+    await pause(300);
+    expect(tg.sentTo(ETTORE.id).length).toBe(before);
   });
 });

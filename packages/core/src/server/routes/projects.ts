@@ -5,6 +5,7 @@ import {
   ProjectUpdateRequestSchema,
 } from '@monsters/shared';
 import type { Context, Hono } from 'hono';
+import { recentProofOf } from '../../auth/recent.ts';
 import type { Hub } from '../../hub.ts';
 import { HaltedError } from '../../kill/run-controller.ts';
 import { ProjectError } from '../../projects/service.ts';
@@ -91,12 +92,12 @@ export function registerProjectRoutes(app: Hono<AppEnv>, h: RouteHelpers, hub: H
   );
 
   app.post('/api/projects/:id/restore', requireAuth, (c) => {
-    // Its monsters back with the Terminal they had: a recent confirmation (n. 6, 19/10).
-    if (hub.squad.restoreGivesShell(projects.archivedSquad(c.req.param('id')))) {
-      const refused = h.requireRecent(c);
-      if (refused) return refused;
-    }
-    return guard(c, () => projects.restore(c.req.param('id'), channelOf(c.get('auth'))));
+    // Its monsters back with the Terminal they had: a recent confirmation (n. 6, 19/10), which
+    // `restore` decides.
+    const auth = c.get('auth');
+    return guard(c, () =>
+      projects.restore(c.req.param('id'), channelOf(auth), recentProofOf(auth)),
+    );
   });
 
   // "Ferma progetto" (D-098): the runs of its monsters, not the kill switch.

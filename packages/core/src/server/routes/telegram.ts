@@ -8,6 +8,7 @@ import {
 import type { Context, Hono } from 'hono';
 import { botIdOf, TelegramBotsError, type TelegramBots } from '../../channels/telegram/bots.ts';
 import { TelegramError, type TelegramChannel } from '../../channels/telegram/channel.ts';
+import { recentProofOf } from '../../auth/recent.ts';
 import type { AppEnv, RouteHelpers } from '../app.ts';
 
 /*
@@ -57,7 +58,7 @@ export function registerTelegramRoutes(
     const body = await parseBody(c, TelegramTokenRequestSchema);
     if (!body.ok) return body.res;
     try {
-      return c.json(await telegram.setToken(body.data.token));
+      return c.json(await telegram.setToken(body.data.token, recentProofOf(c.get('auth'))));
     } catch (err) {
       return fail(c, err);
     }
@@ -73,7 +74,7 @@ export function registerTelegramRoutes(
 
   app.post('/api/telegram/pairing', requireAuth, (c) => {
     try {
-      return c.json(telegram.startPairing(), 201);
+      return c.json(telegram.startPairing(recentProofOf(c.get('auth'))), 201);
     } catch (err) {
       return fail(c, err);
     }
@@ -142,13 +143,11 @@ export function registerTelegramRoutes(
   app.patch('/api/telegram/bots/:id', requireAuth, async (c) => {
     const body = await parseBody(c, TelegramBotUpdateRequestSchema);
     if (!body.ok) return body.res;
-    // "Strumenti per gli altri" turned on (D-114): the people of the bot act with the user's
-    // tools. Needs the password typed in the last minutes (`RECENT_ONLY` in app.ts).
-    if (body.data.fullTools === true) {
-      const refused = h.requireRecent(c);
-      if (refused) return refused;
-    }
-    return onBot(c, (id) => bots.update(id, body.data));
+    // "Strumenti per gli altri" (D-114) turned on, or a bot that has it pointed at another
+    // monster: the people of the bot act with that monster's tools. `update` wants the password
+    // typed in the last minutes (`ConfirmRequiredError`, app.ts).
+    const proof = recentProofOf(c.get('auth'));
+    return onBot(c, (id) => bots.update(id, body.data, proof));
   });
 
   // "Cambia il token": the same bot, a token BotFather issued again.
@@ -163,7 +162,8 @@ export function registerTelegramRoutes(
   app.post('/api/telegram/bots/:id/chats/:chat/approve', requireAuth, (c) => {
     const chat = chatIdOf(c.req.param('chat'));
     if (chat === null) return c.json({ error: 'invalid_request' }, 400);
-    return onBot(c, (id) => bots.approveChat(id, chat));
+    const proof = recentProofOf(c.get('auth'));
+    return onBot(c, (id) => bots.approveChat(id, chat, proof));
   });
 
   app.delete('/api/telegram/bots/:id/chats/:chat', requireAuth, (c) => {
@@ -175,13 +175,15 @@ export function registerTelegramRoutes(
   app.post('/api/telegram/bots/:id/people', requireAuth, async (c) => {
     const body = await parseBody(c, TelegramBotPersonRequestSchema);
     if (!body.ok) return body.res;
-    return onBot(c, (id) => bots.addPerson(id, body.data));
+    const proof = recentProofOf(c.get('auth'));
+    return onBot(c, (id) => bots.addPerson(id, body.data, proof));
   });
 
   app.post('/api/telegram/bots/:id/people/:user/approve', requireAuth, (c) => {
     const user = chatIdOf(c.req.param('user'));
     if (user === null || user < 0) return c.json({ error: 'invalid_request' }, 400);
-    return onBot(c, (id) => bots.approvePerson(id, user));
+    const proof = recentProofOf(c.get('auth'));
+    return onBot(c, (id) => bots.approvePerson(id, user, proof));
   });
 
   app.delete('/api/telegram/bots/:id/people/:user', requireAuth, (c) => {

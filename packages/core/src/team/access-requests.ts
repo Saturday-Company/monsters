@@ -17,6 +17,7 @@ import {
 } from '@monsters/shared';
 import { z } from 'zod';
 import type { AgentDefinition } from '../agents/definition.ts';
+import type { RecentProof } from '../auth/recent.ts';
 import type { RunHandle } from '../kill/run-controller.ts';
 import type { EventLog } from '../log/event-log.ts';
 import { accessPrompts } from './access.prompts.ts';
@@ -95,7 +96,11 @@ export interface AccessRequestsOptions {
   log: Pick<EventLog, 'append' | 'query'>;
   /** Impostazioni → Permessi (`PermissionsService.update`). */
   permissions: {
-    update(req: PermissionsUpdateRequest, by: Channel): Promise<unknown>;
+    update(
+      req: PermissionsUpdateRequest,
+      by: Channel,
+      proof: RecentProof | undefined,
+    ): Promise<unknown>;
   };
   /** The project's settings (`ProjectService.update`, `allowConnection`). */
   projects: () =>
@@ -112,7 +117,12 @@ export interface AccessRequestsOptions {
   /** The MCP servers (`McpManager`). */
   mcp: {
     view(): McpServersResponse;
-    upsert(name: string, req: McpServerRequest, by: Channel): Promise<unknown>;
+    upsert(
+      name: string,
+      req: McpServerRequest,
+      by: Channel,
+      proof: RecentProof | undefined,
+    ): Promise<unknown>;
     /** May this monster use this server now (`McpManager.allowed`): then there is nothing to ask. */
     allowed?(agentId: string, server: string): boolean;
     /** The labels of its servers that are not responding (`McpManager.unlinkedFor`). */
@@ -293,9 +303,11 @@ export class AccessRequests {
           if (!team.byId(step.agent)) throw new Error(accessStrings().stepMonsterGone);
           const saved = team.savedPermissionsFor(step.agent);
           if (saved.web) break;
+          // No proof: a card grants the web, never the Terminal (the service would refuse).
           await this.#o.permissions.update(
             { agents: { [step.agent]: { ...saved, web: true } } },
             by,
+            undefined,
           );
           break;
         }
@@ -322,7 +334,13 @@ export class AccessRequests {
           if (!server) throw new Error(accessStrings().stepServerGone(step.server));
           if (!team.byId(step.agent)) throw new Error(accessStrings().stepMonsterGone);
           if (server.agents.includes(step.agent)) break;
-          await this.#o.mcp.upsert(step.server, { agents: [...server.agents, step.agent] }, by);
+          // Who uses the server, not what it runs: no proof needed.
+          await this.#o.mcp.upsert(
+            step.server,
+            { agents: [...server.agents, step.agent] },
+            by,
+            undefined,
+          );
           break;
         }
       }

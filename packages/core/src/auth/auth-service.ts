@@ -36,7 +36,7 @@ export interface AuthContext {
    * The user in person confirmed it recently (review of 18/10, residual risk of M1): the
    * password typed in this session less than `ownerRecentMs` ago, or a session the desktop
    * app opened over its own channel (the app's own core: its cookie never goes to disk). The
-   * most sensitive changes need it (`RECENT_ONLY` in server/app.ts): a session left open for
+   * most sensitive changes need it (`RecentProof`, auth/recent.ts): a session left open for
    * days is not enough for them.
    */
   recent: boolean;

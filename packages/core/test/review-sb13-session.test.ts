@@ -265,7 +265,7 @@ describe('the most sensitive changes need the password typed recently (residual 
       ['PUT', '/api/permissions', SHELL_FOR_RHEA],
       ['POST', '/api/telegram/pairing', {}],
       ['PUT', '/api/telegram/token', { token: '123456:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi' }],
-      ['PATCH', '/api/telegram/bots/bot-1', { fullTools: true }],
+      ['PATCH', '/api/telegram/bots/222222222', { fullTools: true }],
     ] as const) {
       const res = await call(method, path, body);
       expect([path, res.status]).toEqual([path, 403]);

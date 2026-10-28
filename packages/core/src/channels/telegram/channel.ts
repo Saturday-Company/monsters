@@ -30,6 +30,7 @@ import type {
   Message,
   Update,
 } from 'grammy/types';
+import { assertRecent, type RecentProof } from '../../auth/recent.ts';
 import { migrate } from '../../db/migrations.ts';
 import type { Db } from '../../db/sqlite.ts';
 import type { StateStore } from '../../db/state-store.ts';
@@ -482,9 +483,11 @@ export class TelegramChannel {
 
   /**
    * Verifies the token with `getMe`, saves it (mode 600) and (re)starts the bot. `pasted` is
-   * what the user pasted: the token alone or BotFather's whole message.
+   * what the user pasted: the token alone or BotFather's whole message. The main bot talks to
+   * the capo as the user: changing it wants a recent confirmation (`proof`, auth/recent.ts).
    */
-  async setToken(pasted: string): Promise<TelegramView> {
+  async setToken(pasted: string, proof: RecentProof | undefined): Promise<TelegramView> {
+    assertRecent(proof);
     const trimmed = extractTelegramToken(pasted);
     if (!trimmed) throw new TelegramError('invalid_token', telegramTokenShapeMessage());
     const generation = ++this.#tokenGeneration;
@@ -545,8 +548,12 @@ export class TelegramChannel {
     });
   }
 
-  /** A new pairing code (the previous one stops working). */
-  startPairing(): TelegramPairing {
+  /**
+   * A new pairing code (the previous one stops working). Whoever pairs commands the monsters
+   * from Telegram: a recent confirmation (`proof`, auth/recent.ts).
+   */
+  startPairing(proof: RecentProof | undefined): TelegramPairing {
+    assertRecent(proof);
     if (!this.#stored()) {
       throw new TelegramError('no_token', telegramStrings().connectBotFirst);
     }

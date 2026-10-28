@@ -82,3 +82,24 @@ describe('outbox: a new token and the closing (review of 19/10, item 11)', () =>
     expect(sent).toBe(4);
   }, 15_000);
 });
+
+describe('outbox: a chat that may not receive (review of 28/10)', () => {
+  it('drops what is queued for it, unless the job is the one answer to a request (`anyone`)', async () => {
+    const o = new Outbox({
+      allowed: (chat) => chat !== 42,
+      failed: () => {},
+      chatGapMs: { private: 0, group: 0 },
+    });
+    o.open({} as Api);
+    const sent: string[] = [];
+    const job = (what: string) => () => {
+      sent.push(what);
+      return Promise.resolve();
+    };
+    o.enqueue(42, job('refused'));
+    o.enqueue(42, job('answer'), { anyone: true });
+    o.enqueue(7, job('allowed'));
+    await o.close();
+    expect(sent.sort()).toEqual(['allowed', 'answer']);
+  });
+});

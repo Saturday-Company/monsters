@@ -41,6 +41,7 @@ import {
   type SessionProof,
   THUMBS_TICKET_RESOURCE,
 } from '../auth/auth-service.ts';
+import { ConfirmRequiredError } from '../auth/recent.ts';
 import { isLoopbackHost, type CoreConfig } from '../config.ts';
 import { saveAppLanguage } from '../i18n.ts';
 import type { RunController } from '../kill/run-controller.ts';
@@ -137,6 +138,8 @@ const OWNER_ONLY: readonly { methods: ReadonlySet<string>; path: RegExp }[] = [
   { methods: new Set(['PATCH']), path: /^\/api\/projects\/[^/]+\/?$/ },
   // Tools given to the monsters: other programs, Claude's connectors, the web of a monster.
   { methods: new Set(['PUT']), path: /^\/api\/mcp-servers\/[^/]+\/?$/ },
+  // The test starts the server's program, also one that is off or kept for other monsters.
+  { methods: new Set(['POST']), path: /^\/api\/mcp-servers\/[^/]+\/test\/?$/ },
   { methods: new Set(['POST']), path: /^\/api\/mcp-servers\/[^/]+\/accept\/?$/ },
   { methods: new Set(['PUT']), path: /^\/api\/claude-connections\/[^/]+\/?$/ },
   { methods: new Set(['POST']), path: /^\/api\/team\/agents\/?$/ },
@@ -173,27 +176,20 @@ const OWNER_ONLY: readonly { methods: ReadonlySet<string>; path: RegExp }[] = [
   { methods: new Set(['POST']), path: /^\/api\/(?:vault\/undo|runs\/[^/]+\/undo)\/?$/ },
 ];
 
-/**
- * Among `OWNER_ONLY`, what needs the password typed in the last minutes (`AuthContext.recent`,
- * residual risk of M1): a session confirmed once stays the user's for days (the cookie of a
- * browser or of the app attached to a core of the terminal), and these changes give a monster
- * or another person the most. The password change asks the current one (that is the
- * confirmation); turning on the Terminal of a monster (routes/permissions.ts) and "Strumenti per
- * gli altri" of a dedicated bot (routes/telegram.ts) depend on the body and are checked there.
- * The desktop app on its own core is always recent (its session comes from its own channel).
+/*
+ * The password typed in the last minutes (`AuthContext.recent`, residual risk of M1) is not asked
+ * by a list of paths: a session confirmed once stays the user's for days (the cookie of a
+ * browser or of the app attached to a core of the terminal), and the changes that give a monster
+ * or a stranger the power to run code (the Terminal, a program an MCP server launches, the full
+ * toolset of a Telegram bot, the main bot) are decided where they are made, by the service that
+ * makes them, from what the change does (auth/recent.ts). A service method that can grant such
+ * power takes a `RecentProof` and throws `ConfirmRequiredError`, which `app.onError` answers with
+ * `confirmRequired`; a route cannot leave it out without the types noticing. The password change
+ * asks the current one (that is the confirmation). The desktop app on its own core is always
+ * recent (its session comes from its own channel).
  */
-const RECENT_ONLY: readonly { methods: ReadonlySet<string>; path: RegExp }[] = [
-  // Pairing a Telegram account with the main bot, and the main bot itself.
-  { methods: new Set(['POST']), path: /^\/api\/telegram\/pairing\/?$/ },
-  { methods: new Set(['PUT']), path: /^\/api\/telegram\/token\/?$/ },
-];
 
-/** True when this request needs a recent confirmation (see `RECENT_ONLY`). */
-export function recentOnly(method: string, path: string): boolean {
-  return RECENT_ONLY.some((r) => r.methods.has(method) && r.path.test(path));
-}
-
-/** The answer to a request `RECENT_ONLY` refuses: the UI asks the password and tries again. */
+/** The answer that asks the password again: the UI shows "Confirm it's you" and tries again. */
 export const confirmRequired = () =>
   ({ error: 'confirm_required', message: serverStrings().confirmRequired }) as const;
 
@@ -260,12 +256,6 @@ export interface RouteHelpers {
   requireAuth: MiddlewareHandler<Env>;
   /** The caller is the user in person (`AuthContext.owner`), see `OWNER_ONLY`. */
   isOwner: (ctx: AuthContext | undefined) => boolean;
-  /**
-   * For a change `RECENT_ONLY` cannot tell from the path: the answer that asks the password
-   * again (403 `owner_required` or `confirm_required`), or null when the caller confirmed it
-   * recently.
-   */
-  requireRecent: (c: Context<Env>) => Response | null;
   parseBody: typeof parseBody;
   channelOf: typeof channelOf;
 }
@@ -464,24 +454,16 @@ export function createApp(deps: AppDeps): Hono<Env> {
     await next();
   };
 
-  // Approvals, grants and pairing: the user in person only (review of 18/10, M1); the most
-  // sensitive of them with the password typed in the last minutes. Before the routes; an
-  // unauthenticated request goes on to their `requireAuth` (401).
+  // Approvals, grants and pairing: the user in person only (review of 18/10, M1). The most
+  // sensitive of them also want the password typed in the last minutes, which the service that
+  // makes the change decides (auth/recent.ts). Before the routes; an unauthenticated request
+  // goes on to their `requireAuth` (401).
   app.use('/api/*', async (c, next) => {
     if (!ownerOnly(c.req.method, c.req.path)) return next();
     const ctx = authenticate(auth, credentialsOf(c), proofOf(c));
     if (ctx && !ctx.owner) return c.json(ownerRequired(), 403);
-    if (ctx && !ctx.recent && recentOnly(c.req.method, c.req.path)) {
-      return c.json(confirmRequired(), 403);
-    }
     return next();
   });
-
-  const requireRecent = (c: Context<Env>): Response | null => {
-    const ctx = c.get('auth');
-    if (!ctx.owner) return c.json(ownerRequired(), 403);
-    return ctx.recent ? null : c.json(confirmRequired(), 403);
-  };
 
   app.get('/api/health', (c) => {
     const nonce = c.req.query('proof');
@@ -611,7 +593,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
   };
 
   // "Conferma che sei tu" (review of 18/10, M1): the password again in this session makes it the
-  // user's in person (a session the CLI token opened) and recent (`RECENT_ONLY`). The same
+  // user's in person (a session the CLI token opened) and recent (auth/recent.ts). The same
   // session goes on: its streams and its secret stay.
   app.post('/api/auth/confirm', requireAuth, async (c) => {
     const ctx = c.get('auth');
@@ -797,7 +779,6 @@ export function createApp(deps: AppDeps): Hono<Env> {
   deps.extend?.(app, {
     requireAuth,
     isOwner: (ctx) => ctx?.owner === true,
-    requireRecent,
     parseBody,
     channelOf,
   });
@@ -805,6 +786,8 @@ export function createApp(deps: AppDeps): Hono<Env> {
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));
   app.onError((err, c) => {
+    // A change that grants the power to run code, without a recent confirmation (auth/recent.ts).
+    if (err instanceof ConfirmRequiredError) return c.json(confirmRequired(), 403);
     log.append({
       agent: 'system',
       type: 'error',

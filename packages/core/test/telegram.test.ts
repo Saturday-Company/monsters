@@ -30,7 +30,7 @@ import {
   coreMigrations,
 } from '../src/index.ts';
 import { tempHome } from './helpers.ts';
-import { deferred, never, startTestHub, type TestHub } from './hub-helpers.ts';
+import { deferred, never, RECENT, startTestHub, type TestHub } from './hub-helpers.ts';
 import {
   FAKE_BOT,
   FAKE_TOKEN,
@@ -1190,7 +1190,7 @@ describe('telegram: whitelist and accounts', () => {
     // The old loop is busy with /stop when the new token arrives.
     tg.text(GIULIO, '/stop');
     while (!killed) await pause(10);
-    const switching = channel.setToken(OTHER_TOKEN);
+    const switching = channel.setToken(OTHER_TOKEN, RECENT);
     await tg.waitCall((c) => c.method === 'getMe' && c.token === OTHER_TOKEN);
     await pause(50);
     killing.resolve();
@@ -1738,7 +1738,10 @@ describe('telegram: token saved twice, or while stopping', () => {
     // The old loop is busy with /stop when the token is saved twice.
     tg.text(GIULIO, '/stop');
     while (!killed) await pause(10);
-    const both = Promise.all([channel.setToken(FAKE_TOKEN), channel.setToken(FAKE_TOKEN)]);
+    const both = Promise.all([
+      channel.setToken(FAKE_TOKEN, RECENT),
+      channel.setToken(FAKE_TOKEN, RECENT),
+    ]);
     await pause(100);
     killing.resolve();
     await both;
@@ -1759,7 +1762,7 @@ describe('telegram: token saved twice, or while stopping', () => {
     channel.start();
     await online();
     const stopping = channel.stop();
-    const late = channel.setToken(FAKE_TOKEN);
+    const late = channel.setToken(FAKE_TOKEN, RECENT);
     await Promise.all([stopping, late]);
     const polls = () => tg.calls.filter((c) => c.method === 'getUpdates').length;
     const after = polls();
@@ -1800,7 +1803,7 @@ describe('telegram: token saved twice, or while stopping', () => {
     // The old loop is busy with /stop: the new token waits for it inside the queue.
     tg.text(GIULIO, '/stop');
     while (!killed) await pause(10);
-    const switching = channel.setToken(FAKE_TOKEN);
+    const switching = channel.setToken(FAKE_TOKEN, RECENT);
     while (!tg.calls.some((c) => c.method === 'getMe')) await pause(10);
     await pause(50);
     const stopping = channel.stop();
@@ -1818,7 +1821,7 @@ describe('telegram: token saved twice, or while stopping', () => {
     channel.start();
     const checking = deferred();
     tg.holdGetMe = checking.promise;
-    const saving = channel.setToken(FAKE_TOKEN);
+    const saving = channel.setToken(FAKE_TOKEN, RECENT);
     while (!tg.calls.some((c) => c.method === 'getMe')) await pause(10);
     await channel.removeToken();
     checking.resolve();

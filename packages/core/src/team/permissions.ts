@@ -9,6 +9,7 @@ import type {
   PermissionsUpdateRequest,
 } from '@monsters/shared';
 import { expandHome, mayBeInside, realPathOf } from '@monsters/tools';
+import { assertRecent, type RecentProof } from '../auth/recent.ts';
 import type { EventLog } from '../log/event-log.ts';
 import { patchSettingsFile } from '../onboarding/settings-file.ts';
 import { permissionsStrings } from './permissions.strings.ts';
@@ -46,6 +47,21 @@ export class PermissionsError extends Error {
     this.code = code;
     this.path = path;
   }
+}
+
+/** True when `req` gives the Terminal to a monster (or to the defaults) that did not have it. */
+export function grantsShell(req: PermissionsUpdateRequest, now: PermissionsResponse): boolean {
+  const defaults = req.defaults ? req.defaults.shell === true : now.defaults.shell === true;
+  if (defaults && now.defaults.shell !== true) return true;
+  for (const view of now.agents) {
+    const own = req.agents?.[view.id];
+    let next: boolean;
+    // Untouched: it follows the new defaults only when it has no permissions of its own.
+    if (own === undefined) next = view.custom ? view.permissions.shell === true : defaults;
+    else next = own === null ? defaults : own.shell === true;
+    if (next && view.permissions.shell !== true) return true;
+  }
+  return false;
 }
 
 /** Variable the desktop app sets on the core it starts: where the app is installed. */
@@ -179,16 +195,27 @@ export class PermissionsService {
   /**
    * Validates, saves in `settings.json`, applies to the team and logs the
    * change. Serialised: folder checks are asynchronous, and two updates that
-   * read the same settings would otherwise undo each other.
+   * read the same settings would otherwise undo each other. Giving the Terminal to a monster
+   * that did not have it wants a recent confirmation (`proof`, auth/recent.ts): it is worth the
+   * user's whole account.
    */
-  update(req: PermissionsUpdateRequest, by: Channel): Promise<PermissionsResponse> {
-    const next = this.#queue.then(() => this.#update(req, by));
+  update(
+    req: PermissionsUpdateRequest,
+    by: Channel,
+    proof: RecentProof | undefined,
+  ): Promise<PermissionsResponse> {
+    const next = this.#queue.then(() => this.#update(req, by, proof));
     this.#queue = next.catch(() => undefined);
     return next;
   }
 
-  async #update(req: PermissionsUpdateRequest, by: Channel): Promise<PermissionsResponse> {
+  async #update(
+    req: PermissionsUpdateRequest,
+    by: Channel,
+    proof: RecentProof | undefined,
+  ): Promise<PermissionsResponse> {
     const { team, settings, home, log } = this.#o;
+    if (grantsShell(req, this.view())) assertRecent(proof);
     for (const id of Object.keys(req.agents ?? {})) {
       if (!team.get(id) || team.get(id)?.config.id !== id) {
         throw new PermissionsError('unknown_agent', `unknown agent ${id}`);

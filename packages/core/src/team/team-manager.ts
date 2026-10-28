@@ -91,6 +91,7 @@ import {
   writeAgentFolder,
   type LeadBlueprint,
 } from '../agents/templates.ts';
+import { assertRecent, type RecentProof } from '../auth/recent.ts';
 import type { RunController } from '../kill/run-controller.ts';
 import type { EventLog } from '../log/event-log.ts';
 import {
@@ -1359,7 +1360,8 @@ export class TeamManager {
   /**
    * Some archived monster among `ids` would come back with the Terminal: its permissions stay
    * in settings.json while it is away (review of 19/10, n. 6). Giving it back is like turning
-   * it on in Impostazioni → Permessi, and wants the same recent confirmation.
+   * it on in Impostazioni → Permessi, and wants the same recent confirmation (`restore` and
+   * `restoreSquad` ask for the proof).
    */
   restoreGivesShell(ids: readonly string[]): boolean {
     const { team } = this.#d;
@@ -1371,9 +1373,15 @@ export class TeamManager {
     );
   }
 
-  restore(id: string, req: TeamRestoreRequest, by: Channel): Promise<TeamMemberView> {
+  restore(
+    id: string,
+    req: TeamRestoreRequest,
+    by: Channel,
+    proof: RecentProof | undefined,
+  ): Promise<TeamMemberView> {
     return this.#serial(async () => {
       this.#assertReady();
+      if (this.restoreGivesShell([id])) assertRecent(proof);
       const { team } = this.#d;
       const dir = join(this.archiveDir, id);
       let archived: AgentDefinition;
@@ -2356,7 +2364,14 @@ export class TeamManager {
    * first. A name taken meanwhile gets the copy's free name ("Rhea · Saturday").
    * Returns the ids back in the project; a monster no longer in the archive is skipped.
    */
-  async restoreSquad(projectId: string, ids: readonly string[], by: Channel): Promise<string[]> {
+  async restoreSquad(
+    projectId: string,
+    ids: readonly string[],
+    by: Channel,
+    proof: RecentProof | undefined,
+  ): Promise<string[]> {
+    // Before the first one comes back: not half a squad.
+    if (this.restoreGivesShell(ids)) assertRecent(proof);
     const project = this.#d.team.project(projectId);
     if (!project) {
       throw new TeamError('unknown_project', teamManagerStrings().unknownProject(projectId));
@@ -2378,10 +2393,10 @@ export class TeamManager {
       const id = a.config.id;
       if (this.#d.team.byId(id)) continue;
       try {
-        await this.restore(id, {}, by);
+        await this.restore(id, {}, by, proof);
       } catch (err) {
         if (!(err instanceof TeamError) || err.code !== 'name_taken') throw err;
-        await this.restore(id, { name: this.copyName(a.config.name, project) }, by);
+        await this.restore(id, { name: this.copyName(a.config.name, project) }, by, proof);
       }
       back.push(id);
     }

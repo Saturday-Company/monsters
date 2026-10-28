@@ -42,6 +42,7 @@ import { requireNodeRuntime } from '@monsters/shared/node';
 import { isAgentSessionEnv, isMonstersEnv, type Resolver } from '@monsters/tools';
 import type { AgentDefinition } from '../agents/definition.ts';
 import { wrapExternalData } from '../agents/tool-adapter.ts';
+import { assertRecent, type RecentProof } from '../auth/recent.ts';
 import { writeSensitiveFile } from '../config.ts';
 import type { StateStore } from '../db/state-store.ts';
 import type { ControlScope } from '../kill/control-scope.ts';
@@ -120,6 +121,27 @@ import { ChildStdioTransport } from './stdio-transport.ts';
  * changed description pauses like everywhere else, because the description is
  * what the model reads as instructions.
  */
+
+/**
+ * True when saving `next` over `prev` (undefined: a new server) makes the core launch a program
+ * the user has not confirmed: a stdio server added, a server that becomes stdio, or a stdio server
+ * whose command, arguments or variables changed. The browser preset runs what the core chose.
+ */
+export function runsNewCode(
+  prev: McpServerSetting | undefined,
+  next: McpServerSetting,
+  env: Record<string, string>,
+  prevEnv: Record<string, string>,
+): boolean {
+  if (next.transport !== 'stdio' || next.preset === 'browser') return false;
+  if (!prev || prev.transport !== 'stdio' || prev.preset === 'browser') return true;
+  const sorted = (e: Record<string, string>) => JSON.stringify(Object.entries(e).sort());
+  return (
+    prev.command !== next.command ||
+    JSON.stringify(prev.args ?? []) !== JSON.stringify(next.args ?? []) ||
+    sorted(prevEnv) !== sorted(env)
+  );
+}
 
 export class McpError extends Error {
   readonly code: 'unknown_server' | 'invalid_server' | 'unknown_agent' | 'oauth_failed';
@@ -1977,8 +1999,18 @@ export class McpManager {
     );
   }
 
-  /** Adds or changes a server. A change of command, address or secrets restarts it at the next use. */
-  async upsert(rawName: string, req: McpServerRequest, by: Channel): Promise<McpServersResponse> {
+  /**
+   * Adds or changes a server. A change of command, address or secrets restarts it at the next use.
+   * A stdio server is a program the core launches as the user: adding one, or changing its
+   * command, arguments or variables, wants a recent confirmation (`proof`, auth/recent.ts) like
+   * the Terminal of a monster. Who may use the server, its tools or its timeout do not.
+   */
+  async upsert(
+    rawName: string,
+    req: McpServerRequest,
+    by: Channel,
+    proof: RecentProof | undefined,
+  ): Promise<McpServersResponse> {
     const nameCheck = McpServerNameSchema.safeParse(rawName);
     if (!nameCheck.success) {
       throw new McpError('invalid_server', mcpStrings().invalidName);
@@ -2076,6 +2108,8 @@ export class McpManager {
     if (unreadable && req.headers === undefined && prev) next.headerKeys = prev.headerKeys;
     else next.headerKeys = Object.keys(secrets.headers);
     const secretsChanged = JSON.stringify(secrets) !== JSON.stringify(stored);
+    // Before anything is saved or stopped.
+    if (runsNewCode(prev, next, secrets.env, stored.env)) assertRecent(proof);
 
     // Tokens belong to one address: another address (or no OAuth) signs out.
     const signOut = Boolean(prev?.oauth) && (!next.oauth || prev?.url !== next.url);

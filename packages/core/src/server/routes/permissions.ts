@@ -1,9 +1,6 @@
-import {
-  PermissionsUpdateRequestSchema,
-  type PermissionsResponse,
-  type PermissionsUpdateRequest,
-} from '@monsters/shared';
+import { PermissionsUpdateRequestSchema } from '@monsters/shared';
 import type { Hono } from 'hono';
+import { recentProofOf } from '../../auth/recent.ts';
 import { PermissionsError, type PermissionsService } from '../../team/permissions.ts';
 import type { AppEnv, RouteHelpers } from '../app.ts';
 
@@ -14,21 +11,6 @@ import type { AppEnv, RouteHelpers } from '../app.ts';
  *   PUT /api/permissions   → PermissionsResponse (defaults and/or per agent)
  * Allowed while halted: changing permissions starts no work.
  */
-
-/** True when `req` gives the Terminal to a monster (or to the defaults) that did not have it. */
-export function grantsShell(req: PermissionsUpdateRequest, now: PermissionsResponse): boolean {
-  const defaults = req.defaults ? req.defaults.shell === true : now.defaults.shell === true;
-  if (defaults && now.defaults.shell !== true) return true;
-  for (const view of now.agents) {
-    const own = req.agents?.[view.id];
-    let next: boolean;
-    // Untouched: it follows the new defaults only when it has no permissions of its own.
-    if (own === undefined) next = view.custom ? view.permissions.shell === true : defaults;
-    else next = own === null ? defaults : own.shell === true;
-    if (next && view.permissions.shell !== true) return true;
-  }
-  return false;
-}
 
 export function registerPermissionRoutes(
   app: Hono<AppEnv>,
@@ -42,14 +24,12 @@ export function registerPermissionRoutes(
   app.put('/api/permissions', requireAuth, async (c) => {
     const body = await parseBody(c, PermissionsUpdateRequestSchema);
     if (!body.ok) return body.res;
-    // Turning on the Terminal of a monster needs the password typed in the last minutes
-    // (`RECENT_ONLY` in app.ts): it is worth the user's whole account.
-    if (grantsShell(body.data, permissions.view())) {
-      const refused = h.requireRecent(c);
-      if (refused) return refused;
-    }
+    // Turning on the Terminal of a monster wants the password typed in the last minutes: the
+    // service decides (`ConfirmRequiredError` → 403 `confirm_required`, app.ts).
     try {
-      return c.json(await permissions.update(body.data, channelOf(c.get('auth'))));
+      return c.json(
+        await permissions.update(body.data, channelOf(c.get('auth')), recentProofOf(c.get('auth'))),
+      );
     } catch (err) {
       if (err instanceof PermissionsError) {
         return c.json(

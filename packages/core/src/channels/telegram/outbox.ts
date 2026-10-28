@@ -202,8 +202,14 @@ export class Outbox {
   /**
    * Runs `job` after the earlier messages of the same chat. `job` gets the
    * chat to write to, which may change while it waits (migration to a supergroup).
+   * `anyone`: leaves even when the chat is not allowed to receive (the one answer to someone
+   * who asked to join, like the main channel's `{ anyone: true }`).
    */
-  enqueue(startChatId: number, job: (api: Api, chatId: number) => Promise<unknown>): void {
+  enqueue(
+    startChatId: number,
+    job: (api: Api, chatId: number) => Promise<unknown>,
+    options: { anyone?: boolean } = {},
+  ): void {
     const chatId = this.current(startChatId);
     const signal = this.#abort?.signal;
     if (!this.#api || !signal || this.#blocked.has(chatId)) return;
@@ -220,7 +226,8 @@ export class Outbox {
     const next = prev
       .then(() => {
         const target = this.current(chatId);
-        if (signal.aborted || this.#blocked.has(target) || !this.#o.allowed(target)) return;
+        if (signal.aborted || this.#blocked.has(target)) return;
+        if (!options.anyone && !this.#o.allowed(target)) return;
         return this.#pacer
           .wait(target, signal)
           .then(() => {
