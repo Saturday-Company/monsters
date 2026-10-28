@@ -2,6 +2,7 @@ import { jsonSchema, streamText, tool } from 'ai';
 import { describe, expect, it } from 'vitest';
 import {
   LocalProvider,
+  OLLAMA_DEFAULT_CONTEXT,
   ProviderRegistry,
   classifyProviderError,
   normalizeLocalBaseURL,
@@ -55,10 +56,59 @@ describe('local providers', () => {
     const models = await p.listModels();
     expect(models).toEqual([
       { id: 'nomic:latest', tools: false, free: true },
-      { id: 'qwen3:8b', tools: true, free: true, context: 40960 },
+      // The effective context (Ollama's default), not the 40960 the model was trained for.
+      { id: 'qwen3:8b', tools: true, free: true, context: 4096 },
     ]);
     expect((await p.listModels({ tools: true })).map((m) => m.id)).toEqual(['qwen3:8b']);
     for (const r of http.requests) expect(r.headers['authorization']).toBeUndefined();
+  });
+
+  it('Ollama: the context is the one Ollama allocates, not the training maximum', async () => {
+    const serve = (opts: { parameters?: string; loaded?: number }) =>
+      fakeHttp((req) => {
+        if (req.url.endsWith('/api/tags')) return json({ models: [{ name: 'a:1' }] });
+        if (req.url.endsWith('/api/ps')) {
+          return json({
+            models: opts.loaded ? [{ name: 'a:1', model: 'a:1', context_length: opts.loaded }] : [],
+          });
+        }
+        if (req.url.endsWith('/api/show')) {
+          return json({
+            capabilities: ['completion', 'tools'],
+            model_info: { 'a.context_length': 131072 },
+            ...(opts.parameters ? { parameters: opts.parameters } : {}),
+          });
+        }
+        return undefined;
+      });
+    const contextOf = async (opts: { parameters?: string; loaded?: number }) =>
+      (await new LocalProvider({ type: 'ollama', fetch: serve(opts).fetch }).listModels())[0]!
+        .context;
+    // Nothing set: Ollama's default, however long the model could read.
+    expect(await contextOf({})).toBe(OLLAMA_DEFAULT_CONTEXT);
+    // The Modelfile sets num_ctx.
+    expect(
+      await contextOf({ parameters: 'stop "<|im_end|>"\nnum_ctx                        16384' }),
+    ).toBe(16384);
+    // A loaded model reports the context it was loaded with, which wins.
+    expect(await contextOf({ parameters: 'num_ctx 16384', loaded: 32768 })).toBe(32768);
+    // Never above what the model supports.
+    expect(await contextOf({ parameters: 'num_ctx 999999' })).toBe(131072);
+  });
+
+  it('LM Studio: the loaded context wins over the maximum', async () => {
+    const http = fakeHttp((req) =>
+      req.url.endsWith('/api/v0/models')
+        ? json({
+            data: [
+              { id: 'a', type: 'llm', max_context_length: 131072, loaded_context_length: 8192 },
+              { id: 'b', type: 'llm', max_context_length: 32768 },
+            ],
+          })
+        : undefined,
+    );
+    const models = await new LocalProvider({ type: 'lmstudio', fetch: http.fetch }).listModels();
+    expect(models.map((m) => m.context)).toEqual([8192, 32768]);
   });
 
   it('Ollama: a tool call through the OpenAI-compatible endpoint', async () => {

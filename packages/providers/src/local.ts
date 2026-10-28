@@ -48,6 +48,20 @@ const OllamaTags = z.object({
 const OllamaShow = z.object({
   capabilities: z.array(z.string()).nullish(),
   model_info: z.record(z.string(), z.unknown()).nullish(),
+  /** The Modelfile's PARAMETER lines as text (`num_ctx 8192`). */
+  parameters: z.string().nullish(),
+});
+/** Models loaded right now, with the context each was loaded with (Ollama 0.6 and later). */
+const OllamaPs = z.object({
+  models: z
+    .array(
+      z.object({
+        name: z.string().nullish(),
+        model: z.string().nullish(),
+        context_length: z.number().nullish(),
+      }),
+    )
+    .default([]),
 });
 const LmStudioModels = z.object({
   data: z.array(
@@ -55,12 +69,14 @@ const LmStudioModels = z.object({
       id: z.string(),
       type: z.string().nullish(),
       max_context_length: z.number().nullish(),
+      loaded_context_length: z.number().nullish(),
       capabilities: z.array(z.string()).nullish(),
     }),
   ),
 });
 const OpenAIModels = z.object({ data: z.array(z.object({ id: z.string() })) });
 
+/** What the model was trained for: not what Ollama allocates (see `effectiveOllamaContext`). */
 function contextFromOllama(info: Record<string, unknown> | null | undefined): number | undefined {
   for (const [k, v] of Object.entries(info ?? {})) {
     if (k.endsWith('.context_length') && typeof v === 'number') return v;
@@ -68,6 +84,37 @@ function contextFromOllama(info: Record<string, unknown> | null | undefined): nu
   return undefined;
 }
 
+/**
+ * Ollama's context window when nothing sets one (`OLLAMA_CONTEXT_LENGTH`, or
+ * `num_ctx` in the Modelfile): the server allocates this, not the model's
+ * training maximum. Newer versions pick a larger one by VRAM; a loaded model
+ * reports its real one, which then wins.
+ */
+export const OLLAMA_DEFAULT_CONTEXT = 4096;
+
+/** `num_ctx` of a Modelfile's `parameters` text, if it sets one. */
+function numCtxFromParameters(parameters: string | null | undefined): number | undefined {
+  const m = /^\s*num_ctx\s+(\d+)\s*$/m.exec(parameters ?? '');
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isSafeInteger(n) && n > 0 ? n : undefined;
+}
+
+/**
+ * The context Ollama really gives a model through its OpenAI-compatible endpoint,
+ * which cannot pass `num_ctx` per request: the context of the loaded model, else
+ * the Modelfile's `num_ctx`, else the server default; never above the training
+ * maximum. Reading the training maximum instead made the core believe in 40k
+ * where the server cut at 4k, so nothing was compacted and Ollama silently
+ * dropped the start of the prompt (instructions and tools).
+ */
+function effectiveOllamaContext(
+  trained: number | undefined,
+  loaded: number | undefined,
+  configured: number | undefined,
+): number {
+  const effective = loaded ?? configured ?? OLLAMA_DEFAULT_CONTEXT;
+  return trained !== undefined ? Math.min(effective, trained) : effective;
+}
 export class LocalProvider implements ModelProvider {
   readonly kind = 'model';
   readonly auth = 'none';
@@ -117,6 +164,7 @@ export class LocalProvider implements ModelProvider {
     const tags = OllamaTags.parse(
       await getJson(this.id, this.#fetch, `${this.baseURL}/api/tags`, { signal }),
     );
+    const loaded = await this.#ollamaLoaded(signal);
     return Promise.all(
       tags.models.slice(0, 100).map(async (m): Promise<ModelInfo> => {
         const id = m.model ?? m.name;
@@ -129,19 +177,42 @@ export class LocalProvider implements ModelProvider {
               signal,
             }),
           );
-          const context = contextFromOllama(show.model_info);
+          const tools = show.capabilities ? show.capabilities.includes('tools') : true;
+          // An embedding model has no chat context to guard.
+          const chat = show.capabilities ? show.capabilities.includes('completion') : true;
+          const trained = contextFromOllama(show.model_info);
+          const context = chat
+            ? effectiveOllamaContext(trained, loaded.get(id), numCtxFromParameters(show.parameters))
+            : undefined;
           return {
             id,
             // Older servers do not report capabilities: let the user try.
-            tools: show.capabilities ? show.capabilities.includes('tools') : true,
+            tools,
             free: true,
             ...(context ? { context } : {}),
           };
         } catch {
-          return { id, tools: true, free: true };
+          return { id, tools: true, free: true, context: loaded.get(id) ?? OLLAMA_DEFAULT_CONTEXT };
         }
       }),
     );
+  }
+
+  /** The context of each model loaded now (`/api/ps`); nothing on an older server or any failure. */
+  async #ollamaLoaded(signal: AbortSignal): Promise<Map<string, number>> {
+    const loaded = new Map<string, number>();
+    try {
+      const ps = OllamaPs.parse(
+        await getJson(this.id, this.#fetch, `${this.baseURL}/api/ps`, { signal }),
+      );
+      for (const m of ps.models) {
+        const name = m.model ?? m.name;
+        if (name && m.context_length && m.context_length > 0) loaded.set(name, m.context_length);
+      }
+    } catch {
+      // Not loaded, not reported, or an old version: the configured or default value.
+    }
+    return loaded;
   }
 
   async #lmStudio(signal: AbortSignal): Promise<ModelInfo[]> {
@@ -151,12 +222,16 @@ export class LocalProvider implements ModelProvider {
       );
       return body.data
         .filter((m) => m.type !== 'embeddings')
-        .map((m) => ({
-          id: m.id,
-          tools: m.capabilities ? m.capabilities.includes('tool_use') : true,
-          free: true,
-          ...(m.max_context_length ? { context: m.max_context_length } : {}),
-        }));
+        .map((m): ModelInfo => {
+          // The context the model is loaded with, not the maximum it supports.
+          const context = m.loaded_context_length || m.max_context_length;
+          return {
+            id: m.id,
+            tools: m.capabilities ? m.capabilities.includes('tool_use') : true,
+            free: true,
+            ...(context ? { context } : {}),
+          };
+        });
     } catch (err) {
       // Older LM Studio, or another OpenAI-compatible server: the plain list.
       if (!(err instanceof ProviderHttpError) || err.status !== 404) throw err;

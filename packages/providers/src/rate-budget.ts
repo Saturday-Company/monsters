@@ -19,6 +19,8 @@ export interface RateLimitWindow {
 
 export const MINUTE_MS = 60_000;
 export const DAY_MS = 86_400_000;
+/** How long to wait before asking again for the provider's daily count after an expiry. */
+const QUOTA_REASK_MS = 10 * MINUTE_MS;
 
 export interface RateBudgetOptions {
   /** Provider id, for messages. */
@@ -44,6 +46,13 @@ export interface RateBudgetOptions {
    * uses them up (D-082).
    */
   counts?: (model: string) => boolean;
+  /**
+   * Called (without waiting) the first time a request arrives after the
+   * provider's daily count (`syncDailyQuota`) has expired at midnight UTC, so the
+   * owner can read the new day's count. The limit it reported stays in force
+   * meanwhile. Must not throw.
+   */
+  onDailyQuotaExpired?: () => void;
   now?: () => number;
 }
 
@@ -297,13 +306,15 @@ export class RateBudget {
   /** Requests made before `#createdAt`, oldest first (see `restore`). */
   #history: number[] = [];
   /** Last daily count reported by the provider, valid until the next UTC midnight. */
-  #quota: {
-    used: number;
-    limit: number | undefined;
-    replace: boolean;
-    at: number;
-    until: number;
-  } | null = null;
+  #quota: { used: number; at: number; until: number; askedAt: number } | null = null;
+  /**
+   * The daily limit the provider reported. Unlike the count it belongs to the
+   * account, not to the day, so it outlives the midnight reset until a newer
+   * report replaces it (forgetting it sent the budget back to the configured
+   * default, 50 on an account that is allowed 1000).
+   */
+  #accountLimit: { limit: number; replace: boolean } | null = null;
+  readonly #onDailyQuotaExpired: (() => void) | null;
   #queue: Waiter[] = [];
   #pumping = false;
   #wake: AbortController = new AbortController();
@@ -321,6 +332,7 @@ export class RateBudget {
     this.#defaultBackoffMs = options.defaultBackoffMs ?? 0;
     this.#perModel = options.limitScope === 'model';
     this.#counts = options.counts ?? null;
+    this.#onDailyQuotaExpired = options.onDailyQuotaExpired ?? null;
     this.#now = options.now ?? Date.now;
     this.#createdAt = this.#now();
   }
@@ -349,6 +361,7 @@ export class RateBudget {
    */
   acquire(signal?: AbortSignal, model?: string): Promise<number> {
     if (signal?.aborted) return Promise.reject(abortReason(signal));
+    this.#noticeQuotaExpiry();
     const modelWait = model !== undefined ? this.modelWaitTime(model) : 0;
     if (model !== undefined && !this.counts(model)) {
       // Outside the windows: only its own 429 holds it back.
@@ -447,23 +460,32 @@ export class RateBudget {
    * requests granted since the read started, instead of the log: the provider
    * knows exactly what its key spent, the log may hold requests of another key.
    * The provider's `limit` caps or replaces the configured one (`limitMode`).
-   * The report expires at the next midnight UTC; one read across midnight is
-   * dropped. Returns false when the report is not used.
+   * The count expires at the next midnight UTC (`onDailyQuotaExpired` asks for
+   * a new one); the limit stays until a newer report replaces it. One read across
+   * midnight is dropped. Returns false when the report is not used.
    */
   syncDailyQuota(report: DailyQuotaReport): boolean {
     if (!Number.isFinite(report.used) || report.used < 0) return false;
     const now = this.#now();
     const at = report.at ?? now;
     if (utcDayStart(at) !== utcDayStart(now)) return false;
-    this.#quota = {
-      used: report.used,
-      limit: report.limit !== undefined && report.limit > 0 ? report.limit : undefined,
-      replace: report.limitMode === 'replace',
-      at,
-      until: utcDayStart(at) + DAY_MS,
-    };
+    this.#quota = { used: report.used, at, until: utcDayStart(at) + DAY_MS, askedAt: 0 };
+    if (report.limit !== undefined && report.limit > 0)
+      this.#accountLimit = { limit: report.limit, replace: report.limitMode === 'replace' };
     this.#kick();
     return true;
+  }
+
+  /**
+   * Tells the owner that the count it gave has expired at midnight UTC; asked
+   * again after `QUOTA_REASK_MS` when no newer report came (its read failed).
+   */
+  #noticeQuotaExpiry(): void {
+    const q = this.#quota;
+    const now = this.#now();
+    if (!q || now < q.until || now - q.askedAt < QUOTA_REASK_MS) return;
+    q.askedAt = now;
+    this.#onDailyQuotaExpired?.();
   }
 
   /**
@@ -567,11 +589,11 @@ export class RateBudget {
     let used = times.filter((t) => t >= start).length;
     let limit = w.limit;
     const q = this.#quota;
-    if (q && now < q.until) {
-      // The provider's count wins over the log; the log is the fallback without it.
-      used = q.used + this.#granted.filter((t) => t >= q.at).length;
-      if (q.limit !== undefined) limit = q.replace ? q.limit : Math.min(limit, q.limit);
-    }
+    // The provider's count wins over the log; the log is the fallback without it
+    // (and after midnight, until the new day's count is read).
+    if (q && now < q.until) used = q.used + this.#granted.filter((t) => t >= q.at).length;
+    const a = this.#accountLimit;
+    if (a) limit = a.replace ? a.limit : Math.min(limit, a.limit);
     return { used, limit, freeAt: used >= limit ? start + DAY_MS : 0 };
   }
 

@@ -210,10 +210,24 @@ const BAD_KEY =
   /API_KEY_INVALID|API key not valid|invalid[_ ]api[_ ]key|incorrect api key|invalid x-api-key/i;
 /**
  * A request this model cannot serve while others of the same provider may
- * (Ollama "does not support tools", a parameter not supported by this model).
+ * (Ollama "does not support tools", a parameter not supported by this model, an
+ * image or a file given to a text-only model, however each server words it).
  */
-const MODEL_UNSUPPORTED =
-  /does not support (tools|tool[_ ]?(use|calling|choice)|function[_ ]?calling|functions|images?|image input|vision|system (prompts?|messages?)|structured outputs?|json mode|streaming|reasoning|thinking)\b|(this|the) model does not support|not supported (with|by|for|on) (this|the) model|not a chat model/i;
+const MODEL_UNSUPPORTED = new RegExp(
+  [
+    String.raw`does not support (tools|tool[_ ]?(use|calling|choice)|function[_ ]?calling|functions|images?|image input|vision|system (prompts?|messages?)|structured outputs?|json mode|streaming|reasoning|thinking)\b`,
+    String.raw`(this|the) model does not support`,
+    String.raw`not supported (with|by|for|on) (this|the) model`,
+    String.raw`not a chat model`,
+    // Input a text-only model refuses: OpenAI-compatible servers, Groq, Mistral, Ollama.
+    String.raw`only supported by certain models`,
+    String.raw`(image|vision|multimodal|pdf|file)s?([ _-](input|content|url|data|parts?))?s? (is |are )?(not supported|unsupported|not allowed|not accepted)`,
+    String.raw`unsupported (content|media|input|file)[ _-]?(type|modalit)`,
+    String.raw`missing data required for image`,
+    String.raw`messages?(\[\d+\]|\.\d+)?\.content'?\s*:?\s*(value )?(must|should) be a string`,
+  ].join('|'),
+  'i',
+);
 /** OpenRouter's 403 when the input of the request was flagged by the model's moderation. */
 const MODERATION = /\bflagged\b|moderation/i;
 /** The model does not exist (any more) on this provider. */

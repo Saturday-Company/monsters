@@ -979,10 +979,11 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
   const contextWindow = (ref: { provider: string; model: string }) =>
     windows.get(ref.provider, ref.model);
   /** What the first model of an agent's chain reads besides text (files feature). */
+  const sightOfModel = (ref: { provider: string; model: string }): ModelSight =>
+    modelSight(ref.provider, ref.model, windows.inputs(ref.provider, ref.model));
   const sightOf = (agent: AgentDefinition): ModelSight => {
     const first = agent.config.models[0];
-    if (!first) return { images: false, pdf: false };
-    return modelSight(first.provider, first.model, windows.inputs(first.provider, first.model));
+    return first ? sightOfModel(first) : { images: false, pdf: false };
   };
   /** Stops the summaries in the background when the core closes. */
   const summaries = new AbortController();
@@ -1243,6 +1244,8 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
       const { resume: _resume, resumeFallback: _fallback, ...api } = o;
       return runAgent({
         contextWindow,
+        // The fallbacks of the chain get the files they can read (D-218).
+        sight: sightOfModel,
         price: priceOf,
         projectId,
         toolMemory,

@@ -19,10 +19,11 @@ import {
   type ModelSession,
   type ProviderRegistry,
   type SessionEvent,
+  withReadableInput,
 } from '@monsters/providers';
 import { LANGS, type LimitReason, type MonstersTool } from '@monsters/shared';
 import { isStepCount, streamText, type ModelMessage, type StopCondition, type ToolSet } from 'ai';
-import type { UserPart } from '../files/model-input.ts';
+import { unreadableFileNote, type ModelSight, type UserPart } from '../files/model-input.ts';
 import { CallerStoppedError, KilledError, type ControlScope } from '../kill/control-scope.ts';
 import type { EventLog } from '../log/event-log.ts';
 import {
@@ -189,6 +190,12 @@ export interface RunAgentOptions {
   guard?: ToolGuard;
   /** The context window of a model, when known (C.1: the `context` of every step). */
   contextWindow?: (ref: ModelRef) => number | undefined;
+  /**
+   * What a model reads besides text. Every link of the chain gets a prompt it can read: the
+   * attachments are built for the first model, a fallback that cannot see an image (or read a
+   * PDF) is sent a note in its place instead of a request its provider refuses (D-218).
+   */
+  sight?: (ref: ModelRef) => ModelSight;
   /**
    * The price of a paid model (USD per million tokens), when the price list
    * knows it: a request whose provider reports no cost is counted with it,
@@ -894,6 +901,12 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     return folded;
   };
   session.setContextRescue(rescue);
+  const sightOf = options.sight;
+  if (sightOf) {
+    session.setPromptAdapter((ref, prompt) =>
+      withReadableInput(prompt, sightOf(ref), unreadableFileNote),
+    );
+  }
   // Every tool of the run can be called, only the loaded ones are sent (D-163).
   if (deferral) session.setToolFilter((name) => deferral.sends(name));
 
@@ -1026,7 +1039,13 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
    * The model's stream of the current step while it has not finished: a stream
    * broken halfway, asked again or stopped is billed all the same (F-A4).
    */
-  let attempt: { chars: number; started: number } | null = null;
+  let attempt: {
+    chars: number;
+    started: number;
+    /** Who serves this stream, taken when it starts: a retry may be served by another link. */
+    ref: ModelRef | undefined;
+    keyId: string | undefined;
+  } | null = null;
   /** Input tokens of the current step as measured before it (what a cut request read). */
   let stepInput = 0;
   /**
@@ -1094,12 +1113,14 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     const open = attempt;
     attempt = null;
     if (!open) return;
-    const served = session.lastServed;
-    const ref = served?.ref ?? session.pinned ?? session.effectiveChain()[0];
+    // The model that sent this stream, not the one serving now: the retry of a broken stream
+    // may have moved on to another link, and the cost is its sender's (provider, key, price).
+    const ref =
+      open.ref ?? session.lastServed?.ref ?? session.pinned ?? session.effectiveChain()[0];
     if (!ref) return;
     logPartial({
       ref,
-      keyId: served?.keyId,
+      keyId: open.ref ? open.keyId : session.lastServed?.keyId,
       chars: open.chars,
       durationMs: Date.now() - open.started,
       partial,
@@ -1328,7 +1349,13 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
               stepText = '';
               pending = '';
             }
-            attempt = { chars: 0, started: Date.now() };
+            // The session marks a stream after serving it: `lastServed` is this stream's model.
+            attempt = {
+              chars: 0,
+              started: Date.now(),
+              ref: session.lastServed?.ref,
+              keyId: session.lastServed?.keyId,
+            };
             break;
           case 'text-delta':
             pending += part.text;
@@ -1570,6 +1597,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     else streamError ??= err;
   } finally {
     session.setContextRescue(null);
+    session.setPromptAdapter(null);
     session.setToolFilter(null);
     if (deferral) options.toolMemory?.set(agentId, deferral.kept());
     if (held !== null) {

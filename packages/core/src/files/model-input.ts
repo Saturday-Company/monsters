@@ -65,6 +65,16 @@ export function modelSight(
   return { images, pdf: images && READS_PDF.has(provider) };
 }
 
+/**
+ * The note that takes the place of an image or a PDF in the prompt of a model that cannot read it
+ * (a fallback after a model that could): it names the file and tells the model to say so.
+ */
+export function unreadableFileNote(kind: 'image' | 'pdf', filename: string | undefined): string {
+  const p = filePrompts();
+  const label = filename ? promptName(filename) : kindWord(kind);
+  return p.notes(kind === 'image' ? p.imageBlind(label) : p.pdfBlind(label));
+}
+
 /** The word for a kind of file, in the language of the prompts. */
 export const kindWord = (kind: FileMeta['kind']): string => filePrompts().kind[kind];
 

@@ -248,6 +248,7 @@
   "core/src/files/files.prompts.ts#filePrompts.notes()": "59eeae3dca6d797f9b962140692188e74cc6c1184095dfaacb64de6abfacbdf0",
   "core/src/files/files.prompts.ts#filePrompts.notesOnDisk()": "7c6e5b2fd8a0330cb26292ece3be67cb977de8a750479e65b28d433d098a4987",
   "core/src/files/files.prompts.ts#filePrompts.past()": "e8ec7cb7df7e71c3e1a4afcdf5b9aa7ac503f113a1a919b717a51d0a22cd976a",
+  "core/src/files/files.prompts.ts#filePrompts.pdfBlind()": "f8c5f7ad3c29b4e4bc659cafe65fdcea11c74626abc3417835ead526f22b3a10",
   "core/src/files/files.prompts.ts#filePrompts.reread": "6c225f2530f9610ae06f1c2827feb1fa095aa70eb6119475451406fe9c9a528a",
   "core/src/files/files.prompts.ts#filePrompts.size()": "c7e734794b3451a99bf538ac87c0308842dc61d1a8bb7341d7415efc59ea7352",
   "core/src/files/files.prompts.ts#filePrompts.textMissing()": "a3ddd4183d59f9b208ef234894b4c627f06f9019d172d59188a2c7eb95547021",

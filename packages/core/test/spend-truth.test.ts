@@ -128,6 +128,46 @@ describe('the cost of a request without one from the provider (F-A4)', () => {
     expect(budget.usage.tokens).toBe(broken.inputTokens! + 4 + 19);
   });
 
+  it('a broken attempt is billed to the model, provider and key that sent it, not to the retry’s', async () => {
+    const first = new FakeProvider({
+      id: 'first',
+      keyId: 'aaaaaaaaaaaa',
+      models: {
+        a: [
+          fake.text('Rea è la seconda', { breakWith: { message: 'connection reset', code: 502 } }),
+          { kind: 'http-error', status: 503, message: 'overloaded' },
+        ],
+      },
+    });
+    const second = new FakeProvider({
+      id: 'second',
+      keyId: 'bbbbbbbbbbbb',
+      models: { b: [fake.text('Rea è la seconda luna di Saturno.')] },
+    });
+    const env = setup({});
+    env.providers.register(first).register(second);
+    const def = agent([
+      { provider: 'first', model: 'a' },
+      { provider: 'second', model: 'b' },
+    ]);
+    // The first provider is pricier: a wrong attribution shows in the cost too.
+    const price = ({ provider }: { provider: string }): ModelPrice =>
+      provider === 'first' ? { input: 30, output: 150 } : PRICE;
+    const { result, usage } = await run(env, { def, price });
+    expect(result).toMatchObject({ status: 'completed', model: { provider: 'second' } });
+    expect(usage.map((u) => [u.data.provider, u.data.model, u.data.keyId, u.data.partial])).toEqual(
+      [
+        ['first', 'a', 'aaaaaaaaaaaa', 'interrupted'],
+        ['second', 'b', 'bbbbbbbbbbbb', undefined],
+      ],
+    );
+    const broken = usage[0]!.data;
+    expect(broken.costUsd).toBeCloseTo(
+      (broken.inputTokens! * 30 + broken.outputTokens! * 150) / 1e6,
+      12,
+    );
+  });
+
   it('a stream broken twice (no more retries): the run fails, both attempts are billed', async () => {
     const env = setup(
       {

@@ -226,7 +226,8 @@ describe('providers API', () => {
       'GET',
       '/api/providers/ollama/models',
     );
-    expect(models.models).toEqual([{ id: 'qwen3:8b', tools: true, free: true }]);
+    // No details from the server: Ollama's default context, the least it gives.
+    expect(models.models).toEqual([{ id: 'qwen3:8b', tools: true, free: true, context: 4096 }]);
     const removed = await t.json<ProviderView>('DELETE', '/api/providers/ollama/url');
     expect(removed.configured).toBe(false);
   });

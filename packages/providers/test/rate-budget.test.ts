@@ -263,7 +263,7 @@ describe('RateBudget daily window on the UTC day and the provider counter', () =
     expect(budget.waitTime()).toBe(0);
   });
 
-  it('respects a lower provider limit until midnight UTC, then forgets the report', async () => {
+  it('respects a lower provider limit, and keeps it after midnight UTC when the count resets', async () => {
     const c = { t: MIDNIGHT - 60_000 };
     const budget = new RateBudget({ id: 'p', windows: day(50), maxWaitMs: 1000, now: () => c.t });
     budget.syncDailyQuota({ used: 20, limit: 20 });
@@ -271,8 +271,42 @@ describe('RateBudget daily window on the UTC day and the provider counter', () =
     expect(budget.waitTime()).toBe(60_000);
     await expect(budget.acquire()).rejects.toBeInstanceOf(RateLimitedError);
     c.t = MIDNIGHT;
-    expect(used(budget)).toEqual([[0, 50]]);
+    // The count is gone, the account's limit is not.
+    expect(used(budget)).toEqual([[0, 20]]);
     expect(budget.waitTime()).toBe(0);
+  });
+
+  it('does not forget a limit above the default at midnight UTC, and asks for the new count', async () => {
+    const c = { t: MIDNIGHT - 60_000 };
+    const asked: number[] = [];
+    const budget = new RateBudget({
+      id: 'p',
+      windows: day(50),
+      maxWaitMs: 1000,
+      onDailyQuotaExpired: () => asked.push(c.t),
+      now: () => c.t,
+    });
+    budget.syncDailyQuota({ used: 700, limit: 1000, limitMode: 'replace' });
+    await budget.acquire();
+    expect(used(budget)).toEqual([[701, 1000]]);
+    expect(asked).toEqual([]);
+    c.t = MIDNIGHT + 5000;
+    // Before the new count arrives: the log of the new day, under the real limit.
+    for (let i = 0; i < 60; i++) await budget.acquire();
+    expect(used(budget)).toEqual([[60, 1000]]);
+    expect(asked).toEqual([MIDNIGHT + 5000]);
+    // A failed read is asked again later, not on every request.
+    c.t += 60_000;
+    await budget.acquire();
+    expect(asked).toHaveLength(1);
+    c.t += 10 * 60_000;
+    await budget.acquire();
+    expect(asked).toHaveLength(2);
+    c.t += 1;
+    budget.syncDailyQuota({ used: 100, limit: 1000, limitMode: 'replace' });
+    await budget.acquire();
+    expect(asked).toHaveLength(2);
+    expect(used(budget)).toEqual([[101, 1000]]);
   });
 });
 
