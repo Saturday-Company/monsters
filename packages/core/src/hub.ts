@@ -163,6 +163,7 @@ import {
   DispatchError,
   Dispatcher,
   type Conversation,
+  takeInbox,
   type DispatcherOptions,
   type InboxItem,
   type TurnOutcome,
@@ -2796,7 +2797,7 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
         ...(profile ? { profile } : {}),
         ...(hint ? { hint } : {}),
         inbox: () => [
-          ...c.inbox.splice(0).map((i) => {
+          ...takeInbox(c).map((i) => {
             const asked = stranger(i.eventId);
             if (asked) taint.guard(asked);
             const more = sourcesOf(i.attachments ?? []);
