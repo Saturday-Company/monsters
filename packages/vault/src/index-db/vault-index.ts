@@ -1,7 +1,7 @@
 import { posix } from 'node:path';
 import type { Db } from '@monsters/db';
 import { PRIVATE_FOLDERS, VAULT_LAYOUTS, type VaultLayout } from '@monsters/shared';
-import { linkKey, titleOf } from '../paths.ts';
+import { EXACT_PATHS, linkKey, pathId, titleOf, type PathIdentity } from '../paths.ts';
 import { expandTag, type ParsedNote } from '../markdown/parse.ts';
 import { chunkNote } from '../semantic/chunk.ts';
 import type { RelationSignals } from '../semantic/related.ts';
@@ -168,9 +168,41 @@ export class VaultIndex {
    */
   readonly layout: VaultLayout;
 
-  constructor(db: Db, layout: VaultLayout = VAULT_LAYOUTS.it) {
+  /**
+   * How the vault's file system compares names: a path is looked up by its identity
+   * (`path_id`), so `idee.md` finds the row of `Idee.md` where the two are one file. The row
+   * keeps the real on-disk spelling in `path`.
+   */
+  readonly identity: PathIdentity;
+
+  constructor(
+    db: Db,
+    layout: VaultLayout = VAULT_LAYOUTS.it,
+    identity: PathIdentity = EXACT_PATHS,
+  ) {
     this.db = db;
     this.layout = layout;
+    this.identity = identity;
+  }
+
+  /**
+   * Records how names are compared. Rows are keyed by that, so when it differs from what the
+   * index was built with (first start after the migration, a vault on another volume) the
+   * index is rebuilt from the files. Returns true when a rebuild was asked for.
+   */
+  adoptIdentity(): boolean {
+    const mode = `${this.identity.foldCase ? 'c' : '-'}${this.identity.foldUnicode ? 'u' : '-'}`;
+    const known = this.db.get<{ value: string }>(
+      `SELECT value FROM vault_meta WHERE key = 'path_identity'`,
+    )?.value;
+    if (known === mode) return false;
+    this.db.run(`INSERT OR REPLACE INTO vault_meta (key, value) VALUES ('path_identity', ?)`, mode);
+    this.reindexPending = true;
+    return true;
+  }
+
+  #idOf(path: string): string {
+    return pathId(path, this.identity);
   }
 
   /** Hashes of the chunks replaced or removed since the last call (their vectors may be orphans). */
@@ -204,7 +236,11 @@ export class VaultIndex {
   }
 
   get(path: string): NoteRow | undefined {
-    return this.db.get<NoteRow>(`SELECT ${NOTE_COLUMNS} FROM vault_notes n WHERE n.path = ?`, path);
+    return this.db.get<NoteRow>(
+      `SELECT ${NOTE_COLUMNS} FROM vault_notes n WHERE n.path_id = ? ORDER BY n.path = ? DESC LIMIT 1`,
+      this.#idOf(path),
+      path,
+    );
   }
 
   getByNid(nid: number): NoteRow | undefined {
@@ -228,12 +264,15 @@ export class VaultIndex {
   upsert(path: string, stat: FileStat, note: ParsedNote | null): number {
     return this.db.transaction(() => {
       const existing = this.db.get<{ nid: number }>(
-        'SELECT nid FROM vault_notes WHERE path = ?',
+        'SELECT nid FROM vault_notes WHERE path_id = ? ORDER BY path = ? DESC LIMIT 1',
+        this.#idOf(path),
         path,
       );
       const folder = posix.dirname(path) === '.' ? '' : posix.dirname(path);
       const updated = note?.updated ?? localIso(stat.mtime);
       const values = [
+        path,
+        this.#idOf(path),
         linkKey(path),
         linkKey(posix.basename(path)),
         folder,
@@ -254,7 +293,7 @@ export class VaultIndex {
       if (existing) {
         nid = existing.nid;
         this.db.run(
-          `UPDATE vault_notes SET path_key = ?, name_key = ?, folder = ?, uid = ?, title = ?, type = ?,
+          `UPDATE vault_notes SET path = ?, path_id = ?, path_key = ?, name_key = ?, folder = ?, uid = ?, title = ?, type = ?,
              author = ?, created = ?, updated = ?, hash = ?, mtime = ?, size = ?, private = ?, is_md = ?,
              summary = ? WHERE nid = ?`,
           ...values,
@@ -264,10 +303,9 @@ export class VaultIndex {
       } else {
         nid = Number(
           this.db.run(
-            `INSERT INTO vault_notes (path, path_key, name_key, folder, uid, title, type, author, created,
+            `INSERT INTO vault_notes (path, path_id, path_key, name_key, folder, uid, title, type, author, created,
                updated, hash, mtime, size, private, is_md, summary)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            path,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             ...values,
           ).lastInsertRowid,
         );
@@ -364,7 +402,10 @@ export class VaultIndex {
 
   remove(path: string): boolean {
     return this.db.transaction(() => {
-      const row = this.db.get<{ nid: number }>('SELECT nid FROM vault_notes WHERE path = ?', path);
+      const row = this.db.get<{ nid: number }>(
+        'SELECT nid FROM vault_notes WHERE path_id = ?',
+        this.#idOf(path),
+      );
       if (!row) return false;
       this.#noteDropped(row.nid);
       this.db.run('DELETE FROM vault_fts WHERE rowid = ?', row.nid);
