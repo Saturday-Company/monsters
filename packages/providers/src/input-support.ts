@@ -14,6 +14,26 @@ export interface InputSupport {
 
 export type UnreadableKind = 'image' | 'pdf';
 
+/** The namespace and key of the text a file part carries for a link that cannot read the file. */
+const FALLBACK_NAMESPACE = 'monsters';
+const FALLBACK_KEY = 'fallbackText';
+
+/**
+ * Provider options for a file part that has a text standing in for it (the text extracted from a
+ * PDF): a link that cannot read the file is given that text instead of a note. Nobody else reads
+ * the namespace, so a provider that reads the file ignores it.
+ */
+export function fallbackTextOptions(text: string): Record<string, Record<string, string>> {
+  return { [FALLBACK_NAMESPACE]: { [FALLBACK_KEY]: text } };
+}
+
+function fallbackTextOf(options: unknown): string | undefined {
+  const text = (options as Record<string, Record<string, unknown> | undefined> | undefined)?.[
+    FALLBACK_NAMESPACE
+  ]?.[FALLBACK_KEY];
+  return typeof text === 'string' && text !== '' ? text : undefined;
+}
+
 function mediaKind(mediaType: string): UnreadableKind | undefined {
   const type = mediaType.toLowerCase();
   if (type === 'image' || type.startsWith('image/')) return 'image';
@@ -21,9 +41,24 @@ function mediaKind(mediaType: string): UnreadableKind | undefined {
   return undefined;
 }
 
-/** Whether the prompt carries a file the models do not all read (an image, a PDF). */
-export function hasMediaParts(prompt: LanguageModelV4Prompt): boolean {
-  return prompt.some((m) => {
+/**
+ * Whether the prompt carries a file the models do not all read (an image, a PDF). With
+ * `latestTurn`, only since the model last spoke: what the request adds, not the history.
+ */
+export function hasMediaParts(
+  prompt: LanguageModelV4Prompt,
+  options: { latestTurn?: boolean } = {},
+): boolean {
+  let from = 0;
+  if (options.latestTurn) {
+    for (let i = prompt.length - 1; i >= 0; i--) {
+      if (prompt[i]!.role === 'assistant') {
+        from = i + 1;
+        break;
+      }
+    }
+  }
+  return prompt.slice(from).some((m) => {
     if (m.role === 'user') {
       return m.content.some((p) => p.type === 'file' && mediaKind(p.mediaType) !== undefined);
     }
@@ -42,13 +77,14 @@ export function hasMediaParts(prompt: LanguageModelV4Prompt): boolean {
 /**
  * The prompt as a model with `support` can read it: the images and PDFs it
  * cannot take are replaced by the text `note` gives for them (the model says it
- * could not see the file instead of guessing). The same prompt object when there
- * is nothing to take out.
+ * could not see the file instead of guessing), or by the text the part carries for that
+ * (`fallbackTextOptions`, the extracted text of a PDF), which `note` receives third. The same
+ * prompt object when there is nothing to take out.
  */
 export function withReadableInput(
   prompt: LanguageModelV4Prompt,
   support: InputSupport,
-  note: (kind: UnreadableKind, filename: string | undefined) => string,
+  note: (kind: UnreadableKind, filename: string | undefined, fallback?: string) => string,
 ): LanguageModelV4Prompt {
   const unreadable = (mediaType: string): UnreadableKind | undefined => {
     const kind = mediaKind(mediaType);
@@ -66,7 +102,10 @@ export function withReadableInput(
         content: m.content.map((p) => {
           const kind = p.type === 'file' ? unreadable(p.mediaType) : undefined;
           return p.type === 'file' && kind
-            ? { type: 'text' as const, text: note(kind, p.filename) }
+            ? {
+                type: 'text' as const,
+                text: note(kind, p.filename, fallbackTextOf(p.providerOptions)),
+              }
             : p;
         }),
       };

@@ -645,7 +645,7 @@ export class AutomationService {
     const messages: AutomationRunDetail['messages'] = [];
     let finalAnswer: string | undefined;
     for (const runId of run.runIds) {
-      for (const e of this.#all({ runId, type: 'message' })) {
+      for (const e of this.#all({ runId, type: 'message', partials: false })) {
         if (e.type !== 'message' || e.data.partial || !e.runId) continue;
         const user = e.agent === 'user' && e.data.role === 'user';
         if (!user && e.data.role !== 'agent') continue;
@@ -1722,7 +1722,11 @@ export class AutomationService {
   }
 
   /** Every event matching, oldest first, page after page. */
-  #all(filter: { runId?: string; type: LogEvent['type'] | LogEvent['type'][] }): LogEvent[] {
+  #all(filter: {
+    runId?: string;
+    type: LogEvent['type'] | LogEvent['type'][];
+    partials?: false;
+  }): LogEvent[] {
     const out: LogEvent[] = [];
     for (let after: string | undefined; ;) {
       const page = this.#o.log.query({ ...filter, after, limit: PAGE });

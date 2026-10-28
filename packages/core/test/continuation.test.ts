@@ -271,6 +271,54 @@ describe('jobNotes', () => {
     expect(notes).toMatch(/- … \d+ steps in between left out …/);
   });
 
+  it('thousands of streamed chunks are one step: the tools around them survive a small budget', () => {
+    const log = memoryLog();
+    const add = (e: Omit<EventInput, 'runId'>) =>
+      log.append({ runId: 'r-stream', ...e } as EventInput);
+    const call = (id: string, url: string, output: string) => {
+      add({
+        agent: 'vesta',
+        type: 'tool_call',
+        data: { callId: id, tool: 'claude-agent.WebFetch', input: { url } },
+      });
+      add({
+        agent: 'vesta',
+        type: 'tool_result',
+        data: { callId: id, tool: 'claude-agent.WebFetch', ok: true, output },
+      });
+    };
+    const chunks = (n: number, prefix: string) => {
+      for (let i = 0; i < n; i++) {
+        add({
+          agent: 'vesta',
+          type: 'message',
+          data: { role: 'agent', text: `${prefix}${i} `, partial: true },
+        });
+      }
+    };
+    add({
+      agent: 'user',
+      type: 'message',
+      data: { role: 'user', text: 'Cerca i voli', to: 'vesta' },
+    });
+    call('c1', 'https://voli.example', 'Volo LIS-FCO 80 euro');
+    // Written while working: only chunks, no message of its own closes them.
+    chunks(3_000, 'pezzo-');
+    call('c2', 'https://hotel.example', 'Hotel Roma 90 euro');
+    // The final answer: its chunks, then the whole text.
+    chunks(3_000, 'finale-');
+    add({ agent: 'vesta', type: 'message', data: { role: 'agent', text: 'Ecco i voli trovati.' } });
+    const notes = jobNotes(log, 'vesta', 'r-stream', 6000)!;
+    expect(notes).toContain('Volo LIS-FCO 80 euro');
+    expect(notes).toContain('Hotel Roma 90 euro');
+    expect(notes).toContain('Ecco i voli trovati.');
+    // One step for the 3000 chunks of the work, its start as the excerpt; none for the answer's.
+    expect(notes.match(/- you wrote: /g)).toHaveLength(2);
+    expect(notes).toContain('you wrote: pezzo-0 pezzo-1 pezzo-2');
+    expect(notes).not.toContain('finale-');
+    expect(notes.length).toBeLessThanOrEqual(6000);
+  });
+
   it('a closing tag inside a result cannot end the data', () => {
     const log = memoryLog();
     log.append({

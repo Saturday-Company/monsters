@@ -1,3 +1,4 @@
+import type { LogEvent } from '@monsters/shared';
 import type { EventLog } from '../log/event-log.ts';
 import { continuationPrompts, PREVIOUS_JOB_TAGS } from './continuation.prompts.ts';
 import type { TierLevel } from './instinct/triage.ts';
@@ -228,6 +229,9 @@ function flat(value: unknown): string {
     .trim();
 }
 
+/** How much of the chunks written between two tool calls a step holds (its excerpt is shorter). */
+const CHUNKS_MAX_CHARS = 4_000;
+
 /** Tools that only load other tools (Claude Code's ToolSearch, D-169): no finding of the job. */
 const PLUMBING: ReadonlySet<string> = new Set(['ToolSearch', 'tools_search']);
 
@@ -256,22 +260,48 @@ export function jobNotes(
   max = JOB_NOTES_MAX_CHARS,
 ): string | null {
   const p = continuationPrompts();
-  // All of them: the latest steps are the ones a continuation needs most (D-215).
-  const events = log.all({ runId, type: ['message', 'tool_call', 'tool_result', 'error'] });
-  const request = events.find(
-    (e) => e.type === 'message' && e.agent === 'user' && e.data.role === 'user',
-  );
+  // The whole run, a page at a time and never held: the latest steps are the ones a continuation
+  // needs most (D-215), and a long run streams thousands of chunks.
+  let request: LogEvent | undefined;
   const steps: Step[] = [];
   const calls = new Map<string, Extract<Step, { kind: 'call' }>>();
   const ended: string[] = [];
-  for (const e of events) {
+  // What the monster wrote since its last tool call. The text before a tool call exists only as
+  // streamed chunks (no message of its own closes it), so the chunks are joined, not skipped: a
+  // run of them is one step. The final message repeats them whole and takes their place.
+  let chunks = '';
+  const said = (raw: string) => {
+    const text = flat(raw);
+    if (!text) return;
+    // The final answer often repeats the last words written while working.
+    const last = steps.at(-1);
+    if (last?.kind !== 'said' || last.text !== text) steps.push({ kind: 'said', text });
+  };
+  const flushChunks = () => {
+    if (chunks) said(chunks);
+    chunks = '';
+  };
+  for (const e of log.scan({
+    runId,
+    type: ['message', 'tool_call', 'tool_result', 'error'],
+  })) {
+    if (!request && e.type === 'message' && e.agent === 'user' && e.data.role === 'user') {
+      request = e;
+    }
     if (e.agent !== agentId) continue;
-    if (e.type === 'message' && e.data.role === 'agent' && e.data.text.trim()) {
-      const text = flat(e.data.text);
-      // The final answer often repeats the last words written while working.
-      const last = steps.at(-1);
-      if (last?.kind !== 'said' || last.text !== text) steps.push({ kind: 'said', text });
+    if (e.type === 'message') {
+      if (e.data.role !== 'agent') continue;
+      if (e.data.partial) {
+        // An excerpt is all a step keeps: the start of a long text is enough to hold.
+        if (chunks.length < CHUNKS_MAX_CHARS) chunks += e.data.text;
+      } else {
+        // The final message carries the text of the chunks; an empty one (a stopped turn) does not.
+        if (e.data.text.trim()) chunks = '';
+        else flushChunks();
+        said(e.data.text);
+      }
     } else if (e.type === 'tool_call') {
+      flushChunks();
       if (PLUMBING.has(toolName(e.data.tool))) continue;
       const step: Extract<Step, { kind: 'call' }> = {
         kind: 'call',
@@ -291,6 +321,7 @@ export function jobNotes(
       ended.push(flat(e.data.message));
     }
   }
+  flushChunks();
   if (steps.length === 0) return null;
   const line = (s: Step, room: number): string =>
     s.kind === 'said'

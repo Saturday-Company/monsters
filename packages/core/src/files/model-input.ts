@@ -1,5 +1,6 @@
 import type { FileMeta } from '@monsters/shared';
 import type { FilePart, TextPart } from 'ai';
+import { fallbackTextOptions } from '@monsters/providers';
 import { filePrompts } from './files.prompts.ts';
 
 /*
@@ -67,10 +68,17 @@ export function modelSight(
 
 /**
  * The note that takes the place of an image or a PDF in the prompt of a model that cannot read it
- * (a fallback after a model that could): it names the file and tells the model to say so.
+ * (a fallback after a model that could): it names the file and tells the model to say so. A PDF
+ * that came with its extracted text (`fallback`) gives that text instead.
  */
-export function unreadableFileNote(kind: 'image' | 'pdf', filename: string | undefined): string {
+export function unreadableFileNote(
+  kind: 'image' | 'pdf',
+  filename: string | undefined,
+  fallback?: string,
+): string {
   const p = filePrompts();
+  // A PDF whose text the core has: the model reads that instead (already framed as extracted).
+  if (kind === 'pdf' && fallback) return fallback;
   const label = filename ? promptName(filename) : kindWord(kind);
   return p.notes(kind === 'image' ? p.imageBlind(label) : p.pdfBlind(label));
 }
@@ -158,6 +166,8 @@ export function attachmentParts(
   const parts: UserPart[] = [];
   const notes: string[] = [];
   let textLeft = ATTACHMENTS_TEXT_TOTAL;
+  // The text of the PDFs sent as files, kept for a link that cannot read them: the same limits.
+  let fallbackLeft = ATTACHMENTS_TEXT_TOTAL;
   for (const f of files) {
     const { meta } = f;
     const label = fileLabel(meta);
@@ -184,12 +194,27 @@ export function attachmentParts(
     if (meta.kind === 'pdf' && sight.pdf) {
       const bytes = f.bytes();
       if (bytes) {
+        const extracted = f.text();
+        const max = Math.min(ATTACHMENT_TEXT_CHARS, fallbackLeft);
+        let fallback: string | undefined;
+        if (extracted && max > 0) {
+          const clipped = extracted.text.length > max;
+          const body = clipped ? extracted.text.slice(0, max) : extracted.text;
+          fallbackLeft -= body.length;
+          fallback = p.extracted(
+            label,
+            promptName(meta.name),
+            promptBody(body),
+            clipped || extracted.truncated ? p.cut : '',
+          );
+        }
         parts.push({ type: 'text', text: p.attached(label) });
         parts.push({
           type: 'file',
           data: new Uint8Array(bytes),
           mediaType: 'application/pdf',
           filename: meta.name,
+          ...(fallback ? { providerOptions: fallbackTextOptions(fallback) } : {}),
         });
         continue;
       }

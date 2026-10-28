@@ -53,15 +53,18 @@ export class MemoryProposals {
 
   /**
    * Drafts nobody answered yet, oldest first: every draft of the log, each without an answer
-   * that names it (in SQL, not among a page of `memory` events, D-215).
+   * that names it (D-215). One pass over the `memory` events (a query per draft grew with the
+   * square of the drafts, and `open` runs at every proposal and every list of drafts).
    */
   open(): MemoryEvent[] {
-    const drafts = this.#log.all({ type: 'memory', data: { action: 'proposed' } }) as MemoryEvent[];
-    return drafts.filter(
-      (d) =>
-        this.#log.query({ type: 'memory', after: d.id, data: { proposalId: d.id }, limit: 1 })
-          .length === 0,
-    );
+    const drafts: MemoryEvent[] = [];
+    const answered = new Set<string>();
+    for (const e of this.#log.all({ type: 'memory' })) {
+      if (e.type !== 'memory') continue;
+      if (e.data.action === 'proposed') drafts.push(e);
+      if (e.data.proposalId) answered.add(e.data.proposalId);
+    }
+    return drafts.filter((d) => !answered.has(d.id));
   }
 
   /** A `proposed` event of the log, open or not. */

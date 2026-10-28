@@ -9,7 +9,11 @@ import {
   type AgentDefinition,
   type CoreServices,
 } from '../src/index.ts';
-import { attachmentParts, type ModelSight } from '../src/files/model-input.ts';
+import {
+  attachmentParts,
+  type AttachmentSource,
+  type ModelSight,
+} from '../src/files/model-input.ts';
 import { tempHome } from './helpers.ts';
 
 /*
@@ -57,6 +61,11 @@ function agent(models: { provider: string; model: string }[]): AgentDefinition {
 async function ask(
   scripts: { sees: FakeScript; blind: FakeScript; other?: FakeScript },
   chain: { provider: string; model: string }[],
+  files: { meta: FileMeta; sight: ModelSight; text: AttachmentSource['text'] } = {
+    meta: photo,
+    sight: SEES,
+    text: () => null,
+  },
 ) {
   const services = createCoreServices({ home: tempHome() });
   opened.push(services);
@@ -74,10 +83,10 @@ async function ask(
     session: providers.session(def.config.models),
     // Built for the first model, which sees: the image goes in as an image.
     attachments: attachmentParts(
-      [{ meta: photo, bytes: () => Buffer.from([1, 2, 3]), text: () => null }],
-      SEES,
+      [{ meta: files.meta, bytes: () => Buffer.from([1, 2, 3]), text: files.text }],
+      files.sight,
     ),
-    sight: (ref) => (ref.model === 'sees' ? SEES : BLIND),
+    sight: (ref) => (ref.model === 'sees' ? files.sight : BLIND),
   });
   r.finish();
   return { result, provider };
@@ -115,5 +124,45 @@ describe('files in a fallback chain', () => {
     );
     expect(result).toMatchObject({ status: 'completed', text: 'Non vedo la foto.' });
     expect(provider.calls.map((c) => c.model)).toEqual(['sees', 'blind']);
+  });
+
+  it('a fallback that cannot read PDFs gets the extracted text, within the limits', async () => {
+    const scheda: FileMeta = { ...photo, name: 'scheda.pdf', mime: 'application/pdf', kind: 'pdf' };
+    const long = 'Capitolo uno. '.repeat(5_000);
+    const { result, provider } = await ask(
+      {
+        sees: [{ kind: 'http-error', status: 503, message: 'overloaded' }],
+        blind: [fake.text('Letto.')],
+      },
+      CHAIN,
+      {
+        meta: scheda,
+        sight: { images: true, pdf: true },
+        text: () => ({ text: long, truncated: false }),
+      },
+    );
+    expect(result).toMatchObject({ status: 'completed', text: 'Letto.' });
+    const sent = (model: string) => JSON.stringify(provider.callsTo(model)[0]!.options.prompt);
+    expect(sent('sees')).toContain('application/pdf');
+    const fallback = sent('blind');
+    expect(fallback).not.toContain('application/pdf');
+    expect(fallback).toContain('Capitolo uno.');
+    expect(fallback).not.toMatch(/can.t read PDFs/);
+    // The clipped text of the file, not all of it.
+    expect(fallback.length).toBeLessThan(long.length);
+    expect(fallback).toContain('text cut');
+  });
+
+  it('a PDF without extracted text still gives the note', async () => {
+    const scheda: FileMeta = { ...photo, name: 'scheda.pdf', mime: 'application/pdf', kind: 'pdf' };
+    const { provider } = await ask(
+      {
+        sees: [{ kind: 'http-error', status: 503, message: 'overloaded' }],
+        blind: [fake.text('Non lo leggo.')],
+      },
+      CHAIN,
+      { meta: scheda, sight: { images: true, pdf: true }, text: () => null },
+    );
+    expect(JSON.stringify(provider.callsTo('blind')[0]!.options.prompt)).toMatch(/can.t read PDFs/);
   });
 });

@@ -66,6 +66,8 @@ interface EventRow {
 
 export const DEFAULT_QUERY_LIMIT = 200;
 export const MAX_QUERY_LIMIT = 1000;
+/** The first page of a `scan`/`find`: hot-path lookups find their event within a few rows. */
+export const SCAN_FIRST_PAGE = 50;
 /** Run ids per `IN (…)` of the run queries (well under SQLite's parameter limit). */
 const RUN_CHUNK = 400;
 /** A field of `data` for `EventQuery.data`: identifiers joined by dots. */
@@ -276,26 +278,32 @@ export class EventLog {
 
   /**
    * Every event matching, in `order`, read a page at a time with the id cursor: never cut.
-   * Breaking out of the loop stops the reading.
+   * Breaking out of the loop stops the reading. The pages grow (`SCAN_FIRST_PAGE`, doubling up to
+   * `MAX_QUERY_LIMIT`): a reader that stops at the first events it wants parses a few rows, one
+   * that reads on pays a handful of extra queries.
    */
-  *scan(filter: EventScan = {}): Generator<LogEvent, void, undefined> {
+  scan(filter: EventScan = {}): Generator<LogEvent, void, undefined> {
+    return this.#pages(filter, SCAN_FIRST_PAGE);
+  }
+
+  /** Every event matching, in `order` (`scan` in an array, in full pages from the first). */
+  all(filter: EventScan = {}): LogEvent[] {
+    return [...this.#pages(filter, MAX_QUERY_LIMIT)];
+  }
+
+  *#pages(filter: EventScan, first: number): Generator<LogEvent, void, undefined> {
     const desc = filter.order === 'desc';
     let cursor = desc ? filter.before : filter.after;
-    for (;;) {
+    for (let size = first; ; size = Math.min(size * 2, MAX_QUERY_LIMIT)) {
       const page = this.query({
         ...filter,
         ...(desc ? { before: cursor } : { after: cursor }),
-        limit: MAX_QUERY_LIMIT,
+        limit: size,
       });
       yield* page;
-      if (page.length < MAX_QUERY_LIMIT) return;
+      if (page.length < size) return;
       cursor = page.at(-1)!.id;
     }
-  }
-
-  /** Every event matching, in `order` (`scan` in an array). */
-  all(filter: EventScan = {}): LogEvent[] {
-    return [...this.scan(filter)];
   }
 
   /** The first event matching in `order` that passes `test`, read page by page (`scan`). */

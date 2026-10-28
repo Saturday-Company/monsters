@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { coreMigrations, EventLog, migrate, openDb } from '../src/index.ts';
-import { MAX_QUERY_LIMIT } from '../src/log/event-log.ts';
+import { MAX_QUERY_LIMIT, SCAN_FIRST_PAGE } from '../src/log/event-log.ts';
 import { runsTainted } from '../src/team/compaction.ts';
 import { conversationTurns } from '../src/team/conversation.ts';
+import { MemoryProposals } from '../src/team/memory-proposals.ts';
 import { haltedRequests, requeueWaiting } from '../src/team/resume-work.ts';
+import type { TeamService } from '../src/team/team-service.ts';
 
 /*
  * Readers of the log that stopped at the first page (D-215): `query` returns at most
@@ -64,6 +66,30 @@ describe('the query API never cuts a reader silently', () => {
     expect(
       log.find({ runId: 'r' }, (e) => e.type === 'error' && e.data.message === 'e1200')?.id,
     ).toBe(all[1200]!.id);
+  });
+
+  it('scan and find start with a small page and grow, all reads full pages', () => {
+    const log = setup();
+    for (let i = 0; i < 3_000; i++) {
+      log.append({ agent: 'titan', runId: 'r', type: 'error', data: { message: `e${i}` } });
+    }
+    const spy = vi.spyOn(log, 'query');
+    const limits = () => spy.mock.calls.map(([q]) => q?.limit);
+    // A lookup that finds its event among the first rows parses one small page, not 1000 rows.
+    expect(
+      log.find({ runId: 'r' }, (e) => e.type === 'error' && e.data.message === 'e3'),
+    ).toBeDefined();
+    expect(limits()).toEqual([SCAN_FIRST_PAGE]);
+    spy.mockClear();
+    expect(log.find({ runId: 'r', order: 'desc' }, () => true)?.data).toEqual({ message: 'e2999' });
+    expect(limits()).toEqual([SCAN_FIRST_PAGE]);
+    // A reader that reads on grows its pages up to the cap and misses nothing.
+    spy.mockClear();
+    expect([...log.scan({ runId: 'r' })]).toHaveLength(3_000);
+    expect(limits()).toEqual([50, 100, 200, 400, 800, 1000, 1000]);
+    spy.mockClear();
+    expect(log.all({ runId: 'r' })).toHaveLength(3_000);
+    expect(limits()).toEqual([MAX_QUERY_LIMIT, MAX_QUERY_LIMIT, MAX_QUERY_LIMIT, MAX_QUERY_LIMIT]);
   });
 
   it('filters on data fields and on streamed chunks in SQL', () => {
@@ -176,5 +202,39 @@ describe('a taint past the first page', () => {
       data: { callId: 'web', tool: 'web_search', input: { query: 'voli Lisbona' } },
     });
     expect(runsTainted(log, ['r1'])).toBe(true);
+  });
+});
+
+describe('the open drafts of memory', () => {
+  it('are found in a few pages, not one query per draft', () => {
+    const log = setup();
+    const ids: string[] = [];
+    for (let i = 0; i < 2_000; i++) {
+      ids.push(
+        log.append({
+          agent: 'titan',
+          type: 'memory',
+          data: { action: 'proposed', path: 'MEMORY.md', lines: [`riga ${i}`] },
+        }).id,
+      );
+    }
+    // Every third draft is answered, a half of them by a discard.
+    ids.forEach((id, i) => {
+      if (i % 3 !== 0) return;
+      log.append({
+        agent: 'titan',
+        type: 'memory',
+        data:
+          i % 2 === 0
+            ? { action: 'discarded', path: 'MEMORY.md', proposalId: id, by: 'ui' }
+            : { action: 'remembered', path: 'MEMORY.md', proposalId: id, by: 'ui' },
+      });
+    });
+    const proposals = new MemoryProposals({ log, team: {} as TeamService });
+    const spy = vi.spyOn(log, 'query');
+    const open = proposals.open();
+    expect(open.map((e) => e.id)).toEqual(ids.filter((_, i) => i % 3 !== 0));
+    // Pages of the log, not a query per draft.
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(3);
   });
 });

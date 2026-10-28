@@ -202,6 +202,15 @@ function errorTexts(err: unknown): string[] {
   return texts;
 }
 
+/** Words of a refusal that is about a file in the request (an image, a PDF, an attachment). */
+const MEDIA_WORDS =
+  /\b(images?|pdfs?|files?|attachments?|media|multimodal|vision|mime|base64|data[ _-]?urls?|modalit\w*)\b/i;
+
+/** Whether the error text talks about an image, a PDF or another file of the request. */
+export function mentionsMedia(err: unknown): boolean {
+  return errorTexts(err).some((t) => MEDIA_WORDS.test(t));
+}
+
 /** Billing problems: no credit left on the account (OpenAI `insufficient_quota`, Anthropic credit balance). */
 const QUOTA =
   /insufficient[_ ]quota|exceeded your current quota|credit balance|insufficient (credits|funds|balance)|billing (hard )?limit|payment required/i;
