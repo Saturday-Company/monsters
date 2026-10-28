@@ -234,7 +234,12 @@ export class Dispatcher {
     return { agent: orchestrator, text };
   }
 
-  /** Delivers a user message. Throws `HaltedError` while the kill switch is engaged. */
+  /**
+   * Delivers a user message. Throws `HaltedError` while the kill switch is engaged. Once the
+   * core is closing the message is logged in a run that does not start (`queued`): the next
+   * start runs it (`requeueWaiting`, M8), it is never lost nor started for the shutdown to
+   * wait on.
+   */
   send(params: {
     text: string;
     to?: string | undefined;
@@ -331,6 +336,15 @@ export class Dispatcher {
       : linked && 'note' in linked
         ? { eventId: event.id, text: `${text}\n\n${linked.note}` }
         : { eventId: event.id, text, ...(files ? { attachments: files } : {}) };
+    if (this.#runs.closing) {
+      return {
+        runId,
+        agent: id,
+        queued: true,
+        messageId: event.id,
+        ...(parked ? { answered: parked.questionId } : {}),
+      };
+    }
     const run = this.#start(agent, [item], runId, event.id, undefined, thread);
     return {
       runId: run.id,
@@ -353,6 +367,10 @@ export class Dispatcher {
     if (!agent) throw new DispatchError('unknown_agent', `no agent called "${agentId}"`);
     if (!this.#canRun(agent)) {
       throw new DispatchError('no_provider', teamStrings().noModel(agent.config.name));
+    }
+    // Closing: it stays in the log, where the projects find it at the next start (D-098).
+    if (this.#runs.closing) {
+      return { runId, agent: agent.config.id, queued: true, messageId: item.eventId };
     }
     if (this.busy(agent.config.id)) {
       const queue = this.#deferred.get(agent.config.id) ?? [];
@@ -573,7 +591,7 @@ export class Dispatcher {
   /** Messages still queued when a run failed get a run of their own. */
   #carryOver(c: Conversation): void {
     const left = c.inbox.splice(0);
-    if (left.length === 0 || this.#runs.halted) return;
+    if (left.length === 0 || this.#runs.halted || this.#runs.closing) return;
     const agent = this.#team.get(c.agent.config.id) ?? c.agent;
     try {
       this.#start(agent, left, undefined, undefined, undefined, c.thread);
@@ -599,10 +617,10 @@ export class Dispatcher {
   /**
    * Gives an agent something to work on that is already in the log (e.g. a
    * late answer to its question): joins its active run, or starts a new one.
-   * Returns the run id, or null when nothing can start (kill switch, no model).
+   * Returns the run id, or null when nothing can start (kill switch, closing, no model).
    */
   resume(agentId: string, item: InboxItem, thread?: string): string | null {
-    if (this.#runs.halted) return null;
+    if (this.#runs.halted || this.#runs.closing) return null;
     const agent = this.#team.get(agentId);
     if (!agent || !this.#canRun(agent)) return null;
     const active = this.#byAgent.get(agent.config.id);
@@ -652,6 +670,10 @@ export class Dispatcher {
     }
     const id = agent.config.id;
     const request = items.at(-1)?.eventId;
+    // Closing: the messages stay in the log, in a run never started, for the next start.
+    if (this.#runs.closing) {
+      return { runId, agent: id, queued: true, ...(request ? { messageId: request } : {}) };
+    }
     if (this.busy(id)) {
       const queue = this.#deferred.get(id) ?? [];
       queue.push({

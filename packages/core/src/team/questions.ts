@@ -386,7 +386,8 @@ interface QuestionRow {
 
 /** Why an answer was refused. */
 export class QuestionError extends Error {
-  readonly code: 'not_found' | 'not_open' | 'invalid_option';
+  /** `closing`: the core is closing, the question stays open for the next start. */
+  readonly code: 'not_found' | 'not_open' | 'invalid_option' | 'closing';
   constructor(code: QuestionError['code'], message: string) {
     super(message);
     this.name = 'QuestionError';

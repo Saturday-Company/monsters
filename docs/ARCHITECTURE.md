@@ -122,6 +122,12 @@ terminates child processes (shell, CLI, harnesses) with SIGINT and then SIGKILL,
 event and puts the core in a **stopped** state: nothing starts until the user resumes. Reachable from the UI (an
 always-visible button), the CLI (`monsters kill`) and Telegram (`/stop`, Phase 2).
 
+Cancellation also follows the caller: a delegation's scope is a child of its run (so the kill switch and a monster's
+Stop find it) and follows the signal of the tool call that started it (`ControlScope.follow`), so a lead that stops
+mid-call (a limit, a crash, a Stop of its part) stops its delegate too. A scope that ends (`close`, a run's `finish`)
+aborts the child scopes still working under it: nothing outlives the work it was for. Once the core is closing,
+`startRun` refuses new work (`ClosingError`); a message that arrives then stays in the log and runs at the next start.
+
 ### 5.3 Agent runtime
 An agent is a folder in `~/.monsters/agents/<id>/`:
 ```

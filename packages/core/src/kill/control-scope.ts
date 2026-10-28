@@ -14,6 +14,30 @@ export class KilledError extends Error {
   }
 }
 
+/**
+ * Reason of a scope stopped because the work it was for stopped or ended, not by a stop of its
+ * own: the tool call that started a delegation stopped (its lead reached a limit, crashed, was
+ * stopped), or its parent scope ended while it was still working. See `follow` and `close`.
+ */
+export class CallerStoppedError extends KilledError {
+  constructor(scope: ScopeKind, reason = 'the work it was for stopped') {
+    super(scope, reason);
+  }
+}
+
+/**
+ * Why a scope that follows a caller stops: the kill switch, the closing of the core and the
+ * stop of a whole job keep their own reason (the cause the user reads), anything else is
+ * the caller's stop.
+ */
+function followedReason(kind: ScopeKind, reason: unknown): unknown {
+  const own =
+    reason instanceof KilledError &&
+    !(reason instanceof CallerStoppedError) &&
+    (reason.scope === 'global' || reason.scope === 'run');
+  return own ? reason : new CallerStoppedError(kind);
+}
+
 export const DEFAULT_KILL_GRACE_MS = 1500;
 
 export interface TrackOptions {
@@ -141,6 +165,8 @@ export class ControlScope {
   readonly #processes = new Set<Tracked>();
   readonly #graceMs: number;
   readonly #registry: ProcessRegistry | null;
+  /** Removes the listeners of `follow`: a finished scope follows nobody. */
+  readonly #unfollow: (() => void)[] = [];
   #closed = false;
   #settled: Promise<void> = Promise.resolve();
 
@@ -194,6 +220,27 @@ export class ControlScope {
   /** Scope for a single tool or model call. */
   toolCall(callId: string): ControlScope {
     return this.child('tool', callId);
+  }
+
+  /**
+   * Ties this scope to the work that asked for it (the signal of the tool call that started a
+   * delegation): when `caller` aborts, this scope aborts too, with its processes, whatever the
+   * tree it hangs from. A delegation stays a child of its run (the kill switch, `killRun` and a
+   * monster's Stop find it there, F-1) and still stops with the call that waits for it: a lead
+   * that reaches a limit or crashes mid-call leaves no delegate working for nobody.
+   */
+  follow(caller: AbortSignal): this {
+    if (this.#closed || this.aborted) return this;
+    if (caller.aborted) {
+      void this.abort(followedReason(this.kind, caller.reason));
+      return this;
+    }
+    const onAbort = () => {
+      if (!this.#closed) void this.abort(followedReason(this.kind, caller.reason));
+    };
+    caller.addEventListener('abort', onAbort, { once: true });
+    this.#unfollow.push(() => caller.removeEventListener('abort', onAbort));
+    return this;
   }
 
   /**
@@ -279,12 +326,25 @@ export class ControlScope {
    * or its descendants (including groups whose leader already exited) are
    * terminated, and the scope stays attached to its parent until they are
    * gone, so a kill in the meantime still reaches them. See `settled`.
+   *
+   * A child scope still working (not closed) is aborted with `CallerStoppedError`: the work
+   * it was part of ended, nobody waits for its result, and once this scope is detached
+   * neither the kill switch nor the list of active runs would see it any more.
    */
   close(): void {
     if (this.#closed) return;
     this.#closed = true;
+    this.#release();
     const pending: Promise<void>[] = [];
-    this.#terminateTree(pending);
+    for (const t of this.#processes) pending.push(terminateProcess(t, this.#graceMs));
+    for (const c of [...this.#children]) {
+      if (c.#closed) {
+        c.#terminateTree(pending);
+        continue;
+      }
+      c.#abortTree(new CallerStoppedError(c.kind, 'its parent ended'), pending);
+      this.#children.delete(c);
+    }
     const detach = () => {
       if (this.parent) this.parent.#children.delete(this);
     };
@@ -326,7 +386,12 @@ export class ControlScope {
     for (const c of this.#children) c.#terminateTree(pending);
   }
 
+  #release(): void {
+    for (const off of this.#unfollow.splice(0)) off();
+  }
+
   #abortTree(reason: unknown, pending: Promise<void>[]): void {
+    this.#release();
     if (!this.#controller.signal.aborted) this.#controller.abort(reason);
     for (const t of this.#processes) pending.push(terminateProcess(t, this.#graceMs));
     this.#processes.clear();

@@ -24,7 +24,7 @@ import {
 } from '@monsters/shared';
 import { forbiddenEntries, type DataDirLock } from '@monsters/tools';
 import type { ModelMessage } from 'ai';
-import { KilledError, type ControlScope } from '../kill/control-scope.ts';
+import { CallerStoppedError, KilledError, type ControlScope } from '../kill/control-scope.ts';
 import type { EventLog } from '../log/event-log.ts';
 import {
   agentTokenLimit,
@@ -116,6 +116,11 @@ export const HARNESS_ACTION_IDLE_MS = 60 * 60_000;
 
 /** How long a harness may go on after a request that reached a limit, to finish its answer. */
 const LIMIT_GRACE_MS = 1500;
+/**
+ * How long a stopped harness has to end its stream: its process is terminated (SIGINT, then
+ * SIGKILL after the kill grace), which closes its output. Past it the turn ends without it.
+ */
+export const HARNESS_STOP_GRACE_MS = 5000;
 /**
  * The wrap-up after a limit (D-170): every tool is refused with words that ask for the report,
  * and the harness has this long, and this many more model requests, to write it. Then it is
@@ -326,6 +331,8 @@ export interface RunHarnessOptions {
   projectId?: string | null;
   /** How long the wrap-up after a limit may last (default `WRAP_UP_MS`, D-170). */
   wrapUpMs?: number;
+  /** How long a stopped harness may take to end its stream (default `HARNESS_STOP_GRACE_MS`). */
+  stopGraceMs?: number;
 }
 
 /** Harnesses with a web search of their own (D-069). */
@@ -868,6 +875,12 @@ async function runHarnessOnce(
   const scope = options.scope.agent(`${agentId}-harness`);
   const onParentAbort = () => void scope.abort(options.signal.reason);
   options.signal.addEventListener('abort', onParentAbort, { once: true });
+  /*
+   * The calls of Monsters' tools end with the harness: one still open when its stream ends
+   * (the program crashed mid-call) has nobody waiting for its result. Its delegation, or the
+   * teammate it asked, stops then (`ControlScope.follow`) instead of working for nobody.
+   */
+  const callsEnd = new AbortController();
   const scratchDir = join(
     options.scratchRoot,
     `${runId}-${agentId}-${randomBytes(4).toString('hex')}`,
@@ -1007,6 +1020,21 @@ async function runHarnessOnce(
     Math.max(10, Math.min(5000, Math.floor(idleMs / 4))),
   );
   watchdog.unref();
+  /*
+   * A stopped harness ends its stream once its process is gone. One that never does (its output
+   * held open by a process outside its group, a program that ignores the stop) ends the turn
+   * anyway after `stopGraceMs`: the watchdog no longer looks at a stopped scope.
+   */
+  const stopGraceMs = options.stopGraceMs ?? HARNESS_STOP_GRACE_MS;
+  let stopTimer: NodeJS.Timeout | undefined;
+  let onStopped: () => void = () => {};
+  const stoppedTooLong = new Promise<'stalled'>((resolve) => {
+    onStopped = () => {
+      stopTimer ??= setTimeout(() => resolve('stalled'), stopGraceMs);
+    };
+  });
+  if (scope.aborted) onStopped();
+  else scope.signal.addEventListener('abort', onStopped, { once: true });
   const withBusy = async <T>(work: () => Promise<T>): Promise<T> => {
     busy++;
     try {
@@ -1214,7 +1242,7 @@ async function runHarnessOnce(
       log,
       agentId,
       runId,
-      signal: scope.signal,
+      signal: AbortSignal.any([scope.signal, callsEnd.signal]),
       scope,
       parentId,
       /*
@@ -1412,7 +1440,10 @@ async function runHarnessOnce(
       },
       scope.signal,
     );
-    stream: for await (const e of untilStalled(events, stallSignal)) {
+    stream: for await (const e of untilStalled(
+      events,
+      Promise.race([stallSignal, stoppedTooLong]),
+    )) {
       lastEvent = Date.now();
       // More work after a limit stops the harness; in the wrap-up only past its requests (D-170).
       if (
@@ -1645,10 +1676,13 @@ async function runHarnessOnce(
   } finally {
     clearInterval(watchdog);
     if (limitTimer) clearTimeout(limitTimer);
+    if (stopTimer) clearTimeout(stopTimer);
     flush();
     options.signal.removeEventListener('abort', onParentAbort);
     scope.signal.removeEventListener('abort', onStop);
+    scope.signal.removeEventListener('abort', onStopped);
     closeUnanswered(scope.aborted);
+    callsEnd.abort(new CallerStoppedError('agent', 'the harness ended'));
     close();
     scope.close();
     rmSync(scratchDir, { recursive: true, force: true });

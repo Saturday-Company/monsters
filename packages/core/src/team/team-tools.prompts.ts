@@ -21,6 +21,7 @@ export type DelegationStopBy =
   | 'watchdog'
   | 'tools_unavailable'
   | 'harness'
+  | 'caller'
   | 'error'
   | 'unknown';
 
@@ -108,6 +109,8 @@ const en = {
         return `${name}'s program could not reach Monsters' tools (vault, web, team), so Monsters stopped it${d}`;
       case 'harness':
         return `${name}'s program (Claude Code or Codex) stopped by itself, without being asked.`;
+      case 'caller':
+        return `The monster that asked ${name} for this stopped, so ${name} stopped too.`;
       case 'error':
         return `${name} failed with an error${d}`;
       default:
@@ -206,6 +209,8 @@ const it: typeof en = {
         return `Il programma di ${name} non è riuscito a raggiungere gli strumenti di Monsters (vault, web, squadra), quindi Monsters l’ha fermato${d}`;
       case 'harness':
         return `Il programma di ${name} (Claude Code o Codex) si è fermato da solo, senza che nessuno lo chiedesse.`;
+      case 'caller':
+        return `Il mostro che aveva chiesto questo lavoro a ${name} si è fermato, quindi si è fermato anche ${name}.`;
       case 'error':
         return `${name} si è fermato per un errore${d}`;
       default:

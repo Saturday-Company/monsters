@@ -10,7 +10,7 @@ import { parseAgentConfig, type AgentDefinition } from '../src/agents/definition
 import { HarnessToolSessions } from '../src/agents/harness-tools.ts';
 import { runAgentStrings } from '../src/agents/run-agent.strings.ts';
 import { harnessMcpUrl, monstersToolsCause, runHarnessAgent } from '../src/agents/run-harness.ts';
-import { ControlScope } from '../src/kill/control-scope.ts';
+import { CallerStoppedError, ControlScope, KilledError } from '../src/kill/control-scope.ts';
 import { EventLog, coreMigrations, migrate, openDb } from '../src/index.ts';
 import { RunBudget, RunLimitsSchema } from '../src/team/run-limits.ts';
 
@@ -775,5 +775,105 @@ describe("the harness's own calls always get their result", () => {
       error: runAgentStrings().harnessCallUnanswered,
       cause: 'error',
     });
+  });
+});
+
+describe('a stopped harness always ends its turn', () => {
+  /* The clock moves only when the test says so: the grace is exact, not a race (D-149). */
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('a stream that never closes after the stop: the turn ends after the grace', async () => {
+    const log = memoryLog();
+    const scope = new ControlScope('run', 'r1', null, 100);
+    const h = scripted([]);
+    h.run = async function* () {
+      yield { type: 'text-delta', delta: 'Cerco…' };
+      // Its output held open by a process outside its group: no event, no end, ever.
+      await new Promise(() => {});
+    };
+    let ended = false;
+    const running = runHarnessAgent({
+      agent: agent(),
+      harness: h,
+      task: 'ciao',
+      tools: [],
+      signal: scope.signal,
+      scope,
+      log,
+      runId: 'r1',
+      sessions: new HarnessToolSessions(log),
+      mcpUrl: () => 'http://127.0.0.1:1/api/harness/mcp',
+      workspace: join(dir, 'ws'),
+      scratchRoot: join(dir, 'scratch'),
+      systemTools: false,
+      stopGraceMs: 1000,
+    }).finally(() => {
+      ended = true;
+    });
+    await vi.advanceTimersByTimeAsync(10);
+    // The user's stop: the watchdog no longer looks at a stopped harness.
+    void scope.abort(new KilledError('run', 'stopped from the app'));
+    await vi.advanceTimersByTimeAsync(900);
+    expect(ended).toBe(false);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(ended).toBe(true);
+    expect((await running).status).toBe('aborted');
+  });
+});
+
+describe("Monsters' tools end with the harness", () => {
+  it('a call still open when the harness crashes is stopped, so its delegation stops too', async () => {
+    const log = memoryLog();
+    const sessions = new HarnessToolSessions(log);
+    let callSignal: AbortSignal | undefined;
+    const slow: MonstersTool = {
+      name: 'delegate',
+      description: 'Hands a task to a teammate',
+      inputSchema: z.object({}),
+      execute: (_input, tc) => {
+        callSignal = tc.signal;
+        return new Promise((_resolve, reject) => {
+          tc.signal.addEventListener('abort', () => reject(tc.signal.reason as Error), {
+            once: true,
+          });
+        });
+      },
+    };
+    let call: Promise<unknown> | undefined;
+    const h = scripted([]);
+    h.run = async function* (task) {
+      call = sessions.get(task.mcp.token)!.call('delegate', {});
+      await vi.waitFor(() => expect(callSignal).toBeDefined());
+      yield { type: 'tool-call', id: 'm1', name: 'delegate', input: {}, monsters: true };
+      yield { type: 'done', reason: 'error', error: 'the program crashed' };
+    };
+    const scope = new ControlScope('run', 'r1', null, 100);
+    const r = await runHarnessAgent({
+      agent: agent(),
+      harness: h,
+      task: 'ciao',
+      tools: [],
+      extraTools: [slow],
+      signal: scope.signal,
+      scope,
+      log,
+      runId: 'r1',
+      sessions,
+      mcpUrl: () => 'http://127.0.0.1:1/api/harness/mcp',
+      workspace: join(dir, 'ws'),
+      scratchRoot: join(dir, 'scratch'),
+      systemTools: false,
+    });
+    expect(r.status).toBe('failed');
+    expect(callSignal!.aborted).toBe(true);
+    expect(callSignal!.reason).toBeInstanceOf(CallerStoppedError);
+    await expect(call).resolves.toMatchObject({ isError: true });
+    // The run itself was not stopped: only what was left of the harness.
+    expect(scope.aborted).toBe(false);
   });
 });
