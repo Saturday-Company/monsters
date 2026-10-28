@@ -88,6 +88,12 @@ export const AutomationNotifySchema = z.object({
 });
 export type AutomationNotify = z.infer<typeof AutomationNotifySchema>;
 
+/** The same in an update (D-209): a channel that is not sent keeps its stored value (no `.default()`). */
+export const AutomationNotifyPatchSchema = z.object({
+  app: z.boolean().optional(),
+  telegram: z.boolean().optional(),
+});
+
 /** A folder of the vault, relative, without `..` (where the results go). */
 export const VaultFolderSchema = z
   .string()
@@ -174,7 +180,7 @@ export const AutomationUpdateSchema = z
     objective: AutomationFields.objective,
     resultsFolder: VaultFolderSchema.nullable(),
     limits: AutomationLimitsSchema,
-    notify: AutomationNotifySchema.partial(),
+    notify: AutomationNotifyPatchSchema,
     status: AutomationStatusSchema,
   })
   .partial()
