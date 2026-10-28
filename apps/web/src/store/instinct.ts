@@ -217,6 +217,34 @@ export function instinctSentence(d: EventDataMap['instinct'], nameOf: NameOf): s
   }
 }
 
+/**
+ * What a doubt of the check leaves to decide (the middle band of "really finished?"): the
+ * points it was unsure of and the notes the monster delivered. Only newer events carry them.
+ */
+export interface DoubtInfo {
+  /** The event, to remember that the person closed the notice. */
+  id: string;
+  /** The monster whose work is in doubt. */
+  agent: string;
+  /** The criteria of the task the check was unsure of, as the lead wrote them. */
+  points: string[];
+  /** The notes delivered for the task (paths); the monsters' own folders left out. */
+  notes: string[];
+}
+
+/** The doubt of an `instinct` event with what the person needs to decide, or null (an older event). */
+export function doubtOf(e: { id: string; data: EventDataMap['instinct'] }): DoubtInfo | null {
+  const d = e.data;
+  if (d.action !== 'doubt' || !d.subject) return null;
+  const list = (v: unknown) =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : [];
+  const points = list(d.details?.['points']);
+  const layout = vaultLayout();
+  const notes = list(d.details?.['notes']).filter((n) => agentOfPath(n, layout) === null);
+  if (points.length === 0 && notes.length === 0) return null;
+  return { id: e.id, agent: d.subject, points, notes };
+}
+
 /** Instinct events that are worth a line in the chat; the rest stays in Attività. */
 const IN_CHAT = new Set<EventDataMap['instinct']['action']>([
   'route_hint',

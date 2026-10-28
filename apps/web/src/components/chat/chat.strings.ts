@@ -303,6 +303,19 @@ const en = {
     behind: 'Behind the scenes',
     behindLabel: (name: string) => `Behind the scenes of ${name}, on this turn`,
     flag: { warn: 'To check: ', stop: 'Removed: ' },
+    /** The doubt of the check under a reply, with what to decide (the notice and its two keys). */
+    doubt: {
+      headline: (name: string, points: number) =>
+        `${name}’s work is in doubt: the check isn’t sure about ${points === 1 ? 'this point' : 'these points'}`,
+      point: (text: string) => `“${text}”`,
+      notes: 'Notes delivered',
+      fine: 'Looks fine',
+      fineTitle: 'Close this notice: you checked the work and it is right',
+      ask: (lead: string) => `Ask ${lead} to double-check`,
+      askTitle: 'Writes the request in the message field: you decide whether to send it',
+      request: (name: string, points: readonly string[]) =>
+        `Please double-check ${name}’s work${points.length > 0 ? ` on ${points.length === 1 ? 'this point' : 'these points'}: ${points.map((p) => `“${p}”`).join('; ')}` : ''}. Read the notes it delivered and tell me whether it’s right.`,
+    },
     files: (n: number) => (n === 1 ? 'Made in this turn: 1 file' : `Made in this turn: ${n} files`),
     asks: (name: string, question: string) => `${name} asks you: ${question}`,
     newCount: (n: number) => (n === 1 ? '1 new message' : `${n} new messages`),
@@ -637,6 +650,18 @@ const it: typeof en = {
     behind: 'Dietro le quinte',
     behindLabel: (name) => `Dietro le quinte di ${name}, su questo turno`,
     flag: { warn: 'Da controllare: ', stop: 'Tolto: ' },
+    doubt: {
+      headline: (name, points) =>
+        `Il lavoro di ${name} è in dubbio: il controllo non è sicuro di ${points === 1 ? 'questo punto' : 'questi punti'}`,
+      point: (text) => `«${text}»`,
+      notes: 'Note consegnate',
+      fine: 'Va bene così',
+      fineTitle: 'Chiudi questo avviso: hai controllato il lavoro e va bene',
+      ask: (lead) => `Chiedi a ${lead} di ricontrollare`,
+      askTitle: 'Scrive la richiesta nel campo del messaggio: decidi tu se mandarla',
+      request: (name, points) =>
+        `Ricontrolla il lavoro di ${name}${points.length > 0 ? ` su ${points.length === 1 ? 'questo punto' : 'questi punti'}: ${points.map((p) => `«${p}»`).join('; ')}` : ''}. Leggi le note che ha consegnato e dimmi se va bene.`,
+    },
     files: (n) => (n === 1 ? 'Fatto in questo turno: 1 file' : `Fatti in questo turno: ${n} file`),
     asks: (name, question) => `${name} ti chiede: ${question}`,
     newCount: (n) => (n === 1 ? '1 messaggio nuovo' : `${n} messaggi nuovi`),

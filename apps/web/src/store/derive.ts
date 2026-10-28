@@ -30,6 +30,8 @@ import { clipText, noteKey, plainText } from '../lib/markdown.ts';
 import { formatUsd, modelWords } from '../lib/utils.ts';
 import { deriveStrings } from './derive.strings.ts';
 import {
+  doubtOf,
+  type DoubtInfo,
   instinctInChat,
   instinctSentence,
   instinctTone,
@@ -215,7 +217,29 @@ function describeExternalTool(tool: string, i: Record<string, unknown>): string 
     }
     return t.browser;
   }
-  return t.mcp(server, clip(name.replace(/_/g, ' '), 30));
+  const label = mcpToolLabel(server, name);
+  return t.mcp(label.server, clip(label.tool, 30));
+}
+
+/**
+ * An app's tool for a sentence: the server in words ("my-server" → "My Server") and the tool
+ * without the server's name it starts with ("anteiku_report_fatturato" → "report fatturato").
+ */
+export function mcpToolLabel(server: string, name: string): { server: string; tool: string } {
+  const words = (text: string) => text.split(/[_\-\s]+/).filter(Boolean);
+  const serverWords = words(server);
+  let toolWords = words(name);
+  const head = toolWords.slice(0, serverWords.length);
+  if (
+    serverWords.length > 0 &&
+    toolWords.length > serverWords.length &&
+    head.every((w, i) => w.toLowerCase() === serverWords[i]!.toLowerCase())
+  )
+    toolWords = toolWords.slice(serverWords.length);
+  return {
+    server: serverWords.map(capitalize).join(' ') || server,
+    tool: toolWords.join(' '),
+  };
 }
 
 /**
@@ -593,7 +617,8 @@ export type ChatItem =
       /** Notes the delegated monster wrote for this task (paths, oldest first). */
       notes?: string[] | undefined;
       /** What the instinct said of this task ("hadn’t finished…", "in doubt"), D-068. */
-      checks?: { text: string; tone: 'warn' | 'stop' | null }[] | undefined;
+      checks?:
+        { text: string; tone: 'warn' | 'stop' | null; doubt?: DoubtInfo | undefined }[] | undefined;
       /** The run it was given in: the turn of who gave it (store/turn.ts). */
       runId?: string | undefined;
     }
@@ -636,6 +661,8 @@ export type ChatItem =
       runId?: string | undefined;
       text: string;
       tone: 'warn' | 'stop' | null;
+      /** A doubt of the check with what to decide (newer events): the chat offers the choice. */
+      doubt?: DoubtInfo | undefined;
       /** Not a decision: a defense (text removed from a page) or the spending cap. */
       about?: 'defense' | 'spend' | undefined;
     }
@@ -1038,9 +1065,15 @@ export function buildChat(
         // About a task: said with the task itself, where its result is.
         const task = e.parentId ? byStart.get(e.parentId) : undefined;
         if (task && (d.action === 'retry' || d.action === 'doubt')) {
-          (task.checks ??= []).push({ text: instinctSentence(d, nameOf), tone: instinctTone(d) });
+          const doubt = doubtOf(e);
+          (task.checks ??= []).push({
+            text: instinctSentence(d, nameOf),
+            tone: instinctTone(d),
+            ...(doubt ? { doubt } : {}),
+          });
           break;
         }
+        const doubt = doubtOf(e);
         items.push({
           kind: 'instinct',
           id: e.id,
@@ -1049,6 +1082,7 @@ export function buildChat(
           runId: e.runId ?? undefined,
           text: instinctSentence(d, nameOf),
           tone: instinctTone(d),
+          ...(doubt ? { doubt } : {}),
         });
         break;
       }

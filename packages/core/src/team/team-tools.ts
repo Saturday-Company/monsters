@@ -628,7 +628,14 @@ async function runDelegation(
     instinctEvent(ctx, 'doubt', target, {
       message: instinctStrings().inDoubt(target.config.name, check.doubt ?? ''),
       parentId: started.id,
-      details: { doubt: check.doubt ?? '' },
+      details: {
+        doubt: check.doubt ?? '',
+        // What the person needs to decide (V-doubt): the criteria the check was unsure of,
+        // the notes the monster delivered and the task itself.
+        points: unsureCriteria(check),
+        notes: [...new Set([...notes.created, ...notes.changed])],
+        goal: brief.goal,
+      },
     });
   }
   const logged =
@@ -655,8 +662,20 @@ async function runDelegation(
     ...notes.report(target.config.name),
     ...(summary.truncated ? { truncated: true } : {}),
     ...checkReport(check),
-    next: check?.verdict === 'incomplete' ? DELEGATION_INCOMPLETE_NEXT : DELEGATION_NEXT,
+    next: nextAfter(check),
   };
+}
+
+/** The texts of the criteria the check was unsure of (the middle band of the instinct). */
+export function unsureCriteria(check: DoneCheckResult): string[] {
+  return check.criteria.filter((c) => c.ok === null && c.by === 'model').map((c) => c.text);
+}
+
+/** What the orchestrator reads next, by the verdict of the check. */
+function nextAfter(check: DoneCheckResult | undefined): string {
+  if (check?.verdict === 'incomplete') return DELEGATION_INCOMPLETE_NEXT;
+  if (check?.verdict === 'doubt') return delegationDoubtNext(unsureCriteria(check));
+  return DELEGATION_NEXT;
 }
 
 /** What the orchestrator reads of "finito davvero?" (D-067). */
@@ -700,6 +719,20 @@ function instinctEvent(
 export const DELEGATION_INCOMPLETE_NEXT =
   'The check of the system says the result is incomplete (check_reason). Do not present it as done: ' +
   'tell the user plainly what is missing, or delegate once more only for what is missing.';
+
+/**
+ * Read after a report the check was unsure of (middle band): the lead verifies before it
+ * replies, instead of passing the doubt on or ignoring it.
+ */
+export function delegationDoubtNext(points: readonly string[]): string {
+  const list = points.length > 0 ? ` about: ${points.map((p) => `"${p}"`).join('; ')}` : '';
+  return (
+    `The check of the system is unsure${list} (check_reason). Before you reply, read the notes ` +
+    'the member delivered (notes_created, notes_changed) and verify those points yourself. If ' +
+    'something is really missing, ask the member again for it once, or say it plainly in your ' +
+    'reply. Do not present the result as certain.'
+  );
+}
 
 /**
  * Read right after the report, when the orchestrator decides how to reply: the

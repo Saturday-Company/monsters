@@ -24,6 +24,7 @@ import {
 } from '../src/store/derive.ts';
 import {
   chainModelName,
+  doubtOf,
   instinctSentence,
   receiptInChat,
   receiptSummary,
@@ -214,6 +215,43 @@ describe('sentences of the instinct', () => {
     expect(describeEvent(answer, names)).toBe(
       'Decisione per Rhea: controlla che i lavori siano finiti davvero (solo annotato)',
     );
+  });
+});
+
+describe('the doubt of the check with what to decide', () => {
+  const doubt = (details?: Record<string, unknown>) => ({
+    id: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    data: {
+      use: 'done_check',
+      action: 'doubt',
+      subject: 'rhea',
+      message: 'in doubt: x',
+      ...(details ? { details } : {}),
+    } as unknown as LogEvent<'instinct'>['data'],
+  });
+
+  it('takes the unsure points and the notes delivered, without the monsters’ own folders', () => {
+    expect(
+      doubtOf(
+        doubt({
+          doubt: 'in doubt: x',
+          points: ['Mirko can tell which project', 3, ' '],
+          notes: ['Commerciale/Pitch.md', 'Agenti/Rhea/MEMORY.md'],
+        }),
+      ),
+    ).toEqual({
+      id: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      agent: 'rhea',
+      points: ['Mirko can tell which project'],
+      notes: ['Commerciale/Pitch.md'],
+    });
+  });
+
+  it('is null for an older event (no details) and for other actions: they render as before', () => {
+    expect(doubtOf(doubt())).toBeNull();
+    expect(doubtOf(doubt({ doubt: 'in doubt: x' }))).toBeNull();
+    const retry = doubt({ points: ['x'] });
+    expect(doubtOf({ ...retry, data: { ...retry.data, action: 'retry' } })).toBeNull();
   });
 });
 

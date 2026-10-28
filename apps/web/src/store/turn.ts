@@ -8,7 +8,7 @@ import {
   type ChatItem,
   type RunStats,
 } from './derive.ts';
-import { receiptCost, receiptNotes } from './instinct.ts';
+import { receiptCost, receiptNotes, type DoubtInfo } from './instinct.ts';
 import { turnStrings } from './turn.strings.ts';
 
 /*
@@ -46,6 +46,8 @@ export interface TurnFlag {
   agent: string;
   text: string;
   tone: 'warn' | 'stop';
+  /** A doubt of the check with what the person decides on (the chat shows it as a notice). */
+  doubt?: DoubtInfo;
 }
 
 export interface Turn {
@@ -218,13 +220,20 @@ export function buildTurns(
                 agent: item.to,
                 text: c.text,
                 tone: c.tone,
+                ...(c.doubt ? { doubt: c.doubt } : {}),
               });
         }
         break;
       case 'instinct':
         turn.instinct.push(item);
         if (item.tone)
-          turn.flags.push({ id: item.id, agent: item.agent, text: item.text, tone: item.tone });
+          turn.flags.push({
+            id: item.id,
+            agent: item.agent,
+            text: item.text,
+            tone: item.tone,
+            ...(item.doubt ? { doubt: item.doubt } : {}),
+          });
         break;
       case 'file':
       case 'preview':
@@ -317,7 +326,7 @@ function sameTurn(a: Turn, b: Turn): boolean {
     sameValue(a.tasks, b.tasks, 1) &&
     sameValue(a.instinct, b.instinct, 1) &&
     sameValue(a.attachments, b.attachments, 1) &&
-    sameValue(a.flags, b.flags, 2)
+    sameValue(a.flags, b.flags, 4)
   );
 }
 

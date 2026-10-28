@@ -259,6 +259,18 @@ describe('the live activity follows the language', () => {
     expect(
       both(() => describeTool('mcp__browser__browser_navigate', { url: 'https://www.x.it/a' })),
     ).toEqual(['Opening x.it in the browser', 'Apro x.it nel browser']);
+    // An app’s tool: the server in words, once; its name is not repeated in the tool's.
+    expect(both(() => describeTool('mcp__anteiku__anteiku_report_fatturato', {}))).toEqual([
+      'Using Anteiku: report fatturato',
+      'Uso Anteiku: report fatturato',
+    ]);
+    expect(both(() => describeTool('mcp__my-server__list_items', {}))).toEqual([
+      'Using My Server: list items',
+      'Uso My Server: list items',
+    ]);
+    expect(describeTool('mcp__my-server__my_server_list', {})).toBe('Using My Server: list');
+    // Nothing left of the name once the server is taken out: it stays whole.
+    expect(describeTool('mcp__github__github', {})).toBe('Using Github: github');
     expect(both(() => describeTool('vault_read', {}))).toEqual([
       'Reading a note',
       'Leggo una nota',

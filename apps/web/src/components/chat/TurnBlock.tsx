@@ -15,6 +15,7 @@ import { AgentBubble, Attachments, RelayedBubble, TelegramBubble, UserBubble } f
 import { chatStrings } from './chat.strings.ts';
 import { behindTheScenes } from './ChatMonitor.tsx';
 import { DelegationRow, ErrorRow } from './ChatEvents.tsx';
+import { DoubtNotice } from './DoubtNotice.tsx';
 import { ProposalCard } from './ProposalCard.tsx';
 import { QuestionCard } from './QuestionCard.tsx';
 import { replyGate, type ReplyState } from './ui-block/reply.ts';
@@ -43,8 +44,11 @@ export function turnAlive(turn: Turn, live: Readonly<Record<string, LiveState>>)
 }
 
 /** A line under the reply for what needs a check: a doubt in orange, orders removed in red. */
-function FlagLine({ flag, runId }: { flag: TurnFlag; runId: string }) {
+function FlagLine({ flag, runId, chat }: { flag: TurnFlag; runId: string; chat: string }) {
   const s = chatStrings();
+  // A doubt with what to decide (newer events) is a notice with its two keys.
+  if (flag.doubt)
+    return <DoubtNotice flag={{ ...flag, doubt: flag.doubt }} runId={runId} lead={chat} />;
   return (
     <button
       type="button"
@@ -145,7 +149,7 @@ export const TurnBlock = memo(function TurnBlock({
       data-testid="turn-flags"
     >
       {turn.flags.map((f) => (
-        <FlagLine key={f.id} flag={f} runId={turn.runId} />
+        <FlagLine key={f.id} flag={f} runId={turn.runId} chat={turn.agent} />
       ))}
     </div>
   );

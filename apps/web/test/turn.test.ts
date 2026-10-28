@@ -288,6 +288,40 @@ describe('buildTurns', () => {
     expect(turn.flags).toEqual([expect.objectContaining({ tone: 'warn', agent: 'rhea' })]);
   });
 
+  it('a doubt with what to decide: the unsure points and the notes ride on the flag', () => {
+    const doubt = ev({
+      agent: 'system',
+      runId: 'r1',
+      type: 'instinct',
+      data: {
+        use: 'done_check',
+        action: 'doubt',
+        subject: 'rhea',
+        message: 'in doubt: Mirko can tell which project to show',
+        details: {
+          doubt: 'in doubt: Mirko can tell which project to show',
+          points: ['Mirko can tell which project to show'],
+          notes: ['Commerciale/Pitch.md', 'Agenti/Rhea/MEMORY.md'],
+          goal: 'Prepare the pitch',
+        },
+      },
+    } as unknown as EventInput);
+    const turn = titanTurns([...weekend().slice(0, 5), doubt])[0] as Turn;
+    expect(turn.flags).toEqual([
+      expect.objectContaining({
+        tone: 'warn',
+        agent: 'rhea',
+        // The monsters’ own folders are not "notes delivered".
+        doubt: {
+          id: doubt.id,
+          agent: 'rhea',
+          points: ['Mirko can tell which project to show'],
+          notes: ['Commerciale/Pitch.md'],
+        },
+      }),
+    ]);
+  });
+
   it('starts a second turn when the same run gets a second request', () => {
     const r = 'r5';
     const events = [

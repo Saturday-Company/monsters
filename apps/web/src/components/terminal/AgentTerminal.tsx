@@ -24,6 +24,8 @@ import {
 } from '../../store/derive.ts';
 import { plainText } from '../../lib/markdown.ts';
 import { instinctSentence, receiptSummary, securitySentence } from '../../store/instinct.ts';
+import { toolProblem } from '../../store/tool-problem.ts';
+import { settingsPath } from '../../lib/router.ts';
 import { Markdown } from '../ui/Markdown.tsx';
 import { moodText, useAgent, useLive, useNameOf } from '../../store/hooks.ts';
 import { cn, domId, formatTime, prettyJson } from '../../lib/utils.ts';
@@ -126,13 +128,30 @@ function CodeBlock({ label, value }: { label: string; value: unknown }) {
 
 const seconds = (ms: number) => formatDuration(ms);
 
-function ToolLine({ e, focus }: { e: Extract<TermEntry, { kind: 'tool' }>; focus: boolean }) {
+function ToolLine({
+  e,
+  agentId,
+  focus,
+}: {
+  e: Extract<TermEntry, { kind: 'tool' }>;
+  agentId: string;
+  focus: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  const nameOf = useNameOf();
   const id = domId(useId());
   const failed = e.result?.ok === false;
   const running = !e.result;
   const stopped = failed && isStopText(e.result?.error);
   const files = useMemo(() => (e.result?.ok ? filesIn(e.result.output) : []), [e.result]);
+  // A refusal the person can act on, in their language; the raw error stays below it.
+  const problem =
+    failed && !stopped
+      ? toolProblem(
+          { tool: e.tool, error: e.result?.error, output: e.result?.output },
+          { id: agentId, name: nameOf(agentId) },
+        )
+      : null;
   const s = terminalStrings();
   return (
     <Line
@@ -178,7 +197,7 @@ function ToolLine({ e, focus }: { e: Extract<TermEntry, { kind: 'tool' }>; focus
       )}
       {failed && e.result?.error && !open && (
         <p className={cn('mt-0.5', stopped ? 'text-screen-muted' : 'text-screen-stop')}>
-          {stopped ? s.stoppedByStop : e.result.error}
+          {stopped ? s.stoppedByStop : (problem?.text ?? e.result.error)}
         </p>
       )}
       {open && (
@@ -187,9 +206,24 @@ function ToolLine({ e, focus }: { e: Extract<TermEntry, { kind: 'tool' }>; focus
             {s.tool} <span className="text-screen-ink">{e.tool}</span>
           </p>
           {e.input !== undefined && <CodeBlock label={s.dataSent} value={e.input} />}
+          {problem && (
+            <div className="mt-2" data-testid="tool-problem">
+              <p className="label mb-1 text-screen-muted">{s.problem}</p>
+              <p className="text-screen-ink">{problem.text}</p>
+              {problem.settingsLabel && (
+                <a
+                  href={settingsPath('squadra')}
+                  className="mt-1 inline-block font-semibold text-screen-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-signal"
+                  data-testid="tool-problem-settings"
+                >
+                  {problem.settingsLabel}
+                </a>
+              )}
+            </div>
+          )}
           {e.result && (
             <CodeBlock
-              label={e.result.ok ? s.result : s.problem}
+              label={e.result.ok ? s.result : problem ? s.technicalError : s.problem}
               value={e.result.ok ? (e.result.output ?? 'ok') : (e.result.error ?? e.result.output)}
             />
           )}
@@ -251,7 +285,7 @@ function Entry({ e, agentId, focus }: { e: TermEntry; agentId: string; focus: bo
         </Line>
       );
     case 'tool':
-      return <ToolLine e={e} focus={focus} />;
+      return <ToolLine e={e} agentId={agentId} focus={focus} />;
     case 'delegation': {
       // A stop at a limit says which cap in the person's language; the core's `error` is the
       // English for the model.

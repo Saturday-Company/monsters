@@ -7,6 +7,8 @@ import {
   labelOfUse,
   VERDICT,
 } from '../../store/instinct.ts';
+import { settingsPath } from '../../lib/router.ts';
+import { toolProblem } from '../../store/tool-problem.ts';
 import { formatUsd, prettyJson } from '../../lib/utils.ts';
 import { logStrings } from './log.strings.ts';
 
@@ -15,6 +17,8 @@ export interface DetailField {
   label: string;
   value: string;
   code?: boolean;
+  /** A link that goes with the value (the settings that change a refusal). */
+  link?: { label: string; href: string };
 }
 
 const seconds = (ms: number) =>
@@ -24,7 +28,7 @@ const seconds = (ms: number) =>
  * The details of a log event as labelled fields, instead of the raw
  * JSON (which stays available as "Technical data").
  */
-export function detailsOf(e: LogEvent): DetailField[] {
+export function detailsOf(e: LogEvent, nameOf: (id: string) => string = capitalize): DetailField[] {
   const out: DetailField[] = [];
   const d = logStrings().detail;
   const l = d.label;
@@ -59,7 +63,24 @@ export function detailsOf(e: LogEvent): DetailField[] {
       add(l.tool, `${toolLabel(e.data.tool)} (${e.data.tool})`);
       add(l.outcome, e.data.ok ? d.succeeded : d.failed);
       if (e.data.durationMs !== undefined) add(l.duration, seconds(e.data.durationMs));
-      add(l.problem, e.data.error);
+      {
+        // A refusal the person can act on is said in plain words first; the raw error is below.
+        const problem = e.data.ok
+          ? null
+          : toolProblem(
+              { tool: e.data.tool, error: e.data.error, output: e.data.output },
+              { id: e.agent, name: nameOf(e.agent) },
+            );
+        if (problem) {
+          add(l.problem, problem.text);
+          if (problem.settingsLabel)
+            out[out.length - 1]!.link = {
+              label: problem.settingsLabel,
+              href: settingsPath('squadra'),
+            };
+          add(l.technicalError, e.data.error, true);
+        } else add(l.problem, e.data.error);
+      }
       add(l.result, e.data.output, true);
       break;
     case 'decision':

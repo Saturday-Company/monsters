@@ -269,7 +269,8 @@ function ReviewKey({ e, primary }: { e: LogEvent; primary: boolean }) {
 }
 
 function EventDetails({ id, e }: { id: string; e: LogEvent }) {
-  const fields = detailsOf(e);
+  const nameOf = useNameOf();
+  const fields = detailsOf(e, nameOf);
   const s = logStrings().row;
   return (
     <div id={id} className="screen tape-screen mt-2.5 mb-1 rounded-[10px] px-4 py-3 text-footnote">
@@ -283,6 +284,15 @@ function EventDetails({ id, e }: { id: string; e: LogEvent }) {
                 className="max-h-48 min-w-0 overflow-auto break-words whitespace-pre-wrap [scrollbar-color:var(--screen-muted)_transparent] [scrollbar-width:thin]"
               >
                 {f.value}
+                {f.link && (
+                  <a
+                    href={f.link.href}
+                    className="mt-1 block font-semibold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-signal"
+                    data-testid="detail-link"
+                  >
+                    {f.link.label}
+                  </a>
+                )}
               </dd>
             </div>
           ))}

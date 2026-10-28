@@ -9,7 +9,7 @@ import { expect, test } from './fixtures.ts';
  * computer.
  */
 
-test.use({ viewport: { width: 1440, height: 900 } });
+test.use({ viewport: { width: 1440, height: 900 }, colorScheme: 'light' });
 
 const list = (page: Page) => page.getByRole('navigation', { name: 'Monsters’ chats' });
 const row = (page: Page, name: string) =>
@@ -193,6 +193,88 @@ test('the receipt of a job is the strip of its turn, and "Undo the whole job" ta
   await expect(strip.getByTestId('receipt-undone')).toContainText('Undone · 3 changes');
   await expect(strip.getByTestId('receipt-undo')).toHaveCount(0);
   await expect(strip.getByTestId('receipt-summary')).toContainText('job undone');
+});
+
+test('a doubt of the check says which point is unclear, lists the notes and offers two keys', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/?chat=titan');
+  const turn = page.locator('[data-testid="turn"][data-run="run_seed_meeting"]');
+  const notice = turn.getByTestId('doubt-notice');
+  await expect(notice).toContainText('Rhea’s work is in doubt');
+  // The point the check was not sure of, quoted, and the note Rhea delivered.
+  await expect(notice.getByTestId('doubt-points')).toHaveText(
+    '“The restaurant’s address and website in the summary note”',
+  );
+  await expect(notice.getByTestId('note-chip')).toHaveCount(1);
+  await expect(notice.getByTestId('note-chip')).toContainText('Summary of the meeting with Bruno');
+  if (process.env['SCREENSHOTS']) {
+    await notice.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${process.env['SCREENSHOTS']}/doubt-notice.png` });
+  }
+
+  // "Ask Titan to double-check" writes the request in the field and sends nothing.
+  const input = page.getByTestId('composer-input');
+  await expect(input).toHaveValue('');
+  const bubbles = await page.getByTestId('user-bubble').count();
+  await notice.getByTestId('doubt-ask').click();
+  await expect(input).toHaveValue(
+    /^Please double-check Rhea’s work on this point: “The restaurant’s address and website in the summary note”\. Read the notes it delivered/,
+  );
+  await expect(input).toBeFocused();
+  await expect(page.getByTestId('user-bubble')).toHaveCount(bubbles);
+
+  // A note chip opens it in the preview pane.
+  await notice.getByTestId('note-chip').click();
+  await expect(page.getByTestId('right-dock')).toBeVisible();
+
+  // "Looks fine" closes the notice and this browser remembers it (the mock makes new ids on a
+  // reload, so the memory is read from the storage).
+  await notice.getByTestId('doubt-fine').click();
+  await expect(notice).toHaveCount(0);
+  await expect(turn.getByTestId('turn-flag')).toHaveCount(1);
+  const kept = await page.evaluate(() => window.localStorage.getItem('monsters-doubts-ok'));
+  expect(JSON.parse(kept ?? '[]')).toHaveLength(1);
+});
+
+test('Behind the scenes: a refused note write says why in plain words, the raw error stays below', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/?chat=rhea');
+  await page.getByTestId('behind-the-scenes').click();
+  const term = page.getByTestId('agent-terminal');
+  const line = term.getByTestId('tool-line').filter({ hasText: 'Pitch deck' });
+  // Closed: the sentence, not the code.
+  await expect(term.getByTestId('terminal-log')).toContainText(
+    'Rhea can’t edit this note: it only writes in Agenti/Rhea/ and in the notes it created.',
+  );
+  await expect(term.getByTestId('terminal-log')).not.toContainText('SETTING_OFF:');
+  await line.click();
+  const problem = term.getByTestId('tool-problem');
+  await expect(problem).toContainText('Settings → Squad → Rhea → Where it writes in the notes');
+  await expect(problem.getByTestId('tool-problem-settings')).toHaveText('Open Rhea’s settings');
+  await expect(term.getByText('Technical error', { exact: true })).toBeVisible();
+  await expect(term.getByTestId('terminal-log')).toContainText(
+    'SETTING_OFF: rhea cannot write Sales/Pitch deck.md',
+  );
+  if (process.env['SCREENSHOTS']) {
+    await term.locator('.term-pre').last().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${process.env['SCREENSHOTS']}/setting-off-problem.png` });
+  }
+});
+
+test('Attività: the details of a refused note write start with the plain problem', async ({
+  page,
+}) => {
+  await page.goto('/?mock=demo#/log');
+  await page.getByRole('radio', { name: 'Everything' }).click();
+  const row = page
+    .getByTestId('event-row')
+    .filter({ hasText: 'Rhea couldn’t finish writing a note' });
+  await row.first().getByRole('button', { name: 'Details' }).click();
+  const link = page.getByTestId('detail-link');
+  await expect(link).toHaveText('Open Rhea’s settings');
+  await expect(page.getByText('Technical error', { exact: true }).first()).toBeVisible();
 });
 
 test('Attività: an order removed is important, the hint of the instinct is under Tutto', async ({

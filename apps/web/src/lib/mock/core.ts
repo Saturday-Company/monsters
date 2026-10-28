@@ -3752,6 +3752,29 @@ export class MockCore {
     );
     result('rhea', d2, 'm7', 'web_fetch', 1320, 0.01);
     free(0.05, 'rhea', 1);
+    // A write outside Rhea’s note areas: refused, the error as the core logs it.
+    const deckPath = tr('Sales/Pitch deck.md', 'Commerciale/Pitch deck.md');
+    const refusal = `rhea cannot write ${deckPath}`;
+    const refusalHint =
+      'Use vault_propose to suggest this change: it creates a proposal in Inbox/ that the orchestrator can apply. You can write freely in Agenti/Rhea/, create new notes in Inbox/ and edit your own notes there. The user can change the note areas of a monster.';
+    tool('rhea', d2, 'm8a', 'vault_write', { path: deckPath, content: '…' }, 0.03);
+    add(
+      {
+        agent: 'rhea',
+        runId: run,
+        parentId: d2,
+        type: 'tool_result',
+        data: {
+          callId: 'm8a',
+          tool: 'vault_write',
+          ok: false,
+          error: `SETTING_OFF: ${refusal}`,
+          output: { error: { code: 'SETTING_OFF', message: refusal, hint: refusalHint } },
+          durationMs: 8,
+        },
+      },
+      0.01,
+    );
     tool('rhea', d2, 'm8', 'vault_edit', { path: note }, 0.05);
     add(
       {
@@ -3779,6 +3802,16 @@ export class MockCore {
             'Il lavoro di Rhea è in dubbio: l’indirizzo viene da una guida, non dal sito del ristorante',
           ),
           subject: 'rhea',
+          // What the person decides on: the point the check was unsure of and the notes delivered.
+          details: {
+            doubt: tr(
+              'the address comes from a guide, not from the restaurant’s website',
+              'l’indirizzo viene da una guida, non dal sito del ristorante',
+            ),
+            points: [rheaDone],
+            notes: [note],
+            goal: rheaGoal,
+          },
         },
       },
       0.01,

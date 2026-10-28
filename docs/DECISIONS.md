@@ -6306,3 +6306,30 @@ loosely (numbers dropped, emphasis markers, escaped underscores, other dashes), 
   change: do not retry or work around it, say in the report what should be added where. The permissions did not change.
 - The card line about connected apps adds "use them when the task needs their data or their work, and your report says
   what you took from them" (EN and IT); the Italian hash fixture was updated without a new eval.
+
+### D-208 · A failure says why, a doubt gives something to decide on, an app tool names the app once
+**Status:** done · 28/10/2026
+**Context:** three reports on the alpha.26 Italian UI. A refused note write showed only `SETTING_OFF: marta cannot
+write …` ("it doesn't say why"); the doubt line under a reply ("Rhea's work is in doubt…") opened Behind the scenes but
+gave nothing to decide yes or no on, and the lead only read the generic `next`; an app tool read "Using anteiku: anteiku
+report fatturato".
+**Choices:**
+- Failed note tools: `apps/web/src/store/tool-problem.ts` is a pure helper that turns `CODE: message` (and the hint
+  the vault gives) into one plain sentence of the app's language for the cases the person can act on (a write the
+  monster's areas do not allow, delete/move, section or note not found, private note, note changed meanwhile, name
+  taken). It reads the English messages the vault throws, restricted to `vault_*` tools; anything else stays the raw
+  error. The monster's folders come from the hint of the refusal (the vault already lists them), so the web needs no new
+  field on the agent. The sentence comes first in Behind the scenes and Activity, the raw error stays below as
+  "Technical error"; a refusal of a note area links to Settings → Squad.
+- Doubt: the `doubt` instinct event keeps `details.doubt` and adds `points` (the criteria the check was unsure of, the
+  ones with `ok: null` by the model), `notes` (created and changed by the delegation) and `goal`; no schema change
+  (`details` is free). The lead's `next` after a `doubt` verdict names those points and says to read the delivered notes
+  and verify them before replying (`delegationDoubtNext`); the other verdicts keep theirs. In the chat the flag becomes a
+  notice with the quoted point, the notes as chips (Anteprima), "Looks fine" (closes it, remembered per browser in
+  localStorage) and "Ask <lead> to double-check" (writes the request in the composer, never sends). Events without the
+  new details render as before.
+- App tools: the server shows with its words capitalized ("my-server" → "My Server") and a tool name that starts with
+  the server's name loses that prefix ("anteiku_report_fatturato" → "Using Anteiku: report fatturato"). The store has no
+  per-server label, so the name is derived from the id.
+**Consequence:** the sentences depend on the English text of the vault's errors: a change there needs the matching
+change in `tool-problem.ts` (the test in `apps/web/test/tool-problem.test.ts` shows the messages it relies on).
