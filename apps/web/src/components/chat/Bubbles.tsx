@@ -268,7 +268,7 @@ export function UserBubble({ item }: { item: Extract<ChatItem, { kind: 'user' }>
               {s.notSent}
               <button
                 type="button"
-                onClick={() => void flushHeld()}
+                onClick={() => void flushHeld(true)}
                 className="font-medium text-signal-ink hover:underline"
               >
                 {s.sendNow}

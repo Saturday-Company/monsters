@@ -39,6 +39,8 @@ const en = {
   thinking: 'Let me think for a moment: I’m putting together the right squad for you…',
   thinkingHint: 'It can take up to a minute with the free models.',
   retry: 'Try again',
+  stopWaiting: 'Stop waiting',
+  stoppedWaiting: 'I stopped waiting for the squad.',
   rethinking: 'Let me rethink for a moment…',
   proposed: (n: number) =>
     `Here’s the squad I suggest: ${n === 1 ? 'one monster' : `${n} monsters`} plus me.`,
@@ -94,6 +96,8 @@ const it: typeof en = {
   thinking: 'Ci penso un attimo: sto mettendo insieme la squadra giusta per te…',
   thinkingHint: 'Può volerci anche un minuto con i modelli gratuiti.',
   retry: 'Riprova',
+  stopWaiting: 'Smetti di aspettare',
+  stoppedWaiting: 'Ho smesso di aspettare la squadra.',
   rethinking: 'Ci ripenso un attimo…',
   proposed: (n) =>
     `Ecco la squadra che ti propongo: ${n === 1 ? 'un mostro' : `${n} mostri`} più me.`,

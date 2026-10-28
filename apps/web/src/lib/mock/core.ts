@@ -1085,9 +1085,11 @@ export class MockCore {
     const after = q.get('after');
     const before = q.get('before');
     const limit = Math.min(1000, Number(q.get('limit') ?? 200));
+    const clientId = q.get('clientId');
     let list = this.events.filter(
       (e) =>
         (!agents || agents.includes(e.agent)) &&
+        (!clientId || (e.data as { clientId?: unknown }).clientId === clientId) &&
         (!types || types.includes(e.type)) &&
         e.ts >= since &&
         e.ts <= until &&

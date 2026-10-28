@@ -25,7 +25,6 @@ import {
 import { FS_READ_TOOLS, FS_WRITE_TOOLS } from '@monsters/tools';
 import type { VaultPermissionsConfig, VaultService } from '@monsters/vault';
 import { isMap, parseDocument } from 'yaml';
-import { z } from 'zod';
 import {
   ALL_VAULT_TOOLS,
   VAULT_READ_TOOLS,
@@ -39,7 +38,7 @@ import {
 } from '../agents/archetypes.ts';
 import {
   AGENT_YAML,
-  ModelRefSchema,
+  ModelChainSchema,
   loadAgentDefinition,
   type AgentDefinition,
 } from '../agents/definition.ts';
@@ -725,7 +724,7 @@ export class TeamService {
   ): Promise<AgentDefinition> {
     const def = this.get(idOrName);
     if (!def?.dir) throw new Error(`unknown agent ${idOrName}`);
-    const chain = z.array(ModelRefSchema).min(1).parse(models);
+    const chain = ModelChainSchema.parse(models);
     const path = join(def.dir, AGENT_YAML);
     const doc = parseDocument(await readFile(path, 'utf8'));
     // The tier of each link stays (D-067, D-093): the instinct reads it at every request.

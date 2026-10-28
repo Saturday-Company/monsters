@@ -391,21 +391,40 @@ export function TeamStep({
   const started = useRef(false);
   const guide = genomeFrom(state.guide.genome, state.guide.name);
 
+  /** The request for a squad that is on its way: "Stop waiting" abandons it (and the core stops writing). */
+  const asking = useRef<AbortController | null>(null);
+
   const propose = async () => {
+    const ask = new AbortController();
+    asking.current = ask;
     setBusy('propose');
     setError(null);
     try {
-      const next = await onboardingApi.propose();
+      const next = await onboardingApi.propose(ask.signal);
+      // Stopped meanwhile (a mock that ignores the signal answers anyway): nothing to take.
+      if (ask.signal.aborted) return;
       setProposal(next.proposal);
       setNames({});
       setEdited({});
       setRemoved([]);
       onState(next);
     } catch (err) {
-      setError(onboardingError(err));
+      if (!ask.signal.aborted) setError(onboardingError(err));
     } finally {
-      setBusy(null);
+      if (asking.current === ask) {
+        asking.current = null;
+        setBusy(null);
+      }
     }
+  };
+
+  /** A model that does not answer must not hold the user here: Back and Try again come back. */
+  const stopWaiting = () => {
+    asking.current?.abort();
+    asking.current = null;
+    setBusy(null);
+    // With a squad already on screen, it simply stays; with none, the step says it stopped.
+    if (!proposal) setError(s.stoppedWaiting);
   };
 
   useEffect(() => {
@@ -479,6 +498,11 @@ export function TeamStep({
           <Button variant="ghost" onClick={onBack} disabled={busy !== null}>
             <ArrowLeft size={18} aria-hidden /> {s.back}
           </Button>
+          {busy === 'propose' && (
+            <Button variant="secondary" onClick={stopWaiting} data-testid="stop-waiting">
+              <X size={18} aria-hidden /> {s.stopWaiting}
+            </Button>
+          )}
           {error && (
             <Button size="lg" onClick={() => void propose()}>
               <ArrowClockwise size={18} aria-hidden /> {s.retry}
@@ -591,6 +615,11 @@ export function TeamStep({
           <Button variant="secondary" onClick={() => void propose()} disabled={busy !== null}>
             <ArrowClockwise size={18} aria-hidden /> {s.another}
           </Button>
+          {busy === 'propose' && (
+            <Button variant="ghost" onClick={stopWaiting} data-testid="stop-waiting">
+              <X size={18} aria-hidden /> {s.stopWaiting}
+            </Button>
+          )}
         </span>
         <Button
           size="lg"

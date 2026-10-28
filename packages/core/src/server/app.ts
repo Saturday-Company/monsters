@@ -730,6 +730,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
       until: q.until,
       after: q.after,
       before: q.before,
+      ...(q.clientId ? { data: { clientId: q.clientId } } : {}),
       limit: q.limit,
       order: q.order,
     });

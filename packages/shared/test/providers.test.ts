@@ -39,6 +39,27 @@ describe('model chains with tiers', () => {
     expect(AgentModelsSchema.parse(view)).toEqual(view);
   });
 
+  it('trims and refuses blanks in a request, but a response with an odd id still parses', () => {
+    const padded = { models: [{ provider: 'anthropic', model: '  claude-test \n' }] };
+    expect(AgentModelsRequestSchema.parse(padded).models[0]!.model).toBe('claude-test');
+    expect(
+      AgentModelsRequestSchema.safeParse({ models: [{ provider: 'anthropic', model: '   ' }] })
+        .success,
+    ).toBe(false);
+    // One id stored by an older version must not make the whole answer invalid.
+    const view = {
+      id: 'rhea',
+      name: 'Rhea',
+      color: '#336699',
+      isOrchestrator: false,
+      models: [
+        { provider: 'anthropic', model: '   ' },
+        { provider: 'anthropic', model: 'claude-test' },
+      ],
+    };
+    expect(AgentModelsSchema.safeParse(view).success).toBe(true);
+  });
+
   it('refuses a tier that is not light or strong', () => {
     expect(
       ModelRefViewSchema.safeParse({ provider: 'claude-agent', model: 'opus', tier: 'max' })

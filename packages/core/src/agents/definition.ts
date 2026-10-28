@@ -28,6 +28,21 @@ export const ModelRefSchema = z.object({
   effort: EffortSchema.optional(),
 });
 
+/**
+ * A chain as stored, cleaned: an older version let a model id with spaces around it, or a blank
+ * one, into the file. The spaces go, a link with no model goes (it would fail every call); a chain
+ * left empty is refused with the rest of the file.
+ */
+export function cleanModelChain<T extends { model: string }>(links: readonly T[]): T[] {
+  return links.map((l) => ({ ...l, model: l.model.trim() })).filter((l) => l.model !== '');
+}
+
+/** A stored chain (`agent.yaml`): cleaned, and at least one link must remain. */
+export const ModelChainSchema = z
+  .array(ModelRefSchema)
+  .transform(cleanModelChain)
+  .pipe(z.array(ModelRefSchema).min(1));
+
 /** Vault glob, relative to the vault root (`Risorse/Ricerche/**`). */
 const VaultGlobSchema = z
   .string()
@@ -58,7 +73,7 @@ export const AgentConfigSchema = z.object({
   /** CSS colour of the monster and of its chat bubbles. */
   color: z.string().regex(/^(#[0-9a-fA-F]{6}|oklch\([^)]*\))$/, 'use #rrggbb or oklch(…)'),
   /** Fallback chain, first link preferred. */
-  models: z.array(ModelRefSchema).min(1),
+  models: ModelChainSchema,
   /**
    * "Automatica" (D-093): `models` was written from this base level with the
    * tiers, and the settings show the mode instead of the raw chain.

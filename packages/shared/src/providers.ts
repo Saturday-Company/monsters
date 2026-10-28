@@ -42,13 +42,25 @@ export function isOpenRouterFreeModel(id: string): boolean {
 export const ModelTierSchema = z.enum(['light', 'strong']);
 export type ModelTier = z.infer<typeof ModelTierSchema>;
 
+/**
+ * A link as the core shows it (responses, drafts, plans). Lenient on purpose: one odd id stored
+ * by an older version must not make the whole response `invalid_response`; the core cleans its
+ * files when it loads them.
+ */
 export const ModelRefViewSchema = z.object({
   provider: ProviderIdSchema,
-  // Trimmed on parse: a space pasted around the id would break the whole chain (review of 28/10).
-  model: z.string().trim().min(1).max(200),
+  model: z.string().min(1).max(200),
   tier: ModelTierSchema.optional(),
 });
 export type ModelRefView = z.infer<typeof ModelRefViewSchema>;
+
+/**
+ * A link a client sends. Trimmed on parse (a space pasted around the id would break the whole
+ * chain, review of 28/10) and a blank id is refused.
+ */
+export const ModelRefRequestSchema = ModelRefViewSchema.extend({
+  model: z.string().trim().min(1).max(200),
+});
 
 /*
  * "Automatica" (D-093): the chain of a monster written from a base level, with
@@ -263,7 +275,7 @@ export const ProviderModelsResponseSchema = z.object({ models: z.array(ModelInfo
 export type ProviderModelsResponse = z.infer<typeof ProviderModelsResponseSchema>;
 
 export const AgentModelsRequestSchema = z.object({
-  models: z.array(ModelRefViewSchema).min(1).max(6),
+  models: z.array(ModelRefRequestSchema).min(1).max(6),
   /** "Automatica": the core writes the chain of this base (and `models` is ignored). */
   auto: AutoModelsSchema.optional(),
 });

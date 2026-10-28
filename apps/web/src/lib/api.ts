@@ -375,14 +375,16 @@ export class ApiClient {
   /**
    * A request of a module that has its own schemas (the onboarding): same path as every other call,
    * so a session that must confirm the password gets the prompt and the request goes again.
+   * `signal` ends the wait for a slow answer (a model writing the squad).
    */
   send<S extends z.ZodType>(
     method: string,
     path: string,
     schema: S,
     body?: unknown,
+    signal?: AbortSignal,
   ): Promise<z.infer<S>> {
-    return this.call(method, path, schema, body);
+    return this.call(method, path, schema, body, signal);
   }
 
   private async call<S extends z.ZodType>(
@@ -390,14 +392,15 @@ export class ApiClient {
     path: string,
     schema: S,
     body?: unknown,
+    signal?: AbortSignal,
   ): Promise<z.infer<S>> {
-    const res = await this.transport.request(method, path, body);
+    const res = await this.transport.request(method, path, body, signal);
     const reason =
       res.status === 403
         ? CONFIRM_REASONS[ApiErrorSchema.safeParse(res.body).data?.error ?? '']
         : undefined;
     if (reason && this.confirmOwner && (await this.confirmOwner(reason))) {
-      return this.parse(await this.transport.request(method, path, body), schema);
+      return this.parse(await this.transport.request(method, path, body, signal), schema);
     }
     return this.parse(res, schema);
   }
