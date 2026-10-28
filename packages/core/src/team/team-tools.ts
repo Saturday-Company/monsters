@@ -395,6 +395,39 @@ type DelegationEnd = Omit<
   'from' | 'to' | 'goal' | 'why' | 'doneWhen' | 'contextLinks' | 'filled'
 >;
 
+/**
+ * How long a stopped delegate may take to return before its delegation ends without it (D-216):
+ * more than a stopped harness takes to end its turn (`HARNESS_STOP_GRACE_MS`, 5 s).
+ */
+export const DELEGATION_STOP_GRACE_MS = 10_000;
+
+/**
+ * The delegate's result, or the stop of its scope once it has been stopped for `graceMs`
+ * without returning (a tool or a stream that ignores the stop, D-216): the delegation's end
+ * never waits on the delegate's cooperation. Its processes went with the scope already.
+ */
+function untilStoppedTooLong<T>(
+  work: Promise<T>,
+  scope: ControlScope,
+  graceMs = DELEGATION_STOP_GRACE_MS,
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  let onStop = () => {};
+  const tooLong = new Promise<never>((_resolve, reject) => {
+    onStop = () => {
+      timer ??= setTimeout(() => reject(scope.signal.reason as Error), graceMs);
+    };
+  });
+  if (scope.aborted) onStop();
+  else scope.signal.addEventListener('abort', onStop, { once: true });
+  // A delegate that settles after the grace has nobody waiting for it.
+  work.catch(() => {});
+  return Promise.race([work, tooLong]).finally(() => {
+    clearTimeout(timer);
+    scope.signal.removeEventListener('abort', onStop);
+  });
+}
+
 /** One delegation: logs it, runs the sub-agent in a child scope, returns the short report. */
 async function runDelegation(
   ctx: DelegationContext,
@@ -496,15 +529,18 @@ async function runDelegation(
   let result: AgentRunResult | undefined;
   let failure: unknown;
   try {
-    result = await ctx.runSubagent({
-      agent: target,
-      brief,
-      run,
+    result = await untilStoppedTooLong(
+      ctx.runSubagent({
+        agent: target,
+        brief,
+        run,
+        scope,
+        parentId: started.id,
+        subtask: subtaskText(input),
+        ...(onFinalAnswer ? { onFinalAnswer } : {}),
+      }),
       scope,
-      parentId: started.id,
-      subtask: subtaskText(input),
-      ...(onFinalAnswer ? { onFinalAnswer } : {}),
-    });
+    );
   } catch (err) {
     failure = err;
   } finally {

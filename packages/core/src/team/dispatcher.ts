@@ -56,6 +56,11 @@ export interface Conversation {
   run: RunHandle;
   inbox: InboxItem[];
   /**
+   * What the turn under way took from `inbox` between its steps (`takeInbox`): read by the
+   * model, not answered yet. A turn that fails gives them a run of their own (D-216).
+   */
+  taken: InboxItem[];
+  /**
    * `message` event of the latest request of the user in the run: the first
    * one, or one typed while the run was active that did not answer a question.
    */
@@ -92,6 +97,16 @@ export class DispatchError extends Error {
 export interface TurnOutcome {
   status: 'ok' | 'failed';
   error?: string;
+}
+
+/**
+ * The messages that joined the run since the turn's last step, for its next one: they stay
+ * the run's to answer until the turn ends well (D-216).
+ */
+export function takeInbox(c: Conversation): InboxItem[] {
+  const items = c.inbox.splice(0);
+  c.taken.push(...items);
+  return items;
 }
 
 export type TurnExecutor = (conversation: Conversation, batch: InboxItem[]) => Promise<TurnOutcome>;
@@ -576,6 +591,7 @@ export class Dispatcher {
       agent,
       run,
       inbox,
+      taken: [],
       ...(request ? { request } : {}),
       ...(automation ? { automation } : {}),
       ...(thread ? { thread } : {}),
@@ -588,10 +604,14 @@ export class Dispatcher {
     return run;
   }
 
-  /** Messages still queued when a run failed get a run of their own. */
+  /**
+   * Messages still queued when a run failed, and those its failed turn had read between its
+   * steps without answering them (D-216), get a run of their own. Not after a stop (the run
+   * aborted, the kill switch, the closing): there they stay in the log, in the stopped run.
+   */
   #carryOver(c: Conversation): void {
-    const left = c.inbox.splice(0);
-    if (left.length === 0 || this.#runs.halted || this.#runs.closing) return;
+    const left = [...c.taken.splice(0), ...c.inbox.splice(0)];
+    if (left.length === 0 || c.run.aborted || this.#runs.halted || this.#runs.closing) return;
     const agent = this.#team.get(c.agent.config.id) ?? c.agent;
     try {
       this.#start(agent, left, undefined, undefined, undefined, c.thread);
@@ -695,7 +715,10 @@ export class Dispatcher {
    * `haltedRequests` offers them to "Riprendi e continua" (M8).
    */
   reset(): void {
-    for (const c of this.#byRun.values()) c.inbox.length = 0;
+    for (const c of this.#byRun.values()) {
+      c.inbox.length = 0;
+      c.taken.length = 0;
+    }
     this.#byAgent.clear();
     this.#byRun.clear();
     this.#deferred.clear();
@@ -750,6 +773,8 @@ export class Dispatcher {
       while (!run.aborted) {
         const batch = c.inbox.splice(0);
         if (batch.length === 0) break;
+        // What a turn that ended well read is answered.
+        c.taken.length = 0;
         const outcome = await this.#execute(c, batch);
         if (outcome.status === 'failed') {
           this.#settle(run);
