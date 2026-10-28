@@ -211,7 +211,7 @@ async function main(): Promise<void> {
       await hub.dispatcher.idle();
       // The summary for the next turn is written after this one (D-082): a person takes longer to type.
       await hub.compactor.idle();
-      const events = log.query({ runId, limit: 5000 });
+      const events = log.all({ runId });
       const usage = events.filter(
         (e): e is LogEvent<'provider_usage'> =>
           e.type === 'provider_usage' && e.agent === to && e.data.purpose !== 'compaction',
@@ -258,7 +258,7 @@ async function main(): Promise<void> {
         `#${row.n} ${row.status} passi ${row.steps} in ${row.inputTokens} picco ${row.peakPct ?? '?'}% $${row.costUsd.toFixed(5)}${summarized ? ' [riassunto]' : ''}${fact ? ` ${row.recalled ? '✓' : '✗'} ${fact.id}: ${answer.replace(/\s+/g, ' ').slice(0, 100)}` : ''}\n`,
       );
     }
-    const everything = log.query({ limit: 100_000 });
+    const everything = log.all();
     const summaries = everything.filter(
       (e): e is LogEvent<'conversation_summary'> => e.type === 'conversation_summary',
     );

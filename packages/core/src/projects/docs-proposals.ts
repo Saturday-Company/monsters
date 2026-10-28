@@ -314,9 +314,7 @@ export class DocsProposals {
 
   /** `project_docs_proposal` events of the log, oldest first. */
   #events(): ProposalEvent[] {
-    return this.#o.log
-      .query({ type: 'project_docs_proposal', limit: 1000, order: 'desc' })
-      .reverse() as ProposalEvent[];
+    return this.#o.log.all({ type: 'project_docs_proposal' }) as ProposalEvent[];
   }
 
   /** Proposals nobody answered or replaced yet, oldest first. */

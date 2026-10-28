@@ -52,7 +52,7 @@ export function registerInstinctRoutes(
     const runId = c.req.param('runId');
     if (!RUN_ID.test(runId)) return c.json({ error: 'not_found' }, 404);
     const receipts: Receipt[] = [];
-    for (const e of log.query({ runId, type: 'receipt', order: 'asc', limit: 1000 })) {
+    for (const e of log.scan({ runId, type: 'receipt' })) {
       if (e.type === 'receipt') receipts.push({ ...e.data, id: e.id, ts: e.ts, runId });
     }
     return c.json(receipts);

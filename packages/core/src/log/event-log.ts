@@ -21,11 +21,28 @@ export interface EventQuery {
   after?: string | undefined;
   /** Cursor: only events with id lower than this. */
   before?: string | undefined;
-  /** Default 200, max 1000. */
+  /**
+   * Fields of `data` that must equal these values, matched in SQL (a dotted path reaches a
+   * nested field: `details.heldId`; null matches a missing field). Filter here rather than
+   * after a capped read: `limit` then counts only the events that match.
+   */
+  data?: Readonly<Record<string, string | number | boolean | null>> | undefined;
+  /**
+   * False: leaves out the streamed chunks of the answers (`message` events with
+   * `data.partial`), in SQL. A long answer streams thousands of them.
+   */
+  partials?: boolean | undefined;
+  /**
+   * Default 200, at most `MAX_QUERY_LIMIT`: more throws, never a silently shorter page. To
+   * read everything that matches use `scan` or `all`, to find one event `find`.
+   */
   limit?: number | undefined;
   /** Default `asc` (oldest first). */
   order?: 'asc' | 'desc' | undefined;
 }
+
+/** A query read page after page, never cut: `limit` does not apply. */
+export type EventScan = Omit<EventQuery, 'limit'>;
 
 export type EventListener = (event: LogEvent) => void;
 
@@ -51,6 +68,8 @@ export const DEFAULT_QUERY_LIMIT = 200;
 export const MAX_QUERY_LIMIT = 1000;
 /** Run ids per `IN (…)` of the run queries (well under SQLite's parameter limit). */
 const RUN_CHUNK = 400;
+/** A field of `data` for `EventQuery.data`: identifiers joined by dots. */
+const DATA_PATH = /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 
 function rowToEvent(row: EventRow): LogEvent {
   return {
@@ -197,7 +216,17 @@ export class EventLog {
     return row ? rowToEvent(row) : undefined;
   }
 
+  /**
+   * One page of the events matching, at most `limit` (default 200, max `MAX_QUERY_LIMIT`).
+   * A page is not everything: a reader that needs all the matches uses `scan`/`all`, one that
+   * looks for an event filters in SQL (`data`, `partials`) or uses `find` (D-215).
+   */
   query(filter: EventQuery = {}): LogEvent[] {
+    if (filter.limit !== undefined && filter.limit > MAX_QUERY_LIMIT) {
+      throw new RangeError(
+        `EventLog.query: limit ${filter.limit} is over ${MAX_QUERY_LIMIT}; use scan() or all()`,
+      );
+    }
     const where: string[] = [];
     const params: SqlValue[] = [];
     const agents = toList(filter.agent);
@@ -230,11 +259,51 @@ export class EventLog {
       where.push('id < ?');
       params.push(filter.before);
     }
-    const limit = Math.min(Math.max(1, filter.limit ?? DEFAULT_QUERY_LIMIT), MAX_QUERY_LIMIT);
+    for (const [path, value] of Object.entries(filter.data ?? {})) {
+      if (!DATA_PATH.test(path)) throw new RangeError(`EventLog.query: bad data field ${path}`);
+      where.push('json_extract(data, ?) IS ?');
+      params.push(`$.${path}`, typeof value === 'boolean' ? Number(value) : value);
+    }
+    if (filter.partials === false) {
+      where.push(`(type <> 'message' OR json_extract(data, '$.partial') IS NOT 1)`);
+    }
+    const limit = Math.max(1, filter.limit ?? DEFAULT_QUERY_LIMIT);
     const order = filter.order === 'desc' ? 'DESC' : 'ASC';
     const sql = `SELECT * FROM events ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY id ${order} LIMIT ?`;
     params.push(limit);
     return this.#db.all<EventRow>(sql, ...params).map(rowToEvent);
+  }
+
+  /**
+   * Every event matching, in `order`, read a page at a time with the id cursor: never cut.
+   * Breaking out of the loop stops the reading.
+   */
+  *scan(filter: EventScan = {}): Generator<LogEvent, void, undefined> {
+    const desc = filter.order === 'desc';
+    let cursor = desc ? filter.before : filter.after;
+    for (;;) {
+      const page = this.query({
+        ...filter,
+        ...(desc ? { before: cursor } : { after: cursor }),
+        limit: MAX_QUERY_LIMIT,
+      });
+      yield* page;
+      if (page.length < MAX_QUERY_LIMIT) return;
+      cursor = page.at(-1)!.id;
+    }
+  }
+
+  /** Every event matching, in `order` (`scan` in an array). */
+  all(filter: EventScan = {}): LogEvent[] {
+    return [...this.scan(filter)];
+  }
+
+  /** The first event matching in `order` that passes `test`, read page by page (`scan`). */
+  find<E extends LogEvent>(filter: EventScan, test: (e: LogEvent) => e is E): E | undefined;
+  find(filter: EventScan, test: (e: LogEvent) => boolean): LogEvent | undefined;
+  find(filter: EventScan, test: (e: LogEvent) => boolean): LogEvent | undefined {
+    for (const e of this.scan(filter)) if (test(e)) return e;
+    return undefined;
   }
 
   /** The newest event id, or null on an empty log (a high-water mark: later events sort after it). */

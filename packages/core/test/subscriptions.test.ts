@@ -250,7 +250,7 @@ describe('ChatGPT plan', () => {
     expect(t.provider.calls).toHaveLength(0);
 
     // No token ever reached the log.
-    const all = JSON.stringify(t.core.log.query({ limit: 5000 }));
+    const all = JSON.stringify(t.core.log.all());
     for (const token of fake.validTokens) expect(all).not.toContain(token);
 
     const out = await t.json<SubscriptionsResponse>('DELETE', '/api/subscriptions/chatgpt');
@@ -587,9 +587,7 @@ describe('Codex', () => {
       expect(env[name], name).toBeUndefined();
     }
     // The access token never reached the log.
-    expect(JSON.stringify(t.core.log.query({ limit: 5000 }))).not.toContain(
-      fake.currentAccessToken,
-    );
+    expect(JSON.stringify(t.core.log.all())).not.toContain(fake.currentAccessToken);
   });
 
   it('D-140: Codex has no stop hook, so the core corrects what it said about the accesses', async () => {
@@ -856,9 +854,7 @@ describe('Plan limits (D-111)', () => {
     const { t } = await claudeHub();
     const sent = await t.json<Sent>('POST', '/api/messages', { text: '@Rhea trova le ricette' });
     await t.waitEvent(isRunEnd(sent.runId));
-    expect(JSON.stringify(t.core.log.query({ limit: 5000 }))).not.toMatch(
-      /rate_limit|resetsAt|utilization/,
-    );
+    expect(JSON.stringify(t.core.log.all())).not.toMatch(/rate_limit|resetsAt|utilization/);
   });
 
   it('a run with no limits events leaves the block empty', async () => {
@@ -917,7 +913,7 @@ describe('Plan limits (D-111)', () => {
       outputTokens: 7,
     });
     // Nothing of the reading is logged.
-    expect(JSON.stringify(t.core.log.query({ limit: 5000 }))).not.toMatch(/x-codex|usedPercent/);
+    expect(JSON.stringify(t.core.log.all())).not.toMatch(/x-codex|usedPercent/);
 
     // A later response without windows leaves the last reading as it was.
     fake.replies.splice(0);

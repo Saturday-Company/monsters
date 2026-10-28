@@ -197,7 +197,7 @@ describe('dedicated bots: setup', () => {
     const owner = await t.api('DELETE', `/api/telegram/bots/${RHEA}/people/${GIULIO.id}`);
     expect(owner.status).toBe(409);
 
-    const everything = JSON.stringify(t.core.log.query({ limit: 2000 }));
+    const everything = JSON.stringify(t.core.log.all());
     expect(everything).not.toContain(RHEA_TOKEN.split(':')[1]);
 
     // Removed: the loop stops, the secret is gone.

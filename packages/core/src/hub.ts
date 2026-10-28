@@ -2952,8 +2952,14 @@ export async function createHub(services: CoreServices, options: HubOptions = {}
   const routedBySend = new Set<string>();
   const answerEventOf = (q: Question) =>
     log
-      .query({ runId: q.runId, type: 'answer', order: 'desc', limit: 20 })
-      .find((e) => e.type === 'answer' && e.data.questionId === q.id);
+      .query({
+        runId: q.runId,
+        type: 'answer',
+        data: { questionId: q.id },
+        order: 'desc',
+        limit: 1,
+      })
+      .at(0);
   // A message to a monster that waits on a parked question is its answer (D-078):
   // the new run starts from the question and the answer. Only the latest
   // question links, and only within a window from when it was asked (D-079):

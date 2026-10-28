@@ -1647,14 +1647,13 @@ export class TelegramBots {
     ) {
       throw new TelegramBotsError('not_found', botsStrings().noSuchReply);
     }
-    const sent = this.#o.log
-      .query({ type: 'instinct', after: refusedId, limit: 5000 })
-      .some(
-        (x) =>
-          x.type === 'instinct' &&
-          x.data.action === 'outbound_approved' &&
-          x.data.details?.['heldId'] === refusedId,
-      );
+    const sent =
+      this.#o.log.query({
+        type: 'instinct',
+        after: refusedId,
+        data: { action: 'outbound_approved', 'details.heldId': refusedId },
+        limit: 1,
+      }).length > 0;
     if (sent) throw new TelegramBotsError('already_sent', botsStrings().alreadySent);
     const message = this.#o.log.get(held.messageId);
     const bot = this.#bots.get(held.bot);

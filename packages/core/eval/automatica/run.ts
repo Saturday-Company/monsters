@@ -284,7 +284,7 @@ async function series(mode: 'a' | 'b', label: string): Promise<void> {
       });
       await hub.dispatcher.idle();
       const durationS = Math.round((Date.now() - started) / 1000);
-      const events = log.query({ runId, limit: 5000 });
+      const events = log.all({ runId });
       const of = <T extends LogEvent['type']>(type: T) =>
         events.filter((e) => e.type === type) as LogEvent<T>[];
 

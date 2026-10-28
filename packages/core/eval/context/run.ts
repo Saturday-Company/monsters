@@ -321,7 +321,7 @@ async function once(key: string, n: number, def: CaseDef): Promise<Row> {
       });
     });
     await hub.dispatcher.idle();
-    const events = log.query({ runId, limit: 5000 });
+    const events = log.all({ runId });
     if (args.dump) {
       mkdirSync(args.out, { recursive: true });
       writeFileSync(

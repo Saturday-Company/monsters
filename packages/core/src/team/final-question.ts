@@ -206,19 +206,20 @@ export function finalQuestionHook(
   return async (text) => {
     const regex = endsWithQuestion(text);
     if (!regex && !system1?.available('final_question')) return null;
-    const events = log.query({
-      runId: params.runId,
-      agent: params.agentId,
-      type: ['tool_call', 'message'],
-      limit: 5000,
-    });
-    const asked = events.some((e) => e.type === 'tool_call' && e.data.tool === 'ask_user');
-    const reminded = events.some(
-      (e) =>
-        e.type === 'message' &&
-        e.data.role === 'system' &&
-        FINAL_QUESTION_REMINDERS.includes(e.data.text),
-    );
+    // In SQL, over the whole run (D-215): its chunks and calls fill any page.
+    const asked =
+      log.query({
+        runId: params.runId,
+        agent: params.agentId,
+        type: 'tool_call',
+        data: { tool: 'ask_user' },
+        limit: 1,
+      }).length > 0;
+    const reminded =
+      log.find(
+        { runId: params.runId, agent: params.agentId, type: 'message', data: { role: 'system' } },
+        (e) => e.type === 'message' && FINAL_QUESTION_REMINDERS.includes(e.data.text),
+      ) !== undefined;
     if (asked || reminded) return null;
     const answer = system1
       ? await system1

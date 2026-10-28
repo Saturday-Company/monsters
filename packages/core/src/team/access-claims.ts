@@ -477,14 +477,15 @@ const NO_WORDS =
 
 /** The causes and the no's of the user in the log of a run (and recent answers to the monster). */
 export function runAccessFacts(
-  log: Pick<EventLog, 'query'>,
+  log: Pick<EventLog, 'all'>,
   params: { runId: string; agentId: string; now?: number },
 ): RunAccessFacts {
   const since = (params.now ?? Date.now()) - 24 * 3_600_000;
-  const inRun = log.query({
+  // Every event that counts, not a page (D-215): the no that matters is often the latest.
+  const inRun = log.all({
     runId: params.runId,
     type: ['instinct', 'question', 'answer', 'access_grant', 'tool_result', 'message'],
-    limit: 1000,
+    partials: false,
   });
   const userNo: string[] = [];
   const questions = new Map<string, LogEvent<'question'>>();
@@ -493,13 +494,11 @@ export function runAccessFacts(
   };
   inRun.forEach(remember);
   // Questions of this monster answered later, in another run (a parked card, an access request).
-  for (const e of log.query({ agent: params.agentId, type: 'question', since, limit: 200 })) {
-    remember(e);
-  }
+  for (const e of log.all({ agent: params.agentId, type: 'question', since })) remember(e);
   const answers = [
     ...inRun.filter((e): e is LogEvent<'answer'> => e.type === 'answer'),
     ...log
-      .query({ type: 'answer', since, limit: 500 })
+      .all({ type: 'answer', since })
       .filter(
         (e): e is LogEvent<'answer'> => e.type === 'answer' && questions.has(e.data.questionId),
       ),
@@ -524,9 +523,12 @@ export function runAccessFacts(
       userNo.push(e.data.text.slice(0, 120));
     }
   }
-  for (const e of log.query({ type: 'access_grant', since, limit: 200 })) {
-    if (e.type === 'access_grant' && e.data.from === params.agentId && e.data.outcome === 'denied')
-      userNo.push(accessPrompts().userNoAccess(e.data.summary));
+  for (const e of log.all({
+    type: 'access_grant',
+    since,
+    data: { from: params.agentId, outcome: 'denied' },
+  })) {
+    if (e.type === 'access_grant') userNo.push(accessPrompts().userNoAccess(e.data.summary));
   }
   const causes = new Set<string>();
   for (const e of inRun) {
@@ -585,7 +587,7 @@ export function withAccessHook(
 }
 
 export interface AccessCheckOptions {
-  log: Pick<EventLog, 'query' | 'append'>;
+  log: Pick<EventLog, 'all' | 'append'>;
   agent: { id: string; name: string };
   runId: string;
   parentId?: string | null;

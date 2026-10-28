@@ -319,7 +319,7 @@ async function runOnce(c: EvalCase, index: number, key: string, cap: number): Pr
     await ended;
     await hub.dispatcher.idle();
     const durationS = Math.round((Date.now() - started) / 1000);
-    const events = log.query({ runId, limit: 5000 });
+    const events = log.all({ runId });
 
     // Would the orchestrator find the notes of the run with a natural query?
     const created = events

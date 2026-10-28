@@ -1907,9 +1907,7 @@ export class TeamManager {
 
   /** `monster_proposal` events of the log, oldest first. */
   #proposalEvents(): LogEvent<'monster_proposal'>[] {
-    return this.#d.log
-      .query({ type: 'monster_proposal', limit: 1000, order: 'desc' })
-      .reverse() as LogEvent<'monster_proposal'>[];
+    return this.#d.log.all({ type: 'monster_proposal' }) as LogEvent<'monster_proposal'>[];
   }
 
   /** Proposals nobody answered yet. */

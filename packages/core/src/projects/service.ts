@@ -235,14 +235,15 @@ export class ProjectService {
     }
     this.#noteConnections();
     const since = this.#now() - RESTART_LOOKBACK_MS;
+    // Every page of the lookback (D-215): a busy week has more than one.
     const reported = new Set(
       log
-        .query({ type: 'project_report', since, limit: 5000 })
+        .all({ type: 'project_report', since })
         .map((e) => (e.type === 'project_report' ? e.data.request : '')),
     );
     const known = new Set([...this.#sends.values()].flat().map((s) => s.request));
     const left = log
-      .query({ type: 'message', agent: 'user', since, order: 'desc', limit: 5000 })
+      .all({ type: 'message', agent: 'user', since, order: 'desc' })
       .filter(
         (e): e is LogEvent<'message'> =>
           e.type === 'message' &&
@@ -264,10 +265,13 @@ export class ProjectService {
         lead: lead.config.id,
         runId: m.runId!,
       };
-      const runs = log.query({ runId: m.runId!, type: 'run', limit: 50 });
+      const runs = log.query({ runId: m.runId!, type: 'run', order: 'desc', limit: 1 });
       if (runs.length > 0) {
         // It ran and its end was not reported: the core closed during it.
-        const end = runs.filter((r) => r.type === 'run' && r.data.status !== 'started').at(-1);
+        const end = log.find(
+          { runId: m.runId!, type: 'run', order: 'desc' },
+          (r) => r.type === 'run' && r.data.status !== 'started',
+        );
         const status = end?.type === 'run' ? end.data.status : 'aborted';
         this.#report(send, status === 'started' ? 'aborted' : status, m.runId!, 'restart');
         continue;
@@ -295,7 +299,7 @@ export class ProjectService {
   #demoteUnconfirmed(): boolean {
     const { log, team } = this.#o;
     const approved = new Map<string, boolean>();
-    for (const e of log.query({ type: 'project_change', limit: 100_000 })) {
+    for (const e of log.scan({ type: 'project_change' })) {
       if (e.type !== 'project_change') continue;
       const user = isUserChannel(e.data.by);
       switch (e.data.action) {
@@ -807,12 +811,13 @@ export class ProjectService {
   }
 
   #archivedEvent(id: string): LogEvent<'project_change'> | undefined {
-    return this.#o.log
-      .query({ type: 'project_change', order: 'desc', limit: 1000 })
-      .find(
-        (e): e is LogEvent<'project_change'> =>
-          e.type === 'project_change' && e.data.project === id && e.data.action === 'archived',
-      );
+    const [e] = this.#o.log.query({
+      type: 'project_change',
+      data: { project: id, action: 'archived' },
+      order: 'desc',
+      limit: 1,
+    });
+    return e?.type === 'project_change' ? e : undefined;
   }
 
   async #restore(id: string, by: Channel, proof: RecentProof | undefined): Promise<ProjectView> {
@@ -1500,16 +1505,19 @@ export class ProjectService {
     runId: string,
     reason?: 'restart' | 'stopped',
   ): void {
-    const answer = this.#o.log
-      .query({ runId, type: 'message', agent: s.lead, order: 'desc', limit: 200 })
-      .find(
-        (m): m is LogEvent<'message'> =>
-          m.type === 'message' &&
-          m.data.role === 'agent' &&
-          !m.data.partial &&
-          m.parentId === null &&
-          m.id > s.request,
-      );
+    // Without the streamed chunks, past any page of them (D-215).
+    const answer = this.#o.log.find(
+      {
+        runId,
+        type: 'message',
+        agent: s.lead,
+        data: { role: 'agent' },
+        partials: false,
+        after: s.request,
+        order: 'desc',
+      },
+      (m): m is LogEvent<'message'> => m.type === 'message' && m.parentId === null,
+    );
     const text = answer?.data.text.trim() ?? '';
     const empty =
       reason === 'restart'
@@ -1536,23 +1544,29 @@ export class ProjectService {
 
   /** The lead's report of this request is written (its run `runId` ended). */
   reported(runId: string, request: string): boolean {
-    return this.#o.log
-      .query({ runId, type: 'project_report', limit: 50 })
-      .some((e) => e.type === 'project_report' && e.data.request === request);
+    return (
+      this.#o.log.query({ runId, type: 'project_report', data: { request }, limit: 1 }).length > 0
+    );
   }
 
   /** Every project in use with what its lead is doing (`project_status`, `/stato`). */
   status(to?: string): ProjectStatusLine[] {
     const { team, log } = this.#o;
-    const reports = log
-      .query({ type: 'project_report', order: 'desc', limit: 200 })
-      .filter((e): e is LogEvent<'project_report'> => e.type === 'project_report')
-      .filter((e) => to === undefined || e.data.to === to);
+    // The latest report of each project, however many the others wrote since (D-215).
+    const lastReport = (project: string) =>
+      log
+        .query({
+          type: 'project_report',
+          data: { project, ...(to !== undefined ? { to } : {}) },
+          order: 'desc',
+          limit: 1,
+        })
+        .find((e): e is LogEvent<'project_report'> => e.type === 'project_report');
     const pending = [...this.#sends.values()].flat();
     return team.activeProjects().map((p) => {
       const lead = team.lead(p.id);
       const s = lead ? team.state(lead.config.id) : undefined;
-      const last = reports.find((r) => r.data.project === p.id);
+      const last = lastReport(p.id);
       return {
         id: p.id,
         name: p.name,

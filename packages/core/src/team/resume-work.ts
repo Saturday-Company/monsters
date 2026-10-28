@@ -100,11 +100,12 @@ export function senderBudgetFromLog(
   });
 }
 
-/** The latest global `kill`, or null. */
+/**
+ * The latest global `kill`, or null: matched in SQL, so any number of Stops of one monster
+ * (kills of another scope) after it never hide it (D-215).
+ */
 function latestKill(log: EventLog): LogEvent<'kill'> | null {
-  const kill = log
-    .query({ type: 'kill', order: 'desc', limit: 50 })
-    .find((e) => e.type === 'kill' && e.data.scope === 'global');
+  const [kill] = log.query({ type: 'kill', data: { scope: 'global' }, order: 'desc', limit: 1 });
   return kill?.type === 'kill' ? kill : null;
 }
 
@@ -176,9 +177,10 @@ export function haltedRequests(log: EventLog, now = Date.now()): StoppedRequest[
     ...log.query({ runId, type: 'message', agent: 'user', limit: 1 }),
   ]);
   // What waited at the stop was logged after the resume (or stop) before it.
-  const previous = log
-    .query({ type: ['kill', 'resume'], before: kill.id, order: 'desc', limit: 50 })
-    .find((e) => e.type === 'resume' || (e.type === 'kill' && e.data.scope === 'global'));
+  const previous = log.find(
+    { type: ['kill', 'resume'], before: kill.id, order: 'desc' },
+    (e) => e.type === 'resume' || (e.type === 'kill' && e.data.scope === 'global'),
+  );
   const waiting = waitingMessages(log, {
     after: previous?.id,
     before: kill.id,
@@ -198,17 +200,16 @@ function parkedAnswerOf(
   log: EventLog,
   m: LogEvent<'message'>,
 ): { text: string; related: string[] } | undefined {
-  const answer = log
-    .query({ type: 'answer', after: m.id, limit: 20 })
-    .find((e): e is LogEvent<'answer'> => e.type === 'answer' && e.data.message === m.id);
-  if (!answer) return undefined;
-  const asked = log
-    .query({ runId: answer.runId ?? '', type: 'question', order: 'desc', limit: 50 })
-    .find(
-      (e): e is LogEvent<'question'> =>
-        e.type === 'question' && e.data.questionId === answer.data.questionId,
-    );
-  if (!asked) return undefined;
+  const [answer] = log.query({ type: 'answer', after: m.id, data: { message: m.id }, limit: 1 });
+  if (answer?.type !== 'answer') return undefined;
+  const [asked] = log.query({
+    runId: answer.runId ?? '',
+    type: 'question',
+    data: { questionId: answer.data.questionId },
+    order: 'desc',
+    limit: 1,
+  });
+  if (asked?.type !== 'question') return undefined;
   return {
     text: answerText(asked.data, { optionId: answer.data.optionId, text: answer.data.text }),
     related: [answer.id],

@@ -533,12 +533,12 @@ export function prepareHarnessFolder(workspace: string, agent: AgentDefinition):
 
 /** The harness's base as the latest step of this agent measured it, or the default. */
 function knownBase(log: EventLog, agentId: string, harnessId: string): number {
-  for (const e of log.query({ agent: agentId, type: 'provider_usage', order: 'desc', limit: 50 })) {
-    if (e.type !== 'provider_usage' || e.data.provider !== harnessId) continue;
-    const base = e.data.context?.parts.base;
-    if (base !== undefined && base > 0) return base;
-  }
-  return HARNESS_BASE_TOKENS[harnessId] ?? 0;
+  const e = log.find(
+    { agent: agentId, type: 'provider_usage', data: { provider: harnessId }, order: 'desc' },
+    (x) => x.type === 'provider_usage' && (x.data.context?.parts.base ?? 0) > 0,
+  );
+  const base = e?.type === 'provider_usage' ? e.data.context?.parts.base : undefined;
+  return base ?? HARNESS_BASE_TOKENS[harnessId] ?? 0;
 }
 
 /**
