@@ -6514,6 +6514,11 @@ of the user's.
 **Consequence:** events without `clientId` show as before. The repeat check lives in memory: after a core restart a
 message resent by a tab that never saw its answer could be logged twice; the check against the log at reload covers the
 common case. A send refused for good stays held with its error until "Don't send it".
+**Amended after the review of the fixes (28/10):** `GET /api/events` takes `clientId` (a filter on `data.clientId`).
+Before resending, a held message is looked up in the log by its id, so a message older than the first page or than the
+dispatcher's 256 answers is never logged or run twice; if the core's answer names an event older than the stream
+cursor, the bubble goes at once. The refusal of a held message is shown once per message, and the messages behind a
+failed one are marked "Not sent yet" too.
 
 ### D-218 · Provider budgets keep the account's limit; every link of a chain gets a prompt it can read; usage goes to the model that produced it
 **Status:** done · 28/10/2026
@@ -6589,3 +6594,8 @@ chat that does not show it, Codex missing from the pickers, the chain autosave l
   (`giroOfRun`); the plans' key includes `codex.state`; the chain editor sends a pending autosave when it unmounts.
 **Consequence:** an older client that proposes while answers change shows `answers_changed` as a generic error with
 Retry. Reads meant to degrade quietly (permissions in project links, team spend, polls) stay silent on purpose.
+**Amended after the review of the fixes (28/10):** the squad proposal can be abandoned with "Stop waiting"
+(`ApiClient.send` takes an `AbortSignal`), which re-enables "Back". `ModelRefViewSchema` is lenient again (responses,
+drafts, plans); trim and refusal of blanks apply only to `ModelRefRequestSchema`, and the core drops blank links and
+trims ids when it loads `agent.yaml` and `decisions.models`. The chain editor does not send on unmount when the session
+is not ready, and reports a refusal after unmount with a notice.
