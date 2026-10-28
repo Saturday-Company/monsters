@@ -6453,3 +6453,126 @@ trash listings show name and size) and is never overwritten.
 **Consequence:** changes in ignored folders and to huge files can't be undone, and the model and the UI are told so.
 A file between 64 and 256 MiB is kept out of the automatic snapshot. A read of a plain repeated heading still returns
 the first match.
+
+### D-215 · Log readers never stop silently at the first page
+**Status:** done · 28/10/2026
+**Context:** review of 28/10 (P1 engine, system weakness 5). `EventLog.query` clamped `limit` to 1000 without saying
+so, and streamed chunks fill a page quickly. The history of Telegram chats and automation giri lost the final answer
+of a long run; `latestKill` read the newest 50 kills, so after 50 Stops of one monster it missed the global stop and a
+restart requeued messages that stop had dropped; `runsTainted` checked only 1000 tool calls; the Telegram "already
+sent" check could miss the approval. Several readers asked for 2000–100 000 events and got 1000; others took the newest
+N and filtered in JS.
+**Choices:** `query` is one page, and a `limit` over `MAX_QUERY_LIMIT` throws instead of being clamped. `scan` (a
+generator on the id cursor, in either order), `all` and `find(filter, test)` read every page. Two filters run in SQL:
+`data` (equality on `json_extract` of a field or dotted path, null = missing; field names validated, values bound) and
+`partials: false` (leaves out `message` events with `data.partial`). Every core reader that needs everything uses
+`all`/`scan`; every reader that looks for one event filters in SQL with `limit: 1` or uses `find`; history readers skip
+chunks. Intentional bounded samples stay pages (recent tool use, the chat history pages, the chat's 6×500 budget, which
+no longer counts chunks). The HTTP `/api/events` keeps its 1–1000 limit and its response shape.
+**Consequence:** a reader can no longer ask for more than a page and quietly get less. Readers of whole runs cost what
+the run holds. `shared/src/chat-history.ts` keeps a documented 1000 cap for counting the messages of a previous
+conversation (display only).
+
+### D-216 · A message read by a failed turn is not lost; a stopped delegation ends without its delegate
+**Status:** done · 28/10/2026
+**Context:** review of 28/10 (P1 engine). Messages that joined a run were handed to the model between steps and taken
+out of the inbox: if that turn then failed, `#carryOver` found only what was still in the inbox, and a message the
+model had read was neither answered nor waiting. A delegation logged its end only once the delegate returned: a delegate
+stuck after its stop (a tool or a stream that ignores the abort) left the delegation "started" forever. The other P1
+lines of the engine (Stop during the final check, a harness whose output never closes, work starting while closing)
+were already fixed by D-212.
+**Choice:** the turn reads the inbox through `takeInbox`, which keeps what it took in `Conversation.taken` until the turn
+ends well; a failed turn gives `taken` plus what is still queued a run of its own. Not after a stop (the run aborted,
+the kill switch, the closing): those messages stay in the log, in the stopped run. A delegation waits for its stopped
+delegate at most `DELEGATION_STOP_GRACE_MS` (10 s, more than the harness's 5 s), then ends as aborted with the stop's
+cause; the delegate's processes already went with its scope.
+**Consequence:** a failed turn may run a message the model had partly worked on once more, in a new run, with the failed
+job's notes (D-199). A delegate that returns after the grace logs into a delegation already ended.
+
+### D-217 · Web chat messages are matched by id; held messages wait for the core; the stream misses nothing and replays in one batch
+**Status:** done · 28/10/2026
+**Context:** review of 28/10 (P1 web chat, system weakness 1). The pending bubble was matched with the core's copy by
+its text and dropped after 15 s: a message with the same words as any earlier one (to any monster, "Again") never
+showed as pending. Held messages left storage before they were sent, so a 409 or a lost link lost them. With no event
+loaded, the stream opened without a cursor and lost what the core logged between the first page and the socket. A
+replay was ingested one event at a time, one render each. A held message at the bottom pinned the chat at every
+render.
+**Choice:** `SendMessageRequest.clientId` (optional, at most 64 characters) is logged on the user `message` event;
+`SendMessageResponse` declares `messageId`. The UI sends its bubble id as `clientId` and drops the bubble when an event
+with that id (or that `messageId`) arrives, in the same store update; the 15 s timer remains only for a core that gives
+neither. The dispatcher remembers the answers to the last 256 (channel, clientId) pairs and returns the first answer to
+a repeat, so a retry after a lost answer, or two tabs, never log or run a message twice. Held messages are sent with
+their id and leave storage only once the core accepts them, or once their copy is in the log; a 409 `halted` keeps them
+held, any other failure marks them "Not sent yet · Send now". They are retried on resume, on each `hello`, at boot, or
+by hand, in order. With no event, the stream cursor is `LOG_START`. `StreamClient` collects the events between a cursor
+and `replay_done` and hands them over in one `onReplay` batch. The chat pins itself to the bottom once per new message
+of the user's.
+**Consequence:** events without `clientId` show as before. The repeat check lives in memory: after a core restart a
+message resent by a tab that never saw its answer could be logged twice; the check against the log at reload covers the
+common case. A send refused for good stays held with its error until "Don't send it".
+
+### D-218 · Provider budgets keep the account's limit; every link of a chain gets a prompt it can read; usage goes to the model that produced it
+**Status:** done · 28/10/2026
+**Context:** review of 28/10 (P1 providers and usage). At midnight UTC the OpenRouter budget forgot the account's daily
+limit together with the day's count and went back to the configured default (50 on an account allowed 1000), so free
+links failed for the rest of the day. The attachments of a message were built for the first model of the chain and sent
+unchanged to the fallbacks: a text-only fallback answered 400, classified `bad_request`, which skips every model of that
+provider. The cost of a stream that broke and was retried by another link was logged with the retry's model, provider
+and key. Ollama's context window was read from the training maximum, while through the OpenAI-compatible endpoint the
+server allocates its own (4096 unless configured): nothing was compacted and Ollama silently cut instructions and tools.
+**Choices:**
+- `RateBudget` keeps the provider's reported daily limit apart from the day's count: the count expires at midnight
+  UTC, the limit stays until a newer report replaces it. The first request after the expiry calls
+  `onDailyQuotaExpired` (OpenRouter re-reads `GET /key`; asked again after 10 minutes if the read failed).
+- `ModelSession.setPromptAdapter`: every link is sent the prompt as it can read it (`runAgent` takes `sight(ref)`);
+  images and PDFs a link cannot read become a note (`unreadableFileNote`). A 400 on a request that carries an image or
+  PDF is the link's, not the provider's: the next link is tried and the provider stays on. More "unsupported input"
+  wordings classify as `model_gone`.
+- `closeAttempt` takes the model, provider and key from the moment the stream started.
+- Ollama's context is the loaded model's (`/api/ps`), else the Modelfile's `num_ctx`, else 4096
+  (`OLLAMA_DEFAULT_CONTEXT`), never above the training maximum; LM Studio's `loaded_context_length` wins over its
+  maximum.
+**Consequence:** a fallback that cannot see images gets a note and says so; the reverse (first link blind, fallback
+seeing) still sees only the note. An Ollama model with unknown details shows 4096 and is compacted accordingly.
+
+### D-219 · One identity for vault paths, read from the file system under the vault
+**Status:** done · 28/10/2026
+**Context:** review of 28/10 (P1 vault, system weakness 6). On macOS and Windows `Idee.md` and `idee.md` are one file,
+and on macOS an NFC and an NFD name too (readdir returns NFD). The index key and the per-file locks compared the
+spelling, so two monsters writing the two spellings had two index rows and two locks, and one edit was lost.
+**Choice:** a path has an identity (`pathId`): NFC where the file system ignores the Unicode form, lower case where it
+ignores case. It is the key of the index (`vault_notes.path_id`, migration 5), of the locks and of every lookup; the
+path stored and shown stays the real on-disk spelling. The identity is a property of the vault's folder, not of the
+platform: it is probed once at open with a hidden temporary file looked up in another case and another Unicode form,
+and injected in tests (`pathIdentity`). A write or a move first takes the real spelling of what exists (`#canon`), so
+`idee.md` updates `Idee.md`. A sync matches files by identity and re-indexes a changed spelling; the index is rebuilt
+when the probed identity differs from the one it was built with. A move that changes only the case is refused with a
+hint (two steps, via a temporary name): a plain move would write and then delete the same file, and the git backends
+would record both spellings.
+**Consequence:** the first start after the upgrade rebuilds the index once. Open: a real case-only rename on
+case-insensitive volumes, and an atomic `fs_write` overwrite (it opens in place on purpose, for the no-follow check).
+
+### D-220 · Onboarding and settings: shared password path, proposals tied to their answers, lists that retry
+**Status:** done · 28/10/2026
+**Context:** review of 28/10 (P1 onboarding and settings, system weakness 9). The onboarding had its own HTTP `call()`
+that skipped the password confirmation (D-211): on a limited session "Next" got 403 and the prompt never opened.
+"Back" was active while the squad was written, and the core saved a proposal made for answers the user had since
+changed. Any error of `GET /api/onboarding` marked the first start as done for the session. Several lists were read
+once with a silent catch and no way to ask again, and a few small flows lost state (a pasted space in a model id,
+racing saves, the chat's draft coming back at every "Add a monster", "Answer" on an automation's question opening a
+chat that does not show it, Codex missing from the pickers, the chain autosave lost when leaving within 700 ms).
+**Choices:**
+- The onboarding goes through `ApiClient.send`: `owner_required`/`confirm_required` open the prompt and the request
+  goes again.
+- `OnboardingService.propose` takes a fingerprint of answers, permissions and access before the model call and, after
+  it, refuses to save if it changed: 409 `answers_changed`. The UI disables "Back" while the step is busy.
+- `onboardingVerdict`: only `status: done` (or a 404, a core without the onboarding API) settles the redirect; a
+  failed read is asked again after 8 s.
+- Model ids are trimmed by `ModelRefViewSchema` (a blank one is refused) and by the UI; the squad's saves are queued
+  and built on the chain being saved.
+- A list that failed on its first read is asked again by the next component that needs it, with the shared
+  `LoadFailed` + Try again (projects, drafts in "To review", General and Apps settings, apps through Claude).
+- `useDraftHandoff` gives the chat's draft once; "Answer" on a question of a giro opens the giro's page
+  (`giroOfRun`); the plans' key includes `codex.state`; the chain editor sends a pending autosave when it unmounts.
+**Consequence:** an older client that proposes while answers change shows `answers_changed` as a generic error with
+Retry. Reads meant to degrade quietly (permissions in project links, team spend, polls) stay silent on purpose.
