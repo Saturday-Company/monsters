@@ -1,5 +1,6 @@
 import { tunnelStrings } from './errors.strings.ts';
 import type { HostKeyInfo } from './host-keys.ts';
+import { StringDecoder } from 'node:string_decoder';
 
 export type TunnelErrorKind =
   /** No `ssh` binary on this computer. */
@@ -104,12 +105,14 @@ export function classifySshFailure(stderr: string): TunnelErrorKind {
 /** Keeps the last `max` characters of what a process printed. */
 export class TailBuffer {
   private text = '';
+  private readonly decoder = new StringDecoder('utf8');
   private readonly max: number;
   constructor(max = 8192) {
     this.max = max;
   }
   push(chunk: string | Buffer): void {
-    this.text += chunk.toString();
+    // Bytes are decoded as a stream: a character cut between two chunks stays whole.
+    this.text += typeof chunk === 'string' ? chunk : this.decoder.write(chunk);
     if (this.text.length > this.max) this.text = this.text.slice(-this.max);
   }
   clear(): void {

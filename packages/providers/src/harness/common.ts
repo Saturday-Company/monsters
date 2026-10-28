@@ -2,6 +2,7 @@ import type { ChildProcess, SpawnOptions } from 'node:child_process';
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 import { npmMissing, npmCommand as findNpm, withLoopbackNoProxy } from '@monsters/shared/node';
 import { PROVIDER_CATALOG } from '../catalog.ts';
 import type { HarnessSpawn } from '../types.ts';
@@ -133,11 +134,15 @@ export function harnessEnv(
   return { ...out, ...options.set };
 }
 
-/** Reads a stream line by line (JSON lines of the harnesses). */
+/**
+ * Reads a stream line by line (JSON lines of the harnesses). The bytes are decoded as a
+ * stream: a character of several bytes (an accent) cut between two chunks stays whole.
+ */
 export async function* readLines(stream: NodeJS.ReadableStream): AsyncGenerator<string> {
   let buffer = '';
+  const decoder = new StringDecoder('utf8');
   for await (const chunk of stream as AsyncIterable<Buffer | string>) {
-    buffer += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
+    buffer += typeof chunk === 'string' ? chunk : decoder.write(chunk);
     let nl: number;
     while ((nl = buffer.indexOf('\n')) >= 0) {
       const line = buffer.slice(0, nl).replace(/\r$/, '');
@@ -145,6 +150,7 @@ export async function* readLines(stream: NodeJS.ReadableStream): AsyncGenerator<
       if (line.trim()) yield line;
     }
   }
+  buffer += decoder.end();
   if (buffer.trim()) yield buffer;
 }
 
@@ -160,8 +166,9 @@ export function parseJsonLine(line: string): Record<string, unknown> | null {
 /** Last lines of a process's stderr, for an error message. */
 export function collectStderr(child: ChildProcess, max = 4000): () => string {
   let text = '';
+  const decoder = new StringDecoder('utf8');
   child.stderr?.on('data', (d: Buffer) => {
-    text = (text + d.toString('utf8')).slice(-max);
+    text = (text + decoder.write(d)).slice(-max);
   });
   return () => text.trim();
 }
@@ -259,11 +266,13 @@ export async function runOnce(
   });
   let stdout = '';
   let stderr = '';
+  const outDecoder = new StringDecoder('utf8');
+  const errDecoder = new StringDecoder('utf8');
   child.stdout?.on('data', (d: Buffer) => {
-    stdout += d.toString('utf8');
+    stdout += outDecoder.write(d);
   });
   child.stderr?.on('data', (d: Buffer) => {
-    stderr += d.toString('utf8');
+    stderr += errDecoder.write(d);
   });
   const timer = setTimeout(() => child.kill('SIGKILL'), options.timeoutMs ?? 20_000);
   try {

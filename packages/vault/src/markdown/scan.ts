@@ -257,12 +257,74 @@ function sectionAt(scan: Scan, idx: number): Section {
 
 /**
  * Finds a section by heading text, with the tolerant comparison of `normalizeHeading`.
- * This is the strict equality used by every caller, edits included.
+ * This is the strict equality used by every caller, edits included. With two headings of
+ * the same name the first wins: edits go through `lookupSections`, which refuses that case.
  */
 export function findSection(scan: Scan, heading: string): Section | null {
   const wanted = normalizeHeading(heading);
   const idx = scan.headings.findIndex((h) => normalizeHeading(h.text) === wanted);
   return idx === -1 ? null : sectionAt(scan, idx);
+}
+
+/** A heading that matched a section lookup, with where it is. */
+export interface SectionMatch {
+  section: Section;
+  /** Heading text with its parents, `Parent > Child`: what to pass to pick this one. */
+  path: string;
+  /** 1-based line of the heading in the note. */
+  line: number;
+}
+
+/** Index of the headings that contain heading `idx`, outermost first. */
+function ancestorsOf(scan: Scan, idx: number): number[] {
+  const out: number[] = [];
+  let level = scan.headings[idx]!.level;
+  for (let i = idx - 1; i >= 0 && level > 1; i--) {
+    const h = scan.headings[i]!;
+    if (h.level < level) {
+      out.unshift(i);
+      level = h.level;
+    }
+  }
+  return out;
+}
+
+const PATH_SEPARATOR = '>';
+
+/**
+ * Every section a heading asked for can mean. `heading` is the heading text (same comparison
+ * as `findSection`) or a path `Parent > Child` to tell apart two headings of the same name:
+ * the parts after the first must be the headings that contain the last one, in order (levels
+ * may be skipped). A heading that really contains `>` is matched as written first.
+ */
+export function lookupSections(scan: Scan, heading: string): SectionMatch[] {
+  const wanted = normalizeHeading(heading);
+  const parts = heading.includes(PATH_SEPARATOR)
+    ? heading.split(PATH_SEPARATOR).map(normalizeHeading)
+    : [wanted];
+  const hits: number[] = [];
+  scan.headings.forEach((h, i) => {
+    if (normalizeHeading(h.text) === wanted) hits.push(i);
+  });
+  if (hits.length === 0 && parts.length > 1 && parts.every((p) => p !== '')) {
+    const last = parts[parts.length - 1]!;
+    scan.headings.forEach((h, i) => {
+      if (normalizeHeading(h.text) !== last) return;
+      const chain = ancestorsOf(scan, i).map((a) => normalizeHeading(scan.headings[a]!.text));
+      let from = 0;
+      const inOrder = parts.slice(0, -1).every((p) => {
+        const at = chain.indexOf(p, from);
+        from = at + 1;
+        return at !== -1;
+      });
+      if (inOrder) hits.push(i);
+    });
+  }
+  return hits.map((i) => ({
+    section: sectionAt(scan, i),
+    path: [...ancestorsOf(scan, i), i].map((a) => scan.headings[a]!.text).join(' > '),
+    line: scan.text.slice(0, scan.headings[i]!.start).split('\n').length,
+  }));
 }
 
 /** A part of a note found by a loose match, for reading only. */

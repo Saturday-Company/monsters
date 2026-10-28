@@ -1,4 +1,5 @@
 import type { ChildProcess, SpawnOptions } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -262,11 +263,15 @@ async function runStep(
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
-    const keep = (chunk: Buffer) => {
-      output = (output + chunk.toString('utf8')).slice(-OUTPUT_KEEP);
+    // One decoder per stream: a character cut between two chunks stays whole.
+    const keeper = () => {
+      const decoder = new StringDecoder('utf8');
+      return (chunk: Buffer) => {
+        output = (output + decoder.write(chunk)).slice(-OUTPUT_KEEP);
+      };
     };
-    child.stdout?.on('data', keep);
-    child.stderr?.on('data', keep);
+    child.stdout?.on('data', keeper());
+    child.stderr?.on('data', keeper());
     const onAbort = () => child.kill();
     signal.addEventListener('abort', onAbort, { once: true });
     child.once('error', (err) => {

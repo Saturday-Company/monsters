@@ -63,7 +63,7 @@ const ReadInput = z.object({
     .string()
     .optional()
     .describe(
-      'Return only this section (heading text; a close name or a bold title line is found too, and if nothing fits you get the whole note)',
+      'Return only this section (heading text, or "Parent > Child" for a repeated name; a close name or a bold title line is found too, and if nothing fits you get the whole note)',
     ),
   max_chars: z.number().int().min(200).max(100_000).optional().describe('Default 20000'),
 });
@@ -224,7 +224,8 @@ export function vaultEditTool(vault: VaultService) {
     name: 'vault_edit',
     description:
       'Change part of a note: str_replace (old must be unique), append (optionally to a section), prepend, ' +
-      'replace_section, set_props, remove_props. Needs base_hash from vault_read; on CONFLICT read again and retry.',
+      'replace_section, set_props, remove_props. Headings with the same name: "Parent > Child". ' +
+      'Needs base_hash from vault_read; on CONFLICT read again and retry.',
     inputSchema: EditInput,
     async execute(input, ctx) {
       const fixed = fixAgentEditOps(input.ops, { titleOf: ctx.linkTitle });

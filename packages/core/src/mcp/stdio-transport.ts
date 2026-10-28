@@ -1,4 +1,5 @@
 import type { ChildProcess } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import {
   ReadBuffer,
   serializeMessage,
@@ -72,8 +73,9 @@ export class ChildStdioTransport implements Transport {
           this.onmessage?.(message);
         }
       });
+      const stderrDecoder = new StringDecoder('utf8');
       child.stderr?.on('data', (chunk: Buffer) => {
-        this.#stderr = (this.#stderr + chunk.toString('utf8')).slice(-STDERR_KEEP);
+        this.#stderr = (this.#stderr + stderrDecoder.write(chunk)).slice(-STDERR_KEEP);
       });
       if (started) resolve();
       else

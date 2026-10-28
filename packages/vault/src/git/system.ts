@@ -104,7 +104,7 @@ export class SystemVcs implements VaultVcs {
       // Stage new/changed files; drop removed ones from the index.
       const present = paths.filter((p) => existsSync(join(this.#dir, p)));
       const missing = paths.filter((p) => !existsSync(join(this.#dir, p)));
-      if (present.length > 0) await git(this.#dir, ['add', '--', ...present]);
+      if (present.length > 0) await git(this.#dir, ['add', '--force', '--', ...present]);
       if (missing.length > 0) {
         await git(this.#dir, ['rm', '-q', '--cached', '--ignore-unmatch', '--', ...missing]);
       }

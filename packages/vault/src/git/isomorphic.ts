@@ -57,7 +57,8 @@ export class IsomorphicVcs implements VaultVcs {
   async commit(req: CommitRequest): Promise<string> {
     for (const filepath of req.paths) {
       if (fs.existsSync(join(this.#dir, filepath))) {
-        await git.add({ fs, dir: this.#dir, filepath });
+        // force: a folder the user's .gitignore lists is recorded too, or undo could not restore it.
+        await git.add({ fs, dir: this.#dir, filepath, force: true });
       } else {
         try {
           await git.remove({ fs, dir: this.#dir, filepath });

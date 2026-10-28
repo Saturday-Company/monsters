@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { accessSync, constants, statSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { delimiter, join } from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 
 /*
  * The PATH of the process. A desktop app started from the Dock, Finder or a
@@ -119,8 +120,9 @@ const runShell: RunShell = (shell, args, { env, timeoutMs, until }) =>
       }
       finish(null);
     }, timeoutMs);
+    const decoder = new StringDecoder('utf8');
     child.stdout.on('data', (d: Buffer) => {
-      out += d.toString('utf8');
+      out += decoder.write(d);
       if (until !== undefined && out.split(until).length >= 3) {
         finish(out);
         // What the rc files left in this throwaway shell's group goes with it (a daemon
