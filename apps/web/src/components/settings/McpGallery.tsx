@@ -62,7 +62,7 @@ import { OAuthPaste } from './McpOAuthPaste.tsx';
 import { mcpStrings } from './mcp.strings.ts';
 import { partsStrings } from './parts.strings.ts';
 import { SecretChange } from './McpSecretChange.tsx';
-import { ConfirmButton, FormField, Group } from './parts.tsx';
+import { ConfirmButton, FormField, Group, LoadFailed, useRetry } from './parts.tsx';
 
 /*
  * Settings → Apps and Telegram → Apps (D-063): the apps of `MCP_CATALOG` as
@@ -734,6 +734,8 @@ export function McpGallery({
   const [claude, setClaude] = useState<ClaudeConnectionsResponse | null>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
   // Services through Claude (D-069): the choice at once, then how they stand (asked to Claude Code).
+  const [claudeFailed, setClaudeFailed] = useState(false);
+  const [attempt, retryClaude] = useRetry(() => setClaudeFailed(false));
   useEffect(() => {
     let live = true;
     getApi()
@@ -748,11 +750,12 @@ export function McpGallery({
             .catch(() => {});
         }
       })
-      .catch(() => {});
+      // Without the answer the apps through Claude look like plain "not connected" ones: say so.
+      .catch(() => live && setClaudeFailed(true));
     return () => {
       live = false;
     };
-  }, []);
+  }, [attempt]);
   const order: Record<GalleryState, number> = {
     connected: 0,
     error: 0,
@@ -789,6 +792,9 @@ export function McpGallery({
       description={s.description}
     >
       <div className="grid gap-3 p-3 sm:p-4">
+        {claudeFailed && (
+          <LoadFailed what={s.claudeWhat} onRetry={retryClaude} testId="gallery-claude-failed" />
+        )}
         <label className="relative block">
           <span className="sr-only">{s.searchLabel}</span>
           <MagnifyingGlass

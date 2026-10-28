@@ -14,6 +14,7 @@ const en = {
     halted: 'The monsters are stopped: press “Resume”, then try again.',
   },
   nameProblem: 'Letters only, up to 24.',
+  settingsWhat: 'these settings',
 };
 
 const it: typeof en = {
@@ -28,6 +29,7 @@ const it: typeof en = {
     halted: 'I mostri sono fermi: premi “Riprendi”, poi riprova.',
   },
   nameProblem: 'Solo lettere, al massimo 24.',
+  settingsWhat: 'queste impostazioni',
 };
 
 export const dataStrings = defineStrings({ en, it });

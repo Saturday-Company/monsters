@@ -7,7 +7,7 @@ import { projectsLibStrings } from '../../lib/projects.strings.ts';
 import { openChat } from '../../lib/router.ts';
 import { domId } from '../../lib/utils.ts';
 import { getApi, notify, refreshAgents } from '../../store/app.ts';
-import { clearDraft, peekDraft } from '../../store/draft-handoff.ts';
+import { useDraftHandoff } from '../../store/draft-handoff.ts';
 import { statusText, useAgents, useLive, type AgentView } from '../../store/hooks.ts';
 import { refreshProjects, useProjects } from '../../store/projects.ts';
 import { MonsterScreen } from '../monster/MonsterScreen.tsx';
@@ -270,9 +270,8 @@ export function ProjectSquad({
   const agents = useAgents();
   const projects = useProjects();
   // "Edit" on a monster proposed by the lead (To review): the form opens with its draft.
-  const [handoff] = useState(peekDraft);
+  const [handoff, consumeHandoff] = useDraftHandoff();
   const [adding, setAdding] = useState<'new' | 'copy' | null>(handoff ? 'new' : null);
-  useEffect(() => clearDraft(), []);
 
   const members = p.members
     .map((m) => agents.find((a) => a.id === m.id))
@@ -363,8 +362,12 @@ export function ProjectSquad({
           initial={handoff}
           project={{ id: p.id, name: p.name }}
           taken={(n) => names.some((x) => x.toLowerCase() === n.trim().toLowerCase())}
-          onCancel={() => setAdding(null)}
+          onCancel={() => {
+            consumeHandoff();
+            setAdding(null);
+          }}
           onAdded={() => {
+            consumeHandoff();
             setAdding(null);
             void refreshProjects();
             void refreshAgents().catch(() => {});

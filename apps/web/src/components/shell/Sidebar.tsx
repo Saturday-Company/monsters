@@ -24,7 +24,8 @@ import { cn } from '../../lib/utils.ts';
 import { useApp } from '../../store/app.ts';
 import { automationWork } from '../../store/derive.ts';
 import { useMediaQuery, useOrchestrator } from '../../store/hooks.ts';
-import { useProjects } from '../../store/projects.ts';
+import { refreshProjects, useLists, useProjects } from '../../store/projects.ts';
+import { LoadFailed } from '../settings/parts.tsx';
 import { ChatList, isMac } from '../chat/ChatList.tsx';
 import { useChats } from '../chat/useChats.ts';
 import { ComputerSwitcher } from './ComputerSwitcher.tsx';
@@ -239,6 +240,7 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
   const waitingGiri = useMemo(() => automationWork(events).waiting, [events]);
 
   const projects = useProjects();
+  const projectsFailed = useLists((l) => !l.projects && l.projectsError !== null);
   const { god, squads } = useMemo(() => squadsOf(agents, projects), [agents, projects]);
   const projectParam = useHashParam('id');
   const newProject = useHashParam('view') === 'nuovo';
@@ -257,6 +259,14 @@ export function Sidebar({ route, phone }: { route: Route; phone: boolean }) {
         current={route === 'project' && newProject}
         testId="project-new"
       />
+      {/* A first read that failed leaves no list: say so, with a way to ask again. */}
+      {projectsFailed && (
+        <LoadFailed
+          what={t.projectsWhat}
+          onRetry={() => void refreshProjects()}
+          testId="projects-load-failed"
+        />
+      )}
       <ArchivedProjects projects={projects} current={currentProject} />
     </div>
   );

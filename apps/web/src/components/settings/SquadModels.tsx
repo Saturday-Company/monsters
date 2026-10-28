@@ -1,6 +1,6 @@
 import type { AgentModels, ModelRefView, ProviderView } from '@monsters/shared';
 import { Plus, X } from '@phosphor-icons/react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cn } from '../../lib/utils.ts';
 import { getApi, notify, refreshAgents } from '../../store/app.ts';
 import { Button } from '../ui/button.tsx';
@@ -17,7 +17,7 @@ import {
   PaidNotice,
   type ModelListsState,
 } from './ProvidersSection.tsx';
-import { sameChain, squadModels, withFallback, withMain } from './squad-models.ts';
+import { sameChain, squadModels, trimChain, withFallback, withMain } from './squad-models.ts';
 
 /*
  * The simple view of what the monsters think with (wave C3, U2-1): "Main model" and "If it doesn't
@@ -136,12 +136,17 @@ export function SquadModels({
   const [pending, setPending] = useState<ModelRefView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** The chain being written, shown (and built upon) until the core has answered for it. */
+  const [inflight, setInflight] = useState<ModelRefView[] | null>(null);
+  /** The saves one after the other: two at once would race, and the older could land last. */
+  const saves = useRef<{ tail: Promise<void>; open: number }>({ tail: Promise.resolve(), open: 0 });
   const freeOnly = providers.find((p) => p.id === 'openrouter')?.freeOnly === true;
   const blockedIn = (chain: readonly ModelRefView[]) =>
     freeOnly ? chain.filter(isPaidOpenRouter).map((l) => l.model.trim()) : [];
   // A chain that waited stops waiting once nothing blocks it (paid models turned on elsewhere).
   const waiting = pending && blockedIn(pending).length > 0 ? pending : null;
-  const shown = waiting ?? core;
+  const current = inflight ?? core;
+  const shown = waiting ?? current;
   const blocked = blockedIn(shown);
   const { needModels } = lists;
   const shownProviders = shown.slice(0, 2).map((l) => l.provider);
@@ -152,9 +157,8 @@ export function SquadModels({
     for (const p of key ? key.split('|') : []) void needModels(p);
   }, [key, needModels]);
 
-  /** Saves a chain to every monster; what the core accepted is applied even if another refused (W-20). */
-  const save = async (chain: ModelRefView[]) => {
-    setBusy(true);
+  /** Writes a chain to every monster; what the core accepted is applied even if another refused (W-20). */
+  const write = async (chain: ModelRefView[]) => {
     setError(null);
     const results = await Promise.allSettled(
       agents.map((a) => getApi().setAgentModels(a.id, chain)),
@@ -180,27 +184,49 @@ export function SquadModels({
       notify(text, 'error');
     }
     if (saved.length > 0) void refreshAgents().catch(() => {});
-    setBusy(false);
+  };
+
+  /**
+   * Saves a chain (trimmed: a space pasted around a model id breaks the chain), queued behind the
+   * ones before it. Meanwhile the chain shows as chosen, so the next change builds on it.
+   */
+  const save = (chain: ModelRefView[]) => {
+    const clean = trimChain(chain);
+    const q = saves.current;
+    q.open++;
+    setInflight(clean);
+    setBusy(true);
+    q.tail = q.tail
+      .then(() => write(clean))
+      .catch(() => undefined)
+      .then(() => {
+        q.open--;
+        if (q.open > 0) return;
+        setInflight(null);
+        setBusy(false);
+      });
   };
 
   /** A chain chosen here: saved at once, or kept aside while it is blocked. */
   const change = (chain: ModelRefView[]) => {
+    // A blank model id (a clear field) is not a choice.
+    if (chain.some((l) => !l.model.trim())) return;
     if (blockedIn(chain).length > 0) {
       setPending(chain);
       setError(null);
       return;
     }
-    if (sameChain(chain, core)) {
+    if (sameChain(chain, current)) {
       setPending(null);
       return;
     }
-    void save(chain);
+    save(chain);
   };
 
   /** Paid models turned on from the notice: the chain that waited is saved. */
   const paidEnabled = () => {
     onPaidEnabled();
-    if (waiting) void save(waiting);
+    if (waiting) save(waiting);
   };
 
   /** The first model of an account, once its list is there. */

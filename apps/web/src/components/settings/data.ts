@@ -4,22 +4,30 @@ import { ApiError, describeError } from '../../lib/api.ts';
 import { getApi } from '../../store/app.ts';
 import { dataStrings } from './data.strings.ts';
 
-/** `GET /api/settings`, with a reload: null while loading or when the core does not answer. */
-export function useSettings(): [SettingsResponse | null, () => void] {
+/**
+ * `GET /api/settings`, with a reload: null while loading or before the core answers. A read that
+ * fails keeps what was read before and says so (`failed`), so the page can offer "Try again".
+ */
+export function useSettings(): [SettingsResponse | null, () => void, failed: boolean] {
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
+  const [failed, setFailed] = useState(false);
   const [version, setVersion] = useState(0);
   useEffect(() => {
     let alive = true;
     getApi()
       .settings()
-      .then((s) => alive && setSettings(s))
-      .catch(() => alive && setSettings(null));
+      .then((s) => {
+        if (!alive) return;
+        setSettings(s);
+        setFailed(false);
+      })
+      .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
     };
   }, [version]);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
-  return [settings, reload];
+  return [settings, reload, failed];
 }
 
 /**

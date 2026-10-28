@@ -372,6 +372,19 @@ export class ApiClient {
     this.transport = transport;
   }
 
+  /**
+   * A request of a module that has its own schemas (the onboarding): same path as every other call,
+   * so a session that must confirm the password gets the prompt and the request goes again.
+   */
+  send<S extends z.ZodType>(
+    method: string,
+    path: string,
+    schema: S,
+    body?: unknown,
+  ): Promise<z.infer<S>> {
+    return this.call(method, path, schema, body);
+  }
+
   private async call<S extends z.ZodType>(
     method: string,
     path: string,

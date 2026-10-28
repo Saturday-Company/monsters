@@ -811,6 +811,37 @@ describe('onboarding API', () => {
     expect((await t2.json<OnboardingState>('GET', '/api/onboarding')).proposal).toBeNull();
   });
 
+  it('drops a proposal made for answers that changed while the model was writing it', async () => {
+    const started = deferred();
+    const release = deferred();
+    const slow: Generate = async () => {
+      started.resolve();
+      await release.promise;
+      return { text: JSON.stringify(MODEL_TEAM), requests: 1 };
+    };
+    const t = await startTestHub(
+      {},
+      { withoutTeam: true, hub: { teamModels: planner, onboardingGenerate: slow } },
+    );
+    await t.json('POST', '/api/onboarding/answers', {
+      answers: ANSWERS,
+      permissions: { vault: true, web: true },
+    });
+    const pending = t.api('POST', '/api/onboarding/team/propose');
+    await started.promise;
+    // The user goes Back and renames the lead while the first proposal is still being written.
+    await t.json('POST', '/api/onboarding/answers', {
+      answers: { nomi: { values: { user: ['Giulio'], orchestrator: ['Vega'] } } },
+    });
+    release.resolve();
+    const res = await pending;
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: 'answers_changed' });
+    const state = await t.json<OnboardingState>('GET', '/api/onboarding');
+    expect(state.proposal).toBeNull();
+    expect(state.guide.name).toBe('Vega');
+  });
+
   it('keeps the progress across a reload of the state', async () => {
     const t = await hub();
     await t.json('POST', '/api/onboarding/answers', {

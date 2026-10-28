@@ -1,5 +1,4 @@
 import {
-  ApiErrorSchema,
   OnboardingStateSchema,
   ProposedAgentSchema,
   TeamConfirmResponseSchema,
@@ -16,25 +15,13 @@ import { onboardingStrings } from './onboarding.strings.ts';
 
 /* Client of the onboarding API (contract at the bottom of packages/shared/src/api.ts). */
 
-async function call<S extends z.ZodType>(
+/** Through the shared client: a session that must confirm the password gets the prompt, then the request again. */
+const call = <S extends z.ZodType>(
   method: string,
   path: string,
   schema: S,
   body?: unknown,
-): Promise<z.infer<S>> {
-  const res = await getApi().transport.request(method, path, body);
-  if (res.status < 200 || res.status >= 300) {
-    const err = ApiErrorSchema.safeParse(res.body);
-    throw new ApiError(
-      res.status,
-      err.success ? err.data.error : `http_${res.status}`,
-      err.success ? err.data.message : undefined,
-    );
-  }
-  const parsed = schema.safeParse(res.body);
-  if (!parsed.success) throw new ApiError(res.status, 'invalid_response', parsed.error.message);
-  return parsed.data;
-}
+): Promise<z.infer<S>> => getApi().send(method, path, schema, body);
 
 export const onboardingApi = {
   state: (): Promise<OnboardingState> => call('GET', '/api/onboarding', OnboardingStateSchema),
@@ -60,6 +47,7 @@ export function onboardingError(err: unknown): string {
       case 'invalid_name':
       case 'onboarding_done':
       case 'answers_incomplete':
+      case 'answers_changed':
         return onboardingStrings().errors[err.code];
       default:
         break;

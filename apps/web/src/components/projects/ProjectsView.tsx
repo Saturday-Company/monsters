@@ -15,12 +15,13 @@ import {
 import { cn } from '../../lib/utils.ts';
 import { getApi, notify, useApp } from '../../store/app.ts';
 import { initBaseline } from '../../store/reads.ts';
-import { putProject, useLists, useProjects } from '../../store/projects.ts';
+import { putProject, refreshProjects, useLists, useProjects } from '../../store/projects.ts';
 import { ChatPanel } from '../chat/ChatPanel.tsx';
 import { checkModel } from '../chat/useModel.ts';
 import { useChats } from '../chat/useChats.ts';
 import { ActivityPanel } from '../log/ActivityPanel.tsx';
 import { useReviewColumn } from '../shell/ReviewSheet.tsx';
+import { LoadFailed } from '../settings/parts.tsx';
 import { ToolbarContent, ToolbarTitle } from '../shell/Toolbar.tsx';
 import { Button } from '../ui/button.tsx';
 import { panelId, tabId, Tabs } from '../ui/tabs.tsx';
@@ -105,15 +106,10 @@ function StopProjectKey({ p }: { p: ProjectView }) {
   );
 }
 
-function Message({ children, alert = false }: { children: ReactNode; alert?: boolean }) {
+function Message({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-[920px] px-4 pt-6 sm:px-6">
-      <p
-        className={cn('text-body', alert ? 'text-stop-ink' : 'label text-ink-muted')}
-        role={alert ? 'alert' : undefined}
-      >
-        {children}
-      </p>
+      <p className="label text-body text-ink-muted">{children}</p>
     </div>
   );
 }
@@ -290,7 +286,13 @@ export default function ProjectsView() {
     );
   }
   if (!projects) {
-    return error ? <Message alert>{error}</Message> : <Message>{viewStrings().loading}</Message>;
+    return error ? (
+      <Scroll testId="project-load-failed">
+        <LoadFailed what={viewStrings().what} onRetry={() => void refreshProjects()} />
+      </Scroll>
+    ) : (
+      <Message>{viewStrings().loading}</Message>
+    );
   }
   if (!p) {
     return (

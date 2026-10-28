@@ -17,9 +17,10 @@ import {
   refreshProjects,
   releaseDraft,
   useDrafts,
+  useLists,
   useProject,
 } from '../../store/projects.ts';
-import { RowBody } from '../settings/parts.tsx';
+import { LoadFailed, RowBody } from '../settings/parts.tsx';
 import { Button } from '../ui/button.tsx';
 import { PathText } from '../ui/PathText.tsx';
 import { DiffLines } from '../vault/NoteHistory.tsx';
@@ -507,6 +508,19 @@ function DraftCard({ d, primary }: { d: DraftView; primary: boolean }) {
 /** "To confirm" at the top of "To review": only when something waits. */
 export function DraftsSection() {
   const drafts = useDrafts();
+  const failed = useLists((l) => l.drafts === null && l.draftsError !== null);
+  // A first read that failed is not "nothing to review": say so, with a way to ask again.
+  if (!drafts && failed) {
+    return (
+      <div className="mb-6">
+        <LoadFailed
+          what={draftStrings().what}
+          onRetry={() => void refreshDrafts()}
+          testId="drafts-load-failed"
+        />
+      </div>
+    );
+  }
   if (!drafts || drafts.length === 0) return null;
   return (
     <section aria-labelledby="drafts-title" className="mb-6" data-testid="review-drafts">

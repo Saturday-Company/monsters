@@ -44,7 +44,8 @@ export type ModelTier = z.infer<typeof ModelTierSchema>;
 
 export const ModelRefViewSchema = z.object({
   provider: ProviderIdSchema,
-  model: z.string().min(1).max(200),
+  // Trimmed on parse: a space pasted around the id would break the whole chain (review of 28/10).
+  model: z.string().trim().min(1).max(200),
   tier: ModelTierSchema.optional(),
 });
 export type ModelRefView = z.infer<typeof ModelRefViewSchema>;

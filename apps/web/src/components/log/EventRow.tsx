@@ -11,7 +11,7 @@ import { dotPalette } from '@monsters/monster-kit';
 import type { LogEvent } from '@monsters/shared';
 import { memo, useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { describeError } from '../../lib/api.ts';
-import { MCP_PAUSED_PATH, openChat, openPage } from '../../lib/router.ts';
+import { automationPath, MCP_PAUSED_PATH, openChat, openPage } from '../../lib/router.ts';
 import {
   dismissUndoConflict,
   getApi,
@@ -39,6 +39,7 @@ import { detailsOf } from './details.ts';
 import { logStrings } from './log.strings.ts';
 import { useAgent, useNameOf } from '../../store/hooks.ts';
 import { cn, domId, formatTime, prettyJson } from '../../lib/utils.ts';
+import { giroOfRun } from '../../store/giro-of-run.ts';
 import { setInboxTab } from '../../store/inbox.ts';
 import { useDrafts } from '../../store/projects.ts';
 import { Button } from '../ui/button.tsx';
@@ -212,9 +213,17 @@ function WaitingLight() {
   return <span aria-hidden className="led" data-tone="signal" />;
 }
 
-/** "Answer" on a question still open: to the chat where it waits (where its run started). */
+/**
+ * "Answer" on a question still open: to the chat where it waits (where its run started), or, for
+ * a question of an automation's giro (no chat shows those), to the giro's page where its card is.
+ */
 function AnswerKey({ e, primary }: { e: LogEvent<'question'>; primary: boolean }) {
-  // Only an open question looks for its chat (the owners of the runs cost a pass on the log).
+  // Only an open question looks for its place (the owners of the runs cost a pass on the log).
+  const giro = useApp((s) =>
+    e.runId && s.questions[e.data.questionId]?.status === 'open'
+      ? (giroOfRun(s.events).get(e.runId) ?? null)
+      : null,
+  );
   const home = useApp((s) => {
     if (s.questions[e.data.questionId]?.status !== 'open') return null;
     return (e.runId && runOwners(s.events).get(e.runId)) || e.agent;
@@ -225,7 +234,9 @@ function AnswerKey({ e, primary }: { e: LogEvent<'question'>; primary: boolean }
     <Button
       size="sm"
       variant={primary ? 'primary' : 'secondary'}
-      onClick={() => openChat(home)}
+      onClick={() =>
+        giro ? openPage(automationPath(giro.automationId, { giro: giro.giro })) : openChat(home)
+      }
       data-testid="answer-question"
     >
       {primary ? <ArrowBendUpLeft size={16} weight="bold" aria-hidden /> : <WaitingLight />}

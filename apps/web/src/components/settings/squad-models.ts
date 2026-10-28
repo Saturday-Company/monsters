@@ -45,7 +45,15 @@ export function squadModels(agents: readonly AgentModels[]): SquadModelsView {
 }
 
 /** A link chosen in the simple view: no tier (a tier belonged to the model it replaces). */
-const plain = (l: ModelRefView): ModelRefView => ({ provider: l.provider, model: l.model });
+const plain = (l: ModelRefView): ModelRefView => ({
+  provider: l.provider,
+  model: l.model.trim(),
+});
+
+/** The chain with every model id trimmed (a pasted space would make the link a model that does not exist). */
+export function trimChain(models: readonly ModelRefView[]): ModelRefView[] {
+  return models.map((l) => ({ ...l, model: l.model.trim() }));
+}
 
 /** The chain with a new main model: the other links stay as they are. */
 export function withMain(models: readonly ModelRefView[], main: ModelRefView): ModelRefView[] {

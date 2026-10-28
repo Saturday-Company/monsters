@@ -18,9 +18,18 @@ import { setPrefs, usePrefs, type ThemeChoice } from '../../store/prefs.ts';
 import { Button } from '../ui/button.tsx';
 import { Segmented, Switch } from '../ui/controls.tsx';
 import { Input } from '../ui/field.tsx';
+import { dataStrings } from './data.strings.ts';
 import { teamError, useSettings } from './data.ts';
 import { generalStrings } from './general.strings.ts';
-import { DisclosureRow, fieldOnGroup, FormField, Group, Row, RowBody } from './parts.tsx';
+import {
+  DisclosureRow,
+  fieldOnGroup,
+  FormField,
+  Group,
+  LoadFailed,
+  Row,
+  RowBody,
+} from './parts.tsx';
 
 /*
  * Settings → Generale: appearance, the desktop app (only inside it: "Apri
@@ -453,12 +462,13 @@ function MoreOptions({ settings }: { settings: SettingsResponse | null }) {
 }
 
 export function GeneralTab() {
-  const [settings] = useSettings();
+  const [settings, reload, failed] = useSettings();
   return (
     <>
       <Appearance />
       <DesktopApp />
       <Account />
+      {failed && <LoadFailed what={dataStrings().settingsWhat} onRetry={reload} />}
       <MoreOptions settings={settings} />
     </>
   );

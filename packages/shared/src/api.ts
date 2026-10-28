@@ -533,7 +533,8 @@ export type LanguageRequest = z.infer<typeof LanguageRequestSchema>;
  * already (409 `access_unavailable` otherwise); the agents of the team start on it.
  *
  * Errors: 409 `onboarding_done` (the team already exists), 409 `answers_incomplete`,
- * 409 `no_proposal`, 409 `halted` (kill switch engaged: no team proposal), 404
+ * 409 `no_proposal`, 409 `answers_changed` (the answers changed while the team was being
+ * proposed: the proposal is dropped), 409 `halted` (kill switch engaged: no team proposal), 404
  * `unknown_member`, 400 `invalid_request` (also an unsafe area or duty) / `invalid_name`
  * (also a name whose id is taken, the orchestrator's included).
  * The questions themselves are fixed: `ONBOARDING_QUESTIONS` in onboarding.ts.

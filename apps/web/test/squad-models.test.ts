@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   sameChain,
   squadModels,
+  trimChain,
   withFallback,
   withMain,
 } from '../src/components/settings/squad-models.ts';
@@ -123,5 +124,21 @@ describe('withMain and withFallback: the first two links, the rest untouched', (
     expect(sameChain([sonnet, free], [sonnet, free])).toBe(true);
     expect(sameChain([sonnet], [sonnet, free])).toBe(false);
     expect(sameChain([sonnet, free], [free, sonnet])).toBe(false);
+  });
+});
+
+describe('a pasted space never reaches the chain (review of 28/10)', () => {
+  it('trims the model id of the links a choice builds, tiers kept by trimChain', () => {
+    expect(withMain([sonnet, free], link('openrouter', ' x/y:free '))).toEqual([
+      link('openrouter', 'x/y:free'),
+      free,
+    ]);
+    expect(withFallback([sonnet], link('openrouter', '\topenrouter/free '))).toEqual([
+      sonnet,
+      free,
+    ]);
+    expect(trimChain([link('claude-agent', ' opus', 'strong')])).toEqual([
+      link('claude-agent', 'opus', 'strong'),
+    ]);
   });
 });
