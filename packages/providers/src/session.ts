@@ -24,6 +24,7 @@ import {
   SubscriptionPlanError,
 } from './errors.ts';
 import { costFromMetadata } from './cost.ts';
+import { hasMediaParts } from './input-support.ts';
 import { RateLimitedError } from './rate-budget.ts';
 import type { ModelProvider, ModelRef } from './types.ts';
 
@@ -256,6 +257,12 @@ export type ContextRescue = (
   error: unknown,
 ) => LanguageModelV4Prompt | null | Promise<LanguageModelV4Prompt | null>;
 
+/**
+ * The prompt as one link of the chain can read it (images dropped for a model that
+ * does not see): called for every link before its request, with the caller's prompt.
+ */
+export type PromptAdapter = (ref: ModelRef, prompt: LanguageModelV4Prompt) => LanguageModelV4Prompt;
+
 /** Times an empty answer is asked again of the same link before the next one. */
 const EMPTY_RETRIES = 1;
 
@@ -274,6 +281,7 @@ export class ModelSession implements LanguageModelV4 {
   /** Links moved to the end of the chain by `demote` (a model that keeps answering badly). */
   readonly #demoted: ModelRef[] = [];
   #contextRescue: ContextRescue | null = null;
+  #promptAdapter: PromptAdapter | null = null;
   #toolFilter: ((name: string) => boolean) | null = null;
   #abandoned: AbandonedAttempt[] = [];
 
@@ -339,6 +347,15 @@ export class ModelSession implements LanguageModelV4 {
    */
   setContextRescue(rescue: ContextRescue | null): void {
     this.#contextRescue = rescue;
+  }
+
+  /**
+   * Gives every link of the chain a prompt it can read: the caller builds the prompt for
+   * the first model, a fallback that cannot read part of it (an image) gets it adapted
+   * instead of a request its provider refuses. Null sends the prompt as it is.
+   */
+  setPromptAdapter(adapter: PromptAdapter | null): void {
+    this.#promptAdapter = adapter;
   }
 
   /**
@@ -602,6 +619,10 @@ export class ModelSession implements LanguageModelV4 {
       const ref = chain[i]!;
       if (refused.has(ref.provider)) continue;
       signal?.throwIfAborted();
+      // What this link is sent: the caller's prompt as the link reads it.
+      const sent = this.#promptAdapter
+        ? { ...current, prompt: this.#promptAdapter(ref, current.prompt) }
+        : current;
       let provider: ModelProvider | undefined;
       try {
         // Inside the try: a provider removed since the session started (key
@@ -626,7 +647,7 @@ export class ModelSession implements LanguageModelV4 {
           provider.model(ref.model),
           ref,
           provider,
-          current,
+          sent,
         );
         this.#served(provider, ref, servedModel, queuedMs, i + 1);
         return value;
@@ -694,12 +715,16 @@ export class ModelSession implements LanguageModelV4 {
           i--;
           continue;
         }
-        const providerRefused = isProviderError(err);
+        // A 400 for a request that carried an image or a PDF is most likely this model's: the
+        // next link (which gets what it can read) may take it, and the provider's other
+        // models are not disabled by it (D-218).
+        const inputRefused = kind === 'bad_request' && hasMediaParts(sent.prompt);
+        const providerRefused = !inputRefused && isProviderError(err);
         if (providerRefused) refused.add(ref.provider);
         // A refused provider: the next link on another provider. Otherwise the next link.
         const next = providerRefused
           ? (chain.slice(i + 1).find((r) => !refused.has(r.provider)) ?? null)
-          : isFallbackError(err)
+          : isFallbackError(err) || inputRefused
             ? (chain[i + 1] ?? null)
             : null;
         const status = statusOf(err);
@@ -711,7 +736,8 @@ export class ModelSession implements LanguageModelV4 {
           kind,
           ...(status !== undefined ? { status } : {}),
         });
-        if (next === null && (providerRefused || !isFallbackError(err))) throw err;
+        if (next === null && (providerRefused || !(isFallbackError(err) || inputRefused)))
+          throw err;
         if (this.#pinned && sameRef(this.#pinned, ref)) this.#pinned = null;
       }
     }

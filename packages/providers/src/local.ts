@@ -222,15 +222,16 @@ export class LocalProvider implements ModelProvider {
       );
       return body.data
         .filter((m) => m.type !== 'embeddings')
-        .map((m) => ({
-          id: m.id,
-          tools: m.capabilities ? m.capabilities.includes('tool_use') : true,
-          free: true,
+        .map((m): ModelInfo => {
           // The context the model is loaded with, not the maximum it supports.
-          ...(m.loaded_context_length || m.max_context_length
-            ? { context: m.loaded_context_length || m.max_context_length }
-            : {}),
-        }));
+          const context = m.loaded_context_length || m.max_context_length;
+          return {
+            id: m.id,
+            tools: m.capabilities ? m.capabilities.includes('tool_use') : true,
+            free: true,
+            ...(context ? { context } : {}),
+          };
+        });
     } catch (err) {
       // Older LM Studio, or another OpenAI-compatible server: the plain list.
       if (!(err instanceof ProviderHttpError) || err.status !== 404) throw err;

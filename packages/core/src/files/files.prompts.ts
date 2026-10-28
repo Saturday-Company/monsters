@@ -33,6 +33,8 @@ const it = {
   attached: (label: string) => `[Allegato: ${label}]`,
   imageBlind: (label: string) =>
     `- ${label}: è un'immagine e il modello con cui lavori ora non vede le immagini. Dillo all'utente con parole tue e non descriverla: non sai cosa c'è.`,
+  pdfBlind: (label: string) =>
+    `- ${label}: è un PDF e il modello con cui lavori ora non legge i PDF. Dillo all'utente con parole tue e non descriverlo: non sai cosa c'è.`,
   textMissing: (label: string, tooLong: boolean) =>
     `- ${label}: ${tooLong ? 'testo non incluso, gli allegati di questo messaggio sono troppo lunghi' : 'non ne ho potuto leggere il testo'}. Dillo all'utente invece di immaginarne il contenuto.`,
   cut: '\n[… testo tagliato: il file è più lungo]',
@@ -67,6 +69,8 @@ const en: typeof it = {
   attached: (label) => `[Attachment: ${label}]`,
   imageBlind: (label) =>
     `- ${label}: it is an image and the model you are working with now can’t see images. Tell the user in your own words and don’t describe it: you don’t know what is in it.`,
+  pdfBlind: (label) =>
+    `- ${label}: it is a PDF and the model you are working with now can’t read PDFs. Tell the user in your own words and don’t describe it: you don’t know what is in it.`,
   textMissing: (label, tooLong) =>
     `- ${label}: ${tooLong ? 'text not included, the attachments of this message are too long' : 'I couldn’t read its text'}. Tell the user instead of imagining its content.`,
   cut: '\n[… text cut: the file is longer]',

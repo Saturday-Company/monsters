@@ -2,6 +2,7 @@ export * from './types.ts';
 export * from './rate-budget.ts';
 export * from './errors.ts';
 export * from './session.ts';
+export * from './input-support.ts';
 export * from './registry.ts';
 export * from './openrouter.ts';
 export * from './key-id.ts';

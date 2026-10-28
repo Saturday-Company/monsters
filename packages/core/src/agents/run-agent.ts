@@ -19,10 +19,11 @@ import {
   type ModelSession,
   type ProviderRegistry,
   type SessionEvent,
+  withReadableInput,
 } from '@monsters/providers';
 import { LANGS, type LimitReason, type MonstersTool } from '@monsters/shared';
 import { isStepCount, streamText, type ModelMessage, type StopCondition, type ToolSet } from 'ai';
-import type { UserPart } from '../files/model-input.ts';
+import { unreadableFileNote, type ModelSight, type UserPart } from '../files/model-input.ts';
 import { CallerStoppedError, KilledError, type ControlScope } from '../kill/control-scope.ts';
 import type { EventLog } from '../log/event-log.ts';
 import {
@@ -189,6 +190,12 @@ export interface RunAgentOptions {
   guard?: ToolGuard;
   /** The context window of a model, when known (C.1: the `context` of every step). */
   contextWindow?: (ref: ModelRef) => number | undefined;
+  /**
+   * What a model reads besides text. Every link of the chain gets a prompt it can read: the
+   * attachments are built for the first model, a fallback that cannot see an image (or read a
+   * PDF) is sent a note in its place instead of a request its provider refuses (D-218).
+   */
+  sight?: (ref: ModelRef) => ModelSight;
   /**
    * The price of a paid model (USD per million tokens), when the price list
    * knows it: a request whose provider reports no cost is counted with it,
@@ -894,6 +901,12 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     return folded;
   };
   session.setContextRescue(rescue);
+  const sightOf = options.sight;
+  if (sightOf) {
+    session.setPromptAdapter((ref, prompt) =>
+      withReadableInput(prompt, sightOf(ref), unreadableFileNote),
+    );
+  }
   // Every tool of the run can be called, only the loaded ones are sent (D-163).
   if (deferral) session.setToolFilter((name) => deferral.sends(name));
 
@@ -1584,6 +1597,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     else streamError ??= err;
   } finally {
     session.setContextRescue(null);
+    session.setPromptAdapter(null);
     session.setToolFilter(null);
     if (deferral) options.toolMemory?.set(agentId, deferral.kept());
     if (held !== null) {
