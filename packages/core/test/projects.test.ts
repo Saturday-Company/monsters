@@ -827,6 +827,36 @@ describe('projects: connections', () => {
     expect(mcp.allowed('rhea', 'browser')).toBe(false);
   });
 
+  it('a change to one list leaves the other as it was (D-209)', async () => {
+    const { t } = await withProject({});
+    await t.json('PUT', '/api/mcp-servers/browser', { preset: 'browser', agents: ['*'] });
+    await t.json('PUT', '/api/claude-connections/figma', {});
+    await t.json('PUT', '/api/claude-connections/canva', {});
+    const off = () => t.core.hub.team.project('saturday')!.connectionsOff;
+    const patch = (connectionsOff: object) =>
+      t.json('PATCH', '/api/projects/saturday', { connectionsOff });
+    // Switching off an MCP server keeps the Claude services off, and the other way round.
+    await patch({ claude: ['figma', 'canva'] });
+    await patch({ mcp: ['browser'] });
+    expect(off()).toEqual({ mcp: ['browser'], claude: ['figma', 'canva'] });
+    await patch({ claude: ['canva'] });
+    expect(off()).toEqual({ mcp: ['browser'], claude: ['canva'] });
+    // An empty list is a choice: that list is cleared, the other one stays.
+    await patch({ mcp: [] });
+    expect(off()).toEqual({ mcp: [], claude: ['canva'] });
+    // Nothing about connections: both stay (also with other fields changing).
+    await t.json('PATCH', '/api/projects/saturday', { webSearch: false });
+    expect(off()).toEqual({ mcp: [], claude: ['canva'] });
+    // An access request approved (`allowConnection`) takes one name off one list only.
+    await patch({ mcp: ['browser'], claude: ['figma', 'canva'] });
+    await t.core.hub.projects.allowConnection('saturday', 'mcp', 'browser', 'ui');
+    expect(off()).toEqual({ mcp: [], claude: ['figma', 'canva'] });
+    await patch({ mcp: ['browser'] });
+    await t.core.hub.projects.allowConnection('saturday', 'claude', 'figma', 'ui');
+    expect(off()).toEqual({ mcp: ['browser'], claude: ['canva'] });
+    await t.core.close();
+  });
+
   it('only names of connections the account has can be turned off (C-9)', async () => {
     const { t } = await withProject({});
     await t.json('PUT', '/api/mcp-servers/browser', { preset: 'browser', agents: ['*'] });

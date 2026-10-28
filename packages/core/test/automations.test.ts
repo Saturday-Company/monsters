@@ -1004,6 +1004,25 @@ describe('automations in the core', () => {
     expect(await second.t.json('GET', '/api/automations')).toEqual([]);
   });
 
+  it('an update to one notify channel leaves the other as it was (D-209)', async () => {
+    const { t } = await hub(() => fake.text('ok'));
+    const a = await t.json<AutomationView>(
+      'POST',
+      '/api/automations',
+      draft({ notify: { app: false, telegram: true } }),
+    );
+    expect(a.notify).toEqual({ app: false, telegram: true });
+    const one = await t.json<AutomationView>('PATCH', `/api/automations/${a.id}`, {
+      notify: { telegram: false },
+    });
+    expect(one.notify).toEqual({ app: false, telegram: false });
+    const other = await t.json<AutomationView>('PATCH', `/api/automations/${a.id}`, {
+      notify: { app: true },
+    });
+    expect(other.notify).toEqual({ app: true, telegram: false });
+    await t.core.close();
+  });
+
   it('slots missed while the core was off: one runs at the start, a far one is skipped', async () => {
     const home = tempHome();
     const dir = join(home, 'automations');

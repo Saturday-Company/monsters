@@ -18,6 +18,7 @@ import {
   type LogEvent,
   type Project,
   type ProjectConnections,
+  type ProjectConnectionsPatch,
   type ProjectCreateRequest,
   type ProjectLeadPlan,
   type ProjectMemberRequest,
@@ -385,7 +386,7 @@ export class ProjectService {
    * the id, a service id in `mcp`, would be accepted and match nothing. Names already stored
    * stay tolerated (a server removed since), only the new ones are checked.
    */
-  #checkOff(off: Partial<ProjectConnections> | undefined, stored?: ProjectConnections): void {
+  #checkOff(off: ProjectConnectionsPatch | undefined, stored?: ProjectConnections): void {
     const have = this.#o.connections?.();
     if (!off || !have) return;
     const known = { mcp: have.mcp, claude: have.claude.map((c) => c.id) };

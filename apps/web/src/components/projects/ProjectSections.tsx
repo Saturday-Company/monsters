@@ -436,6 +436,7 @@ export function ProjectLinks({
     }
   };
   // The project keeps what the user turned off (D-164): everything else of the team reaches it.
+  // Only the list the user touched is sent: the other one stays as the core has it (D-209).
   const toggle = (kind: 'mcp' | 'claude', name: string, on: boolean) => {
     const off = p.connectionsOff[kind];
     const next = on ? off.filter((x) => x !== name) : [...new Set([...off, name])];

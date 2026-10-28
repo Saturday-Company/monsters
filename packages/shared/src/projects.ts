@@ -95,13 +95,27 @@ export const ProjectFolderPathSchema = z.string().trim().min(1).max(1000);
  * project (D-164): every other one, also one connected later, reaches the
  * project's monsters.
  */
+/** Names of the MCP servers (Impostazioni → App e Telegram). */
+const McpOffListSchema = z.array(z.string().min(1).max(64)).max(100);
+/** Ids of the services reached through Claude (D-069). */
+const ClaudeOffListSchema = z.array(z.string().min(1).max(64)).max(50);
+
 export const ProjectConnectionsSchema = z.object({
-  /** Names of the MCP servers (Impostazioni → App e Telegram). */
-  mcp: z.array(z.string().min(1).max(64)).max(100).default([]),
-  /** Ids of the services reached through Claude (D-069). */
-  claude: z.array(z.string().min(1).max(64)).max(50).default([]),
+  mcp: McpOffListSchema.default([]),
+  claude: ClaudeOffListSchema.default([]),
 });
 export type ProjectConnections = z.infer<typeof ProjectConnectionsSchema>;
+
+/**
+ * The same in a request (D-209): a list that is not sent is not touched. No `.default()` here,
+ * and never `ProjectConnectionsSchema.partial()`: zod keeps the defaults under `.partial()`, so
+ * turning off one MCP server would have sent `claude: []` and turned every Claude service on.
+ */
+export const ProjectConnectionsPatchSchema = z.object({
+  mcp: McpOffListSchema.optional(),
+  claude: ClaudeOffListSchema.optional(),
+});
+export type ProjectConnectionsPatch = z.infer<typeof ProjectConnectionsPatchSchema>;
 
 /** Who leads the project: a new monster (a free name when absent) or a copy of one. */
 export const ProjectLeadPlanSchema = z.object({
@@ -215,7 +229,7 @@ export const ProjectCreateRequestSchema = z.object({
   vaultArea: AgentAreaSchema.optional(),
   lead: ProjectLeadPlanSchema.default({}),
   spend: SpendAgentCapsSchema.optional(),
-  connectionsOff: ProjectConnectionsSchema.partial().optional(),
+  connectionsOff: ProjectConnectionsPatchSchema.optional(),
   webSearch: z.boolean().optional(),
   /** Default `active` (the lead is created now); `draft` waits for a confirmation. */
   status: ProjectStatusSchema.default('active'),
@@ -229,7 +243,7 @@ export const ProjectUpdateRequestSchema = z
     folder: ProjectFolderRequestSchema.nullable(),
     vaultArea: AgentAreaSchema,
     spend: SpendAgentCapsSchema,
-    connectionsOff: ProjectConnectionsSchema.partial(),
+    connectionsOff: ProjectConnectionsPatchSchema,
     webSearch: z.boolean(),
     /** `active` confirms a draft (its lead is created); an active project never goes back. */
     status: z.literal('active'),
