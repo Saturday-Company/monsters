@@ -6333,3 +6333,106 @@ report fatturato".
   per-server label, so the name is derived from the id.
 **Consequence:** the sentences depend on the English text of the vault's errors: a change there needs the matching
 change in `tool-problem.ts` (the test in `apps/web/test/tool-problem.test.ts` shows the messages it relies on).
+
+### D-209 · Update schemas carry no defaults
+**Status:** done · 28/10/2026
+**Context:** stability review of 28/10 (P0-2). zod 4 keeps `.default()` under `.partial()` and `.optional()`:
+`ProjectConnectionsSchema.partial()` turned `{mcp:['a']}` into `{mcp:['a'], claude:[]}`, so switching off one MCP
+server in a project switched every Claude service back on (also through `allowConnection`). `AutomationUpdateSchema`'s
+`notify` had the same shape: turning on Telegram turned the app notice back on.
+**Choices:** a request that changes some fields of a stored record uses a patch schema with `.optional()` fields and no
+`.default()` (`ProjectConnectionsPatchSchema`, `AutomationNotifyPatchSchema`); services merge per field; stored-record
+schemas keep their defaults. `packages/shared/test/update-schemas.test.ts` walks every shared export named `*Update*` or
+`*Patch*` and fails on a default at any depth, with a floor of known names so a naming change can't empty it.
+**Consequence:** projects damaged before the fix can't be told apart, so there is no migration. A body schema defined
+inline in a route, or named otherwise, is outside the guard (none today).
+
+### D-210 · The live stream heals itself; entry points outside Hono never throw
+**Status:** done · 28/10/2026
+**Context:** review of 28/10 (P0-1, P0-9, P0-10). A malformed upgrade target threw in `new URL` before any check, and
+the process guard stops the core after 25 uncaught exceptions in 60 s: an unauthenticated off switch. A half-open socket
+(sleep, Wi-Fi change) stayed "connected" forever, since the protocol ping is answered by the browser. An auth refusal
+at upgrade reads as close 1006, and the session was re-checked once per outage, so an expired session retried forever.
+**Choices:**
+- Every handler the core registers outside Hono (upgrade, `ws` messages, the log subscriber, the heartbeat loop, the
+  HTTP listener, the Telegram supervisors' reports) turns a throw into a status or a closed socket.
+- The core sends `{kind:'ping'}` every `STREAM_HEARTBEAT_MS` (30 s). The page treats 2.5 silent heartbeats as a dead
+  socket, arming the watchdog only after the first ping (an older core is left alone); it reconnects at once on
+  `online` and on becoming visible after a long silence.
+- During an outage the session is re-checked from the third attempt, at most every 30 s; a confirmed 401 goes to the
+  login. Stop answered with nothing stopped re-reads the team.
+**Consequence:** new stream message kinds must stay ignorable by old clients. Code added outside Hono keeps the same
+contract: no throw reaches the process guard.
+
+### D-211 · The recent password is asked by the service that grants the power, not by a list of paths
+**Status:** done · 28/10/2026
+**Context:** review of 28/10 (P0-7, P0-8). `RECENT_ONLY` listed route paths: a stdio MCP server (any command) and a
+dedicated Telegram bot with "Tools for others" re-pointed to a monster with the Terminal granted code execution with a
+session confirmed days earlier. Every new route with the same power would slip by again.
+**Choices:** `auth/recent.ts` defines a branded `RecentProof` (`recentProofOf(auth)`: owner and recent). A service
+method that can grant the power to run code takes the proof as a required parameter, decides from the change (before
+and after) and throws `ConfirmRequiredError`; `app.onError` answers 403 `confirm_required`, which the UI's
+`ApiClient` already turns into "Confirm it's you". Covered: Terminal grants (inside the serialised permissions queue),
+restoring a monster or project with the Terminal, a stdio MCP server added or its command/args/env changed, the main
+Telegram bot's token and pairing, and on a dedicated bot with full tools: turning them on, changing its monster,
+letting in a person or a chat. Testing an MCP server is owner-only (the CLI token can't). Callers with no user in
+front (access cards) pass `undefined`.
+**Consequence:** a route that forgets the proof fails typecheck. Open: giving an existing stdio server to more
+monsters, and folder grants, need no recent password (the server was confirmed when added; folders rely on the
+blocklist of the security model).
+
+### D-212 · Cancellation follows the caller; nothing outlives the work it was for; nothing starts while closing
+**Status:** done · 28/10/2026
+**Context:** review of 28/10 (P0-3). A delegation's scope hung from the run only: a harness lead stopped by a limit or
+crashed during `delegate` left its delegate working, and `close()` detached a run whose child scopes were still
+working, so the kill switch and `activeRuns()` lost them. `startRun` checked `halted`, not `closing`.
+**Choices:**
+- The delegation scope stays a child of its run (kill switch, Stop of one monster, F-1) and also follows the caller's
+  tool-call signal (`ControlScope.follow`); on a harness the calls of Monsters' tools end with its stream. Same path
+  for `ask_teammate`.
+- `close()`/`finish()` abort child scopes still working (`CallerStoppedError`, stop cause `caller`) rather than keep
+  the run listed: a completed run with work under it would contradict D-191.
+- A delegation always logs its end, also when stopped during the final check. A stopped harness ends its turn after
+  `HARNESS_STOP_GRACE_MS` (5 s) even if its output never closes.
+- `startRun`/`serviceScope` throw `ClosingError` (a `HaltedError`) once closing: a message then is logged in a run
+  never started and `requeueWaiting` runs it at the next start; a card answer is refused (`QuestionError 'closing'`)
+  and the question stays parked.
+**Consequence:** no orphaned delegate spends tokens unseen. A delegation longer than the harness's 1 h MCP call
+timeout now stops with the call.
+
+### D-213 · Stable local origin, a lock tied to the boot, final start failures
+**Status:** done · 28/10/2026
+**Context:** review of 28/10 (P0-4, P0-5). The app started its core with `--port 0`, so the web UI's origin, and its
+localStorage (drafts, messages held by the kill switch, preferences, unread baseline), changed at every launch. On
+macOS and Windows `core.lock` was judged by pid alone: a reused pid after a crash or shutdown kept "already running"
+forever, and two processes could take over the same stale lock. Start failures other than tampered/home_locked were
+retried five times with the message dropped; a wedged core was never restarted; `monsters start` ignored SIGHUP.
+**Choices:**
+- The app remembers the core's port (`connections.json`, `corePort`) and passes `--prefer-port`: a busy port falls
+  back to a free one, which becomes the remembered one. `--port` stays strict. No localStorage copy on fallback.
+- `core.lock` records a boot id (Linux `boot_id`, macOS `kern.bootsessionuuid`) and the holder's start time is
+  compared with `acquiredAt` (`/proc`, `ps`, PowerShell; `shared/node/lock-holder.ts`). Never uptime (Windows Fast
+  Startup, sleep). Unknown means alive: two cores on one folder is worse than a clear message. The lock is published
+  with its content, and takeover is serialised by a `core.lock.takeover` guard (abandoned after 10 s).
+- A `start-failed` the core reports is final and shown with its message, Retry and the log path. The owned core is
+  health-checked every 10 s and terminated after about a minute without answers, so the crash path restarts it.
+  SIGHUP stops `monsters start` like SIGTERM.
+**Consequence:** to try by hand on macOS and Windows: the probes (no console flash, no delay), a real crash, the port
+across a restart.
+
+### D-214 · The vault survives big files, repeated headings, ignored folders; pipes keep their accents
+**Status:** done · 28/10/2026
+**Context:** review of 28/10 (P0-6, P0-11, P1). A file over 2 GiB in the vault stopped the core from starting (every
+file read whole to hash it). Section edits touched the first of two equal headings. isomorphic-git skipped paths in the
+user's `.gitignore`, so actions there "committed" nothing and undo failed. `sync`/`reindex` ran outside the path locks
+and could drop a note written meanwhile. Child-process output was decoded chunk by chunk, splitting accents into
+U+FFFD in Claude Code and Codex replies.
+**Choices:** only Markdown notes up to 8 MiB are read whole and parsed; other files and bigger notes are hashed in a
+stream (size and mtime over 256 MiB) and indexed as files; any per-file failure in sync/reindex is a warning retried at
+the next sync. The first commit and the user-edit snapshot skip files over 64 MiB. Section edits refuse an ambiguous
+heading, listing the matches, and accept `Parent > Child`; reads stay forgiving (D-207). `git add` uses force.
+`sync` re-checks the disk under the path lock before un-indexing; `reindex` locks each path and ends with a sync.
+Output of child processes is decoded with `StringDecoder` (harness, MCP stderr, installs, remote, login shell, desktop
+logs).
+**Consequence:** a file between 64 and 256 MiB is hashed but kept out of the automatic snapshot. A read of a plain
+repeated heading still returns the first match.

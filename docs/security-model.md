@@ -114,9 +114,11 @@ describes the perimeter, the threat model and the risks we have accepted.
   disk (cookies and `sessionStorage` saved to restore tabs) has both, as it had the cookie; and the sessions opened
   before this version were closed (you sign back in once).
 - **Recent confirmation for the most sensitive actions** (residual risk of M1). A session confirmed with the password
-  stays yours for 7 days, but letting a monster run commands, pairing a Telegram account or changing the main bot, and
-  turning on “Tools for others” of a dedicated bot want the password typed in that session in the last 15 minutes
-  (server side, `confirmed_at`); otherwise the core answers `confirm_required` and the UI asks for the password
+  stays yours for 7 days, but letting a monster run commands, adding an MCP server that launches a program or changing
+  its command, arguments or variables, pairing a Telegram account or changing the main bot, and on a dedicated bot
+  turning on “Tools for others”, pointing a bot that has them at another monster or letting a new person or chat into
+  it want the password typed in that session in the last 15 minutes (server side, `confirmed_at`). The service that
+  makes the change decides it from what the change does, not the route's path (D-211); otherwise the core answers `confirm_required` and the UI asks for the password
   (“Confirm it’s you”, `POST /api/auth/confirm`, in the same session). Changing the password already asks for the
   current one. The session the desktop app opens by itself on its own core (from the app's channel, cookie never on
   disk, new at every start) always counts as recent: the local mode experience doesn't change. It lasts as long as the
@@ -246,8 +248,8 @@ describes the perimeter, the threat model and the risks we have accepted.
 - **The CLI token is not the user in person.** `~/.monsters/cli-token` is a file that every process of your user can
   read, including an agent with the terminal. With the token you can see the status, use the kill switch, resume, write
   in the chat and launch automations; you can't answer the brake cards, change permissions, “Always ask” rules, spending
-  cap, the monsters' decisions, Telegram (main bot, pairing, dedicated bots), confirm drafts and projects, add, remove
-  or accept MCP servers and connectors, change keys, addresses and models of the providers and the subscriptions, turn
+  cap, the monsters' decisions, Telegram (main bot, pairing, dedicated bots), confirm drafts and projects, add, remove,
+  accept or test MCP servers and connectors, change keys, addresses and models of the providers and the subscriptions, turn
   on a page's scripts, restore an archived monster or project, remove monsters and projects, undo vault changes, nor
   write a monster's memory, the profile or `Privato/` (they would be written without the mark). A test lists all the
   routes that change state: a new unclassified route makes it fail. The same goes for the session the desktop app opens
