@@ -118,6 +118,39 @@ export function foldPath(path: string): string {
   return path.normalize('NFC').toLowerCase();
 }
 
+/**
+ * What the file system under a vault treats as the same name. macOS and Windows ignore case
+ * (`Idee.md` is `idee.md`), macOS also ignores the Unicode form (NFC and NFD); Linux ignores
+ * neither. It is a property of the vault's folder, probed once (`probePathIdentity`), not of
+ * the platform: a case-insensitive volume can be mounted on Linux and a case-sensitive one on
+ * macOS.
+ */
+export interface PathIdentity {
+  foldCase: boolean;
+  foldUnicode: boolean;
+}
+
+/** Names are what they are: how Linux file systems behave. */
+export const EXACT_PATHS: PathIdentity = { foldCase: false, foldUnicode: false };
+
+/**
+ * The identity of a vault path for the index and the lookups: two spellings with the same
+ * identity are the same file on this file system. The path stored and shown stays the real
+ * on-disk spelling; this is only the key.
+ */
+export function pathId(path: string, identity: PathIdentity): string {
+  const p = identity.foldUnicode ? path.normalize('NFC') : path;
+  return identity.foldCase ? p.toLowerCase() : p;
+}
+
+/**
+ * Key of the per-file locks: Unicode NFC always (a lock wider than needed only waits a bit),
+ * and case-folded where the file system folds it.
+ */
+export function lockKeyOf(path: string, identity: PathIdentity): string {
+  return pathId(path, { foldCase: identity.foldCase, foldUnicode: true });
+}
+
 /*
  * The folder of the files of Monsters (attachments, screenshots, pages made by
  * the monsters, D-075): Obsidian sees it, the vault does not (no index, no
@@ -194,7 +227,7 @@ export function assertValidNewPath(path: string, filesDir?: string | null): void
 
 /** Key used to resolve wikilinks: lowercase path without the `.md` extension. */
 export function linkKey(pathOrTarget: string): string {
-  const p = pathOrTarget.trim().toLowerCase();
+  const p = pathOrTarget.trim().normalize('NFC').toLowerCase();
   return p.endsWith('.md') ? p.slice(0, -3) : p;
 }
 

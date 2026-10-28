@@ -26,6 +26,7 @@ import {
   isNotFound,
   NOTE_INDEX_MAX_BYTES,
   peekFile,
+  probePathIdentity,
   WHOLE_FILE_MAX_BYTES,
   readIfExists,
   type DiskFile,
@@ -79,10 +80,13 @@ import {
   isSystemPath,
   isTmpPath,
   linkKey,
+  lockKeyOf,
+  pathId,
   TMP_SUFFIX,
   normalizeNotePath,
   normalizePath,
   titleOf,
+  type PathIdentity,
 } from './paths.ts';
 import { detectVaultLayout, writeVaultLayoutRecord } from './layout.ts';
 import { VaultPermissions, capitalize, type VaultPermissionsConfig } from './permissions.ts';
@@ -206,6 +210,11 @@ export interface VaultOpenOptions {
    * recorded in the new vault.
    */
   layout?: VaultLayoutId;
+  /**
+   * How the vault's file system compares names. Default: probed on the vault's folder
+   * (`probePathIdentity`); tests inject it to exercise a case-insensitive volume on Linux.
+   */
+  pathIdentity?: PathIdentity;
 }
 
 export interface VaultCreateOptions extends VaultOpenOptions {
@@ -365,7 +374,9 @@ export class VaultService {
   permissions: VaultPermissions;
   #vcs: VaultVcs | null;
   readonly #ownsDb: boolean;
-  readonly #locks = new KeyedMutex();
+  /** How the file system compares names (probed once per vault root): the key of index and locks. */
+  #identity: PathIdentity;
+  readonly #locks = new KeyedMutex((path) => lockKeyOf(path, this.#identity));
   readonly #git = new SerialQueue();
   /** Hashes of our own writes, so the watcher ignores them (null = removed). */
   readonly #ownWrites = new Map<string, string | null>();
@@ -396,12 +407,14 @@ export class VaultService {
     semanticOptions: SemanticIndexOptions | undefined;
     filesDir: string | null | undefined;
     layout: VaultLayout;
+    identity: PathIdentity;
   }) {
     this.root = opts.root;
+    this.#identity = opts.identity;
     this.layout = opts.layout;
     this.#filesDir = opts.filesDir ?? null;
     this.#realRoot = opts.realRoot;
-    this.index = new VaultIndex(opts.db, opts.layout);
+    this.index = new VaultIndex(opts.db, opts.layout, opts.identity);
     this.#ownsDb = opts.ownsDb;
     this.#vcs = opts.vcs;
     this.permissions = new VaultPermissions(opts.permissions, opts.layout);
@@ -531,9 +544,11 @@ export class VaultService {
     const ownsDb = !opts.db;
     const db = opts.db ?? openDb(opts.indexPath ?? ':memory:');
     migrate(db, 'vault', vaultMigrations);
+    const realRoot = await realpath(root);
     const service = new VaultService({
       root,
-      realRoot: await realpath(root),
+      realRoot,
+      identity: opts.pathIdentity ?? (await probePathIdentity(realRoot)),
       db,
       ownsDb,
       vcs,
@@ -545,6 +560,9 @@ export class VaultService {
       filesDir: opts.filesDir,
       layout,
     });
+    // Rows are keyed by how names compare here: another answer than the index was built with
+    // (the first start after the migration, a vault moved to another volume) rebuilds it.
+    service.index.adoptIdentity();
     // A migration that rebuilt index tables, or a rebuild that did not finish
     // (core stopped half-way), needs every note indexed again.
     if (service.index.reindexPending) await service.reindex();
@@ -590,26 +608,39 @@ export class VaultService {
       },
       this.#filesDir,
     );
-    const known = new Map(this.index.files().map((f) => [f.path, f]));
+    // By identity: where names are folded, the spelling on disk (a renamed case, an NFD name from
+    // the directory listing) and the one in the index are one file.
+    const known = new Map(this.index.files().map((f) => [this.#id(f.path), f]));
     // Notes of a folder that cannot be read now stay in the index as they were.
-    for (const path of known.keys()) {
-      if (skipped.some((f) => path.startsWith(`${f}/`))) known.delete(path);
+    for (const [id, f] of known) {
+      if (skipped.some((folder) => f.path.startsWith(`${folder}/`))) known.delete(id);
     }
     let indexed = 0;
     let removed = 0;
     let pathsChanged = false;
     for (const path of files) {
-      const prev = known.get(path);
-      known.delete(path);
+      const id = this.#id(path);
+      const prev = known.get(id);
+      known.delete(id);
       const st = await stat(join(this.root, path)).catch(() => null);
       if (!st) continue;
-      if (prev && prev.size === st.size && prev.mtime === Math.round(st.mtimeMs)) continue;
+      if (
+        prev &&
+        prev.path === path &&
+        prev.size === st.size &&
+        prev.mtime === Math.round(st.mtimeMs)
+      ) {
+        continue;
+      }
       // Under the lock of the path: the watcher may be indexing it too (sync after watch()).
-      const changed = await this.#locks.withLocks([path], () => this.#indexReadable(path));
+      const changed = await this.#locks.withLocks([path], () =>
+        // A spelling that changed (renamed case) is the same content: indexed again to take it.
+        this.#indexReadable(path, prev !== undefined && prev.path !== path),
+      );
       if (changed) indexed++;
-      if (!prev) pathsChanged = true;
+      if (!prev || prev.path !== path) pathsChanged = true;
     }
-    for (const path of known.keys()) {
+    for (const { path } of known.values()) {
       // The scan is older than this loop: a note written (by an action or by the watcher) in
       // between is on disk now, so it is judged again under the lock before it is dropped.
       const gone = await this.#locks.withLocks([path], async () => {
@@ -670,12 +701,45 @@ export class VaultService {
     return true;
   }
 
+  /** Identity of a path on this vault's file system: what the index and the locks compare. */
+  #id(path: string): string {
+    return pathId(path, this.#identity);
+  }
+
+  /**
+   * The spelling a path really has: the one of its indexed row, else the one on disk, for as
+   * much of it as exists (`idee.md` when `Idee.md` is there, folders included); the part that
+   * does not exist yet keeps the spelling asked for. Where names are not folded (Linux) the
+   * path is returned as it is. Used before every write, so the spellings of one file are never
+   * two index rows, two locks or two files.
+   */
+  async #canon(path: string): Promise<string> {
+    if (!this.#identity.foldCase && !this.#identity.foldUnicode) return path;
+    const row = this.index.get(path);
+    if (row) return row.path;
+    const parts = path.split('/');
+    const out: string[] = [];
+    let dir = this.#realRoot;
+    for (const [i, part] of parts.entries()) {
+      const names = await readdir(dir).catch(() => null);
+      const id = this.#id(part);
+      const found = names?.includes(part) ? part : names?.find((n) => this.#id(n) === id);
+      if (found === undefined) {
+        out.push(...parts.slice(i));
+        break;
+      }
+      out.push(found);
+      dir = join(dir, found);
+    }
+    return out.join('/');
+  }
+
   /**
    * Absolute path of a vault file, checked to stay inside the vault even
    * through symbolic links. Every read and write of the service goes through here.
    */
   #abs(path: string): Promise<string> {
-    return resolveInVault(this.#realRoot, path);
+    return resolveInVault(this.#realRoot, path, this.#identity);
   }
 
   /** Like `#abs`, but null for paths that leave the vault (they are ignored). */
@@ -959,8 +1023,9 @@ export class VaultService {
       const abs = await this.#absOrNull(path);
       // Streamed: an attachment added to the vault is never read whole.
       const hash = abs === null ? null : ((await hashOnDisk(abs))?.hash ?? null);
-      if (this.#ownWrites.has(path) && this.#ownWrites.get(path) === hash) {
-        this.#ownWrites.delete(path);
+      const own = this.#id(path);
+      if (this.#ownWrites.has(own) && this.#ownWrites.get(own) === hash) {
+        this.#ownWrites.delete(own);
         return;
       }
       const before = this.index.get(path);
@@ -1080,7 +1145,8 @@ export class VaultService {
     this.#vcs = fresh.#vcs;
     this.#filesDir = fresh.#filesDir;
     this.layout = fresh.layout;
-    this.index = new VaultIndex(this.index.db, fresh.layout);
+    this.#identity = fresh.#identity;
+    this.index = new VaultIndex(this.index.db, fresh.layout, fresh.#identity);
     this.permissions = new VaultPermissions(this.permissions.config, fresh.layout);
     this.#ownWrites.clear();
     this.#contents.clear();
@@ -1105,13 +1171,15 @@ export class VaultService {
     }
     const candidates = hasExtension(p) ? [p] : [`${p}.md`, p];
     for (const c of candidates) {
-      if (this.index.get(c)) return c;
+      const row = this.index.get(c);
+      if (row) return row.path;
     }
     for (const c of candidates) {
       if (await existsFile(await this.#abs(c))) {
-        await this.#indexFromDisk(c);
+        const real = await this.#canon(c);
+        await this.#indexFromDisk(real);
         this.index.resolveLinks();
-        return c;
+        return real;
       }
     }
     const byLink = this.index.resolve('wiki', p, '');
@@ -1168,7 +1236,8 @@ export class VaultService {
       const paths = [
         ...new Set(p.changes.flatMap((c) => (c.renameFrom ? [c.path, c.renameFrom] : [c.path]))),
       ];
-      const unlocked = paths.filter((path) => !lockPaths.includes(path));
+      const locked = new Set(lockPaths.map((path) => this.#id(path)));
+      const unlocked = paths.filter((path) => !locked.has(this.#id(path)));
       if (this.#vcs && unlocked.length > 0) await this.#snapshotUserChanges(unlocked);
 
       // Resolve every path (symbolic links leaving the vault are refused) and
@@ -1204,14 +1273,17 @@ export class VaultService {
           if (step.fromAbs && change.renameFrom) {
             // Too big to read: renamed whole, never held in memory.
             if (this.#watcher) {
-              this.#ownWrites.set(change.path, (await hashOnDisk(step.fromAbs))?.hash ?? null);
-              this.#ownWrites.set(change.renameFrom, null);
+              this.#ownWrites.set(
+                this.#id(change.path),
+                (await hashOnDisk(step.fromAbs))?.hash ?? null,
+              );
+              this.#ownWrites.set(this.#id(change.renameFrom), null);
             }
             await mkdir(dirname(abs), { recursive: true });
             await renameWithRetry(step.fromAbs, abs);
             pathsChanged = true;
           } else if (change.content === null) {
-            if (this.#watcher) this.#ownWrites.set(change.path, null);
+            if (this.#watcher) this.#ownWrites.set(this.#id(change.path), null);
             if (step.trashAbs) {
               if (step.existed) {
                 // Native path: `posix.dirname` of a Windows path would be ".".
@@ -1226,7 +1298,7 @@ export class VaultService {
             const bytes =
               typeof change.content === 'string' ? Buffer.from(change.content) : change.content;
             if (!this.index.get(change.path)) pathsChanged = true;
-            if (this.#watcher) this.#ownWrites.set(change.path, contentHash(bytes));
+            if (this.#watcher) this.#ownWrites.set(this.#id(change.path), contentHash(bytes));
             await atomicWrite(abs, bytes);
           }
           step.done = true;
@@ -1327,14 +1399,14 @@ export class VaultService {
       const { change, abs, previous } = step;
       if (step.fromAbs && change.renameFrom) {
         if (this.#watcher) {
-          this.#ownWrites.set(change.renameFrom, (await hashOnDisk(abs))?.hash ?? null);
-          this.#ownWrites.set(change.path, null);
+          this.#ownWrites.set(this.#id(change.renameFrom), (await hashOnDisk(abs))?.hash ?? null);
+          this.#ownWrites.set(this.#id(change.path), null);
         }
         await renameWithRetry(abs, step.fromAbs);
         continue;
       }
       if (this.#watcher) {
-        this.#ownWrites.set(change.path, previous ? contentHash(previous) : null);
+        this.#ownWrites.set(this.#id(change.path), previous ? contentHash(previous) : null);
       }
       if (change.content === null && step.trashAbs && step.existed) {
         await mkdir(dirname(abs), { recursive: true });
@@ -1849,22 +1921,24 @@ export class VaultService {
       action: 'create',
     },
   ): Promise<WriteResult & { warning?: string }> {
-    const path = normalizeNotePath(input.path);
+    const asked = normalizeNotePath(input.path);
     const mode = input.mode ?? 'create';
     // In every mode, before the note is read (a CONFLICT would tell its hash): hidden files
     // like `.monsters/vault.json` (the layout record, D-154) are no note to overwrite.
-    if (isSystemPath(path) || isHidden(path)) {
+    if (isSystemPath(asked) || isHidden(asked)) {
       throw new ToolError(
         'BLOCKED_BY_POLICY',
-        `${path}: hidden and system folders are managed by the system`,
+        `${asked}: hidden and system folders are managed by the system`,
       );
     }
-    if (mode === 'create') assertValidNewPath(path, this.#filesDir);
+    if (mode === 'create') assertValidNewPath(asked, this.#filesDir);
     if (mode === 'overwrite' && !input.base_hash) {
       throw new ToolError('INVALID_INPUT', 'base_hash is required to overwrite', {
         hint: 'Read the note with vault_read and pass its hash as base_hash.',
       });
     }
+    // Where names are folded, `idee.md` is the note `Idee.md` already there: same file, same row, same lock.
+    const path = await this.#canon(asked);
     return this.#act(actor, meta.tool, input, [path], async () => {
       const current = await this.#readText(path);
       const now = nowIso();
@@ -2099,7 +2173,17 @@ export class VaultService {
       else if (isMarkdown(from) && !hasExtension(to)) to = `${to}.md`;
     }
     if (to === from) throw new ToolError('INVALID_INPUT', 'source and destination are the same');
+    if (this.#id(to) === this.#id(from)) {
+      // One file for this file system: a plain move would write and then delete the same file.
+      throw new ToolError(
+        'INVALID_INPUT',
+        `${from} and ${to} differ only in case or accents, which this file system treats as the same name`,
+        { hint: 'Move the note to a temporary name first, then to the name you want.' },
+      );
+    }
     assertValidNewPath(to, this.#filesDir);
+    // Folders of the destination that exist keep the spelling they have on disk.
+    to = await this.#canon(to);
     const fromRow = this.#row(from);
     const updateLinks = input.update_links ?? true;
     const sources = fromRow && updateLinks ? this.index.backlinkPaths(fromRow.nid) : [];

@@ -23,10 +23,16 @@ export class SerialQueue {
 /** Mutex per key. */
 export class KeyedMutex {
   readonly #tails = new Map<string, Promise<void>>();
+  readonly #keyOf: (key: string) => string;
+
+  /** `keyOf` maps what callers pass to the identity that is locked: spellings of one file share a lock. */
+  constructor(keyOf: (key: string) => string = (key) => key) {
+    this.#keyOf = keyOf;
+  }
 
   /** Acquires all keys (sorted, deduplicated) and runs `fn` while holding them. */
   async withLocks<T>(keys: readonly string[], fn: () => Promise<T>): Promise<T> {
-    const sorted = [...new Set(keys)].sort();
+    const sorted = [...new Set(keys.map(this.#keyOf))].sort();
     const releases: (() => void)[] = [];
     try {
       for (const key of sorted) releases.push(await this.#acquire(key));

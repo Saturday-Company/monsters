@@ -184,4 +184,23 @@ export const vaultMigrations: readonly Migration[] = [
       INSERT INTO vault_meta (key, value) VALUES ('reindex_pending', '1');
     `,
   },
+  {
+    version: 5,
+    name: 'path_id',
+    // A function: SQLite has no "ADD COLUMN IF NOT EXISTS", and a state where the record of the
+    // migration is gone but the column is not must not fail the start.
+    up: (db) => {
+      // Identity of the path on the vault's file system (NFC, and lower case where the file
+      // system ignores case): one row per file whatever the spelling asked for. 'path' keeps
+      // the real on-disk spelling. Filled by the rebuild this migration asks for.
+      const columns = db.all<{ name: string }>(`PRAGMA table_info(vault_notes)`);
+      if (!columns.some((c) => c.name === 'path_id')) {
+        db.exec(`ALTER TABLE vault_notes ADD COLUMN path_id TEXT NOT NULL DEFAULT ''`);
+      }
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS vault_notes_path_id ON vault_notes (path_id);
+        INSERT OR REPLACE INTO vault_meta (key, value) VALUES ('reindex_pending', '1');
+      `);
+    },
+  },
 ];

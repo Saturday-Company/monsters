@@ -4,7 +4,7 @@ import { lstat, mkdir, readFile, realpath, rename, rm, stat, writeFile } from 'n
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { ToolError } from '@monsters/shared';
-import { TMP_SUFFIX } from './paths.ts';
+import { EXACT_PATHS, TMP_SUFFIX, pathId, type PathIdentity } from './paths.ts';
 
 /** Content hash returned by `vault_read` and required as `base_hash` (sha-256, 16 hex chars). */
 export function contentHash(data: string | Uint8Array): string {
@@ -30,16 +30,11 @@ export function isWithin(root: string, abs: string): boolean {
 }
 
 /**
- * The same entry for the file system: without trailing separators, and where
- * case and Unicode form do not count (macOS, Windows), folded.
+ * The same entry for the file system: without trailing separators, and where the file system
+ * ignores case or Unicode form (see `probePathIdentity`), folded.
  */
-function samePath(a: string, b: string): boolean {
-  const norm = (p: string) => {
-    const trimmed = p.replace(/[\\/]+$/, '') || p;
-    return process.platform === 'darwin' || process.platform === 'win32'
-      ? trimmed.normalize('NFC').toLowerCase()
-      : trimmed;
-  };
+function samePath(a: string, b: string, identity: PathIdentity): boolean {
+  const norm = (p: string) => pathId(p.replace(/[\\/]+$/, '') || p, identity);
   return norm(a) === norm(b);
 }
 
@@ -52,7 +47,11 @@ function samePath(a: string, b: string): boolean {
  * well: the permissions (`Privato/`, the areas) are those of the path asked.
  * Run this before every I/O.
  */
-export async function resolveInVault(realRoot: string, path: string): Promise<string> {
+export async function resolveInVault(
+  realRoot: string,
+  path: string,
+  identity: PathIdentity,
+): Promise<string> {
   const abs = join(realRoot, path);
   let probe = abs;
   const tail: string[] = [];
@@ -64,7 +63,7 @@ export async function resolveInVault(realRoot: string, path: string): Promise<st
       // A link inside the vault (`Inbox/Link.md -> Privato/Diario.md`, `Agenti/Rhea/p ->
       // Privato`): the permissions are judged on the path asked, so it is never followed
       // (review of 18/10, B2). The vault neither lists nor indexes links either.
-      if (!samePath(resolved, abs)) {
+      if (!samePath(resolved, abs, identity)) {
         throw new ToolError(
           'BLOCKED_BY_POLICY',
           `${path} goes through a symbolic link inside the vault: links are not followed`,
@@ -91,6 +90,44 @@ export async function resolveInVault(realRoot: string, path: string): Promise<st
   throw new ToolError('BLOCKED_BY_POLICY', `${path} points outside the vault (symbolic link)`, {
     hint: 'Links that leave the vault folder are ignored: copy the file into the vault instead.',
   });
+}
+
+/**
+ * Finds out how the file system under `root` compares names, by asking it: a probe file is
+ * created in the vault's root (hidden and temporary, so neither the index nor Obsidian nor git
+ * sees it) and looked up with another case and another Unicode form. Never assumed from the
+ * platform. When the folder cannot be written, the usual behaviour of the platform is assumed:
+ * wider than needed is safe (more serialization, no duplicates), narrower is not.
+ */
+export async function probePathIdentity(root: string): Promise<PathIdentity> {
+  const guess: PathIdentity =
+    process.platform === 'darwin'
+      ? { foldCase: true, foldUnicode: true }
+      : process.platform === 'win32'
+        ? { foldCase: true, foldUnicode: false }
+        : EXACT_PATHS;
+  // Mixed case and a letter with a composed accent (e acute, U+00E9) that has a decomposed form.
+  const accent = String.fromCodePoint(0xe9);
+  const name = `.monsters-names-${randomBytes(4).toString('hex')}-aB${accent}${TMP_SUFFIX}`;
+  try {
+    await writeFile(join(root, name), '', { flag: 'wx' });
+  } catch {
+    return guess;
+  }
+  try {
+    const seen = (other: string) =>
+      stat(join(root, other)).then(
+        () => true,
+        () => false,
+      );
+    // Same name in another case, and in the other Unicode form: found means the same entry.
+    return {
+      foldCase: await seen(name.toLowerCase()),
+      foldUnicode: await seen(name.normalize('NFD')),
+    };
+  } finally {
+    await rm(join(root, name), { force: true });
+  }
 }
 
 /**
