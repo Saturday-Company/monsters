@@ -39,14 +39,14 @@
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "croner": "10.0.1",
-    "pdfjs-dist": "6.4.299",
+    "pdfjs-dist": "6.5.438",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-markdown": "10.1.0",
     "remark-gfm": "4.0.1",
     "tailwind-merge": "3.7.0",
     "zod": "4.6.7",
-    "zustand": "5.0.15"
+    "zustand": "5.1.0"
   },
   "devDependencies": {
     "@monsters/core": "workspace:*",

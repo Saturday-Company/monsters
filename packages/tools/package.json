@@ -45,8 +45,8 @@
   "dependencies": {
     "@monsters/shared": "workspace:*",
     "node-html-markdown": "2.0.0",
-    "node-html-parser": "9.0.4",
-    "undici": "8.12.2",
+    "node-html-parser": "9.0.7",
+    "undici": "8.12.4",
     "zod": "4.6.7"
   }
 }
