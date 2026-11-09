@@ -59,6 +59,6 @@
     "eslint-plugin-react-hooks": "7.1.1",
     "simple-icons": "16.35.0",
     "tailwindcss": "4.3.3",
-    "vite": "8.3.4"
+    "vite": "8.3.6"
   }
 }

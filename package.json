@@ -76,6 +76,6 @@
     "punycode": "2.3.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.2",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   }
 }
