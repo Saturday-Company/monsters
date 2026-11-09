@@ -60,6 +60,6 @@
   "devDependencies": {
     "@monsters/core": "workspace:*",
     "@types/ws": "8.18.2",
-    "ws": "8.22.0"
+    "ws": "8.22.1"
   }
 }
