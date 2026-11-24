@@ -1,0 +1,153 @@
+---
+/* /docs/getting-started/ and /it/docs/getting-started/: install, first start, a model, a first agent. */
+import { GETTING_STARTED } from '../i18n/getting-started.ts';
+import { PAGES } from '../i18n/pages.ts';
+import { STRINGS, type Lang } from '../i18n/strings.ts';
+import Text from '../layouts/Text.astro';
+import { siteData } from '../lib/build-data.ts';
+import { formatDate } from '../lib/dates.ts';
+import { fileDates } from '../lib/history.ts';
+import { ogImagePath } from '../lib/ogpages.ts';
+import { pageLdText } from '../lib/seo.ts';
+import Crumbs from './Crumbs.astro';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const t = STRINGS[lang];
+const p = PAGES[lang];
+const g = GETTING_STARTED[lang];
+const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
+const base = lang === 'it' ? '/it/docs/' : '/docs/';
+const home = lang === 'it' ? '/it/' : '/';
+const path = `${base}getting-started/`;
+await siteData();
+// The page's text is in src/i18n/getting-started.ts: its history is the page's.
+const dates = fileDates('apps/site/src/i18n/getting-started.ts');
+const today = new Date().toISOString().slice(0, 10);
+const modified = dates?.modified ?? today;
+const published = dates?.published ?? modified;
+const ld = pageLdText({
+  lang,
+  site,
+  path,
+  title: g.metaTitle,
+  description: g.description,
+  type: 'TechArticle',
+  crumbs: [
+    { name: p.crumbHome, path: home },
+    { name: p.docs.crumb, path: base },
+    { name: g.crumb, path },
+  ],
+  faq: g.faq,
+  modified,
+  published,
+});
+const otherHref = lang === 'it' ? '/docs/getting-started/' : '/it/docs/getting-started/';
+const toc = g.steps.map((s) => ({ id: s.id, title: s.title }));
+---
+
+<Text
+  t={t}
+  title={g.metaTitle}
+  description={g.description}
+  path={path}
+  alternates={{ en: '/docs/getting-started/', it: '/it/docs/getting-started/' }}
+  ld={ld}
+  otherHref={otherHref}
+  ogType="article"
+  image={{ path: ogImagePath('docs-getting-started'), alt: g.metaTitle }}
+>
+  <article class="doc">
+    <Crumbs
+      crumbs={[
+        { name: p.crumbHome, href: home },
+        { name: p.docs.crumb, href: base },
+      ]}
+      current={g.crumb}
+    />
+    <header class="doc__head">
+      <h1 class="display doc__title doc__title--guide">{g.title}</h1>
+      <p class="doc__tldr">
+        <strong class="label">{g.tldrLabel}</strong>{' '}
+        {g.tldr}
+      </p>
+      <p class="doc__note">
+        {g.updated} <time datetime={modified}>{formatDate(modified, lang)}</time>
+      </p>
+    </header>
+
+    <div class="doc__layout">
+      <div class="prose">
+        {
+          g.steps.map((step) => (
+            <section class="step" id={step.id} aria-labelledby={`${step.id}-title`}>
+              <h2 id={`${step.id}-title`}>{step.title}</h2>
+              {step.body.map((para) => <p>{para}</p>)}
+              {
+                step.cmds?.map((c) => (
+                  <div class="codeblock">
+                    <p class="codeblock__label label">{c.label}</p>
+                    <pre><code data-copy-src>{c.code}</code></pre>
+                    <button type="button" class="key key--sm" data-copy data-copied={g.copied}>
+                      {g.copy}
+                    </button>
+                  </div>
+                ))
+              }
+              {step.after?.map((para) => <p>{para}</p>)}
+            </section>
+          ))
+        }
+
+        <section class="step" aria-labelledby="next-title">
+          <h2 id="next-title">{g.nextTitle}</h2>
+          <ul>
+            {
+              g.next.map(([href, label]) => (
+                <li>
+                  <a href={href}>{label}</a>
+                </li>
+              ))
+            }
+          </ul>
+        </section>
+
+        <section class="step" aria-labelledby="faq-title">
+          <h2 id="faq-title">{g.faqTitle}</h2>
+          <ul class="faq faq--plain" role="list">
+            {
+              g.faq.map((item) => (
+                <li>
+                  <details>
+                    <summary>
+                      <h3 class="faq__q">{item.q}</h3>
+                      <span class="faq__x" aria-hidden="true" />
+                    </summary>
+                    <p class="faq__a">{item.a}</p>
+                  </details>
+                </li>
+              ))
+            }
+          </ul>
+        </section>
+      </div>
+      <aside class="toc toc--side" aria-label={p.guide.onThisPage}>
+        <p class="label toc__title">{p.guide.onThisPage}</p>
+        <ol>
+          {
+            toc.map((s) => (
+              <li>
+                <a href={`#${s.id}`}>{s.title}</a>
+              </li>
+            ))
+          }
+        </ol>
+        <p class="toc__all">
+          <a href={base}>← {p.guide.all}</a>
+        </p>
+      </aside>
+    </div>
+  </article>
+</Text>

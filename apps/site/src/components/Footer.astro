@@ -17,6 +17,7 @@ interface Props {
 const { t, build, simple = false, otherHref } = Astro.props;
 const docsHref = t.lang === 'it' ? '/it/docs/' : '/docs/';
 const compareHref = t.lang === 'it' ? '/it/compare/' : '/compare/';
+const startHref = `${docsHref}getting-started/`;
 const changelogHref = t.lang === 'it' ? '/it/changelog/' : '/changelog/';
 const notes = [
   { id: 'log', mark: '*', text: t.notes.log },
@@ -65,6 +66,7 @@ const sig = toBase64(`monsters ${build.sha} ${stamp}Z`);
     <div class="foot__links label">
       <a href={REPO_URL} rel="noopener">GitHub</a>
       <a href={RELEASES_URL} rel="noopener">Releases</a>
+      <a href={startHref}>{t.nav.start}</a>
       <a href={docsHref}>{t.nav.docs}</a>
       <a href={compareHref}>{t.nav.compare}</a>
       <a href={changelogHref}>{t.nav.changelog}</a>

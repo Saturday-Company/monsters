@@ -1,5 +1,6 @@
 ---
 /* /docs/ and /it/docs/: the list of guides. The guides exist in English only. */
+import { GETTING_STARTED } from '../i18n/getting-started.ts';
 import { STRINGS, type Lang } from '../i18n/strings.ts';
 import { PAGES } from '../i18n/pages.ts';
 import Text from '../layouts/Text.astro';
@@ -17,6 +18,7 @@ const p = PAGES[lang];
 const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
 const path = lang === 'it' ? '/it/docs/' : '/docs/';
 const home = lang === 'it' ? '/it/' : '/';
+const start = GETTING_STARTED[lang];
 const ld = pageLdText({
   lang,
   site,
@@ -49,6 +51,14 @@ const ld = pageLdText({
     </header>
 
     <ul class="cards" role="list">
+      <li>
+        <a class="card" href={`${path}getting-started/`}>
+          <span class="label card__kicker">{start.crumb}</span>
+          <h2 class="card__title">{start.title}</h2>
+          <span class="card__text">{start.tldr}</span>
+          <span class="card__go label">{start.open} →</span>
+        </a>
+      </li>
       {
         GUIDES.map((g) => (
           <li>
