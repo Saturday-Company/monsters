@@ -11,9 +11,9 @@
  * The build is laid out in Cloudflare's Build Output format and deployed with
  * `cf deploy --prebuilt`, run from this package (logged in already):
  *
- *   .cloudflare/output/v0/config.json                          build context
- *   .cloudflare/output/v0/workers/default/worker.config.json   name, assets settings
- *   .cloudflare/output/v0/workers/default/assets/              the site (a copy of dist/)
+ *   .cloudflare/output/v1/config.json                          build context
+ *   .cloudflare/output/v1/workers/default/worker.config.json   name, assets settings
+ *   .cloudflare/output/v1/workers/default/assets/              the site (a copy of dist/)
  *
  * A Worker with an assets directory and no bundle is an assets-only Worker. `_headers` in
  * dist/ (from public/) sets the cache and security headers. The output is removed afterwards
@@ -27,7 +27,7 @@ import { parseArgs } from 'node:util';
 
 const PKG = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const DIST = join(PKG, 'dist');
-const OUTPUT = join(PKG, '.cloudflare', 'output', 'v0');
+const OUTPUT = join(PKG, '.cloudflare', 'output', 'v1');
 const WORKER_DIR = join(OUTPUT, 'workers', 'default');
 
 const WORKER_NAME = 'monsters';
