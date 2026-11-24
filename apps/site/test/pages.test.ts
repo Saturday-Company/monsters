@@ -16,7 +16,7 @@ import { llmsTxt } from '../src/lib/llms.ts';
 import { allPages, alternatesOf } from '../src/lib/pages.ts';
 import { pageGraph } from '../src/lib/seo.ts';
 import fallback from '../src/data/fallback.json' with { type: 'json' };
-import { downloadsFrom, latestVersion, type Feed } from '../src/lib/feed.ts';
+import { BUILD_STEPS, downloadsFrom, latestVersion, type Feed } from '../src/lib/feed.ts';
 
 const site = 'https://getmonsters.dev';
 
@@ -162,5 +162,38 @@ describe('page JSON-LD', () => {
     ]);
     const crumbs = nodes[1] as unknown as { itemListElement: { position: number; item: string }[] };
     expect(crumbs.itemListElement.map((i) => i.item)).toEqual([`${site}/`, `${site}/compare/`]);
+  });
+});
+
+describe('build from source', () => {
+  it('shows the same commands on the site, in llms.txt and in both READMEs', () => {
+    const root = [readRepoFile('README.md'), readRepoFile('README.it.md')];
+    for (const step of BUILD_STEPS) for (const readme of root) expect(readme).toContain(step);
+    const feeds = fallback.feeds as Feed[];
+    const data = {
+      version: latestVersion(feeds),
+      releaseDate: null,
+      downloads: downloadsFrom(feeds),
+      stars: null,
+      contributors: [],
+      offline: [],
+    };
+    expect(llmsTxt(data)).toContain(BUILD_STEPS.join(' && '));
+  });
+
+  it('only uses scripts and workspaces that exist', () => {
+    const scripts = (
+      JSON.parse(readRepoFile('package.json')) as { scripts: Record<string, string> }
+    ).scripts;
+    expect(scripts['build:core']).toBeDefined();
+    for (const name of ['@monsters/web', '@monsters/cli']) {
+      const dir = name === '@monsters/web' ? 'apps/web' : 'packages/cli';
+      const pkg = JSON.parse(readRepoFile(`${dir}/package.json`)) as { name: string };
+      expect(pkg.name).toBe(name);
+    }
+    const web = JSON.parse(readRepoFile('apps/web/package.json')) as {
+      scripts: Record<string, string>;
+    };
+    expect(web.scripts['build']).toBeDefined();
   });
 });

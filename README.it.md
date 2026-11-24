@@ -87,7 +87,7 @@ piano ChatGPT.
 
 ```sh
 pnpm install
-pnpm build:core                                   # interfaccia web + core impacchettato
+pnpm --filter @monsters/web build                 # l'interfaccia web che serve il core
 pnpm --filter @monsters/cli exec monsters start   # Monsters su http://127.0.0.1:4747
 pnpm desktop:dev                                  # oppure l'app desktop Electron
 ```

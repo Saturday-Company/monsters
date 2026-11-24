@@ -5,7 +5,7 @@
  * into view.
  */
 import { type Strings } from '../i18n/strings.ts';
-import { REPO_URL } from '../lib/feed.ts';
+import { BUILD_COMMAND, REPO_URL } from '../lib/feed.ts';
 import { cliHelp } from '../lib/code.ts';
 import { crc32 } from '../lib/hexdump.ts';
 import { SQUAD, caption, halfBlockLines } from '../lib/monsters.ts';
@@ -30,7 +30,7 @@ const names = team.map((m) => caption(m.name)).join(GAP);
 const help = cliHelp(version);
 const helpLines = help.replace(/\n$/, '').split('\n');
 
-const build = `git clone ${REPO_URL} && cd monsters && pnpm install && pnpm --filter @monsters/web build && pnpm --filter @monsters/cli exec monsters start`;
+const build = `git clone ${REPO_URL} && cd monsters && ${BUILD_COMMAND}`;
 
 type Line = { html: string; cls?: string; pause?: number };
 const lines: Line[] = [

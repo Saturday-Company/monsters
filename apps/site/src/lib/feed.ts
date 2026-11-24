@@ -9,6 +9,17 @@ import type { Os } from './os.ts';
 export const REPO_URL = 'https://github.com/Saturday-Company/monsters';
 // Not /releases/latest: GitHub skips pre-releases there, and every alpha is one.
 export const RELEASES_URL = `${REPO_URL}/releases`;
+/**
+ * Running Monsters from a clone. `monsters start` runs the TypeScript sources and the core serves
+ * `apps/web/dist`, so building the web UI is enough: `pnpm build:core` also bundles the core, which
+ * only the desktop app uses. The README shows the same three commands.
+ */
+export const BUILD_STEPS = [
+  'pnpm install',
+  'pnpm --filter @monsters/web build',
+  'pnpm --filter @monsters/cli exec monsters start',
+] as const;
+export const BUILD_COMMAND = BUILD_STEPS.join(' && ');
 export const FEED_BASE = 'https://monsters-updates.saturdaycompany.workers.dev/desktop';
 /** One feed per system (apps/desktop/scripts/package-config.ts, channel `alpha`). */
 export const FEEDS = { linux: 'alpha-linux.yml', windows: 'alpha.yml', mac: 'alpha-mac.yml' };

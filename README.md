@@ -84,7 +84,7 @@ model. Optional: Chrome for the monsters' browser, Claude Code for your Claude p
 
 ```sh
 pnpm install
-pnpm build:core                                   # web UI + bundled core
+pnpm --filter @monsters/web build                 # the web UI the core serves
 pnpm --filter @monsters/cli exec monsters start   # Monsters at http://127.0.0.1:4747
 pnpm desktop:dev                                  # or run the Electron desktop app
 ```

@@ -9,7 +9,7 @@ import { COMPARE, COMPETITORS, VERIFIED } from '../i18n/compare.ts';
 import { STRINGS } from '../i18n/strings.ts';
 import type { SiteData } from './build-data.ts';
 import { GUIDES, absolutizeLinks, blob, docsDir } from './docs.ts';
-import { REPO_URL, RELEASES_URL } from './feed.ts';
+import { BUILD_COMMAND, REPO_URL, RELEASES_URL } from './feed.ts';
 import { COMPANY_NAME, COMPANY_URL, LICENSE_URL, SITE_ORIGIN, homeFaq } from './seo.ts';
 
 export function llmsTxt(data: SiteData): string {
@@ -59,7 +59,7 @@ Monsters is a local-first, provider-agnostic agentic hub: an orchestrator (Titan
 - Latest builds: ${RELEASES_URL}
 ${downloads}
 - Linux: AppImage or .deb. macOS: .dmg for Apple silicon and Intel. Windows: .exe installer (not yet signed with a certificate from a public CA, so SmartScreen warns; updates are verified with the project's own signed feed).
-- Build from source: Node.js 24 or newer and pnpm 12, see ${blob('README.md')}
+- Build from source: Node.js 24 or newer and pnpm 12. After cloning the repository, run \`${BUILD_COMMAND}\` and open http://127.0.0.1:4747 (details in ${blob('README.md')})
 
 ## Links
 
