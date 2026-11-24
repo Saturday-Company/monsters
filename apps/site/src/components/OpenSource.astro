@@ -1,7 +1,8 @@
 ---
-import { type Strings } from '../i18n/strings.ts';
+import { fill, type Strings } from '../i18n/strings.ts';
 import type { Contributor } from '../lib/build-data.ts';
 import { REPO_URL } from '../lib/feed.ts';
+import { formatDate } from '../lib/dates.ts';
 import { toBase64 } from '../lib/manifesto.ts';
 import { genomeFor } from '../lib/monsters.ts';
 import { formatStars, formatStarsLong, LED_DIGITS } from '../lib/stars.ts';
@@ -10,9 +11,10 @@ import Mon from './Mon.astro';
 interface Props {
   t: Strings;
   stars: number | null;
+  starsAt?: string | null | undefined;
   contributors: Contributor[];
 }
-const { t, stars, contributors } = Astro.props;
+const { t, stars, starsAt = null, contributors } = Astro.props;
 const encoded = toBase64(t.oss.manifesto);
 ---
 
@@ -33,6 +35,13 @@ const encoded = toBase64(t.oss.manifesto);
         >{stars === null ? '' : formatStarsLong(stars, t.lang)}</span
       >
       <span class="label oss__label">★ {t.oss.stars}</span>
+      {
+        stars !== null && starsAt && (
+          <span class="sr-only" data-stars-asof>
+            {fill(t.oss.starsOn, { date: formatDate(starsAt, t.lang) })}
+          </span>
+        )
+      }
       <p class="field__help" data-stars-soon hidden={stars !== null}>{t.oss.starsSoon}</p>
       <div class="oss__links">
         <a class="key key--ink" href={REPO_URL} rel="noopener">{t.oss.repo}</a>

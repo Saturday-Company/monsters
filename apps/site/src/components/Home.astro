@@ -22,6 +22,7 @@ import KillBar from './KillBar.astro';
 import OpenSource from './OpenSource.astro';
 import Palette from './Palette.astro';
 import Specs from './Specs.astro';
+import What from './What.astro';
 import Squad from './Squad.astro';
 import Terminal from './Terminal.astro';
 import Vault from './Vault.astro';
@@ -70,10 +71,11 @@ const clientData = {
 <Page t={t} clientData={clientData} version={data.version}>
   <Boot slot="boot" t={t} version={appVersion} />
   <Fragment slot="bar">
-    <Bar t={t} stamp={stamp} stars={data.stars} home={lang === 'it' ? '/it/' : '/'} />
+    <Bar t={t} stamp={stamp} stars={data.stars} starsAt={data.starsAt} home={lang === 'it' ? '/it/' : '/'} />
     <KillBar t={t} />
   </Fragment>
   <Hero t={t} version={appVersion} built={build.at} />
+  <What t={t} />
   <Squad t={t} />
   <Generator t={t} />
   <Arch t={t} />
@@ -82,7 +84,7 @@ const clientData = {
   <Kill t={t} />
   <Terminal t={t} version={appVersion} />
   <Download t={t} version={data.version} releaseDate={data.releaseDate} downloads={data.downloads} />
-  <OpenSource t={t} stars={data.stars} contributors={data.contributors} />
+  <OpenSource t={t} stars={data.stars} starsAt={data.starsAt} contributors={data.contributors} />
   <Faq t={t} version={appVersion} />
   <Fragment slot="after">
     <div class="sheet"><Footer t={t} build={build} /></div>

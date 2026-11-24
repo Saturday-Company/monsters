@@ -35,6 +35,7 @@ const members = SQUAD.map((m, i) => ({ ...m, spec: specOf(m.genome), slot: i }))
 <section class="section" id="squad" aria-labelledby="squad-title">
   <div class="section__head power">
     <h2 class="display h2" id="squad-title">
+      <span class="kicker label">{t.squad.kicker}</span>{' '}
       <Strike text={t.squad.title} word={t.squadx.strike} />
     </h2>
     <p class="lede">{t.squad.body}</p>

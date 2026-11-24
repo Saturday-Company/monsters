@@ -1,7 +1,8 @@
 ---
 /*
- * The FAQ as `man monsters`: a printed manual page. Each question is asked by a monster of the
- * squad; the answers fold like before.
+ * The FAQ as `man monsters`: a printed manual page. The questions people ask come first, each a
+ * real heading and each in the FAQPage data; the questions asked by the monsters of the squad
+ * follow as decoration (no headings, not in the structured data). The answers fold.
  */
 import { type RosterName, monsterFor, ROSTER } from '@monsters/monster-kit';
 import { fill, type Strings } from '../i18n/strings.ts';
@@ -16,6 +17,7 @@ interface Props {
 const { t, version } = Astro.props;
 const m = t.man;
 const compareHref = t.lang === 'it' ? '/it/compare/' : '/compare/';
+const frameworksHref = t.lang === 'it' ? '/it/compare/frameworks/' : '/compare/frameworks/';
 const seeAlso: [string, string][] = [
   ['README.md', `${REPO_URL}#readme`],
   ['docs/mcp-vault.md', `${REPO_URL}/blob/main/docs/mcp-vault.md`],
@@ -34,8 +36,28 @@ const seeAlso: [string, string][] = [
     <p class="man__p">{m.nameLine}</p>
     <p class="man__h">{m.synopsis}</p>
     <p class="man__p mono"><b>monsters</b> &lt;command&gt; [options]</p>
-    <h2 class="man__h man__h--q display" id="faq-title">{t.faq.title}</h2>
-    <ul class="faq" role="list">
+    <h2 class="man__h man__h--q display" id="faq-title">{t.faq.more.title}</h2>
+    <ul class="faq faq--plain" role="list">
+      {
+        t.faq.more.items.map((item) => (
+          <li>
+            <details>
+              <summary>
+                <h3 class="faq__q">{item.q}</h3>
+                <span class="faq__x" aria-hidden="true" />
+              </summary>
+              <p class="faq__a">{item.a}</p>
+            </details>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="man__p man__see">
+      <a href={compareHref}>{t.faq.more.compare}</a>
+      <a href={frameworksHref}>{t.faq.more.frameworks}</a>
+    </p>
+    <p class="man__h man__h--monsters" id="faq-monsters">{t.faq.title}</p>
+    <ul class="faq" role="list" aria-labelledby="faq-monsters">
       {
         t.faq.items.map((item) => {
           const who = item.who as RosterName;
@@ -59,25 +81,6 @@ const seeAlso: [string, string][] = [
         })
       }
     </ul>
-    <h3 class="man__h" id="faq-more">{t.faq.more.title}</h3>
-    <ul class="faq faq--plain" role="list">
-      {
-        t.faq.more.items.map((item) => (
-          <li>
-            <details>
-              <summary>
-                <span class="faq__q">{item.q}</span>
-                <span class="faq__x" aria-hidden="true" />
-              </summary>
-              <p class="faq__a">{item.a}</p>
-            </details>
-          </li>
-        ))
-      }
-    </ul>
-    <p class="man__p man__see">
-      <a href={compareHref}>{t.faq.more.compare}</a>
-    </p>
     <p class="man__h">{m.seeAlso}</p>
     <p class="man__p man__see">
       {

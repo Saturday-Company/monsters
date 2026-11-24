@@ -15,7 +15,10 @@ const pad = (n: number) => String(n).padStart(2, '0');
 
 <section class="section" id="specs" aria-labelledby="specs-title">
   <div class="section__head power">
-    <h2 class="display h2" id="specs-title">{t.specs.title}</h2>
+    <h2 class="display h2" id="specs-title">
+      <span class="kicker label">{t.specs.kicker}</span>{' '}
+      {t.specs.title}
+    </h2>
   </div>
 
   <ul class="claims" role="list">

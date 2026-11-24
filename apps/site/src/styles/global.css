@@ -1912,7 +1912,7 @@ html.js .term__body.armed .ln.on {
 
 .faq__q {
   display: block;
-  margin-top: 6px;
+  margin: 6px 0 0;
   font: 700 clamp(1.3rem, 2.6vw, 2.1rem) / 1.02 var(--f-sans);
   font-stretch: 80%;
   text-transform: uppercase;
@@ -1959,7 +1959,7 @@ html.js .term__body.armed .ln.on {
 }
 
 .faq--plain .faq__q {
-  margin-top: 0;
+  margin: 0;
   font-size: clamp(1.15rem, 2.1vw, 1.6rem);
 }
 
@@ -2159,5 +2159,77 @@ html[data-killed='true'] .led__val {
   }
   .cursor {
     animation: none;
+  }
+}
+
+/* ------------------------------------------------------------ keywords in the headings, what is it */
+
+/* A line above a heading that says what the section is, in plain words. */
+.kicker {
+  display: block;
+  margin: 0 0 14px;
+  font-stretch: normal;
+  line-height: 1.35;
+  letter-spacing: 0.05em;
+  color: var(--ink-2);
+}
+
+.what__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: clamp(28px, 5vw, 72px);
+  align-items: start;
+}
+
+.what__text p {
+  max-width: 60ch;
+  margin: 0 0 1.1em;
+  font-size: clamp(1.02rem, 1.3vw, 1.18rem);
+  color: var(--ink-2);
+}
+
+.what__text p:first-child {
+  color: var(--ink);
+}
+
+.what__who h3 {
+  margin: 0 0 10px;
+  padding-top: 12px;
+  border-top: var(--rule);
+}
+
+.what__who h3:not(:first-child) {
+  margin-top: 28px;
+}
+
+.what__who ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.what__who li {
+  position: relative;
+  padding-left: 22px;
+  color: var(--ink-2);
+}
+
+.what__who li::before {
+  content: '+';
+  position: absolute;
+  left: 0;
+  font: 500 0.9em/1.6 var(--f-mono);
+  color: var(--ink);
+}
+
+.what__who h3:not(:first-child) + ul li::before {
+  content: '-';
+}
+
+@media (max-width: 860px) {
+  .what__grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

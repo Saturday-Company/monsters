@@ -590,10 +590,18 @@ html:not(.js) .bar__cmd {
   vertical-align: -0.02em;
 }
 
-.pane--prompt .lede {
-  margin: clamp(22px, 2.6vw, 36px) 0 24px;
+.hero__def {
+  max-width: 52ch;
+  margin: clamp(18px, 2vw, 26px) 0 0;
   color: var(--screen-ink);
-  font-size: clamp(1.05rem, 1.4vw, 1.24rem);
+  font-size: clamp(0.98rem, 1.2vw, 1.1rem);
+  line-height: 1.5;
+}
+
+.pane--prompt .lede {
+  margin: 14px 0 24px;
+  color: var(--screen-muted);
+  font-size: clamp(0.98rem, 1.2vw, 1.1rem);
   max-width: 44ch;
 }
 
@@ -1379,6 +1387,10 @@ html:not(.js) .vault__undo {
   font: 700 clamp(2.2rem, 5vw, 4.4rem) / 0.9 var(--f-sans);
   font-stretch: 75%;
   letter-spacing: -0.01em;
+}
+
+.man__h--monsters {
+  margin-top: 34px;
 }
 
 .man__p {

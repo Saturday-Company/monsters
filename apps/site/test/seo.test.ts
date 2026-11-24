@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { STRINGS } from '../src/i18n/strings.ts';
 import { absolutizeLinks } from '../src/lib/docs.ts';
 import { llmsFullTxt, llmsTxt } from '../src/lib/llms.ts';
-import { COMPANY_ID, SOFTWARE_ID, jsonLdGraph, jsonLdText } from '../src/lib/seo.ts';
+import { COMPANY_ID, SOFTWARE_ID, homeFaq, jsonLdGraph, jsonLdText } from '../src/lib/seo.ts';
 import fallback from '../src/data/fallback.json' with { type: 'json' };
 import { downloadsFrom, latestVersion, type Feed } from '../src/lib/feed.ts';
 
@@ -13,6 +13,7 @@ const data = {
   releaseDate: null,
   downloads: downloadsFrom(feeds),
   stars: null,
+  starsAt: null,
   contributors: [],
   offline: [],
 };
@@ -33,10 +34,9 @@ describe('JSON-LD', () => {
       expect(nodes[0]?.['@id']).toBe(SOFTWARE_ID);
       expect(nodes[2]?.['@id']).toBe(COMPANY_ID);
       const faq = nodes[3] as unknown as { mainEntity: { name: string }[] };
-      expect(faq.mainEntity.map((q) => q.name)).toEqual([
-        ...t.faq.items.map((i) => i.q),
-        ...t.faq.more.items.map((i) => i.q),
-      ]);
+      // Only the questions people ask: the monsters' jokes stay out of the structured data.
+      expect(faq.mainEntity.map((q) => q.name)).toEqual(t.faq.more.items.map((i) => i.q));
+      for (const item of t.faq.items) expect(JSON.stringify(graph)).not.toContain(item.q);
       const text = jsonLdText({ t, site, version: '' });
       expect(JSON.parse(text) as unknown).toEqual(
         JSON.parse(JSON.stringify(jsonLdGraph({ t, site, version: '' }))),
@@ -79,4 +79,32 @@ describe('llms.txt', () => {
     expect(text).toContain('# Security model');
     expect(text).toContain('# Monsters architecture');
   });
+});
+
+describe('home texts', () => {
+  for (const lang of ['en', 'it'] as const) {
+    it(`has a keyword title of at most 60 characters in ${lang}`, () => {
+      const { title } = STRINGS[lang].meta;
+      expect(title.length).toBeLessThanOrEqual(60);
+      expect(title.startsWith('Monsters')).toBe(true);
+    });
+
+    it(`defines the product in plain words in ${lang}`, () => {
+      const t = STRINGS[lang];
+      expect(t.hero.definition).toMatch(/Monsters/);
+      expect(t.hero.definition).toMatch(/Obsidian/);
+      expect(t.what.body).toHaveLength(3);
+      expect(t.what.forItems.length).toBeGreaterThan(1);
+      expect(t.what.notItems.length).toBeGreaterThan(1);
+    });
+
+    it(`asks the three questions about frameworks, Obsidian and providers in ${lang}`, () => {
+      const text = homeFaq(STRINGS[lang])
+        .map((i) => i.q)
+        .join('\n');
+      expect(text).toMatch(/CrewAI/);
+      expect(text).toMatch(/Obsidian/);
+      expect(homeFaq(STRINGS[lang]).length).toBeGreaterThanOrEqual(8);
+    });
+  }
 });

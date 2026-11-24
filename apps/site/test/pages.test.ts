@@ -106,6 +106,7 @@ describe('page registry', () => {
     releaseDate: null,
     downloads: downloadsFrom(feeds),
     stars: null,
+    starsAt: null,
     contributors: [],
     offline: [],
   };
@@ -175,6 +176,7 @@ describe('build from source', () => {
       releaseDate: null,
       downloads: downloadsFrom(feeds),
       stars: null,
+      starsAt: null,
       contributors: [],
       offline: [],
     };

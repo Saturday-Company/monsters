@@ -9,11 +9,31 @@ export type Lang = 'en' | 'it';
 const en = {
   lang: 'en',
   meta: {
-    title: 'Monsters. Your AI squad, on your machine.',
+    title: 'Monsters: open-source local-first AI agent hub for any model',
     description:
-      'A local, provider-agnostic agentic hub: an orchestrator and a squad of AI agents that work on your computer, with any model, your keys and a kill switch. Open source.',
+      'Monsters is an open-source, local-first AI agent hub: an orchestrator and a squad of agents on your computer, with any model, your keys and a kill switch.',
   },
   skip: 'Skip to content',
+  what: {
+    title: 'What is Monsters?',
+    body: [
+      'Monsters is a desktop app for Linux, Windows and macOS that runs a team of AI agents on your own computer. An orchestrator called Titan plans the work and hands it to the other monsters, each with its own chat, terminal, permissions and model.',
+      'You choose the model: free ones on OpenRouter, your own API keys, local models with Ollama or LM Studio, or the Claude and ChatGPT plans you already pay for. What the monsters learn is kept as Markdown notes you can open in Obsidian, every edit is a git commit you can undo, and one kill switch stops everything.',
+      'It is open source under Apache-2.0, free to use, and in alpha.',
+    ],
+    forTitle: 'Who it is for',
+    forItems: [
+      'People who want AI agents that run on their own machine, with their own keys and notes on their own disk.',
+      'Developers and power users who want to pick the model per agent, including local ones.',
+      'Anyone who wants a ready-made app with spending caps and a kill switch, not a library to wire up in code.',
+    ],
+    notTitle: 'Who it is not for yet',
+    notItems: [
+      'People who need a stable, mature product: Monsters is an alpha with a small community, so expect rough edges.',
+      'Teams that need an API or a framework to embed agents in their own software: Monsters is an app, not a library.',
+      'Anyone who needs a phone app: you can reach it from Telegram or over SSH, but there is no mobile app.',
+    ],
+  },
   nav: {
     squad: 'Squad',
     generator: 'Generator',
@@ -26,6 +46,7 @@ const en = {
     star: 'Star',
     stars: 'GitHub stars',
     starsUnknown: 'GitHub stars: not counted yet',
+    starsOn: '{count} GitHub stars on {date}',
     other: 'IT',
     otherLabel: 'Italiano',
     otherHref: '/it/',
@@ -46,6 +67,8 @@ const en = {
     l3: 'Your',
     l3b: 'monsters.',
     sub: 'An orchestrator and a squad of AI agents that work on your computer. Any model, your keys, one red lever.',
+    definition:
+      'Monsters is an open-source, local-first AI agent hub: an orchestrator plus a squad of agents that run on your computer, with the provider you choose (cloud, local or your Claude and ChatGPT plans) and an Obsidian-compatible Markdown vault as memory.',
     download: 'Download',
     downloadFor: 'Download for {os}',
     source: 'Build from source',
@@ -56,6 +79,7 @@ const en = {
     lit: 'LIT',
   },
   squad: {
+    kicker: 'A local multi-agent orchestrator',
     title: 'Not a chatbot. A squad.',
     body: 'Titan plans and splits the work. The little monsters do it, each with its own model, tools and permissions. Rename them, add more, retire them.',
     role: 'Role',
@@ -99,6 +123,7 @@ const en = {
     } as Record<string, string>,
   },
   specs: {
+    kicker: 'Any provider, any model',
     title: 'Datasheet',
     claims: [
       {
@@ -191,6 +216,7 @@ const en = {
     title: 'Open source. Apache-2.0.',
     body: 'Read it, fork it, fix it. Every contributor gets a monster, hatched from their GitHub name.',
     stars: 'stars on GitHub',
+    starsOn: 'counted on {date}',
     starsSoon: 'The counter starts when the repository opens.',
     repo: 'Repository',
     contributing: 'Contributing',
@@ -244,8 +270,9 @@ const en = {
       },
     ],
     more: {
-      title: 'Questions people ask',
+      title: 'Frequently asked questions',
       compare: 'How Monsters compares with other open-source agent apps',
+      frameworks: 'Monsters vs CrewAI, LangGraph and AutoGen',
       items: [
         {
           q: 'Is Monsters free and open source?',
@@ -266,6 +293,18 @@ const en = {
         {
           q: 'Do I need to know how to code to use it?',
           a: 'No. Download the installer, create your local account, connect a model (your Claude plan through Claude Code, your ChatGPT plan, or an OpenRouter key; a free one is enough to start), answer a few questions and Monsters proposes a team. Programming is only needed to build from source or to contribute.',
+        },
+        {
+          q: 'Is Monsters an alternative to CrewAI or LangGraph?',
+          a: 'Partly, and they are different kinds of tool. CrewAI and LangGraph are libraries: you write code to build agents. Monsters is a ready-made desktop app with an orchestrator and a squad of agents, a notes vault, spending caps and a kill switch, set up from its interface instead of in code. If you need agent workflows inside your own product, a framework fits better; if you want a team of agents working on your computer without writing code, Monsters does. There is a dated comparison with CrewAI, LangGraph and AutoGen.',
+        },
+        {
+          q: 'Does Monsters work with Obsidian?',
+          a: 'Yes. The notes are plain Markdown files with YAML frontmatter and wikilinks in a folder on your disk (monsters start prints its path), so you can open that folder as a vault in Obsidian and read or edit the notes there. Monsters has its own notes view, so Obsidian is optional. Every edit by a monster is a git commit you can undo, and monsters mcp can also serve the notes to Claude Desktop, Codex or Cursor.',
+        },
+        {
+          q: 'Which AI providers and models does Monsters support?',
+          a: 'OpenRouter (with free models to start), Anthropic, OpenAI, Google, Mistral and Groq with your own API keys; Ollama and LM Studio for models that run on your computer; and the Claude plan (through Claude Code) and ChatGPT plan (also through Codex) you already pay for. Each monster has a main model and a fallback, and per-monster chains of models are under Advanced.',
         },
       ],
     },
@@ -317,11 +356,13 @@ const en = {
     ],
   },
   arch: {
+    kicker: 'Local-first architecture',
     title: 'How it is wired.',
     body: 'One core on your computer. Windows into it: the desktop app, the browser, Telegram, SSH. Everything it does goes through the same log and the same kill switch.',
     alt: 'Architecture diagram. Desktop app, web UI, Telegram and SSH connect to the core on 127.0.0.1:4747. The core holds Titan and the squad, the instinct, the event log and the kill switch, which aborts a tree of AbortControllers and child processes. Below the core: providers, the Markdown vault with git, the tools, and monsters mcp for Claude Desktop, Codex and Cursor.',
   },
   vault: {
+    kicker: 'A second brain in Obsidian-compatible Markdown',
     title: 'Every edit is a commit.',
     body: 'The vault is a folder of Markdown with git underneath. Each action of a monster is one commit, with the agent and the action in the message. Undo is a real revert.',
     undone: 'Undone. New commit {sha}.',
@@ -411,11 +452,31 @@ export type Strings = typeof en;
 const it: Strings = {
   lang: 'it',
   meta: {
-    title: 'Monsters. La tua squadra di AI, sul tuo computer.',
+    title: 'Monsters: hub di agenti AI open source e local-first',
     description:
-      'Un hub agentico locale e agnostico sul provider: un orchestratore e una squadra di agenti AI che lavorano sul tuo computer, con qualsiasi modello, le tue chiavi e un interruttore di emergenza. Open source.',
+      'Monsters è un hub di agenti AI open source e local-first: orchestratore e squadra di agenti sul tuo computer, con ogni modello, le tue chiavi e uno stop.',
   },
   skip: 'Vai al contenuto',
+  what: {
+    title: 'Cos’è Monsters?',
+    body: [
+      'Monsters è un’app desktop per Linux, Windows e macOS che fa girare una squadra di agenti AI sul tuo computer. Un orchestratore, Titan, pianifica il lavoro e lo passa agli altri mostri, ognuno con la sua chat, il suo terminale, i suoi permessi e il suo modello.',
+      'Il modello lo scegli tu: quelli gratuiti di OpenRouter, le tue chiavi API, modelli locali con Ollama o LM Studio, oppure i piani Claude e ChatGPT che già paghi. Quello che i mostri imparano resta in note Markdown che puoi aprire con Obsidian, ogni modifica è un commit git che puoi annullare e un solo interruttore ferma tutto.',
+      'È open source con licenza Apache-2.0, gratuito e in alpha.',
+    ],
+    forTitle: 'Per chi è',
+    forItems: [
+      'Per chi vuole agenti AI che girano sulla propria macchina, con le proprie chiavi e le note sul proprio disco.',
+      'Per sviluppatori e utenti esperti che vogliono scegliere il modello per ogni agente, anche locale.',
+      'Per chi vuole un’app pronta con tetti di spesa e un interruttore di stop, non una libreria da cablare nel codice.',
+    ],
+    notTitle: 'Per chi non è ancora',
+    notItems: [
+      'Per chi ha bisogno di un prodotto stabile e maturo: Monsters è in alpha e ha una community piccola, quindi aspettati qualche spigolo.',
+      'Per i team che cercano un’API o un framework per mettere agenti nel proprio software: Monsters è un’app, non una libreria.',
+      'Per chi vuole un’app per il telefono: si raggiunge da Telegram o via SSH, ma non c’è un’app mobile.',
+    ],
+  },
   nav: {
     squad: 'Squadra',
     generator: 'Generatore',
@@ -428,6 +489,7 @@ const it: Strings = {
     star: 'Stella',
     stars: 'Stelle su GitHub',
     starsUnknown: 'Stelle su GitHub: non ancora contate',
+    starsOn: '{count} stelle su GitHub al {date}',
     other: 'EN',
     otherLabel: 'English',
     otherHref: '/',
@@ -448,6 +510,8 @@ const it: Strings = {
     l3: 'I tuoi',
     l3b: 'mostri.',
     sub: 'Un orchestratore e una squadra di agenti AI che lavorano sul tuo computer. Qualsiasi modello, le tue chiavi, una leva rossa.',
+    definition:
+      'Monsters è un hub di agenti AI open source e local-first: un orchestratore più una squadra di agenti che girano sul tuo computer, con il provider che scegli (cloud, locale o i tuoi piani Claude e ChatGPT) e un vault Markdown compatibile con Obsidian come memoria.',
     download: 'Scarica',
     downloadFor: 'Scarica per {os}',
     source: 'Compila dal sorgente',
@@ -458,6 +522,7 @@ const it: Strings = {
     lit: 'LED',
   },
   squad: {
+    kicker: 'Un orchestratore multi-agente locale',
     title: 'Non è una chat. È una squadra.',
     body: 'Titan pianifica e divide il lavoro. I mostriciattoli lo fanno, ognuno con il suo modello, i suoi strumenti e i suoi permessi. Rinominali, aggiungine altri, mandali in pensione.',
     role: 'Ruolo',
@@ -501,6 +566,7 @@ const it: Strings = {
     },
   },
   specs: {
+    kicker: 'Qualsiasi provider, qualsiasi modello',
     title: 'Scheda tecnica',
     claims: [
       {
@@ -598,6 +664,7 @@ const it: Strings = {
     title: 'Open source. Apache-2.0.',
     body: 'Leggilo, forkalo, sistemalo. Ogni contributor riceve un mostro, nato dal suo nome su GitHub.',
     stars: 'stelle su GitHub',
+    starsOn: 'contate il {date}',
     starsSoon: 'Il contatore parte quando il repository apre.',
     repo: 'Repository',
     contributing: 'Come contribuire',
@@ -651,8 +718,9 @@ const it: Strings = {
       },
     ],
     more: {
-      title: 'Altre domande',
+      title: 'Domande frequenti',
       compare: 'Monsters a confronto con altre app di agenti open source',
+      frameworks: 'Monsters e CrewAI, LangGraph, AutoGen',
       items: [
         {
           q: 'Monsters è gratuito e open source?',
@@ -673,6 +741,18 @@ const it: Strings = {
         {
           q: 'Devo saper programmare per usarlo?',
           a: 'No. Scarichi l’installer, crei il tuo account locale, colleghi un modello (il tuo piano Claude tramite Claude Code, il tuo piano ChatGPT o una chiave di OpenRouter; ne basta una gratuita), rispondi a qualche domanda e Monsters ti propone una squadra. Programmare serve solo per compilarlo dai sorgenti o per contribuire.',
+        },
+        {
+          q: 'Monsters è un’alternativa a CrewAI o LangGraph?',
+          a: 'In parte, e sono strumenti di tipo diverso. CrewAI e LangGraph sono librerie: scrivi codice per costruire agenti. Monsters è un’app desktop già pronta, con un orchestratore e una squadra di agenti, un vault di note, tetti di spesa e un interruttore di stop, che si configura dall’interfaccia invece che nel codice. Se ti servono flussi di agenti dentro il tuo prodotto, un framework è più adatto; se vuoi una squadra di agenti che lavora sul tuo computer senza scrivere codice, va bene Monsters. C’è un confronto datato con CrewAI, LangGraph e AutoGen.',
+        },
+        {
+          q: 'Monsters funziona con Obsidian?',
+          a: 'Sì. Le note sono file Markdown semplici, con frontmatter YAML e wikilink, in una cartella sul tuo disco (monsters start ne stampa il percorso): puoi aprire quella cartella come vault in Obsidian e leggere o modificare le note da lì. Monsters ha una sua vista delle note, quindi Obsidian è facoltativo. Ogni modifica di un mostro è un commit git che puoi annullare, e monsters mcp può servire le note anche a Claude Desktop, Codex o Cursor.',
+        },
+        {
+          q: 'Quali provider e modelli supporta Monsters?',
+          a: 'OpenRouter (con modelli gratuiti per iniziare), Anthropic, OpenAI, Google, Mistral e Groq con le tue chiavi API; Ollama e LM Studio per i modelli che girano sul tuo computer; e il piano Claude (tramite Claude Code) e il piano ChatGPT (anche con Codex) che già paghi. Ogni mostro ha un modello principale e uno di riserva, e le catene di modelli per mostro stanno in Avanzate.',
         },
       ],
     },
@@ -724,11 +804,13 @@ const it: Strings = {
     ],
   },
   arch: {
+    kicker: 'Architettura local-first',
     title: 'Come è cablato.',
     body: 'Un solo core sul tuo computer. Le finestre per entrarci: l’app desktop, il browser, Telegram, SSH. Tutto quello che fa passa dallo stesso registro e dallo stesso interruttore.',
     alt: 'Schema dell’architettura. App desktop, interfaccia web, Telegram e SSH si collegano al core su 127.0.0.1:4747. Il core tiene Titan e la squadra, l’istinto, il registro degli eventi e l’interruttore, che interrompe un albero di AbortController e di processi figli. Sotto il core: i provider, il vault Markdown con git, gli strumenti e monsters mcp per Claude Desktop, Codex e Cursor.',
   },
   vault: {
+    kicker: 'Un secondo cervello in Markdown compatibile con Obsidian',
     title: 'Ogni modifica è un commit.',
     body: 'Il vault è una cartella di Markdown con git sotto. Ogni azione di un mostro è un commit, con l’agente e l’azione nel messaggio. Annullare è un revert vero.',
     undone: 'Annullato. Nuovo commit {sha}.',

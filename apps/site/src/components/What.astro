@@ -1,0 +1,34 @@
+---
+/*
+ * A plain answer under the hero: what Monsters is, who it is for and who it is not for yet. Real
+ * sentences in the HTML, for people and for search engines and assistants that read the page.
+ */
+import { type Strings } from '../i18n/strings.ts';
+
+interface Props {
+  t: Strings;
+}
+const { t } = Astro.props;
+const w = t.what;
+---
+
+<section class="section what" id="what" aria-labelledby="what-title">
+  <div class="section__head power">
+    <h2 class="display h2" id="what-title">{w.title}</h2>
+  </div>
+  <div class="what__grid">
+    <div class="what__text">
+      {w.body.map((p) => <p>{p}</p>)}
+    </div>
+    <div class="what__who">
+      <h3 class="label">{w.forTitle}</h3>
+      <ul role="list">
+        {w.forItems.map((item) => <li>{item}</li>)}
+      </ul>
+      <h3 class="label">{w.notTitle}</h3>
+      <ul role="list">
+        {w.notItems.map((item) => <li>{item}</li>)}
+      </ul>
+    </div>
+  </div>
+</section>

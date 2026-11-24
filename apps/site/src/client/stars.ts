@@ -22,6 +22,8 @@ function show(count: number, data: ClientData | null): void {
     el.classList.remove('oss__stars--none');
   });
   document.querySelectorAll<HTMLElement>('[data-stars-soon]').forEach((el) => (el.hidden = true));
+  // The live count replaces the dated one printed at build time.
+  document.querySelectorAll('[data-stars-asof]').forEach((el) => el.remove());
   if (data)
     document
       .querySelectorAll('[data-stars-sr]')

@@ -200,7 +200,10 @@ export function pageGraph(p: PageSeo): Json {
 export const pageLdText = (p: PageSeo): string =>
   JSON.stringify(pageGraph(p)).replace(/</g, '\\u003c');
 
-/** The home's questions: the monsters' ones, then the ones people ask. */
+/**
+ * The home's questions: the ones people ask. The jokes the monsters ask in the page are decoration
+ * and stay out of the structured data.
+ */
 export function homeFaq(t: Strings): { q: string; a: string }[] {
-  return [...t.faq.items, ...t.faq.more.items].map(({ q, a }) => ({ q, a }));
+  return t.faq.more.items.map(({ q, a }) => ({ q, a }));
 }

@@ -26,6 +26,8 @@ export interface SiteData {
   releaseDate: string | null;
   downloads: Download[];
   stars: number | null;
+  /** The day (UTC) the count was read from GitHub, or null when it is not a live reading. */
+  starsAt: string | null;
   contributors: Contributor[];
   /** Which sources came from the fallback (printed by the build). */
   offline: string[];
@@ -104,6 +106,8 @@ async function load(): Promise<SiteData> {
     releaseDate: newest?.releaseDate ?? null,
     downloads: downloadsFrom(fs),
     stars,
+    starsAt:
+      stars !== null && !offline.includes('stars') ? new Date().toISOString().slice(0, 10) : null,
     contributors: people.length > 0 ? people : fallback.contributors,
     offline,
   };

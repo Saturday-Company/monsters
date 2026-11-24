@@ -1,5 +1,6 @@
 ---
-import { type Strings } from '../i18n/strings.ts';
+import { fill, type Strings } from '../i18n/strings.ts';
+import { formatDate } from '../lib/dates.ts';
 import { REPO_URL } from '../lib/feed.ts';
 import { formatStars, LED_DIGITS } from '../lib/stars.ts';
 
@@ -7,17 +8,26 @@ interface Props {
   t: Strings;
   stamp: string;
   stars: number | null;
+  /** The day the count was read, for the text in the page (the live count replaces it). */
+  starsAt?: string | null | undefined;
   home: string;
   /** False on any page but the home: the section links then point at the home. */
   onHome?: boolean;
   /** The same page in the other language, when it is not the other home. */
   otherHref?: string | undefined;
 }
-const { t, stamp, stars, home, onHome = true, otherHref } = Astro.props;
+const { t, stamp, stars, starsAt = null, home, onHome = true, otherHref } = Astro.props;
 const at = onHome ? '' : home;
 const docsHref = t.lang === 'it' ? '/it/docs/' : '/docs/';
 const compareHref = t.lang === 'it' ? '/it/compare/' : '/compare/';
-const label = `, ${stars === null ? t.nav.starsUnknown : `${t.nav.stars} ${stars}`}`;
+// The number printed in the page is the one read at build time: say when, so it is not taken for today's.
+const label = `, ${
+  stars === null
+    ? t.nav.starsUnknown
+    : starsAt
+      ? fill(t.nav.starsOn, { count: String(stars), date: formatDate(starsAt, t.lang) })
+      : `${t.nav.stars} ${stars}`
+}`;
 ---
 
 <header class="bar">
