@@ -228,7 +228,7 @@ const en: Compare = {
     title: 'Monsters compared',
     metaTitle: 'Monsters compared with Goose, Eigent and OpenClaw',
     description:
-      'Honest side-by-side comparisons of Monsters with Goose, Eigent and OpenClaw, three open-source AI agent apps that run on your computer: license, platforms, models, safety controls and maturity.',
+      'Honest, dated comparisons of Monsters with Goose, Eigent and OpenClaw, three open-source AI agent apps: license, platforms, models, safety and maturity.',
     lede: 'If you are looking for an open-source AI agent app that runs on your own computer, here is how Monsters compares with three well-known ones. Each page has a table, the places where the other project is ahead, and when we would pick it over Monsters.',
     open: 'Read the comparison',
     method: 'How we compare',
@@ -240,7 +240,7 @@ const en: Compare = {
     ],
     othersTitle: 'Not covered',
     others:
-      'OpenCode (an open-source coding agent, MIT) and CrewAI (a Python framework for orchestrating agents, MIT) are also often mentioned. They are built for other jobs, a coding agent and a library for developers, so we have not written pages for them.',
+      'OpenCode, an open-source coding agent (MIT), is also often mentioned. It is built for another job, so we have not written a page for it. CrewAI, LangGraph and AutoGen are libraries for building agents in code, not apps: they have a page of their own, above.',
   },
   chrome: {
     breadcrumb: 'Compare',
@@ -313,7 +313,7 @@ const en: Compare = {
       title: 'Monsters vs Goose',
       metaTitle: 'Monsters vs Goose: open-source AI agent apps compared',
       description:
-        'Monsters and Goose compared: two open-source apps that run AI agents on your computer. License, platforms, providers, local models, multi-agent, MCP, kill switch, spending caps and maturity, with sources.',
+        'Monsters vs Goose: two open-source apps that run AI agents on your computer, compared on license, platforms, providers, local models, safety and maturity.',
       intro:
         'Goose and Monsters are open-source apps that run AI agents on your own computer with the model you choose. Goose is the larger and older project: one general-purpose agent with a desktop app, a CLI and an API, created by Block and now in the Agentic AI Foundation. Monsters is a young alpha built around a standing team of agents, a Markdown notes vault and safety controls.',
       teaser:
@@ -391,7 +391,7 @@ const en: Compare = {
       title: 'Monsters vs Eigent',
       metaTitle: 'Monsters vs Eigent: open-source multi-agent desktop apps compared',
       description:
-        'Monsters and Eigent compared: two open-source desktop apps with a team of AI agents. License, platforms, local deployment, models, MCP, kill switch, spending caps and maturity, with sources.',
+        'Monsters vs Eigent: two open-source desktop apps with a team of AI agents, compared on license, local deployment, models, MCP, spending caps and maturity.',
       intro:
         'Eigent and Monsters both put a team of AI agents on your desktop. Eigent is built on CAMEL-AI, calls itself an open-source Cowork app and runs a workforce of specialised agents in parallel. It has reached version 1.0, has about 15,900 GitHub stars and also offers a hosted cloud version. Monsters is a smaller alpha that stays on your computer and adds a Markdown vault, spending caps and one kill switch for everything.',
       teaser:
@@ -462,7 +462,7 @@ const en: Compare = {
       title: 'Monsters vs OpenClaw',
       metaTitle: 'Monsters vs OpenClaw: local AI assistant and agent apps compared',
       description:
-        'Monsters and OpenClaw compared: two open-source AI agent systems that run on your own hardware. License, platforms, models, multi-agent, MCP, kill switch, spending caps and maturity, with sources.',
+        'Monsters vs OpenClaw: two open-source AI agent systems that run on your own hardware, compared on license, platforms, models, kill switch and maturity.',
       intro:
         'OpenClaw and Monsters both run on your own hardware with the models you choose, but they sit in different places. OpenClaw is a personal assistant that lives in the chat apps you already use, such as WhatsApp, Telegram, Slack, Discord and iMessage, served by one Gateway. Monsters is a desktop app with a team of agents you watch and steer, a notes vault and a kill switch. OpenClaw is far larger, with about 395,000 GitHub stars and a foundation behind it.',
       teaser:
@@ -541,7 +541,7 @@ const it: Compare = {
     title: 'Monsters a confronto',
     metaTitle: 'Monsters a confronto con Goose, Eigent e OpenClaw',
     description:
-      'Confronti onesti di Monsters con Goose, Eigent e OpenClaw, tre app open source di agenti AI che girano sul tuo computer: licenza, sistemi, modelli, controlli di sicurezza e maturità.',
+      'Confronti onesti e datati di Monsters con Goose, Eigent e OpenClaw, tre app open source di agenti AI: licenza, piattaforme, modelli, controlli, maturità.',
     lede: 'Se cerchi un’app open source di agenti AI che giri sul tuo computer, ecco come si pone Monsters rispetto a tre progetti noti. Ogni pagina ha una tabella, i punti in cui l’altro progetto è avanti e quando sceglieremmo lui al posto di Monsters.',
     open: 'Leggi il confronto',
     method: 'Come confrontiamo',
@@ -553,7 +553,7 @@ const it: Compare = {
     ],
     othersTitle: 'Non trattati',
     others:
-      'Si citano spesso anche OpenCode (un agente open source per programmare, MIT) e CrewAI (una libreria Python per orchestrare agenti, MIT). Servono a lavori diversi, un agente per il codice e una libreria per sviluppatori, quindi non abbiamo scritto pagine su di loro.',
+      'Si cita spesso anche OpenCode, un agente open source per programmare (MIT). Serve a un altro lavoro, quindi non abbiamo scritto una pagina su di lui. CrewAI, LangGraph e AutoGen sono librerie per costruire agenti nel codice, non app: hanno una pagina a parte, qui sopra.',
   },
   chrome: {
     breadcrumb: 'Confronti',
@@ -625,7 +625,7 @@ const it: Compare = {
       title: 'Monsters vs Goose',
       metaTitle: 'Monsters vs Goose: app open source di agenti AI a confronto',
       description:
-        'Monsters e Goose a confronto: due app open source che fanno girare agenti AI sul tuo computer. Licenza, sistemi, provider, modelli locali, più agenti, MCP, interruttore di emergenza, tetti di spesa e maturità, con le fonti.',
+        'Monsters e Goose: due app open source che fanno girare agenti AI sul tuo computer, a confronto su licenza, piattaforme, provider, modelli locali, maturità.',
       intro:
         'Goose e Monsters sono app open source che fanno girare agenti AI sul tuo computer con il modello che scegli. Goose è il progetto più grande e più vecchio: un solo agente generalista con app desktop, CLI e API, creato da Block e oggi nell’Agentic AI Foundation. Monsters è un’alpha giovane, costruita attorno a una squadra stabile di agenti, un vault di note in Markdown e controlli di sicurezza.',
       teaser:
@@ -704,7 +704,7 @@ const it: Compare = {
       title: 'Monsters vs Eigent',
       metaTitle: 'Monsters vs Eigent: app desktop multi-agente open source a confronto',
       description:
-        'Monsters ed Eigent a confronto: due app desktop open source con una squadra di agenti AI. Licenza, sistemi, installazione locale, modelli, MCP, interruttore di emergenza, tetti di spesa e maturità, con le fonti.',
+        'Monsters e Eigent: due app desktop open source con una squadra di agenti AI, a confronto su licenza, uso locale, modelli, MCP, tetti di spesa e maturità.',
       intro:
         'Eigent e Monsters mettono entrambi una squadra di agenti AI sul tuo desktop. Eigent è costruito su CAMEL-AI, si definisce l’app «Cowork» open source e fa lavorare in parallelo una Workforce di agenti specializzati. È arrivato alla versione 1.0, ha circa 15.900 stelle su GitHub e offre anche una versione cloud ospitata. Monsters è un’alpha più piccola che resta sul tuo computer e aggiunge un vault Markdown, tetti di spesa e un solo interruttore di emergenza per tutto.',
       teaser:
@@ -775,7 +775,7 @@ const it: Compare = {
       title: 'Monsters vs OpenClaw',
       metaTitle: 'Monsters vs OpenClaw: assistente AI locale e app di agenti a confronto',
       description:
-        'Monsters e OpenClaw a confronto: due sistemi open source di agenti AI che girano sul tuo hardware. Licenza, sistemi, modelli, più agenti, MCP, interruttore di emergenza, tetti di spesa e maturità, con le fonti.',
+        'Monsters e OpenClaw: due sistemi open source di agenti AI sul tuo hardware, a confronto su licenza, piattaforme, modelli, stop di emergenza e maturità.',
       intro:
         'OpenClaw e Monsters girano entrambi sul tuo hardware con i modelli che scegli, ma servono a cose diverse. OpenClaw è un assistente personale che vive nelle app di chat che usi già, come WhatsApp, Telegram, Slack, Discord e iMessage, servito da un solo Gateway. Monsters è un’app desktop con una squadra di agenti che guardi e guidi, un vault di note e un interruttore di emergenza. OpenClaw è molto più grande, con circa 395.000 stelle su GitHub e una fondazione alle spalle.',
       teaser:

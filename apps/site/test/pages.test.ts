@@ -15,6 +15,15 @@ import {
 import { llmsTxt } from '../src/lib/llms.ts';
 import { allPages, alternatesOf } from '../src/lib/pages.ts';
 import { atomFeed, changelogPath, feedPath } from '../src/lib/atom.ts';
+import { cliHelp } from '../src/lib/code.ts';
+import { GETTING_STARTED, gettingStartedCommands } from '../src/i18n/getting-started.ts';
+import {
+  FRAMEWORKS,
+  FRAMEWORKS_PAGE,
+  FRAMEWORKS_VERIFIED,
+  FRAMEWORK_FACTS,
+  FRAMEWORK_ROWS,
+} from '../src/i18n/frameworks.ts';
 import { fileDates } from '../src/lib/history.ts';
 import { changelogDay, lastmodResolver } from '../src/lib/lastmod.ts';
 import { currentRelease, releaseLabel } from '../src/lib/release.ts';
@@ -121,11 +130,15 @@ describe('page registry', () => {
     expect(paired.map((p) => p.en)).toEqual([
       '/',
       '/docs/',
+      '/docs/getting-started/',
       '/changelog/',
       '/compare/',
       ...COMPETITORS.map((c) => `/compare/${c}/`),
+      '/compare/frameworks/',
     ]);
-    const guides = pages.filter((p) => p.en?.startsWith('/docs/') && p.en !== '/docs/');
+    const guides = pages.filter(
+      (p) => p.en?.startsWith('/docs/') && p.en !== '/docs/' && p.it === undefined,
+    );
     expect(guides.length).toBe(GUIDES.length);
     expect(guides.every((p) => p.it === undefined)).toBe(true);
     expect(alternatesOf({ en: '/docs/architecture/' })).toEqual([
@@ -139,6 +152,8 @@ describe('page registry', () => {
     for (const g of GUIDES) expect(text).toContain(`${site}/docs/${g.slug}/`);
     for (const c of COMPETITORS) expect(text).toContain(`${site}/compare/${c}/`);
     expect(text).toContain(`${site}/changelog/`);
+    expect(text).toContain(`${site}/docs/getting-started/`);
+    expect(text).toContain(`${site}/compare/frameworks/`);
     expect(text).toContain('Is Monsters free and open source?');
   });
 });
@@ -313,5 +328,100 @@ describe('changelog feed', () => {
   it('has paths for both languages', () => {
     expect(feedPath('it')).toBe('/it/changelog.xml');
     expect(changelogPath('it')).toBe('/it/changelog/');
+  });
+});
+
+describe('meta descriptions', () => {
+  const inRange = (text: string, label: string): void => {
+    expect(text.length, `${label}: ${text.length}`).toBeGreaterThanOrEqual(150);
+    expect(text.length, `${label}: ${text.length}`).toBeLessThanOrEqual(155);
+  };
+
+  it('are 150 to 155 characters on every page, in both languages', () => {
+    for (const lang of ['en', 'it'] as const) {
+      inRange(STRINGS[lang].meta.description, `home ${lang}`);
+      inRange(PAGES[lang].docs.description, `docs ${lang}`);
+      inRange(PAGES[lang].changelog.description, `changelog ${lang}`);
+      inRange(COMPARE[lang].index.description, `compare ${lang}`);
+      for (const c of COMPETITORS) inRange(COMPARE[lang].pages[c].description, `${c} ${lang}`);
+      inRange(FRAMEWORKS_PAGE[lang].description, `frameworks ${lang}`);
+      inRange(GETTING_STARTED[lang].description, `getting started ${lang}`);
+    }
+    for (const g of GUIDES) inRange(PAGES.en.docs.summaries[g.slug], `guide ${g.slug}`);
+  });
+
+  it('keeps the guide title suffix short', () => {
+    expect(PAGES.en.guide.metaSuffix).toBe('Monsters');
+  });
+});
+
+describe('getting started', () => {
+  const commands = gettingStartedCommands().join('\n');
+  const help = cliHelp('0.0.0');
+
+  it('only shows commands the repository has', () => {
+    const scripts = (
+      JSON.parse(readRepoFile('package.json')) as { scripts: Record<string, string> }
+    ).scripts;
+    for (const line of commands.split('\n')) {
+      const exec = /exec monsters (\w+)/.exec(line);
+      if (exec) expect(help, line).toMatch(new RegExp(`^\\s+${exec[1]}\\b`, 'm'));
+      const run = /^pnpm (?:run )?([\w:]+)$/.exec(line.trim());
+      if (run && !['install'].includes(run[1] ?? '')) expect(scripts[run[1] ?? '']).toBeDefined();
+    }
+    expect(help).toContain('--to');
+    expect(commands).toContain(BUILD_STEPS.join('\n'));
+    expect(readRepoFile('package.json')).toContain('"desktop:dev"');
+  });
+
+  it('has the same steps and commands in both languages', () => {
+    const [en, it] = [GETTING_STARTED.en, GETTING_STARTED.it];
+    expect(it.steps.map((s) => s.id)).toEqual(en.steps.map((s) => s.id));
+    for (const [i, step] of en.steps.entries()) {
+      const other = it.steps[i];
+      expect(other?.cmds?.length ?? 0).toBe(step.cmds?.length ?? 0);
+      for (const [j, cmd] of (step.cmds ?? []).entries()) {
+        const a = cmd.code.split(' ').slice(0, 6).join(' ');
+        expect(other?.cmds?.[j]?.code.startsWith(a)).toBe(true);
+      }
+    }
+  });
+
+  it('is in the sitemap and dated, in both languages', () => {
+    const pages = allPages();
+    expect(
+      pages.some((p) => p.en === '/docs/getting-started/' && p.it === '/it/docs/getting-started/'),
+    ).toBe(true);
+    expect(
+      pages.some((p) => p.en === '/compare/frameworks/' && p.it === '/it/compare/frameworks/'),
+    ).toBe(true);
+    const lastmod = lastmodResolver({ buildDay: '2026-11-25', releaseDay: '' });
+    expect(lastmod('/it/compare/frameworks/')).toBe(FRAMEWORKS_VERIFIED);
+    expect(lastmod('/docs/getting-started/')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe('frameworks comparison', () => {
+  it('fills every row for every framework, in both languages', () => {
+    for (const lang of ['en', 'it'] as const) {
+      const page = FRAMEWORKS_PAGE[lang];
+      for (const row of FRAMEWORK_ROWS) {
+        expect(page.rowLabels[row].length).toBeGreaterThan(2);
+        expect(page.monsters[row].length).toBeGreaterThan(5);
+        for (const slug of FRAMEWORKS) expect(page.rows[slug][row].length).toBeGreaterThan(5);
+      }
+      expect(page.faq.length).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('dates the facts and links every source over https', () => {
+    expect(FRAMEWORKS_VERIFIED).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    for (const slug of FRAMEWORKS)
+      for (const src of FRAMEWORK_FACTS[slug].sources) expect(src.url).toMatch(/^https:\/\//);
+  });
+
+  it('says AutoGen is archived, in both languages', () => {
+    expect(FRAMEWORKS_PAGE.en.rows.autogen.stage).toMatch(/Archived/);
+    expect(FRAMEWORKS_PAGE.it.rows.autogen.stage).toMatch(/Archiviato/);
   });
 });

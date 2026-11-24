@@ -1,0 +1,209 @@
+---
+/* /compare/frameworks/: Monsters (an app) next to CrewAI, LangGraph and AutoGen (libraries). */
+import { COMPARE } from '../i18n/compare.ts';
+import {
+  FRAMEWORKS,
+  FRAMEWORKS_PAGE,
+  FRAMEWORKS_VERIFIED,
+  FRAMEWORK_FACTS,
+  FRAMEWORK_ROWS,
+  type FrameworkRow,
+} from '../i18n/frameworks.ts';
+import { PAGES } from '../i18n/pages.ts';
+import { STRINGS, fill, type Lang } from '../i18n/strings.ts';
+import Text from '../layouts/Text.astro';
+import { siteData } from '../lib/build-data.ts';
+import { formatDate } from '../lib/dates.ts';
+import { REPO_URL } from '../lib/feed.ts';
+import { ogImagePath } from '../lib/ogpages.ts';
+import { currentRelease, releaseLabel } from '../lib/release.ts';
+import { pageLdText } from '../lib/seo.ts';
+import { MONSTERS_SOURCES } from '../i18n/compare.ts';
+import Crumbs from './Crumbs.astro';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const t = STRINGS[lang];
+const c = COMPARE[lang];
+const p = PAGES[lang];
+const f = FRAMEWORKS_PAGE[lang];
+const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
+const base = lang === 'it' ? '/it/compare/' : '/compare/';
+const home = lang === 'it' ? '/it/' : '/';
+const path = `${base}frameworks/`;
+const date = formatDate(FRAMEWORKS_VERIFIED, lang);
+const release = releaseLabel(currentRelease(await siteData()), lang);
+const monstersCell = (key: FrameworkRow): string =>
+  key === 'stage' ? fill(f.monsters[key], { release }) : f.monsters[key];
+const ld = pageLdText({
+  lang,
+  site,
+  path,
+  title: f.metaTitle,
+  description: f.description,
+  type: 'WebPage',
+  crumbs: [
+    { name: p.crumbHome, path: home },
+    { name: c.chrome.breadcrumb, path: base },
+    { name: f.title, path },
+  ],
+  faq: f.faq,
+  mentions: FRAMEWORKS.map((s) => ({ name: FRAMEWORK_FACTS[s].name, url: FRAMEWORK_FACTS[s].repo })),
+  modified: FRAMEWORKS_VERIFIED,
+});
+const sources = FRAMEWORKS.flatMap((s) => FRAMEWORK_FACTS[s].sources);
+---
+
+<Text
+  t={t}
+  title={f.metaTitle}
+  description={f.description}
+  path={path}
+  alternates={{ en: '/compare/frameworks/', it: '/it/compare/frameworks/' }}
+  ld={ld}
+  otherHref={lang === 'it' ? '/compare/frameworks/' : '/it/compare/frameworks/'}
+  image={{ path: ogImagePath('compare-frameworks'), alt: f.metaTitle }}
+>
+  <article class="doc">
+    <Crumbs
+      crumbs={[
+        { name: p.crumbHome, href: home },
+        { name: c.chrome.breadcrumb, href: base },
+      ]}
+      current={f.title}
+    />
+    <header class="doc__head">
+      <h1 class="display doc__title">{f.title}</h1>
+      <p class="lede lede--wide">{f.intro}</p>
+      <p class="doc__note">
+        <time datetime={FRAMEWORKS_VERIFIED}>{fill(f.chrome.verified, { date })}</time>
+      </p>
+      <p class="doc__keys">
+        <a class="key key--signal" href={`${home}#download`}>{c.chrome.ctaDownload}</a>
+        <a class="key" href={REPO_URL} rel="noopener">{c.chrome.ctaCode}</a>
+      </p>
+    </header>
+
+    <section class="doc__sec" aria-labelledby="kind-title">
+      <h2 class="doc__h2" id="kind-title">{f.chrome.kindTitle}</h2>
+      {f.kind.map((para) => <p class="doc__plain">{para}</p>)}
+    </section>
+
+    <section class="doc__sec" aria-labelledby="table-title">
+      <h2 class="doc__h2" id="table-title">{f.chrome.tableTitle}</h2>
+      <div class="table-scroll cmp-wrap" tabindex="0" role="region" aria-label={f.chrome.tableTitle}>
+        <table class="cmp cmp--four" role="table">
+          <caption class="sr-only">{f.title}</caption>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">{f.chrome.row}</th>
+              <th scope="col" role="columnheader">Monsters</th>
+              {
+                FRAMEWORKS.map((s) => (
+                  <th scope="col" role="columnheader">
+                    <a href={FRAMEWORK_FACTS[s].site} rel="noopener">{FRAMEWORK_FACTS[s].name}</a>
+                  </th>
+                ))
+              }
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            {
+              FRAMEWORK_ROWS.map((key) => (
+                <tr role="row">
+                  <th scope="row" role="rowheader">{f.rowLabels[key]}</th>
+                  <td role="cell" data-label="Monsters">{monstersCell(key)}</td>
+                  {
+                    FRAMEWORKS.map((s) => (
+                      <td
+                        role="cell"
+                        data-label={FRAMEWORK_FACTS[s].name}
+                        class={f.rows[s][key] === f.chrome.note ? 'cmp__nd' : undefined}
+                      >
+                        {f.rows[s][key]}
+                      </td>
+                    ))
+                  }
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="doc__note cmp-hint">{f.chrome.scroll}</p>
+    </section>
+
+    <section class="doc__sec" aria-labelledby="ahead-title">
+      <h2 class="doc__h2" id="ahead-title">{f.chrome.aheadTitle}</h2>
+      <ul class="points" role="list">
+        {f.ahead.map((item) => <li>{item}</li>)}
+      </ul>
+    </section>
+
+    <section class="doc__sec" aria-labelledby="differs-title">
+      <h2 class="doc__h2" id="differs-title">{f.chrome.differsTitle}</h2>
+      <ul class="points" role="list">
+        {f.differs.map((item) => <li>{item}</li>)}
+      </ul>
+    </section>
+
+    <section class="doc__sec pick" aria-label={`${f.chrome.pickThem} / ${f.chrome.pickUs}`}>
+      <div class="pick__box">
+        <h2 class="doc__h2 doc__h2--box">{f.chrome.pickThem}</h2>
+        <ul class="points" role="list">
+          {f.pickThem.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+      <div class="pick__box pick__box--us">
+        <h2 class="doc__h2 doc__h2--box">{f.chrome.pickUs}</h2>
+        <ul class="points" role="list">
+          {f.pickUs.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+    </section>
+
+    <section class="doc__sec" aria-labelledby="faq-title">
+      <h2 class="doc__h2" id="faq-title">{f.chrome.faq}</h2>
+      <ul class="faq faq--plain" role="list">
+        {
+          f.faq.map((item) => (
+            <li>
+              <details>
+                <summary>
+                  <h3 class="faq__q">{item.q}</h3>
+                  <span class="faq__x" aria-hidden="true" />
+                </summary>
+                <p class="faq__a">{item.a}</p>
+              </details>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section class="doc__sec" aria-labelledby="sources-title">
+      <h2 class="doc__h2" id="sources-title">{f.chrome.sources}</h2>
+      <p class="doc__plain">{fill(f.chrome.sourcesNote, { date })}</p>
+      <ul class="points points--links" role="list">
+        {
+          [...sources, ...MONSTERS_SOURCES].map((s) => (
+            <li>
+              <a href={s.url} rel="noopener">
+                {s.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section class="doc__sec" aria-labelledby="other-title">
+      <h2 class="doc__h2" id="other-title">{f.chrome.other}</h2>
+      <ul class="points" role="list">
+        <li><a href={base}>{c.index.title}</a></li>
+      </ul>
+    </section>
+  </article>
+</Text>

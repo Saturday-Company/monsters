@@ -19,10 +19,12 @@ export function allPages(): PageRef[] {
   return [
     { en: '/', it: '/it/' },
     pair('/docs/'),
+    pair('/docs/getting-started/'),
     ...GUIDES.map((g) => ({ en: `/docs/${g.slug}/` })),
     pair('/changelog/'),
     pair('/compare/'),
     ...COMPETITORS.map((c) => pair(`/compare/${c}/`)),
+    pair('/compare/frameworks/'),
   ];
 }
 

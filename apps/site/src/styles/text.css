@@ -682,3 +682,79 @@
   text-transform: uppercase;
   color: var(--ink-2);
 }
+
+/* ------------------------------------------------------------ commands to copy, getting started */
+
+.codeblock {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  margin: 1.2em 0;
+  border: var(--rule);
+  background: var(--screen);
+}
+
+.codeblock__label {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 7px 14px;
+  border-bottom: var(--rule);
+  background: var(--chassis);
+}
+
+.codeblock pre {
+  margin: 0;
+  max-width: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+.codeblock .key {
+  align-self: start;
+  margin: 10px;
+  min-height: 44px;
+  box-shadow: none;
+}
+
+@media (max-width: 520px) {
+  .codeblock {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .codeblock .key {
+    margin: 0;
+    border-width: var(--hair) 0 0;
+  }
+}
+
+.step + .step {
+  margin-top: clamp(28px, 4vw, 48px);
+}
+
+.prose .faq {
+  list-style: none;
+  padding: 0;
+}
+
+/* the comparison with four columns */
+.cmp--four {
+  min-width: 1220px;
+}
+
+.cmp--four td {
+  min-width: 230px;
+}
+
+@media (max-width: 640px) {
+  .cmp--four {
+    min-width: 0;
+  }
+  .cmp--four td {
+    min-width: 0;
+  }
+}
+
+.prose .step:first-child > h2 {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}

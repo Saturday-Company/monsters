@@ -4,6 +4,7 @@
  * facts were checked, the changelog from its newest release, the home from the build.
  */
 import { VERIFIED } from '../i18n/compare.ts';
+import { FRAMEWORKS_VERIFIED } from '../i18n/frameworks.ts';
 import { GUIDES, changelogFile, parseChangelog, readRepoFile } from './docs.ts';
 import { fileDates } from './history.ts';
 
@@ -38,7 +39,10 @@ export function lastmodResolver(input: LastmodInput): (path: string) => string {
     const path = clean(raw);
     if (path === '/') return input.buildDay;
     if (path === '/changelog/') return changelogDay() || input.releaseDay || input.buildDay;
+    if (path === '/compare/frameworks/') return FRAMEWORKS_VERIFIED;
     if (path.startsWith('/compare/')) return VERIFIED;
+    if (path === '/docs/getting-started/')
+      return fileDates('apps/site/src/i18n/getting-started.ts')?.modified ?? input.buildDay;
     if (path === '/docs/') return newest(GUIDES.map((g) => guideDay(g.file, input)));
     const guide = GUIDES.find((g) => path === `/docs/${g.slug}/`);
     if (guide) return guideDay(guide.file, input);

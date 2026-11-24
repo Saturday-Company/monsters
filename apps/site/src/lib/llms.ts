@@ -6,6 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { COMPARE, COMPETITORS, VERIFIED } from '../i18n/compare.ts';
+import { FRAMEWORKS_PAGE } from '../i18n/frameworks.ts';
 import { STRINGS } from '../i18n/strings.ts';
 import type { SiteData } from './build-data.ts';
 import { GUIDES, absolutizeLinks, blob, docsDir } from './docs.ts';
@@ -17,10 +18,17 @@ export function llmsTxt(data: SiteData): string {
     .map((i) => `- **${i.q}** ${i.a}`)
     .join('\n');
   const site = (path: string): string => `${SITE_ORIGIN}${path}`;
-  const guides = GUIDES.map((g) => `- ${g.title}: ${site(`/docs/${g.slug}/`)}`).join('\n');
+  const guides = [
+    `- Getting started: ${site('/docs/getting-started/')}`,
+    ...GUIDES.map((g) => `- ${g.title}: ${site(`/docs/${g.slug}/`)}`),
+  ].join('\n');
   const compare = COMPETITORS.map(
     (c) => `- ${COMPARE.en.pages[c].title}: ${site(`/compare/${c}/`)}`,
-  ).join('\n');
+  )
+    .concat(
+      `- ${FRAMEWORKS_PAGE.en.title} (an app next to libraries): ${site('/compare/frameworks/')}`,
+    )
+    .join('\n');
   const downloads =
     data.downloads.length > 0
       ? data.downloads.map((d) => `  - ${d.os} (${d.format}): ${d.url}`).join('\n')

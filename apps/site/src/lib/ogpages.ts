@@ -14,12 +14,14 @@ export interface OgPage {
 /** The cards, with the title as it is drawn: letters, digits and `. , : ? -` only. */
 export function ogPages(): OgPage[] {
   return [
+    { slug: 'docs-getting-started', kicker: 'Docs', title: 'Getting started' },
     ...GUIDES.map((g) => ({ slug: `docs-${g.slug}`, kicker: 'Docs', title: g.title })),
     ...COMPETITORS.map((c) => ({
       slug: `compare-${c}`,
       kicker: 'Compare',
       title: COMPARE.en.pages[c].title,
     })),
+    { slug: 'compare-frameworks', kicker: 'Compare', title: 'Monsters vs frameworks' },
   ];
 }
 

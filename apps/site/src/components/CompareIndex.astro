@@ -1,6 +1,7 @@
 ---
 /* /compare/ and /it/compare/: the list of comparisons. */
 import { COMPARE, COMPETITORS, COMPETITOR_FACTS } from '../i18n/compare.ts';
+import { FRAMEWORKS_PAGE } from '../i18n/frameworks.ts';
 import { PAGES } from '../i18n/pages.ts';
 import { STRINGS, type Lang } from '../i18n/strings.ts';
 import Text from '../layouts/Text.astro';
@@ -14,6 +15,7 @@ const { lang } = Astro.props;
 const t = STRINGS[lang];
 const c = COMPARE[lang];
 const p = PAGES[lang];
+const frameworks = FRAMEWORKS_PAGE[lang];
 const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
 const base = lang === 'it' ? '/it/compare/' : '/compare/';
 const home = lang === 'it' ? '/it/' : '/';
@@ -64,6 +66,14 @@ const ld = pageLdText({
           </li>
         ))
       }
+      <li>
+        <a class="card" href={`${base}frameworks/`}>
+          <span class="label card__kicker">CrewAI · LangGraph · AutoGen</span>
+          <h2 class="card__title">{frameworks.title}</h2>
+          <span class="card__text">{frameworks.teaser}</span>
+          <span class="card__go label">{c.index.open} →</span>
+        </a>
+      </li>
     </ul>
 
     <section class="doc__more" aria-labelledby="how-title">
