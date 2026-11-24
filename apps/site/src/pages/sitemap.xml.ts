@@ -1,11 +1,18 @@
 import type { APIRoute } from 'astro';
+import { siteData } from '../lib/build-data.ts';
+import { lastmodResolver } from '../lib/lastmod.ts';
 import { alternatesOf, allPages } from '../lib/pages.ts';
+import { currentRelease } from '../lib/release.ts';
 
 export const prerender = true;
 
 /** Every page, each with its language versions pointing at one another (D-150). */
-export const GET: APIRoute = ({ site }) => {
+export const GET: APIRoute = async ({ site }) => {
   const origin = (site?.toString() ?? '').replace(/\/$/, '');
+  const lastmod = lastmodResolver({
+    buildDay: new Date().toISOString().slice(0, 10),
+    releaseDay: currentRelease(await siteData()).date,
+  });
   const urls: string[] = [];
   for (const ref of allPages()) {
     const alternates = alternatesOf(ref);
@@ -20,7 +27,10 @@ export const GET: APIRoute = ({ site }) => {
             .join('')
         : '';
     for (const path of [ref.en, ref.it]) {
-      if (path) urls.push(`  <url><loc>${origin}${path}</loc>${links}</url>`);
+      if (path)
+        urls.push(
+          `  <url><loc>${origin}${path}</loc><lastmod>${lastmod(path)}</lastmod>${links}</url>`,
+        );
     }
   }
   const body =

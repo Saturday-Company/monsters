@@ -14,7 +14,9 @@ import {
 } from '../src/lib/docs.ts';
 import { llmsTxt } from '../src/lib/llms.ts';
 import { allPages, alternatesOf } from '../src/lib/pages.ts';
+import { atomFeed, changelogPath, feedPath } from '../src/lib/atom.ts';
 import { fileDates } from '../src/lib/history.ts';
+import { changelogDay, lastmodResolver } from '../src/lib/lastmod.ts';
 import { currentRelease, releaseLabel } from '../src/lib/release.ts';
 import { pageGraph } from '../src/lib/seo.ts';
 import fallback from '../src/data/fallback.json' with { type: 'json' };
@@ -251,5 +253,65 @@ describe('docs in the READMEs and on the guide pages', () => {
       expect(d.modified >= d.published).toBe(true);
     }
     expect(fileDates('docs/does-not-exist.md')).toBeNull();
+  });
+});
+
+describe('sitemap dates', () => {
+  const lastmod = lastmodResolver({ buildDay: '2026-11-24', releaseDay: '2026-10-28' });
+  it('dates each kind of page from its own source', () => {
+    expect(lastmod('/')).toBe('2026-11-24');
+    expect(lastmod('/it/')).toBe('2026-11-24');
+    expect(lastmod('/compare/goose/')).toBe(VERIFIED);
+    expect(lastmod('/it/compare/')).toBe(VERIFIED);
+    expect(lastmod('/changelog/')).toBe(changelogDay());
+    expect(lastmod('/it/changelog/')).toBe(changelogDay());
+    for (const g of GUIDES) expect(lastmod(`/docs/${g.slug}/`)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('lets the docs index take the newest guide', () => {
+    const newest = GUIDES.map((g) => lastmod(`/docs/${g.slug}/`))
+      .sort()
+      .at(-1);
+    expect(lastmod('/docs/')).toBe(newest);
+  });
+
+  it('falls back to the release day, then the build day, without history', () => {
+    expect(lastmodResolver({ buildDay: '2026-11-24', releaseDay: '' })('/docs/nowhere/')).toBe(
+      '2026-11-24',
+    );
+  });
+});
+
+describe('changelog feed', () => {
+  const entries = [
+    { version: '0.2.0', date: '2026-11-02', html: '<p>New & <b>better</b></p>' },
+    { version: '0.1.9', date: '2026-10-30', html: '<p>Older</p>' },
+  ];
+  const xml = atomFeed({
+    site,
+    lang: 'en',
+    title: 'Monsters changelog',
+    subtitle: 'What changed',
+    entries,
+  });
+
+  it('is an Atom feed with one entry per release, newest date as updated', () => {
+    expect(xml).toContain('<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">');
+    expect(xml.match(/<entry>/g)).toHaveLength(2);
+    expect(xml).toContain('<updated>2026-11-02T00:00:00Z</updated>');
+    expect(xml).toContain(
+      `<link rel="self" type="application/atom+xml" href="${site}/changelog.xml"/>`,
+    );
+    expect(xml).toContain(`<id>${site}/changelog/#v0.2.0</id>`);
+  });
+
+  it('escapes the HTML inside the content', () => {
+    expect(xml).toContain('&lt;p&gt;New &amp; &lt;b&gt;better&lt;/b&gt;&lt;/p&gt;');
+    expect(xml).not.toContain('<b>');
+  });
+
+  it('has paths for both languages', () => {
+    expect(feedPath('it')).toBe('/it/changelog.xml');
+    expect(changelogPath('it')).toBe('/it/changelog/');
   });
 });
