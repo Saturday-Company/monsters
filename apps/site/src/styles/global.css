@@ -496,6 +496,17 @@ html.booting .boot .bl {
   line-height: 1;
 }
 
+/* On a phone the bar holds the wordmark, the palette key, the language, the star and the menu button:
+   the LED counter is what gives way, so nothing spills past the right edge. */
+@media (max-width: 440px) {
+  .star .led {
+    display: none;
+  }
+  .star__key {
+    border-left: 0;
+  }
+}
+
 /* Docs and Compare join the bar only where it has room; the footer always has them. */
 @media (max-width: 1320px) {
   .bar__nav .bar__more {
