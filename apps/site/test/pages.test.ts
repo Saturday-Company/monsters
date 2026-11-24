@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COMPARE, COMPETITORS, COMPETITOR_FACTS, ROWS } from '../src/i18n/compare.ts';
+import { COMPARE, COMPETITORS, COMPETITOR_FACTS, ROWS, VERIFIED } from '../src/i18n/compare.ts';
 import { PAGES } from '../src/i18n/pages.ts';
 import { STRINGS } from '../src/i18n/strings.ts';
 import {
@@ -14,6 +14,7 @@ import {
 } from '../src/lib/docs.ts';
 import { llmsTxt } from '../src/lib/llms.ts';
 import { allPages, alternatesOf } from '../src/lib/pages.ts';
+import { currentRelease, releaseLabel } from '../src/lib/release.ts';
 import { pageGraph } from '../src/lib/seo.ts';
 import fallback from '../src/data/fallback.json' with { type: 'json' };
 import { BUILD_STEPS, downloadsFrom, latestVersion, type Feed } from '../src/lib/feed.ts';
@@ -197,5 +198,25 @@ describe('build from source', () => {
       scripts: Record<string, string>;
     };
     expect(web.scripts['build']).toBeDefined();
+  });
+});
+
+describe('comparison facts', () => {
+  it('takes the Monsters version and day from the build, not from text', () => {
+    for (const lang of ['en', 'it'] as const) {
+      expect(COMPARE[lang].monsters.stage).toContain('{release}');
+      expect(COMPARE[lang].monsters.stage).not.toMatch(/alpha\.\d+/);
+    }
+    const release = currentRelease({ version: '', releaseDate: null });
+    expect(release.version).toMatch(/^0\.1\.0-alpha\.\d+$/);
+    expect(release.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(releaseLabel(release, 'en')).toContain(release.version);
+    expect(releaseLabel({ version: '1.0.0', date: '' }, 'en')).toBe('1.0.0');
+  });
+
+  it('are dated today or earlier and every source is an https link', () => {
+    expect(VERIFIED).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    for (const c of COMPETITORS)
+      for (const s of COMPETITOR_FACTS[c].sources) expect(s.url).toMatch(/^https:\/\//);
   });
 });

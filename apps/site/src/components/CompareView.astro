@@ -8,11 +8,15 @@ import {
   ROWS,
   VERIFIED,
   type CompetitorSlug,
+  type RowKey,
 } from '../i18n/compare.ts';
 import { PAGES } from '../i18n/pages.ts';
 import { STRINGS, fill, type Lang } from '../i18n/strings.ts';
 import Text from '../layouts/Text.astro';
+import { siteData } from '../lib/build-data.ts';
+import { formatDate } from '../lib/dates.ts';
 import { REPO_URL } from '../lib/feed.ts';
+import { currentRelease, releaseLabel } from '../lib/release.ts';
 import { pageLdText } from '../lib/seo.ts';
 import Crumbs from './Crumbs.astro';
 
@@ -30,12 +34,11 @@ const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
 const base = lang === 'it' ? '/it/compare/' : '/compare/';
 const home = lang === 'it' ? '/it/' : '/';
 const path = `${base}${slug}/`;
-const date = new Intl.DateTimeFormat(lang === 'it' ? 'it-IT' : 'en-GB', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-  timeZone: 'UTC',
-}).format(new Date(`${VERIFIED}T00:00:00Z`));
+const date = formatDate(VERIFIED, lang);
+// The Maturity row of Monsters is not text kept by hand: version and day come from the build.
+const release = releaseLabel(currentRelease(await siteData()), lang);
+const monstersCell = (key: RowKey): string =>
+  key === 'stage' ? fill(c.monsters[key], { release }) : c.monsters[key];
 const ld = pageLdText({
   lang,
   site,
@@ -103,7 +106,7 @@ const siblings = COMPETITORS.filter((s) => s !== slug);
               ROWS.map((key) => (
                 <tr>
                   <th scope="row">{c.rowLabels[key]}</th>
-                  <td>{c.monsters[key]}</td>
+                  <td>{monstersCell(key)}</td>
                   <td class={page.rows[key] === c.chrome.note ? 'cmp__nd' : undefined}>
                     {page.rows[key]}
                   </td>

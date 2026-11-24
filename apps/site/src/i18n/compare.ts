@@ -9,7 +9,7 @@
 import type { Lang } from './strings.ts';
 
 /** The day the facts below were checked. */
-export const VERIFIED = '2026-10-22';
+export const VERIFIED = '2026-11-24';
 
 export const COMPETITORS = ['goose', 'eigent', 'openclaw'] as const;
 export type CompetitorSlug = (typeof COMPETITORS)[number];
@@ -81,6 +81,10 @@ export const COMPETITOR_FACTS: Record<
         label: 'Goose ACP providers',
         url: 'https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/acp-providers.md',
       },
+      {
+        label: 'Goose remote server',
+        url: 'https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/remote-goose-server.md',
+      },
       { label: 'Goose releases', url: 'https://github.com/aaif-goose/goose/releases' },
     ],
   },
@@ -110,6 +114,11 @@ export const COMPETITOR_FACTS: Record<
         label: 'Eigent remote control (source)',
         url: 'https://github.com/eigent-ai/eigent/blob/main/src/pages/RemoteControl.tsx',
       },
+      {
+        label: 'Eigent ChatGPT (Codex) sign-in (source)',
+        url: 'https://github.com/eigent-ai/eigent/blob/main/src/components/Settings/Models/CodexConfigurationDialog.tsx',
+      },
+      { label: 'Eigent pricing and features', url: 'https://www.eigent.ai/pricing' },
       { label: 'Eigent website', url: 'https://www.eigent.ai/' },
       { label: 'Eigent releases', url: 'https://github.com/eigent-ai/eigent/releases' },
     ],
@@ -132,6 +141,14 @@ export const COMPETITOR_FACTS: Record<
         url: 'https://docs.openclaw.ai/help/faq/chat-commands-and-stopping',
       },
       { label: 'OpenClaw usage tracking', url: 'https://docs.openclaw.ai/concepts/usage-tracking' },
+      {
+        label: 'OpenClaw automations (cron)',
+        url: 'https://docs.openclaw.ai/automation/cron-jobs',
+      },
+      {
+        label: 'OpenClaw telemetry and update checks',
+        url: 'https://docs.openclaw.ai/gateway/telemetry',
+      },
       { label: 'OpenClaw releases', url: 'https://github.com/openclaw/openclaw/releases' },
     ],
   },
@@ -216,7 +233,7 @@ const en: Compare = {
     open: 'Read the comparison',
     method: 'How we compare',
     methodItems: [
-      'Every fact comes from the other project’s own repository, website or documentation, linked at the bottom of each page, and was checked on 22 October 2026.',
+      'Every fact comes from the other project’s own repository, website or documentation, linked at the bottom of each page, and was checked on 24 November 2026.',
       'Where we found nothing in the pages we read, the table says so. That is not proof the feature does not exist: tell us and we will fix it.',
       'Star counts, versions and features change. Check the sources before you decide.',
       'Monsters is made by Saturday Company, so we are not neutral. We wrote what we would want to read if we were choosing.',
@@ -268,7 +285,7 @@ const en: Compare = {
     what: 'A desktop app with an orchestrator (Titan) and a squad of named agents, each with its own chat, terminal, permissions and model chain.',
     license: 'Apache-2.0.',
     stage:
-      'Alpha (0.1.0-alpha.20, 21 October 2026). Public since 20 October 2026. A young project with a small community.',
+      'Alpha ({release}). Public since 20 October 2026. A young project with a small community.',
     platforms:
       'Linux (AppImage, .deb), macOS (Apple silicon and Intel, signed and notarized), Windows (installer, not yet signed with a public certificate).',
     stack: 'TypeScript: a Node.js 24 core and an Electron app.',
@@ -305,31 +322,31 @@ const en: Compare = {
         what: 'A general-purpose agent that runs on your machine, as a desktop app, a CLI and an API, for code, research, writing and automation.',
         license: 'Apache-2.0. Created by Block, now in the Agentic AI Foundation.',
         stage:
-          'Version 1.55.0 (16 October 2026), a release about every week. Repository since August 2024. About 55,500 GitHub stars.',
+          'Version 1.60.2 (20 November 2026), a release every few days. Repository since August 2024. About 57,000 GitHub stars.',
         platforms: 'Desktop app for macOS, Linux and Windows, plus a CLI.',
         stack: 'A Rust core and an Electron/TypeScript desktop app.',
         models:
-          '15+ providers, including Anthropic, OpenAI, Google, OpenRouter, Azure, Bedrock and Vertex AI. Any OpenAI-, Anthropic- or Ollama-compatible endpoint.',
+          'Dozens of providers (its README says over 85), including Anthropic, OpenAI, Google, OpenRouter, Azure, Bedrock and Vertex AI. Any OpenAI-, Anthropic- or Ollama-compatible endpoint.',
         local:
           'Yes: Ollama, LM Studio, Docker Model Runner. A model without tool calling can only chat.',
         subs: 'Yes: Claude and Codex through ACP; ChatGPT and GitHub Copilot as native providers; Cursor through its CLI.',
         agents:
           'Subagents that goose starts for a task, one after another or in parallel. Only in the autonomous mode, which is the default.',
-        mcp: '70+ extensions through MCP.',
+        mcp: 'A catalog of extensions through MCP.',
         notes:
           'Sessions kept in a local SQLite file, exportable as Markdown, JSON or YAML. A Memory extension. No notes vault.',
         permissions:
-          'Four modes (autonomous, manual approval, smart approval, chat only). The default is Completely Autonomous.',
+          'Three modes (autonomous, manual approval, smart approval). The default is Completely Autonomous.',
         kill: 'Interrupt with Ctrl+C in the CLI, or with Send or a stop keyword in the app. No global switch documented.',
         caps: 'No spending cap; a turn limit (`GOOSE_MAX_TURNS`) and a cost display in the CLI.',
         history: 'Session history and application logs.',
         remote:
-          'A Telegram gateway (experimental) and an ACP server over HTTP and WebSocket on 127.0.0.1.',
+          'A Telegram gateway (experimental), an ACP server over HTTP and WebSocket (on 127.0.0.1 by default) and a remote Goose server the desktop app can connect to.',
         schedule: 'Cron schedules for recipes, from the Scheduler in the desktop app or the CLI.',
         data: 'Runs locally. Prompts go to the provider you choose. Anonymous usage data is opt-in, asked on first use.',
       },
       ahead: [
-        'Maturity and community. Goose has been public since 2024, ships a release about every week and has about 55,500 GitHub stars. Monsters became public on 20 October 2026 and is a young project with a small community.',
+        'Maturity and community. Goose has been public since 2024, ships a release every few days and has about 57,000 GitHub stars. Monsters became public on 20 October 2026 and is a young project with a small community.',
         'Governance. Goose was created by Block and now belongs to the Agentic AI Foundation. Monsters is run by Saturday Company and its contributors.',
         'Reach. A full command line and an API you can embed, next to the desktop app. Monsters has a command line, but no API meant for embedding.',
         'Providers and extensions. More providers (Azure, Bedrock, Vertex AI and others) and a large catalog of MCP extensions.',
@@ -340,7 +357,7 @@ const en: Compare = {
         'Notes you can read and undo. The memory is a Markdown vault you can open in Obsidian, and every agent edit is a git commit. In the pages we read Goose has no notes vault.',
         'Brakes from the start. Terminal and files are off until you grant them, per agent, and a small model (Instinct) brakes outgoing actions and asks you. Goose starts in its autonomous mode and lets you switch to approval modes.',
         'A kill switch and spending caps. One lever stops every run and child process, and daily and monthly caps apply per project, for models with a known price. Goose lets you interrupt a task and has a turn limit, but we found no global switch and no spending cap.',
-        'Remote use as a main path: Telegram (also one bot per agent), the terminal over SSH, and the desktop app as an SSH client. Goose has an experimental Telegram gateway.',
+        'Remote use as a main path: Telegram (also one bot per agent), the terminal over SSH, and the desktop app as an SSH client. Goose has an experimental Telegram gateway and a remote server its desktop app can connect to.',
       ],
       pickThem: [
         'You want the most established open-source agent app, with a large community and frequent releases.',
@@ -376,38 +393,38 @@ const en: Compare = {
       description:
         'Monsters and Eigent compared: two open-source desktop apps with a team of AI agents. License, platforms, local deployment, models, MCP, kill switch, spending caps and maturity, with sources.',
       intro:
-        'Eigent and Monsters both put a team of AI agents on your desktop. Eigent is built on CAMEL-AI, calls itself an open-source Cowork app and runs a workforce of specialised agents in parallel. It has reached version 1.0, has about 15,600 GitHub stars and also offers a hosted cloud version. Monsters is a smaller alpha that stays on your computer and adds a Markdown vault, spending caps and one kill switch for everything.',
+        'Eigent and Monsters both put a team of AI agents on your desktop. Eigent is built on CAMEL-AI, calls itself an open-source Cowork app and runs a workforce of specialised agents in parallel. It has reached version 1.0, has about 15,900 GitHub stars and also offers a hosted cloud version. Monsters is a smaller alpha that stays on your computer and adds a Markdown vault, spending caps and one kill switch for everything.',
       teaser:
         'A multi-agent “Cowork” desktop app on CAMEL-AI, at version 1.0, with a hosted option. More mature, heavier to run locally.',
       rows: {
         what: 'An open-source “Cowork” desktop app: a workforce of specialised agents that work in parallel, or a single agent for focused tasks.',
         license: 'Apache-2.0.',
         stage:
-          'Version 1.0.6 (16 October 2026). Repository since July 2025. About 15,600 GitHub stars.',
+          'Version 1.0.8 (17 November 2026). Repository since July 2025. About 15,900 GitHub stars.',
         platforms: 'Builds for macOS (Apple silicon and Intel), Windows and Linux (AppImage).',
         stack:
           'Electron and React for the app, Python (FastAPI) for the back end, CAMEL for the agents.',
         models:
           'Model agnostic: cloud providers, enterprise gateways or local inference, with your own keys.',
         local: 'Yes: vLLM, Ollama and LM Studio are listed for the local deployment.',
-        subs: 'Not documented in the pages we read.',
+        subs: 'A sign-in with ChatGPT (Codex) is in the app’s settings, but not described in the README or the docs. No Claude plan support found.',
         agents:
           'Yes, it is the main feature: a workforce of agents that split a task and work in parallel, plus a single-agent mode.',
         mcp: 'MCP integration, skills, and built-in browser and terminal toolkits.',
         notes:
           'Users, provider settings, tool settings and chat history are kept in a local database in local mode. No Markdown vault documented.',
         permissions:
-          'Four permission profiles, picked in the chat box: Read only, Ask me first, Approve for me and Full access. A change applies to new tasks. Eigent’s security policy says this is not an operating-system sandbox.',
+          'Four permission profiles, picked in the chat box: Read only, Ask me first, Approve for me and Full access; Ask me first is the default. A change applies to new tasks. Eigent’s security policy says this is not an operating-system sandbox.',
         kill: 'Per-task controls: stop a session, and Stop task or Force stop from the remote-control page. No global switch documented.',
         caps: 'Not documented in the pages we read. The hosted plans use credits.',
         history: 'Chat history kept locally in local mode.',
         remote:
           'A remote-control page for a running desktop session: send messages, answer the agent’s questions, stop the task. Sessions can be extended or revoked.',
-        schedule: 'Yes: recurring workflows on a schedule.',
+        schedule: 'Yes: Automations, on a schedule or by a trigger, with a run history.',
         data: 'The recommended local deployment runs a back end on your machine and keeps data there. The quick start uses Eigent’s cloud and needs an account. Hosted Plus, Pro and Enterprise plans exist.',
       },
       ahead: [
-        'Maturity and community. Eigent is at version 1.0 with about 15,600 GitHub stars. Monsters is a young alpha with a small community.',
+        'Maturity and community. Eigent is at version 1.0 with about 15,900 GitHub stars. Monsters is a young alpha with a small community.',
         'Parallel workforce. Splitting a task across specialised agents is Eigent’s core idea, built on CAMEL-AI’s research, with a single-agent mode for simple tasks.',
         'Built-in browser and terminal toolkits, aimed at everyday desktop work such as organising files or producing reports.',
         'A way up. Hosted plans for people who do not want to run anything, and an Enterprise offer with SSO and access control.',
@@ -416,7 +433,7 @@ const en: Compare = {
         'Lighter to run locally. Monsters is one desktop app with a local core. Eigent’s recommended local deployment needs Docker Desktop, Python 3.12 and Node.js for its back end and database, and its quick start goes through Eigent’s cloud.',
         'Notes you can read and undo: a Markdown vault under git, with every agent edit a commit you can revert. We did not find an equivalent in Eigent.',
         'Spending caps. Daily and monthly caps apply per project, for models with a known price. We did not find spending caps described for Eigent, whose hosted plans use credits.',
-        'The subscriptions you already pay for (Claude through Claude Code, ChatGPT and Codex) and remote use from Telegram or over SSH.',
+        'Your Claude plan through Claude Code (Eigent has a sign-in with ChatGPT, but we found no Claude plan support), and remote use from Telegram or over SSH.',
       ],
       pickThem: [
         'You want a product that has reached 1.0 and a larger community.',
@@ -447,7 +464,7 @@ const en: Compare = {
       description:
         'Monsters and OpenClaw compared: two open-source AI agent systems that run on your own hardware. License, platforms, models, multi-agent, MCP, kill switch, spending caps and maturity, with sources.',
       intro:
-        'OpenClaw and Monsters both run on your own hardware with the models you choose, but they sit in different places. OpenClaw is a personal assistant that lives in the chat apps you already use, such as WhatsApp, Telegram, Slack, Discord and iMessage, served by one Gateway. Monsters is a desktop app with a team of agents you watch and steer, a notes vault and a kill switch. OpenClaw is far larger, with about 392,700 GitHub stars and a foundation behind it.',
+        'OpenClaw and Monsters both run on your own hardware with the models you choose, but they sit in different places. OpenClaw is a personal assistant that lives in the chat apps you already use, such as WhatsApp, Telegram, Slack, Discord and iMessage, served by one Gateway. Monsters is a desktop app with a team of agents you watch and steer, a notes vault and a kill switch. OpenClaw is far larger, with about 395,000 GitHub stars and a foundation behind it.',
       teaser:
         'A personal assistant that lives in your chat apps, on a Gateway, with native apps on five platforms. Far larger, a different shape.',
       rows: {
@@ -455,10 +472,10 @@ const en: Compare = {
         license:
           'MIT. Run by the OpenClaw Foundation, an independent non-profit. No paid tier or hosted service.',
         stage:
-          'Calendar versions: v2026.10.5 (18 October 2026), with beta releases in between. Repository since November 2025. About 392,700 GitHub stars.',
+          'Calendar versions: v2026.11.8 (24 November 2026), with beta releases in between. Repository since November 2025. About 395,000 GitHub stars.',
         platforms:
           'Native apps for macOS, iOS, Android, Windows and Linux, plus an installer for macOS, Linux and Windows.',
-        stack: 'TypeScript on Node.js (Node 24 or later for npm installs).',
+        stack: 'TypeScript on Node.js (Node 24.16 or later, or 26.1 or later, for npm installs).',
         models:
           'Hosted and local providers, including OpenAI, Anthropic, Google, OpenRouter and xAI, plus custom base URLs.',
         local: 'Yes: Ollama, LM Studio, llama.cpp, vLLM and SGLang.',
@@ -475,11 +492,12 @@ const en: Compare = {
         history: 'Session transcripts and logs; cost summaries built from them.',
         remote:
           'Reached through its messaging channels, a Control UI, a CLI and a TUI, and companion apps.',
-        schedule: 'Cron and heartbeat tools.',
-        data: 'State, memory and credentials stay on your hardware. By default it only checks for a new version daily; anonymous statistics are opt-in.',
+        schedule:
+          'A built-in scheduler (Automations): cron expressions, intervals, one-shot reminders and webhooks.',
+        data: 'State, memory and credentials stay on your hardware. By default it checks for a new version daily, sending its version, operating system, Node version and CPU architecture; anonymous feature statistics are opt-in, and `update.checkOnStart: false` turns the check off.',
       },
       ahead: [
-        'Scale and community. About 392,700 GitHub stars, a foundation, frequent releases and a hub of plugins. Monsters is a young project with a small community and became public on 20 October 2026.',
+        'Scale and community. About 395,000 GitHub stars, a foundation, frequent releases and a hub of plugins. Monsters is a young project with a small community and became public on 20 October 2026.',
         'Reach. More than 20 messaging platforms, and native apps for iOS and Android. Monsters has Telegram and SSH, and no mobile app.',
         'Ecosystem. Tools, skills and plugins, and companion apps for voice, camera and screen.',
         'Providers. A long list of hosted providers and local runtimes such as llama.cpp, vLLM and SGLang.',
@@ -528,7 +546,7 @@ const it: Compare = {
     open: 'Leggi il confronto',
     method: 'Come confrontiamo',
     methodItems: [
-      'Ogni dato viene dal repository, dal sito o dalla documentazione dell’altro progetto, linkati in fondo a ogni pagina, e il controllo è del 22 ottobre 2026.',
+      'Ogni dato viene dal repository, dal sito o dalla documentazione dell’altro progetto, linkati in fondo a ogni pagina, e il controllo è del 24 novembre 2026.',
       'Dove nelle pagine lette non abbiamo trovato niente, la tabella lo dice. Non prova che la funzione non esista: scrivici e correggiamo.',
       'Stelle, versioni e funzioni cambiano. Controlla le fonti prima di decidere.',
       'Monsters è fatto da Saturday Company, quindi non siamo neutrali. Abbiamo scritto quello che vorremmo leggere se dovessimo scegliere.',
@@ -579,8 +597,7 @@ const it: Compare = {
   monsters: {
     what: 'Un’app desktop con un orchestratore (Titan) e una squadra di agenti con un nome, ciascuno con la sua chat, il suo terminale, i suoi permessi e la sua catena di modelli.',
     license: 'Apache-2.0.',
-    stage:
-      'Alpha (0.1.0-alpha.20, 21 ottobre 2026). Pubblico dal 20 ottobre 2026. Progetto giovane, community piccola.',
+    stage: 'Alpha ({release}). Pubblico dal 20 ottobre 2026. Progetto giovane, community piccola.',
     platforms:
       'Linux (AppImage, .deb), macOS (Apple silicon e Intel, firmato e notarizzato), Windows (installer, non ancora firmato con un certificato pubblico).',
     stack: 'TypeScript: un core Node.js 24 e un’app Electron.',
@@ -617,32 +634,32 @@ const it: Compare = {
         what: 'Un agente generalista che gira sulla tua macchina, come app desktop, CLI e API, per codice, ricerca, scrittura e automazione.',
         license: 'Apache-2.0. Creato da Block, oggi nell’Agentic AI Foundation.',
         stage:
-          'Versione 1.55.0 (16 ottobre 2026), una release circa ogni settimana. Repository dall’agosto 2024. Circa 55.500 stelle su GitHub.',
+          'Versione 1.60.2 (20 novembre 2026), una release ogni pochi giorni. Repository dall’agosto 2024. Circa 57.000 stelle su GitHub.',
         platforms: 'App desktop per macOS, Linux e Windows, più una CLI.',
         stack: 'Un core in Rust e un’app desktop Electron/TypeScript.',
         models:
-          'Oltre 15 provider, tra cui Anthropic, OpenAI, Google, OpenRouter, Azure, Bedrock e Vertex AI. Qualsiasi endpoint compatibile con OpenAI, Anthropic od Ollama.',
+          'Decine di provider (il README dice oltre 85), tra cui Anthropic, OpenAI, Google, OpenRouter, Azure, Bedrock e Vertex AI. Qualsiasi endpoint compatibile con OpenAI, Anthropic od Ollama.',
         local:
           'Sì: Ollama, LM Studio, Docker Model Runner. Un modello senza chiamate a strumenti può solo rispondere in chat.',
         subs: 'Sì: Claude e Codex tramite ACP; ChatGPT e GitHub Copilot come provider nativi; Cursor tramite la sua CLI.',
         agents:
           'Subagenti che goose avvia per un compito, uno dopo l’altro o in parallelo. Solo nella modalità autonoma, che è quella di base.',
-        mcp: 'Oltre 70 estensioni tramite MCP.',
+        mcp: 'Un catalogo di estensioni tramite MCP.',
         notes:
           'Sessioni salvate in un file SQLite locale, esportabili in Markdown, JSON o YAML. Un’estensione Memory. Nessun vault di note.',
         permissions:
-          'Quattro modalità (autonoma, approvazione manuale, approvazione intelligente, solo chat). Quella di base è la completamente autonoma.',
+          'Tre modalità (autonoma, approvazione manuale, approvazione intelligente). Quella di base è la completamente autonoma.',
         kill: 'Interrompi con Ctrl+C nella CLI, o con Invia o una parola di stop nell’app. Nessun interruttore globale documentato.',
         caps: 'Nessun tetto di spesa; un limite di turni (`GOOSE_MAX_TURNS`) e la visualizzazione del costo nella CLI.',
         history: 'Cronologia delle sessioni e log dell’applicazione.',
         remote:
-          'Un gateway Telegram (sperimentale) e un server ACP su HTTP e WebSocket su 127.0.0.1.',
+          'Un gateway Telegram (sperimentale), un server ACP su HTTP e WebSocket (di base su 127.0.0.1) e un server Goose remoto a cui si collega l’app desktop.',
         schedule:
           'Pianificazioni cron per le recipe, dallo Scheduler dell’app desktop o dalla CLI.',
         data: 'Gira in locale. I prompt vanno al provider che scegli. I dati d’uso anonimi sono facoltativi e si chiedono al primo avvio.',
       },
       ahead: [
-        'Maturità e community. Goose è pubblico dal 2024, rilascia una versione circa ogni settimana e ha circa 55.500 stelle su GitHub. Monsters è pubblico dal 20 ottobre 2026 ed è un progetto giovane, con una community piccola.',
+        'Maturità e community. Goose è pubblico dal 2024, rilascia una versione ogni pochi giorni e ha circa 57.000 stelle su GitHub. Monsters è pubblico dal 20 ottobre 2026 ed è un progetto giovane, con una community piccola.',
         'Governance. Goose è stato creato da Block e oggi appartiene all’Agentic AI Foundation. Monsters è portato avanti da Saturday Company e dai suoi contributor.',
         'Raggio d’azione. Una riga di comando completa e un’API da incorporare, accanto all’app desktop. Monsters ha una riga di comando, ma nessuna API pensata per essere incorporata.',
         'Provider ed estensioni. Più provider (Azure, Bedrock, Vertex AI e altri) e un grande catalogo di estensioni MCP.',
@@ -689,38 +706,38 @@ const it: Compare = {
       description:
         'Monsters ed Eigent a confronto: due app desktop open source con una squadra di agenti AI. Licenza, sistemi, installazione locale, modelli, MCP, interruttore di emergenza, tetti di spesa e maturità, con le fonti.',
       intro:
-        'Eigent e Monsters mettono entrambi una squadra di agenti AI sul tuo desktop. Eigent è costruito su CAMEL-AI, si definisce l’app «Cowork» open source e fa lavorare in parallelo una Workforce di agenti specializzati. È arrivato alla versione 1.0, ha circa 15.600 stelle su GitHub e offre anche una versione cloud ospitata. Monsters è un’alpha più piccola che resta sul tuo computer e aggiunge un vault Markdown, tetti di spesa e un solo interruttore di emergenza per tutto.',
+        'Eigent e Monsters mettono entrambi una squadra di agenti AI sul tuo desktop. Eigent è costruito su CAMEL-AI, si definisce l’app «Cowork» open source e fa lavorare in parallelo una Workforce di agenti specializzati. È arrivato alla versione 1.0, ha circa 15.900 stelle su GitHub e offre anche una versione cloud ospitata. Monsters è un’alpha più piccola che resta sul tuo computer e aggiunge un vault Markdown, tetti di spesa e un solo interruttore di emergenza per tutto.',
       teaser:
         'Un’app desktop «Cowork» multi-agente su CAMEL-AI, alla versione 1.0, con un’opzione ospitata. Più maturo, più pesante da far girare in locale.',
       rows: {
         what: 'Un’app desktop «Cowork» open source: una Workforce di agenti specializzati che lavorano in parallelo, oppure un solo agente per compiti mirati.',
         license: 'Apache-2.0.',
         stage:
-          'Versione 1.0.6 (16 ottobre 2026). Repository dal luglio 2025. Circa 15.600 stelle su GitHub.',
+          'Versione 1.0.8 (17 novembre 2026). Repository dal luglio 2025. Circa 15.900 stelle su GitHub.',
         platforms: 'Build per macOS (Apple silicon e Intel), Windows e Linux (AppImage).',
         stack:
           'Electron e React per l’app, Python (FastAPI) per il back end, CAMEL per gli agenti.',
         models:
           'Indipendente dal modello: provider cloud, gateway aziendali o inferenza locale, con le tue chiavi.',
         local: 'Sì: vLLM, Ollama e LM Studio sono elencati per l’installazione locale.',
-        subs: 'Non documentato nelle pagine che abbiamo letto.',
+        subs: 'Nelle impostazioni dell’app c’è un accesso con ChatGPT (Codex), ma non è descritto nel README né nella documentazione. Nessun supporto al piano Claude trovato.',
         agents:
           'Sì, è la funzione principale: una Workforce di agenti che si dividono un compito e lavorano in parallelo, più una modalità a singolo agente.',
         mcp: 'Integrazione MCP, skill e strumenti integrati per browser e terminale.',
         notes:
           'In modalità locale utenti, impostazioni dei provider e degli strumenti e cronologia delle chat stanno in un database locale. Nessun vault Markdown documentato.',
         permissions:
-          'Quattro profili di permessi, scelti dalla chat: Sola lettura (Read only), Chiedi prima (Ask me first), Approva per me (Approve for me) e Accesso completo (Full access). Una modifica vale per i nuovi compiti. La policy di sicurezza di Eigent dice che non è una sandbox del sistema operativo.',
+          'Quattro profili di permessi, scelti dalla chat: Sola lettura (Read only), Chiedi prima (Ask me first), Approva per me (Approve for me) e Accesso completo (Full access); quello di base è Chiedi prima. Una modifica vale per i nuovi compiti. La policy di sicurezza di Eigent dice che non è una sandbox del sistema operativo.',
         kill: 'Controlli per compito: fermare una sessione, e Stop task o Force stop dalla pagina di controllo remoto. Nessun interruttore globale documentato.',
         caps: 'Non documentato nelle pagine che abbiamo letto. I piani ospitati usano crediti.',
         history: 'Cronologia delle chat conservata in locale, in modalità locale.',
         remote:
           'Una pagina di controllo remoto per una sessione desktop in corso: invii messaggi, rispondi alle domande dell’agente, fermi il compito. Le sessioni si possono prorogare o revocare.',
-        schedule: 'Sì: flussi ricorrenti programmati.',
+        schedule: 'Sì: Automazioni, a orario o con un trigger, con la cronologia delle esecuzioni.',
         data: 'L’installazione locale consigliata fa girare un back end sulla tua macchina e tiene lì i dati. L’avvio rapido passa dal cloud di Eigent e richiede un account. Esistono piani ospitati Plus, Pro ed Enterprise.',
       },
       ahead: [
-        'Maturità e community. Eigent è alla versione 1.0 con circa 15.600 stelle su GitHub. Monsters è un’alpha giovane, con una community piccola.',
+        'Maturità e community. Eigent è alla versione 1.0 con circa 15.900 stelle su GitHub. Monsters è un’alpha giovane, con una community piccola.',
         'La Workforce in parallelo. Dividere un compito fra agenti specializzati è l’idea centrale di Eigent, sulla ricerca di CAMEL-AI, con una modalità a singolo agente per i compiti semplici.',
         'Strumenti integrati per browser e terminale, pensati per il lavoro quotidiano al computer, come mettere in ordine i file o produrre report.',
         'Una strada in più. Piani ospitati per chi non vuole far girare niente e un’offerta Enterprise con SSO e controllo degli accessi.',
@@ -729,7 +746,7 @@ const it: Compare = {
         'Più leggero da far girare in locale. Monsters è un’app desktop con un core locale. L’installazione locale consigliata di Eigent richiede Docker Desktop, Python 3.12 e Node.js per back end e database, e il suo avvio rapido passa dal cloud di Eigent.',
         'Note che puoi leggere e annullare: un vault Markdown sotto git, dove ogni modifica di un agente è un commit che puoi ripristinare. In Eigent non ne abbiamo trovato un equivalente.',
         'Tetti di spesa. I tetti giornalieri e mensili valgono per progetto, per i modelli con un prezzo noto. Per Eigent, i cui piani ospitati usano crediti, non li abbiamo trovati descritti.',
-        'Gli abbonamenti che già paghi (Claude tramite Claude Code, ChatGPT e Codex) e l’uso a distanza da Telegram o via SSH.',
+        'Il tuo piano Claude tramite Claude Code (Eigent ha un accesso con ChatGPT, ma non abbiamo trovato supporto al piano Claude) e l’uso a distanza da Telegram o via SSH.',
       ],
       pickThem: [
         'Vuoi un prodotto arrivato alla 1.0 e una community più grande.',
@@ -760,7 +777,7 @@ const it: Compare = {
       description:
         'Monsters e OpenClaw a confronto: due sistemi open source di agenti AI che girano sul tuo hardware. Licenza, sistemi, modelli, più agenti, MCP, interruttore di emergenza, tetti di spesa e maturità, con le fonti.',
       intro:
-        'OpenClaw e Monsters girano entrambi sul tuo hardware con i modelli che scegli, ma servono a cose diverse. OpenClaw è un assistente personale che vive nelle app di chat che usi già, come WhatsApp, Telegram, Slack, Discord e iMessage, servito da un solo Gateway. Monsters è un’app desktop con una squadra di agenti che guardi e guidi, un vault di note e un interruttore di emergenza. OpenClaw è molto più grande, con circa 392.700 stelle su GitHub e una fondazione alle spalle.',
+        'OpenClaw e Monsters girano entrambi sul tuo hardware con i modelli che scegli, ma servono a cose diverse. OpenClaw è un assistente personale che vive nelle app di chat che usi già, come WhatsApp, Telegram, Slack, Discord e iMessage, servito da un solo Gateway. Monsters è un’app desktop con una squadra di agenti che guardi e guidi, un vault di note e un interruttore di emergenza. OpenClaw è molto più grande, con circa 395.000 stelle su GitHub e una fondazione alle spalle.',
       teaser:
         'Un assistente personale che vive nelle tue app di chat, su un Gateway, con app native su cinque sistemi. Molto più grande, e di forma diversa.',
       rows: {
@@ -768,10 +785,11 @@ const it: Compare = {
         license:
           'MIT. Portato avanti dalla OpenClaw Foundation, un ente indipendente senza scopo di lucro. Nessun piano a pagamento né servizio ospitato.',
         stage:
-          'Versioni a calendario: v2026.10.5 (18 ottobre 2026), con beta intermedie. Repository dal novembre 2025. Circa 392.700 stelle su GitHub.',
+          'Versioni a calendario: v2026.11.8 (24 novembre 2026), con beta intermedie. Repository dal novembre 2025. Circa 395.000 stelle su GitHub.',
         platforms:
           'App native per macOS, iOS, Android, Windows e Linux, più un installer per macOS, Linux e Windows.',
-        stack: 'TypeScript su Node.js (Node 24 o successivo per le installazioni con npm).',
+        stack:
+          'TypeScript su Node.js (Node 24.16 o successivo, oppure 26.1 o successivo, per le installazioni con npm).',
         models:
           'Provider ospitati e locali, tra cui OpenAI, Anthropic, Google, OpenRouter e xAI, più URL personalizzati.',
         local: 'Sì: Ollama, LM Studio, llama.cpp, vLLM e SGLang.',
@@ -788,11 +806,12 @@ const it: Compare = {
         history: 'Trascrizioni delle sessioni e log; i riepiloghi dei costi si ricavano da questi.',
         remote:
           'Si raggiunge dai suoi canali di messaggistica, da una Control UI, da una CLI e da una TUI, e dalle app companion.',
-        schedule: 'Strumenti cron e heartbeat.',
-        data: 'Stato, memoria e credenziali restano sul tuo hardware. Di base controlla solo ogni giorno se c’è una versione nuova; le statistiche anonime sono facoltative.',
+        schedule:
+          'Uno scheduler integrato (Automazioni): espressioni cron, intervalli, promemoria singoli e webhook.',
+        data: 'Stato, memoria e credenziali restano sul tuo hardware. Di base controlla ogni giorno se c’è una versione nuova, inviando la propria versione, il sistema operativo, la versione di Node e l’architettura della CPU; le statistiche anonime sulle funzioni sono facoltative e `update.checkOnStart: false` spegne il controllo.',
       },
       ahead: [
-        'Dimensioni e community. Circa 392.700 stelle su GitHub, una fondazione, release frequenti e un hub di plugin. Monsters è un progetto giovane, con una community piccola, ed è pubblico dal 20 ottobre 2026.',
+        'Dimensioni e community. Circa 395.000 stelle su GitHub, una fondazione, release frequenti e un hub di plugin. Monsters è un progetto giovane, con una community piccola, ed è pubblico dal 20 ottobre 2026.',
         'Raggio d’azione. Oltre 20 piattaforme di messaggistica e app native per iOS e Android. Monsters ha Telegram e SSH, e nessuna app per il telefono.',
         'Ecosistema. Strumenti, skill e plugin, e app companion per voce, fotocamera e schermo.',
         'Provider. Una lunga lista di provider ospitati e runtime locali come llama.cpp, vLLM e SGLang.',
