@@ -8,6 +8,8 @@ import '../styles/global.css';
 import '../styles/terminal.css';
 import type { Strings } from '../i18n/strings.ts';
 import { alternatesOf, type PageRef } from '../lib/pages.ts';
+import { PAGES } from '../i18n/pages.ts';
+import { feedPath } from '../lib/atom.ts';
 import { jsonLdText } from '../lib/seo.ts';
 // The fonts of the first screen, preloaded: the condensed headline would otherwise reflow
 // when it swaps in.
@@ -63,6 +65,12 @@ const ld = page?.ld ?? jsonLdText({ t, site, version, released: releaseDate?.sli
     <link rel="preload" href={monoUrl} as="font" type="font/woff2" crossorigin />
     <link rel="canonical" href={canonical} />
     {alternates.map(([lang, alt]) => <link rel="alternate" hreflang={lang} href={`${site}${alt}`} />)}
+    <link
+      rel="alternate"
+      type="application/atom+xml"
+      title={PAGES[t.lang === 'it' ? 'it' : 'en'].changelog.feedTitle}
+      href={`${site}${feedPath(t.lang === 'it' ? 'it' : 'en')}`}
+    />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />

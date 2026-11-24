@@ -63,6 +63,7 @@ const en = {
   changelog: {
     crumb: 'Changelog',
     title: 'Changelog',
+    feedTitle: 'Monsters changelog',
     metaTitle: 'Monsters changelog: what changed in every release',
     description:
       'What changed in each release of Monsters, the open-source app that runs a team of AI agents on your computer. For people who use the app, newest first.',
@@ -137,6 +138,7 @@ const it: PagesStrings = {
   changelog: {
     crumb: 'Changelog',
     title: 'Changelog',
+    feedTitle: 'Changelog di Monsters',
     metaTitle: 'Changelog di Monsters: cosa cambia in ogni versione',
     description:
       'Cosa cambia in ogni versione di Monsters, l’app open source con una squadra di agenti AI sul tuo computer. Scritto per chi usa l’app, dalla più recente.',
