@@ -14,7 +14,7 @@ const en = {
     title: 'Documentation',
     metaTitle: 'Monsters documentation: architecture, security, MCP, remote use',
     description:
-      'The guides to Monsters, an open-source app that runs a team of AI agents on your computer: architecture, security model, subscriptions, the vault as an MCP server, and remote use over SSH and Telegram.',
+      'Guides to Monsters, the open-source app that runs a team of AI agents on your computer: architecture, security, subscriptions, vault as MCP, remote use.',
     lede: 'The guides for people who use Monsters. They are read from the repository when the site is built, so they are always the ones in the code.',
     englishOnly: '',
     read: 'Read the guide',
@@ -22,15 +22,15 @@ const en = {
       architecture:
         'How Monsters is built: one local core, the event log, the kill switch, the orchestrator and its agents, the providers, the tools and the Markdown vault.',
       'security-model':
-        'The perimeter, the threat model and the risks Monsters accepts: the local core, permissions, the action log, the kill switch and what the terminal permission really means.',
+        'The perimeter, threat model and accepted risks of Monsters: the local core, permissions, the action log, the kill switch and what terminal access means.',
       subscriptions:
-        'How to use the ChatGPT, Codex and Claude subscriptions you already pay for, and what Monsters does and does not do with them.',
+        'How to use the ChatGPT, Codex and Claude plans you already pay for in Monsters, what the app does and does not do with them, and what happens at a limit.',
       'mcp-vault':
-        'Serve your Monsters notes to Claude Desktop, Codex, Cursor or Claude Code with `monsters mcp`: configuration, permissions and search.',
+        'Serve your Monsters notes to Claude Desktop, Codex, Cursor or Claude Code with monsters mcp: how it works, setup for each client, permissions and search.',
       remote:
-        'Use Monsters from another computer or from your phone: the terminal chat over SSH, the desktop app as an SSH client, and Telegram bots.',
+        'Use Monsters from another computer or your phone: the terminal chat over SSH, a tunnel to the web UI, the desktop app as an SSH client, and Telegram bots.',
       roadmap:
-        'Where Monsters has been and where it is going: finished phases, what is open before a stable release, and what comes later.',
+        'Where Monsters has been and where it is going: the finished phases, what is still open before a stable release, and what comes later, for an alpha project.',
     } satisfies Record<GuideSlug, string>,
     source:
       'These pages are generated from the Markdown files in the docs folder of the repository. To fix a mistake or add to a guide, open a pull request.',
@@ -56,14 +56,16 @@ const en = {
     github: 'This guide on GitHub',
     updatedNote: 'Read from the repository when the site was built.',
     next: 'Next guide',
-    metaSuffix: 'Monsters documentation',
+    metaSuffix: 'Monsters',
+    tldr: 'In short',
+    updated: 'Last updated',
   },
   changelog: {
     crumb: 'Changelog',
     title: 'Changelog',
     metaTitle: 'Monsters changelog: what changed in every release',
     description:
-      'What changed in each release of Monsters, the open-source app that runs a team of AI agents on your computer. Written for people who use the app, newest first.',
+      'What changed in each release of Monsters, the open-source app that runs a team of AI agents on your computer. For people who use the app, newest first.',
     lede: 'What changed in each release, written for people who use the app. Monsters is in alpha, so releases are frequent.',
     latest: 'Latest',
     github: 'Releases and downloads on GitHub',
@@ -81,7 +83,7 @@ const it: PagesStrings = {
     title: 'Guide',
     metaTitle: 'Guide di Monsters: architettura, sicurezza, MCP, uso a distanza',
     description:
-      'Le guide di Monsters, l’app open source che fa girare una squadra di agenti AI sul tuo computer: architettura, modello di sicurezza, abbonamenti, il vault come server MCP e l’uso a distanza con SSH e Telegram.',
+      'Le guide di Monsters, l’app open source con una squadra di agenti AI sul tuo computer: architettura, sicurezza, abbonamenti, vault come MCP, uso remoto.',
     lede: 'Le guide per chi usa Monsters. Vengono lette dal repository quando si costruisce il sito, quindi sono sempre quelle che stanno nel codice.',
     englishOnly:
       'Le guide sono scritte solo in inglese e restano in inglese anche qui. Questa pagina le elenca in italiano; ogni guida si apre nella versione inglese.',
@@ -128,14 +130,16 @@ const it: PagesStrings = {
     github: 'Questa guida su GitHub',
     updatedNote: 'Letta dal repository quando è stato costruito il sito.',
     next: 'Guida successiva',
-    metaSuffix: 'Documentazione di Monsters',
+    metaSuffix: 'Monsters',
+    tldr: 'In breve',
+    updated: 'Ultimo aggiornamento',
   },
   changelog: {
     crumb: 'Changelog',
     title: 'Changelog',
     metaTitle: 'Changelog di Monsters: cosa cambia in ogni versione',
     description:
-      'Cosa cambia in ogni versione di Monsters, l’app open source che fa girare una squadra di agenti AI sul tuo computer. Scritto per chi usa l’app, dalla più recente.',
+      'Cosa cambia in ogni versione di Monsters, l’app open source con una squadra di agenti AI sul tuo computer. Scritto per chi usa l’app, dalla più recente.',
     lede: 'Cosa cambia in ogni versione, scritto per chi usa l’app. Monsters è in alpha, quindi le versioni escono spesso.',
     latest: 'Ultima',
     github: 'Versioni e download su GitHub',
@@ -145,3 +149,22 @@ const it: PagesStrings = {
 };
 
 export const PAGES: Record<Lang, PagesStrings> = { en, it };
+
+/**
+ * A short summary at the top of each guide, written for the site and not taken from the guide
+ * (English only, like the guides): two or three sentences on what the guide says and who needs it.
+ */
+export const TLDR: Record<GuideSlug, string> = {
+  architecture:
+    'Monsters is one Node.js process on your computer that owns the agents, the notes and an append-only action log; the desktop app, the web UI, Telegram and SSH are all clients of that one core. An orchestrator hands work to the agents, every action goes through the log, and a single kill switch stops it all. Read it for the principles, the stack and where each part lives in the repository.',
+  'security-model':
+    'The core listens only on 127.0.0.1, and this guide lists what counts as a vulnerability: the local API, the kill switch, the action log, the agents’ permissions, the granted folders and the secrets. It is just as clear about the risks the project accepts, such as an action log that is not tamper-proof against a process that can write your files. Read it before you grant a monster the terminal.',
+  subscriptions:
+    'You can run the monsters on a ChatGPT Plus or Pro plan, also through Codex, or on a Claude plan through Claude Code, instead of paying for API keys; free OpenRouter models are enough to start without any plan. Everything is set up under Settings, Models, Plans you already have. The guide covers signing in, usage windows, what happens at a plan’s limit and using a plan from another computer over SSH.',
+  'mcp-vault':
+    'monsters mcp is an MCP server over stdio that lets Claude Desktop, Codex, Cursor or Claude Code search, read and edit your Monsters notes. It forwards every call to the running core, so each client shows up in the action log under its own name and every change is a git commit you can undo. The guide has the setup for each client and the permission rules.',
+  remote:
+    'The core never opens a port to the outside, so remote use goes through SSH or Telegram. With SSH you get the terminal chat, a tunnel to the web UI, or the desktop app of another computer as a client; with Telegram you write to your own bot from your phone, and a monster can have a bot of its own in a group. Both reach the same core, with the same log and the same kill switch.',
+  roadmap:
+    'Monsters is in alpha. The roadmap lists the phases already finished, the work still open before a stable release, such as signed updates on every system, a Windows certificate and a week-long soak test, and the ideas that come after it.',
+};

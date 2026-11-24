@@ -25,7 +25,7 @@ Website: <https://getmonsters.dev>
 
 **Alpha, version 0.1.0-alpha.27** (28 October 2026). It works and is used every day, but expect rough edges and
 changes. What changed in each version is in [`CHANGELOG.md`](CHANGELOG.md); where it is going is in
-[`docs/ROADMAP.md`](docs/ROADMAP.md).
+[`docs/ROADMAP.md`](https://getmonsters.dev/docs/roadmap/).
 
 ## Features
 
@@ -42,7 +42,7 @@ changes. What changed in each version is in [`CHANGELOG.md`](CHANGELOG.md); wher
   / Thorough tiers are under Advanced.
 - **Plans you already have.** Your Claude plan through Claude Code on your computer, and ChatGPT Plus/Pro, also
   through Codex, with the fixed instructions read from the prompt cache so a plan lasts longer. See
-  [`docs/subscriptions.md`](docs/subscriptions.md).
+  [`docs/subscriptions.md`](https://getmonsters.dev/docs/subscriptions/).
 - **Apps.** Connect GitHub, Notion, Linear, Google, Slack or any MCP app from a searchable gallery: every connected
   app reaches every monster and project (unless you turn it off for one), and the monsters know all of its tools at
   once. Ordinary writes just happen; deleting, sending, publishing and paying always ask first. A browser with a
@@ -52,13 +52,13 @@ changes. What changed in each version is in [`CHANGELOG.md`](CHANGELOG.md); wher
 - **Notes compatible with Obsidian.** Markdown with YAML frontmatter and wikilinks; list, graph, one search box over
   keywords and meaning, backlinks, history and trash. Every edit by a monster is a git commit you can undo, one note
   or a whole job at a time. `monsters mcp` exposes the notes to Claude Desktop, Codex or Cursor with a monster's
-  permissions ([`docs/mcp-vault.md`](docs/mcp-vault.md)).
+  permissions ([`docs/mcp-vault.md`](https://getmonsters.dev/docs/mcp-vault/)).
 - **Monsters' decisions.** A small, fast model ("the instinct", Basic or Smarter) decides whether to ask you
   something, checks that work is really finished, notices monsters going in circles, brakes actions that leave the
   computer, and strips instructions aimed at the monsters out of web pages and other outside text.
 - **Remote.** Telegram from your phone (with dedicated bots per monster for groups), or the terminal chat over SSH
   (`monsters chat`); the desktop app can also connect to Monsters running on another computer through an SSH tunnel.
-  See [`docs/remote.md`](docs/remote.md).
+  See [`docs/remote.md`](https://getmonsters.dev/docs/remote/).
 - **Control.** Activity records everything; spending caps in euros per day and per month (per project too) plus a
   Careful / Normal / Generous safety net for each job; the **Stop** key; keys in the system keychain. A job stopped at
   a limit writes its report first and says which limit stopped it.
@@ -123,17 +123,18 @@ conventions and the checklist before a pull request.
 The guides, the community files (README, CONTRIBUTING, SECURITY, AGENTS) and the code are in English. Only
 `docs/DECISIONS.md`, `docs/research/` and `docs/eval/` are an Italian archive (new decisions are written in English).
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how it is built
+- [`docs/ARCHITECTURE.md`](https://getmonsters.dev/docs/architecture/): how it is built
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): every non-obvious technical decision, with context and rationale
-- [`docs/ROADMAP.md`](docs/ROADMAP.md): phases and direction
-- [`docs/security-model.md`](docs/security-model.md): threat model and defenses
-- [`docs/remote.md`](docs/remote.md): Telegram and SSH
-- [`docs/subscriptions.md`](docs/subscriptions.md): using Claude and ChatGPT plans
-- [`docs/mcp-vault.md`](docs/mcp-vault.md): the notes as an MCP server
+- [`docs/ROADMAP.md`](https://getmonsters.dev/docs/roadmap/): phases and direction
+- [`docs/security-model.md`](https://getmonsters.dev/docs/security-model/): threat model and defenses
+- [`docs/remote.md`](https://getmonsters.dev/docs/remote/): Telegram and SSH
+- [`docs/subscriptions.md`](https://getmonsters.dev/docs/subscriptions/): using Claude and ChatGPT plans
+- [`docs/mcp-vault.md`](https://getmonsters.dev/docs/mcp-vault/): the notes as an MCP server
 - [`docs/design.md`](docs/design.md): the visual direction and the glossary of the interface
 - [`docs/i18n.md`](docs/i18n.md): English and Italian dictionaries
 - [`docs/signing.md`](docs/signing.md): packaging, signing and updates
 - [`docs/ci.md`](docs/ci.md): continuous integration
+- [Comparisons](https://getmonsters.dev/compare/): Monsters next to Goose, Eigent and OpenClaw, with sources and dates
 
 ## Contributing
 

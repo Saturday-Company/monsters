@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COMPARE, COMPETITORS, COMPETITOR_FACTS, ROWS, VERIFIED } from '../src/i18n/compare.ts';
-import { PAGES } from '../src/i18n/pages.ts';
+import { PAGES, TLDR } from '../src/i18n/pages.ts';
 import { STRINGS } from '../src/i18n/strings.ts';
 import {
   GUIDES,
@@ -14,6 +14,7 @@ import {
 } from '../src/lib/docs.ts';
 import { llmsTxt } from '../src/lib/llms.ts';
 import { allPages, alternatesOf } from '../src/lib/pages.ts';
+import { fileDates } from '../src/lib/history.ts';
 import { currentRelease, releaseLabel } from '../src/lib/release.ts';
 import { pageGraph } from '../src/lib/seo.ts';
 import fallback from '../src/data/fallback.json' with { type: 'json' };
@@ -218,5 +219,37 @@ describe('comparison facts', () => {
     expect(VERIFIED).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     for (const c of COMPETITORS)
       for (const s of COMPETITOR_FACTS[c].sources) expect(s.url).toMatch(/^https:\/\//);
+  });
+});
+
+describe('docs in the READMEs and on the guide pages', () => {
+  it('links the READMEs to the guide pages of the site, and only to ones that exist', () => {
+    const slugs = new Set<string>(GUIDES.map((g) => g.slug));
+    for (const file of ['README.md', 'README.it.md']) {
+      const text = readRepoFile(file);
+      const found = [...text.matchAll(/https:\/\/getmonsters\.dev\/docs\/([a-z-]+)\//g)];
+      expect(found.length).toBeGreaterThanOrEqual(6);
+      for (const m of found) expect(slugs.has(m[1] ?? '')).toBe(true);
+      // no relative link left to a guide that has a page
+      for (const g of GUIDES) expect(text).not.toContain(`](docs/${g.file})`);
+    }
+  });
+
+  it('has a summary of its own for every guide, not the meta description', () => {
+    for (const g of GUIDES) {
+      const tldr = TLDR[g.slug];
+      expect(tldr.length).toBeGreaterThan(150);
+      expect(tldr).not.toBe(PAGES.en.docs.summaries[g.slug]);
+    }
+  });
+
+  it('reads the dates of a guide from git', () => {
+    const d = fileDates('docs/remote.md');
+    // A tarball without history has none: then the page falls back to the release day.
+    if (d) {
+      expect(d.published).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(d.modified >= d.published).toBe(true);
+    }
+    expect(fileDates('docs/does-not-exist.md')).toBeNull();
   });
 });

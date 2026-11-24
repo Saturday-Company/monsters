@@ -69,6 +69,24 @@
   color: var(--ink-2);
 }
 
+/* the guide's summary: a short box before the long text */
+.doc__tldr {
+  max-width: 72ch;
+  margin: 22px 0 0;
+  padding: 14px 18px 16px;
+  border: var(--rule);
+  border-left-width: 6px;
+  border-left-color: var(--signal);
+  background: var(--cap);
+  color: var(--ink);
+}
+
+.doc__tldr .label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--signal-ink);
+}
+
 .doc__note a,
 .doc__plain a {
   color: var(--ink);

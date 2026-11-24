@@ -25,7 +25,7 @@ Sito: <https://getmonsters.dev>
 
 **Alpha, versione 0.1.0-alpha.27** (28 ottobre 2026). Funziona e si usa ogni giorno, ma aspettati spigoli e
 cambiamenti. Cosa cambia a ogni versione è in [`CHANGELOG.it.md`](CHANGELOG.it.md); dove sta andando è in
-[`docs/ROADMAP.md`](docs/ROADMAP.md) (in inglese).
+[`docs/ROADMAP.md`](https://getmonsters.dev/docs/roadmap/) (in inglese).
 
 ## Cosa fa
 
@@ -43,7 +43,7 @@ cambiamenti. Cosa cambia a ogni versione è in [`CHANGELOG.it.md`](CHANGELOG.it.
   mostro e i livelli Veloce / Bilanciato / Accurato stanno in Avanzate.
 - **I piani che hai già.** Il piano Claude attraverso Claude Code sul tuo computer, e ChatGPT Plus/Pro, anche con
   Codex; le istruzioni fisse si rileggono dalla cache dei prompt, così il piano dura di più. Vedi
-  [`docs/subscriptions.md`](docs/subscriptions.md).
+  [`docs/subscriptions.md`](https://getmonsters.dev/docs/subscriptions/).
 - **App.** Colleghi GitHub, Notion, Linear, Google, Slack o qualsiasi app MCP da una galleria con la ricerca: ogni app
   collegata arriva a tutti i mostri e a tutti i progetti (salvo quelli dove la spegni), e i mostri ne conoscono subito
   tutti gli strumenti. Le scritture normali partono da sole; cancellare, inviare, pubblicare e pagare chiedono sempre
@@ -54,13 +54,13 @@ cambiamenti. Cosa cambia a ogni versione è in [`CHANGELOG.it.md`](CHANGELOG.it.
 - **Note compatibili con Obsidian.** Markdown con frontmatter YAML e wikilink; elenco, grafo, una sola casella di
   ricerca per parole e per significato, note collegate, cronologia e cestino. Ogni modifica dei mostri è un commit git
   che puoi annullare, una nota o un lavoro intero alla volta. `monsters mcp` apre le note a Claude Desktop, Codex o
-  Cursor con i permessi di un mostro ([`docs/mcp-vault.md`](docs/mcp-vault.md)).
+  Cursor con i permessi di un mostro ([`docs/mcp-vault.md`](https://getmonsters.dev/docs/mcp-vault/)).
 - **Decisioni dei mostri.** Un modello piccolo e veloce ("l'istinto", Base o Più furbe) decide se chiederti qualcosa,
   controlla che i lavori siano finiti davvero, si accorge dei mostri che girano a vuoto, frena le azioni che escono dal
   computer e toglie dalle pagine web e dagli altri testi esterni gli ordini rivolti ai mostri.
 - **Da lontano.** Telegram dal telefono (con bot dedicati ai mostri per i gruppi), oppure la chat nel terminale via SSH
   (`monsters chat`); l'app desktop può anche collegarsi a Monsters che gira su un altro computer, con un tunnel SSH.
-  Vedi [`docs/remote.md`](docs/remote.md).
+  Vedi [`docs/remote.md`](https://getmonsters.dev/docs/remote/).
 - **Controllo.** Attività registra tutto; tetti di spesa in euro al giorno e al mese (anche per progetto) più una rete
   di sicurezza Prudente / Normale / Largo per ogni lavoro; il tasto **Stop**; chiavi nel portachiavi del sistema. Un
   lavoro fermato a un limite scrive prima il resoconto e dice quale limite l'ha fermato.
@@ -127,17 +127,18 @@ Le guide, i file per la comunità (README, CONTRIBUTING, SECURITY, AGENTS) e il 
 `docs/DECISIONS.md`, `docs/research/` e `docs/eval/` sono un archivio in italiano (le decisioni nuove si scrivono in
 inglese).
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): com'è fatto
+- [`docs/ARCHITECTURE.md`](https://getmonsters.dev/docs/architecture/): com'è fatto
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): ogni scelta tecnica non ovvia, con contesto e motivazione
-- [`docs/ROADMAP.md`](docs/ROADMAP.md): fasi e direzione
-- [`docs/security-model.md`](docs/security-model.md): modello di minaccia e difese
-- [`docs/remote.md`](docs/remote.md): Telegram e SSH
-- [`docs/subscriptions.md`](docs/subscriptions.md): usare i piani Claude e ChatGPT
-- [`docs/mcp-vault.md`](docs/mcp-vault.md): le note come server MCP
+- [`docs/ROADMAP.md`](https://getmonsters.dev/docs/roadmap/): fasi e direzione
+- [`docs/security-model.md`](https://getmonsters.dev/docs/security-model/): modello di minaccia e difese
+- [`docs/remote.md`](https://getmonsters.dev/docs/remote/): Telegram e SSH
+- [`docs/subscriptions.md`](https://getmonsters.dev/docs/subscriptions/): usare i piani Claude e ChatGPT
+- [`docs/mcp-vault.md`](https://getmonsters.dev/docs/mcp-vault/): le note come server MCP
 - [`docs/design.md`](docs/design.md): la direzione visiva e il glossario dell'interfaccia
 - [`docs/i18n.md`](docs/i18n.md): i dizionari inglese e italiano
 - [`docs/signing.md`](docs/signing.md): pacchetti, firma e aggiornamenti
 - [`docs/ci.md`](docs/ci.md): integrazione continua
+- [Confronti](https://getmonsters.dev/it/compare/): Monsters accanto a Goose, Eigent e OpenClaw, con fonti e date
 
 ## Contribuire
 

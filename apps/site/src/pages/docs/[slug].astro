@@ -1,12 +1,16 @@
 ---
 /* One user guide, rendered from its Markdown file in docs/ (English only). */
 import { getCollection, render } from 'astro:content';
-import { PAGES } from '../../i18n/pages.ts';
+import { PAGES, TLDR } from '../../i18n/pages.ts';
 import { STRINGS } from '../../i18n/strings.ts';
 import Crumbs from '../../components/Crumbs.astro';
 import Text from '../../layouts/Text.astro';
+import { siteData } from '../../lib/build-data.ts';
+import { formatDate } from '../../lib/dates.ts';
 import { GUIDES } from '../../lib/docs.ts';
 import { REPO_URL } from '../../lib/feed.ts';
+import { fileDates } from '../../lib/history.ts';
+import { currentRelease } from '../../lib/release.ts';
 import { pageLdText } from '../../lib/seo.ts';
 
 export async function getStaticPaths() {
@@ -25,6 +29,12 @@ const path = `/docs/${guide.slug}/`;
 const description = p.docs.summaries[guide.slug];
 const title = `${entry.data.title} · ${p.guide.metaSuffix}`;
 const toc = headings.filter((h) => h.depth === 2);
+// The dates of the guide are the dates of its Markdown file in git; without history, the release.
+const dates = fileDates(`docs/${guide.file}`);
+const fallbackDay = currentRelease(await siteData()).date;
+const modified = dates?.modified ?? fallbackDay;
+const published = dates?.published ?? modified;
+const tldr = TLDR[guide.slug];
 const ld = pageLdText({
   lang: 'en',
   site,
@@ -32,6 +42,8 @@ const ld = pageLdText({
   title: entry.data.title,
   description,
   type: 'TechArticle',
+  ...(modified ? { modified } : {}),
+  ...(published ? { published } : {}),
   crumbs: [
     { name: p.crumbHome, path: '/' },
     { name: p.docs.crumb, path: '/docs/' },
@@ -61,9 +73,20 @@ const ld = pageLdText({
     <header class="doc__head">
       <h1 class="display doc__title doc__title--guide">{entry.data.title}</h1>
       <p class="lede">{description}</p>
+      <p class="doc__tldr">
+        <strong class="label">{p.guide.tldr}</strong>{" "}
+        {tldr}
+      </p>
       <p class="doc__note">
+        {
+          modified && (
+            <>
+              {p.guide.updated} <time datetime={modified}>{formatDate(modified, 'en')}</time> ·{' '}
+            </>
+          )
+        }
         <a href={`${REPO_URL}/blob/main/docs/${guide.file}`} rel="noopener">{p.guide.github}</a>
-        {" "}· {p.guide.updatedNote}
+        {' '}· {p.guide.updatedNote}
       </p>
     </header>
 
