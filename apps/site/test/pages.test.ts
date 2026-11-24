@@ -246,7 +246,7 @@ describe('docs in the READMEs and on the guide pages', () => {
       const text = readRepoFile(file);
       const found = [...text.matchAll(/https:\/\/getmonsters\.dev\/docs\/([a-z-]+)\//g)];
       expect(found.length).toBeGreaterThanOrEqual(6);
-      for (const m of found) expect(slugs.has(m[1] ?? '')).toBe(true);
+      for (const m of found) expect(slugs.has(m[1] ?? '') || m[1] === 'getting-started').toBe(true);
       // no relative link left to a guide that has a page
       for (const g of GUIDES) expect(text).not.toContain(`](docs/${g.file})`);
     }

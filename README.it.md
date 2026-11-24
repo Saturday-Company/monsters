@@ -138,7 +138,8 @@ inglese).
 - [`docs/i18n.md`](docs/i18n.md): i dizionari inglese e italiano
 - [`docs/signing.md`](docs/signing.md): pacchetti, firma e aggiornamenti
 - [`docs/ci.md`](docs/ci.md): integrazione continua
-- [Confronti](https://getmonsters.dev/it/compare/): Monsters accanto a Goose, Eigent e OpenClaw, con fonti e date
+- [Iniziare](https://getmonsters.dev/it/docs/getting-started/): installare, collegare un modello (anche Ollama), primo agente
+- [Confronti](https://getmonsters.dev/it/compare/): Monsters accanto a Goose, Eigent e OpenClaw, con fonti e date; e [contro CrewAI, LangGraph e AutoGen](https://getmonsters.dev/it/compare/frameworks/)
 
 ## Contribuire
 

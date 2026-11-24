@@ -134,7 +134,8 @@ The guides, the community files (README, CONTRIBUTING, SECURITY, AGENTS) and the
 - [`docs/i18n.md`](docs/i18n.md): English and Italian dictionaries
 - [`docs/signing.md`](docs/signing.md): packaging, signing and updates
 - [`docs/ci.md`](docs/ci.md): continuous integration
-- [Comparisons](https://getmonsters.dev/compare/): Monsters next to Goose, Eigent and OpenClaw, with sources and dates
+- [Getting started](https://getmonsters.dev/docs/getting-started/): install, connect a model (Ollama too), first agent
+- [Comparisons](https://getmonsters.dev/compare/): Monsters next to Goose, Eigent and OpenClaw, with sources and dates; also [against CrewAI, LangGraph and AutoGen](https://getmonsters.dev/compare/frameworks/)
 
 ## Contributing
 
