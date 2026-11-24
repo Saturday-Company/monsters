@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { ogPageSvg, wrapDots } from '../src/lib/og.ts';
+import { titan } from '../src/lib/monsters.ts';
+import { ogPages } from '../src/lib/ogpages.ts';
 import { STRINGS } from '../src/i18n/strings.ts';
 import { absolutizeLinks } from '../src/lib/docs.ts';
 import { llmsFullTxt, llmsTxt } from '../src/lib/llms.ts';
@@ -10,6 +13,7 @@ import {
   jsonLdGraph,
   jsonLdText,
   pageLdText,
+  type PageSeo,
 } from '../src/lib/seo.ts';
 import fallback from '../src/data/fallback.json' with { type: 'json' };
 import { downloadsFrom, latestVersion, type Feed } from '../src/lib/feed.ts';
@@ -149,7 +153,7 @@ describe('structured data details', () => {
   });
 
   it('puts both dates on a guide and stays valid JSON', () => {
-    const p = {
+    const p: PageSeo = {
       lang: 'en',
       site,
       path: '/docs/remote/',
@@ -159,11 +163,34 @@ describe('structured data details', () => {
       crumbs: [{ name: 'Monsters', path: '/' }],
       published: '2026-10-21',
       modified: '2026-10-25',
-    } as const;
+    };
     const g = JSON.parse(pageLdText(p)) as { '@graph': Record<string, unknown>[] };
     const article = g['@graph'][0] as Record<string, unknown>;
     expect(article['datePublished']).toBe('2026-10-21');
     expect(article['dateModified']).toBe('2026-10-25');
     expect(g['@graph'].some((n) => n['@id'] === COMPANY_ID && n['logo'])).toBe(true);
+  });
+});
+
+describe('social cards', () => {
+  it('wraps titles on whole words and cuts a word that cannot fit', () => {
+    expect(wrapDots('Monsters vs Goose', 16)).toEqual(['Monsters vs', 'Goose']);
+    expect(wrapDots('Supercalifragilisticexpialidocious', 16)).toEqual([
+      'Supercalifragili',
+      'sticexpialidocio',
+      'us',
+    ]);
+  });
+
+  it('has a card for every guide and comparison, with a title the dot font can draw', () => {
+    const pages = ogPages();
+    expect(pages.length).toBeGreaterThanOrEqual(9);
+    expect(new Set(pages.map((p) => p.slug)).size).toBe(pages.length);
+    for (const p of pages) expect(p.title).toMatch(/^[A-Za-z0-9 .,:?-]+$/);
+  });
+
+  it('draws the title of the page', () => {
+    const svg = ogPageSvg(titan(), 'MNSTR', { kicker: 'Docs', title: 'Roadmap' });
+    expect(svg).toContain('<svg');
   });
 });

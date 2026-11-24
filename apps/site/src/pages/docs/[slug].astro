@@ -10,6 +10,7 @@ import { formatDate } from '../../lib/dates.ts';
 import { GUIDES } from '../../lib/docs.ts';
 import { REPO_URL } from '../../lib/feed.ts';
 import { fileDates } from '../../lib/history.ts';
+import { ogImagePath } from '../../lib/ogpages.ts';
 import { currentRelease } from '../../lib/release.ts';
 import { pageLdText } from '../../lib/seo.ts';
 
@@ -61,6 +62,7 @@ const ld = pageLdText({
   ld={ld}
   otherHref="/it/docs/"
   ogType="article"
+  image={{ path: ogImagePath(`docs-${guide.slug}`), alt: `${entry.data.title}, a guide to Monsters` }}
 >
   <article class="doc">
     <Crumbs

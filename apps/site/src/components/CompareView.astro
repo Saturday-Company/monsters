@@ -16,6 +16,7 @@ import Text from '../layouts/Text.astro';
 import { siteData } from '../lib/build-data.ts';
 import { formatDate } from '../lib/dates.ts';
 import { REPO_URL } from '../lib/feed.ts';
+import { ogImagePath } from '../lib/ogpages.ts';
 import { currentRelease, releaseLabel } from '../lib/release.ts';
 import { pageLdText } from '../lib/seo.ts';
 import Crumbs from './Crumbs.astro';
@@ -66,6 +67,7 @@ const siblings = COMPETITORS.filter((s) => s !== slug);
   alternates={{ en: `/compare/${slug}/`, it: `/it/compare/${slug}/` }}
   ld={ld}
   otherHref={lang === 'it' ? `/compare/${slug}/` : `/it/compare/${slug}/`}
+  image={{ path: ogImagePath(`compare-${slug}`), alt: page.metaTitle }}
 >
   <article class="doc">
     <Crumbs

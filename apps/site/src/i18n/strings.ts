@@ -10,6 +10,8 @@ const en = {
   lang: 'en',
   meta: {
     title: 'Monsters: open-source local-first AI agent hub for any model',
+    ogAlt:
+      'Monsters: the monster Titan drawn in LED dots next to the words Your AI. Your machine. Your monsters.',
     description:
       'Monsters is an open-source, local-first AI agent hub: an orchestrator and a squad of agents on your computer, with any model, your keys and a kill switch.',
   },
@@ -472,6 +474,8 @@ const it: Strings = {
   lang: 'it',
   meta: {
     title: 'Monsters: hub di agenti AI open source e local-first',
+    ogAlt:
+      'Monsters: il mostro Titan disegnato a punti LED accanto alle parole La tua AI. Il tuo PC. I tuoi mostri.',
     description:
       'Monsters è un hub di agenti AI open source e local-first: orchestratore e squadra di agenti sul tuo computer, con ogni modello, le tue chiavi e uno stop.',
   },

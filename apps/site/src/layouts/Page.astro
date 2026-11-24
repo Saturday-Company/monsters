@@ -39,6 +39,8 @@ interface Props {
     /** The page's JSON-LD, already serialised. */
     ld: string;
     ogType?: string;
+    /** The page's own social card (a path on the site) and what it shows, in words. */
+    image?: { path: string; alt: string };
   };
 }
 const { t, clientData, version = '', releaseDate = null, page } = Astro.props;
@@ -79,7 +81,8 @@ const ld = page?.ld ?? jsonLdText({ t, site, version, released: releaseDate?.sli
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
-    <meta property="og:image" content={`${site}/og.png`} />
+    <meta property="og:image" content={`${site}${page?.image?.path ?? '/og.png'}`} />
+    <meta property="og:image:alt" content={page?.image?.alt ?? t.meta.ogAlt} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:locale" content={t.lang === 'it' ? 'it_IT' : 'en_US'} />

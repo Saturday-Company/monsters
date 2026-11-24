@@ -25,8 +25,10 @@ interface Props {
   /** The same page in the other language, or the other language's index when there is none. */
   otherHref: string;
   ogType?: string;
+  /** The social card of the page: a path and its description. */
+  image?: { path: string; alt: string };
 }
-const { t, title, description, path, alternates, ld, otherHref, ogType } = Astro.props;
+const { t, title, description, path, alternates, ld, otherHref, ogType, image } = Astro.props;
 const data = await siteData();
 const stamp = versionStamp(desktop.version);
 const home = t.lang === 'it' ? '/it/' : '/';
@@ -42,6 +44,7 @@ const home = t.lang === 'it' ? '/it/' : '/';
     alternates,
     ld,
     ...(ogType ? { ogType } : {}),
+    ...(image ? { image } : {}),
   }}
 >
   <Bar slot="bar" t={t} stamp={stamp} stars={data.stars} starsAt={data.starsAt} home={home} onHome={false} otherHref={otherHref} />
