@@ -10,6 +10,7 @@ import { initDownloads } from './download.ts';
 import { initHero } from './hero.ts';
 import { initKill } from './kill.ts';
 import { initManifesto } from './manifesto.ts';
+import { initMenu } from './menu.ts';
 import { initStars } from './stars.ts';
 import { initTerminal } from './terminal.ts';
 import { initEgg } from './egg.ts';
@@ -50,6 +51,7 @@ function readData(): ClientData | null {
 const data = readData();
 
 initBoot();
+initMenu();
 initKill();
 initStars(data);
 initDownloads(data);

@@ -20,6 +20,7 @@ const { t, stamp, stars, starsAt = null, home, onHome = true, otherHref } = Astr
 const at = onHome ? '' : home;
 const docsHref = t.lang === 'it' ? '/it/docs/' : '/docs/';
 const compareHref = t.lang === 'it' ? '/it/compare/' : '/compare/';
+const changelogHref = t.lang === 'it' ? '/it/changelog/' : '/changelog/';
 // The number printed in the page is the one read at build time: say when, so it is not taken for today's.
 const label = `, ${
   stars === null
@@ -69,5 +70,22 @@ const label = `, ${
         >
       </span>
     </a>
+    <button
+      type="button"
+      class="bar__menu"
+      aria-expanded="false"
+      aria-controls="bar-menu"
+      data-menu-toggle
+    >
+      <span class="bar__burger" aria-hidden="true"></span>
+      <span class="sr-only">{t.nav.menu}</span>
+    </button>
   </div>
+  <nav class="bar__panel label" id="bar-menu" aria-label={t.nav.menu} data-menu>
+    <a href={`${at}#download`}>{t.nav.download}</a>
+    <a href={docsHref}>{t.nav.docs}</a>
+    <a href={compareHref}>{t.nav.compare}</a>
+    <a href={changelogHref}>{t.nav.changelog}</a>
+    <a href={REPO_URL} rel="noopener">GitHub</a>
+  </nav>
 </header>

@@ -503,12 +503,119 @@ html.booting .boot .bl {
   }
 }
 
+/* The menu button and its panel exist only where the section links are gone. */
+.bar__menu,
+.bar__panel {
+  display: none;
+}
+
 @media (max-width: 1060px) {
   .bar__nav {
     display: none;
   }
   .bar__lang {
     margin-left: auto;
+  }
+
+  .bar__menu {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border: var(--rule);
+    background: var(--cap);
+    color: var(--ink);
+    box-shadow: 0 3px 0 var(--ink);
+    cursor: pointer;
+  }
+
+  .bar__menu:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 var(--ink);
+  }
+
+  .bar__menu[aria-expanded='true'] {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  /* three bars, drawn with one element and its shadows */
+  .bar__burger,
+  .bar__burger::before,
+  .bar__burger::after {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: currentColor;
+  }
+
+  .bar__burger {
+    position: relative;
+  }
+
+  .bar__burger::before,
+  .bar__burger::after {
+    content: '';
+    position: absolute;
+    left: 0;
+  }
+
+  .bar__burger::before {
+    top: -6px;
+  }
+
+  .bar__burger::after {
+    top: 6px;
+  }
+
+  /* with no JavaScript the links are simply always there, under the bar */
+  .bar__panel {
+    display: flex;
+    flex-wrap: wrap;
+    border-top: var(--rule);
+    background: var(--chassis);
+  }
+
+  html.js .bar__panel {
+    display: none;
+  }
+
+  html.js .bar__panel.is-open {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    border-bottom: var(--rule);
+    box-shadow: 0 8px 0 rgba(30, 30, 30, 0.12);
+  }
+
+  .bar__panel a {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    padding: 0 var(--gutter);
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  html.js .bar__panel a + a {
+    border-top: var(--dash);
+  }
+
+  .bar__panel a:hover,
+  .bar__panel a:focus-visible {
+    background: var(--ink);
+    color: var(--paper);
+  }
+}
+
+@media (max-width: 1060px) {
+  html:not(.js) .bar__menu {
+    display: none;
   }
 }
 
