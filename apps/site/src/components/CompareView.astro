@@ -91,25 +91,30 @@ const siblings = COMPETITORS.filter((s) => s !== slug);
 
     <section class="doc__sec" aria-labelledby="table-title">
       <h2 class="doc__h2" id="table-title">{c.chrome.tableTitle}</h2>
-      <div class="table-scroll" tabindex="0" role="region" aria-label={c.chrome.tableTitle}>
-        <table class="cmp">
+      {/* Below 640 px the rows become cards (text.css); the roles keep it a table for screen readers. */}
+      <div class="table-scroll cmp-wrap" tabindex="0" role="region" aria-label={c.chrome.tableTitle}>
+        <table class="cmp" role="table">
           <caption class="sr-only">{page.title}</caption>
-          <thead>
-            <tr>
-              <th scope="col">{c.chrome.row}</th>
-              <th scope="col">Monsters</th>
-              <th scope="col">
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">{c.chrome.row}</th>
+              <th scope="col" role="columnheader">Monsters</th>
+              <th scope="col" role="columnheader">
                 <a href={other.site} rel="noopener">{other.name}</a>
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {
               ROWS.map((key) => (
-                <tr>
-                  <th scope="row">{c.rowLabels[key]}</th>
-                  <td>{monstersCell(key)}</td>
-                  <td class={page.rows[key] === c.chrome.note ? 'cmp__nd' : undefined}>
+                <tr role="row">
+                  <th scope="row" role="rowheader">{c.rowLabels[key]}</th>
+                  <td role="cell" data-label="Monsters">{monstersCell(key)}</td>
+                  <td
+                    role="cell"
+                    data-label={other.name}
+                    class={page.rows[key] === c.chrome.note ? 'cmp__nd' : undefined}
+                  >
                     {page.rows[key]}
                   </td>
                 </tr>
@@ -118,7 +123,7 @@ const siblings = COMPETITORS.filter((s) => s !== slug);
           </tbody>
         </table>
       </div>
-      <p class="doc__note">{c.chrome.scroll}</p>
+      <p class="doc__note cmp-hint">{c.chrome.scroll}</p>
     </section>
 
     <section class="doc__sec" aria-labelledby="ahead-title">
