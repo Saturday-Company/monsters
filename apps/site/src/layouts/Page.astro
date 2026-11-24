@@ -21,6 +21,8 @@ interface Props {
   clientData: unknown;
   /** Version of the newest release, for the structured data. */
   version?: string;
+  /** When that release came out (ISO), for the structured data. */
+  releaseDate?: string | null;
   /**
    * Any page other than the home: its own title, description, address, language versions and
    * JSON-LD. Without it the layout is the home's.
@@ -37,7 +39,7 @@ interface Props {
     ogType?: string;
   };
 }
-const { t, clientData, version = '', page } = Astro.props;
+const { t, clientData, version = '', releaseDate = null, page } = Astro.props;
 const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
 const path = page?.path ?? (t.lang === 'it' ? '/it/' : '/');
 const canonical = `${site}${path}`;
@@ -45,7 +47,7 @@ const alternates = alternatesOf(page?.alternates ?? { en: '/', it: '/it/' });
 const title = page?.title ?? t.meta.title;
 const description = page?.description ?? t.meta.description;
 const json = JSON.stringify(clientData).replace(/</g, '\\u003c');
-const ld = page?.ld ?? jsonLdText({ t, site, version });
+const ld = page?.ld ?? jsonLdText({ t, site, version, released: releaseDate?.slice(0, 10) ?? null });
 ---
 
 <!doctype html>

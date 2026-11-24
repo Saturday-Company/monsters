@@ -68,7 +68,7 @@ const clientData = {
 };
 ---
 
-<Page t={t} clientData={clientData} version={data.version}>
+<Page t={t} clientData={clientData} version={data.version} releaseDate={data.releaseDate}>
   <Boot slot="boot" t={t} version={appVersion} />
   <Fragment slot="bar">
     <Bar t={t} stamp={stamp} stars={data.stars} starsAt={data.starsAt} home={lang === 'it' ? '/it/' : '/'} />

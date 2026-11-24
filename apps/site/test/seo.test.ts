@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { STRINGS } from '../src/i18n/strings.ts';
 import { absolutizeLinks } from '../src/lib/docs.ts';
 import { llmsFullTxt, llmsTxt } from '../src/lib/llms.ts';
-import { COMPANY_ID, SOFTWARE_ID, homeFaq, jsonLdGraph, jsonLdText } from '../src/lib/seo.ts';
+import {
+  COMPANY_ID,
+  COMPANY_LOGO,
+  SOFTWARE_ID,
+  homeFaq,
+  jsonLdGraph,
+  jsonLdText,
+  pageLdText,
+} from '../src/lib/seo.ts';
 import fallback from '../src/data/fallback.json' with { type: 'json' };
 import { downloadsFrom, latestVersion, type Feed } from '../src/lib/feed.ts';
 
@@ -107,4 +115,55 @@ describe('home texts', () => {
       expect(homeFaq(STRINGS[lang]).length).toBeGreaterThanOrEqual(8);
     });
   }
+});
+
+describe('structured data details', () => {
+  const site = 'https://getmonsters.dev';
+  it('describes the software with dates, features, notes and requirements', () => {
+    for (const lang of ['en', 'it'] as const) {
+      const g = jsonLdGraph({
+        t: STRINGS[lang],
+        site,
+        version: '0.1.0-alpha.27',
+        released: '2026-10-28',
+      });
+      const sw = (g['@graph'] as Record<string, unknown>[])[0] as Record<string, unknown>;
+      expect(sw['dateModified']).toBe('2026-10-28');
+      expect((sw['featureList'] as string[]).length).toBeGreaterThan(8);
+      expect(sw['releaseNotes']).toBe(`${site}${lang === 'it' ? '/it' : ''}/changelog/`);
+      expect(String(sw['softwareRequirements'])).toMatch(/Ollama/);
+      expect(String(sw['screenshot'])).toMatch(
+        new RegExp(`chat-domanda-light-1440-${lang}\\.png$`),
+      );
+    }
+  });
+
+  it('gives the company a logo and a description under the same id', () => {
+    const g = jsonLdGraph({ t: STRINGS.en, site, version: '' });
+    const org = (g['@graph'] as Record<string, unknown>[]).find(
+      (n) => n['@type'] === 'Organization',
+    );
+    expect(org?.['@id']).toBe(COMPANY_ID);
+    expect(org?.['logo']).toMatchObject({ '@type': 'ImageObject', url: COMPANY_LOGO });
+    expect(String(org?.['description']).length).toBeGreaterThan(80);
+  });
+
+  it('puts both dates on a guide and stays valid JSON', () => {
+    const p = {
+      lang: 'en',
+      site,
+      path: '/docs/remote/',
+      title: 'Remote',
+      description: 'd',
+      type: 'TechArticle',
+      crumbs: [{ name: 'Monsters', path: '/' }],
+      published: '2026-10-21',
+      modified: '2026-10-25',
+    } as const;
+    const g = JSON.parse(pageLdText(p)) as { '@graph': Record<string, unknown>[] };
+    const article = g['@graph'][0] as Record<string, unknown>;
+    expect(article['datePublished']).toBe('2026-10-21');
+    expect(article['dateModified']).toBe('2026-10-25');
+    expect(g['@graph'].some((n) => n['@id'] === COMPANY_ID && n['logo'])).toBe(true);
+  });
 });

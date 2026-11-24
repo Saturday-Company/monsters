@@ -14,6 +14,25 @@ const en = {
       'Monsters is an open-source, local-first AI agent hub: an orchestrator and a squad of agents on your computer, with any model, your keys and a kill switch.',
   },
   skip: 'Skip to content',
+  seo: {
+    featureList: [
+      'An orchestrator and a squad of AI agents that work in parallel on your computer',
+      'Any model: OpenRouter, Anthropic, OpenAI, Google, Mistral and Groq with your own keys, local models with Ollama and LM Studio',
+      'Your Claude plan through Claude Code and your ChatGPT plan, also through Codex',
+      'Obsidian-compatible Markdown notes, with every agent edit a git commit you can undo',
+      'MCP apps from a gallery, and the notes served over MCP to Claude Desktop, Codex and Cursor',
+      'One kill switch that stops every run and child process',
+      'Daily and monthly spending caps, per project too',
+      'Terminal and file access off until you grant it, monster by monster',
+      'Remote use from Telegram or over SSH',
+      'Projects and scheduled automations proposed as drafts you confirm',
+      'An action log of everything the agents do',
+    ],
+    requirements:
+      'Linux (AppImage or .deb), macOS (Apple silicon or Intel) or Windows (x64 installer), and a model: a free OpenRouter key, your own API keys, a local runtime such as Ollama or LM Studio, or a Claude or ChatGPT plan. Building from source needs Node.js 24 and pnpm 12.',
+    company:
+      'Saturday Company is an Italian AI consulting and development studio, based in the province of Pistoia, that works with companies, from small businesses to large groups, and with local authorities: it analyses their processes, finds where artificial intelligence really pays off and builds the solution inside the tools they already use.',
+  },
   what: {
     title: 'What is Monsters?',
     body: [
@@ -457,6 +476,25 @@ const it: Strings = {
       'Monsters è un hub di agenti AI open source e local-first: orchestratore e squadra di agenti sul tuo computer, con ogni modello, le tue chiavi e uno stop.',
   },
   skip: 'Vai al contenuto',
+  seo: {
+    featureList: [
+      'Un orchestratore e una squadra di agenti AI che lavorano in parallelo sul tuo computer',
+      'Qualsiasi modello: OpenRouter, Anthropic, OpenAI, Google, Mistral e Groq con le tue chiavi, modelli locali con Ollama e LM Studio',
+      'Il tuo piano Claude tramite Claude Code e il tuo piano ChatGPT, anche con Codex',
+      'Note Markdown compatibili con Obsidian, con ogni modifica di un agente come commit git che puoi annullare',
+      'App MCP da una galleria, e le note servite via MCP a Claude Desktop, Codex e Cursor',
+      'Un solo interruttore di stop che ferma ogni lavoro e ogni processo figlio',
+      'Tetti di spesa giornalieri e mensili, anche per progetto',
+      'Terminale e file spenti finché non li concedi, mostro per mostro',
+      'Uso a distanza da Telegram o via SSH',
+      'Progetti e automazioni programmate proposti come bozze che confermi tu',
+      'Un registro di tutto ciò che fanno gli agenti',
+    ],
+    requirements:
+      'Linux (AppImage o .deb), macOS (Apple silicon o Intel) o Windows (installer x64), e un modello: una chiave OpenRouter gratuita, le tue chiavi API, un runtime locale come Ollama o LM Studio, oppure un piano Claude o ChatGPT. Per compilare dal sorgente servono Node.js 24 e pnpm 12.',
+    company:
+      'Saturday Company è uno studio italiano di consulenza e sviluppo AI, con base in provincia di Pistoia, che lavora con aziende, dalle PMI ai grandi gruppi, e con enti locali: ne analizza i processi, individua dove l’intelligenza artificiale conviene davvero e costruisce la soluzione dentro gli strumenti che si usano già.',
+  },
   what: {
     title: 'Cos’è Monsters?',
     body: [
