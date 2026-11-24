@@ -328,7 +328,7 @@ html.booting .boot {
   font: 500 clamp(11px, 1.35vw, 14px) / 1.75 var(--f-mono);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  animation: boot-out 0s 1.3s forwards;
+  animation: boot-out 0s 0.7s forwards;
   cursor: pointer;
 }
 
@@ -336,7 +336,7 @@ html.booting .boot .bl {
   visibility: hidden;
   margin: 0;
   white-space: pre;
-  animation: boot-line 0s calc(var(--i) * 62ms) forwards;
+  animation: boot-line 0s calc(var(--i) * 34ms) forwards;
 }
 
 .boot .ok {

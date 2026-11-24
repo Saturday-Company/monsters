@@ -80,7 +80,9 @@ const ld = page?.ld ?? jsonLdText({ t, site, version });
     }
     <meta name="twitter:card" content="summary_large_image" />
     <script is:inline>
-      // Before the first paint: JS on, and the boot screen once per session (never with reduced motion).
+      // Before the first paint: JS on, and the BIOS screen for people who type the address or open
+      // a bookmark (no referrer), once per session and never with reduced motion. Anyone who comes
+      // from a search engine, an assistant, a social post or another page of the site sees the page.
       (function () {
         var d = document.documentElement;
         d.classList.add('js');
@@ -89,6 +91,7 @@ const ld = page?.ld ?? jsonLdText({ t, site, version });
           var skip =
             /[?&]noboot\b/.test(location.search) ||
             d.hasAttribute('data-noboot') ||
+            document.referrer !== '' ||
             sessionStorage.getItem('monsters.booted');
           if (!reduce && !skip) {
             d.classList.add('booting');

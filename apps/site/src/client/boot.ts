@@ -1,4 +1,7 @@
-/* The BIOS screen: CSS runs it, this only lets a key or a click skip it and cleans up. */
+/*
+ * The BIOS screen: CSS runs it (about 0.7 s, see global.css), this only lets a key or a click skip it
+ * and cleans up. The inline script of the layout decides whether it shows at all.
+ */
 
 export function initBoot(): void {
   const html = document.documentElement;
@@ -15,5 +18,5 @@ export function initBoot(): void {
     if (e.target === boot) done();
   });
   // Belt and braces: never keep the page behind the boot screen.
-  setTimeout(done, 1600);
+  setTimeout(done, 900);
 }
