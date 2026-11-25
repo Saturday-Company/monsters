@@ -13,7 +13,11 @@ export function initMenu(): void {
     panel.classList.toggle('is-open', open);
     button.setAttribute('aria-expanded', String(open));
     if (focus === 'button') button.focus();
-    if (focus === 'first') panel.querySelector<HTMLElement>('a')?.focus();
+    // The first link that is shown: on a wide screen Download stays in the bar and is hidden here.
+    if (focus === 'first')
+      [...panel.querySelectorAll<HTMLElement>('a')]
+        .find((a) => a.getClientRects().length > 0)
+        ?.focus();
   };
   const isOpen = (): boolean => panel.classList.contains('is-open');
 
@@ -38,7 +42,7 @@ export function initMenu(): void {
     const next = e.relatedTarget as Node | null;
     if (isOpen() && next && !panel.contains(next) && next !== button) set(false);
   });
-  matchMedia('(min-width: 1061px)').addEventListener('change', (e) => {
+  matchMedia('(min-width: 1321px)').addEventListener('change', (e) => {
     if (e.matches) set(false);
   });
 }

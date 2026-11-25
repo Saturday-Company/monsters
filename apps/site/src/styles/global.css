@@ -496,50 +496,40 @@ html.booting .boot .bl {
   line-height: 1;
 }
 
-/* On a phone the bar holds the wordmark, the palette key, the language, the star and the menu button:
-   the LED counter is what gives way, so nothing spills past the right edge. */
-@media (max-width: 440px) {
-  .star .led {
-    display: none;
-  }
-  .star__key {
-    border-left: 0;
-  }
-}
-
-/* Docs and Compare join the bar only where it has room; the footer always has them. */
-@media (max-width: 1320px) {
-  .bar__nav .bar__more {
-    display: none;
-  }
-}
-
-/* The menu button and its panel exist only where the section links are gone. */
+/* The bar gives way from the right edge inwards. Under 1320px Docs, Compare and the part number
+   leave and the menu button takes them; under 1060px the section links go too; on a phone the
+   palette key and the star lose their words and, under 440px, the LED counter goes. Every control
+   that stays on a touch-sized screen is a 44px key, the same height as its neighbours. */
 .bar__menu,
 .bar__panel {
   display: none;
 }
 
-@media (max-width: 1060px) {
-  .bar__nav {
+@media (max-width: 1320px) {
+  .bar__nav .bar__more,
+  .bar .stamp {
     display: none;
-  }
-  .bar__lang {
-    margin-left: auto;
   }
 
   .bar__menu {
     display: inline-grid;
     place-items: center;
     flex: none;
-    width: 46px;
-    height: 46px;
+    width: 40px;
+    height: 34px;
     padding: 0;
     border: var(--rule);
     background: var(--cap);
     color: var(--ink);
     box-shadow: 0 3px 0 var(--ink);
     cursor: pointer;
+    transition:
+      transform var(--frame) steps(1),
+      box-shadow var(--frame) steps(1);
+  }
+
+  .bar__menu:hover {
+    background: #ffffff;
   }
 
   .bar__menu:active {
@@ -552,7 +542,7 @@ html.booting .boot .bl {
     color: var(--paper);
   }
 
-  /* three bars, drawn with one element and its shadows */
+  /* three bars, drawn with one element and its pseudo-elements */
   .bar__burger,
   .bar__burger::before,
   .bar__burger::after {
@@ -581,34 +571,25 @@ html.booting .boot .bl {
     top: 6px;
   }
 
-  /* with no JavaScript the links are simply always there, under the bar */
-  .bar__panel {
-    display: flex;
-    flex-wrap: wrap;
-    border-top: var(--rule);
-    background: var(--chassis);
-  }
-
-  html.js .bar__panel {
-    display: none;
-  }
-
+  /* the open menu hangs from the right edge of the bar, like a drawer pulled out of it */
   html.js .bar__panel.is-open {
     position: absolute;
     top: 100%;
-    left: 0;
     right: 0;
     display: flex;
     flex-direction: column;
-    border-bottom: var(--rule);
-    box-shadow: 0 8px 0 rgba(30, 30, 30, 0.12);
+    width: min(320px, 100%);
+    background: var(--chassis);
+    border: var(--rule);
+    border-top: 0;
+    box-shadow: 6px 6px 0 rgba(30, 30, 30, 0.18);
   }
 
   .bar__panel a {
     display: flex;
     align-items: center;
     min-height: 48px;
-    padding: 0 var(--gutter);
+    padding: 0 22px;
     color: var(--ink);
     text-decoration: none;
   }
@@ -622,23 +603,105 @@ html.booting .boot .bl {
     background: var(--ink);
     color: var(--paper);
   }
+
+  .bar__panel a:focus-visible {
+    outline-offset: -4px;
+    outline-color: var(--paper);
+  }
+
+  /* Download is still in the section links at this width */
+  .bar__panel .bar__dl {
+    display: none;
+  }
 }
 
 @media (max-width: 1060px) {
+  .bar__nav {
+    display: none;
+  }
+  .bar__lang {
+    margin-left: auto;
+  }
+
+  .bar__cmd,
+  .bar__lang,
+  .star,
+  .bar__menu {
+    flex: none;
+    height: 44px;
+  }
+
+  .bar__lang {
+    display: inline-grid;
+    place-items: center;
+    min-width: 44px;
+    padding: 0 8px;
+  }
+
+  .bar__menu {
+    width: 44px;
+  }
+
+  .star__key {
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  .led {
+    align-content: center;
+  }
+
+  .bar__panel .bar__dl {
+    display: flex;
+  }
+
+  /* with no JavaScript there is no menu button: the links simply sit under the bar */
   html:not(.js) .bar__menu {
     display: none;
   }
+
+  html:not(.js) .bar__panel {
+    display: flex;
+    flex-wrap: wrap;
+    border-top: var(--rule);
+    background: var(--chassis);
+  }
+
+  html.js .bar__panel.is-open {
+    left: 0;
+    width: auto;
+    border-left: 0;
+    border-right: 0;
+    box-shadow: 0 8px 0 rgba(30, 30, 30, 0.12);
+  }
+
+  .bar__panel a {
+    padding: 0 var(--gutter);
+  }
 }
 
-@media (max-width: 520px) {
-  .bar .stamp {
-    display: none;
-  }
+@media (max-width: 600px) {
   .word {
     font-size: 22px;
   }
   .star__text {
     display: none;
+  }
+}
+
+@media (max-width: 440px) {
+  .bar__in {
+    gap: 8px;
+  }
+  .star .led {
+    display: none;
+  }
+  .star__key {
+    border-left: 0;
+    padding: 0;
+  }
+  .star__glyph {
+    font-size: 17px;
   }
 }
 

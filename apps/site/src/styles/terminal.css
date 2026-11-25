@@ -470,13 +470,16 @@ html:not(.js) .bar__cmd {
 @media (max-width: 1060px) {
   .bar__cmd {
     margin-left: auto;
+    justify-content: center;
+    min-width: 44px;
+    padding: 0 10px 0 12px;
   }
   .bar__cmd + .bar__lang {
     margin-left: 0;
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 600px) {
   .bar__cmd span {
     position: absolute;
     width: 1px;
@@ -486,7 +489,11 @@ html:not(.js) .bar__cmd {
     white-space: nowrap;
   }
   .bar__cmd {
-    padding-right: 4px;
+    padding: 0;
+  }
+  .bar__cmd kbd {
+    width: 22px;
+    height: 22px;
   }
 }
 
