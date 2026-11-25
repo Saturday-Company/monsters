@@ -299,11 +299,11 @@
 }
 
 .cmp {
-  min-width: 860px;
+  min-width: 100%;
 }
 
 .cmp td {
-  min-width: 300px;
+  min-width: 260px;
 }
 
 .cmp tbody th {
@@ -332,12 +332,9 @@
   font-style: italic;
 }
 
-/* On a phone each row is a card: the topic as its title, then one line per project. */
-@media (max-width: 640px) {
-  .cmp-hint {
-    display: none;
-  }
-
+/* Up to a small laptop each row is a card: the topic as its title, then one cell per project
+   (side by side on a tablet, one under the other on a phone). The table never scrolls sideways. */
+@media (max-width: 980px) {
   .table-scroll.cmp-wrap {
     overflow: visible;
     border: 0;
@@ -395,6 +392,25 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--ink-2);
+  }
+}
+
+@media (min-width: 641px) and (max-width: 980px) {
+  .cmp tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cmp tbody th {
+    grid-column: 1 / -1;
+  }
+
+  .cmp tbody td:nth-child(even) {
+    border-right: var(--hair) dashed var(--ink);
+  }
+
+  .cmp tbody tr > td:nth-last-child(-n + 2) {
+    border-bottom: 0;
   }
 }
 
@@ -736,18 +752,11 @@
 }
 
 /* the comparison with four columns */
-.cmp--four {
-  min-width: 1220px;
-}
-
 .cmp--four td {
-  min-width: 230px;
+  min-width: 195px;
 }
 
-@media (max-width: 640px) {
-  .cmp--four {
-    min-width: 0;
-  }
+@media (max-width: 980px) {
   .cmp--four td {
     min-width: 0;
   }

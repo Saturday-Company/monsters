@@ -205,7 +205,6 @@ interface Compare {
     verified: string;
     tableTitle: string;
     row: string;
-    scroll: string;
     ahead: string;
     differs: string;
     pickThem: string;
@@ -247,7 +246,6 @@ const en: Compare = {
     verified: 'Facts checked on {date}',
     tableTitle: 'Side by side',
     row: 'Topic',
-    scroll: 'Scroll the table sideways on a small screen.',
     ahead: 'Where {name} is ahead',
     differs: 'Where Monsters differs',
     pickThem: 'Pick {name} if',
@@ -560,7 +558,6 @@ const it: Compare = {
     verified: 'Dati controllati il {date}',
     tableTitle: 'Uno accanto all’altro',
     row: 'Tema',
-    scroll: 'Su uno schermo piccolo scorri la tabella di lato.',
     ahead: 'Dove {name} è avanti',
     differs: 'Dove Monsters è diverso',
     pickThem: 'Scegli {name} se',

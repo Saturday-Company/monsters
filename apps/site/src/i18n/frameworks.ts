@@ -118,7 +118,6 @@ interface Frameworks {
     verified: string;
     tableTitle: string;
     row: string;
-    scroll: string;
     kindTitle: string;
     aheadTitle: string;
     differsTitle: string;
@@ -155,7 +154,6 @@ const en: Frameworks = {
     verified: 'Facts checked on {date}',
     tableTitle: 'Side by side',
     row: 'Topic',
-    scroll: 'Scroll the table sideways on a small screen.',
     kindTitle: 'An app and a framework are different things',
     aheadTitle: 'Where the frameworks win',
     differsTitle: 'Where Monsters is the better fit',
@@ -309,7 +307,6 @@ const it: Frameworks = {
     verified: 'Dati controllati il {date}',
     tableTitle: 'Uno accanto all’altro',
     row: 'Tema',
-    scroll: 'Su uno schermo piccolo scorri la tabella di lato.',
     kindTitle: 'Un’app e un framework sono cose diverse',
     aheadTitle: 'Dove vincono i framework',
     differsTitle: 'Dove Monsters è più adatto',
