@@ -105,9 +105,26 @@ const en: GettingStarted = {
       id: 'ollama',
       title: '4. Use a local model with Ollama',
       body: [
-        'Ollama and LM Studio run models on your own computer, so prompts never leave it. Install and start Ollama first (see its own documentation), and download a model there. Then in Monsters open Settings, Models, add Ollama and press Connect: the address is usually the one already written, `http://127.0.0.1:11434`. LM Studio works the same way.',
+        'Ollama and LM Studio run models on your own computer, so prompts never leave it. Install and start Ollama first, then pull a model with the commands below. Then in Monsters open Settings, Models, add Ollama and press Connect: the address is usually the one already written, `http://127.0.0.1:11434`. LM Studio works the same way.',
         'Choose the Ollama model as the main model, or as a monster’s first model in Advanced. Each monster has its own chain with a fallback, so one can use a local model for private notes and a cloud model for harder jobs. Monsters says local models are free and private but slower and less capable with tools, so start with something small and try it.',
         'Monsters sizes the context window from the loaded model, else from the Modelfile’s `num_ctx`, else it assumes 4096 tokens: a model that reports no larger context is compacted accordingly, so load it with a bigger context if your jobs need it.',
+      ],
+      cmds: [
+        {
+          label: 'Pull a model that can call tools on a laptop',
+          code: 'ollama pull qwen3:8b',
+        },
+        {
+          label: 'Check the server answers on its default port',
+          code: 'curl http://127.0.0.1:11434',
+        },
+        {
+          label: 'See the models you have downloaded',
+          code: 'ollama list',
+        },
+      ],
+      after: [
+        'The check should answer `Ollama is running`. If it does not, start Ollama first and try again. A small local model is slower and weaker with tools than the big cloud models, so expect simpler answers and more retries, and keep a cloud model in the chain as a fallback for harder jobs.',
       ],
     },
     {
@@ -236,9 +253,26 @@ const it: GettingStarted = {
       id: 'ollama',
       title: '4. Usa un modello locale con Ollama',
       body: [
-        'Ollama e LM Studio fanno girare i modelli sul tuo computer, quindi i prompt non ne escono. Installa e avvia prima Ollama (vedi la sua documentazione) e scarica lì un modello. Poi in Monsters apri Impostazioni, Modelli, aggiungi Ollama e premi Collega: l’indirizzo di solito è già scritto, `http://127.0.0.1:11434`. LM Studio funziona allo stesso modo.',
+        'Ollama e LM Studio fanno girare i modelli sul tuo computer, quindi i prompt non ne escono. Installa e avvia prima Ollama, poi scarica un modello con i comandi qui sotto. Poi in Monsters apri Impostazioni, Modelli, aggiungi Ollama e premi Collega: l’indirizzo di solito è già scritto, `http://127.0.0.1:11434`. LM Studio funziona allo stesso modo.',
         'Scegli il modello di Ollama come modello principale, o come primo modello di un mostro in Avanzate. Ogni mostro ha la sua catena con una riserva, quindi uno può usare un modello locale per le note private e uno nel cloud per i lavori più difficili. Monsters dice che i modelli locali sono gratuiti e privati ma più lenti e meno capaci con gli strumenti, quindi parti da uno piccolo e provalo.',
         'Monsters ricava la finestra di contesto dal modello caricato, altrimenti dal `num_ctx` del Modelfile, altrimenti presume 4096 token: un modello che non dichiara un contesto più grande viene compattato di conseguenza, quindi caricalo con un contesto più ampio se i tuoi lavori lo richiedono.',
+      ],
+      cmds: [
+        {
+          label: 'Scarica un modello che sa usare gli strumenti su un portatile',
+          code: 'ollama pull qwen3:8b',
+        },
+        {
+          label: 'Controlla che il server risponda sulla sua porta',
+          code: 'curl http://127.0.0.1:11434',
+        },
+        {
+          label: 'Vedi i modelli che hai scaricato',
+          code: 'ollama list',
+        },
+      ],
+      after: [
+        'Il controllo deve rispondere `Ollama is running`. Se non risponde, avvia prima Ollama e riprova. Un piccolo modello locale è più lento e meno capace con gli strumenti dei grandi modelli nel cloud: aspettati risposte più semplici e più tentativi, e tieni un modello nel cloud nella catena come riserva per i lavori più difficili.',
       ],
     },
     {
