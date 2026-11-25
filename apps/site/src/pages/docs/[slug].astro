@@ -1,7 +1,7 @@
 ---
 /* One user guide, rendered from its Markdown file in docs/ (English only). */
 import { getCollection, render } from 'astro:content';
-import { PAGES, TLDR } from '../../i18n/pages.ts';
+import { LEDE_IN_TLDR, PAGES, TLDR } from '../../i18n/pages.ts';
 import { STRINGS } from '../../i18n/strings.ts';
 import Crumbs from '../../components/Crumbs.astro';
 import Text from '../../layouts/Text.astro';
@@ -74,7 +74,7 @@ const ld = pageLdText({
     />
     <header class="doc__head">
       <h1 class="display doc__title doc__title--guide">{entry.data.title}</h1>
-      <p class="lede">{description}</p>
+      {!LEDE_IN_TLDR.has(guide.slug) && <p class="lede">{description}</p>}
       <p class="doc__tldr">
         <strong class="label">{p.guide.tldr}</strong>{" "}
         {tldr}

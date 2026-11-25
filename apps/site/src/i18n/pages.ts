@@ -170,3 +170,17 @@ export const TLDR: Record<GuideSlug, string> = {
   roadmap:
     'Monsters is in alpha. The roadmap lists the phases already finished, the work still open before a stable release, such as signed updates on every system, a Windows certificate and a week-long soak test, and the ideas that come after it.',
 };
+
+/**
+ * The guides whose summary already says what their one-line description says: their page shows
+ * only the summary under the title. The description stays the meta description of every guide, and
+ * a guide keeps it on the page where it adds something (subscriptions: what the app does and does
+ * not do with your plans).
+ */
+export const LEDE_IN_TLDR: ReadonlySet<GuideSlug> = new Set<GuideSlug>([
+  'architecture',
+  'security-model',
+  'mcp-vault',
+  'remote',
+  'roadmap',
+]);
