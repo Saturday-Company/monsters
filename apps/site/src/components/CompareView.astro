@@ -1,5 +1,6 @@
 ---
 /* One comparison: Monsters against one project, with a table, the honest bits and the sources. */
+import Inline from './Inline.astro';
 import {
   COMPARE,
   COMPETITORS,
@@ -109,13 +110,13 @@ const siblings = COMPETITORS.filter((s) => s !== slug);
               ROWS.map((key) => (
                 <tr role="row">
                   <th scope="row" role="rowheader">{c.rowLabels[key]}</th>
-                  <td role="cell" data-label="Monsters">{monstersCell(key)}</td>
+                  <td role="cell" data-label="Monsters"><Inline text={monstersCell(key)} /></td>
                   <td
                     role="cell"
                     data-label={other.name}
                     class={page.rows[key] === c.chrome.note ? 'cmp__nd' : undefined}
                   >
-                    {page.rows[key]}
+                    <Inline text={page.rows[key]} />
                   </td>
                 </tr>
               ))
@@ -129,14 +130,14 @@ const siblings = COMPETITORS.filter((s) => s !== slug);
     <section class="doc__sec" aria-labelledby="ahead-title">
       <h2 class="doc__h2" id="ahead-title">{fill(c.chrome.ahead, { name: other.name })}</h2>
       <ul class="points" role="list">
-        {page.ahead.map((item) => <li>{item}</li>)}
+        {page.ahead.map((item) => <li><Inline text={item} /></li>)}
       </ul>
     </section>
 
     <section class="doc__sec" aria-labelledby="differs-title">
       <h2 class="doc__h2" id="differs-title">{c.chrome.differs}</h2>
       <ul class="points" role="list">
-        {page.differs.map((item) => <li>{item}</li>)}
+        {page.differs.map((item) => <li><Inline text={item} /></li>)}
       </ul>
     </section>
 
@@ -144,13 +145,13 @@ const siblings = COMPETITORS.filter((s) => s !== slug);
       <div class="pick__box">
         <h2 class="doc__h2 doc__h2--box">{fill(c.chrome.pickThem, { name: other.name })}</h2>
         <ul class="points" role="list">
-          {page.pickThem.map((item) => <li>{item}</li>)}
+          {page.pickThem.map((item) => <li><Inline text={item} /></li>)}
         </ul>
       </div>
       <div class="pick__box pick__box--us">
         <h2 class="doc__h2 doc__h2--box">{c.chrome.pickUs}</h2>
         <ul class="points" role="list">
-          {page.pickUs.map((item) => <li>{item}</li>)}
+          {page.pickUs.map((item) => <li><Inline text={item} /></li>)}
         </ul>
       </div>
     </section>

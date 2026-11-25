@@ -1,0 +1,14 @@
+---
+/*
+ * A sentence of the dictionaries with `code` in backticks: the backtick spans become <code>, the
+ * rest stays text. Unbalanced backticks are shown as they are.
+ */
+interface Props {
+  text: string;
+}
+const { text } = Astro.props;
+const parts = text.split('`');
+const balanced = parts.length % 2 === 1;
+---
+
+{balanced ? parts.map((p, i) => (i % 2 === 1 ? <code>{p}</code> : p)) : text}

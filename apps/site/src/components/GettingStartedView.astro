@@ -10,6 +10,7 @@ import { fileDates } from '../lib/history.ts';
 import { ogImagePath } from '../lib/ogpages.ts';
 import { pageLdText } from '../lib/seo.ts';
 import Crumbs from './Crumbs.astro';
+import Inline from './Inline.astro';
 
 interface Props {
   lang: Lang;
@@ -84,7 +85,7 @@ const toc = g.steps.map((s) => ({ id: s.id, title: s.title }));
           g.steps.map((step) => (
             <section class="step" id={step.id} aria-labelledby={`${step.id}-title`}>
               <h2 id={`${step.id}-title`}>{step.title}</h2>
-              {step.body.map((para) => <p>{para}</p>)}
+              {step.body.map((para) => <p><Inline text={para} /></p>)}
               {
                 step.cmds?.map((c) => (
                   <div class="codeblock">
@@ -96,7 +97,7 @@ const toc = g.steps.map((s) => ({ id: s.id, title: s.title }));
                   </div>
                 ))
               }
-              {step.after?.map((para) => <p>{para}</p>)}
+              {step.after?.map((para) => <p><Inline text={para} /></p>)}
             </section>
           ))
         }

@@ -1,5 +1,6 @@
 ---
 /* /compare/frameworks/: Monsters (an app) next to CrewAI, LangGraph and AutoGen (libraries). */
+import Inline from './Inline.astro';
 import { COMPARE } from '../i18n/compare.ts';
 import {
   FRAMEWORKS,
@@ -114,7 +115,7 @@ const sources = FRAMEWORKS.flatMap((s) => FRAMEWORK_FACTS[s].sources);
               FRAMEWORK_ROWS.map((key) => (
                 <tr role="row">
                   <th scope="row" role="rowheader">{f.rowLabels[key]}</th>
-                  <td role="cell" data-label="Monsters">{monstersCell(key)}</td>
+                  <td role="cell" data-label="Monsters"><Inline text={monstersCell(key)} /></td>
                   {
                     FRAMEWORKS.map((s) => (
                       <td
@@ -122,7 +123,7 @@ const sources = FRAMEWORKS.flatMap((s) => FRAMEWORK_FACTS[s].sources);
                         data-label={FRAMEWORK_FACTS[s].name}
                         class={f.rows[s][key] === f.chrome.note ? 'cmp__nd' : undefined}
                       >
-                        {f.rows[s][key]}
+                        <Inline text={f.rows[s][key]} />
                       </td>
                     ))
                   }
@@ -138,14 +139,14 @@ const sources = FRAMEWORKS.flatMap((s) => FRAMEWORK_FACTS[s].sources);
     <section class="doc__sec" aria-labelledby="ahead-title">
       <h2 class="doc__h2" id="ahead-title">{f.chrome.aheadTitle}</h2>
       <ul class="points" role="list">
-        {f.ahead.map((item) => <li>{item}</li>)}
+        {f.ahead.map((item) => <li><Inline text={item} /></li>)}
       </ul>
     </section>
 
     <section class="doc__sec" aria-labelledby="differs-title">
       <h2 class="doc__h2" id="differs-title">{f.chrome.differsTitle}</h2>
       <ul class="points" role="list">
-        {f.differs.map((item) => <li>{item}</li>)}
+        {f.differs.map((item) => <li><Inline text={item} /></li>)}
       </ul>
     </section>
 
@@ -153,13 +154,13 @@ const sources = FRAMEWORKS.flatMap((s) => FRAMEWORK_FACTS[s].sources);
       <div class="pick__box">
         <h2 class="doc__h2 doc__h2--box">{f.chrome.pickThem}</h2>
         <ul class="points" role="list">
-          {f.pickThem.map((item) => <li>{item}</li>)}
+          {f.pickThem.map((item) => <li><Inline text={item} /></li>)}
         </ul>
       </div>
       <div class="pick__box pick__box--us">
         <h2 class="doc__h2 doc__h2--box">{f.chrome.pickUs}</h2>
         <ul class="points" role="list">
-          {f.pickUs.map((item) => <li>{item}</li>)}
+          {f.pickUs.map((item) => <li><Inline text={item} /></li>)}
         </ul>
       </div>
     </section>
