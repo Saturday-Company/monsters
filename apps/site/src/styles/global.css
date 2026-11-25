@@ -2241,6 +2241,24 @@ html.js .term__body.armed .ln.on {
   font-size: 14px;
 }
 
+/* On a touch screen every key and every link of a list is at least 44px tall: the small keys,
+   the footer links and the window buttons grow, the look stays. */
+@media (pointer: coarse) {
+  .key--sm {
+    min-height: 44px;
+  }
+
+  .foot__links {
+    gap: 0 20px;
+  }
+
+  .foot__links > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
 /* ------------------------------------------------------------ invaders */
 
 .arcade {

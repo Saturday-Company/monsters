@@ -70,21 +70,23 @@
 }
 
 /* the guide's summary: a short box before the long text */
+/* the summary is a slip of the datasheet: a ruled box with its tag, like Fig. 1 of the home */
 .doc__tldr {
   max-width: 72ch;
-  margin: 22px 0 0;
-  padding: 14px 18px 16px;
+  margin: 24px 0 0;
+  padding: 16px 20px 18px;
   border: var(--rule);
-  border-left-width: 6px;
-  border-left-color: var(--signal);
   background: var(--cap);
+  box-shadow: 4px 4px 0 var(--ink);
   color: var(--ink);
 }
 
 .doc__tldr .label {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--signal-ink);
+  display: table;
+  margin-bottom: 10px;
+  padding: 4px 7px 3px;
+  background: var(--ink);
+  color: var(--cap);
 }
 
 .doc__note a,
@@ -134,6 +136,15 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* the first guide to read takes the whole row */
+.cards > .cards__lead {
+  grid-column: 1 / -1;
+}
+
+.cards__lead .card__text {
+  max-width: 72ch;
 }
 
 .card {
@@ -446,6 +457,17 @@
 .toc a:hover {
   color: var(--ink);
   border-bottom-color: var(--ink);
+}
+
+@media (pointer: coarse) {
+  .toc li {
+    padding: 0;
+  }
+  .toc a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
 }
 
 .toc--side {

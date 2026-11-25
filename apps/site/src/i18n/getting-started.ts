@@ -35,6 +35,8 @@ interface GettingStarted {
   crumb: string;
   /** The label of the card on the docs index. */
   open: string;
+  /** The small line over the card's title on the docs index. */
+  kicker: string;
   steps: Step[];
   nextTitle: string;
   next: [string, string][];
@@ -55,6 +57,7 @@ const en: GettingStarted = {
   copied: 'Copied',
   crumb: 'Getting started',
   open: 'Read the guide',
+  kicker: 'Start here',
   steps: [
     {
       id: 'install',
@@ -181,6 +184,7 @@ const it: GettingStarted = {
   copied: 'Copiato',
   crumb: 'Iniziare',
   open: 'Leggi la guida',
+  kicker: 'Inizia da qui',
   steps: [
     {
       id: 'install',
