@@ -21,6 +21,9 @@ const at = onHome ? '' : home;
 const docsHref = t.lang === 'it' ? '/it/docs/' : '/docs/';
 const compareHref = t.lang === 'it' ? '/it/compare/' : '/compare/';
 const changelogHref = t.lang === 'it' ? '/it/changelog/' : '/changelog/';
+// The Italian home has the longest bar (longer labels and the palette key): just above 1320px it
+// needs the part number's room to keep Changelog in line.
+const long = onHome && t.lang === 'it';
 // The number printed in the page is the one read at build time: say when, so it is not taken for today's.
 const label = `, ${
   stars === null
@@ -31,7 +34,7 @@ const label = `, ${
 }`;
 ---
 
-<header class="bar">
+<header class:list={['bar', { 'bar--long': long }]}>
   <div class="bar__in">
     <a class="word" href={home} aria-label="Monsters">monsters</a>
     <span class="stamp" title="Part number">{stamp}</span>
@@ -43,6 +46,7 @@ const label = `, ${
       <a href={`${at}#faq`}>{t.nav.faq}</a>
       <a class="bar__more" href={docsHref}>{t.nav.docs}</a>
       <a class="bar__more" href={compareHref}>{t.nav.compare}</a>
+      <a class="bar__more bar__log" href={changelogHref}>{t.nav.changelog}</a>
     </nav>
     {
       onHome && (

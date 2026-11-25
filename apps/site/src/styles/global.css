@@ -434,6 +434,7 @@ html.booting .boot .bl {
 }
 
 .bar__nav a {
+  flex: none;
   text-decoration: none;
   padding: 6px 0;
   border-bottom: var(--hair) solid transparent;
@@ -510,13 +511,21 @@ html.booting .boot .bl {
   line-height: 1;
 }
 
-/* The bar gives way from the right edge inwards. Under 1320px Docs, Compare and the part number
-   leave and the menu button takes them; under 1060px the section links go too; on a phone the
-   palette key and the star lose their words and, under 440px, the LED counter goes. Every control
-   that stays on a touch-sized screen is a 44px key, the same height as its neighbours. */
+/* The bar gives way from the right edge inwards. Under 1320px Docs, Compare, Changelog and the
+   part number leave and the menu button takes them (on the Italian home the part number already
+   leaves under 1430px, to keep Changelog in the bar); under 1060px the section links go too; on
+   a phone the palette key and the star lose their words and, under 440px, the LED counter goes.
+   Every control that stays on a touch-sized screen is a 44px key, the same height as its
+   neighbours. Measured on every width from 1321 to 1920px, EN and IT: the bar never overflows. */
 .bar__menu,
 .bar__panel {
   display: none;
+}
+
+@media (max-width: 1429px) {
+  .bar--long .stamp {
+    display: none;
+  }
 }
 
 @media (max-width: 1320px) {
