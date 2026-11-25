@@ -32,6 +32,13 @@ const help = cliHelp(version);
 const helpLines = help.replace(/\n$/, '').split('\n');
 
 const build = `git clone ${REPO_URL} && cd monsters && ${BUILD_COMMAND}`;
+// On a phone the command breaks at spaces, and inside the address only after a slash, never in the
+// middle of a name (`.nb`): the text, as copied, stays the command.
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const url = REPO_URL.split('/')
+  .map((seg) => `<span class="nb">${esc(seg)}</span>`)
+  .join('/<wbr>');
+const buildHtml = esc(build).replace(esc(REPO_URL), url);
 
 const lines: TtyLine[] = [
   { html: '<span class="p">$</span> monsters start', pause: 500 },
@@ -82,7 +89,7 @@ const lines: TtyLine[] = [
 
   <div class="cmd">
     <span class="cmd__label label">{t.terminal.label}</span>
-    <code data-copy-src>{build}</code>
+    <code data-copy-src set:html={buildHtml} />
     <button type="button" class="key" data-copy data-copied={t.terminal.copied}
       >{t.terminal.copy}</button
     >

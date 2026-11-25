@@ -1772,6 +1772,10 @@ html.js .term__body.armed .ln.on {
   font-size: 13px;
 }
 
+.cmd .nb {
+  white-space: nowrap;
+}
+
 .cmd .key {
   border-width: 0 0 0 var(--hair);
   box-shadow: none;
@@ -1790,7 +1794,6 @@ html.js .term__body.armed .ln.on {
   }
   .cmd code {
     white-space: normal;
-    word-break: break-word;
     flex-basis: 100%;
   }
   .term__body {
