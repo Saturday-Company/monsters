@@ -43,14 +43,14 @@ const en = {
       'It is open source under Apache-2.0, free to use, and in alpha.',
     ],
     forTag: 'For',
-    forTitle: 'Who it is for',
+    forTitle: 'Who can start today',
     forItems: [
       'People who want AI agents that run on their own machine, with their own keys and notes on their own disk.',
       'Developers and power users who want to pick the model per agent, including local ones.',
       'Anyone who wants a ready-made app with spending caps and a kill switch, not a library to wire up in code.',
     ],
     notTag: 'Not yet',
-    notTitle: 'Who it is not for yet',
+    notTitle: 'Who should wait',
     notItems: [
       'People who need a stable, mature product: Monsters is an alpha with a small community, so expect rough edges.',
       'Teams that need an API or a framework to embed agents in their own software: Monsters is an app, not a library.',
@@ -511,14 +511,14 @@ const it: Strings = {
       'È open source con licenza Apache-2.0, gratuito e in alpha.',
     ],
     forTag: 'Per',
-    forTitle: 'Per chi è',
+    forTitle: 'Chi può partire oggi',
     forItems: [
       'Per chi vuole agenti AI che girano sulla propria macchina, con le proprie chiavi e le note sul proprio disco.',
       'Per sviluppatori e utenti esperti che vogliono scegliere il modello per ogni agente, anche locale.',
       'Per chi vuole un’app pronta con tetti di spesa e un interruttore di stop, non una libreria da cablare nel codice.',
     ],
     notTag: 'Non ancora',
-    notTitle: 'Per chi non è ancora',
+    notTitle: 'Chi è meglio che aspetti',
     notItems: [
       'Per chi ha bisogno di un prodotto stabile e maturo: Monsters è in alpha e ha una community piccola, quindi aspettati qualche spigolo.',
       'Per i team che cercano un’API o un framework per mettere agenti nel proprio software: Monsters è un’app, non una libreria.',
