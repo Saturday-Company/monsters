@@ -138,13 +138,46 @@
   list-style: none;
 }
 
-/* the first guide to read takes the whole row */
+/* the first guide to read takes the whole row: its card, and beside it the site's tty with the
+   guide's first three steps */
 .cards > .cards__lead {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(14px, 2vw, 26px);
 }
 
 .cards__lead .card__text {
   max-width: 72ch;
+}
+
+.cards__tty {
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    0 0 0 var(--hair) var(--ink),
+    0 4px 0 var(--ink);
+}
+
+/* the commands wrap rather than scroll, with the continuation indented under the prompt */
+.cards__tty .term__body {
+  flex: 1;
+  min-height: 0;
+  padding: 16px 18px 18px;
+  font-size: clamp(11px, 0.95vw, 13px);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cards__tty .ln {
+  padding-left: 2ch;
+  text-indent: -2ch;
+}
+
+@media (max-width: 960px) {
+  .cards > .cards__lead {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .card {

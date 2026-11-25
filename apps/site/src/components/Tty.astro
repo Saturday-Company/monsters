@@ -1,0 +1,42 @@
+---
+/*
+ * The site's tty: a black LED screen with a label bar (name on the left, version on the right)
+ * and a body of terminal lines. The home plays its session line by line (`typed`, read by
+ * src/client/terminal.ts); elsewhere the lines are simply printed. A line is HTML: escape any text
+ * that comes from a dictionary.
+ */
+export interface TtyLine {
+  html: string;
+  /** p (prompt), o (output), g (green), r (red), art. */
+  cls?: string;
+  /** Milliseconds to wait after the line, when typed. */
+  pause?: number;
+}
+
+interface Props {
+  title: string;
+  meta?: string | undefined;
+  lines: TtyLine[];
+  /** Typed line by line when it scrolls into view (only one per page). */
+  typed?: boolean;
+  /** Read as one image with this label, instead of as text. */
+  label?: string | undefined;
+  class?: string;
+}
+const { title, meta, lines, typed = false, label, class: cls = '' } = Astro.props;
+---
+
+<div class:list={['screen term', cls]}>
+  <div class="term__bar label">
+    <span>{title}</span>{meta && <span>{meta}</span>}
+  </div>
+  <pre
+    class="term__body"
+    data-term={typed ? '' : undefined}
+    role={label ? 'img' : undefined}
+    aria-label={label}>{
+      lines.map((l) => (
+        <span class={`ln ${l.cls ?? ''}`} data-pause={typed ? (l.pause ?? 0) : undefined} set:html={l.html} />
+      ))
+    }</pre>
+</div>

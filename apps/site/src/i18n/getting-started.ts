@@ -37,6 +37,11 @@ interface GettingStarted {
   open: string;
   /** The small line over the card's title on the docs index. */
   kicker: string;
+  /**
+   * Steps 2 and 3 as one line each, in the terminal next to the card on the docs index (step 1 is
+   * its own commands). Words from the steps themselves.
+   */
+  ttyLines: [string, string];
   steps: Step[];
   nextTitle: string;
   next: [string, string][];
@@ -58,6 +63,10 @@ const en: GettingStarted = {
   crumb: 'Getting started',
   open: 'Read the guide',
   kicker: 'Start here',
+  ttyLines: [
+    'account › model › name › the squad, then Looks good',
+    'one is enough: a free OpenRouter key (sk-or-…), a plan, your API keys or Ollama',
+  ],
   steps: [
     {
       id: 'install',
@@ -185,6 +194,10 @@ const it: GettingStarted = {
   crumb: 'Iniziare',
   open: 'Leggi la guida',
   kicker: 'Inizia da qui',
+  ttyLines: [
+    'account › modello › nome › la squadra, poi Va bene',
+    'ne basta uno: una chiave OpenRouter gratuita (sk-or-…), un piano, le tue chiavi API o Ollama',
+  ],
   steps: [
     {
       id: 'install',

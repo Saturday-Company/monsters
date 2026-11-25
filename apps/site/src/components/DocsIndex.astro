@@ -8,6 +8,8 @@ import { GUIDES } from '../lib/docs.ts';
 import { REPO_URL } from '../lib/feed.ts';
 import { pageLdText } from '../lib/seo.ts';
 import Crumbs from './Crumbs.astro';
+import Tty, { type TtyLine } from './Tty.astro';
+import desktop from '../../../desktop/package.json' with { type: 'json' };
 
 interface Props {
   lang: Lang;
@@ -19,6 +21,26 @@ const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
 const path = lang === 'it' ? '/it/docs/' : '/docs/';
 const home = lang === 'it' ? '/it/' : '/';
 const start = GETTING_STARTED[lang];
+// Next to the Getting started card, its first three steps in the site's tty: the commands of
+// step 1 as the guide prints them (the from-source route), the line `monsters start` prints
+// (packages/cli/src/main.ts), then one line for each of steps 2 and 3.
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const [install, first, model] = start.steps;
+const prompt = (cmd: string): TtyLine => ({ html: `<span class="p">$</span> ${esc(cmd)}` });
+const step = (title: string): TtyLine => ({ html: `# ${esc(title)}`, cls: 'g' });
+const ttyLines: TtyLine[] = [
+  step(install!.title),
+  { html: `# ${esc(install!.cmds![0]!.label)}`, cls: 'o' },
+  ...install!.cmds![0]!.code.split('\n').map(prompt),
+  { html: 'Open http://127.0.0.1:4747/ in your browser.', cls: 'o' },
+  { html: ' ' },
+  step(first!.title),
+  { html: esc(start.ttyLines[0]), cls: 'o' },
+  { html: ' ' },
+  step(model!.title),
+  { html: esc(start.ttyLines[1]), cls: 'o' },
+  { html: '<span class="p">$</span> <span class="cursor"></span>' },
+];
 const ld = pageLdText({
   lang,
   site,
@@ -58,6 +80,7 @@ const ld = pageLdText({
           <span class="card__text">{start.tldr}</span>
           <span class="card__go label">{start.open} →</span>
         </a>
+        <Tty title="tty1 · monsters" meta={desktop.version} lines={ttyLines} class="cards__tty" />
       </li>
       {
         GUIDES.map((g) => (

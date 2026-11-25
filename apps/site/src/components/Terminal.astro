@@ -9,6 +9,7 @@ import { BUILD_COMMAND, REPO_URL } from '../lib/feed.ts';
 import { cliHelp } from '../lib/code.ts';
 import { crc32 } from '../lib/hexdump.ts';
 import { SQUAD, caption, halfBlockLines } from '../lib/monsters.ts';
+import Tty, { type TtyLine } from './Tty.astro';
 import Win from './Win.astro';
 
 interface Props {
@@ -32,8 +33,7 @@ const helpLines = help.replace(/\n$/, '').split('\n');
 
 const build = `git clone ${REPO_URL} && cd monsters && ${BUILD_COMMAND}`;
 
-type Line = { html: string; cls?: string; pause?: number };
-const lines: Line[] = [
+const lines: TtyLine[] = [
   { html: '<span class="p">$</span> monsters start', pause: 500 },
   { html: `Monsters ${version} is running at ${URL}`, cls: 'o' },
   { html: `Open ${URL}/ in your browser.`, cls: 'o', pause: 700 },
@@ -58,20 +58,13 @@ const lines: Line[] = [
   </div>
 
   <div class="term__row">
-  <div class="screen term">
-    <div class="term__bar label">
-      <span>tty0 · monsters</span><span>{version}</span>
-    </div>
-    <pre
-      class="term__body"
-      data-term
-      role="img"
-      aria-label={t.terminal.screen}>{
-        lines.map((l) => (
-          <span class={`ln ${l.cls ?? ''}`} data-pause={l.pause ?? 0} set:html={l.html} />
-        ))
-      }</pre>
-  </div>
+  <Tty
+    title="tty0 · monsters"
+    meta={version}
+    lines={lines}
+    typed
+    label={t.terminal.screen}
+  />
   <Win
     t={t}
     title="monsters help"
