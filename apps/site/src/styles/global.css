@@ -2075,9 +2075,10 @@ html.js .term__body.armed .ln.on {
   .oss {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* the stamp drops under the contributors: the section makes room for it */
-  #oss {
-    padding-bottom: calc(var(--section) + 72px);
+  /* the stamp drops to the foot of its section, which makes room for it (and for the note
+     scribbled under the last window) */
+  .section:has(> .rubber) {
+    padding-bottom: calc(var(--section) + 88px);
   }
   .rubber {
     top: auto;
