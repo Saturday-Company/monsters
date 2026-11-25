@@ -89,7 +89,7 @@ const en = {
     l2: 'Your machine.',
     l3: 'Your',
     l3b: 'monsters.',
-    sub: 'An orchestrator and a squad of AI agents that work on your computer. Any model, your keys, one red lever.',
+    sub: 'Any model, your keys, one red lever.',
     definition:
       'Monsters is an open-source, local-first AI agent hub: an orchestrator plus a squad of agents that run on your computer, with the provider you choose (cloud, local or your Claude and ChatGPT plans) and an Obsidian-compatible Markdown vault as memory.',
     download: 'Download',
@@ -555,7 +555,7 @@ const it: Strings = {
     l2: 'Il tuo PC.',
     l3: 'I tuoi',
     l3b: 'mostri.',
-    sub: 'Un orchestratore e una squadra di agenti AI che lavorano sul tuo computer. Qualsiasi modello, le tue chiavi, una leva rossa.',
+    sub: 'Qualsiasi modello, le tue chiavi, una leva rossa.',
     definition:
       'Monsters è un hub di agenti AI open source e local-first: un orchestratore più una squadra di agenti che girano sul tuo computer, con il provider che scegli (cloud, locale o i tuoi piani Claude e ChatGPT) e un vault Markdown compatibile con Obsidian come memoria.',
     download: 'Scarica',

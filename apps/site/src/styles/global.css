@@ -82,6 +82,19 @@ a {
   color: inherit;
 }
 
+/* headings break into lines of even length, paragraphs leave no word alone on the last line.
+   Only the style: text-wrap would also reset the wrapping of nowrap and pre lines. */
+h1,
+h2,
+h3 {
+  text-wrap-style: balance;
+}
+
+p,
+li {
+  text-wrap-style: pretty;
+}
+
 button,
 input {
   font: inherit;
@@ -140,6 +153,7 @@ input {
 
 .display {
   margin: 0;
+  text-wrap-style: balance;
   font-family: var(--f-sans);
   font-weight: 700;
   font-stretch: 75%;
@@ -1881,8 +1895,15 @@ html.js .term__body.armed .ln.on {
   color: var(--ink-2);
 }
 
+.dl__notes li {
+  position: relative;
+  padding-left: 22px;
+}
+
 .dl__notes li::before {
-  content: '* ';
+  content: '*';
+  position: absolute;
+  left: 0;
   font-family: var(--f-mono);
   color: var(--signal-ink);
 }
@@ -2053,6 +2074,10 @@ html.js .term__body.armed .ln.on {
 @media (max-width: 960px) {
   .oss {
     grid-template-columns: minmax(0, 1fr);
+  }
+  /* the stamp drops under the contributors: the section makes room for it */
+  #oss {
+    padding-bottom: calc(var(--section) + 72px);
   }
   .rubber {
     top: auto;

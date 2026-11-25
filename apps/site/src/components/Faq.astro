@@ -28,6 +28,9 @@ const seeAlso: [string, string][] = [
 ---
 
 <section class="section" id="faq" aria-labelledby="faq-title">
+  <div class="section__head power faq__head">
+    <h2 class="display h2" id="faq-title">{t.faq.more.title}</h2>
+  </div>
   <Win t={t} title="man monsters" id="man" kind="paper" class="man" foot="Manual page monsters(1) line 1 (press h for help or q to quit)">
     <p class="man__hdr" aria-hidden="true">
       <span>MONSTERS(1)</span><span>{m.section}</span><span>MONSTERS(1)</span>
@@ -36,7 +39,7 @@ const seeAlso: [string, string][] = [
     <p class="man__p">{m.nameLine}</p>
     <p class="man__h">{m.synopsis}</p>
     <p class="man__p mono"><b>monsters</b> &lt;command&gt; [options]</p>
-    <h2 class="man__h man__h--q display" id="faq-title">{t.faq.more.title}</h2>
+    <p class="man__h man__h--q">{m.questions}</p>
     <ul class="faq faq--plain" role="list">
       {
         t.faq.more.items.map((item) => (
