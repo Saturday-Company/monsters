@@ -26,19 +26,31 @@ const start = GETTING_STARTED[lang];
 // (packages/cli/src/main.ts), then one line for each of steps 2 and 3.
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const [install, first, model] = start.steps;
-const prompt = (cmd: string): TtyLine => ({ html: `<span class="p">$</span> ${esc(cmd)}` });
+// The tty wraps at spaces only: an address or a key prefix stays whole (the window scrolls if it
+// must), and `&& next` hangs together, so a long command breaks after `clone` or before `&&`.
+const keep = (s: string) =>
+  esc(s)
+    .replace(/(https?:\/\/[^\s]+|sk-or-…)/g, '<span class="nb">$1</span>')
+    .replace(/&amp;&amp; (.*)$/, (_, rest: string) => `&amp;&amp;\u00a0${rest.replace(/ /g, '\u00a0')}`);
+const prompt = (cmd: string): TtyLine => ({ html: `<span class="p">$</span> ${keep(cmd)}` });
 const step = (title: string): TtyLine => ({ html: `# ${esc(title)}`, cls: 'g' });
+// The same three steps as a short numbered list in the card: the titles of the guide without the
+// number it prints in front of them.
+const steps = [install!, first!, model!].map((s, i) => ({
+  n: String(i + 1).padStart(2, '0'),
+  title: s.title.replace(/^\d+\.\s*/, ''),
+}));
 const ttyLines: TtyLine[] = [
   step(install!.title),
   { html: `# ${esc(install!.cmds![0]!.label)}`, cls: 'o' },
   ...install!.cmds![0]!.code.split('\n').map(prompt),
-  { html: 'Open http://127.0.0.1:4747/ in your browser.', cls: 'o' },
-  { html: ' ' },
+  { html: `Open ${keep('http://127.0.0.1:4747/')} in your browser.`, cls: 'o' },
+  { html: ' ', cls: 'gap' },
   step(first!.title),
-  { html: esc(start.ttyLines[0]), cls: 'o' },
-  { html: ' ' },
+  { html: keep(start.ttyLines[0]), cls: 'o' },
+  { html: ' ', cls: 'gap' },
   step(model!.title),
-  { html: esc(start.ttyLines[1]), cls: 'o' },
+  { html: keep(start.ttyLines[1]), cls: 'o' },
   { html: '<span class="p">$</span> <span class="cursor"></span>' },
 ];
 const ld = pageLdText({
@@ -78,6 +90,18 @@ const ld = pageLdText({
           <span class="label card__kicker">{start.kicker}</span>
           <h2 class="card__title">{start.title}</h2>
           <span class="card__text">{start.tldr}</span>
+          <ol class="card__steps" role="list">
+            {
+              steps.map((s) => (
+                <li>
+                  <span class="card__n" aria-hidden="true">
+                    {s.n}
+                  </span>
+                  <span>{s.title}</span>
+                </li>
+              ))
+            }
+          </ol>
           <span class="card__go label">{start.open} →</span>
         </a>
         <Tty title="tty1 · monsters" meta={desktop.version} lines={ttyLines} class="cards__tty" />

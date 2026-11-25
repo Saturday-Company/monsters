@@ -148,7 +148,40 @@
 }
 
 .cards__lead .card__text {
+  flex: none;
   max-width: 72ch;
+}
+
+/* under the text the guide's first three steps, in mono; the rows share what is left of the
+   height, so the card ends where the tty does and the link sits right under the list */
+.card__steps {
+  display: grid;
+  flex: 1;
+  grid-auto-rows: minmax(max-content, 1fr);
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card__steps li {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  border-top: var(--dash);
+  font: 500 13px / 1.4 var(--f-mono);
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.card__n {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--signal-ink);
+}
+
+.card__steps + .card__go {
+  padding-top: 12px;
+  border-top: var(--dash);
 }
 
 .cards__tty {
@@ -159,19 +192,46 @@
     0 4px 0 var(--ink);
 }
 
-/* the commands wrap rather than scroll, with the continuation indented under the prompt */
+/* the commands wrap at spaces, with the continuation indented under the prompt; an address
+   (.nb) stays whole and scrolls inside the window if it is wider than it */
 .cards__tty .term__body {
   flex: 1;
   min-height: 0;
   padding: 16px 18px 18px;
   font-size: clamp(11px, 0.95vw, 13px);
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  display: flex;
+  flex-direction: column;
+}
+
+/* when the card beside it is taller, the blank lines between the steps take the difference */
+.cards__tty .ln.gap {
+  flex: 1 0 auto;
+}
+
+.cards__tty .nb {
+  white-space: nowrap;
 }
 
 .cards__tty .ln {
   padding-left: 2ch;
   text-indent: -2ch;
+}
+
+/* on a phone the whole address fits the window, down to 360 px */
+@media (max-width: 480px) {
+  .cards__tty .term__body {
+    padding-inline: 14px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .cards__tty .term__body {
+    padding-inline: 10px;
+    font-size: 9.8px;
+  }
 }
 
 @media (max-width: 960px) {
