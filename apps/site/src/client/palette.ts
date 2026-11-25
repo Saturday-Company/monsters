@@ -26,6 +26,13 @@ export function createPalette(dialog: HTMLDialogElement, deps: PaletteDeps) {
     const p = document.createElement('p');
     p.className = `pal__l ${cls}`;
     p.textContent = text;
+    // A two-column line (the help): a narrow screen wraps the description under itself, not
+    // under the command, with a hanging indent as wide as the first column.
+    const col = /^\S.*?\s{2,}(?=\S)/.exec(text)?.[0].length;
+    if (col) {
+      p.classList.add('pal__l--cols');
+      p.style.setProperty('--hang', String(col));
+    }
     out.append(p);
     while (out.children.length > 80) out.firstElementChild?.remove();
     out.scrollTop = out.scrollHeight;
