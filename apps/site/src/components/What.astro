@@ -2,6 +2,8 @@
 /*
  * A plain answer under the hero: what Monsters is, who it is for and who it is not for yet. Real
  * sentences in the HTML, for people and for search engines and assistants that read the page.
+ * The answer leads; under it a two-column sheet with the claims' rules and the chip's numbered
+ * rows, its lines lined up across the two columns.
  */
 import { type Strings } from '../i18n/strings.ts';
 
@@ -10,25 +12,47 @@ interface Props {
 }
 const { t } = Astro.props;
 const w = t.what;
+const pad = (n: number) => String(n).padStart(2, '0');
+const cols = [
+  { kind: 'for', tag: w.forTag, title: w.forTitle, items: w.forItems, start: 1 },
+  { kind: 'not', tag: w.notTag, title: w.notTitle, items: w.notItems, start: w.forItems.length + 1 },
+];
+const rows = Math.max(w.forItems.length, w.notItems.length);
+const [lead, ...more] = w.body;
 ---
 
 <section class="section what" id="what" aria-labelledby="what-title">
   <div class="section__head power">
     <h2 class="display h2" id="what-title">{w.title}</h2>
   </div>
-  <div class="what__grid">
-    <div class="what__text">
-      {w.body.map((p) => <p>{p}</p>)}
+  <div class="what__text">
+    <p class="what__lead">{lead}</p>
+    <div class="what__more">
+      {more.map((p) => <p>{p}</p>)}
     </div>
-    <div class="what__who">
-      <h3 class="label">{w.forTitle}</h3>
-      <ul role="list">
-        {w.forItems.map((item) => <li>{item}</li>)}
-      </ul>
-      <h3 class="label">{w.notTitle}</h3>
-      <ul role="list">
-        {w.notItems.map((item) => <li>{item}</li>)}
-      </ul>
-    </div>
+  </div>
+  <div class="what__sheet" style={`--rows: ${rows}`}>
+    {
+      cols.map((c) => (
+        <div class={`what__col what__col--${c.kind}`}>
+          <h3 class="what__head">
+            <span class="what__tag" aria-hidden="true">
+              {c.tag}
+            </span>
+            <span class="label">{c.title}</span>
+          </h3>
+          <ol class="what__list" role="list" start={c.start}>
+            {c.items.map((item, i) => (
+              <li>
+                <span class="what__n" aria-hidden="true">
+                  {pad(c.start + i)}
+                </span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ))
+    }
   </div>
 </section>

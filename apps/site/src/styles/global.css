@@ -2408,62 +2408,116 @@ html[data-killed='true'] .led__val {
   color: var(--ink-2);
 }
 
-.what__grid {
+/* the answer: the first sentence leads, the other two sit beside it */
+.what__text {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   gap: clamp(28px, 5vw, 72px);
   align-items: start;
 }
 
-.what__text p {
+.what__lead {
+  max-width: 34ch;
+  margin: 0;
+  font-size: clamp(1.25rem, 1.9vw, 1.6rem);
+  line-height: 1.38;
+  text-wrap: pretty;
+}
+
+.what__more p {
   max-width: 60ch;
   margin: 0 0 1.1em;
   font-size: clamp(1.02rem, 1.3vw, 1.18rem);
   color: var(--ink-2);
 }
 
-.what__text p:first-child {
-  color: var(--ink);
+.what__more p:last-child {
+  margin-bottom: 0;
 }
 
-.what__who h3 {
-  margin: 0 0 10px;
-  padding-top: 12px;
-  border-top: var(--rule);
-}
-
-.what__who h3:not(:first-child) {
-  margin-top: 28px;
-}
-
-.what__who ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+/* The sheet: two columns between rules, like the claims of the datasheet, with numbered rows
+   like the chip's pins. The rows are a subgrid, so the dashed lines run across both columns. */
+.what__sheet {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto repeat(var(--rows), auto);
+  margin-top: clamp(48px, 6vw, 88px);
+  border-top: var(--rule);
+  border-bottom: var(--rule);
 }
 
-.what__who li {
-  position: relative;
-  padding-left: 22px;
+.what__col {
+  display: grid;
+  grid-row: 1 / -1;
+  grid-template-rows: subgrid;
+  padding: 22px clamp(12px, 1.6vw, 22px) 6px;
+}
+
+.what__col + .what__col {
+  border-left: var(--rule);
+}
+
+.what__head {
+  margin: 0 0 18px;
+  font-weight: inherit;
+}
+
+.what__tag {
+  display: block;
+  margin-bottom: 12px;
+  font: 900 clamp(44px, 5.4vw, 80px) / 0.9 var(--f-dot);
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+
+.what__col--not .what__tag {
   color: var(--ink-2);
 }
 
-.what__who li::before {
-  content: '+';
-  position: absolute;
-  left: 0;
-  font: 500 0.9em/1.6 var(--f-mono);
+.what__list {
+  display: grid;
+  grid-row: 2 / -1;
+  grid-template-rows: subgrid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.what__list li {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  padding: 14px 0 16px;
+  border-top: var(--dash);
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+.what__n {
+  font: 500 11px/2.1 var(--f-mono);
+  letter-spacing: 0.05em;
   color: var(--ink);
 }
 
-.what__who h3:not(:first-child) + ul li::before {
-  content: '-';
+@media (max-width: 860px) {
+  .what__text {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.1em;
+  }
 }
 
-@media (max-width: 860px) {
-  .what__grid {
-    grid-template-columns: minmax(0, 1fr);
+/* on a phone the two columns stack, the rule between them turns sideways */
+@media (max-width: 700px) {
+  .what__sheet,
+  .what__col,
+  .what__list {
+    display: block;
+  }
+  .what__col {
+    padding-inline: 0;
+  }
+  .what__col + .what__col {
+    border-left: 0;
+    border-top: var(--rule);
   }
 }
